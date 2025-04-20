@@ -2008,9 +2008,7 @@ public class WaitingRoomFrame extends JFrame {
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     mostrarMensajeError(THIS, "ERROR INESPERADO -> " + ex.toString());
-                    if (Helpers.OSValidator.isWindows()) {
-                        Helpers.restoreWindowsGlobalZoom();
-                    }
+
                     System.exit(1);
                 }
 
@@ -3436,9 +3434,7 @@ public class WaitingRoomFrame extends JFrame {
                         if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
-                            if (Helpers.OSValidator.isWindows()) {
-                                Helpers.restoreWindowsGlobalZoom();
-                            }
+
                             System.exit(1);
                         }
 
@@ -3481,9 +3477,7 @@ public class WaitingRoomFrame extends JFrame {
             } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
-                if (Helpers.OSValidator.isWindows()) {
-                    Helpers.restoreWindowsGlobalZoom();
-                }
+
                 System.exit(1);
             }
 
@@ -3493,9 +3487,7 @@ public class WaitingRoomFrame extends JFrame {
         } else if (booting && mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
             exit = true;
             Helpers.savePropertiesFile();
-            if (Helpers.OSValidator.isWindows()) {
-                Helpers.restoreWindowsGlobalZoom();
-            }
+
             System.exit(1);
         }
 

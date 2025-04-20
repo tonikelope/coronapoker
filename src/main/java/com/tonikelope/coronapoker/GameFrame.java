@@ -2854,9 +2854,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // TODO add your handling code here:
 
         if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(this, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
-            if (Helpers.OSValidator.isWindows()) {
-                Helpers.restoreWindowsGlobalZoom();
-            }
+
             System.exit(1);
         }
 

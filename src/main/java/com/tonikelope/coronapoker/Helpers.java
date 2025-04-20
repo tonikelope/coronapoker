@@ -2987,10 +2987,6 @@ public class Helpers {
 
                                 Runtime.getRuntime().exec(cmdArr);
 
-                                if (Helpers.OSValidator.isWindows()) {
-                                    Helpers.restoreWindowsGlobalZoom();
-                                }
-
                                 System.exit(0);
                             } else {
                                 Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");

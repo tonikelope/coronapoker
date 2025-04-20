@@ -2969,9 +2969,7 @@ public class Crupier implements Runnable {
                         permutacion_baraja = (Helpers.DECK_RANDOM_GENERATOR == Helpers.CSPRNG && Helpers.INFINITE_DECK_SHUFFLE && permutacion_baraja != null) ? Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, permutacion_baraja) : Helpers.getRandomIntegerSequence(Helpers.DECK_RANDOM_GENERATOR, 1, 52);
                     } catch (Exception ex) {
                         Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
-                        if (Helpers.OSValidator.isWindows()) {
-                            Helpers.restoreWindowsGlobalZoom();
-                        }
+
                         System.exit(1);
                     }
 

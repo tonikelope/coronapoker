@@ -128,10 +128,7 @@ public class Init extends JFrame {
 
     static {
 
-        if (Helpers.OSValidator.isUnix()) {
-            System.setProperty("sun.java2d.opengl", "true");
-            System.setProperty("sun.java2d.d3d", "false");
-        }
+        System.setProperty("sun.java2d.uiScale", "1");
 
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
@@ -149,6 +146,11 @@ public class Init extends JFrame {
             }
 
             Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
+        }
+
+        if (Helpers.OSValidator.isUnix()) {
+            System.setProperty("sun.java2d.opengl", "true");
+            System.setProperty("sun.java2d.d3d", "false");
         }
 
         try {
@@ -437,9 +439,7 @@ public class Init extends JFrame {
                     FORCE_CLOSE_DIALOG = true;
 
                     if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
-                        if (Helpers.OSValidator.isWindows()) {
-                            Helpers.restoreWindowsGlobalZoom();
-                        }
+
                         System.exit(1);
                     }
 
@@ -908,9 +908,7 @@ public class Init extends JFrame {
         // TODO add your handling code here:
         Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
         Helpers.savePropertiesFile();
-        if (Helpers.OSValidator.isWindows()) {
-            Helpers.restoreWindowsGlobalZoom();
-        }
+
     }//GEN-LAST:event_formWindowClosing
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
@@ -1023,10 +1021,6 @@ public class Init extends JFrame {
 
             if (GameFrame.TEST_MODE) {
                 GameFrame.CINEMATICAS = false;
-            }
-
-            if (Helpers.OSValidator.isWindows()) {
-                Helpers.resetWindowsGlobalZoom();
             }
 
             if (!Init.DEV_MODE) {
@@ -1173,9 +1167,7 @@ public class Init extends JFrame {
                         Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 } else {
-                    if (Helpers.OSValidator.isWindows()) {
-                        Helpers.restoreWindowsGlobalZoom();
-                    }
+
                     System.exit(0);
                 }
             }
@@ -1227,10 +1219,6 @@ public class Init extends JFrame {
                                     String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
 
                                     Runtime.getRuntime().exec(cmdArr);
-                                }
-
-                                if (Helpers.OSValidator.isWindows()) {
-                                    Helpers.restoreWindowsGlobalZoom();
                                 }
 
                                 System.exit(0);

@@ -147,12 +147,14 @@ public class Init extends JFrame {
 
             Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
         }
-
+        
+        Logger.getLogger(Init.class.getName()).log(Level.INFO, System.getProperty("os.name"));
+        
         if (Helpers.OSValidator.isUnix()) {
             System.setProperty("sun.java2d.opengl", "true");
             System.setProperty("sun.java2d.d3d", "false");
         }
-
+        
         try {
 
             M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});

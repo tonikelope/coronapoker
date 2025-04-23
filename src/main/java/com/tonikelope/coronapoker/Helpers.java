@@ -4522,6 +4522,12 @@ public class Helpers {
 
         private static final String OS = System.getProperty("os.name").toLowerCase();
 
+        public static boolean isWindows11() {
+
+            return (isWindows() && OS.contains("11"));
+
+        }
+        
         public static boolean isWindows() {
 
             return (OS.contains("win"));

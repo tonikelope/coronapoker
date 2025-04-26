@@ -552,7 +552,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (full_screen) {
 
-                if (Helpers.OSValidator.isWindows() && !Helpers.OSValidator.isWindows11()) {
+                if (Helpers.OSValidator.isWindows()) {
                     setVisible(false);
                     dispose();
                     menu_bar.setVisible(false);
@@ -581,7 +581,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             } else {
 
-                if (Helpers.OSValidator.isWindows() && !Helpers.OSValidator.isWindows11()) {
+                if (Helpers.OSValidator.isWindows()) {
 
                     setVisible(false);
                     dispose();

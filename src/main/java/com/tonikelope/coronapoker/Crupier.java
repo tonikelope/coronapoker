@@ -1207,9 +1207,6 @@ public class Crupier implements Runnable {
 
                     } else {
 
-                        //Comprobamos si la conexión con el servidor está funcionando
-                        this.sendGAMECommandToServer("PING");
-
                         start_time = System.currentTimeMillis();
                     }
                 } else {
@@ -1493,8 +1490,6 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendGAMECommandToServer("PING");
-
                     start_time = System.currentTimeMillis();
                 } else {
                     synchronized (this.getReceived_commands()) {
@@ -1564,8 +1559,6 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendGAMECommandToServer("PING");
-
                     start_time = System.currentTimeMillis();
                 } else {
                     synchronized (this.getReceived_commands()) {
@@ -1629,8 +1622,6 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -1697,8 +1688,6 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -2037,8 +2026,6 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -3949,8 +3936,6 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    this.sendGAMECommandToServer("PING");
-
                     start_time = System.currentTimeMillis();
                 } else {
                     synchronized (this.getReceived_commands()) {
@@ -4017,8 +4002,6 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {
@@ -4494,9 +4477,6 @@ public class Crupier implements Runnable {
                             start = System.currentTimeMillis();
 
                         } else {
-
-                            //Comprobamos si la conexión con el servidor está funcionando
-                            this.sendGAMECommandToServer("PING");
 
                             start = System.currentTimeMillis();
                         }
@@ -6403,8 +6383,6 @@ public class Crupier implements Runnable {
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                        this.sendGAMECommandToServer("PING");
-
                         start_time = System.currentTimeMillis();
                     } else {
                         synchronized (this.getReceived_commands()) {
@@ -6650,8 +6628,6 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
-                    this.sendGAMECommandToServer("PING");
 
                     start_time = System.currentTimeMillis();
                 } else {

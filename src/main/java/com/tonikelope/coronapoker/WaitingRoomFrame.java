@@ -1,15 +1,15 @@
 /*
  * Copyright (C) 2020 tonikelope
- _              _ _        _                  
-| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+ _              _ _        _
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
 | || (_) | | | | |   <  __/ | (_) | |_) |  __/
  \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- ____    ___  ____    ___  
-|___ \  / _ \|___ \  / _ \ 
+ ____    ___  ____    ___
+|___ \  / _ \|___ \  / _ \
   __) || | | | __) || | | |
  / __/ | |_| |/ __/ | |_| |
-|_____| \___/|_____| \___/ 
+|_____| \___/|_____| \___/
 
 https://github.com/tonikelope/coronapoker
  *
@@ -95,6 +95,7 @@ import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import org.apache.commons.codec.binary.Base64;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Appearances can be deceiving...
@@ -105,6 +106,7 @@ public class WaitingRoomFrame extends JFrame {
 
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
+    public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 15000;
     public static final int ASYNC_WAIT_LOCK = 15000;
     public static final int MAX_PING_PONG_ERROR = 3;
@@ -128,6 +130,7 @@ public class WaitingRoomFrame extends JFrame {
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
+    private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>();
     private volatile ServerSocket server_socket = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
@@ -978,7 +981,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         String[] server_address = server_ip_port.split(":");
 
-                        local_client_socket = new Socket(server_address[0], Integer.valueOf(server_address[1]));
+                        local_client_socket = new Socket(server_address[0], Integer.parseInt(server_address[1]));
 
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "¡Conectado al servidor! Vamos a intercambiar las claves...");
 
@@ -1358,14 +1361,17 @@ public class WaitingRoomFrame extends JFrame {
                 HashMap<String, Integer> last_received = new HashMap<>();
                 String recibido;
                 String[] partes;
+
                 try {
                     String[] direccion = server_ip_port.split(":");
-                    local_client_socket = new Socket(direccion[0], Integer.valueOf(direccion[1]));
+                    local_client_socket = new Socket(direccion[0], Integer.parseInt(direccion[1]));
+
                     //Le mandamos los bytes "mágicos"
                     local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
                     Helpers.GUIRun(() -> {
                         status.setText(Translator.translate("Intercambio de claves..."));
                     });
+
                     /* INICIO INTERCAMBIO CLAVES */
                     KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
                     clientKpairGen.initialize(EC_KEY_LENGTH);
@@ -1390,6 +1396,7 @@ public class WaitingRoomFrame extends JFrame {
                     local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
                     local_client_hmac_key_orig = local_client_hmac_key;
                     /* FIN INTERCAMBIO CLAVES */
+
                     byte[] avatar_bytes = null;
                     if (local_avatar != null && local_avatar.length() > 0) {
                         try (FileInputStream is = new FileInputStream(local_avatar)) {
@@ -1405,7 +1412,9 @@ public class WaitingRoomFrame extends JFrame {
                     local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
                     //Leemos la respuesta del server
                     recibido = readCommandFromServer();
+
                     partes = recibido.split("#");
+
                     switch (partes[0]) {
                         case "BADVERSION":
                             exit = true;
@@ -1529,6 +1538,7 @@ public class WaitingRoomFrame extends JFrame {
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             //Nos añadimos nosotros
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
+
                             //Cada X segundos mandamos un comando KEEP ALIVE al server
                             Helpers.threadRun(() -> {
                                 while (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
@@ -1561,6 +1571,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                 }
                             });
+
                             Helpers.GUIRunAndWait(() -> {
                                 status.setText(Translator.translate("CONECTADO"));
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/1.png")));
@@ -1573,442 +1584,461 @@ public class WaitingRoomFrame extends JFrame {
                                 radar.setToolTipText(Translator.translate(GameFrame.RADAR_AVAILABLE ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
                             });
                             refreshChatPanel();
+
                             booting = false;
-                            //Nos quedamos en bucle esperando mensajes del server
+
+                            Helpers.threadRun(() -> {
+
+                                while (!exit) {
+
+                                    String mensaje_recibido = null;
+
+                                    try {
+                                        mensaje_recibido = readCommandFromServer();
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
+                                    }
+
+                                    try {
+                                        local_client_socket_reader_queue.put(mensaje_recibido != null ? mensaje_recibido : POISON_PILL);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
+                                    }
+
+                                    if (mensaje_recibido == null) {
+                                        last_received.clear();
+                                    }
+
+                                    if (mensaje_recibido == null && (!exit && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada()) || (GameFrame.getInstance() != null && !GameFrame.getInstance().getLocalPlayer().isExit()))) && !reconectarCliente()) {
+                                        exit = true;
+                                    }
+                                }
+
+                            });
+
+                            //Nos quedamos en bucle esperando y procesando mensajes del server
                             do {
-                                try {
-                                    recibido = readCommandFromServer();
-                                    if (recibido != null) {
-                                        String[] partes_comando = recibido.split("#");
-                                        switch (partes_comando[0]) {
-                                            case "PONG":
-                                                pong = Integer.valueOf(partes_comando[1]);
-                                                break;
-                                            case "PING":
-                                                writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
-                                                break;
-                                            case "CHAT":
-                                                String mensaje;
-                                                if (partes_comando.length == 3) {
 
-                                                    mensaje = new String(Base64.decodeBase64(partes_comando[2]), "UTF-8");
+                                recibido = local_client_socket_reader_queue.take();
 
-                                                } else {
-                                                    mensaje = "";
-                                                }
-                                                recibirMensajeChat(new String(Base64.decodeBase64(partes_comando[1]), "UTF-8"), mensaje);
-                                                break;
-                                            case "EXIT":
-                                                exit = true;
-                                                mostrarMensajeError(THIS, "El servidor ha cancelado la timba antes de empezar.");
-                                                break;
-                                            case "KICKED":
-                                                exit = true;
-                                                Audio.playWavResource("loser/payaso.wav");
-                                                mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
-                                                break;
-                                            case "GAME":
-                                                //Confirmamos recepción al servidor
-                                                String subcomando = partes_comando[2];
-                                                int id = Integer.parseInt(partes_comando[1]);
-                                                writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
-                                                if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != id) {
-                                                    last_received.put(subcomando, id);
-                                                    if (isPartida_empezada()) {
-                                                        switch (subcomando) {
-                                                            case "YOUARELATE":
-                                                                String client_nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-                                                                String ipCliente = partes_comando[4];
+                                if (!POISON_PILL.equals(recibido)) {
 
-                                                                try {
+                                    String[] partes_comando = recibido.split("#");
 
-                                                                    if (!late_clients_warning.contains(ipCliente)) {
-                                                                        Audio.playWavResource("misc/new_user.wav");
-                                                                        late_clients_warning.add(ipCliente);
-                                                                    }
+                                    switch (partes_comando[0]) {
+                                        case "PONG":
+                                            pong = Integer.valueOf(partes_comando[1]);
+                                            break;
+                                        case "PING":
+                                            writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                            break;
+                                        case "CHAT":
+                                            String mensaje;
+                                            if (partes_comando.length == 3) {
 
-                                                                    Helpers.GUIRun(() -> {
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
-                                                                        dialog.setLocation(dialog.getParent().getLocation());
-                                                                        dialog.setVisible(true);
-                                                                    });
+                                                mensaje = new String(Base64.decodeBase64(partes_comando[2]), "UTF-8");
 
-                                                                } catch (Exception e) {
+                                            } else {
+                                                mensaje = "";
+                                            }
+                                            recibirMensajeChat(new String(Base64.decodeBase64(partes_comando[1]), "UTF-8"), mensaje);
+                                            break;
+                                        case "EXIT":
+                                            exit = true;
+                                            mostrarMensajeError(THIS, "El servidor ha cancelado la timba antes de empezar.");
+                                            break;
+                                        case "KICKED":
+                                            exit = true;
+                                            Audio.playWavResource("loser/payaso.wav");
+                                            mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
+                                            break;
+                                        case "GAME":
+                                            //Confirmamos recepción al servidor
+                                            String subcomando = partes_comando[2];
+                                            int id = Integer.parseInt(partes_comando[1]);
+                                            writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
+                                            if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != id) {
+                                                last_received.put(subcomando, id);
+                                                if (isPartida_empezada()) {
+                                                    switch (subcomando) {
+                                                        case "YOUARELATE":
+                                                            String client_nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                            String ipCliente = partes_comando[4];
+
+                                                            try {
+
+                                                                if (!late_clients_warning.contains(ipCliente)) {
+                                                                    Audio.playWavResource("misc/new_user.wav");
+                                                                    late_clients_warning.add(ipCliente);
                                                                 }
 
-                                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario {0} LLEGA TARDE -> DENEGADO", client_nick);
-                                                                break;
-                                                            case "RADAR":
-
-                                                                if (partes_comando.length == 4) {
-
-                                                                    String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-
-                                                                    GameFrame.getInstance().getLocalPlayer().RADAR(requester);
-
-                                                                } else {
-
-                                                                    String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-
-                                                                    GameFrame.getInstance().getCrupier().saveRADARLog(suspicious, partes_comando[4].equals("*") ? null : Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
-
-                                                                }
-
-                                                                break;
-                                                            case "PING":
-                                                                break;
-                                                            case "IWTSTH":
-
-                                                                if (GameFrame.getInstance().getCrupier().isShow_time()) {
-
-                                                                    GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                                }
-                                                                break;
-                                                            case "IWTSTHSHOW":
-
-                                                                GameFrame.getInstance().getCrupier().IWTSTH_SHOW(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Boolean.parseBoolean(partes_comando[4]));
-
-                                                                break;
-                                                            case "IWTSTHRULE":
-                                                                Helpers.threadRun(() -> {
-
-                                                                    GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
-                                                                    Helpers.GUIRun(() -> {
-                                                                        GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
-                                                                        Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.IWTSTH_RULE ? Translator.translate("REGLA IWTSTH ACTIVADA") : Translator.translate("REGLA IWTSTH DESACTIVADA"), GameFrame.IWTSTH_RULE ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
-                                                                        dialog.setLocation(dialog.getParent().getLocation());
-                                                                        dialog.setVisible(true);
-                                                                    });
-
-                                                                });
-                                                                break;
-                                                            case "RABBITRULE":
-                                                                Helpers.threadRun(() -> {
-
-                                                                    GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
-                                                                    Helpers.GUIRun(() -> {
-
-                                                                        GameFrame.getInstance().getMenu_rabbit_off().setSelected(false);
-                                                                        GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
-                                                                        GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
-                                                                        GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
-
-                                                                        String notification = "";
-
-                                                                        switch (GameFrame.RABBIT_HUNTING) {
-                                                                            case 0:
-                                                                                GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
-                                                                                notification = Translator.translate("RABBIT HUNTING DESACTIVADO");
-                                                                                break;
-                                                                            case 1:
-                                                                                GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
-                                                                                notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE)");
-                                                                                break;
-                                                                            case 2:
-                                                                                GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
-                                                                                notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE + SB)");
-                                                                                break;
-                                                                            case 3:
-                                                                                GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
-                                                                                notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE + SB + BB)");
-                                                                                break;
-                                                                            default:
-                                                                                break;
-                                                                        }
-
-                                                                        Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(GameFrame.getInstance().getMenu_rabbit_off().isSelected());
-                                                                        Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(GameFrame.getInstance().getMenu_rabbit_free().isSelected());
-                                                                        Helpers.TapetePopupMenu.RABBIT_SB.setSelected(GameFrame.getInstance().getMenu_rabbit_sb().isSelected());
-                                                                        Helpers.TapetePopupMenu.RABBIT_BB.setSelected(GameFrame.getInstance().getMenu_rabbit_bb().isSelected());
-
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, notification, GameFrame.RABBIT_HUNTING != 0 ? Color.BLUE : Color.RED, Color.WHITE, getClass().getResource("/images/action/rabbit_action.png"), NOTIFICATION_TIMEOUT);
-                                                                        dialog.setLocation(dialog.getParent().getLocation());
-                                                                        dialog.setVisible(true);
-
-                                                                    });
-
-                                                                });
-                                                                break;
-                                                            case "RABBIT":
-
-                                                                if (GameFrame.getInstance().getCrupier().isShow_time()) {
-
-                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
-                                                                }
-                                                                break;
-                                                            case "TIMEOUT":
-
-                                                                Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-
-                                                                if (jugador != null) {
-
-                                                                    jugador.setTimeout(true);
-                                                                }
-
-                                                                break;
-                                                            case "TTS":
-                                                                GameFrame.TTS_SERVER = partes_comando[3].equals("1");
                                                                 Helpers.GUIRun(() -> {
-                                                                    GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
-
-                                                                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
-
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? Translator.translate("TTS ACTIVADO POR EL SERVIDOR") : Translator.translate("TTS DESACTIVADO POR EL SERVIDOR"), GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
-
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
                                                                     dialog.setLocation(dialog.getParent().getLocation());
-
                                                                     dialog.setVisible(true);
                                                                 });
-                                                                break;
 
-                                                            case "PAUSE":
-                                                                Helpers.threadRun(() -> {
-                                                                    synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                                        if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada()) || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
-                                                                            GameFrame.getInstance().pauseTimba(null);
-                                                                        }
-                                                                    }
-                                                                });
-                                                                break;
-                                                            case "PERMUTATIONKEY":
-                                                                Helpers.threadRun(() -> {
-                                                                    String key = sqlReadPermutationkey(partes_comando[3]);
+                                                            } catch (Exception e) {
+                                                            }
 
-                                                                    GameFrame.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + (key != null ? key : "*"));
-                                                                });
-                                                                break;
-                                                            case "SHOWCARDS":
-                                                                GameFrame.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
-                                                                break;
-                                                            case "REBUYNOW":
-                                                                GameFrame.getInstance().getCrupier().rebuyNow(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
-                                                                break;
-                                                            case "EXIT":
-                                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                                break;
-                                                            case "LASTHAND":
+                                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El usuario {0} LLEGA TARDE -> DENEGADO", client_nick);
+                                                            break;
+                                                        case "RADAR":
 
-                                                                if (partes_comando[3].equals("0")) {
-                                                                    GameFrame.getInstance().getCrupier().setForce_recover(false);
-                                                                    GameFrame.getInstance().getTapete().getCommunityCards().last_hand_off();
-                                                                } else {
+                                                            if (partes_comando.length == 4) {
 
-                                                                    if (partes_comando[3].equals("2")) {
-                                                                        GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                                String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
-                                                                        if (partes_comando.length > 4) {
-                                                                            password = new String(Base64.decodeBase64(partes_comando[4]), "UTF-8");
-                                                                        }
-                                                                    }
+                                                                GameFrame.getInstance().getLocalPlayer().RADAR(requester);
 
-                                                                    GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
-                                                                }
+                                                            } else {
 
-                                                                break;
-                                                            case "MAXHANDS":
+                                                                String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
 
-                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
+                                                                GameFrame.getInstance().getCrupier().saveRADARLog(suspicious, partes_comando[4].equals("*") ? null : Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
 
-                                                                GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+                                                            }
 
-                                                                break;
-                                                            case "UPDATEBLINDS":
+                                                            break;
+                                                        case "PING":
+                                                            break;
+                                                        case "IWTSTH":
 
-                                                                GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.parseFloat(partes_comando[5]), Float.parseFloat(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
+                                                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
 
-                                                                break;
-                                                            case "SERVEREXIT":
-                                                                exit = true;
-                                                                break;
-                                                            case "SERVEREXITRECOVER":
-                                                                exit = true;
-                                                                GameFrame.getInstance().getCrupier().setForce_recover(true);
-                                                                if (partes_comando.length > 3) {
-                                                                    password = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-                                                                }
+                                                                GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                            }
+                                                            break;
+                                                        case "IWTSTHSHOW":
 
-                                                                break;
-                                                            default:
-                                                                
-                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
-                                                                    GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
-                                                                }
+                                                            GameFrame.getInstance().getCrupier().IWTSTH_SHOW(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Boolean.parseBoolean(partes_comando[4]));
 
-                                                                break;
-                                                        }
-                                                    } else {
-                                                        switch (subcomando) {
-                                                            case "GAMEINFO":
-                                                                String ginfo = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-                                                                String[] game_info = ginfo.split("\\|");
+                                                            break;
+                                                        case "IWTSTHRULE":
+                                                            Helpers.threadRun(() -> {
+
+                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
-                                                                    if (game_info[0].trim().matches("[0-9,.*]+")) {
-
-                                                                        boolean rebuy = !game_info[0].trim().endsWith("*");
-                                                                        game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
-                                                                        game_info_blinds.setText(game_info[1]);
-
-                                                                        if (game_info.length > 2) {
-                                                                            game_info_hands.setText(game_info[2]);
-                                                                        } else {
-                                                                            game_info_hands.setVisible(false);
-                                                                        }
-                                                                    } else {
-                                                                        game_info_blinds.setVisible(false);
-                                                                        game_info_blinds.setVisible(false);
-                                                                        game_info_buyin.setIcon(null);
-                                                                    }
+                                                                    GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
+                                                                    Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.IWTSTH_RULE ? Translator.translate("REGLA IWTSTH ACTIVADA") : Translator.translate("REGLA IWTSTH DESACTIVADA"), GameFrame.IWTSTH_RULE ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
+                                                                    dialog.setLocation(dialog.getParent().getLocation());
+                                                                    dialog.setVisible(true);
                                                                 });
-                                                                break;
 
-                                                            case "DELUSER":
-                                                                borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
-                                                                break;
-                                                            case "NEWUSER":
-                                                                Audio.playWavResource("misc/laser.wav");
+                                                            });
+                                                            break;
+                                                        case "RABBITRULE":
+                                                            Helpers.threadRun(() -> {
 
-                                                                String nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                                GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
+                                                                Helpers.GUIRun(() -> {
 
-                                                                File avatar = null;
+                                                                    GameFrame.getInstance().getMenu_rabbit_off().setSelected(false);
+                                                                    GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
+                                                                    GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
+                                                                    GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
 
-                                                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                    String notification = "";
 
-                                                                if (file_id < 0) {
-                                                                    file_id *= -1;
+                                                                    switch (GameFrame.RABBIT_HUNTING) {
+                                                                        case 0:
+                                                                            GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
+                                                                            notification = Translator.translate("RABBIT HUNTING DESACTIVADO");
+                                                                            break;
+                                                                        case 1:
+                                                                            GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
+                                                                            notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE)");
+                                                                            break;
+                                                                        case 2:
+                                                                            GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
+                                                                            notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE + SB)");
+                                                                            break;
+                                                                        case 3:
+                                                                            GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
+                                                                            notification = Translator.translate("RABBIT HUNTING ACTIVADO (FREE + SB + BB)");
+                                                                            break;
+                                                                        default:
+                                                                            break;
+                                                                    }
+
+                                                                    Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(GameFrame.getInstance().getMenu_rabbit_off().isSelected());
+                                                                    Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(GameFrame.getInstance().getMenu_rabbit_free().isSelected());
+                                                                    Helpers.TapetePopupMenu.RABBIT_SB.setSelected(GameFrame.getInstance().getMenu_rabbit_sb().isSelected());
+                                                                    Helpers.TapetePopupMenu.RABBIT_BB.setSelected(GameFrame.getInstance().getMenu_rabbit_bb().isSelected());
+
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, notification, GameFrame.RABBIT_HUNTING != 0 ? Color.BLUE : Color.RED, Color.WHITE, getClass().getResource("/images/action/rabbit_action.png"), NOTIFICATION_TIMEOUT);
+                                                                    dialog.setLocation(dialog.getParent().getLocation());
+                                                                    dialog.setVisible(true);
+
+                                                                });
+
+                                                            });
+                                                            break;
+                                                        case "RABBIT":
+
+                                                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
+
+                                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
+                                                            }
+                                                            break;
+                                                        case "TIMEOUT":
+
+                                                            Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+
+                                                            if (jugador != null) {
+
+                                                                jugador.setTimeout(true);
+                                                            }
+
+                                                            break;
+                                                        case "TTS":
+                                                            GameFrame.TTS_SERVER = partes_comando[3].equals("1");
+                                                            Helpers.GUIRun(() -> {
+                                                                GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
+
+                                                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
+
+                                                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? Translator.translate("TTS ACTIVADO POR EL SERVIDOR") : Translator.translate("TTS DESACTIVADO POR EL SERVIDOR"), GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
+
+                                                                dialog.setLocation(dialog.getParent().getLocation());
+
+                                                                dialog.setVisible(true);
+                                                            });
+                                                            break;
+
+                                                        case "PAUSE":
+                                                            Helpers.threadRun(() -> {
+                                                                synchronized (GameFrame.getInstance().getLock_pause()) {
+                                                                    if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada()) || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                                        GameFrame.getInstance().pauseTimba(null);
+                                                                    }
+                                                                }
+                                                            });
+                                                            break;
+                                                        case "PERMUTATIONKEY":
+                                                            Helpers.threadRun(() -> {
+                                                                String key = sqlReadPermutationkey(partes_comando[3]);
+
+                                                                GameFrame.getInstance().getCrupier().sendGAMECommandToServer("PERMUTATIONKEY#" + (key != null ? key : "*"));
+                                                            });
+                                                            break;
+                                                        case "SHOWCARDS":
+                                                            GameFrame.getInstance().getCrupier().showPlayerCards(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
+                                                            break;
+                                                        case "REBUYNOW":
+                                                            GameFrame.getInstance().getCrupier().rebuyNow(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
+                                                            break;
+                                                        case "EXIT":
+                                                            GameFrame.getInstance().getCrupier().remotePlayerQuit(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                            break;
+                                                        case "LASTHAND":
+
+                                                            if (partes_comando[3].equals("0")) {
+                                                                GameFrame.getInstance().getCrupier().setForce_recover(false);
+                                                                GameFrame.getInstance().getTapete().getCommunityCards().last_hand_off();
+                                                            } else {
+
+                                                                if (partes_comando[3].equals("2")) {
+                                                                    GameFrame.getInstance().getCrupier().setForce_recover(true);
+
+                                                                    if (partes_comando.length > 4) {
+                                                                        password = new String(Base64.decodeBase64(partes_comando[4]), "UTF-8");
+                                                                    }
                                                                 }
 
-                                                                if (partes_comando.length == 6) {
+                                                                GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
+                                                            }
+
+                                                            break;
+                                                        case "MAXHANDS":
+
+                                                            GameFrame.MANOS = Integer.parseInt(partes_comando[3]);
+
+                                                            GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
+
+                                                            break;
+                                                        case "UPDATEBLINDS":
+
+                                                            GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.parseFloat(partes_comando[5]), Float.parseFloat(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
+
+                                                            break;
+                                                        case "SERVEREXIT":
+                                                            exit = true;
+                                                            break;
+                                                        case "SERVEREXITRECOVER":
+                                                            exit = true;
+                                                            GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                            if (partes_comando.length > 3) {
+                                                                password = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                            }
+
+                                                            break;
+                                                        default:
+
+                                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                            }
+
+                                                            break;
+                                                    }
+                                                } else {
+                                                    switch (subcomando) {
+                                                        case "GAMEINFO":
+                                                            String ginfo = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+                                                            String[] game_info = ginfo.split("\\|");
+                                                            Helpers.GUIRun(() -> {
+                                                                if (game_info[0].trim().matches("[0-9,.*]+")) {
+
+                                                                    boolean rebuy = !game_info[0].trim().endsWith("*");
+                                                                    game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
+                                                                    game_info_blinds.setText(game_info[1]);
+
+                                                                    if (game_info.length > 2) {
+                                                                        game_info_hands.setText(game_info[2]);
+                                                                    } else {
+                                                                        game_info_hands.setVisible(false);
+                                                                    }
+                                                                } else {
+                                                                    game_info_blinds.setVisible(false);
+                                                                    game_info_blinds.setVisible(false);
+                                                                    game_info_buyin.setIcon(null);
+                                                                }
+                                                            });
+                                                            break;
+
+                                                        case "DELUSER":
+                                                            borrarParticipante(new String(Base64.decodeBase64(partes_comando[3]), "UTF-8"));
+                                                            break;
+                                                        case "NEWUSER":
+                                                            Audio.playWavResource("misc/laser.wav");
+
+                                                            String nick = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
+
+                                                            File avatar = null;
+
+                                                            int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                                                            if (file_id < 0) {
+                                                                file_id *= -1;
+                                                            }
+
+                                                            if (partes_comando.length == 6) {
+                                                                avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
+
+                                                                try (FileOutputStream os = new FileOutputStream(avatar)) {
+                                                                    os.write(Base64.decodeBase64(partes_comando[5]));
+                                                                }
+                                                            }
+
+                                                            if (!participantes.containsKey(nick)) {
+                                                                //Añadimos al participante
+
+                                                                nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(partes_comando[4]));
+
+                                                            }
+
+                                                            break;
+                                                        case "USERSLIST":
+                                                            String[] current_users_parts = partes_comando[3].split("@");
+
+                                                            for (String user : current_users_parts) {
+
+                                                                String[] user_parts = user.split("\\|");
+
+                                                                nick = new String(Base64.decodeBase64(user_parts[0]), "UTF-8");
+
+                                                                avatar = null;
+
+                                                                if (user_parts.length == 3) {
+                                                                    file_id = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                                                                    if (file_id < 0) {
+                                                                        file_id *= -1;
+                                                                    }
+
                                                                     avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
 
                                                                     try (FileOutputStream os = new FileOutputStream(avatar)) {
-                                                                        os.write(Base64.decodeBase64(partes_comando[5]));
+                                                                        os.write(Base64.decodeBase64(user_parts[2]));
                                                                     }
+
                                                                 }
 
                                                                 if (!participantes.containsKey(nick)) {
                                                                     //Añadimos al participante
 
-                                                                    nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(partes_comando[4]));
+                                                                    nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(user_parts[1]));
 
                                                                 }
 
-                                                                break;
-                                                            case "USERSLIST":
-                                                                String[] current_users_parts = partes_comando[3].split("@");
+                                                            }
 
-                                                                for (String user : current_users_parts) {
+                                                            break;
+                                                        case "INIT":
+                                                            Helpers.GUIRun(() -> {
+                                                                setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
+                                                                sound_icon.setVisible(false);
+                                                                status.setText(Translator.translate("Inicializando timba..."));
+                                                                status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
+                                                                barra.setVisible(true);
+                                                            });
+                                                            GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
+                                                            GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(partes_comando[4]);
+                                                            GameFrame.CIEGA_GRANDE = Float.parseFloat(partes_comando[5]);
+                                                            String[] ciegas_double = partes_comando[6].split("@");
+                                                            GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
+                                                            GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
+                                                            GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
+                                                            GameFrame.UGI = partes_comando[7].split("@")[1];
+                                                            GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
+                                                            GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
 
-                                                                    String[] user_parts = user.split("\\|");
-
-                                                                    nick = new String(Base64.decodeBase64(user_parts[0]), "UTF-8");
-
-                                                                    avatar = null;
-
-                                                                    if (user_parts.length == 3) {
-                                                                        file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-
-                                                                        if (file_id < 0) {
-                                                                            file_id *= -1;
-                                                                        }
-
-                                                                        avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
-
-                                                                        try (FileOutputStream os = new FileOutputStream(avatar)) {
-                                                                            os.write(Base64.decodeBase64(user_parts[2]));
-                                                                        }
-
-                                                                    }
-
-                                                                    if (!participantes.containsKey(nick)) {
-                                                                        //Añadimos al participante
-
-                                                                        nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(user_parts[1]));
-
-                                                                    }
-
+                                                            //Inicializamos partida
+                                                            Helpers.GUIRunAndWait(new Runnable() {
+                                                                public void run() {
+                                                                    new GameFrame(THIS, local_nick, false);
                                                                 }
-
-                                                                break;
-                                                            case "INIT":
-                                                                Helpers.GUIRun(() -> {
-                                                                    setTitle(Init.WINDOW_TITLE + " - Chat (" + local_nick + ")");
-                                                                    sound_icon.setVisible(false);
-                                                                    status.setText(Translator.translate("Inicializando timba..."));
-                                                                    status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
-                                                                    barra.setVisible(true);
-                                                                });
-                                                                GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
-                                                                GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(partes_comando[4]);
-                                                                GameFrame.CIEGA_GRANDE = Float.parseFloat(partes_comando[5]);
-                                                                String[] ciegas_double = partes_comando[6].split("@");
-                                                                GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
-                                                                GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
-                                                                GameFrame.RECOVER = Boolean.parseBoolean(partes_comando[7].split("@")[0]);
-                                                                GameFrame.UGI = partes_comando[7].split("@")[1];
-                                                                GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
-                                                                GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
-
-                                                                //Inicializamos partida
-                                                                Helpers.GUIRunAndWait(new Runnable() {
-                                                                    public void run() {
-                                                                        new GameFrame(THIS, local_nick, false);
-                                                                    }
-                                                                });
-                                                                partida_empezada = true;
-                                                                GameFrame.getInstance().AJUGAR();
-                                                                break;
-                                                        }
+                                                            });
+                                                            partida_empezada = true;
+                                                            GameFrame.getInstance().AJUGAR();
+                                                            break;
                                                     }
                                                 }
-                                                break;
-                                            case "CONF":
-                                                //Es una confirmación del servidor
+                                            }
+                                            break;
+                                        case "CONF":
+                                            //Es una confirmación del servidor
 
-                                                if (WaitingRoomFrame.getInstance() != null) {
-                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
-                                                    synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
+                                            if (WaitingRoomFrame.getInstance() != null) {
+                                                WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{server_nick, Integer.parseInt(partes_comando[1])});
+                                                synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
 
-                                                        WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
-                                                    }
+                                                    WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
                                                 }
-                                                break;
-                                            default:
-                                                break;
-                                        }
-                                    } else {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET RECIBIÓ NULL");
-                                    }
-                                } catch (Exception ex) {
-
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EXCEPCION AL LEER DEL SOCKET");
-
-                                    recibido = null;
-
-                                } finally {
-                                    if (recibido == null) {
-                                        last_received.clear();
+                                            }
+                                            break;
+                                        default:
+                                            break;
                                     }
 
-                                    if (recibido == null && (!exit && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada()) || (GameFrame.getInstance() != null && !GameFrame.getInstance().getLocalPlayer().isExit()))) && !reconectarCliente()) {
-                                        exit = true;
+                                } else {
+                                    if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SOCKET HA RECIBIDO POISON PILL");
                                     }
                                 }
-                                if (!exit) {
-                                    Helpers.pausar(1000);
-                                }
+
                             } while (!exit);
+
                             break;
                         default:
                             break;
                     }
-                } catch (IOException ex) {
-                    //Logger.getLogger(WaitingRoom.class.getName()).log(Level.SEVERE, null, ex);
+
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     mostrarMensajeError(THIS, "ERROR INESPERADO -> " + ex.toString());
-
                     System.exit(1);
                 }
 
@@ -2103,7 +2133,7 @@ public class WaitingRoomFrame extends JFrame {
 
         Helpers.threadRun(() -> {
             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
-            client_threads.add(Thread.currentThread().getId());
+            client_threads.add(Thread.currentThread().threadId());
             String recibido;
             String[] partes;
             try {
@@ -2356,7 +2386,7 @@ public class WaitingRoomFrame extends JFrame {
             } catch (Exception ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
-            client_threads.remove(Thread.currentThread().getId());
+            client_threads.remove(Thread.currentThread().threadId());
         });
 
     }

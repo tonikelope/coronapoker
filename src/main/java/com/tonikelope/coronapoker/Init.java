@@ -80,6 +80,10 @@ import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
+import java.io.FileOutputStream;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.SimpleFormatter;
 
 /**
  *
@@ -130,31 +134,44 @@ public class Init extends JFrame {
 
         System.setProperty("sun.java2d.uiScale", "1");
 
+        if (Init.DEBUG_FILE) {
+            try {
+                String debugFile = Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log";
+
+                PrintStream fileOut = new PrintStream(new FileOutputStream(debugFile), true);
+                System.setOut(fileOut);
+                System.setErr(fileOut);
+
+                Logger rootLogger = Logger.getLogger("");
+                for (Handler h : rootLogger.getHandlers()) {
+                    rootLogger.removeHandler(h);
+                }
+                FileHandler fh = new FileHandler(debugFile, true);
+                fh.setFormatter(new SimpleFormatter());
+                rootLogger.addHandler(fh);
+
+                System.out.println("Debug iniciado correctamente.");
+
+            } catch (IOException ex1) {
+                ex1.printStackTrace();
+            }
+        }
+
         try {
             CORONA_HMAC_J1 = Class.forName("com.tonikelope.coronahmac.M").getMethod("J1", new Class<?>[]{byte[].class, byte[].class});
             CORONA_HMAC_VM = Class.forName("com.tonikelope.coronahmac.M").getMethod("VM", new Class<?>[]{});
         } catch (Exception ex) {
 
-            if (Init.DEBUG_FILE) {
-                try {
-                    PrintStream fileOut = new PrintStream(new File(Init.DEBUG_DIR + "/CORONAPOKER_DEBUG_" + Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss") + ".log"));
-                    System.setOut(fileOut);
-                    System.setErr(fileOut);
-                } catch (FileNotFoundException ex1) {
-                    Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
-                }
-            }
-
             Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CoronaHMAC is not present!");
         }
-        
+
         Logger.getLogger(Init.class.getName()).log(Level.INFO, System.getProperty("os.name"));
-        
+
         if (Helpers.OSValidator.isUnix()) {
             System.setProperty("sun.java2d.opengl", "true");
             System.setProperty("sun.java2d.d3d", "false");
         }
-        
+
         try {
 
             M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});

@@ -152,7 +152,7 @@ public class Init extends javax.swing.JFrame {
     public static void main(String args[]) {
 
         System.setProperty("sun.java2d.uiScale", "1");
-        
+
         if (args.length < 1) {
 
             System.exit(1);

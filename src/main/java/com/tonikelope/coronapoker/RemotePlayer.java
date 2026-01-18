@@ -28,7 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import java.awt.BasicStroke;
@@ -45,8 +44,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
-import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Random;
@@ -209,16 +206,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().notifyAll();
         }
 
-        Helpers.GUIRun(() -> {
-            int sound_icon_size_h = getHoleCard1().getHeight();
+        int sound_icon_size_h = getHoleCard1().getHeight();
 
-            int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
+        int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
+
+        ImageIcon image = new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH));
+
+        Helpers.GUIRun(() -> {
 
             int pos_x = Math.round((panel_cartas.getWidth() - sound_icon_size_w) / 2);
 
             int pos_y = 0;
 
-            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
+            getChat_notify_label().setIcon(image);
 
             getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
 
@@ -244,16 +244,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().notifyAll();
         }
 
-        Helpers.GUIRun(() -> {
-            int icon_size_h = getHoleCard1().getHeight();
+        int icon_size_h = getHoleCard1().getHeight();
 
-            int icon_size_w = Math.round((484 * icon_size_h) / 556);
+        int icon_size_w = Math.round((484 * icon_size_h) / 556);
+
+        ImageIcon image = new ImageIcon(new ImageIcon(getClass().getResource("/images/bugs_notify.png")).getImage().getScaledInstance(icon_size_w, icon_size_h, Image.SCALE_SMOOTH));
+
+        Helpers.GUIRun(() -> {
 
             int pos_x = Math.round((panel_cartas.getWidth() - icon_size_w) / 2);
 
             int pos_y = 0;
 
-            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/bugs_notify.png")).getImage().getScaledInstance(icon_size_w, icon_size_h, Image.SCALE_SMOOTH)));
+            getChat_notify_label().setIcon(image);
 
             getChat_notify_label().setSize(icon_size_w, icon_size_h);
 
@@ -301,12 +304,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 getChat_notify_label().setBarrier(gif_barrier);
 
                 Helpers.threadRun(() -> {
-                    chat_notify_thread = Thread.currentThread().getId();
-                    synchronized (getChat_notify_label()) {
-                        try {
-                            getChat_notify_label().notifyAll();
 
-                            final ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
+                    synchronized (getChat_notify_label()) {
+
+                        chat_notify_thread = Thread.currentThread().threadId(); //Nos hacemos con la propiedad del icono de notificación y avisamos a algún hilo que estuviera manipulándolo
+
+                        getChat_notify_label().notifyAll();
+
+                        try {
+
+                            ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
                             int max_width = Math.max(panel_cartas.getWidth(), orig.getIconWidth());
 
@@ -323,54 +330,45 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 new_width = max_width;
                             }
 
-                            final ImageIcon image = new ImageIcon(orig.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                            ImageIcon image = new ImageIcon(orig.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
 
                             int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
 
                             int pos_y = Math.round((getHoleCard1().getHeight() - image.getIconHeight()) / 2);
 
+                            int gif_frames_count = isgif ? Helpers.getGIFFramesCount(u) : 0;
+
                             Helpers.GUIRunAndWait(() -> {
-                                try {
 
-                                    if (isgif) {
-                                        getChat_notify_label().setIcon(image, Helpers.getGIFFramesCount(u));
-                                    } else {
-                                        getChat_notify_label().setIcon(image);
-                                    }
-
-                                    getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
-
-                                    if (action_gif) {
-
-                                        if (getDecision() == Player.BET) {
-                                            getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
-                                        } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                            getChat_notify_label().addAudio("misc/call.wav", 32, 60);
-                                        } else if (getDecision() == Player.CHECK) {
-                                            getChat_notify_label().addAudio("misc/check.wav", 5, 14);
-                                        }
-                                    }
-
-                                    getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
-
-                                    getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
-
-                                    getChat_notify_label().setOpaque(false);
-                                    getChat_notify_label().setLocation(pos_x, pos_y);
-
-                                    getChat_notify_label().setVisible(true);
-
-                                    getChat_notify_label().revalidate();
-
-                                    getChat_notify_label().repaint();
-
-                                } catch (MalformedURLException ex) {
-                                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                                } catch (IOException | ImageProcessingException ex) {
-                                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                if (isgif) {
+                                    getChat_notify_label().setIcon(image, gif_frames_count);
+                                } else {
+                                    getChat_notify_label().setIcon(image);
                                 }
+
+                                getChat_notify_label().setRepeat(action_gif ? 1 : NOTIFY_INGAME_GIF_REPEAT);
+
+                                if (action_gif) {
+
+                                    if (getDecision() == Player.BET) {
+                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
+                                    } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60);
+                                    } else if (getDecision() == Player.CHECK) {
+                                        getChat_notify_label().addAudio("misc/check.wav", 5, 14);
+                                    }
+                                }
+
+                                getChat_notify_label().setSize(image.getIconWidth(), image.getIconHeight());
+                                getChat_notify_label().setPreferredSize(getChat_notify_label().getSize());
+                                getChat_notify_label().setOpaque(false);
+                                getChat_notify_label().setLocation(pos_x, pos_y);
+                                getChat_notify_label().setVisible(true);
+                                getChat_notify_label().revalidate();
+                                getChat_notify_label().repaint();
                             });
-                        } catch (MalformedURLException ex) {
+
+                        } catch (Exception ex) {
                             Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                         }
                     }
@@ -384,18 +382,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         }
                     } else {
                         synchronized (getChat_notify_label()) {
-                            try {
-                                getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
-                            } catch (Exception ex) {
-                                Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            if (Thread.currentThread().threadId() == chat_notify_thread) {
+                                try {
+                                    getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
+                                } catch (Exception ex) {
+                                    Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                         }
                     }
-
-                    if (Thread.currentThread().getId() == chat_notify_thread) {
-                        Helpers.GUIRunAndWait(() -> {
-                            getChat_notify_label().setVisible(false);
-                        });
+                    synchronized (getChat_notify_label()) {
+                        if (Thread.currentThread().threadId() == chat_notify_thread) {
+                            Helpers.GUIRunAndWait(() -> {
+                                getChat_notify_label().setVisible(false);
+                            });
+                        }
                     }
                 });
 
@@ -726,32 +727,33 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void setDecisionFromRemotePlayer(int decision, float bet) {
+        Helpers.threadRun(() -> {
+            Helpers.GUIRunAndWait(() -> {
+                GameFrame.getInstance().getBarra_tiempo().setValue(Crupier.TIEMPO_PENSAR);
+                if (auto_action != null) {
+                    auto_action.stop();
+                }
+            });
 
-        Helpers.GUIRunAndWait(() -> {
-            GameFrame.getInstance().getBarra_tiempo().setValue(Crupier.TIEMPO_PENSAR);
-            if (auto_action != null) {
-                auto_action.stop();
+            this.decision = decision;
+
+            switch (this.decision) {
+                case Player.CHECK:
+                    check();
+                    break;
+                case Player.FOLD:
+                    fold();
+                    break;
+                case Player.BET:
+                    bet(bet);
+                    break;
+                case Player.ALLIN:
+                    allin();
+                    break;
+                default:
+                    break;
             }
         });
-
-        this.decision = decision;
-
-        switch (this.decision) {
-            case Player.CHECK:
-                check();
-                break;
-            case Player.FOLD:
-                fold();
-                break;
-            case Player.BET:
-                bet(bet);
-                break;
-            case Player.ALLIN:
-                allin();
-                break;
-            default:
-                break;
-        }
 
     }
 
@@ -1686,7 +1688,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

@@ -1362,7 +1362,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

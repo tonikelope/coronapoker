@@ -28,7 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
@@ -51,11 +50,9 @@ import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -377,6 +374,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public void setNotifyTTSChatLabel() {
 
         chat_notify_image_url = null;
@@ -386,16 +384,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().notifyAll();
         }
 
-        Helpers.GUIRun(() -> {
-            int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
+        int sound_icon_size_h = Math.round(getHoleCard1().getHeight() / 2);
 
-            int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
+        int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
+
+        ImageIcon image = new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH));
+
+        Helpers.GUIRun(() -> {
 
             int pos_x = panel_cartas.getWidth() - sound_icon_size_w;
 
             int pos_y = Math.round(getHoleCard1().getHeight() / 2);
 
-            getChat_notify_label().setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH)));
+            getChat_notify_label().setIcon(image);
 
             getChat_notify_label().setSize(sound_icon_size_w, sound_icon_size_h);
 
@@ -426,10 +427,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             getChat_notify_label().setBarrier(gif_barrier);
 
             Helpers.threadRun(() -> {
-                chat_notify_thread = Thread.currentThread().getId();
+
                 synchronized (getChat_notify_label()) {
+
+                    chat_notify_thread = Thread.currentThread().threadId();
+
+                    getChat_notify_label().notifyAll();
+
                     try {
-                        getChat_notify_label().notifyAll();
 
                         final ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
@@ -473,9 +478,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             getChat_notify_label().repaint();
 
                         });
-                    } catch (MalformedURLException ex) {
-                        Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (IOException | ImageProcessingException ex) {
+                    } catch (Exception ex) {
                         Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
@@ -489,18 +492,23 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
                 } else {
                     synchronized (getChat_notify_label()) {
-                        try {
-                            getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
-                        } catch (Exception ex) {
-                            Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        if (Thread.currentThread().threadId() == chat_notify_thread) {
+                            try {
+                                getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
+                            } catch (Exception ex) {
+                                Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            }
                         }
                     }
                 }
 
-                if (Thread.currentThread().getId() == chat_notify_thread) {
-                    Helpers.GUIRunAndWait(() -> {
-                        getChat_notify_label().setVisible(false);
-                    });
+                synchronized (getChat_notify_label()) {
+
+                    if (Thread.currentThread().threadId() == chat_notify_thread) {
+                        Helpers.GUIRunAndWait(() -> {
+                            getChat_notify_label().setVisible(false);
+                        });
+                    }
                 }
             });
 
@@ -678,6 +686,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
     public void setSpectator(String msg) {
         if (!this.exit) {
             this.spectator = true;
@@ -1945,7 +1954,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

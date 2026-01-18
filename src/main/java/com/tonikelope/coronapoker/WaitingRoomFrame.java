@@ -93,6 +93,7 @@ import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import org.apache.commons.codec.binary.Base64;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
+import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -109,9 +110,9 @@ public class WaitingRoomFrame extends JFrame {
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
-    public static final int PING_PONG_TIMEOUT = 15000;
+    public static final int PING_PONG_TIMEOUT = 10000;
+    public static final long PING_INTERVAL_MS = 5000;
     public static final int ASYNC_WAIT_LOCK = 15000;
-    public static final int MAX_PING_PONG_ERROR = 3;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
     public static final int CLIENT_REC_WAIT = 5;
@@ -161,6 +162,11 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
+    private volatile long server_latency;
+
+    public long getServer_latency() {
+        return server_latency;
+    }
 
     public String getPassword() {
         return password;
@@ -987,6 +993,8 @@ public class WaitingRoomFrame extends JFrame {
 
                         local_client_socket = new Socket(server_address[0], Integer.parseInt(server_address[1]));
 
+                        local_client_socket.setTcpNoDelay(true);
+
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "¡Conectado al servidor! Vamos a intercambiar las claves...");
 
                         //Le mandamos los bytes "mágicos"
@@ -1378,7 +1386,7 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     String[] direccion = server_ip_port.split(":");
                     local_client_socket = new Socket(direccion[0], Integer.parseInt(direccion[1]));
-
+                    local_client_socket.setTcpNoDelay(true);
                     //Le mandamos los bytes "mágicos"
                     local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
                     Helpers.GUIRun(() -> {
@@ -1554,32 +1562,57 @@ public class WaitingRoomFrame extends JFrame {
 
                             //Cada X segundos mandamos un comando KEEP ALIVE al server
                             Helpers.threadRun(() -> {
-                                while (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+                                while (!exit && WaitingRoomFrame.getInstance() != null) {
 
                                     int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                     pong = null;
 
+                                    server_latency = -1;
+
+                                    long pingStartNs = System.nanoTime();
+
                                     try {
-
-                                        writeCommandToServer("PING#" + String.valueOf(ping));
-
-                                    } catch (IOException ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        writeCommandToServer("PING#" + ping);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Error enviando PING", ex);
+                                        break;
                                     }
 
                                     synchronized (keep_alive_lock) {
-                                        try {
-                                            keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
-                                        } catch (InterruptedException ex) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+
+                                        long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
+
+                                        while (!exit && pong == null && System.currentTimeMillis() < end) {
+                                            try {
+                                                keep_alive_lock.wait(end - System.currentTimeMillis());
+                                            } catch (InterruptedException ignored) {
+                                            }
+                                        }
+
+                                        // SOLO si llegó el pong correcto medimos latencia
+                                        if (pong != null && pong == ping + 1) {
+                                            server_latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
                                         }
                                     }
 
-                                    if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isPartida_empezada() && pong != null && ping + 1 != pong) {
+                                    if (!exit && WaitingRoomFrame.getInstance() != null) {
 
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
+                                        if (pong == null) {
 
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
+
+                                        } else if (pong != ping + 1) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DEL SERVIDOR INCORRECTO");
+
+                                        } else if (DEV_MODE) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONG DEL SERVIDOR RECIBIDO CORRECTAMENTE. (Latencia: {0} ms)", server_latency);
+                                        }
+
+                                        Helpers.pausar(PING_INTERVAL_MS);
                                     }
 
                                 }
@@ -1596,6 +1629,7 @@ public class WaitingRoomFrame extends JFrame {
                                 radar.setEnabled(GameFrame.RADAR_AVAILABLE);
                                 radar.setToolTipText(Translator.translate(GameFrame.RADAR_AVAILABLE ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
                             });
+
                             refreshChatPanel();
 
                             booting = false;
@@ -1641,6 +1675,9 @@ public class WaitingRoomFrame extends JFrame {
                                     switch (partes_comando[0]) {
                                         case "PONG":
                                             pong = Integer.valueOf(partes_comando[1]);
+                                            synchronized (keep_alive_lock) {
+                                                keep_alive_lock.notifyAll();
+                                            }
                                             break;
                                         case "PING":
                                             writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
@@ -1713,8 +1750,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
 
                                                             break;
-                                                        case "PING":
-                                                            break;
+
                                                         case "IWTSTH":
 
                                                             if (GameFrame.getInstance().getCrupier().isShow_time()) {
@@ -2150,6 +2186,7 @@ public class WaitingRoomFrame extends JFrame {
             String recibido;
             String[] partes;
             try {
+                client_socket.setTcpNoDelay(true);
                 //Leemos los bytes "mágicos"
                 byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
                 client_socket.getInputStream().read(magic);

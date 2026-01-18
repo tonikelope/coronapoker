@@ -29,6 +29,8 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
+import static com.tonikelope.coronapoker.Init.DEV_MODE;
+import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.POISON_PILL;
 import java.awt.Image;
 import java.io.BufferedReader;
@@ -87,6 +89,11 @@ public class Participant implements Runnable {
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
+    private volatile long latency;
+
+    public long getLatency() {
+        return latency;
+    }
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
 
@@ -163,32 +170,63 @@ public class Participant implements Runnable {
 
     private void runKeepAliveThread() {
         //Cada X segundos mandamos un comando KEEP ALIVE al cliente
+
         Helpers.threadRun(() -> {
-            while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+            while (!exit && WaitingRoomFrame.getInstance() != null) {
 
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
                 pong = null;
 
-                writeCommandFromServer("PING#" + String.valueOf(ping));
+                latency = -1;
 
-                if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    synchronized (keep_alive_lock) {
+                long pingStartNs = System.nanoTime();
+
+                try {
+                    writeCommandFromServer("PING#" + String.valueOf(ping));
+                } catch (Exception ex) {
+                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Error enviando PING", ex);
+                    break;
+                }
+
+                synchronized (keep_alive_lock) {
+
+                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
+
+                    while (!exit && pong == null && System.currentTimeMillis() < end) {
                         try {
-                            keep_alive_lock.wait(WaitingRoomFrame.PING_PONG_TIMEOUT);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                            keep_alive_lock.wait(end - System.currentTimeMillis());
+                        } catch (InterruptedException ignored) {
                         }
                     }
+
+                    // SOLO si llegó el pong correcto medimos latencia
+                    if (pong != null && pong == ping + 1) {
+                        latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                    }
                 }
-                if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && pong != null && ping + 1 != pong) {
 
-                    Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} NO respondió al PING {1} {2}", new Object[]{nick, String.valueOf(ping), String.valueOf(pong)});
+                if (!exit && WaitingRoomFrame.getInstance() != null) {
 
+                    if (pong == null) {
+
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "{0} NO RESPONDIÓ EL PING", nick);
+
+                    } else if (pong != ping + 1) {
+
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DE {0} INCORRECTO", nick);
+
+                    } else if (DEV_MODE) {
+
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONG DE {0} RECIBIDO CORRECTAMENTE. (Latencia: {1} ms)", new Object[]{nick, latency});
+                    }
+
+                    Helpers.pausar(PING_INTERVAL_MS);
                 }
-
             }
         });
+
     }
 
     private void runAsyncCommandQueueThread() {
@@ -688,6 +726,9 @@ public class Participant implements Runnable {
                         switch (partes_comando[0]) {
                             case "PONG":
                                 pong = Integer.valueOf(partes_comando[1]);
+                                synchronized (keep_alive_lock) {
+                                    keep_alive_lock.notifyAll();
+                                }
                                 break;
                             case "PING":
                                 this.writeCommandFromServer(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1)));
@@ -764,10 +805,6 @@ public class Participant implements Runnable {
                                                 }
                                             });
 
-                                            break;
-
-                                        case "PING":
-                                            //ES UN PING DE JUEGO -> NO tenemos que hacer nada más
                                             break;
 
                                         case "PERMUTATIONKEY":

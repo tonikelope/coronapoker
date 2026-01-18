@@ -51,13 +51,11 @@ import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
-import java.security.InvalidKeyException;
 import java.security.KeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.sql.PreparedStatement;
@@ -99,6 +97,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Appearances can be deceiving...
+ *
+ * ...sometimes.
+ *
+ * Perhaps in another life I can refactor all this.
  *
  * @author tonikelope
  */
@@ -431,11 +433,7 @@ public class WaitingRoomFrame extends JFrame {
 
             String hora = line.replaceAll("^[^:()]+:+([0-9:()]+) *.*$", "$1");
 
-            String avatar_src = "";
-
-            String align = "";
-
-            String image_align = "";
+            String avatar_src, align, image_align;
 
             if (nick.equals(this.local_nick)) {
 
@@ -523,7 +521,7 @@ public class WaitingRoomFrame extends JFrame {
             }
         }
 
-        if (img_src_lista.size() > 0) {
+        if (!img_src_lista.isEmpty()) {
 
             Helpers.threadRun(() -> {
                 ChatImageDialog.updateHistorialRecibidos(img_src_lista);
@@ -551,13 +549,13 @@ public class WaitingRoomFrame extends JFrame {
 
             try {
 
-                if (!lista.contains(Integer.parseInt(matcher.group(1))) && Integer.parseInt(matcher.group(1)) > 0 && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
+                if (!lista.contains(Integer.valueOf(matcher.group(1))) && Integer.parseInt(matcher.group(1)) > 0 && Integer.parseInt(matcher.group(1)) <= EmojiPanel.EMOJI_SRC.size()) {
 
                     String emoji_src = EmojiPanel.EMOJI_SRC.get(Integer.parseInt(matcher.group(1)) - 1);
 
                     msg = msg.replaceAll(" ?#" + matcher.group(1) + "# ?", "<span><img align='middle' src='" + emoji_src + "' /></span>&nbsp;");
 
-                    lista.add(Integer.parseInt(matcher.group(1)));
+                    lista.add(Integer.valueOf(matcher.group(1)));
                 }
             } catch (Exception ex) {
             }
@@ -941,9 +939,15 @@ public class WaitingRoomFrame extends JFrame {
     //Función AUTO-RECONNECT
     public boolean reconectarCliente() {
 
+        reconnecting = true;
+
         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Intentando reconectar con el servidor...");
 
-        this.reconnecting = true;
+        Helpers.GUIRun(() -> {
+            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("RECONECTANDO CON EL SERVIDOR..."), Color.MAGENTA, Color.BLACK, getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
+            dialog.setLocation(dialog.getParent().getLocation());
+            dialog.setVisible(true);
+        });
 
         synchronized (getLocalClientSocketLock()) {
 
@@ -1052,6 +1056,14 @@ public class WaitingRoomFrame extends JFrame {
 
                         if (!ok_rec) {
 
+                            if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                                Helpers.GUIRun(() -> {
+                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("¡NO SE PUDO RECONECTAR CON EL SERVIDOR!"), Color.RED, Color.WHITE, getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
+                                    dialog.setLocation(dialog.getParent().getLocation());
+                                    dialog.setVisible(true);
+                                });
+                            }
+
                             if (local_client_socket != null && !local_client_socket.isClosed()) {
 
                                 try {
@@ -1121,9 +1133,10 @@ public class WaitingRoomFrame extends JFrame {
 
                 if (ok_rec) {
                     Audio.playWavResource("misc/yahoo.wav");
+
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
                         Helpers.GUIRun(() -> {
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("CONEXIÓN CON EL SERVIDOR RECUPERADA"), Color.MAGENTA, Color.BLACK, getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("CONEXIÓN CON EL SERVIDOR RECUPERADA"), Color.GREEN, Color.WHITE, getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
                             dialog.setLocation(dialog.getParent().getLocation());
                             dialog.setVisible(true);
                         });
@@ -1136,7 +1149,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 return ok_rec;
 
-            } catch (InvalidKeyException | NoSuchAlgorithmException | UnsupportedEncodingException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
 
@@ -2198,6 +2211,14 @@ public class WaitingRoomFrame extends JFrame {
 
                                     rec_error = false;
 
+                                    if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                                        Helpers.GUIRun(() -> {
+                                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, client_nick + " " + Translator.translate("HA RECONECTADO"), Color.GREEN, Color.WHITE, getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
+                                            dialog.setLocation(dialog.getParent().getLocation());
+                                            dialog.setVisible(true);
+                                        });
+                                    }
+
                                 } else {
 
                                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL CLIENTE {0} NO HA PODIDO RECONECTAR", client_nick);
@@ -2400,7 +2421,7 @@ public class WaitingRoomFrame extends JFrame {
                 booting = true;
                 try {
                     String[] direccion = server_ip_port.trim().split(":");
-                    server_port = Integer.valueOf(direccion[1]);
+                    server_port = Integer.parseInt(direccion[1]);
                     if (upnp) {
                         String stat = status1.getText();
                         Helpers.GUIRun(() -> {

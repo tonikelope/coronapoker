@@ -42,7 +42,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /*
-    "De bien nacido es ser agradecido"
+    "Es de bien nacidos ser agradecidos"
 
     SPECIAL THANKS TO: 
 
@@ -67,7 +67,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "19.41";
+    public static final String VERSION = "19.42";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

@@ -45,6 +45,9 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"HA RECONECTADO", "HAS RECONNECTED"},
+            {"RECONECTANDO CON EL SERVIDOR...", "RECONNECTING WITH THE SERVER..."},
+            {"¡NO SE PUDO RECONECTAR CON EL SERVIDOR!", "UNABLE TO RECONNECT TO THE SERVER!"},
             {"hilos", "threads"},
             {"MODIFICAR OPCIONES DE LA TIMBA", "UPDATE GAME OPTIONS"},
             {"Esta funcionalidad permite a cualquier jugador obtener una captura de la pantalla y la lista de procesos de otro jugador, si sospecha que está haciendo trampas o ayudándose de software de terceros para jugar. Como anfitrión, ten en cuenta por favor las implicaciones de privacidad que esto puede suponer antes de activar esta opción (no se puede cambiar durante la partida).\n\nNota: esta funcionalidad es bastante dependiente de la plataforma, por lo que no está garantizado que funcione perfectamente en todos los clientes.", "This feature allows any player to obtain a screenshot and list of another player's processes, if they suspect that they are cheating or using third party software to play. As a host, please be aware of the privacy implications this may entail before enabling this option (cannot be switched during the game).\n\nNote: this functionality is quite platform dependent, so it is not guaranteed to work perfectly on all clients."},

@@ -159,7 +159,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     }
 
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {
-        central_label_thread = Thread.currentThread().getId();
+        central_label_thread = Thread.currentThread().threadId();
 
         try {
             central_label_barrier.reset();
@@ -186,7 +186,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 getCentral_label().repaint();
             }
         });
-        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().getId() == central_label_thread) {
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
             try {
                 central_label_barrier.await();
             } catch (Exception ex) {
@@ -195,7 +195,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             if (delay_end > 0) {
                 Helpers.parkThreadMillis(delay_end);
             }
-            if (Thread.currentThread().getId() == central_label_thread) {
+            if (Thread.currentThread().threadId() == central_label_thread) {
 
                 Helpers.GUIRunAndWait(() -> {
                     getCentral_label().setVisible(false);
@@ -383,7 +383,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         if (notifier != null) {
 
-            notifier.add(Thread.currentThread().getId());
+            notifier.add(Thread.currentThread().threadId());
 
             synchronized (notifier) {
 

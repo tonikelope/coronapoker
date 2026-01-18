@@ -1134,7 +1134,7 @@ public class Helpers {
             Helpers.threadRun(new Runnable() {
                 public void run() {
 
-                    GIFSICLE_CACHE_THREAD = Thread.currentThread().getId();
+                    GIFSICLE_CACHE_THREAD = Thread.currentThread().threadId();
 
                     String base_url = url.toExternalForm().replaceAll("[AKQJ0-9]+_[CDPT]\\.gif$", "");
 
@@ -1150,13 +1150,13 @@ public class Helpers {
 
                         for (String v : valores) {
 
-                            if (GIFSICLE_CACHE_THREAD != Thread.currentThread().getId()) {
+                            if (GIFSICLE_CACHE_THREAD != Thread.currentThread().threadId()) {
                                 break;
                             }
 
                             String card_zoom_id = zoom_str + "_" + baraja + "_" + v + "_" + p;
 
-                            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_" + String.valueOf(Thread.currentThread().getId()) + "_" + card_zoom_id + ".gif";
+                            String filename_orig = System.getProperty("java.io.tmpdir") + "/gifsicle_" + String.valueOf(Thread.currentThread().threadId()) + "_" + card_zoom_id + ".gif";
 
                             String filename_new = CACHE_DIR + "/gifsicle_" + card_zoom_id + ".gif";
 
@@ -1185,7 +1185,7 @@ public class Helpers {
                         }
                     }
 
-                    if (GIFSICLE_CACHE_THREAD == Thread.currentThread().getId()) {
+                    if (GIFSICLE_CACHE_THREAD == Thread.currentThread().threadId()) {
                         GENERATING_GIFSICLE_CACHE = false;
                     }
                 }
@@ -3319,7 +3319,7 @@ public class Helpers {
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().getId());
+                notifier.add(Thread.currentThread().threadId());
 
                 synchronized (notifier) {
 
@@ -3411,7 +3411,7 @@ public class Helpers {
 
             if (notifier != null) {
 
-                notifier.add(Thread.currentThread().getId());
+                notifier.add(Thread.currentThread().threadId());
 
                 synchronized (notifier) {
 
@@ -4527,7 +4527,7 @@ public class Helpers {
             return (isWindows() && OS.contains("11"));
 
         }
-        
+
         public static boolean isWindows() {
 
             return (OS.contains("win"));

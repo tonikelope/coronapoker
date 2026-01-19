@@ -120,6 +120,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
 
+    public void updateLatency(String latency) {
+        player_action.setToolTipText(latency);
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
 

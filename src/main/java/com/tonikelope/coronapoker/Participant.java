@@ -62,10 +62,10 @@ public class Participant implements Runnable {
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
     public static final int RECIBIDO_TIMEOUT = 5000;
 
-    private final Object keep_alive_lock = new Object();
+    private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
-    private final ConcurrentLinkedQueue<String> async_command_queue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String> pre_game_socket_writer_queue = new ConcurrentLinkedQueue<>();
     private final LinkedBlockingQueue<String> socket_reader_queue = new LinkedBlockingQueue<>();
     private final WaitingRoomFrame sala_espera;
     private final String nick;
@@ -76,6 +76,7 @@ public class Participant implements Runnable {
     private volatile boolean exit = false;
     private volatile BufferedReader input_stream_reader = null;
     private volatile Integer pong;
+    private volatile Integer pong2;
     private volatile boolean cpu = false;
     private volatile Boolean resetting_socket = false;
     private volatile SecretKeySpec aes_key = null;
@@ -90,6 +91,11 @@ public class Participant implements Runnable {
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
     private volatile long latency;
+    private volatile long latency2;
+
+    public long getLatency2() {
+        return latency2;
+    }
 
     public long getLatency() {
         return latency;
@@ -168,8 +174,8 @@ public class Participant implements Runnable {
         return avatar_chat_src;
     }
 
-    private void runKeepAliveThread() {
-        //Cada X segundos mandamos un comando KEEP ALIVE al cliente
+    private void runPingPongThread() {
+        //Cada X segundos mandamos un PING al cliente
 
         Helpers.threadRun(() -> {
 
@@ -179,7 +185,11 @@ public class Participant implements Runnable {
 
                 pong = null;
 
+                pong2 = null;
+
                 latency = -1;
+
+                latency2 = -1;
 
                 long pingStartNs = System.nanoTime();
 
@@ -190,20 +200,40 @@ public class Participant implements Runnable {
                     break;
                 }
 
-                synchronized (keep_alive_lock) {
+                long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
 
-                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
-
-                    while (!exit && pong == null && System.currentTimeMillis() < end) {
+                while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
+                    synchronized (ping_pong_lock) {
                         try {
-                            keep_alive_lock.wait(end - System.currentTimeMillis());
+
+                            ping_pong_lock.wait(end - System.currentTimeMillis());
+
                         } catch (InterruptedException ignored) {
                         }
                     }
 
-                    // SOLO si llegó el pong correcto medimos latencia
-                    if (pong != null && pong == ping + 1) {
+                    if (latency == -1 && pong != null && pong == ping + 1) {
                         latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                    }
+
+                    if (latency2 == -1 && pong2 != null && pong2 == ping + 2) {
+                        latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                    }
+                }
+
+                // SOLO si llegaron los 2 pongs
+                if (pong != null && pong2 != null) {
+
+                    if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                        RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
+
+                        if (jugador != null) {
+                            Helpers.GUIRun(() -> {
+
+                                jugador.updateLatency(String.valueOf(latency) + " ms / " + String.valueOf(latency2) + " ms");
+
+                            });
+                        }
                     }
                 }
 
@@ -217,9 +247,17 @@ public class Participant implements Runnable {
 
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DE {0} INCORRECTO", nick);
 
+                    } else if (pong2 == null) {
+
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "{0} NO RESPONDIÓ EL PING2", nick);
+
+                    } else if (pong2 != ping + 2) {
+
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DE {0} INCORRECTO", nick);
+
                     } else if (DEV_MODE) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONG DE {0} RECIBIDO CORRECTAMENTE. (Latencia: {1} ms)", new Object[]{nick, latency});
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONGS DE {0} RECIBIDOS CORRECTAMENTE. (Latencia: {1} ms / {2} ms)", new Object[]{nick, latency, latency2});
                     }
 
                     Helpers.pausar(PING_INTERVAL_MS);
@@ -229,14 +267,14 @@ public class Participant implements Runnable {
 
     }
 
-    private void runAsyncCommandQueueThread() {
+    private void runPreGameSocketWriterQueueThread() {
         //Creamos un hilo por cada participante para enviar comandos de juego con confirmación y no bloquear el servidor por si se conectan nuevos usuarios
         Helpers.threadRun(() -> {
             while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getAsync_command_queue().isEmpty()) {
+                while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getPre_game_socket_writer_queue().isEmpty()) {
 
-                    String command = getAsync_command_queue().peek();
+                    String command = getPre_game_socket_writer_queue().peek();
 
                     ArrayList<String> pendientes = new ArrayList<>();
 
@@ -249,7 +287,7 @@ public class Participant implements Runnable {
 
                         if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
 
-                            waitAsyncConfirmations(id, pendientes);
+                            waitPreGameCommandConfirmations(id, pendientes);
 
                             if (!pendientes.isEmpty()) {
                                 Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} COMANDO ASYNC CONFIRMATION ERROR!", getNick());
@@ -261,19 +299,19 @@ public class Participant implements Runnable {
 
                     } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
-                    getAsync_command_queue().poll();
+                    getPre_game_socket_writer_queue().poll();
 
                 }
 
-                synchronized (WaitingRoomFrame.getInstance().getLock_client_async_wait()) {
-                    WaitingRoomFrame.getInstance().getLock_client_async_wait().notifyAll();
+                synchronized (WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait()) {
+                    WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait().notifyAll();
                 }
 
                 if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    synchronized (getAsync_command_queue()) {
+                    synchronized (getPre_game_socket_writer_queue()) {
 
                         try {
-                            getAsync_command_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
+                            getPre_game_socket_writer_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
                         } catch (InterruptedException ex) {
                             Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -314,8 +352,8 @@ public class Participant implements Runnable {
         return participant_socket_lock;
     }
 
-    public ConcurrentLinkedQueue<String> getAsync_command_queue() {
-        return async_command_queue;
+    public ConcurrentLinkedQueue<String> getPre_game_socket_writer_queue() {
+        return pre_game_socket_writer_queue;
     }
 
     public SecretKeySpec getHmac_key_orig() {
@@ -386,8 +424,8 @@ public class Participant implements Runnable {
             }
             this.socketClose();
 
-            synchronized (keep_alive_lock) {
-                keep_alive_lock.notifyAll();
+            synchronized (ping_pong_lock) {
+                ping_pong_lock.notifyAll();
             }
         }
 
@@ -426,6 +464,7 @@ public class Participant implements Runnable {
         try {
 
             this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+            this.socket.getOutputStream().flush();
 
             return false;
 
@@ -547,7 +586,7 @@ public class Participant implements Runnable {
         }
     }
 
-    public boolean waitAsyncConfirmations(int id, ArrayList<String> pending) {
+    public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
 
         //Esperamos confirmación
         long start_time = System.currentTimeMillis();
@@ -617,16 +656,54 @@ public class Participant implements Runnable {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
                 }
 
-                try {
-                    if (mensaje_recibido != null && timeout) {
+                if (mensaje_recibido != null) {
+
+                    if (timeout) {
                         timeout = false;
                         GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
                     }
 
-                    socket_reader_queue.put(mensaje_recibido != null ? mensaje_recibido : POISON_PILL);
+                    String[] partes_comando = mensaje_recibido.split("#");
 
-                } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
+                    if ("PING".equals(partes_comando[0])) {
+
+                        writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+
+                        try {
+                            socket_reader_queue.put(mensaje_recibido); //Metemos el PING en la cola para generar el PONG2
+                        } catch (InterruptedException ex) {
+                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                        }
+
+                    } else if ("PONG".equals(partes_comando[0])) {
+
+                        pong = Integer.valueOf(partes_comando[1]);
+
+                        synchronized (ping_pong_lock) {
+                            ping_pong_lock.notifyAll();
+                        }
+
+                    } else if ("PONG2".equals(partes_comando[0])) {
+
+                        pong2 = Integer.valueOf(partes_comando[1]);
+
+                        synchronized (ping_pong_lock) {
+                            ping_pong_lock.notifyAll();
+                        }
+                    } else {
+                        try {
+                            socket_reader_queue.put(mensaje_recibido);
+                        } catch (InterruptedException ex) {
+                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                        }
+
+                    }
+                } else {
+                    try {
+                        socket_reader_queue.put(POISON_PILL);
+                    } catch (InterruptedException ex) {
+                        System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                    }
                 }
 
                 if (mensaje_recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit() && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
@@ -699,13 +776,14 @@ public class Participant implements Runnable {
     }
 
     @Override
+
     public void run() {
 
         if (socket != null) {
 
-            runAsyncCommandQueueThread();
+            runPreGameSocketWriterQueueThread();
 
-            runKeepAliveThread();
+            runPingPongThread();
 
             runSocketReaderThread();
 
@@ -724,14 +802,9 @@ public class Participant implements Runnable {
                         String[] partes_comando = recibido.split("#");
 
                         switch (partes_comando[0]) {
-                            case "PONG":
-                                pong = Integer.valueOf(partes_comando[1]);
-                                synchronized (keep_alive_lock) {
-                                    keep_alive_lock.notifyAll();
-                                }
-                                break;
                             case "PING":
-                                this.writeCommandFromServer(("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1)));
+
+                                writeCommandFromServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
                                 break;
                             case "EXIT":
                                 exit = true;
@@ -908,8 +981,8 @@ public class Participant implements Runnable {
 
             exit = true;
 
-            synchronized (keep_alive_lock) {
-                keep_alive_lock.notifyAll();
+            synchronized (ping_pong_lock) {
+                ping_pong_lock.notifyAll();
             }
 
         } else {

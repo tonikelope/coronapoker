@@ -112,7 +112,7 @@ public class WaitingRoomFrame extends JFrame {
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
     public static final long PING_INTERVAL_MS = 5000;
-    public static final int ASYNC_WAIT_LOCK = 15000;
+    public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
     public static final int CLIENT_REC_WAIT = 5;
@@ -123,11 +123,11 @@ public class WaitingRoomFrame extends JFrame {
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Object local_client_socket_lock = new Object();
-    private final Object keep_alive_lock = new Object();
+    private final Object ping_pong_lock = new Object();
     private final Object lock_new_client = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
-    private final Object lock_client_async_wait = new Object();
+    private final Object lock_client_pre_game_commands_wait = new Object();
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
@@ -147,7 +147,8 @@ public class WaitingRoomFrame extends JFrame {
     private volatile Reconnect2ServerDialog reconnect_dialog = null;
     private volatile boolean reconnecting = false;
     private volatile boolean unsecure_server = false;
-    private volatile Integer pong;
+    private volatile Integer remote_server_pong;
+    private volatile Integer remote_server_pong2;
     private volatile String gameinfo_original = null;
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
@@ -162,18 +163,23 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
-    private volatile long server_latency;
+    private volatile long remote_server_latency;
+    private volatile long remote_server_latency2;
+
+    public long getServer_latency2() {
+        return remote_server_latency2;
+    }
 
     public long getServer_latency() {
-        return server_latency;
+        return remote_server_latency;
     }
 
     public String getPassword() {
         return password;
     }
 
-    public Object getLock_client_async_wait() {
-        return lock_client_async_wait;
+    public Object getLock_client_pre_game_commands_wait() {
+        return lock_client_pre_game_commands_wait;
     }
 
     public String getLocal_client_permutation_key_hash() {
@@ -618,6 +624,8 @@ public class WaitingRoomFrame extends JFrame {
             }
         }
 
+        latency_label.setVisible(false);
+
         radar.setEnabled(GameFrame.RADAR_AVAILABLE);
 
         radar.setToolTipText(Translator.translate(GameFrame.RADAR_AVAILABLE ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
@@ -734,7 +742,7 @@ public class WaitingRoomFrame extends JFrame {
 
         avatar_label.setText("");
 
-        status1.setText(server_ip_port);
+        server_address_label.setText(server_ip_port);
 
         DefaultListModel listModel = new DefaultListModel();
 
@@ -913,11 +921,13 @@ public class WaitingRoomFrame extends JFrame {
 
         synchronized (getLocalClientSocketLock()) {
             this.local_client_socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+            this.local_client_socket.getOutputStream().flush();
         }
     }
 
     public void writeCommandFromServer(String command, Socket socket) throws IOException {
         socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+        socket.getOutputStream().flush();
     }
 
     public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) throws KeyException, IOException {
@@ -1000,6 +1010,8 @@ public class WaitingRoomFrame extends JFrame {
                         //Le mandamos los bytes "mágicos"
                         local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
 
+                        local_client_socket.getOutputStream().flush();
+
                         /* INICIO INTERCAMBIO CLAVES */
                         KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
 
@@ -1048,6 +1060,8 @@ public class WaitingRoomFrame extends JFrame {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Enviando datos de reconexión...");
 
                         local_client_socket.getOutputStream().write((Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#*#" + b64_hmac_nick, local_client_aes_key, local_client_hmac_key) + "\n").getBytes("UTF-8"));
+
+                        local_client_socket.getOutputStream().flush();
 
                         local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
 
@@ -1211,9 +1225,9 @@ public class WaitingRoomFrame extends JFrame {
 
                     } else {
 
-                        synchronized (p.getAsync_command_queue()) {
-                            p.getAsync_command_queue().add(command);
-                            p.getAsync_command_queue().notifyAll();
+                        synchronized (p.getPre_game_socket_writer_queue()) {
+                            p.getPre_game_socket_writer_queue().add(command);
+                            p.getPre_game_socket_writer_queue().notifyAll();
                         }
 
                     }
@@ -1245,9 +1259,9 @@ public class WaitingRoomFrame extends JFrame {
 
         } else {
 
-            synchronized (p.getAsync_command_queue()) {
-                p.getAsync_command_queue().add(command);
-                p.getAsync_command_queue().notifyAll();
+            synchronized (p.getPre_game_socket_writer_queue()) {
+                p.getPre_game_socket_writer_queue().add(command);
+                p.getPre_game_socket_writer_queue().notifyAll();
             }
 
         }
@@ -1389,6 +1403,7 @@ public class WaitingRoomFrame extends JFrame {
                     local_client_socket.setTcpNoDelay(true);
                     //Le mandamos los bytes "mágicos"
                     local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
+                    local_client_socket.getOutputStream().flush();
                     Helpers.GUIRun(() -> {
                         status.setText(Translator.translate("Intercambio de claves..."));
                     });
@@ -1560,16 +1575,20 @@ public class WaitingRoomFrame extends JFrame {
                             //Nos añadimos nosotros
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
-                            //Cada X segundos mandamos un comando KEEP ALIVE al server
+                            //Cada X segundos mandamos un PING al server
                             Helpers.threadRun(() -> {
 
                                 while (!exit && WaitingRoomFrame.getInstance() != null) {
 
                                     int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
-                                    pong = null;
+                                    remote_server_pong = null;
 
-                                    server_latency = -1;
+                                    remote_server_pong2 = null;
+
+                                    remote_server_latency = -1;
+
+                                    remote_server_latency2 = -1;
 
                                     long pingStartNs = System.nanoTime();
 
@@ -1580,36 +1599,57 @@ public class WaitingRoomFrame extends JFrame {
                                         break;
                                     }
 
-                                    synchronized (keep_alive_lock) {
+                                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
 
-                                        long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
-
-                                        while (!exit && pong == null && System.currentTimeMillis() < end) {
+                                    while (!exit && (remote_server_pong == null || remote_server_pong2 == null) && System.currentTimeMillis() < end) {
+                                        synchronized (ping_pong_lock) {
                                             try {
-                                                keep_alive_lock.wait(end - System.currentTimeMillis());
+                                                ping_pong_lock.wait(end - System.currentTimeMillis());
                                             } catch (InterruptedException ignored) {
                                             }
                                         }
 
-                                        // SOLO si llegó el pong correcto medimos latencia
-                                        if (pong != null && pong == ping + 1) {
-                                            server_latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                                        if (remote_server_latency == -1 && remote_server_pong != null && remote_server_pong == ping + 1) {
+
+                                            remote_server_latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
                                         }
+
+                                        if (remote_server_latency2 == -1 && remote_server_pong2 != null && remote_server_pong2 == ping + 2) {
+
+                                            remote_server_latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                                        }
+                                    }
+
+                                    // SOLO si llegó el remote_server_pong correcto medimos latencia
+                                    if (remote_server_pong != null && remote_server_pong2 != null) {
+
+                                        Helpers.GUIRun(() -> {
+                                            this.latency_label.setVisible(true);
+                                            this.latency_label.setText(String.valueOf(remote_server_latency) + " ms / " + String.valueOf(remote_server_latency2) + " ms");
+                                        });
                                     }
 
                                     if (!exit && WaitingRoomFrame.getInstance() != null) {
 
-                                        if (pong == null) {
+                                        if (remote_server_pong == null) {
 
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
 
-                                        } else if (pong != ping + 1) {
+                                        } else if (remote_server_pong != ping + 1) {
 
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DEL SERVIDOR INCORRECTO");
 
+                                        } else if (remote_server_pong2 == null) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING2");
+
+                                        } else if (remote_server_pong2 != ping + 2) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DEL SERVIDOR INCORRECTO");
+
                                         } else if (DEV_MODE) {
 
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONG DEL SERVIDOR RECIBIDO CORRECTAMENTE. (Latencia: {0} ms)", server_latency);
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONGS DEL SERVIDOR RECIBIDOS CORRECTAMENTE. (Latencia: {0} ms / {1} ms)", new Object[]{remote_server_latency, remote_server_latency2});
                                         }
 
                                         Helpers.pausar(PING_INTERVAL_MS);
@@ -1646,13 +1686,56 @@ public class WaitingRoomFrame extends JFrame {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
                                     }
 
-                                    try {
-                                        local_client_socket_reader_queue.put(mensaje_recibido != null ? mensaje_recibido : POISON_PILL);
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
-                                    }
+                                    if (mensaje_recibido != null) {
 
-                                    if (mensaje_recibido == null) {
+                                        String[] partes_comando = mensaje_recibido.split("#");
+
+                                        if ("PING".equals(partes_comando[0])) {
+
+                                            try {
+
+                                                writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                            } catch (IOException ex) {
+                                                System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                                            }
+
+                                            try {
+                                                local_client_socket_reader_queue.put(mensaje_recibido); //Metemos el PING en la cola para generar el PONG2
+                                            } catch (InterruptedException ex) {
+                                                System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                                            }
+
+                                        } else if ("PONG".equals(partes_comando[0])) {
+
+                                            remote_server_pong = Integer.valueOf(partes_comando[1]);
+
+                                            synchronized (ping_pong_lock) {
+                                                ping_pong_lock.notifyAll();
+                                            }
+
+                                        } else if ("PONG2".equals(partes_comando[0])) {
+
+                                            remote_server_pong2 = Integer.valueOf(partes_comando[1]);
+
+                                            synchronized (ping_pong_lock) {
+                                                ping_pong_lock.notifyAll();
+                                            }
+                                        } else {
+
+                                            try {
+                                                local_client_socket_reader_queue.put(mensaje_recibido);
+                                            } catch (Exception ex) {
+                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
+                                            }
+                                        }
+
+                                    } else {
+                                        try {
+                                            local_client_socket_reader_queue.put(POISON_PILL);
+                                        } catch (Exception ex) {
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
+                                        }
+
                                         last_received.clear();
                                     }
 
@@ -1673,14 +1756,9 @@ public class WaitingRoomFrame extends JFrame {
                                     String[] partes_comando = recibido.split("#");
 
                                     switch (partes_comando[0]) {
-                                        case "PONG":
-                                            pong = Integer.valueOf(partes_comando[1]);
-                                            synchronized (keep_alive_lock) {
-                                                keep_alive_lock.notifyAll();
-                                            }
-                                            break;
                                         case "PING":
-                                            writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+
+                                            writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
                                             break;
                                         case "CHAT":
                                             String mensaje;
@@ -2124,8 +2202,8 @@ public class WaitingRoomFrame extends JFrame {
 
             } while (!exit && local_client_socket == null);
             exit = true;
-            synchronized (keep_alive_lock) {
-                keep_alive_lock.notifyAll();
+            synchronized (ping_pong_lock) {
+                ping_pong_lock.notifyAll();
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 Helpers.GUIRunAndWait(() -> {
@@ -2208,6 +2286,7 @@ public class WaitingRoomFrame extends JFrame {
                     DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
                     dOut.writeInt(serverPubKeyEnc.length);
                     dOut.write(serverPubKeyEnc);
+                    dOut.flush();
                     serverKeyAgree.doPhase(clientPubKey, true);
                     byte[] serverSharedSecret = serverKeyAgree.generateSecret();
                     byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
@@ -2460,19 +2539,19 @@ public class WaitingRoomFrame extends JFrame {
                     String[] direccion = server_ip_port.trim().split(":");
                     server_port = Integer.parseInt(direccion[1]);
                     if (upnp) {
-                        String stat = status1.getText();
+                        String stat = server_address_label.getText();
                         Helpers.GUIRun(() -> {
-                            status1.setText(Translator.translate("Probando UPnP..."));
+                            server_address_label.setText(Translator.translate("Probando UPnP..."));
                         });
                         upnp = Helpers.UPnPOpen(server_port);
                         if (upnp) {
                             Helpers.GUIRun(() -> {
-                                status1.setForeground(Color.BLUE);
-                                status1.setText(Helpers.getMyPublicIP() + ":" + String.valueOf(server_port) + " (UPnP OK)");
+                                server_address_label.setForeground(Color.BLUE);
+                                server_address_label.setText(Helpers.getMyPublicIP() + ":" + String.valueOf(server_port) + " (UPnP OK)");
                             });
                         } else {
                             Helpers.GUIRun(() -> {
-                                status1.setText(stat + " (UPnP ERROR)");
+                                server_address_label.setText(stat + " (UPnP ERROR)");
                             });
                             mostrarMensajeError(THIS, "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
                         }
@@ -2784,7 +2863,7 @@ public class WaitingRoomFrame extends JFrame {
         jPanel3 = new javax.swing.JPanel();
         pass_icon = new javax.swing.JLabel();
         tot_conectados = new javax.swing.JLabel();
-        status1 = new javax.swing.JLabel();
+        server_address_label = new javax.swing.JLabel();
         radar = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
@@ -2801,6 +2880,7 @@ public class WaitingRoomFrame extends JFrame {
         emoji_scroll_panel = new javax.swing.JScrollPane();
         emoji_panel = new com.tonikelope.coronapoker.EmojiPanel();
         tts_warning = new javax.swing.JLabel();
+        latency_label = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("CoronaPoker - Sala de espera");
@@ -2981,14 +3061,14 @@ public class WaitingRoomFrame extends JFrame {
         tot_conectados.setForeground(new java.awt.Color(0, 102, 255));
         tot_conectados.setText("0/10");
 
-        status1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        status1.setText("1.1.1.1");
-        status1.setToolTipText("Click para obtener datos de conexión");
-        status1.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        status1.setDoubleBuffered(true);
-        status1.addMouseListener(new java.awt.event.MouseAdapter() {
+        server_address_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        server_address_label.setText("1.1.1.1");
+        server_address_label.setToolTipText("Click para obtener datos de conexión");
+        server_address_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        server_address_label.setDoubleBuffered(true);
+        server_address_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
-                status1MouseClicked(evt);
+                server_address_labelMouseClicked(evt);
             }
         });
 
@@ -3005,8 +3085,8 @@ public class WaitingRoomFrame extends JFrame {
                 .addGap(0, 0, 0)
                 .addComponent(pass_icon)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(status1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(server_address_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(tot_conectados)
                 .addGap(0, 0, 0))
         );
@@ -3016,7 +3096,7 @@ public class WaitingRoomFrame extends JFrame {
                 .addGap(0, 0, 0)
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(status1, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(server_address_label, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addComponent(radar))
                     .addComponent(tot_conectados)
                     .addComponent(pass_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)))
@@ -3086,7 +3166,7 @@ public class WaitingRoomFrame extends JFrame {
                 .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(8, Short.MAX_VALUE))
         );
 
         danger_server.setBackground(new java.awt.Color(255, 0, 0));
@@ -3263,6 +3343,11 @@ public class WaitingRoomFrame extends JFrame {
                 .addComponent(tts_warning))
         );
 
+        latency_label.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        latency_label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        latency_label.setText("0 ms / 0 ms");
+        latency_label.setDoubleBuffered(true);
+
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);
         main_panelLayout.setHorizontalGroup(
@@ -3270,24 +3355,27 @@ public class WaitingRoomFrame extends JFrame {
             .addGroup(main_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(danger_server, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panel_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, 688, Short.MAX_VALUE)
                     .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(chat_scroll, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(danger_server, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(latency_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         main_panelLayout.setVerticalGroup(
             main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(main_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(danger_server)
+                .addComponent(latency_label)
+                .addGap(1, 1, 1)
+                .addComponent(danger_server, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, 508, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(chat_notifications)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 28, Short.MAX_VALUE)
+                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))
@@ -3454,7 +3542,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                 if (p != null && !p.isCpu()) {
 
-                                    if (!p.getAsync_command_queue().isEmpty()) {
+                                    if (!p.getPre_game_socket_writer_queue().isEmpty()) {
 
                                         ocupados = true;
 
@@ -3473,9 +3561,9 @@ public class WaitingRoomFrame extends JFrame {
 
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
 
-                                synchronized (lock_client_async_wait) {
+                                synchronized (lock_client_pre_game_commands_wait) {
                                     try {
-                                        lock_client_async_wait.wait(ASYNC_WAIT_LOCK);
+                                        lock_client_pre_game_commands_wait.wait(PRE_GAME_COMMANDS_LOCK);
                                     } catch (InterruptedException ex) {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                                     }
@@ -3690,7 +3778,7 @@ public class WaitingRoomFrame extends JFrame {
         mostrarMensajeInformativo(this, "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de voz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes enviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT", "justify", (int) Math.round(getWidth() * 0.8f));
     }//GEN-LAST:event_tts_warningMouseClicked
 
-    private void status1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_status1MouseClicked
+    private void server_address_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_server_address_labelMouseClicked
 
         if (server) {
             // TODO add your handling code here:
@@ -3698,7 +3786,7 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":" + String.valueOf(server_socket.getLocalPort()) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":" + String.valueOf(server_socket.getLocalPort()));
             mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
         }
-    }//GEN-LAST:event_status1MouseClicked
+    }//GEN-LAST:event_server_address_labelMouseClicked
 
     private void game_info_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_info_buyinMouseClicked
         // TODO add your handling code here:
@@ -4001,6 +4089,7 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JButton kick_user;
+    private javax.swing.JLabel latency_label;
     private javax.swing.JLabel logo;
     private javax.swing.JPanel main_panel;
     private javax.swing.JScrollPane main_scroll_panel;
@@ -4012,9 +4101,9 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JLabel pass_icon;
     private javax.swing.JLabel radar;
     private javax.swing.JLabel send_label;
+    private javax.swing.JLabel server_address_label;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
-    private javax.swing.JLabel status1;
     private javax.swing.JLabel tot_conectados;
     private javax.swing.JLabel tts_warning;
     // End of variables declaration//GEN-END:variables

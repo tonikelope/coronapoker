@@ -90,16 +90,16 @@ public class Participant implements Runnable {
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
-    private volatile long latency;
-    private volatile long latency2;
-    private volatile long pong_timeout = 0;
-    private volatile long pong2_timeout = 0;
+    private volatile int latency;
+    private volatile int latency2;
+    private volatile int pong_timeout_counter = 0;
+    private volatile int pong2_timeout_counter = 0;
 
-    public long getLatency2() {
+    public int getLatency2() {
         return latency2;
     }
 
-    public long getLatency() {
+    public int getLatency() {
         return latency;
     }
 
@@ -223,6 +223,14 @@ public class Participant implements Runnable {
                     }
                 }
 
+                if (latency == -1) {
+                    pong_timeout_counter++;
+                }
+
+                if (latency2 == -1) {
+                    pong2_timeout_counter++;
+                }
+
                 if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
                     RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
 
@@ -230,21 +238,18 @@ public class Participant implements Runnable {
 
                         if (latency != -1 && latency2 != -1) {
 
-                            jugador.updateLatency(Translator.translate("Latencia:") + " " + String.valueOf(latency) + " ms (" + String.valueOf(pong_timeout) + ") | " + String.valueOf(latency2) + " ms (" + String.valueOf(pong2_timeout) + ")", false);
+                            jugador.updateLatency(Translator.translate("Latencia:") + " " + String.valueOf(latency) + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + String.valueOf(latency2) + " ms (" + String.valueOf(pong2_timeout_counter) + ")", false);
 
                         } else {
 
-                            if (latency == -1) {
-                                pong_timeout++;
-                            }
-
-                            if (latency2 == -1) {
-                                pong2_timeout++;
-                            }
-
-                            jugador.updateLatency(Translator.translate("Latencia:") + " " + (latency != -1 ? String.valueOf(latency) : "---") + " ms (" + String.valueOf(pong_timeout) + ") | " + (latency2 != -1 ? String.valueOf(latency2) : "---") + " ms (" + String.valueOf(pong2_timeout) + ")", true);
+                            jugador.updateLatency(Translator.translate("Latencia:") + " " + (latency != -1 ? String.valueOf(latency) : "-") + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + (latency2 != -1 ? String.valueOf(latency2) : "-") + " ms (" + String.valueOf(pong2_timeout_counter) + ")", true);
                         }
                     }
+                }
+
+                if (WaitingRoomFrame.getInstance() != null && !isCpu() && (!WaitingRoomFrame.getInstance().isPartida_empezada() || WaitingRoomFrame.getInstance().isVisible())) {
+
+                    WaitingRoomFrame.getInstance().updateParticipantLatency(nick, latency, latency2);
                 }
 
                 if (!exit && WaitingRoomFrame.getInstance() != null) {

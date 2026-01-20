@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Component;
+import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.ListCellRenderer;
@@ -38,43 +39,80 @@ import javax.swing.ListCellRenderer;
  *
  * @author tonikelope
  */
-public class ParticipantsListLabel extends JLabel implements ListCellRenderer {
+public class ParticipantsListLabel extends JLabel implements ListCellRenderer<ParticipantJListData> {
 
     @Override
     public Component getListCellRendererComponent(
-            JList list,
-            Object value,
+            JList<? extends ParticipantJListData> list,
+            ParticipantJListData participant,
             int index,
             boolean isSelected,
             boolean cellHasFocus) {
 
-        if (value instanceof JLabel) {
-            this.setText(((JLabel) value).getText());
-            this.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
-            this.setIcon(((JLabel) value).getIcon());
-            this.setFont(list.getFont());
-
-            if (isSelected) {
-                this.setOpaque(true);
-                this.setBackground(Color.YELLOW);
-                this.setForeground(Color.BLACK);
-            } else if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()) != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isAsync_wait()) {
-                this.setOpaque(true);
-                this.setBackground(Color.DARK_GRAY);
-                this.setForeground(Color.WHITE);
-            } else if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()) != null && WaitingRoomFrame.getInstance().getParticipantes().get(((JLabel) value).getText()).isUnsecure_player() && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
-                this.setOpaque(true);
-                this.setBackground(Color.RED);
-                this.setForeground(Color.WHITE);
-            } else {
-                this.setOpaque(false);
-                this.setForeground(Color.BLACK);
-            }
-
-            revalidate();
+        if (participant == null) {
+            setText("");
+            setIcon(null);
+            return this;
         }
+
+        // Texto con nick y latencias
+        String text = participant.getNick();
+
+        if (participant.hasLatency()) {
+            text += " (" + (participant.getLatency() >= 0 ? String.valueOf(participant.getLatency()) : "-") + " ms)";
+        }
+
+        setText(text);
+
+        // Icono
+        setIcon(participant.getAvatar());
+
+        // Margen y fuente
+        setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        setFont(list.getFont());
+
+        // Colores según estado
+        Color background = list.getBackground();
+        Color foreground = list.getForeground();
+        boolean opaque = false;
+
+        if (isSelected) {
+            opaque = true;
+            background = Color.YELLOW;
+            foreground = Color.BLACK;
+        } else {
+            // Consulta tu mapa de participantes
+            if (WaitingRoomFrame.getInstance() != null) {
+                Object stateObj = WaitingRoomFrame.getInstance().getParticipantes().get(participant.getNick());
+                if (stateObj != null) {
+                    // Aquí suponemos que tu objeto tiene los métodos isAsync_wait() / isUnsecure_player()
+                    boolean asyncWait = false;
+                    boolean unsecure = false;
+
+                    try {
+                        asyncWait = (boolean) stateObj.getClass().getMethod("isAsync_wait").invoke(stateObj);
+                        unsecure = (boolean) stateObj.getClass().getMethod("isUnsecure_player").invoke(stateObj);
+                    } catch (Exception e) {
+                        // ignora errores de reflexión
+                    }
+
+                    if (asyncWait) {
+                        opaque = true;
+                        background = Color.DARK_GRAY;
+                        foreground = Color.WHITE;
+                    } else if (unsecure && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+                        opaque = true;
+                        background = Color.RED;
+                        foreground = Color.WHITE;
+                    }
+                }
+            }
+        }
+
+        setOpaque(opaque);
+        setBackground(background);
+        setForeground(foreground);
 
         return this;
     }
-
 }

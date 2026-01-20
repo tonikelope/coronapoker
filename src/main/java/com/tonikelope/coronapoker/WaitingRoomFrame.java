@@ -163,14 +163,14 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
-    private volatile long remote_server_latency;
-    private volatile long remote_server_latency2;
+    private volatile int remote_server_latency;
+    private volatile int remote_server_latency2;
 
-    public long getServer_latency2() {
+    public int getServer_latency2() {
         return remote_server_latency2;
     }
 
-    public long getServer_latency() {
+    public int getServer_latency() {
         return remote_server_latency;
     }
 
@@ -202,7 +202,7 @@ public class WaitingRoomFrame extends JFrame {
         return chat_text;
     }
 
-    public JList<String> getConectados() {
+    public JList<ParticipantJListData> getConectados() {
         return conectados;
     }
 
@@ -744,7 +744,7 @@ public class WaitingRoomFrame extends JFrame {
 
         server_address_label.setText(server_ip_port);
 
-        DefaultListModel listModel = new DefaultListModel();
+        DefaultListModel<ParticipantJListData> listModel = new DefaultListModel<>();
 
         if (server) {
 
@@ -775,23 +775,29 @@ public class WaitingRoomFrame extends JFrame {
 
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
 
-            ParticipantsListLabel label = new ParticipantsListLabel();
+            ParticipantJListData participant_data = new ParticipantJListData(local_nick);
 
-            label.setText(local_nick);
-
-            label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
+            ImageIcon participant_avatar = null;
 
             if (local_avatar != null) {
-                Helpers.setScaledIconLabel(label, local_avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                try {
+                    participant_avatar = Helpers.scaleIcon(local_avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                } catch (MalformedURLException ex) {
+                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                }
             } else {
-                Helpers.setScaledIconLabel(label, getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                try {
+                    participant_avatar = Helpers.scaleIcon(getClass().getResource("/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                } catch (MalformedURLException ex) {
+                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                }
             }
 
-            listModel.addElement(label);
-            conectados.setModel(listModel);
+            participant_data.setAvatar(participant_avatar);
 
-            conectados.revalidate();
-            conectados.repaint();
+            listModel.addElement(participant_data);
+
+            conectados.setModel(listModel);
 
         } else {
             empezar_timba.setVisible(false);
@@ -803,9 +809,6 @@ public class WaitingRoomFrame extends JFrame {
             max_min_label.setEnabled(false);
             barra.setVisible(true);
             conectados.setModel(listModel);
-
-            conectados.revalidate();
-            conectados.repaint();
             game_info_buyin.setToolTipText(null);
             game_info_blinds.setToolTipText(null);
             game_info_hands.setToolTipText(null);
@@ -1625,7 +1628,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                         Helpers.GUIRun(() -> {
                                             this.latency_label.setVisible(true);
-                                            this.latency_label.setText(Translator.translate("Latencia con el servidor:") + " " + String.valueOf(remote_server_latency) + " ms | " + String.valueOf(remote_server_latency2) + " ms");
+                                            this.latency_label.setText(Translator.translate("Latencia con el servidor:") + " " + String.valueOf(remote_server_latency) + " ms");
                                         });
                                     }
 
@@ -2718,6 +2721,24 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
+    public void updateParticipantLatency(String nick, int latency, int latency2) {
+        Helpers.GUIRun(() -> {
+            DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
+
+            for (int i = 0; i < model.getSize(); i++) {
+                ParticipantJListData p = model.getElementAt(i);
+                if (p.getNick().equals(nick)) {
+                    p.setLatency(latency);
+                    p.setLatency2(latency2);
+
+                    // Esto fuerza que el JList se repinte
+                    model.set(i, p);  // ✅ importante
+                    break;
+                }
+            }
+        });
+    }
+
     public synchronized void borrarParticipante(String nick) {
 
         if (this.participantes.containsKey(nick)) {
@@ -2735,23 +2756,23 @@ public class WaitingRoomFrame extends JFrame {
 
                 tot_conectados.repaint();
 
-                DefaultListModel model = (DefaultListModel) conectados.getModel();
+                DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
 
-                ParticipantsListLabel rem_element = null;
+                ParticipantJListData toRemove = null;
 
+                // Buscar el participante por nick
                 for (int i = 0; i < model.getSize(); i++) {
-
-                    if (((ParticipantsListLabel) model.getElementAt(i)).getText().equals(nick)) {
-                        rem_element = (ParticipantsListLabel) model.getElementAt(i);
+                    ParticipantJListData p = model.getElementAt(i);
+                    if (p.getNick().equals(nick)) {
+                        toRemove = p;
                         break;
                     }
                 }
 
-                model.removeElement(rem_element);
-
-                conectados.revalidate();
-
-                conectados.repaint();
+                // Removerlo si se encontró
+                if (toRemove != null) {
+                    model.removeElement(toRemove);
+                }
 
                 if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
@@ -2799,33 +2820,32 @@ public class WaitingRoomFrame extends JFrame {
 
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-
             tot_conectados.revalidate();
-
             tot_conectados.repaint();
 
-            ParticipantsListLabel label = new ParticipantsListLabel();
-
-            label.setText(nick);
-
-            label.setPreferredSize(new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
+            ParticipantJListData participant_data = new ParticipantJListData(nick);
+            ImageIcon participant_avatar = null;
 
             if (avatar != null) {
-                Helpers.setScaledRoundedIconLabel(label, avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                try {
+                    participant_avatar = Helpers.scaleIcon(avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                } catch (MalformedURLException ex) {
+                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                }
             } else {
-                Helpers.setScaledRoundedIconLabel(label, getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                try {
+                    participant_avatar = Helpers.scaleIcon(getClass().getResource((server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"), NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                } catch (MalformedURLException ex) {
+                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                }
             }
 
-            ((DefaultListModel) conectados.getModel()).addElement(label);
+            participant_data.setAvatar(participant_avatar);
 
-            conectados.revalidate();
-
-            conectados.repaint();
+            ((DefaultListModel) conectados.getModel()).addElement(participant_data);
 
             if (!nick.equals(server_nick) && !nick.equals(local_nick)) {
-
                 chatHTMLAppendNewUser(nick);
-
             }
 
             revalidate();
@@ -2850,7 +2870,7 @@ public class WaitingRoomFrame extends JFrame {
         sound_icon = new javax.swing.JLabel();
         panel_con = new javax.swing.JPanel();
         panel_conectados = new javax.swing.JScrollPane();
-        conectados = new javax.swing.JList<>();
+        conectados = new javax.swing.JList<ParticipantJListData>();
         kick_user = new javax.swing.JButton();
         empezar_timba = new javax.swing.JButton();
         barra = new javax.swing.JProgressBar();
@@ -3401,10 +3421,15 @@ public class WaitingRoomFrame extends JFrame {
 
     private void kick_userActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_kick_userActionPerformed
 
-        // TODO add your handling code here:
-        if (conectados.getSelectedIndex() != -1) {
+        int selectedIndex = conectados.getSelectedIndex();
 
-            String expulsado = ((JLabel) ((DefaultListModel) conectados.getModel()).get(conectados.getSelectedIndex())).getText();
+        // TODO add your handling code here:
+        if (selectedIndex != -1) {
+
+            DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
+            ParticipantJListData p = model.getElementAt(selectedIndex);
+
+            String expulsado = p.getNick();
 
             if (!expulsado.equals(local_nick)) {
 
@@ -4075,7 +4100,7 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JPanel chat_box_panel;
     private javax.swing.JCheckBox chat_notifications;
     private javax.swing.JScrollPane chat_scroll;
-    private javax.swing.JList<String> conectados;
+    private javax.swing.JList<ParticipantJListData> conectados;
     private javax.swing.JLabel danger_server;
     private javax.swing.JButton emoji_button;
     private com.tonikelope.coronapoker.EmojiPanel emoji_panel;

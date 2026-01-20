@@ -1444,6 +1444,18 @@ public class Helpers {
         });
     }
 
+    public static ImageIcon scaleIcon(String path, int width, int height) throws MalformedURLException {
+
+        return new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+
+    }
+
+    public static ImageIcon scaleIcon(URL path, int width, int height) throws MalformedURLException {
+
+        return new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+
+    }
+
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
         Helpers.GUIRunAndWait(new Runnable() {
             @Override

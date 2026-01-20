@@ -1625,7 +1625,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                         Helpers.GUIRun(() -> {
                                             this.latency_label.setVisible(true);
-                                            this.latency_label.setText(String.valueOf(remote_server_latency) + " ms / " + String.valueOf(remote_server_latency2) + " ms");
+                                            this.latency_label.setText(Translator.translate("Latencia con el servidor:") + " " + String.valueOf(remote_server_latency) + " ms | " + String.valueOf(remote_server_latency2) + " ms");
                                         });
                                     }
 
@@ -3343,9 +3343,9 @@ public class WaitingRoomFrame extends JFrame {
                 .addComponent(tts_warning))
         );
 
-        latency_label.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        latency_label.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
         latency_label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        latency_label.setText("0 ms / 0 ms");
+        latency_label.setText("Latencia con el servidor: 0 ms | 0 ms");
         latency_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
@@ -3369,7 +3369,7 @@ public class WaitingRoomFrame extends JFrame {
                 .addContainerGap()
                 .addComponent(latency_label)
                 .addGap(1, 1, 1)
-                .addComponent(danger_server, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(danger_server)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, 508, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)

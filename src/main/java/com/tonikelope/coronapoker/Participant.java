@@ -92,6 +92,8 @@ public class Participant implements Runnable {
     private volatile boolean force_reset_socket = false;
     private volatile long latency;
     private volatile long latency2;
+    private volatile long pong_timeout = 0;
+    private volatile long pong2_timeout = 0;
 
     public long getLatency2() {
         return latency2;
@@ -221,18 +223,26 @@ public class Participant implements Runnable {
                     }
                 }
 
-                // SOLO si llegaron los 2 pongs
-                if (pong != null && pong2 != null) {
+                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                    RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
 
-                    if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
-                        RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
+                    if (jugador != null) {
 
-                        if (jugador != null) {
-                            Helpers.GUIRun(() -> {
+                        if (latency != -1 && latency2 != -1) {
 
-                                jugador.updateLatency(String.valueOf(latency) + " ms / " + String.valueOf(latency2) + " ms");
+                            jugador.updateLatency(Translator.translate("Latencia:") + " " + String.valueOf(latency) + " ms (" + String.valueOf(pong_timeout) + ") | " + String.valueOf(latency2) + " ms (" + String.valueOf(pong2_timeout) + ")", false);
 
-                            });
+                        } else {
+
+                            if (latency == -1) {
+                                pong_timeout++;
+                            }
+
+                            if (latency2 == -1) {
+                                pong2_timeout++;
+                            }
+
+                            jugador.updateLatency(Translator.translate("Latencia:") + " " + (latency != -1 ? String.valueOf(latency) : "---") + " ms (" + String.valueOf(pong_timeout) + ") | " + (latency2 != -1 ? String.valueOf(latency2) : "---") + " ms (" + String.valueOf(pong2_timeout) + ")", true);
                         }
                     }
                 }

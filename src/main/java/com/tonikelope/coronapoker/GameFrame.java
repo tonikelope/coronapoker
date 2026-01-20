@@ -201,6 +201,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile InGameNotifyDialog notify_dialog = null;
     private volatile int test_card_count = 0;
     private volatile GraphicsDevice device = null;
+    private volatile boolean latency_stats = false;
 
     public JCheckBoxMenuItem getAuto_fullscreen_menu() {
         return auto_fullscreen_menu;
@@ -883,13 +884,40 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return halt_game_menu;
     }
 
+    public void latencyStats(boolean enable) {
+
+        RemotePlayer[] remote_players = GameFrame.getInstance().getTapete().getRemotePlayers();
+
+        Helpers.GUIRun(() -> {
+            for (RemotePlayer player : remote_players) {
+                player.getLatency_label().setVisible(enable);
+            }
+        });
+    }
+
     private void setupGlobalShortcuts() {
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
 
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), new AbstractAction("REFRESH") {
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F7, 0), new AbstractAction("LATENCY_STATS") {
             @Override
             public void actionPerformed(ActionEvent e) {
+
+                if (GameFrame.getInstance().isPartida_local()) {
+
+                    latency_stats = !latency_stats;
+
+                    latencyStats(latency_stats);
+
+                }
+            }
+
+        });
+
+        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), new AbstractAction("REFRESH") {
+            @Override
+            public void actionPerformed(ActionEvent e
+            ) {
                 refresh();
 
                 InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("TAPETE REFRESCADO"), Color.YELLOW, Color.BLACK, null, NOTIFICATION_TIMEOUT);
@@ -898,135 +926,169 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 dialog.setVisible(true);
 
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_Q, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("QUIT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 GameFrame.getInstance().getExit_menu().doClick();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), new AbstractAction("BUYIN") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 GameFrame.getInstance().getLocalPlayer().player_stack_click();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, KeyEvent.ALT_DOWN_MASK), new AbstractAction("HALT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 GameFrame.getInstance().getHalt_game_menu().doClick();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.ALT_DOWN_MASK), new AbstractAction("PAUSE") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 GameFrame.getInstance().getTapete().getCommunityCards().getPause_button().doClick();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_L, KeyEvent.ALT_DOWN_MASK), new AbstractAction("LIGHTS") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 GameFrame.getInstance().getTapete().getCommunityCards().lightsButtonClick();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, KeyEvent.ALT_DOWN_MASK), new AbstractAction("FULL-SCREEN") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 full_screen_menuActionPerformed(e);
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, KeyEvent.ALT_DOWN_MASK), new AbstractAction("COMPACT-CARDS") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 compact_menu.doClick();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-IN") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
 
                 zoom_menu_inActionPerformed(e);
 
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-OUT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
 
                 zoom_menu_outActionPerformed(e);
 
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_0, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("ZOOM-RESET") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
 
                 zoom_menu_resetActionPerformed(e);
 
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, KeyEvent.ALT_DOWN_MASK), new AbstractAction("CHAT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 chat_menuActionPerformed(e);
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke('º'), new AbstractAction("FASTCHAT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
 
                 showFastChatDialog();
 
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_1, 0), new AbstractAction("FASTCHAT-IMAGE") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
 
                 showFastChatImage();
 
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_R, KeyEvent.ALT_DOWN_MASK), new AbstractAction("REGISTRO") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 registro_menuActionPerformed(e);
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, KeyEvent.ALT_DOWN_MASK), new AbstractAction("RELOJ") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 time_menu.doClick();
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), new AbstractAction("FOLD-BUTTON") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
                     getLocalPlayer().getPlayer_fold().doClick();
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), new AbstractAction("CHECK-BUTTON") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
                         getLocalPlayer().getPlayer_allin().doClick();
@@ -1036,29 +1098,35 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), new AbstractAction("BET-BUTTON") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
                     getLocalPlayer().getPlayer_bet_button().doClick();
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("ALLIN-BUTTON") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano() && !GameFrame.getInstance().getLocalPlayer().isBoton_mostrar()) {
                     getLocalPlayer().getPlayer_allin().doClick();
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), new AbstractAction("BET-LEFT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
                     if (getLocalPlayer().getBet_spinner().isEnabled()) {
 
@@ -1071,11 +1139,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), new AbstractAction("BET-DOWN") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
 
                     if (Init.DEV_MODE && THIS.isTimba_pausada()) {
@@ -1136,11 +1206,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), new AbstractAction("BET-RIGHT") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
                     if (getLocalPlayer().getBet_spinner().isEnabled()) {
                         SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
@@ -1150,11 +1222,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     }
                 }
             }
-        });
+        }
+        );
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), new AbstractAction("BET-UP") {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(ActionEvent e
+            ) {
                 if (!getCrupier().isSincronizando_mano()) {
 
                     if (Init.DEV_MODE && THIS.isTimba_pausada()) {
@@ -1214,7 +1288,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 }
             }
-        });
+        }
+        );
 
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 

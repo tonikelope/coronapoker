@@ -45,6 +45,8 @@ public class Translator {
     private static void English() {
 
         String[][] rosetta = {
+            {"Latencia:", "Latency:"},
+            {"Latencia con el servidor:", "Latency with the server:"},
             {"HA RECONECTADO", "HAS RECONNECTED"},
             {"RECONECTANDO CON EL SERVIDOR...", "RECONNECTING WITH THE SERVER..."},
             {"¡NO SE PUDO RECONECTAR CON EL SERVIDOR!", "UNABLE TO RECONNECT TO THE SERVER!"},

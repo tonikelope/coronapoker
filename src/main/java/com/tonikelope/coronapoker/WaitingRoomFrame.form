@@ -87,7 +87,7 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="latency_label" min="-2" max="-2" attributes="0"/>
                       <EmptySpace min="-2" pref="1" max="-2" attributes="0"/>
-                      <Component id="danger_server" min="-2" pref="67" max="-2" attributes="0"/>
+                      <Component id="danger_server" min="-2" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="panel_arriba" min="-2" pref="508" max="-2" attributes="0"/>
                       <EmptySpace max="-2" attributes="0"/>
@@ -782,10 +782,10 @@
             <Component class="javax.swing.JLabel" name="latency_label">
               <Properties>
                 <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                  <Font name="Dialog" size="14" style="0"/>
+                  <Font name="Dialog" size="12" style="0"/>
                 </Property>
                 <Property name="horizontalAlignment" type="int" value="2"/>
-                <Property name="text" type="java.lang.String" value="0 ms / 0 ms"/>
+                <Property name="text" type="java.lang.String" value="Latencia con el servidor: 0 ms | 0 ms"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
             </Component>

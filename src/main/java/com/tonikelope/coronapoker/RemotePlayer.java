@@ -120,8 +120,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
 
-    public void updateLatency(String latency) {
-        player_action.setToolTipText(latency);
+    public void updateLatency(String latency, boolean error) {
+        Helpers.GUIRun(() -> {
+            latency_label.setBackground(error ? Color.RED : Color.BLUE);
+            latency_label.setText(latency);
+        });
+    }
+
+    public JLabel getLatency_label() {
+        return latency_label;
     }
 
     @Override
@@ -1052,6 +1059,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
+            latency_label.setVisible(false);
             player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             hands_win.setVisible(false);
@@ -1210,6 +1218,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         danger = new javax.swing.JLabel();
         player_action_panel = new RoundedPanel(20);
         player_action = new javax.swing.JLabel();
+        latency_label = new javax.swing.JLabel();
 
         setBorder(javax.swing.BorderFactory.createLineBorder(new Color(204, 204, 204, 75), Math.round(com.tonikelope.coronapoker.Player.BORDER * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL*com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
         setFocusable(false);
@@ -1454,14 +1463,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGap(0, 0, 0))
         );
 
+        latency_label.setBackground(new java.awt.Color(0, 0, 255));
+        latency_label.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        latency_label.setForeground(new java.awt.Color(255, 255, 255));
+        latency_label.setText("Latencia: * ms | * ms");
+        latency_label.setOpaque(true);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(danger, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(danger, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(latency_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(indicadores_arriba, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(panel_cartas, javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(player_action_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -1471,6 +1487,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
+                .addComponent(latency_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(danger)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(indicadores_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -1597,6 +1615,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private com.tonikelope.coronapoker.Card holeCard1;
     private com.tonikelope.coronapoker.Card holeCard2;
     private javax.swing.JPanel indicadores_arriba;
+    private javax.swing.JLabel latency_label;
     private javax.swing.JPanel nick_panel;
     private javax.swing.JLayeredPane panel_cartas;
     private javax.swing.JLabel player_action;

@@ -94,6 +94,7 @@ public class Init extends JFrame {
     public static final boolean DEV_MODE = false;
 
     public static final boolean DEBUG_FILE = true;
+
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String RADAR_DIR = CORONA_DIR + "/RADAR";

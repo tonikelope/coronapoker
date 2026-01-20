@@ -39,7 +39,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
-import java.security.KeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -477,22 +476,22 @@ public class Participant implements Runnable {
         }
 
         try {
+            synchronized (this.socket.getOutputStream()) {
 
-            this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-            this.socket.getOutputStream().flush();
+                this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                this.socket.getOutputStream().flush();
 
-            return false;
-
-        } catch (Exception ex) {
-
-            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-            Helpers.pausar(1000);
-            return true;
-
+                return false;
+            }
+        } catch (IOException ex) {
+            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
+
+        return true;
+
     }
 
-    public String readCommandFromClient() throws KeyException, IOException {
+    public String readCommandFromClient() {
 
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
@@ -504,7 +503,16 @@ public class Participant implements Runnable {
             }
         }
 
-        return Helpers.decryptCommand(this.getInput_stream_reader().readLine(), this.getAes_key(), this.getHmac_key());
+        synchronized (getInput_stream_reader()) {
+
+            try {
+                return Helpers.decryptCommand(getInput_stream_reader().readLine(), getAes_key(), getHmac_key());
+            } catch (Exception ex) {
+                System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            }
+        }
+
+        return null;
     }
 
     public void socketClose() {

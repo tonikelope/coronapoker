@@ -51,7 +51,6 @@ import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
-import java.security.KeyException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -910,7 +909,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    public void writeCommandToServer(String command) throws IOException {
+    public void writeCommandToServer(String command) {
 
         while (this.reconnecting) {
             synchronized (getLocalClientSocketLock()) {
@@ -922,25 +921,45 @@ public class WaitingRoomFrame extends JFrame {
             }
         }
 
-        synchronized (getLocalClientSocketLock()) {
-            this.local_client_socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-            this.local_client_socket.getOutputStream().flush();
+        try {
+            synchronized (local_client_socket.getOutputStream()) {
+
+                local_client_socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                local_client_socket.getOutputStream().flush();
+
+            }
+        } catch (IOException ex) {
+            System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
     }
 
-    public void writeCommandFromServer(String command, Socket socket) throws IOException {
-        socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-        socket.getOutputStream().flush();
+    public void writeCommandFromServer(String command, Socket socket) {
+        try {
+            synchronized (socket.getOutputStream()) {
+                socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                socket.getOutputStream().flush();
+            }
+        } catch (IOException ex) {
+            System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
     }
 
-    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) throws KeyException, IOException {
+    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
 
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        try {
+            synchronized (socket.getInputStream()) {
 
-        return Helpers.decryptCommand(in.readLine(), key, hmac_key);
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                return Helpers.decryptCommand(in.readLine(), key, hmac_key);
+            }
+        } catch (Exception ex) {
+            System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+        }
+        return null;
     }
 
-    public String readCommandFromServer() throws KeyException, IOException {
+    public String readCommandFromServer() {
 
         while (this.reconnecting) {
             synchronized (getLocalClientSocketLock()) {
@@ -952,7 +971,15 @@ public class WaitingRoomFrame extends JFrame {
             }
         }
 
-        return Helpers.decryptCommand(this.getLocal_client_buffer_read_is().readLine(), this.getLocal_client_aes_key(), this.getLocal_client_hmac_key());
+        synchronized (getLocal_client_buffer_read_is()) {
+            try {
+                return Helpers.decryptCommand(getLocal_client_buffer_read_is().readLine(), getLocal_client_aes_key(), getLocal_client_hmac_key());
+            } catch (Exception ex) {
+                System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            }
+        }
+
+        return null;
     }
 
     //Función AUTO-RECONNECT
@@ -1578,89 +1605,6 @@ public class WaitingRoomFrame extends JFrame {
                             //Nos añadimos nosotros
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
-                            //Cada X segundos mandamos un PING al server
-                            Helpers.threadRun(() -> {
-
-                                while (!exit && WaitingRoomFrame.getInstance() != null) {
-
-                                    int ping = Helpers.CSPRNG_GENERATOR.nextInt();
-
-                                    remote_server_pong = null;
-
-                                    remote_server_pong2 = null;
-
-                                    remote_server_latency = -1;
-
-                                    remote_server_latency2 = -1;
-
-                                    long pingStartNs = System.nanoTime();
-
-                                    try {
-                                        writeCommandToServer("PING#" + ping);
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Error enviando PING", ex);
-                                        break;
-                                    }
-
-                                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
-
-                                    while (!exit && (remote_server_pong == null || remote_server_pong2 == null) && System.currentTimeMillis() < end) {
-                                        synchronized (ping_pong_lock) {
-                                            try {
-                                                ping_pong_lock.wait(end - System.currentTimeMillis());
-                                            } catch (InterruptedException ignored) {
-                                            }
-                                        }
-
-                                        if (remote_server_latency == -1 && remote_server_pong != null && remote_server_pong == ping + 1) {
-
-                                            remote_server_latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
-                                        }
-
-                                        if (remote_server_latency2 == -1 && remote_server_pong2 != null && remote_server_pong2 == ping + 2) {
-
-                                            remote_server_latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
-                                        }
-                                    }
-
-                                    // SOLO si llegó el remote_server_pong correcto medimos latencia
-                                    if (remote_server_pong != null && remote_server_pong2 != null) {
-
-                                        Helpers.GUIRun(() -> {
-                                            this.latency_label.setVisible(true);
-                                            this.latency_label.setText(Translator.translate("Latencia con el servidor:") + " " + String.valueOf(remote_server_latency) + " ms");
-                                        });
-                                    }
-
-                                    if (!exit && WaitingRoomFrame.getInstance() != null) {
-
-                                        if (remote_server_pong == null) {
-
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
-
-                                        } else if (remote_server_pong != ping + 1) {
-
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DEL SERVIDOR INCORRECTO");
-
-                                        } else if (remote_server_pong2 == null) {
-
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING2");
-
-                                        } else if (remote_server_pong2 != ping + 2) {
-
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DEL SERVIDOR INCORRECTO");
-
-                                        } else if (DEV_MODE) {
-
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONGS DEL SERVIDOR RECIBIDOS CORRECTAMENTE. (Latencia: {0} ms / {1} ms)", new Object[]{remote_server_latency, remote_server_latency2});
-                                        }
-
-                                        Helpers.pausar(PING_INTERVAL_MS);
-                                    }
-
-                                }
-                            });
-
                             Helpers.GUIRunAndWait(() -> {
                                 status.setText(Translator.translate("CONECTADO"));
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/1.png")));
@@ -1695,12 +1639,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                         if ("PING".equals(partes_comando[0])) {
 
-                                            try {
-
-                                                writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
-                                            } catch (IOException ex) {
-                                                System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                                            }
+                                            writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
 
                                             try {
                                                 local_client_socket_reader_queue.put(mensaje_recibido); //Metemos el PING en la cola para generar el PONG2
@@ -1747,6 +1686,89 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                 }
 
+                            });
+
+                            //Cada X segundos mandamos un PING al server
+                            Helpers.threadRun(() -> {
+
+                                while (!exit && WaitingRoomFrame.getInstance() != null) {
+
+                                    int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                                    remote_server_pong = null;
+
+                                    remote_server_pong2 = null;
+
+                                    remote_server_latency = -1;
+
+                                    remote_server_latency2 = -1;
+
+                                    long pingStartNs = System.nanoTime();
+
+                                    try {
+                                        writeCommandToServer("PING#" + ping);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Error enviando PING", ex);
+                                        break;
+                                    }
+
+                                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
+
+                                    while (!exit && (remote_server_pong == null || remote_server_pong2 == null) && System.currentTimeMillis() < end) {
+                                        synchronized (ping_pong_lock) {
+                                            try {
+                                                ping_pong_lock.wait(end - System.currentTimeMillis());
+                                            } catch (InterruptedException ignored) {
+                                            }
+                                        }
+
+                                        if (remote_server_latency == -1 && remote_server_pong != null && remote_server_pong == ping + 1) {
+
+                                            remote_server_latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                                        }
+
+                                        if (remote_server_latency2 == -1 && remote_server_pong2 != null && remote_server_pong2 == ping + 2) {
+
+                                            remote_server_latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
+                                        }
+                                    }
+
+                                    // SOLO si llegó el remote_server_pong correcto medimos latencia
+                                    if (remote_server_latency != -1) {
+
+                                        Helpers.GUIRun(() -> {
+                                            this.latency_label.setVisible(true);
+                                            this.latency_label.setText(Translator.translate("Latencia del servidor:") + " " + String.valueOf(remote_server_latency) + " ms");
+                                        });
+                                    }
+
+                                    if (!exit && WaitingRoomFrame.getInstance() != null) {
+
+                                        if (remote_server_pong == null) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING");
+
+                                        } else if (remote_server_pong != ping + 1) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DEL SERVIDOR INCORRECTO");
+
+                                        } else if (remote_server_pong2 == null) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "EL SERVIDOR NO RESPONDIÓ EL PING2");
+
+                                        } else if (remote_server_pong2 != ping + 2) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DEL SERVIDOR INCORRECTO");
+
+                                        } else if (DEV_MODE) {
+
+                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONGS DEL SERVIDOR RECIBIDOS CORRECTAMENTE. (Latencia: {0} ms / {1} ms)", new Object[]{remote_server_latency, remote_server_latency2});
+                                        }
+
+                                        Helpers.pausar(PING_INTERVAL_MS);
+                                    }
+
+                                }
                             });
 
                             //Nos quedamos en bucle esperando y procesando mensajes del server
@@ -3365,7 +3387,7 @@ public class WaitingRoomFrame extends JFrame {
 
         latency_label.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
         latency_label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        latency_label.setText("Latencia con el servidor: 0 ms | 0 ms");
+        latency_label.setText("Latencia del servidor: 0 ms | 0 ms");
         latency_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);

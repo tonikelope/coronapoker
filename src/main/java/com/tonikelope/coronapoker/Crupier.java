@@ -4278,27 +4278,10 @@ public class Crupier implements Runnable {
 
         do {
 
-            try {
+            GameFrame.getInstance().getSala_espera().writeCommandToServer(Helpers.encryptCommand(full_command, GameFrame.getInstance().getSala_espera().getLocal_client_aes_key(), GameFrame.getInstance().getSala_espera().getLocal_client_hmac_key()));
 
-                GameFrame.getInstance().getSala_espera().writeCommandToServer(Helpers.encryptCommand(full_command, GameFrame.getInstance().getSala_espera().getLocal_client_aes_key(), GameFrame.getInstance().getSala_espera().getLocal_client_hmac_key()));
-
-                if (confirmation) {
-                    this.waitSyncConfirmations(id, pendientes);
-                }
-
-            } catch (IOException ex) {
-
-                if (confirmation) {
-
-                    synchronized (GameFrame.getInstance().getSala_espera().getLocalClientSocketLock()) {
-
-                        try {
-                            GameFrame.getInstance().getSala_espera().getLocalClientSocketLock().wait(1000);
-                        } catch (InterruptedException ex1) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex1);
-                        }
-                    }
-                }
+            if (confirmation) {
+                this.waitSyncConfirmations(id, pendientes);
             }
 
             if (confirmation) {

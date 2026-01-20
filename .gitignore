@@ -3,6 +3,7 @@
 # Project Ignores                       #
 #---------------------------------------#
 
+/CORONA*
 .CORONA*
 .last_build
 

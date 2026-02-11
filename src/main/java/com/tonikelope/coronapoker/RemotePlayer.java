@@ -324,7 +324,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         try {
 
-                            ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
+                            ImageIcon orig = ImageCacheManager.getIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
                             int max_width = Math.max(panel_cartas.getWidth(), orig.getIconWidth());
 

@@ -67,7 +67,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "19.47";
+    public static final String VERSION = "19.48";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "¿De dónde ha salido esto?";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;
@@ -217,7 +217,7 @@ public class AboutDialog extends JDialog {
         dedicado.setDoubleBuffered(true);
 
         jvm.setText(Helpers.getSystemInfo());
-        jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         jvm.setDoubleBuffered(true);
         jvm.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -275,7 +275,7 @@ public class AboutDialog extends JDialog {
         mod_label.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
         mod_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mod_label.setText("MOD");
-        mod_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        mod_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         mod_label.setDoubleBuffered(true);
         mod_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -285,7 +285,7 @@ public class AboutDialog extends JDialog {
 
         corona_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         corona_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_logo.gif"))); // NOI18N
-        corona_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        corona_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         corona_icon_label.setDoubleBuffered(true);
         corona_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -337,7 +337,7 @@ public class AboutDialog extends JDialog {
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel12.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/open-book.png"))); // NOI18N
         jLabel12.setToolTipText("Reglas de Robert");
-        jLabel12.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        jLabel12.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         jLabel12.setDoubleBuffered(true);
         jLabel12.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -348,7 +348,7 @@ public class AboutDialog extends JDialog {
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/cruz.png"))); // NOI18N
-        jLabel9.setText("Hecho a mano en España con amor por tonikelope (c) 2020");
+        jLabel9.setText("Hecho a mano sin LLMs en España y con amor por tonikelope (c) 2020");
         jLabel9.setToolTipText("PLVS VLTRA");
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);

@@ -102,6 +102,7 @@ public class Init extends JFrame {
     public static final String GIFSICLE_DIR = CORONA_DIR + "/gifsicle";
     public static final String SETDPI_DIR = CORONA_DIR + "/setdpi";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
+    public static final String IMAGE_CACHE_DIR = CACHE_DIR + "/url_images";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
     public static final int DEADLOCK_DETECT_WAIT = 5000;
     public static String SQL_FILE;

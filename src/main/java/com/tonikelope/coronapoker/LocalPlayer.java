@@ -436,7 +436,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     try {
 
-                        final ImageIcon orig = new ImageIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
+                        final ImageIcon orig = ImageCacheManager.getIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
                         int max_width = panel_cartas.getWidth();
 

@@ -1,3 +1,5 @@
+<i>Once upon a time, before ChatGPT, some humans programmed for pleasure...</i>
+
 <h1>CoronaPoker</h1>
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)

@@ -318,7 +318,7 @@ public class ChatImageDialog extends JDialog {
 
                     try {
 
-                        image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : new ImageIcon(new URL(url));
+                        image = (STATIC_IMAGE_CACHE.containsKey(url) || GIF_CACHE.containsKey(url)) ? getImageFromCache(url) : ImageCacheManager.getIcon(new URL(url));
 
                         MediaTracker tracker = new MediaTracker(label);
 
@@ -769,7 +769,8 @@ public class ChatImageDialog extends JDialog {
                         });
                     } else {
                         try {
-                            ImageIcon image = new ImageIcon(new URL(url));
+                            ImageIcon image = ImageCacheManager.getIcon(new URL(url));
+
                             if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
                                 updateHistorialEnviados(url);
                                 THIS.cargarHistorialPanel();

@@ -83,7 +83,7 @@ public class Translator {
             {"CANCELAR", "CANCEL"},
             {"TAPETE REFRESCADO", "MAT REFRESHED"},
             {"El servidor ha activado el RADAR anti-trampas para esta partida. Cualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida, el cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.", "The server has activated anti-cheating RADAR for this game. Any player may request an anti-cheating report from another player during the game, which includes a screenshot of the player (without showing his cards) as well as his/her system process listing."},
-            {"Hecho a mano en España con amor por tonikelope (c) 2020", "Handmade in Spain with love by tonikelope (c) 2020"},
+            {"Hecho a mano sin LLMs en España y con amor por tonikelope (c) 2020", "Handmade without LLMs in Spain and with love by tonikelope (c) 2020"},
             {"Chat rápido", "Fast chat"},
             {"Enviar imagen", "Send image"},
             {"Vista compacta", "Compact view"},

@@ -133,7 +133,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                         } else if ((isgif = ChatImageDialog.GIF_CACHE.containsKey(url)) && USE_GIF_CACHE) {
                                             image = (ImageIcon) ChatImageDialog.GIF_CACHE.get(url)[0];
                                         } else {
-                                            image = new ImageIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
+                                            image = ImageCacheManager.getIcon(new URL(url + "#" + String.valueOf(System.currentTimeMillis())));
                                         }
                                         MediaTracker tracker = new MediaTracker(label);
                                         tracker.addImage(image.getImage(), 0);

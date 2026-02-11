@@ -1,4 +1,4 @@
-<i>Once upon a time, before ChatGPT, some humans programmed for pleasure...</i>
+<i>Once upon a time, before ChatGPT, some humans coded for pleasure...</i>
 
 <h1>CoronaPoker</h1>
 

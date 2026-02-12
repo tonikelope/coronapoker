@@ -34,73 +34,92 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 
+/**
+ * Manages image caching and ensures independent animation instances for GIFs.
+ * * @author tonikelope
+ */
 public class ImageCacheManager {
 
+    /**
+     * Primary entry point. Returns a UNIQUE ImageIcon instance.
+     * Loading from bytes prevents Swing from synchronizing GIF animations.
+     * * @param url The remote URL of the image/gif.
+     * @return ImageIcon or null if download/read fails.
+     */
     public static ImageIcon getIcon(URL url) {
-
         if (url == null) {
             return null;
         }
 
         String fileName = generateFileName(url);
-
         String separator = IMAGE_CACHE_DIR.endsWith(File.separator) ? "" : File.separator;
-
         File localFile = new File(IMAGE_CACHE_DIR + separator + fileName);
 
+        // 1. Download if not present in local storage
         if (!localFile.exists()) {
             if (!downloadImage(url, localFile)) {
                 return null;
             }
         }
 
-        return new ImageIcon(localFile.getAbsolutePath());
+        // 2. Load from bytes to ensure the animation is independent (not shared)
+        try {
+            byte[] imageBytes = Files.readAllBytes(Paths.get(localFile.getAbsolutePath()));
+            return new ImageIcon(imageBytes);
+        } catch (IOException e) {
+            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE, 
+                "Error reading cached file: " + localFile.getAbsolutePath(), e);
+            // Fallback to path-based loading if byte reading fails
+            return new ImageIcon(localFile.getAbsolutePath());
+        }
     }
 
+    /**
+     * Downloads the resource to the local file system.
+     */
     private static boolean downloadImage(URL url, File destination) {
-        // Ensure parent directories exist before writing
         File parent = destination.getParentFile();
         if (parent != null && !parent.exists()) {
             parent.mkdirs();
         }
 
-        try (BufferedInputStream in = new BufferedInputStream(url.openStream()); FileOutputStream out = new FileOutputStream(destination)) {
+        try (BufferedInputStream in = new BufferedInputStream(url.openStream()); 
+             FileOutputStream out = new FileOutputStream(destination)) {
 
             byte[] buffer = new byte[8192];
-
             int bytesRead;
-
             while ((bytesRead = in.read(buffer)) != -1) {
                 out.write(buffer, 0, bytesRead);
             }
             out.flush();
             return true;
         } catch (IOException e) {
-            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE, () -> "Critical: Failed to cache image from " + url + " - " + e.getMessage());
+            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE, 
+                "Critical: Failed to cache image from " + url, e);
             return false;
         }
     }
 
+    /**
+     * Generates a unique filename based on the URL's path and query.
+     */
     private static String generateFileName(URL url) {
         String path = url.getPath();
         String query = url.getQuery();
-
-        // Ignore protocol, host and fragments
         String identityString = (query != null) ? path + "?" + query : path;
 
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
-
             byte[] hash = md.digest(identityString.getBytes());
-
             StringBuilder sb = new StringBuilder();
-
             for (byte b : hash) {
                 sb.append(String.format("%02x", b));
             }
@@ -108,7 +127,6 @@ public class ImageCacheManager {
             String extension = path.contains(".") ? path.substring(path.lastIndexOf(".")) : ".tmp";
             return sb.toString() + extension;
         } catch (NoSuchAlgorithmException e) {
-            // Fallback using an absolute hash to avoid negative numbers in filenames
             return "img_" + Math.abs(identityString.hashCode());
         }
     }

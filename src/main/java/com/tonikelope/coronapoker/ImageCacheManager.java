@@ -28,7 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import static com.tonikelope.coronapoker.Init.IMAGE_CACHE_DIR;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -41,6 +40,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
+import static com.tonikelope.coronapoker.Init.CHAT_IMAGE_CACHE;
 
 /**
  * Manages image caching and ensures independent animation instances for GIFs.
@@ -60,8 +60,8 @@ public class ImageCacheManager {
         }
 
         String fileName = generateFileName(url);
-        String separator = IMAGE_CACHE_DIR.endsWith(File.separator) ? "" : File.separator;
-        File localFile = new File(IMAGE_CACHE_DIR + separator + fileName);
+        String separator = CHAT_IMAGE_CACHE.endsWith(File.separator) ? "" : File.separator;
+        File localFile = new File(CHAT_IMAGE_CACHE + separator + fileName);
 
         // 1. Download if not present in local storage
         if (!localFile.exists()) {

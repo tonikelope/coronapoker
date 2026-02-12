@@ -48,7 +48,6 @@ import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.GIFSICLE_DIR;
-import static com.tonikelope.coronapoker.Init.IMAGE_CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
 import static com.tonikelope.coronapoker.Init.SCREENSHOTS_DIR;
 import static com.tonikelope.coronapoker.Init.SQLITE;
@@ -239,6 +238,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.plaf.synth.SynthFormattedTextFieldUI;
 import javax.swing.text.JTextComponent;
+import static com.tonikelope.coronapoker.Init.CHAT_IMAGE_CACHE;
 
 /**
  *
@@ -1940,7 +1940,7 @@ public class Helpers {
 
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, RADAR_DIR, IMAGE_CACHE_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, RADAR_DIR, CHAT_IMAGE_CACHE}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {

@@ -89,7 +89,7 @@ mvn clean install
 ```
 
 ### EXTRA (AntiCheat) What is CoronaHMAC?: 
-<p align="justify">CoronaHMAC is a small library that is loaded at game startup to M-I-T-I-G-A-T-E any player trying to cheat using a different binary version of the game than other players. For security reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C). <i>Note: This is not intended to be a real commercial anti-cheat, just to prevent curious or clever people from cheating too easily. If you're afraid to play with your friends, you'd better find new friends.</i>
+<p align="justify">CoronaHMAC is a small library that is loaded at game startup to M-I-T-I-G-A-T-E any player trying to cheat using a different binary version of the game than other players. For security reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C). <i>Note: This is not intended to be a real commercial anti-cheat, just to prevent curious people from cheating too easily. If you're afraid to play with your friends, you'd better find new friends.</i>
 
 <p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
 

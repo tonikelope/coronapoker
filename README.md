@@ -53,7 +53,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 CoronaPoker is a secure peer-to-peer oriented Texas Hold'em engine built on a strict **Zero-Trust Architecture**. 
 
-In traditional online poker, players must blindly trust the central server. If the server is compromised, or if the administrator is malicious (as seen in historical online poker super-user scandals), the integrity of the entire game is destroyed. CoronaPoker solves this by implementing a hybrid Mental Poker cryptographic protocol combined with a native, ring0-aware anti-cheat engine.
+In traditional online poker, players must blindly trust the central server. If the server is compromised, or if the administrator is malicious, the integrity of the entire game is destroyed. CoronaPoker solves this by implementing a hybrid Mental Poker cryptographic protocol combined with a native, ring3-aware anti-cheat engine.
 
 **The core philosophy: The server routes the game, but it cannot cheat.**
 

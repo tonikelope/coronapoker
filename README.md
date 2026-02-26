@@ -45,8 +45,6 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 <i>Important: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution and you wish to keep anticheat module enabled you MUST use this option (otherwise the binaries will be different for each player, generating false positives).</i>
 
-https://aur.archlinux.org/packages/coronapoker-bin</p>
-
 ### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
 
 <i>Use this option if for any reason you want to compile your own version of CoronaPoker and distribute it to your friends (if you are one of the friends, my security advice is that you all use option A).</i>

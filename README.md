@@ -128,6 +128,3 @@ The native library actively monitors the OS environment to detect tampering, deb
 * *Collusion:* Players communicating out-of-band (e.g., via Discord) to share their hole cards with each other.
 
 ---
-
-## 📜 License
-*(Note: The Panoptes native library is proprietary and distributed as a compiled binary only).*

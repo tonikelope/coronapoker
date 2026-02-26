@@ -84,6 +84,8 @@ To prevent a malicious server from intentionally dealing a previously recorded h
 
 ## 👁️ The Panoptes Anti-Cheat Engine
 
+<p align="center"><img src="panoptes.png" height="500"></p>
+
 CoronaPoker includes a custom, native anti-cheat layer written in C (`libpanoptes`), integrated via JNI. It operates at the OS level to ensure the integrity of the JVM and the host environment.
 
 > ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE**

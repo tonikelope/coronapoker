@@ -15,7 +15,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 ## Some features:
 - Cross platform.
-- Secure by design with a (modest) Ring3 anticheat + Zero Trust Crypto Architecture.
+- Secure by design: Zero Trust Crypto Architecture with a (modest) Ring3 anticheat.
 - No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
 - Password protected games.

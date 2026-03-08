@@ -93,6 +93,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private volatile int rabbit = RABBIT_OFF;
     private volatile boolean mouse_hover = false;
 
+    // [OPTIMIZATION] Global static caches to share images in memory across ALL cards
+    private static final ConcurrentHashMap<String, ImageIcon> GLOBAL_FRONT_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, ImageIcon> GLOBAL_DISABLED_CACHE = new ConcurrentHashMap<>();
+
     public boolean isRabbitTapada() {
         return (rabbit == RABBIT_TAPADA);
     }
@@ -160,6 +164,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             CARD_WIDTH = Math.round(((float) DEFAULT_HEIGHT / ((float) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[0])) * zoom);
             CARD_HEIGHT = Math.round(DEFAULT_HEIGHT * zoom);
             CARD_CORNER = Math.round(Card.DEFAULT_CORNER * zoom);
+
+            // [OPTIMIZATION] Clear global caches because card sizes changed
+            GLOBAL_FRONT_CACHE.clear();
+            GLOBAL_DISABLED_CACHE.clear();
+
             IMAGEN_TRASERA = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_TRASERA_B = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/trasera.jpg");
             IMAGEN_JOKER = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/joker.jpg");
@@ -394,129 +403,96 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void refreshCard(boolean pre_cache, final ConcurrentLinkedQueue<Long> notifier) {
         if (this.gui) {
-
             Helpers.threadRun(() -> {
-                ImageIcon img;
-                synchronized (image_precache_lock) {
+                ImageIcon img = null;
 
+                synchronized (image_precache_lock) {
                     if (!pre_cache) {
                         invalidateImagePrecache();
                     }
 
                     if (isIniciada()) {
-
                         if (isTapada()) {
                             if (rabbit == RABBIT_TAPADA) {
-
                                 img = IMAGEN_RABBIT_HUNTING;
-
                             } else {
-
                                 img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
                             }
-
                         } else {
-
+                            // [OPTIMIZATION] Read from Global Cache
+                            String key = valor + "_" + palo;
                             if (!isDesenfocada() || mouse_hover) {
-
-                                if (image != null) {
-                                    img = image;
-                                } else {
-                                    img = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
-                                    image = img;
-
-                                }
-
+                                img = GLOBAL_FRONT_CACHE.computeIfAbsent(key, k
+                                        -> createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
+                                );
+                                image = img;
                             } else {
-
-                                if (image_b != null) {
-                                    img = image_b;
-                                } else {
-                                    img = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
-                                    image_b = img;
-
-                                }
+                                img = GLOBAL_DISABLED_CACHE.computeIfAbsent(key, k
+                                        -> createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
+                                );
+                                image_b = img;
                             }
-
                         }
                     } else {
                         img = Card.IMAGEN_JOKER;
                     }
-
                 }
-                if (notifier == null) {
-                    Helpers.GUIRun(() -> {
 
-                        card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                        card_image.setIcon(img);
-                        card_image.setVisible(isVisible_card());
+                final ImageIcon finalImg = img;
 
-                        if (rabbit == RABBIT_DESTAPADA) {
-                            rabbit_image.setPreferredSize(card_image.getPreferredSize());
-                            rabbit_image.setIcon(IMAGEN_RABBIT_HUNTING_B);
+                Runnable guiUpdate = () -> {
+                    // [OPTIMIZATION] Avoid redundant repaints and layout invalidations
+                    Dimension targetSize = new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT);
+
+                    if (!targetSize.equals(card_image.getPreferredSize())) {
+                        card_image.setPreferredSize(targetSize);
+                        rabbit_image.setPreferredSize(targetSize);
+                        setPreferredSize(targetSize);
+                    }
+
+                    card_image.setIcon(finalImg);
+                    card_image.setVisible(isVisible_card());
+
+                    if (rabbit == RABBIT_DESTAPADA) {
+                        rabbit_image.setIcon(IMAGEN_RABBIT_HUNTING_B);
+                        rabbit_image.setVisible(isVisible_card());
+                    } else if (rabbit == RABBIT_TAPADA && GameFrame.RABBIT_HUNTING > 1) {
+                        int conta_rabbit = GameFrame.getInstance().getLocalPlayer().getConta_rabbit();
+                        if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit >= 1) {
+                            rabbit_image.setIcon(IMAGEN_RABBIT_SB);
+                            rabbit_image.setSize(rabbit_image.getIcon().getIconWidth(), rabbit_image.getIcon().getIconHeight());
+                            rabbit_image.setLocation(0, 0);
+                            rabbit_image.setPreferredSize(rabbit_image.getSize());
                             rabbit_image.setVisible(isVisible_card());
-                        } else if (rabbit == RABBIT_TAPADA && GameFrame.RABBIT_HUNTING > 1) {
-
-                            int conta_rabbit = GameFrame.getInstance().getLocalPlayer().getConta_rabbit();
-
-                            if (GameFrame.RABBIT_HUNTING == 2 && conta_rabbit >= 1) {
+                        } else if (GameFrame.RABBIT_HUNTING == 3 && conta_rabbit >= 1) {
+                            if (conta_rabbit == 1) {
                                 rabbit_image.setIcon(IMAGEN_RABBIT_SB);
-                                rabbit_image.setSize(rabbit_image.getIcon().getIconWidth(), rabbit_image.getIcon().getIconHeight());
-                                rabbit_image.setLocation(0, 0);
-                                rabbit_image.setPreferredSize(rabbit_image.getSize());
-                                rabbit_image.setVisible(isVisible_card());
-                            } else if (GameFrame.RABBIT_HUNTING == 3 && conta_rabbit >= 1) {
-                                if (conta_rabbit == 1) {
-                                    rabbit_image.setIcon(IMAGEN_RABBIT_SB);
-                                } else if (conta_rabbit > 1) {
-                                    rabbit_image.setIcon(IMAGEN_RABBIT_BB);
-                                }
-                                rabbit_image.setSize(rabbit_image.getIcon().getIconWidth(), rabbit_image.getIcon().getIconHeight());
-                                rabbit_image.setLocation(0, 0);
-                                rabbit_image.setPreferredSize(rabbit_image.getSize());
-                                rabbit_image.setVisible(isVisible_card());
-                            } else {
-                                rabbit_image.setVisible(false);
+                            } else if (conta_rabbit > 1) {
+                                rabbit_image.setIcon(IMAGEN_RABBIT_BB);
                             }
-
-                        } else {
-                            rabbit_image.setVisible(false);
-                        }
-
-                        setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-
-                        revalidate();
-                        repaint();
-                    });
-
-                } else {
-                    Helpers.GUIRunAndWait(() -> {
-
-                        card_image.setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-                        card_image.setIcon(img);
-                        card_image.setVisible(isVisible_card());
-
-                        if (rabbit == RABBIT_DESTAPADA) {
-                            rabbit_image.setPreferredSize(card_image.getPreferredSize());
-                            rabbit_image.setIcon(IMAGEN_RABBIT_HUNTING_B);
+                            rabbit_image.setSize(rabbit_image.getIcon().getIconWidth(), rabbit_image.getIcon().getIconHeight());
+                            rabbit_image.setLocation(0, 0);
+                            rabbit_image.setPreferredSize(rabbit_image.getSize());
                             rabbit_image.setVisible(isVisible_card());
                         } else {
                             rabbit_image.setVisible(false);
                         }
+                    } else {
+                        rabbit_image.setVisible(false);
+                    }
+                };
 
-                        setPreferredSize(new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT));
-
-                        revalidate();
-                        repaint();
-                    });
-
+                if (notifier == null) {
+                    Helpers.GUIRun(guiUpdate);
+                } else {
+                    Helpers.GUIRunAndWait(guiUpdate);
                     synchronized (notifier) {
                         notifier.add(Thread.currentThread().threadId());
                         notifier.notifyAll();
                     }
                 }
-                if (pre_cache) {
 
+                if (pre_cache) {
                     updateImagePreloadCache();
                 }
             });
@@ -532,27 +508,26 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public void updateImagePreloadCache() {
-
         Helpers.threadRun(() -> {
             synchronized (image_precache_lock) {
                 try {
-
                     if (isIniciadaConValor()) {
-
+                        String key = valor + "_" + palo;
                         if (image == null) {
-                            image = createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
+                            image = GLOBAL_FRONT_CACHE.computeIfAbsent(key, k
+                                    -> createCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
+                            );
                         }
-
                         if (image_b == null) {
-                            image_b = createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + valor + "_" + palo + ".jpg");
+                            image_b = GLOBAL_DISABLED_CACHE.computeIfAbsent(key, k
+                                    -> createDisabledCardImageIcon("/images/decks/" + GameFrame.BARAJA + "/" + k + ".jpg")
+                            );
                         }
                     }
-
                 } catch (Exception ex) {
                     Logger.getLogger(Card.class.getName()).log(Level.SEVERE, null, ex);
                     Logger.getLogger(Card.class.getName()).log(Level.WARNING, "ERROR UPDATING CARD IMAGE PRECACHE");
                 }
-
             }
         });
     }
@@ -671,10 +646,17 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public void iniciarConValorPalo(String valor, String palo, boolean tapada) {
-
         synchronized (image_precache_lock) {
-            this.valor = valor.toUpperCase().trim();
-            this.palo = palo.toUpperCase().trim();
+            String nuevoValor = valor.toUpperCase().trim();
+            String nuevoPalo = palo.toUpperCase().trim();
+
+            // [OPTIMIZATION] Avoid flicker and IO by skipping if state is identical
+            if (this.iniciada && this.valor.equals(nuevoValor) && this.palo.equals(nuevoPalo) && this.tapada == tapada) {
+                return;
+            }
+
+            this.valor = nuevoValor;
+            this.palo = nuevoPalo;
             invalidateImagePrecache();
             this.iniciada = true;
             this.tapada = tapada;
@@ -683,22 +665,18 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         this.refreshCard();
     }
 
-    public void preIniciarConValorPalo(String valor, String palo) {
-        synchronized (image_precache_lock) {
-            this.valor = valor.toUpperCase().trim();
-            this.palo = palo.toUpperCase().trim();
-            this.iniciada = false;
-            this.tapada = true;
-            this.desenfocada = false;
-            invalidateImagePrecache();
-        }
-        this.refreshCard();
-    }
-
     public void actualizarValorPalo(String valor, String palo) {
         synchronized (image_precache_lock) {
-            this.valor = valor.toUpperCase().trim();
-            this.palo = palo.toUpperCase().trim();
+            String nuevoValor = valor.toUpperCase().trim();
+            String nuevoPalo = palo.toUpperCase().trim();
+
+            // [OPTIMIZATION] Avoid flicker by skipping if value is identical
+            if (this.valor.equals(nuevoValor) && this.palo.equals(nuevoPalo)) {
+                return;
+            }
+
+            this.valor = nuevoValor;
+            this.palo = nuevoPalo;
             invalidateImagePrecache();
         }
         this.refreshCard();
@@ -728,10 +706,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
     public void iniciarConValorNumerico(int value) {
         iniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
-    }
-
-    public void preIniciarConValorNumerico(int value) {
-        preIniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
     }
 
     public int getCartaComoEntero() {

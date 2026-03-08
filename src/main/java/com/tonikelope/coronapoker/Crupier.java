@@ -2431,8 +2431,8 @@ public class Crupier implements Runnable {
                                             int c2 = ((int) clear[1] & 0xFF);
 
                                             if (c1 < 52 && c2 < 52) {
-                                                j.getHoleCard1().iniciarConValorNumerico(c1 + 1);
-                                                j.getHoleCard2().iniciarConValorNumerico(c2 + 1);
+                                                j.getHoleCard1().actualizarConValorNumerico(c1 + 1);
+                                                j.getHoleCard2().actualizarConValorNumerico(c2 + 1);
                                                 if (nick.equals(GameFrame.getInstance().getNick_local())) {
 
                                                     j.getHoleCard1().destapar(false);
@@ -2456,13 +2456,13 @@ public class Crupier implements Runnable {
                                                     p.setToken_river(java.util.Arrays.copyOfRange(clear, 82, 98));
                                                 }
                                             } else {
-                                                j.getHoleCard1().iniciarConValorNumerico(1);
-                                                j.getHoleCard2().iniciarConValorNumerico(2);
+                                                j.getHoleCard1().actualizarConValorNumerico(1);
+                                                j.getHoleCard2().actualizarConValorNumerico(2);
                                             }
                                         } else {
                                             System.out.println("[ZERO-TRUST ERROR] No se pudo descifrar las cartas de " + nick);
-                                            j.getHoleCard1().iniciarConValorNumerico(1);
-                                            j.getHoleCard2().iniciarConValorNumerico(2);
+                                            j.getHoleCard1().actualizarConValorNumerico(1);
+                                            j.getHoleCard2().actualizarConValorNumerico(2);
                                         }
                                     } else {
                                         byte[] netChunk = new byte[146];
@@ -3133,8 +3133,8 @@ public class Crupier implements Runnable {
             if (pos != -1) {
                 int c1 = deck[pos] & 0xFF;
                 int c2 = deck[numPlayers + pos] & 0xFF;
-                target.getHoleCard1().iniciarConValorNumerico(c1 + 1);
-                target.getHoleCard2().iniciarConValorNumerico(c2 + 1);
+                target.getHoleCard1().actualizarConValorNumerico(c1 + 1);
+                target.getHoleCard2().actualizarConValorNumerico(c2 + 1);
                 return true;
             }
             return false;
@@ -3309,8 +3309,7 @@ public class Crupier implements Runnable {
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
                 }
-
-                Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete().getCommunityCards());
+                // [OPTIMIZACIÓN GRÁFICA] Swing se encarga del repaint de forma fluida.
             }
         }
     }
@@ -4487,10 +4486,7 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();
     }
 
-    // =========================================================
-    // --- ZERO-TRUST SHOWDOWN PROTOCOL (STRICT XOR SHARING) ---
-    // =========================================================
-    private boolean recibirShares(ArrayList<String> pendientes) {
+    private boolean recibirShares(ArrayList<String> pendientes, ArrayList<Player> inShowdown) {
         boolean timeout = false;
         long start_time = System.currentTimeMillis();
         do {
@@ -4511,13 +4507,16 @@ public class Crupier implements Runnable {
                                     p.setMk_share(share);
                                 }
 
-                                // [ZERO-TRUST] Materializamos las cartas para evitar el NullPointerException en calcularJugadas
+                                // [ZERO-TRUST] Materializamos las cartas para evitar el NullPointerException
                                 Player jugadorRemoto = nick2player.get(nick);
                                 if (jugadorRemoto != null && partes.length >= 7) {
-                                    int c1 = Integer.parseInt(partes[5]);
-                                    int c2 = Integer.parseInt(partes[6]);
-                                    jugadorRemoto.getHoleCard1().iniciarConValorNumerico(c1 + 1);
-                                    jugadorRemoto.getHoleCard2().iniciarConValorNumerico(c2 + 1);
+                                    // [PRIVACIDAD UI] Solo pintamos las cartas en la GUI si el jugador está en el Showdown
+                                    if (inShowdown.contains(jugadorRemoto)) {
+                                        int c1 = Integer.parseInt(partes[5]);
+                                        int c2 = Integer.parseInt(partes[6]);
+                                        jugadorRemoto.getHoleCard1().actualizarConValorNumerico(c1 + 1);
+                                        jugadorRemoto.getHoleCard2().actualizarConValorNumerico(c2 + 1);
+                                    }
                                 }
 
                                 pendientes.remove(nick);
@@ -4553,7 +4552,7 @@ public class Crupier implements Runnable {
         return timeout;
     }
 
-    private void requestShowdownKeys() {
+    private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         if (!GameFrame.getInstance().isPartida_local() || this.local_mega_packet == null) {
             return;
         }
@@ -4587,7 +4586,7 @@ public class Crupier implements Runnable {
 
                 java.util.ArrayList<String> pendientes_conf = new java.util.ArrayList<>(pendientes);
                 this.waitSyncConfirmations(id, pendientes_conf);
-                boolean timeout = recibirShares(pendientes);
+                boolean timeout = recibirShares(pendientes, inShowdown);
 
                 if (timeout && !pendientes.isEmpty()) {
                     for (String nick : pendientes) {
@@ -4633,8 +4632,11 @@ public class Crupier implements Runnable {
                             }
 
                             if (!isZombie && !isHost) {
-                                jugador.getHoleCard1().iniciarConValorNumerico(((int) clear[0] & 0xFF) + 1);
-                                jugador.getHoleCard2().iniciarConValorNumerico(((int) clear[1] & 0xFF) + 1);
+                                // [PRIVACIDAD UI] Solo inyectamos valores de bots/zombies en la GUI si van a Showdown
+                                if (inShowdown.contains(jugador)) {
+                                    jugador.getHoleCard1().actualizarConValorNumerico(((int) clear[0] & 0xFF) + 1);
+                                    jugador.getHoleCard2().actualizarConValorNumerico(((int) clear[1] & 0xFF) + 1);
+                                }
                             }
                         }
                     }
@@ -4666,7 +4668,8 @@ public class Crupier implements Runnable {
             String mkBase64 = Base64.getEncoder().encodeToString(finalMasterKey);
             broadcastGAMECommandFromServer("HANDVERIFY#" + mkBase64, null, false);
 
-            for (Player j : GameFrame.getInstance().getJugadores()) {
+            // [PRIVACIDAD UI] Solo comprobamos trampas visuales de la GUI de los que están en el Showdown
+            for (Player j : inShowdown) {
                 if (j.isActivo() && !j.isExit() && j.getHoleCard1().getValor() != null && !j.getHoleCard1().getValor().equals("null") && !j.getHoleCard1().getValor().isEmpty()) {
                     int pos = calcularPosicionEnPaquete(j.getNickname());
                     if (pos != -1) {
@@ -4674,11 +4677,8 @@ public class Crupier implements Runnable {
                             byte[] claimedCards;
 
                             if (j.getNickname().equals(GameFrame.getInstance().getNick_local())) {
-                                // [FIX FALSE POSITIVE] Las cartas del host están ordenadas en la GUI.
-                                // Usamos los bytes puros originales que no están alterados visualmente.
                                 claimedCards = new byte[]{this.local_original_cards[0], this.local_original_cards[1]};
                             } else {
-                                // Los rivales nos envían el orden correcto por red, podemos leer su GUI
                                 claimedCards = new byte[]{(byte) (j.getHoleCard1().getCartaComoEntero() - 1), (byte) (j.getHoleCard2().getCartaComoEntero() - 1)};
                             }
 
@@ -5673,9 +5673,9 @@ public class Crupier implements Runnable {
             case FLOP:
                 ramCards = Panoptes.getInstance().getFlop(aggregatedTokens);
                 if (ramCards != null) {
-                    GameFrame.getInstance().getFlop1().iniciarConValorNumerico(((int) ramCards[0] & 0xFF) + 1);
-                    GameFrame.getInstance().getFlop2().iniciarConValorNumerico(((int) ramCards[1] & 0xFF) + 1);
-                    GameFrame.getInstance().getFlop3().iniciarConValorNumerico(((int) ramCards[2] & 0xFF) + 1);
+                    GameFrame.getInstance().getFlop1().actualizarConValorNumerico(((int) ramCards[0] & 0xFF) + 1);
+                    GameFrame.getInstance().getFlop2().actualizarConValorNumerico(((int) ramCards[1] & 0xFF) + 1);
+                    GameFrame.getInstance().getFlop3().actualizarConValorNumerico(((int) ramCards[2] & 0xFF) + 1);
                     if (resisten != null) {
                         flop_players.clear();
                         flop_players.addAll(resisten);
@@ -5689,7 +5689,7 @@ public class Crupier implements Runnable {
             case TURN:
                 ramCards = Panoptes.getInstance().getTurn(aggregatedTokens);
                 if (ramCards != null) {
-                    GameFrame.getInstance().getTurn().iniciarConValorNumerico(((int) ramCards[0] & 0xFF) + 1);
+                    GameFrame.getInstance().getTurn().actualizarConValorNumerico(((int) ramCards[0] & 0xFF) + 1);
                     if (resisten != null) {
                         Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getTurn()));
                     }
@@ -5699,7 +5699,7 @@ public class Crupier implements Runnable {
             case RIVER:
                 ramCards = Panoptes.getInstance().getRiver(aggregatedTokens);
                 if (ramCards != null) {
-                    GameFrame.getInstance().getRiver().iniciarConValorNumerico(((int) ramCards[0] & 0xFF) + 1);
+                    GameFrame.getInstance().getRiver().actualizarConValorNumerico(((int) ramCards[0] & 0xFF) + 1);
                     if (resisten != null) {
                         Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getRiver()));
                     }
@@ -5787,15 +5787,15 @@ public class Crupier implements Runnable {
                                 this.panoptes_community_cards[0] = verifiedCards[0];
                                 this.panoptes_community_cards[1] = verifiedCards[1];
                                 this.panoptes_community_cards[2] = verifiedCards[2];
-                                GameFrame.getInstance().getCartas_comunes()[0].iniciarConValorNumerico(((int) verifiedCards[0] & 0xFF) + 1);
-                                GameFrame.getInstance().getCartas_comunes()[1].iniciarConValorNumerico(((int) verifiedCards[1] & 0xFF) + 1);
-                                GameFrame.getInstance().getCartas_comunes()[2].iniciarConValorNumerico(((int) verifiedCards[2] & 0xFF) + 1);
+                                GameFrame.getInstance().getCartas_comunes()[0].actualizarConValorNumerico(((int) verifiedCards[0] & 0xFF) + 1);
+                                GameFrame.getInstance().getCartas_comunes()[1].actualizarConValorNumerico(((int) verifiedCards[1] & 0xFF) + 1);
+                                GameFrame.getInstance().getCartas_comunes()[2].actualizarConValorNumerico(((int) verifiedCards[2] & 0xFF) + 1);
                             } else if (street == TURN) {
                                 this.panoptes_community_cards[3] = verifiedCards[0];
-                                GameFrame.getInstance().getCartas_comunes()[3].iniciarConValorNumerico(((int) verifiedCards[0] & 0xFF) + 1);
+                                GameFrame.getInstance().getCartas_comunes()[3].actualizarConValorNumerico(((int) verifiedCards[0] & 0xFF) + 1);
                             } else if (street == RIVER) {
                                 this.panoptes_community_cards[4] = verifiedCards[0];
-                                GameFrame.getInstance().getCartas_comunes()[4].iniciarConValorNumerico(((int) verifiedCards[0] & 0xFF) + 1);
+                                GameFrame.getInstance().getCartas_comunes()[4].actualizarConValorNumerico(((int) verifiedCards[0] & 0xFF) + 1);
                             }
                         } else {
                             cancelarManoYDevolverApuestas("El servidor ha enviado cartas con una firma MAC falsificada. ¡Posible servidor tramposo!");
@@ -7719,9 +7719,14 @@ public class Crupier implements Runnable {
                                     String shareBase64 = Base64.getEncoder().encodeToString(myShare);
                                     String responseCmd = "SHOWDOWN_REVEAL#"
                                             + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
-                                            + "#" + shareBase64
-                                            + "#" + (this.local_original_cards[0] & 0xFF)
-                                            + "#" + (this.local_original_cards[1] & 0xFF);
+                                            + "#" + shareBase64;
+
+                                    // [PRIVACIDAD RED] Si no estamos obligados a enseñar, NO mandamos nuestras cartas.
+                                    if (resistencia.contains(GameFrame.getInstance().getLocalPlayer())) {
+                                        responseCmd += "#" + (this.local_original_cards[0] & 0xFF)
+                                                + "#" + (this.local_original_cards[1] & 0xFF);
+                                    }
+
                                     sendGAMECommandToServer(responseCmd, false);
                                 }
                             } catch (Exception e) {
@@ -7777,7 +7782,6 @@ public class Crupier implements Runnable {
                                                             if (!isLegit) {
                                                                 GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
                                                                 GameFrame.getInstance().getRegistro().print("⚠️ [ZERO-TRUST ALERT] The server manipulated the cards of a rival in a side pot.");
-                                                                // NO ACTION TAKEN. ALLOW THE GAME TO PROCEED.
                                                             }
                                                         } catch (Exception ex) {
                                                         }
@@ -8005,7 +8009,6 @@ public class Crupier implements Runnable {
 
                         Helpers.GUIRun(() -> {
                             GameFrame.getInstance().getBarra_tiempo().setValue(val);
-                            Helpers.forceRepaintComponentNow(GameFrame.getInstance().getBarra_tiempo());
                         });
                     }
 
@@ -8335,7 +8338,6 @@ public class Crupier implements Runnable {
 
     // RUN CRUPIER
     @Override
-
     public void run() {
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
@@ -8462,6 +8464,10 @@ public class Crupier implements Runnable {
 
                             switch (resisten.size()) {
                                 case 0:
+                                    // [AUDITORÍA ZERO-TRUST SILENCIOSA] Matemáticas sí, GUI no.
+                                    requestShowdownKeys(new ArrayList<>());
+                                    procesarCartasResistencia(new ArrayList<>(), false);
+
                                     GameFrame.getInstance().getRegistro().print("-----" + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
                                     Helpers.GUIRun(() -> {
                                         setPotBackground(Color.RED);
@@ -8477,6 +8483,10 @@ public class Crupier implements Runnable {
                                     }
                                     break;
                                 case 1:
+                                    // [AUDITORÍA ZERO-TRUST SILENCIOSA] El farol del ganador se mantiene privado.
+                                    requestShowdownKeys(new ArrayList<>());
+                                    procesarCartasResistencia(new ArrayList<>(), false);
+
                                     resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
                                     if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
                                         resisten.get(0).getHoleCard1().desenfocar();
@@ -8506,7 +8516,8 @@ public class Crupier implements Runnable {
                                     this.sqlNewShowdown(resisten.get(0), null, true, true);
                                     break;
                                 default:
-                                    requestShowdownKeys();
+                                    // [SHOWDOWN NORMAL] Todo el mundo enseña sus cartas y la GUI se actualiza
+                                    requestShowdownKeys(resisten);
                                     procesarCartasResistencia(resisten, false);
                                     if (!this.destapar_resistencia) {
                                         Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
@@ -8692,6 +8703,8 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().refreshPlayersAndCommunity();
 
                         synchronized (lock_fin_mano) {
+
+                            // [OPTIMIZACIÓN GRÁFICA] Agrupamos todo el reseteo visual aquí
                             Helpers.GUIRun(() -> {
                                 GameFrame.getInstance().getMenu_rabbit_off().setEnabled(false);
                                 GameFrame.getInstance().getMenu_rabbit_free().setEnabled(false);
@@ -8703,6 +8716,7 @@ public class Crupier implements Runnable {
                                 Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(false);
+                                GameFrame.getInstance().getTapete().getCommunityCards().repaint();
                             });
 
                             synchronized (lock_rabbit) {
@@ -8718,7 +8732,6 @@ public class Crupier implements Runnable {
                                         }
                                     }
                                 }
-                                Helpers.forceRepaintComponentNow(GameFrame.getInstance().getTapete().getCommunityCards());
                             }
 
                             startIWTSTHPlayersBlinking();

@@ -15,10 +15,10 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 ## Some features:
 - Cross platform.
+- Secure by design: Zero Trust Crypto Architecture with a (modest) Ring3 anticheat.
 - No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
 - Password protected games.
-- Secure by design with a (modest) anticheat module.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
 - Global in-game zoom (UHD resolution supported).
@@ -45,64 +45,48 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 <i>Important: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution and you wish to keep anticheat module enabled you MUST use this option (otherwise the binaries will be different for each player, generating false positives).</i>
 
-https://aur.archlinux.org/packages/coronapoker-bin</p>
-
 ### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
 
 <i>Use this option if for any reason you want to compile your own version of CoronaPoker and distribute it to your friends (if you are one of the friends, my security advice is that you all use option A).</i>
 
-#### Step 1 (install CoronaHMAC as Maven local package):
-```
-mvn install:install-file -Dfile=coronaHMAC_x.y.jar -DgroupId=com.tonikelope.coronahmac -DartifactId=coronahmac -Dversion=x.y -Dpackaging=jar
-```
+# CoronaPoker: Zero-Trust Cryptographic Poker Engine
 
-#### Step 2 (build CoronaPoker):
-```
-mvn clean install
-```
+CoronaPoker is a secure peer-to-peer oriented Texas Hold'em engine built on a strict **Zero-Trust Architecture**. 
 
-### [OPTION C] BUILD CORONAPOKER FROM SOURCE WITHOUT CORONAHMAC:
+In traditional online poker, players must blindly trust the central server. If the server is compromised, or if the administrator is malicious, the integrity of the entire game is destroyed. CoronaPoker solves this by implementing a hybrid Mental Poker cryptographic protocol combined with a native, ring3-aware anti-cheat engine.
 
-##### Step 1 (edit pom.xml):
-###### 1.1 Change MAIN CLASS:
-```
-<mainClass>com.tonikelope.coronahmac.M</mainClass>
-```
-to:
+**The core philosophy: The server routes the game, but it cannot cheat.**
 
-```
-<mainClass>com.tonikelope.coronapoker.Init</mainClass>
-```
+---
 
-###### 1.2 Delete coronahmac dependency:
-```
-<dependency>
-   <groupId>com.tonikelope.coronahmac</groupId>
-   <artifactId>coronahmac</artifactId>
-   <version>1.1.24</version>
-</dependency>
-```
+## 🛡️ Architecture Overview: The Zero-Trust Paradigm
 
-##### Step 2 (build):
-```
-mvn clean install
-```
+CoronaPoker separates game routing from cryptographic visibility. Even if the host server is fully compromised, the attacker cannot read the hole cards of other players or manipulate the deck order without triggering immediate cryptographic alarms on the clients.
 
-### EXTRA (AntiCheat) What is CoronaHMAC?: 
-<p align="justify">CoronaHMAC is a small library that is loaded at game startup to mitigate any player trying to cheat using a different binary version of the game than other players. For security reasons the source code is not available (if for any reason you are not comfortable using closed source dependencies but you want to build CoronaPoker, go to OPTION C).
+### 1. Cryptographic Dealing & Mental Poker
+Instead of the server generating a deck and sending plaintext cards to clients, CoronaPoker uses a multi-layered cryptographic approach (KEM - Key Encapsulation Mechanism):
+* **Ephemeral Key Pairs:** For every single hand, new ephemeral keys are generated. 
+* **Blind Envelopes:** The native C-engine (`Panoptes`) generates the deck and encrypts each player's hole cards using their respective Public Keys. The server only sees encrypted "envelopes" (byte chunks).
+* **Decentralized Decryption:** Only the specific client possesses the corresponding Private Key to open their envelope. The server physically cannot know what cards were dealt to the players.
 
-<p align="center"><img src="https://github.com/tonikelope/coronapoker/raw/master/coronahmac.png"></p>
+### 2. The Custodian Protocol (Secure State Resumption)
+If the server crashes or the game is paused, the state must be saved to disk. However, allowing the server to encrypt and decrypt the game state alone would violate Zero-Trust.
+* **Distributed Lockboxes:** When the game state is fossilized, the Master Key is encrypted multiple times, creating a "Lockbox" for each *human* player (using their persistent Identity Keys).
+* **Server Impotence:** The server does *not* possess a lockbox for its own private key. It cannot decrypt the paused game state on its own.
+* **Democratic Recovery:** To resume a game, the server must contact an active remote player (a Custodian), send them their specific encrypted Lockbox, and request them to unlock the Master Key. If a legitimate player does not authorize the resumption, the game remains cryptographically locked.
 
-1) CoronaPoker.jar is executed normally.
-2) As soon as it starts, the WatchService API is called to start monitoring changes in the directory where CoronaPoker.jar is located.
-3) CoronaPoker.jar is restarted but this time disabling the option to use agents for debugging as well with a tcp port so that the new process can communicate and authenticate with the old process.
-4) The new CoronaPoker process sends to the old one a message authenticated with HMACSHA256 (with a pre-shared secret key that is obfuscated inside CoronaHMAC) that contains its PID concatenated with the random_nonce_1 sent by the original CoronaPoker process and a new random_nonce_2 generated from new CoronaPoker process at runtime.
-5) The original CoronaPoker process verifies the message and responds to the new process by resending the message received back authenticated with HMACSHA256 with the pre-shared secret key.
-6) Once mutually authenticated, new process calculates the HMACSHA256 (with the pre-shared secret key) of CoronaPoker.jar file that it will use as seed to authenticate and verify that the other players are using the same CoronaPoker.jar binary.
-7) Once the CoronaPoker.jar HMACSHA256 has been calculated, the new process generates a random_nonce_3 and sends it to the old process to let it know that it has finished. 
-8) The original process responds with a HMACSHA256 with pid+all random nonces generated during the process concatenated with a flag for any creation/delete/modification event detected in CoronaPoker.jar directory.
-9) After verifying the response of the old process, CoronaHMAC starts the game.
+### 3. Anti-Replay Mechanisms
+To prevent a malicious server from intentionally dealing a previously recorded hand (where the server knows the outcome), CoronaPoker implements strict Anti-Replay validation.
+* Each decrypted envelope yields a unique, cryptographic `handId`.
+* Clients independently verify this ID against a local ledger. If the server attempts to serve a historical payload, the client rejects the hand, alerts the player of a "Cheating Server," and forces a fold.
 
-<p align="justify">In addition to this system, CoronaPoker includes an feature that allows players to obtain at any time during the game a "snapshot" of any player's process list, as well as a screenshot of his screen, in case he/she is using any external application to cheat. (This feature can be activated or deactivated by the server when setting the game options).</p>
+---
 
-<p align="justify">Finally, CoronaPoker is designed in such a way that only the game server "knows" the cards dealt to the players and they will be sent to the rest of the players if necessary at the moment they are needed. In addition, for emergency recovery mode, the permutation of the current hand's deck is stored on the server hdd in encrypted form with a key that is sent to other players (and not stored by the server in any form).</p>
+## 👁️ The Panoptes Anti-Cheat Engine
+
+<p align="center"><img src="panoptes.png" height="500"></p>
+
+CoronaPoker includes a custom, native anti-cheat layer written in C (`libpanoptes`), integrated via JNI. It operates at the OS level to ensure the integrity of the JVM and the host environment.
+
+> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE**
+> While the CoronaPoker Java client and server routing logic are open-source (GPLv3), the source code for the native `Panoptes` anti-cheat engine remains **strictly closed-source**. This is a deliberate, non-negotiable security measure. Releasing the source code of the memory monitoring algorithms, process validation checks, and obfuscation parameters would provide malicious actors with the exact blueprint needed to bypass the anti-cheat mechanisms. Pre-compiled binaries are provided for supported platforms.

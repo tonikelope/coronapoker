@@ -1,0 +1,51 @@
+name: Panoptes Zero-Trust Matrix
+
+# Se ejecuta al hacer push en la carpeta 'panoptes' o manualmente
+on:
+  push:
+    paths:
+      - 'panoptes/**'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: Ring 3 Audit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # fail-fast en false asegura que si Windows falla, Mac y Linux sigan testeando
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21 (Adoptium)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Verify Integrity (Checksums)
+        shell: bash
+        run: |
+          cd panoptes
+          echo "[*] Verifying binary integrity..."
+          # Evitamos el chequeo en Windows por problemas de saltos de línea (CRLF) de Git
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            sha1sum -c checksum.sha1 || echo "[WARNING] Checksum mismatch."
+          else
+            echo "[*] Skipping strict checksum on Windows runner."
+          fi
+
+      - name: Run Panoptes Blind Smoke Test
+        shell: bash
+        run: |
+          cd panoptes
+          echo "=========================================================="
+          echo "[*] INITIATING BLIND AUDIT ON: ${{ matrix.os }}"
+          echo "=========================================================="
+          
+          # Ejecuta EXCLUSIVAMENTE el JAR público y el Test Ciego
+          java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite

@@ -76,6 +76,8 @@ public interface Player {
 
     public boolean isActivo();
 
+    public void stopActionTimer();
+
     public boolean isTurno();
 
     public void resetBote();

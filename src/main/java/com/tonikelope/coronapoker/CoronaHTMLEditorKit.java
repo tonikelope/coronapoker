@@ -35,6 +35,7 @@ import java.awt.MediaTracker;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -46,7 +47,6 @@ import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 import javax.swing.text.*;
 import javax.swing.text.html.HTML;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -114,7 +114,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                             String text = getElement().getDocument().getText(start, end - start);
 
-                            String url = new String(Base64.decodeBase64(text.split("@")[0]), "UTF-8");
+                            String url = new String(Base64.getDecoder().decode(text.split("@")[0]), "UTF-8");
 
                             label.setIcon(ChatImageDialog.STATIC_IMAGE_CACHE.containsKey(url) ? ChatImageDialog.STATIC_IMAGE_CACHE.get(url) : new ImageIcon(getClass().getResource("/images/loading.gif")));
 

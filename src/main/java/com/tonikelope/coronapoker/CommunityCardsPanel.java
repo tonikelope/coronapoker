@@ -35,6 +35,7 @@ import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.io.UnsupportedEncodingException;
+import java.util.Base64;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,7 +49,6 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -690,7 +690,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                             }
 
                             try {
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#" + (GameFrame.getInstance().getCrupier().isForce_recover() ? "2" : "1") + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.encodeBase64String(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : ""), null);
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("LASTHAND#" + (GameFrame.getInstance().getCrupier().isForce_recover() ? "2" : "1") + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.getEncoder().encodeToString(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : ""), null);
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.SEVERE, null, ex);
                             }

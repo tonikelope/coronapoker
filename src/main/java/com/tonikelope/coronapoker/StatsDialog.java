@@ -46,6 +46,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -58,7 +59,6 @@ import javax.swing.JDialog;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -699,7 +699,7 @@ public class StatsDialog extends JDialog {
 
                         for (String j : jugadores) {
 
-                            players += new String(Base64.decodeBase64(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
+                            players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
 
                         }
 
@@ -759,7 +759,7 @@ public class StatsDialog extends JDialog {
 
                             for (String j : jugadores) {
 
-                                players += new String(Base64.decodeBase64(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
+                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
                             }
 
                             hand_preflop_players_val.setText(players.replaceAll("  \\|  $", ""));
@@ -774,7 +774,7 @@ public class StatsDialog extends JDialog {
 
                             for (String j : jugadores) {
 
-                                players += new String(Base64.decodeBase64(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
+                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
                             }
 
                             hand_flop_players_val.setText(players.replaceAll("  \\|  $", ""));
@@ -790,7 +790,7 @@ public class StatsDialog extends JDialog {
 
                             for (String j : jugadores) {
 
-                                players += new String(Base64.decodeBase64(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
+                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
                             }
 
                             hand_turn_players_val.setText(players.replaceAll("  \\|  $", ""));
@@ -806,7 +806,7 @@ public class StatsDialog extends JDialog {
 
                             for (String j : jugadores) {
 
-                                players += new String(Base64.decodeBase64(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
+                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
                             }
 
                             hand_river_players_val.setText(players.replaceAll("  \\|  $", ""));
@@ -1243,7 +1243,7 @@ public class StatsDialog extends JDialog {
 
                             for (String p : players) {
 
-                                decoded_players.add(new String(Base64.decodeBase64(p), "UTF-8").trim().toUpperCase());
+                                decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
                             }
 
                             ok = decoded_players.contains(filtro);

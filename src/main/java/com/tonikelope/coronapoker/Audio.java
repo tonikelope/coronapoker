@@ -44,10 +44,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -60,7 +62,6 @@ import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.swing.JLabel;
 import javax.swing.Timer;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -68,6 +69,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class Audio {
 
+    public volatile static boolean AUDIO_AVAILABLE = true;
     public static volatile float MASTER_VOLUME;
     public static final float TTS_VOLUME = 2.0f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/background_music.mp3", 0.4f);
@@ -90,6 +92,9 @@ public class Audio {
     public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean MUTED_MP3_LOOP = false;
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
+
+    // Blacklist for missing or corrupted sound files to prevent console flooding
+    public static final Set<String> BLACKLISTED_SOUNDS = ConcurrentHashMap.newKeySet();
 
     static {
 
@@ -177,12 +182,19 @@ public class Audio {
 
     private static InputStream getSoundInputStream(String sound) {
 
+        // Return null immediately if the file is known to be broken/missing
+        if (BLACKLISTED_SOUNDS.contains(sound)) {
+            return null;
+        }
+
         if (Files.exists(Paths.get(sound))) {
 
             try {
                 return new FileInputStream(sound);
             } catch (FileNotFoundException ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Sound file not found: {0}", ex.getMessage());
+                BLACKLISTED_SOUNDS.add(sound);
+                return null;
             }
         }
 
@@ -193,7 +205,9 @@ public class Audio {
                 try {
                     return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/sounds/" + sound);
                 } catch (FileNotFoundException ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Mod sound not found: {0}", ex.getMessage());
+                    BLACKLISTED_SOUNDS.add(sound);
+                    return null;
                 }
 
             } else if (Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound))) {
@@ -201,7 +215,9 @@ public class Audio {
                 try {
                     return new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/cinematics/" + sound);
                 } catch (FileNotFoundException ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Mod cinematic sound not found: {0}", ex.getMessage());
+                    BLACKLISTED_SOUNDS.add(sound);
+                    return null;
                 }
             }
 
@@ -213,7 +229,8 @@ public class Audio {
             return is;
         }
 
-        Logger.getLogger(Audio.class.getName()).log(Level.INFO, "NO se encuentra el SONIDO {0}", sound);
+        Logger.getLogger(Audio.class.getName()).log(Level.INFO, "SOUND not found: {0}. Adding to blacklist.", sound);
+        BLACKLISTED_SOUNDS.add(sound);
 
         return null;
     }
@@ -233,7 +250,7 @@ public class Audio {
                     playWavResource("misc/volume_change.wav");
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error refreshing volumes: {0}", ex.getMessage());
                 }
 
             }
@@ -265,7 +282,7 @@ public class Audio {
                         setClipVolume(entry.getKey(), c, false);
                     }
                 } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error setting WAV volume: {0}", ex.getMessage());
                 }
             }
         }
@@ -278,7 +295,7 @@ public class Audio {
             try {
                 setMP3PlayerVolume(entry.getKey(), entry.getValue());
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error setting MP3 volume: {0}", ex.getMessage());
             }
 
         }
@@ -292,7 +309,7 @@ public class Audio {
             try {
                 setMP3LoopPlayerVolume(entry.getKey(), entry.getValue());
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error setting MP3 loop volume: {0}", ex.getMessage());
             }
 
         }
@@ -339,6 +356,12 @@ public class Audio {
 
     public static boolean playWavResourceAndWait(String sound, boolean force_close, boolean bypass_muted) {
         if (!GameFrame.TEST_MODE) {
+
+            // Abort early if the file is blacklisted
+            if (BLACKLISTED_SOUNDS.contains(sound)) {
+                return false;
+            }
+
             InputStream sound_stream;
             if ((sound_stream = getSoundInputStream(sound)) != null) {
                 try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
@@ -400,11 +423,27 @@ public class Audio {
                         WAVS_RESOURCES.get(sound).remove(clip);
                     }
 
+                    // --- SUCCESS ZONE ---
+                    if (clip.isOpen() && !AUDIO_AVAILABLE) {
+                        AUDIO_AVAILABLE = true;
+                        Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Sound effects restored.");
+                    }
+
                     return true;
 
+                } catch (IllegalArgumentException ex) {
+                    // --- FAILURE ZONE (NO AUDIO DEVICE) ---
+                    if (AUDIO_AVAILABLE) {
+                        AUDIO_AVAILABLE = false;
+                        Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "WAV: No audio device found. Suppressing further errors.");
+                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Exception: {0}", ex.getMessage());
+                    }
+                    return false;
+
                 } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0}", sound);
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0} | Exception: {1}", new Object[]{sound, ex.getMessage()});
+                    // Blacklist file on hard failure to prevent future spam
+                    BLACKLISTED_SOUNDS.add(sound);
                 }
             }
         }
@@ -445,8 +484,13 @@ public class Audio {
         if (!GameFrame.TEST_MODE) {
 
             Helpers.threadRun(() -> {
-                CoronaMP3FilePlayer audio_player = new CoronaMP3FilePlayer();
 
+                // Prevent starting the thread if we already know the sound is dead
+                if (BLACKLISTED_SOUNDS.contains(sound)) {
+                    return;
+                }
+
+                CoronaMP3FilePlayer audio_player = new CoronaMP3FilePlayer();
                 MP3_LOOP.put(sound, audio_player);
 
                 do {
@@ -461,10 +505,38 @@ public class Audio {
                             vol = findSoundVolume(sound);
                         }
 
-                        audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(getSoundInputStream(sound)), vol);
+                        InputStream is = getSoundInputStream(sound);
+                        if (is == null) {
+                            // File not found or stream is dead, break the infinite loop
+                            MP3_LOOP.remove(sound);
+                            break;
+                        }
+
+                        // Attempt to play the audio file
+                        audio_player.play(javax.sound.sampled.AudioSystem.getAudioInputStream(is), vol);
+
+                        // --- SUCCESS ZONE ---
+                        if (audio_player.isPlaying() && !AUDIO_AVAILABLE) {
+                            AUDIO_AVAILABLE = true;
+                            Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Background music restored.");
+                        }
+
+                    } catch (IllegalArgumentException ex) {
+                        // --- FAILURE ZONE (NO AUDIO DEVICE) ---
+                        if (AUDIO_AVAILABLE) {
+                            AUDIO_AVAILABLE = false;
+                            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "No audio device found. Suppressing further MP3 errors until reconnected.");
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Exception: {0}", ex.getMessage());
+                        }
+
+                        Helpers.parkThreadMicros(2000000);
 
                     } catch (Exception ex) {
-                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                        // Irrecoverable error for this specific file
+                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "MP3 Loop irrecoverable exception for {0}: {1}", new Object[]{sound, ex.getMessage()});
+                        BLACKLISTED_SOUNDS.add(sound);
+                        MP3_LOOP.remove(sound);
+                        break; // Kill the infinite loop immediately
                     }
 
                 } while (MP3_LOOP.containsKey(sound));
@@ -504,7 +576,7 @@ public class Audio {
 
             } catch (Exception ex) {
 
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS API Error: {0}", ex.getMessage());
                 Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
 
             }
@@ -516,14 +588,14 @@ public class Audio {
             Matcher matcher = pattern.matcher(mp3_b64);
 
             if (matcher.find()) {
-                Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename), Base64.decodeBase64(matcher.group(1)));
+                Files.write(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename), Base64.getDecoder().decode(matcher.group(1)));
             } else {
                 error = true;
             }
 
         } catch (Exception ex) {
             error = true;
-            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Base64 processing error: {0}", ex.getMessage());
             Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE Google Translator BASE64 ERROR!");
 
         } finally {
@@ -535,7 +607,7 @@ public class Audio {
             try {
                 Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"));
             } catch (IOException ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Failed to delete temp file: {0}", ex.getMessage());
             }
         }
 
@@ -558,7 +630,7 @@ public class Audio {
 
                 if (!"".equals(limpio) && limpio.length() <= MAX_TTS_LENGTH) {
 
-                    //¡¡OJO CON LO QUE SE DICE POR EL CHAT QUE ESTOS SON SERVICIOS EXTERNOS!! VEREMOS LO QUE DURAN...
+                    // BE CAREFUL WITH WHAT IS SAID IN CHAT AS THESE ARE EXTERNAL SERVICES!! WE WILL SEE HOW LONG THEY LAST...
                     String filename = Helpers.genRandomString(30);
 
                     String[] tts_mp3bin_services;
@@ -607,7 +679,7 @@ public class Audio {
 
                             } catch (Exception ex) {
 
-                                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS download error: {0}", ex.getMessage());
                                 Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
                                 error = true;
                                 conta_service++;
@@ -615,7 +687,7 @@ public class Audio {
 
                         } catch (Exception ex) {
 
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS connection error: {0}", ex.getMessage());
                             Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "TTS SERVICE ({0}) ERROR!", String.valueOf(conta_service));
                             error = true;
                             conta_service++;
@@ -630,7 +702,7 @@ public class Audio {
                     } while (error && conta_service < tts_mp3bin_services.length);
 
                     if (error) {
-                        //FALLBACK
+                        // FALLBACK
                         error = !googleTranslatorTTSBASE64(limpio, GameFrame.DEFAULT_LANGUAGE.toLowerCase(), filename);
                     }
 
@@ -653,7 +725,7 @@ public class Audio {
                             TTS_PLAYER.play(System.getProperty("java.io.tmpdir") + "/" + filename, volume);
 
                         } catch (Exception ex) {
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "TTS playback error: {0}", ex.getMessage());
                         } finally {
                             TTS_PLAYER = null;
                         }
@@ -672,7 +744,7 @@ public class Audio {
                             Files.deleteIfExists(Paths.get(System.getProperty("java.io.tmpdir") + "/" + filename));
 
                         } catch (IOException ex) {
-                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error deleting TTS temp file: {0}", ex.getMessage());
                         }
 
                     }
@@ -730,7 +802,7 @@ public class Audio {
                 player.stop();
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error stopping MP3 loop: {0}", ex.getMessage());
             }
         }
 
@@ -745,7 +817,7 @@ public class Audio {
                 player.pause();
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error pausing MP3 loop: {0}", ex.getMessage());
             }
         }
 
@@ -763,7 +835,7 @@ public class Audio {
                 player.setVolume(0f);
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting MP3 loop: {0}", ex.getMessage());
             }
         }
 
@@ -783,7 +855,7 @@ public class Audio {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting MP3 loop: {0}", ex.getMessage());
             }
         }
 
@@ -799,7 +871,7 @@ public class Audio {
                 player.resume();
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error resuming MP3 loop: {0}", ex.getMessage());
             }
 
         } else {
@@ -817,7 +889,7 @@ public class Audio {
                 try {
                     entry.getValue().pause();
                 } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error pausing current MP3 loop: {0}", ex.getMessage());
                 }
 
             }
@@ -841,7 +913,7 @@ public class Audio {
                 entry.getValue().stop();
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error stopping current MP3 loop: {0}", ex.getMessage());
             }
         }
     }
@@ -883,7 +955,7 @@ public class Audio {
                         ((BooleanControl) c.getControl(BooleanControl.Type.MUTE)).setValue(true);
                     }
                 } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all WAV: {0}", ex.getMessage());
                 }
             }
         }
@@ -898,7 +970,7 @@ public class Audio {
             try {
                 entry.getValue().setVolume(0f);
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all MP3 loops: {0}", ex.getMessage());
             }
 
         }
@@ -914,7 +986,7 @@ public class Audio {
             try {
                 entry.getValue().setVolume(0f);
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all MP3s: {0}", ex.getMessage());
             }
 
         }
@@ -934,7 +1006,7 @@ public class Audio {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3 loops: {0}", ex.getMessage());
             }
         }
     }
@@ -952,7 +1024,7 @@ public class Audio {
                 }
 
             } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3s: {0}", ex.getMessage());
             }
         }
     }
@@ -976,7 +1048,7 @@ public class Audio {
                     }
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all WAVs: {0}", ex.getMessage());
                 }
             }
         }

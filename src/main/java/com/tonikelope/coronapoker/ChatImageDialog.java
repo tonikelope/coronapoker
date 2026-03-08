@@ -45,6 +45,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -56,7 +57,6 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -464,7 +464,7 @@ public class ChatImageDialog extends JDialog {
         for (int i = 0; i < historial.length; i++) {
 
             try {
-                historial[i] = Base64.encodeBase64String(historial[i].getBytes("UTF-8"));
+                historial[i] = Base64.getEncoder().encodeToString(historial[i].getBytes("UTF-8"));
 
             } catch (Exception ex) {
                 Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
@@ -492,7 +492,7 @@ public class ChatImageDialog extends JDialog {
 
             for (String h : hist) {
                 try {
-                    historial.addLast(new String(Base64.decodeBase64(h), "UTF-8"));
+                    historial.addLast(new String(Base64.getDecoder().decode(h), "UTF-8"));
                 } catch (Exception ex) {
                     Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }

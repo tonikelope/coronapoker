@@ -29,7 +29,6 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.drew.imaging.ImageProcessingException;
-import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.Crupier.STREETS;
 import static com.tonikelope.coronapoker.Helpers.TapetePopupMenu.BARAJAS_MENU;
 import static com.tonikelope.coronapoker.Init.M2;
@@ -221,14 +220,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void refreshPlayersAndCommunity() {
         Helpers.GUIRun(() -> {
-
-            Helpers.forceRepaintComponentNow(getLocalPlayer());
-
-            for (RemotePlayer rp : getTapete().getRemotePlayers()) {
-                Helpers.forceRepaintComponentNow(rp);
+            // [GRAPHIC OPTIMIZATION] Let Swing RepaintManager handle the batch repaint cleanly
+            if (getTapete() != null) {
+                getTapete().repaint();
             }
-
-            Helpers.forceRepaintComponentNow(getTapete().getCommunityCards());
         });
     }
 
@@ -1148,56 +1143,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             ) {
                 if (!getCrupier().isSincronizando_mano()) {
 
-                    if (Init.DEV_MODE && THIS.isTimba_pausada()) {
-
-                        pausa_dialog.setVisible(false);
-
-                        Helpers.threadRun(() -> {
-                            synchronized (getTapete().getCentral_label()) {
-                                String baraja = GameFrame.BARAJA;
-
-                                boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
-
-                                Card carta = new Card(false);
-
-                                test_card_count--;
-
-                                if (test_card_count < 1) {
-                                    test_card_count = 52;
-                                }
-
-                                carta.iniciarConValorNumerico(test_card_count);
-
-                                if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
-
-                                    try {
-                                        ImageIcon icon;
-
-                                        URL url_icon = null;
-
-                                        if (baraja_mod) {
-
-                                            url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
-
-                                        } else {
-
-                                            url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-
-                                        }
-
-                                        icon = new ImageIcon(url_icon);
-
-                                        getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-
-                                }
-
-                            }
-                        });
-
-                    } else if (getLocalPlayer().getBet_spinner().isEnabled()) {
+                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
                         SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
                         if (model.getPreviousValue() != null) {
                             getLocalPlayer().getBet_spinner().setValue(model.getPreviousValue());
@@ -1231,55 +1177,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             ) {
                 if (!getCrupier().isSincronizando_mano()) {
 
-                    if (Init.DEV_MODE && THIS.isTimba_pausada()) {
-
-                        pausa_dialog.setVisible(false);
-
-                        Helpers.threadRun(() -> {
-                            synchronized (getTapete().getCentral_label()) {
-
-                                String baraja = GameFrame.BARAJA;
-
-                                boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
-
-                                Card carta = new Card(false);
-
-                                test_card_count++;
-
-                                if (test_card_count > 52) {
-                                    test_card_count = 1;
-                                }
-
-                                carta.iniciarConValorNumerico(test_card_count);
-
-                                if (((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif"))) || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif") != null)) {
-
-                                    try {
-                                        ImageIcon icon;
-                                        URL url_icon = null;
-
-                                        if (baraja_mod) {
-
-                                            url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + GameFrame.BARAJA + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
-
-                                        } else {
-
-                                            url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-
-                                        }
-
-                                        icon = new ImageIcon(url_icon);
-
-                                        getTapete().showCentralImage(icon, 0, Crupier.CARD_ANIMATION_DELAY);
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-
-                                }
-
-                            }
-                        });
-                    } else if (getLocalPlayer().getBet_spinner().isEnabled()) {
+                    if (getLocalPlayer().getBet_spinner().isEnabled()) {
                         SpinnerNumberModel model = (SpinnerNumberModel) getLocalPlayer().getBet_spinner().getModel();
                         if (model.getNextValue() != null) {
                             getLocalPlayer().getBet_spinner().setValue(model.getNextValue());
@@ -1555,10 +1453,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void hideTapeteApuestas() {
 
         Helpers.GUIRun(() -> {
+            // [GRAPHIC OPTIMIZATION] Making it invisible is enough. No need to revalidate/repaint an invisible component.
             tapete.getCommunityCards().getBet_label().setVisible(false);
-
-            tapete.getCommunityCards().getBet_label().revalidate();
-            tapete.getCommunityCards().getBet_label().repaint();
         });
 
     }
@@ -2244,16 +2140,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.threadRun(crupier);
 
+        // [GRAPHIC OPTIMIZATION] javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
         tiempo_juego = new Timer(1000, (ActionEvent ae) -> {
             if (!crupier.isFin_de_la_transmision() && !isTimba_pausada()) {
                 String tiempo_juego1 = Helpers.seconds2FullTime(++conta_tiempo_juego);
-                Helpers.GUIRun(() -> {
-                    tapete.getCommunityCards().getTiempo_partida().setText(tiempo_juego1);
-                });
+                tapete.getCommunityCards().getTiempo_partida().setText(tiempo_juego1);
             } else {
-                Helpers.GUIRun(() -> {
-                    tapete.getCommunityCards().getTiempo_partida().setText("--:--:--");
-                });
+                tapete.getCommunityCards().getTiempo_partida().setText("--:--:--");
             }
         });
 
@@ -3899,7 +3792,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     rebuy_now_menu.setOpaque(false);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
-                    Helpers.forceRepaintComponentNow(player);
+                    // [GRAPHIC OPTIMIZATION] Removed forceRepaintComponentNow
                 });
                 Audio.playWavResource("misc/button_off.wav");
             });
@@ -3927,7 +3820,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         rebuy_now_menu.setEnabled(true);
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                         rebuy_dialog = null;
-                        Helpers.forceRepaintComponentNow(player);
+                        // [GRAPHIC OPTIMIZATION] Removed forceRepaintComponentNow
                     });
                     Audio.playWavResource("misc/button_on.wav");
                 });
@@ -3941,7 +3834,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
                 rebuy_dialog = null;
-                Helpers.forceRepaintComponentNow(player);
+                // [GRAPHIC OPTIMIZATION] Removed forceRepaintComponentNow
             }
 
         }
@@ -4119,11 +4012,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             boolean ok = false;
 
-            for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
+            // [RACE CONDITION FIX] Bloqueamos modificaciones al mapa mientras iteramos
+            synchronized (getParticipantes()) {
+                for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
 
-                if (entry.getValue() != null && !entry.getValue().isCpu()) {
-                    entry.getValue().forceSocketReconnect();
-                    ok = true;
+                    if (entry.getValue() != null && !entry.getValue().isCpu()) {
+                        entry.getValue().forceSocketReconnect();
+                        ok = true;
+                    }
                 }
             }
 

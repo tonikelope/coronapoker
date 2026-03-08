@@ -1101,7 +1101,7 @@ public class Init extends JFrame {
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        
+
         javax.swing.JWindow panoptes_splash = new javax.swing.JWindow();
 
         Helpers.GUIRun(() -> {

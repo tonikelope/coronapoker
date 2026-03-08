@@ -415,9 +415,6 @@ public class WaitingRoomFrame extends JFrame {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
             } catch (Exception ex) {
             }
-
-            revalidate();
-            repaint();
         });
 
     }
@@ -2413,7 +2410,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     byte[] lockbox = org.apache.commons.codec.binary.Base64
                                                                             .decodeBase64(partes_comando[3]
-                                                                                    );
+                                                                            );
 
                                                                     // ----> PON EL CHIVATO 2 AQUÍ <----
                                                                     try {
@@ -2455,7 +2452,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String mkBase64 = (masterKey != null)
                                                                             ? org.apache.commons.codec.binary.Base64
                                                                                     .encodeBase64String(masterKey)
-                                                                                    
                                                                             : "*";
 
                                                                     String response = "GAME#"
@@ -3321,11 +3317,8 @@ public class WaitingRoomFrame extends JFrame {
                     CoronaHTMLEditorKit.USE_GIF_CACHE = false;
                     chat_box_panel.setVisible(true);
 
-                    chat.revalidate();
-                    chat.repaint();
-
-                    chat_scroll.revalidate();
-                    chat_scroll.repaint();
+                    // [GRAPHIC OPTIMIZATION] Removed manual revalidate/repaint of chat and scroll.
+                    // Swing handles visibility and text changes optimally.
                 });
             }
         });
@@ -3462,8 +3455,7 @@ public class WaitingRoomFrame extends JFrame {
 
             Helpers.GUIRun(() -> {
                 tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-                tot_conectados.revalidate();
-                tot_conectados.repaint();
+                // [GRAPHIC OPTIMIZATION] Removed tot_conectados.revalidate/repaint
 
                 DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
                 ParticipantJListData toRemove = null;
@@ -3490,8 +3482,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 chatHTMLAppendExitUser(nick, avatar_src);
 
-                revalidate();
-                repaint();
+                // [GRAPHIC OPTIMIZATION] Removed global revalidate() and repaint()
             });
 
             if (this.isServer() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
@@ -3523,8 +3514,7 @@ public class WaitingRoomFrame extends JFrame {
 
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-            tot_conectados.revalidate();
-            tot_conectados.repaint();
+            // [GRAPHIC OPTIMIZATION] Removed manual revalidate/repaint
 
             ParticipantJListData participant_data = new ParticipantJListData(nick);
             ImageIcon participant_avatar = null;
@@ -3557,8 +3547,7 @@ public class WaitingRoomFrame extends JFrame {
                 chatHTMLAppendNewUser(nick);
             }
 
-            revalidate();
-            repaint();
+            // [GRAPHIC OPTIMIZATION] Removed global revalidate() and repaint()
         });
 
     }
@@ -4872,11 +4861,6 @@ public class WaitingRoomFrame extends JFrame {
     private void chatCaretUpdate(javax.swing.event.CaretEvent evt) {// GEN-FIRST:event_chatCaretUpdate
         // TODO add your handling code here:
 
-        chat.revalidate();
-        chat.repaint();
-
-        chat_scroll.revalidate();
-        chat_scroll.repaint();
     }// GEN-LAST:event_chatCaretUpdate
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

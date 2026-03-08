@@ -29,7 +29,6 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.Dimension;
-import java.awt.Image;
 import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -60,6 +59,9 @@ public class GifAnimationDialog extends JDialog {
     /**
      * Creates new form GifAnimation
      */
+    /**
+     * Creates new form GifAnimation
+     */
     public GifAnimationDialog(java.awt.Frame parent, boolean modal, ImageIcon icon, int frames) {
         super(parent, modal);
         initComponents();
@@ -67,12 +69,14 @@ public class GifAnimationDialog extends JDialog {
         gif_panel.getGif().setBarrier(gif_barrier);
 
         int height, width;
-        if (icon.getImage().getHeight(null) > icon.getImage().getWidth(null)) {
+        if (icon.getIconHeight() > icon.getIconWidth()) {
             height = Math.round(0.7f * parent.getHeight());
         } else {
             height = Math.round(0.5f * parent.getHeight());
         }
-        width = Math.round(((float) icon.getImage().getWidth(null) * height) / icon.getImage().getHeight(null));
+
+        width = Math.round(((float) icon.getIconWidth() * height) / icon.getIconHeight());
+
         if (width > Math.round(parent.getWidth() * 0.8f)) {
             int i = 1;
             int original = width;
@@ -83,13 +87,15 @@ public class GifAnimationDialog extends JDialog {
             height = Math.round(height * (100 - (i - 1) * 0.1f));
         }
 
-        gif_panel.getGif().setPreferredSize(new Dimension(width, height));
+        // [GRAPHIC OPTIMIZATION] Set container sizes to force aspect ratio
+        Dimension targetSize = new Dimension(width, height);
+        gif_panel.getGif().setPreferredSize(targetSize);
+        gif_panel.setPreferredSize(targetSize);
+        setPreferredSize(targetSize);
 
-        gif_panel.setPreferredSize(new Dimension(width, height));
-
-        setPreferredSize(new Dimension(width, height));
-
-        gif_panel.getGif().setIcon(new ImageIcon(icon.getImage().getScaledInstance(width, height, Image.SCALE_DEFAULT)), frames);
+        // [GRAPHIC OPTIMIZATION] Pass the RAW ImageIcon. The internal JLabel (getGif) 
+        // handles resizing in paintComponent using Graphics2D to prevent thread blocking.
+        gif_panel.getGif().setIcon(icon, frames);
 
         pack();
 
@@ -104,14 +110,11 @@ public class GifAnimationDialog extends JDialog {
             Helpers.GUIRunAndWait(this::dispose);
 
             if (!force_exit) {
-
                 Init.PLAYING_CINEMATIC = false;
             }
 
             synchronized (Init.LOCK_CINEMATICS) {
-
                 Init.LOCK_CINEMATICS.notifyAll();
-
             }
         });
     }

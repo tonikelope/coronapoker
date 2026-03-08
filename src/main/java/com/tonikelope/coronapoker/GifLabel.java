@@ -28,11 +28,13 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.Graphics;
 import java.awt.Image;
 import java.util.concurrent.CyclicBarrier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
 //Thanks to -> https://stackoverflow.com/a/42079313
@@ -92,59 +94,73 @@ public class GifLabel extends JLabel {
         }
     }
 
+    // [GRAPHIC OPTIMIZATION] Hardware-accelerated dynamic scaling.
+    // Instead of scaling the image pixel by pixel in CPU, we stretch it dynamically on the GPU.
+    @Override
+    protected void paintComponent(Graphics g) {
+        if (getIcon() != null && getIcon() instanceof ImageIcon) {
+            Image img = ((ImageIcon) getIcon()).getImage();
+            if (img != null) {
+                // Draw original image stretching it to this JLabel bounds
+                g.drawImage(img, 0, 0, getWidth(), getHeight(), this);
+            }
+        } else {
+            super.paintComponent(g);
+        }
+    }
+
     @Override
     public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) {
 
+        if (gif_finished) {
+            return false; // Cut the ImageObserver loop if GIF has already finished
+        }
+
         repaint();
 
-        if (!gif_finished) {
+        if ((infoflags & FRAMEBITS) != 0) {
 
-            if ((infoflags & FRAMEBITS) != 0) {
+            conta_frames++;
 
-                conta_frames++;
-
-                if (audio != null) {
-                    if (!audio_playing && conta_frames == audio_frame_start) {
-                        if (audio_frame_end > 0) {
-                            audio_playing = true;
-                        }
-                        Audio.playWavResource(audio);
-                    } else if (audio_playing && conta_frames == audio_frame_end) {
-                        audio_playing = false;
-                        Audio.stopWavResource(audio);
-                        audio = null;
+            if (audio != null) {
+                if (!audio_playing && conta_frames == audio_frame_start) {
+                    if (audio_frame_end > 0) {
+                        audio_playing = true;
                     }
-                }
-
-            }
-
-            boolean imageupdate = ((infoflags & (ALLBITS | ABORT)) == 0);
-
-            gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);
-
-            if (gif_finished) {
-
-                conta_repeat++;
-
-                if (conta_repeat < repeat) {
-                    gif_finished = false;
-                    conta_frames = 0;
+                    Audio.playWavResource(audio);
+                } else if (audio_playing && conta_frames == audio_frame_end) {
+                    audio_playing = false;
+                    Audio.stopWavResource(audio);
+                    audio = null;
                 }
             }
 
-            if (gif_finished && gif_barrier != null) {
-                try {
-                    gif_barrier.await();
-                } catch (Exception ex) {
-                    Logger.getLogger(GifLabel.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            return imageupdate;
-
-        } else {
-            return false;
         }
+
+        boolean imageupdate = ((infoflags & (ALLBITS | ABORT)) == 0);
+
+        gif_finished = !imageupdate || (frames != 0 && conta_frames == frames);
+
+        if (gif_finished) {
+
+            conta_repeat++;
+
+            if (conta_repeat < repeat) {
+                gif_finished = false;
+                conta_frames = 0;
+            }
+        }
+
+        if (gif_finished && gif_barrier != null) {
+            try {
+                gif_barrier.await();
+            } catch (Exception ex) {
+                Logger.getLogger(GifLabel.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        // Stop Swing from requesting more frames if the animation is done and not repeating
+        return !gif_finished && imageupdate;
     }
 
 }

@@ -34,13 +34,13 @@ import java.awt.event.MouseEvent;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.text.BadLocationException;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -186,7 +186,7 @@ public class EmojiPanel extends javax.swing.JPanel {
         }
 
         try {
-            Helpers.PROPERTIES.setProperty("chat_emoji_hist", Base64.encodeBase64String(String.join(",", hist).getBytes("UTF-8")));
+            Helpers.PROPERTIES.setProperty("chat_emoji_hist", Base64.getEncoder().encodeToString(String.join(",", hist).getBytes("UTF-8")));
             Helpers.savePropertiesFile();
         } catch (UnsupportedEncodingException ex) {
             Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
@@ -203,7 +203,7 @@ public class EmojiPanel extends javax.swing.JPanel {
 
             String hist;
             try {
-                hist = new String(Base64.decodeBase64(hist_b64), "UTF-8");
+                hist = new String(Base64.getDecoder().decode(hist_b64), "UTF-8");
 
                 String[] hist_numbers = hist.split(",");
 

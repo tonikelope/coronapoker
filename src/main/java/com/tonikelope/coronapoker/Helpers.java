@@ -33,19 +33,11 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
-import com.sun.jna.Native;
-import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
-import com.sun.jna.platform.win32.Kernel32;
-import com.sun.jna.platform.win32.Tlhelp32;
-import com.sun.jna.platform.win32.WinDef;
-import static com.sun.jna.platform.win32.WinDef.MAX_PATH;
-import com.sun.jna.platform.win32.WinNT;
-import com.sun.jna.win32.W32APIOptions;
 import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
+import static com.tonikelope.coronapoker.Init.PANOPTES_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.GIFSICLE_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
@@ -202,7 +194,7 @@ import javax.xml.bind.DatatypeConverter;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import org.apache.commons.codec.binary.Base64;
+
 import org.random.api.RandomOrgClient;
 import org.random.api.exception.RandomOrgBadHTTPResponseException;
 import org.random.api.exception.RandomOrgInsufficientBitsError;
@@ -227,7 +219,6 @@ import java.awt.Insets;
 import java.awt.color.ColorSpace;
 import java.awt.image.ColorConvertOp;
 import java.awt.image.RescaleOp;
-import java.io.FilenameFilter;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.net.InetSocketAddress;
@@ -239,6 +230,7 @@ import javax.swing.JSpinner;
 import javax.swing.plaf.synth.SynthFormattedTextFieldUI;
 import javax.swing.text.JTextComponent;
 import static com.tonikelope.coronapoker.Init.CHAT_IMAGE_CACHE;
+import java.util.Base64;
 
 /**
  *
@@ -557,236 +549,6 @@ public class Helpers {
         }
 
         return null;
-    }
-
-    public static String getProcessesList() {
-
-        if (Helpers.OSValidator.isWindows()) {
-
-            return getWindowsProcessesList();
-
-        } else if (Helpers.OSValidator.isUnix() || Helpers.OSValidator.isMac()) {
-
-            String[] hidden = runProcess(new String[]{"/bin/sh", "-c", "mount -l | grep -o -E '/proc/[0-9]+' | grep -o -E '[0-9]+'"});
-
-            return getUnixProcessesList() + (hidden == null || hidden[1].trim().isEmpty() ? "" : "\n\nWARNING -> HIDDEN PROCESSES:\n" + hidden[1].trim());
-        }
-
-        return null;
-    }
-
-    public static String getUnixProcessesList() {
-
-        try {
-            String formato = "%7s  %7s  %-48s  %s\n";
-
-            StringBuilder sb = new StringBuilder();
-
-            sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
-
-            File dir = new File("/proc");
-            File[] files = dir.listFiles(new FilenameFilter() {
-                @Override
-                public boolean accept(File dir, String name) {
-                    return name.matches("[0-9]+");
-                }
-            });
-
-            Pattern pattern = Pattern.compile("([0-9]+) +\\(([^\\)]+)\\) +([^ ]+) +([0-9]+)");
-
-            for (File f : files) {
-
-                try {
-                    File fcmd = new File(f.getAbsolutePath() + "/cmdline");
-
-                    String cmd = Files.readString(fcmd.toPath());
-
-                    File fstat = new File(f.getAbsolutePath() + "/stat");
-
-                    String stat = Files.readString(fstat.toPath());
-
-                    Matcher matcher = pattern.matcher(stat);
-
-                    if (matcher.find()) {
-                        sb.append(String.format(formato, matcher.group(1), matcher.group(4), matcher.group(2), cmd.replace('\0', ' ')));
-                    }
-
-                } catch (IOException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            return sb.toString();
-
-        } catch (Exception ex) {
-
-        }
-
-        String[] plan_b = runProcess(new String[]{"ps", "aux"});
-
-        return plan_b != null ? plan_b[1] : null;
-
-    }
-
-    public static String getWindowsProcessesList() {
-
-        String formato = "%7s  %7s  %-48s  %s\n";
-
-        //PLAN A
-        String[] wmic = runProcess(new String[]{"wmic", "process", "get", "ProcessId,ParentProcessId,Name,CommandLine", "/format:list"});
-
-        if (wmic != null) {
-            try {
-
-                Pattern pat = Pattern.compile("CommandLine=([^\r\n]*).*?Name=([^\r\n]*).*?ParentProcessId=([0-9]+).*?ProcessId=([0-9]+)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
-
-                Matcher m = pat.matcher(wmic[1]);
-
-                StringBuilder sb = new StringBuilder();
-
-                sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
-
-                int i = 0;
-
-                while (m.find()) {
-                    if (!m.group(4).equals(wmic[0])) {
-                        sb.append(String.format(formato, m.group(4), m.group(3), m.group(2), m.group(1)));
-                    }
-                    i++;
-                }
-
-                if (i > 0) {
-                    return sb.toString();
-                }
-
-            } catch (Exception ex) {
-            }
-        }
-
-        //PLAN B
-        String[] powershell = runProcess(new String[]{"powershell", "-Command", "Get-CimInstance Win32_Process | Where-Object ProcessId -ne $PID | Select ProcessId,CommandLine | ConvertTo-Csv -Delimiter ','"});
-
-        HashMap<String, String> cmdlines_map = new HashMap<>();
-
-        if (powershell != null && !powershell[1].trim().isEmpty()) {
-
-            String[] lines = powershell[1].split("\n+");
-
-            Pattern pat = Pattern.compile("^\"([0-9]+)\",?(.*)$");
-
-            for (int r = 1; r < lines.length; r++) {
-                try {
-                    Matcher m = pat.matcher(lines[r]);
-
-                    if (m.find()) {
-                        cmdlines_map.put(m.group(1), m.group(2).replaceAll("^\"(.+)\"$", "$1").replaceAll("\"\"(.*?)\"\"", "\"$1\""));
-                    }
-                } catch (Exception ex) {
-
-                }
-            }
-
-        }
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(String.format(formato, "PID", "PPID", "Name", "CmdLine"));
-
-        Kernel32 kernel32 = (Kernel32) Native.load(Kernel32.class, W32APIOptions.DEFAULT_OPTIONS);
-
-        Tlhelp32.PROCESSENTRY32.ByReference processEntry = new Tlhelp32.PROCESSENTRY32.ByReference();
-
-        WinNT.HANDLE processSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPPROCESS, new WinDef.DWORD(0));
-
-        try {
-
-            while (kernel32.Process32Next(processSnapshot, processEntry)) {
-
-                String cmdline = cmdlines_map.get(String.valueOf(processEntry.th32ProcessID));
-
-                String path = null;
-
-                if (cmdline == null) {
-
-                    WinNT.HANDLE moduleSnapshot = kernel32.CreateToolhelp32Snapshot(Tlhelp32.TH32CS_SNAPMODULE, processEntry.th32ProcessID);
-
-                    try {
-                        ProcessPathKernel32.MODULEENTRY32.ByReference me = new ProcessPathKernel32.MODULEENTRY32.ByReference();
-                        ProcessPathKernel32.INSTANCE.Module32First(moduleSnapshot, me);
-                        path = me.szExePath();
-
-                    } finally {
-                        kernel32.CloseHandle(moduleSnapshot);
-                    }
-
-                }
-
-                sb.append(String.format(formato, String.valueOf(processEntry.th32ProcessID), String.valueOf(processEntry.th32ParentProcessID), Native.toString(processEntry.szExeFile), cmdline != null ? cmdline : path));
-
-            }
-        } finally {
-            kernel32.CloseHandle(processSnapshot);
-        }
-
-        return sb.toString();
-    }
-
-    //Thanks -> https://stackoverflow.com/a/24110581
-    public interface ProcessPathKernel32 extends Kernel32 {
-
-        class MODULEENTRY32 extends Structure {
-
-            public static class ByReference extends MODULEENTRY32 implements Structure.ByReference {
-
-                public ByReference() {
-                }
-
-                public ByReference(Pointer memory) {
-                    super(memory);
-                }
-            }
-
-            public MODULEENTRY32() {
-                dwSize = new WinDef.DWORD(size());
-            }
-
-            public MODULEENTRY32(Pointer memory) {
-                super(memory);
-                read();
-            }
-
-            public WinDef.DWORD dwSize;
-            public WinDef.DWORD th32ModuleID;
-            public WinDef.DWORD th32ProcessID;
-            public WinDef.DWORD GlblcntUsage;
-            public WinDef.DWORD ProccntUsage;
-            public Pointer modBaseAddr;
-            public WinDef.DWORD modBaseSize;
-            public WinDef.HMODULE hModule;
-            public char[] szModule = new char[255 + 1]; // MAX_MODULE_NAME32
-            public char[] szExePath = new char[MAX_PATH];
-
-            public String szModule() {
-                return Native.toString(this.szModule);
-            }
-
-            public String szExePath() {
-                return Native.toString(this.szExePath);
-            }
-
-            @Override
-            protected List<String> getFieldOrder() {
-                return Arrays.asList(new String[]{
-                    "dwSize", "th32ModuleID", "th32ProcessID", "GlblcntUsage", "ProccntUsage", "modBaseAddr", "modBaseSize", "hModule", "szModule", "szExePath"
-                });
-            }
-        }
-
-        ProcessPathKernel32 INSTANCE = (ProcessPathKernel32) Native.load(ProcessPathKernel32.class, W32APIOptions.UNICODE_OPTIONS);
-
-        boolean Module32First(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
-
-        boolean Module32Next(WinNT.HANDLE hSnapshot, MODULEENTRY32.ByReference lpme);
     }
 
 //Thanks -> https://stackoverflow.com/a/10245657
@@ -1808,7 +1570,7 @@ public class Helpers {
                     full_msg = iv_cmsg;
                 }
 
-                return Base64.encodeBase64String(full_msg);
+                return Base64.getEncoder().encodeToString(full_msg);
 
             } catch (UnsupportedEncodingException | IllegalStateException | InvalidAlgorithmParameterException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
                 Logger.getLogger(Helpers.class
@@ -1825,7 +1587,7 @@ public class Helpers {
 
                 Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
-                byte[] full_msg = Base64.decodeBase64(cadena);
+                byte[] full_msg = Base64.getDecoder().decode(cadena);
 
                 byte[] hmac = new byte[32];
 
@@ -1938,9 +1700,33 @@ public class Helpers {
         }
     }
 
+    public static void screenshotWindows() {
+        try {
+            /* Call the native layer to capture the window bypassing the protection (Mode 1) */
+            byte[] imageBytes = Panoptes.getInstance().takeTacticalScreenshot(1);
+
+            if (imageBytes != null && imageBytes.length > 0) {
+                /* The byte array is already JPEG encoded by the C layer, write it directly */
+                File destFile = new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + System.currentTimeMillis() + ".jpg");
+
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destFile)) {
+                    fos.write(imageBytes);
+                    fos.flush();
+                }
+
+                System.out.println("[SCREENSHOT] Tactical screenshot saved: " + destFile.getName());
+            } else {
+                System.err.println("[SCREENSHOT] Tactical screenshot failed. (Window minimized/hidden or 5-second cooldown active)");
+            }
+
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(Helpers.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+    }
+
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, RADAR_DIR, CHAT_IMAGE_CACHE}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, PANOPTES_DIR, SCREENSHOTS_DIR, CACHE_DIR, RADAR_DIR, CHAT_IMAGE_CACHE}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {
@@ -2559,6 +2345,57 @@ public class Helpers {
         }
 
         return ret;
+    }
+
+    public static byte[] getRandomOrgBytes(int nbytes) {
+
+        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, () -> "Getting TRUE RANDOM [" + String.valueOf(nbytes) + "] BYTES SEED from Random.org...");
+
+        byte[] seed = new byte[nbytes];
+
+        HttpURLConnection con = null;
+
+        try {
+            // Build the URL for raw bytes as requested
+            URL url_api = new URL("https://www.random.org/cgi-bin/randbyte?nbytes=" + nbytes + "&format=f");
+
+            con = (HttpURLConnection) url_api.openConnection();
+
+            // Use your original User-Agent and cache settings
+            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_CORONAPOKER);
+            con.setUseCaches(false);
+
+            // Read the binary stream directly
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+
+                byte[] buffer = new byte[1024];
+                int reads;
+                while ((reads = bis.read(buffer)) != -1) {
+                    byte_res.write(buffer, 0, reads);
+                }
+
+                // Return the downloaded bytes if successful
+                return byte_res.toByteArray();
+            }
+
+        } catch (Exception ex) {
+            // Log failure and proceed to local fallback
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Network random source failed, using fallback", ex);
+
+            // Fallback using your existing CSPRNG_GENERATOR logic
+            if (Helpers.CSPRNG_GENERATOR != null) {
+                Helpers.CSPRNG_GENERATOR.nextBytes(seed);
+            } else {
+                // Safety net if the generator is null
+                new java.security.SecureRandom().nextBytes(seed);
+            }
+        } finally {
+            if (con != null) {
+                con.disconnect();
+            }
+        }
+
+        return seed;
     }
 
     public static Integer[] getRandomIntegerSequence(int method, int min, int max) throws Exception {

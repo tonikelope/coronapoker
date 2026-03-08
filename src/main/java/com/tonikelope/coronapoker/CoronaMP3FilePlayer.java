@@ -17,14 +17,6 @@ https://github.com/tonikelope/coronapoker
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -37,6 +29,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine.Info;
+import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
@@ -44,7 +37,6 @@ import static javax.sound.sampled.AudioSystem.getAudioInputStream;
 import static javax.sound.sampled.AudioFormat.Encoding.PCM_SIGNED;
 import javax.sound.sampled.FloatControl;
 
-//Thanks to -> https://odoepner.wordpress.com/2013/07/19/play-mp3-or-ogg-using-javax-sound-sampled-mp3spi-vorbisspi/
 public class CoronaMP3FilePlayer {
 
     private volatile SourceDataLine line = null;
@@ -61,11 +53,11 @@ public class CoronaMP3FilePlayer {
     }
 
     public void play(String path, float volume) {
-
         try {
             play(getAudioInputStream(new File(path)), volume);
         } catch (UnsupportedAudioFileException | IOException ex) {
-            Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            // Log as warning only, as it's a file issue, not necessarily a crash
+            Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.WARNING, "Cannot play file {0}: {1}", new Object[]{path, ex.getMessage()});
         }
     }
 
@@ -74,13 +66,12 @@ public class CoronaMP3FilePlayer {
         try (final AudioInputStream in = is) {
 
             final AudioFormat outFormat = getOutFormat(in.getFormat());
-
             final Info info = new Info(SourceDataLine.class, outFormat);
 
+            // This is where the flood happens if the audio device is busy or missing
             line = (SourceDataLine) AudioSystem.getLine(info);
 
             if (line != null) {
-
                 line.open(outFormat);
                 setVolume(volume);
                 line.start();
@@ -98,20 +89,31 @@ public class CoronaMP3FilePlayer {
                 paused = false;
             }
 
+        } catch (LineUnavailableException | IllegalArgumentException ex) {
+            // SILENCE THE FLOOD: Handle hardware/line issues with low priority logging
+            if (Audio.AUDIO_AVAILABLE) {
+                Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.FINE, "Audio line unavailable: {0}", ex.getMessage());
+            }
         } catch (Exception ex) {
-            Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            // Only log generic exceptions as severe if they have a message
+            if (ex.getMessage() != null) {
+                Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.SEVERE, "Unexpected player error: {0}", ex.getMessage());
+            }
+        } finally {
+            playing = false;
         }
     }
 
     public void stop() {
-
         if (playing) {
             try {
                 playing = false;
-                line.drain();
-                line.stop();
-
+                if (line != null) {
+                    line.drain();
+                    line.stop();
+                }
             } catch (Exception ex) {
+                // Silently ignore stop errors
             }
         }
     }
@@ -129,13 +131,17 @@ public class CoronaMP3FilePlayer {
 
     public void setVolume(float vol) {
         if (line != null && line.isOpen()) {
-            FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
+            try {
+                FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
 
-            if (vol == 0f) {
-                gainControl.setValue(gainControl.getMinimum());
-            } else {
-                float db = Helpers.floatClean(20f * (float) Math.log10(vol), 3);
-                gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
+                if (vol == 0f) {
+                    gainControl.setValue(gainControl.getMinimum());
+                } else {
+                    float db = Helpers.floatClean(20f * (float) Math.log10(vol), 3);
+                    gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
+                }
+            } catch (Exception ex) {
+                // Some lines don't support volume control
             }
         }
     }
@@ -147,19 +153,16 @@ public class CoronaMP3FilePlayer {
     }
 
     private void stream(AudioInputStream in, SourceDataLine line) throws IOException {
-
         final byte[] buffer = new byte[65536];
-
         int n = -1;
 
         while (line.isOpen() && playing && (n = in.read(buffer)) != -1) {
-
             while (paused && line.isOpen() && playing) {
                 synchronized (pause_lock) {
                     try {
                         pause_lock.wait(1000);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                        Thread.currentThread().interrupt();
                     }
                 }
             }

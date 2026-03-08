@@ -46,6 +46,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -59,7 +60,6 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.border.LineBorder;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -119,6 +119,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile RadarLogDialog radar_dialog = null;
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
+
+    public void stopActionTimer() {
+        Helpers.GUIRun(() -> {
+            if (auto_action != null && auto_action.isRunning()) {
+                auto_action.stop();
+            }
+        });
+    }
 
     public void updateLatency(String latency, boolean error) {
         Helpers.GUIRun(() -> {
@@ -691,7 +699,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         @Override
                         public void actionPerformed(ActionEvent ae) {
-                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
+
+                            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
                                 response_counter--;
 
@@ -879,6 +888,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void finTurno() {
+
+        stopActionTimer();
 
         Audio.stopWavResource("misc/hurryup.wav");
 
@@ -1579,19 +1590,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 radar_checking = true;
 
                 try {
+                    // [NEW] Retrieve the local player's public key to append it to the KEM request
+                    byte[] myPubKey = GameFrame.getInstance().getSala_espera().getLocal_player_public_key();
 
                     if (GameFrame.getInstance().isPartida_local()) {
-
-                        GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8")));
+                        // [NEW] Server requesting a radar from a client: Append Local Nickname + Server PubKey
+                        GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer(
+                                "RADAR#" + Base64.getEncoder().encodeToString(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
+                                + "#" + Base64.getEncoder().encodeToString(myPubKey)
+                        );
 
                     } else {
-
-                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("RADAR#" + Base64.encodeBase64String(this.nickname.getBytes("UTF-8")));
-
+                        // [NEW] Client requesting a radar from another client via Server: Append Target Nickname + Client PubKey
+                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer(
+                                "RADAR#" + Base64.getEncoder().encodeToString(this.nickname.getBytes("UTF-8"))
+                                + "#" + Base64.getEncoder().encodeToString(myPubKey)
+                        );
                     }
 
                 } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                    radar_checking = false; // [NEW] Reset the flag if the request fails
                 }
 
             } else if (!this.nickname.contains("$") && isRadar_checking() && !isExit()) {

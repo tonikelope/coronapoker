@@ -44,13 +44,15 @@ import static com.tonikelope.coronapoker.Init.CHAT_IMAGE_CACHE;
 
 /**
  * Manages image caching and ensures independent animation instances for GIFs.
+ *
  * * @author tonikelope
  */
 public class ImageCacheManager {
 
     /**
-     * Primary entry point. Returns a UNIQUE ImageIcon instance.
-     * Loading from bytes prevents Swing from synchronizing GIF animations.
+     * Primary entry point. Returns a UNIQUE ImageIcon instance. Loading from
+     * bytes prevents Swing from synchronizing GIF animations.
+     *
      * * @param url The remote URL of the image/gif.
      * @return ImageIcon or null if download/read fails.
      */
@@ -75,8 +77,8 @@ public class ImageCacheManager {
             byte[] imageBytes = Files.readAllBytes(Paths.get(localFile.getAbsolutePath()));
             return new ImageIcon(imageBytes);
         } catch (IOException e) {
-            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE, 
-                "Error reading cached file: " + localFile.getAbsolutePath(), e);
+            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
+                    "Error reading cached file: " + localFile.getAbsolutePath(), e);
             // Fallback to path-based loading if byte reading fails
             return new ImageIcon(localFile.getAbsolutePath());
         }
@@ -91,8 +93,7 @@ public class ImageCacheManager {
             parent.mkdirs();
         }
 
-        try (BufferedInputStream in = new BufferedInputStream(url.openStream()); 
-             FileOutputStream out = new FileOutputStream(destination)) {
+        try (BufferedInputStream in = new BufferedInputStream(url.openStream()); FileOutputStream out = new FileOutputStream(destination)) {
 
             byte[] buffer = new byte[8192];
             int bytesRead;
@@ -102,8 +103,8 @@ public class ImageCacheManager {
             out.flush();
             return true;
         } catch (IOException e) {
-            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE, 
-                "Critical: Failed to cache image from " + url, e);
+            Logger.getLogger(ImageCacheManager.class.getName()).log(Level.SEVERE,
+                    "Critical: Failed to cache image from " + url, e);
             return false;
         }
     }

@@ -4,11 +4,12 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.codec.binary.Base64;
+
 import org.random.api.RandomOrgCache;
 import org.random.api.RandomOrgClient;
 import org.random.api.exception.RandomOrgBadHTTPResponseException;
@@ -545,7 +546,7 @@ public class RandomOrgRandom extends Random {
                     // block until new bits are available
                     Thread.sleep(100);
                 } else {
-                    this.currentBlob = Base64.decodeBase64(blob);
+                    this.currentBlob = Base64.getDecoder().decode(blob);
                     this.currentBlobIndex = 0;
                     return;
                 }

@@ -84,7 +84,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.Timer;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
 import java.io.UnsupportedEncodingException;
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 
 /**
  *
@@ -2953,7 +2953,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Helpers.threadRun(() -> {
                             try {
                                 //Hay que avisar a los clientes de que la timba ha terminado
-                                crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.encodeBase64String(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
+                                crupier.broadcastGAMECommandFromServer(getCrupier().isForce_recover() ? "SERVEREXITRECOVER" + (WaitingRoomFrame.getInstance().getPassword() != null ? "#" + Base64.getEncoder().encodeToString(WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8")) : "") : "SERVEREXIT", null, false);
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                             }

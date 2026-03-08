@@ -42,6 +42,7 @@ import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -50,7 +51,6 @@ import java.util.logging.Logger;
 import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
-import org.apache.commons.codec.binary.Base64;
 
 /**
  *
@@ -69,6 +69,8 @@ public class Participant implements Runnable {
     private final WaitingRoomFrame sala_espera;
     private final String nick;
     private final File avatar;
+    private byte[] panoptes_public_key = null;
+    private byte[] panoptes_private_key = null; // Bots only
 
     private volatile Socket socket = null;
     private volatile Socket recon_socket = null;
@@ -94,6 +96,104 @@ public class Participant implements Runnable {
     private volatile int pong_timeout_counter = 0;
     private volatile int pong2_timeout_counter = 0;
 
+    // =========================================================
+    // [NUEVO ZERO-TRUST] TOKENS DE CONSENSO Y AUTORIZACIÓN
+    // =========================================================
+    private byte[] token_flop = null;
+    private byte[] token_turn = null;
+    private byte[] token_river = null;
+    private volatile byte[] received_token = null;
+
+    public byte[] getToken_flop() {
+        return token_flop;
+    }
+
+    public void setToken_flop(byte[] token_flop) {
+        this.token_flop = token_flop;
+    }
+
+    public byte[] getToken_turn() {
+        return token_turn;
+    }
+
+    public void setToken_turn(byte[] token_turn) {
+        this.token_turn = token_turn;
+    }
+
+    public byte[] getToken_river() {
+        return token_river;
+    }
+
+    public void setToken_river(byte[] token_river) {
+        this.token_river = token_river;
+    }
+
+    public byte[] getReceived_token() {
+        return received_token;
+    }
+
+    public void setReceived_token(byte[] received_token) {
+        this.received_token = received_token;
+    }
+    // =========================================================
+
+    // [NUEVO ZERO-TRUST] Semilla de entropía aportada por el cliente para el mazo
+    private byte[] panoptes_hand_seed = null;
+
+    public byte[] getPanoptes_hand_seed() {
+        return panoptes_hand_seed;
+    }
+
+    public void setPanoptes_hand_seed(byte[] panoptes_hand_seed) {
+        this.panoptes_hand_seed = panoptes_hand_seed;
+    }
+
+    // [ZERO-TRUST] Fragmento de la Master Key aportado por el cliente en el Showdown
+    private byte[] mk_share = null;
+
+    public byte[] getMk_share() {
+        return mk_share;
+    }
+
+    public void setMk_share(byte[] mk_share) {
+        this.mk_share = mk_share;
+    }
+
+    private byte[] ephemeral_pub_key = null; // Server's ephemeral public key KEM (OUTPUT)
+    private byte[] encrypted_cards = null; // AEAD encrypted envelope for showdown
+
+    public byte[] getEphemeral_pub_key() {
+        return ephemeral_pub_key;
+    }
+
+    public void setEphemeral_pub_key(byte[] ephemeral_pub_key) {
+        this.ephemeral_pub_key = ephemeral_pub_key;
+    }
+
+    public byte[] getEncrypted_cards() {
+        return encrypted_cards;
+    }
+
+    public void setEncrypted_cards(byte[] encrypted_cards) {
+        this.encrypted_cards = encrypted_cards;
+    }
+
+    public byte[] getPanoptes_public_key() {
+        return panoptes_public_key;
+    }
+
+    public void setPanoptes_public_key(byte[] pk) {
+        this.panoptes_public_key = pk;
+    }
+
+    public byte[] getPanoptes_private_key() {
+        return panoptes_private_key;
+    }
+
+    public void setPanoptes_private_key(byte[] pk) {
+        this.panoptes_private_key = pk;
+    }
+
     public int getLatency2() {
         return latency2;
     }
@@ -102,7 +202,8 @@ public class Participant implements Runnable {
         return latency;
     }
 
-    public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
+    public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k,
+            SecretKeySpec hmac_k, boolean cpu) {
 
         this.nick = nick;
         this.setSocket(socket);
@@ -122,7 +223,8 @@ public class Participant implements Runnable {
                 md.update(this.hmac_key.getEncoded());
                 this.permutation_key = new SecretKeySpec(md.digest(), "AES");
                 md = MessageDigest.getInstance("MD5");
-                this.permutation_key_hash = Base64.encodeBase64String(md.digest(this.permutation_key.getEncoded()));
+                this.permutation_key_hash = Base64.getEncoder()
+                        .encodeToString(md.digest(this.permutation_key.getEncoded()));
             } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -130,8 +232,11 @@ public class Participant implements Runnable {
 
         if (avatar != null) {
             try {
-                //Guardamos una versión de 32x32 del avatar para el chat
-                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(avatar.getAbsolutePath() + "_chat"));
+                // Guardamos una versión de 32x32 del avatar para el chat
+                ImageIO.write(
+                        Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage()
+                                .getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()),
+                        "png", new File(avatar.getAbsolutePath() + "_chat"));
                 avatar_chat_src = new File(avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
             } catch (IOException ex) {
                 avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
@@ -139,7 +244,8 @@ public class Participant implements Runnable {
             }
 
         } else {
-            avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm() : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+            avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm()
+                    : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
 
     }
@@ -171,13 +277,54 @@ public class Participant implements Runnable {
 
     }
 
+    public Socket getSocket() {
+        return socket;
+    }
+
     public String getAvatar_chat_src() {
         return avatar_chat_src;
     }
 
     private void runPingPongThread() {
-        //Cada X segundos mandamos un PING al cliente
 
+        // --- INICIO BLOQUE 3: HILO GENERADOR DE LATIDOS PANOPTES (CORREGIDO) ---
+        Helpers.threadRun(() -> {
+            Helpers.pausar(15000);
+
+            Panoptes panoptes = Panoptes.getInstance();
+
+            while (!this.exit && !this.isCpu()) {
+                try {
+                    // 1. El ID de la sesión lo creamos con la IP del Cliente (para distinguirlo de
+                    // otros jugadores)
+                    String remoteIp = this.socket.getInetAddress().getHostAddress();
+                    int remotePort = this.socket.getPort();
+                    String sessionId = remoteIp + ":" + remotePort + "_heartbeat";
+
+                    // 2. PERO el reto se genera con la IP y Puerto del SERVIDOR,
+                    // para que el cliente verifique que realmente está conectado a ti.
+                    String serverLocalIp = this.socket.getLocalAddress().getHostAddress();
+                    int serverLocalPort = this.socket.getLocalPort();
+
+                    // Generamos el reto con los datos del servidor
+                    byte[] challenge = panoptes.generateChallenge(sessionId, serverLocalIp, serverLocalPort);
+                    String challengeBase64 = Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+", "");
+
+                    // Enviamos el reto de seguridad al cliente
+                    writeCommandFromServer(
+                            Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
+
+                } catch (Exception e) {
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Error enviando SECPING", e);
+                }
+
+                // Pausa de 15 segundos hasta el siguiente latido
+                Helpers.pausar(15000);
+            }
+        });
+        // --- FIN BLOQUE 3 ---
+
+        // Cada X segundos mandamos un PING al cliente
         Helpers.threadRun(() -> {
 
             while (!exit && WaitingRoomFrame.getInstance() != null) {
@@ -230,23 +377,33 @@ public class Participant implements Runnable {
                     pong2_timeout_counter++;
                 }
 
-                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
-                    RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
+                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada()
+                        && GameFrame.getInstance() != null) {
+                    RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player()
+                            .get(nick);
 
                     if (jugador != null) {
 
                         if (latency != -1 && latency2 != -1) {
 
-                            jugador.updateLatency(Translator.translate("Latencia:") + " " + String.valueOf(latency) + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + String.valueOf(latency2) + " ms (" + String.valueOf(pong2_timeout_counter) + ")", false);
+                            jugador.updateLatency(Translator.translate("Latencia:") + " " + String.valueOf(latency)
+                                    + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + String.valueOf(latency2)
+                                    + " ms (" + String.valueOf(pong2_timeout_counter) + ")", false);
 
                         } else {
 
-                            jugador.updateLatency(Translator.translate("Latencia:") + " " + (latency != -1 ? String.valueOf(latency) : "-") + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + (latency2 != -1 ? String.valueOf(latency2) : "-") + " ms (" + String.valueOf(pong2_timeout_counter) + ")", true);
+                            jugador.updateLatency(Translator.translate("Latencia:") + " "
+                                    + (latency != -1 ? String.valueOf(latency) : "-") + " ms ("
+                                    + String.valueOf(pong_timeout_counter) + ") | "
+                                    + (latency2 != -1 ? String.valueOf(latency2) : "-") + " ms ("
+                                    + String.valueOf(pong2_timeout_counter) + ")", true);
                         }
                     }
                 }
 
-                if (WaitingRoomFrame.getInstance() != null && !isCpu() && (!WaitingRoomFrame.getInstance().isPartida_empezada() || WaitingRoomFrame.getInstance().isVisible())) {
+                if (WaitingRoomFrame.getInstance() != null && !isCpu()
+                        && (!WaitingRoomFrame.getInstance().isPartida_empezada()
+                        || WaitingRoomFrame.getInstance().isVisible())) {
 
                     WaitingRoomFrame.getInstance().updateParticipantLatency(nick, latency, latency2);
                 }
@@ -255,23 +412,29 @@ public class Participant implements Runnable {
 
                     if (pong == null) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "{0} NO RESPONDIÓ EL PING", nick);
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                "{0} NO RESPONDIÓ EL PING", nick);
 
                     } else if (pong != ping + 1) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DE {0} INCORRECTO", nick);
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DE {0} INCORRECTO",
+                                nick);
 
                     } else if (pong2 == null) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "{0} NO RESPONDIÓ EL PING2", nick);
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                "{0} NO RESPONDIÓ EL PING2", nick);
 
                     } else if (pong2 != ping + 2) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DE {0} INCORRECTO", nick);
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DE {0} INCORRECTO",
+                                nick);
 
                     } else if (DEV_MODE) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "PONGS DE {0} RECIBIDOS CORRECTAMENTE. (Latencia: {1} ms / {2} ms)", new Object[]{nick, latency, latency2});
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
+                                "PONGS DE {0} RECIBIDOS CORRECTAMENTE. (Latencia: {1} ms / {2} ms)",
+                                new Object[]{nick, latency, latency2});
                     }
 
                     Helpers.pausar(PING_INTERVAL_MS);
@@ -282,11 +445,15 @@ public class Participant implements Runnable {
     }
 
     private void runPreGameSocketWriterQueueThread() {
-        //Creamos un hilo por cada participante para enviar comandos de juego con confirmación y no bloquear el servidor por si se conectan nuevos usuarios
+        // Creamos un hilo por cada participante para enviar comandos de juego con
+        // confirmación y no bloquear el servidor por si se conectan nuevos usuarios
         Helpers.threadRun(() -> {
-            while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+            while (!exit && !WaitingRoomFrame.getInstance().isExit()
+                    && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getPre_game_socket_writer_queue().isEmpty()) {
+                while (!exit && !WaitingRoomFrame.getInstance().isExit()
+                        && !WaitingRoomFrame.getInstance().isPartida_empezada()
+                        && !getPre_game_socket_writer_queue().isEmpty()) {
 
                     String command = getPre_game_socket_writer_queue().peek();
 
@@ -299,19 +466,23 @@ public class Participant implements Runnable {
 
                         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                        if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
+                        if (!writeCommandFromServer(
+                                Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
 
                             waitPreGameCommandConfirmations(id, pendientes);
 
                             if (!pendientes.isEmpty()) {
-                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} COMANDO ASYNC CONFIRMATION ERROR!", getNick());
+                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING,
+                                        "{0} COMANDO ASYNC CONFIRMATION ERROR!", getNick());
                             }
 
                         } else {
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} COMANDO ASYNC SOCKET ERROR!", getNick());
+                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING,
+                                    "{0} COMANDO ASYNC SOCKET ERROR!", getNick());
                         }
 
-                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
+                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit()
+                            && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
                     getPre_game_socket_writer_queue().poll();
 
@@ -321,7 +492,8 @@ public class Participant implements Runnable {
                     WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait().notifyAll();
                 }
 
-                if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                if (!exit && !WaitingRoomFrame.getInstance().isExit()
+                        && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     synchronized (getPre_game_socket_writer_queue()) {
 
                         try {
@@ -339,14 +511,23 @@ public class Participant implements Runnable {
         return unsecure_player;
     }
 
-    public void setUnsecure_player(boolean unsecure_player) {
-        this.unsecure_player = unsecure_player;
+    public void setUnsecure_player(boolean val) {
 
-        if (unsecure_player && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+        if (!this.unsecure_player && val
+                && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+
             Helpers.threadRun(() -> {
-                Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(), nick + " " + Translator.translate(WaitingRoomFrame.getInstance().isServer() ? "CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)" : "CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"), new ImageIcon(Init.class.getResource("/images/shield.png")));
+                Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(),
+                        nick + " " + Translator.translate(WaitingRoomFrame.getInstance().isServer()
+                                ? "CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"
+                                : "CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"),
+                        new ImageIcon(Init.class.getResource("/images/shield.png")));
             });
+
         }
+
+        this.unsecure_player = val;
+
     }
 
     public String getPermutation_key_hash() {
@@ -611,7 +792,7 @@ public class Participant implements Runnable {
 
     public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
 
-        //Esperamos confirmación
+        // Esperamos confirmación
         long start_time = System.currentTimeMillis();
 
         boolean timeout = false;
@@ -666,13 +847,9 @@ public class Participant implements Runnable {
 
     private void runSocketReaderThread() {
         Helpers.threadRun(() -> {
-
             boolean timeout = false;
-
             while (!exit) {
-
                 String mensaje_recibido = null;
-
                 try {
                     mensaje_recibido = readCommandFromClient();
                 } catch (Exception ex) {
@@ -680,38 +857,27 @@ public class Participant implements Runnable {
                 }
 
                 if (mensaje_recibido != null) {
-
                     if (timeout) {
                         timeout = false;
                         GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
                     }
-
                     String[] partes_comando = mensaje_recibido.split("#");
-
                     if ("PING".equals(partes_comando[0])) {
-
                         writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
-
                         try {
-                            socket_reader_queue.put(mensaje_recibido); //Metemos el PING en la cola para generar el PONG2
+                            // [FIX COMPILED] Usamos la cola correcta del Participant
+                            socket_reader_queue.put(mensaje_recibido);
                         } catch (InterruptedException ex) {
                             System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                         }
-
-                    } else if ("PONG".equals(partes_comando[0])) {
-
-                        pong = Integer.valueOf(partes_comando[1]);
-
-                        synchronized (ping_pong_lock) {
-                            ping_pong_lock.notifyAll();
-                        }
-
-                    } else if ("PONG2".equals(partes_comando[0])) {
-
-                        pong2 = Integer.valueOf(partes_comando[1]);
-
-                        synchronized (ping_pong_lock) {
-                            ping_pong_lock.notifyAll();
+                    } else if ("SECPING".equals(partes_comando[0])) {
+                        try {
+                            byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", ""));
+                            byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
+                            String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "") : "";
+                            writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
+                        } catch (Exception e) {
+                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Fallo al firmar el latido del cliente", e);
                         }
                     } else {
                         try {
@@ -719,27 +885,29 @@ public class Participant implements Runnable {
                         } catch (InterruptedException ex) {
                             System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                         }
-
                     }
                 } else {
                     try {
-                        socket_reader_queue.put(POISON_PILL);
+                        if (!socket_reader_queue.contains(POISON_PILL)) {
+                            socket_reader_queue.put(POISON_PILL);
+                        }
                     } catch (InterruptedException ex) {
                         System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                     }
                 }
 
-                if (mensaje_recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit() && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
+                if (mensaje_recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit()
+                        && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null
+                        || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
 
                     if (!timeout) {
-
                         timeout = true;
-
                         GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
 
                         if (!this.force_reset_socket) {
                             try {
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.encodeBase64String(nick.getBytes("UTF-8")), nick, false);
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(
+                                        "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
                             } catch (UnsupportedEncodingException ex) {
                                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                             }
@@ -747,222 +915,232 @@ public class Participant implements Runnable {
 
                         if (!reset_socket) {
                             synchronized (getParticipant_socket_lock()) {
-
                                 try {
                                     getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
                                 } catch (InterruptedException ex) {
                                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                                 }
-
                             }
-
                         }
-
                     } else {
-
-                        // 0=yes, 1=no, 2=cancel
-                        if (!this.force_reset_socket && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), nick + " " + Translator.translate("¿FORZAMOS RESET DE SU SOCKET?"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
-
-                            this.forceSocketReconnect();
-
-                            synchronized (getParticipant_socket_lock()) {
-
-                                try {
-                                    getParticipant_socket_lock().wait(GameFrame.CLIENT_RECON_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-
-                            }
-
-                        } else if (!reset_socket) {
-
-                            synchronized (getParticipant_socket_lock()) {
-
-                                try {
-                                    getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-
-                            }
-
-                        }
-
+                        // [FIX] ANTI-FLOOD: Si el socket está muerto, pausamos medio segundo para evitar el 100% de CPU
+                        Helpers.pausar(500);
                     }
-
                 }
-
             }
-
         });
     }
 
     @Override
-
     public void run() {
-
         if (socket != null) {
-
             runPreGameSocketWriterQueueThread();
-
             runPingPongThread();
-
             runSocketReaderThread();
 
             String recibido;
-
             do {
-
                 reset_socket = false;
-
                 try {
-
                     recibido = socket_reader_queue.take();
-
                     if (!POISON_PILL.equals(recibido)) {
-
                         String[] partes_comando = recibido.split("#");
 
                         switch (partes_comando[0]) {
                             case "PING":
-
                                 writeCommandFromServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
                                 break;
                             case "EXIT":
+                                if (partes_comando.length >= 5) {
+                                    try {
+                                        if (!partes_comando[1].equals("*")) {
+                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", "")));
+                                        }
+                                        if (!partes_comando[2].equals("*")) {
+                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[2].replaceAll("\\s+", "")));
+                                        }
+                                        if (!partes_comando[3].equals("*")) {
+                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[3].replaceAll("\\s+", "")));
+                                        }
+                                        if (!partes_comando[4].equals("*")) {
+                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[4].replaceAll("\\s+", "")));
+                                        }
+                                    } catch (Exception e) {
+                                    }
+                                } else if (partes_comando.length > 1 && partes_comando[1].length() > 10) {
+                                    try {
+                                        this.setMk_share(Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", "")));
+                                    } catch (Exception e) {
+                                    }
+                                }
                                 exit = true;
                                 break;
                             case "CHAT":
-                                //Los mensajes de chat no llevan confirmación al no considerarse prioritarios (TO-DO)
                                 String mensaje;
                                 if (partes_comando.length == 3) {
-
-                                    mensaje = new String(Base64.decodeBase64(partes_comando[2]), "UTF-8");
-
+                                    mensaje = new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8");
                                 } else {
                                     mensaje = "";
                                 }
-                                sala_espera.recibirMensajeChat(new String(Base64.decodeBase64(partes_comando[1]), "UTF-8"), mensaje);
+                                sala_espera.recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
                                 break;
                             case "CONF":
-                                //Es una confirmación de un cliente
                                 WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.valueOf(partes_comando[1])});
                                 synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-
                                     WaitingRoomFrame.getInstance().getReceived_confirmations().notifyAll();
                                 }
-
                                 break;
                             case "GAME":
-                                //Es un comando de juego del cliente
                                 String subcomando = partes_comando[2];
-                                int command_id = Integer.parseInt(partes_comando[1]); //Los comandos del juego llevan confirmación de recepción
+                                int command_id = Integer.parseInt(partes_comando[1]);
                                 this.writeCommandFromServer(("CONF#" + String.valueOf(command_id + 1) + "#OK"));
                                 if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
-
                                     last_received.put(subcomando, command_id);
 
                                     switch (subcomando) {
-
                                         case "RADAR":
                                             Helpers.threadRun(() -> {
                                                 try {
-                                                    if (partes_comando.length == 4) {
-
-                                                        //SOLICITA RADAR LOG DE OTRO USUARIO
-                                                        String suspicious = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-
+                                                    if (partes_comando.length == 5) {
+                                                        String suspicious = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                        byte[] requesterPubKey = Base64.getDecoder().decode(partes_comando[4]);
                                                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
-
-                                                            //Quiere mi RADAR LOG (el del server)
-                                                            GameFrame.getInstance().getLocalPlayer().RADAR(nick);
-
+                                                            GameFrame.getInstance().getLocalPlayer().RADAR(nick, requesterPubKey);
                                                         } else if (!GameFrame.getInstance().getParticipantes().get(suspicious).isCpu()) {
-                                                            //Quiere la de otro user
-
-                                                            GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nick.getBytes("UTF-8")));
+                                                            GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_comando[4]);
                                                         }
-
-                                                    } else {
-
-                                                        //Envía su RADAR LOG
-                                                        String requester = new String(Base64.decodeBase64(partes_comando[3]), "UTF-8");
-
+                                                    } else if (partes_comando.length == 7) {
+                                                        String requester = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
-
-                                                            //Se la solicité yo (server)
-                                                            GameFrame.getInstance().getCrupier().saveRADARLog(nick, partes_comando[4].equals("*") ? null : Base64.decodeBase64(partes_comando[4]), new String(Base64.decodeBase64(partes_comando[5]), "UTF-8"), Long.parseLong(partes_comando[6]));
+                                                            byte[] imageBytes = partes_comando[4].equals("*") ? null : Base64.getDecoder().decode(partes_comando[4]);
+                                                            byte[] encryptedRadarData = partes_comando[5].equals("*") ? null : Base64.getDecoder().decode(partes_comando[5]);
+                                                            long timestamp = Long.parseLong(partes_comando[6]);
+                                                            StringBuilder sb = new StringBuilder();
+                                                            sb.append("  ____                            ____       _                ____      _    ____    _    ____  \n"
+                                                                    + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __   |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
+                                                                    + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
+                                                                    + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
+                                                                    + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
+                                                                    + "                                                                                               \n\n");
+                                                            sb.append("CoronaPoker Radar -> [").append(nick).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
+                                                            if (encryptedRadarData != null) {
+                                                                byte[] myPrivateKey = GameFrame.getInstance().getSala_espera().getLocal_player_private_key();
+                                                                String rawIntel = Panoptes.getInstance().parseRadarReport(myPrivateKey, encryptedRadarData);
+                                                                if (rawIntel != null) {
+                                                                    sb.append(rawIntel);
+                                                                } else {
+                                                                    sb.append("************************************************************************\n");
+                                                                    sb.append("[!] CRITICAL SECURITY ERROR: INTEGRITY CHECK FAILED (MAC POLY1305)\n");
+                                                                    sb.append("Packet was altered in transit or Chaos/KEM signature is invalid.\n");
+                                                                    sb.append("************************************************************************\n");
+                                                                }
+                                                            } else {
+                                                                sb.append("[!] No encrypted process data received.\n");
+                                                            }
+                                                            GameFrame.getInstance().getCrupier().saveRADARLog(nick, imageBytes, sb.toString(), timestamp);
                                                         } else {
-
-                                                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.encodeBase64String(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
+                                                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
                                                         }
                                                     }
                                                 } catch (Exception ex) {
+                                                    ex.printStackTrace();
                                                 }
                                             });
-
                                             break;
-
                                         case "PERMUTATIONKEY":
                                             Helpers.threadRun(() -> {
                                                 synchronized (GameFrame.getInstance().getCrupier().getPermutation_key_lock()) {
-
                                                     GameFrame.getInstance().getCrupier().setPermutation_key(partes_comando[3]);
                                                     GameFrame.getInstance().getCrupier().getPermutation_key_lock().notifyAll();
                                                 }
                                             });
                                             break;
                                         case "PAUSE":
-
                                             Helpers.threadRun(() -> {
                                                 synchronized (GameFrame.getInstance().getLock_pause()) {
-
                                                     if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada()) && nick.equals(GameFrame.getInstance().getNick_pause()) || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
                                                         GameFrame.getInstance().pauseTimba(nick);
-
                                                         if (GameFrame.getInstance().isTimba_pausada()) {
                                                             GameFrame.getInstance().getRegistro().print("PAUSE (" + nick + ")");
                                                         }
                                                     }
                                                 }
                                             });
-
                                             break;
-
                                         case "IWTSTH":
-
                                             if (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isIwtsthing()) {
                                                 GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(nick);
                                             }
-
                                             break;
-
                                         case "RABBIT":
-                                            //Estos paquetes hay que procesarlos aunque lleguen "tarde" porque afectan al balance general (los rabbit no son gratis)
                                             GameFrame.getInstance().getCrupier().RABBIT_HANDLER(nick, Integer.parseInt(partes_comando[4]));
                                             break;
-
                                         case "REBUYNOW":
                                             GameFrame.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
                                             break;
                                         case "SHOWMYCARDS":
-                                            GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
+                                            Helpers.threadRun(() -> {
+                                                GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
+                                            });
                                             break;
                                         case "NEWHANDREADY":
-
-                                            this.new_hand_ready = Integer.parseInt(partes_comando[3]);
-
+                                            try {
+                                                this.new_hand_ready = Integer.parseInt(partes_comando[3]);
+                                                if (partes_comando.length > 4) {
+                                                    byte[] clientSeed = Base64.getDecoder().decode(partes_comando[4]);
+                                                    this.setPanoptes_hand_seed(clientSeed);
+                                                }
+                                            } catch (Exception e) {
+                                            }
                                             synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
                                                 GameFrame.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
                                             }
                                             break;
                                         case "EXIT":
-                                            GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
-                                            exit = true;
+                                            // [FIX GHOSTS] Detect if we are in the Waiting Room or in the Game
+                                            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                                                if (partes_comando.length >= 7) {
+                                                    try {
+                                                        if (!partes_comando[3].equals("*")) {
+                                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[3].replaceAll("\\s+", "")));
+                                                        }
+                                                        if (!partes_comando[4].equals("*")) {
+                                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[4].replaceAll("\\s+", "")));
+                                                        }
+                                                        if (!partes_comando[5].equals("*")) {
+                                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[5].replaceAll("\\s+", "")));
+                                                        }
+                                                        if (!partes_comando[6].equals("*")) {
+                                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[6].replaceAll("\\s+", "")));
+                                                        }
+                                                    } catch (Exception e) {
+                                                    }
+                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nick);
+                                                } else if (partes_comando.length == 4) {
+                                                    try {
+                                                        String exiting_nick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(exiting_nick);
+                                                    } catch (Exception e) {
+                                                    }
+                                                    // Broadcast received, we don't kill our own thread
+                                                    break;
+                                                } else {
+                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nick);
+                                                }
+                                            } else {
+                                                // [WAITING ROOM SAFE-EXIT] The game hasn't started, safely remove from WaitingRoomFrame
+                                                if (sala_espera != null) {
+                                                    sala_espera.borrarParticipante(this.nick);
+                                                }
+                                            }
+
+                                            // Only the exiting client itself triggers its thread exit
+                                            if (partes_comando.length != 4) {
+                                                exit = true;
+                                            }
                                             break;
                                         default:
-                                                //Metemos el mensaje en la cola
-                                                synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                             }
@@ -973,45 +1151,31 @@ public class Participant implements Runnable {
                             default:
                                 break;
                         }
-
                     } else {
-
-                        if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "{0} -> EL SOCKET HA RECIBIDO POISON PILL", nick);
-                        }
+                        // [FIX POISON PILL] If socket is dead, we break the loop immediately to avoid zombies
+                        exit = true;
                     }
-
                 } catch (Exception ex) {
-
-                    if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
+                    if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isExit()) {
                         Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, nick + " -> EXCEPCION AL PROCESAR ALGÚN COMANDO DE ESTE CLIENTE", ex);
                     }
                 }
-
             } while (!exit && !WaitingRoomFrame.getInstance().isExit() && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()));
 
             if (!WaitingRoomFrame.getInstance().isExit() && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
-
-                if (WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
-
+                if (WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     GameFrame.getInstance().getCrupier().remotePlayerQuit(nick);
-
+                } else {
+                    sala_espera.borrarParticipante(nick);
                 }
-
-                sala_espera.borrarParticipante(nick);
-
             }
-
             exit = true;
-
             synchronized (ping_pong_lock) {
                 ping_pong_lock.notifyAll();
             }
-
         } else {
             this.exit = true;
         }
-
     }
 
 }

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope</groupId>
     <artifactId>CoronaPoker</artifactId>
-    <version>19.51</version>
+    <version>19.52</version>
     <packaging>jar</packaging>
     <build>
         <plugins>
@@ -21,7 +21,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>com.tonikelope.coronahmac.M</mainClass>
+                            <mainClass>com.tonikelope.coronapoker.Init</mainClass>
                         </manifest>
                         <manifestEntries>
                             <SplashScreen-Image>images/splash.gif</SplashScreen-Image>
@@ -119,11 +119,7 @@
             <artifactId>jna-platform</artifactId>
             <version>5.12.1</version>
         </dependency>
-        <dependency>
-            <groupId>com.tonikelope.coronahmac</groupId>
-            <artifactId>coronahmac</artifactId>
-            <version>2.5</version>
-        </dependency>
+            
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

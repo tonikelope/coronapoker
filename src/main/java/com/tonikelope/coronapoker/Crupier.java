@@ -2780,7 +2780,7 @@ public class Crupier implements Runnable {
 
         // PANOPTES ZERO-TRUST: Generamos 32 bytes de entropía local para el mazo
         byte[] mySeed;
-        
+
         // Supongamos que tienes una variable booleana GameFrame.USE_RANDOM_ORG 
         // que viene del checkbox de crear partida:
         if (GameFrame.getInstance().isPartida_local() && (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG_CSPRNG || Helpers.DECK_RANDOM_GENERATOR == Helpers.CSPRNG)) {
@@ -2794,7 +2794,7 @@ public class Crupier implements Runnable {
                 new java.security.SecureRandom().nextBytes(mySeed);
             }
         }
-        
+
         this.local_hand_seed = mySeed; // La guardamos en RAM
 
         // [ELIMINADA LA ROTACIÓN DE LLAVES. LA IDENTIDAD ES PERSISTENTE Y LA CONOCE EL
@@ -4671,13 +4671,22 @@ public class Crupier implements Runnable {
                     int pos = calcularPosicionEnPaquete(j.getNickname());
                     if (pos != -1) {
                         try {
-                            byte[] claimedCards = new byte[]{(byte) (j.getHoleCard1().getCartaComoEntero() - 1), (byte) (j.getHoleCard2().getCartaComoEntero() - 1)};
+                            byte[] claimedCards;
+
+                            if (j.getNickname().equals(GameFrame.getInstance().getNick_local())) {
+                                // [FIX FALSE POSITIVE] Las cartas del host están ordenadas en la GUI.
+                                // Usamos los bytes puros originales que no están alterados visualmente.
+                                claimedCards = new byte[]{this.local_original_cards[0], this.local_original_cards[1]};
+                            } else {
+                                // Los rivales nos envían el orden correcto por red, podemos leer su GUI
+                                claimedCards = new byte[]{(byte) (j.getHoleCard1().getCartaComoEntero() - 1), (byte) (j.getHoleCard2().getCartaComoEntero() - 1)};
+                            }
+
                             boolean isLegit = Panoptes.getInstance().verifyHandHistory(this.local_mega_packet, finalMasterKey, pos, claimedCards, this.panoptes_community_cards);
 
                             if (!isLegit) {
                                 System.err.println("❌ [SERVER AUDIT] CHEAT DETECTED ON: " + j.getNickname());
                                 GameFrame.getInstance().getRegistro().print("🚨 [ZERO-TRUST] " + j.getNickname() + " has faked their cards. (Informative alert only)");
-                                // NO ACTION TAKEN. LET THE GAME CONTINUE WITH FAKED CARDS.
                             }
                         } catch (Exception ignored) {
                         }

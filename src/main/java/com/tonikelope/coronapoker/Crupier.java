@@ -2435,6 +2435,10 @@ public class Crupier implements Runnable {
                                                 j.getHoleCard2().actualizarConValorNumerico(c2 + 1);
                                                 if (nick.equals(GameFrame.getInstance().getNick_local())) {
 
+                                                    // [FIX] ACTUALIZAMOS LA MEMORIA DE AUDITORÍA PARA EVITAR EL FALSO "FAKE CARDS"
+                                                    this.local_original_cards[0] = (byte) c1;
+                                                    this.local_original_cards[1] = (byte) c2;
+
                                                     j.getHoleCard1().destapar(false);
                                                     j.getHoleCard2().destapar(false);
 
@@ -2593,6 +2597,15 @@ public class Crupier implements Runnable {
                     }
                 }
             }
+
+            // [CRITICAL FIX] Sync pure community cards for the Audit Engine after RECOVER
+            Card[] comCards = GameFrame.getInstance().getCartas_comunes();
+            for (int i = 0; i < comCards.length; i++) {
+                if (comCards[i].isIniciada() && !comCards[i].isTapada()) {
+                    this.panoptes_community_cards[i] = (byte) (comCards[i].getCartaComoEntero() - 1);
+                }
+            }
+
             actualizarContadoresTapete();
         }
     }

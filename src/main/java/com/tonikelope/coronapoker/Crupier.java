@@ -624,7 +624,7 @@ public class Crupier implements Runnable {
                                 if (pendientes.contains(nick)) {
                                     int s = Integer.parseInt(partes[4]);
                                     if (s == targetStreet) {
-                                        byte[] t = Base64.getDecoder().decode(partes[5].replaceAll("\\s+", ""));
+                                        byte[] t = Base64.getDecoder().decode(partes[5]);
                                         Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                                         if (p != null) {
                                             p.setReceived_token(t);
@@ -1825,10 +1825,10 @@ public class Crupier implements Runnable {
             return "*#*#*#*";
         }
         try {
-            String mk = Base64.getEncoder().encodeToString(this.local_mk_share).replaceAll("\\s+", "");
-            String tf = this.local_token_flop != null ? Base64.getEncoder().encodeToString(this.local_token_flop).replaceAll("\\s+", "") : "*";
-            String tt = this.local_token_turn != null ? Base64.getEncoder().encodeToString(this.local_token_turn).replaceAll("\\s+", "") : "*";
-            String tr = this.local_token_river != null ? Base64.getEncoder().encodeToString(this.local_token_river).replaceAll("\\s+", "") : "*";
+            String mk = Base64.getEncoder().encodeToString(this.local_mk_share);
+            String tf = this.local_token_flop != null ? Base64.getEncoder().encodeToString(this.local_token_flop) : "*";
+            String tt = this.local_token_turn != null ? Base64.getEncoder().encodeToString(this.local_token_turn) : "*";
+            String tr = this.local_token_river != null ? Base64.getEncoder().encodeToString(this.local_token_river) : "*";
             return mk + "#" + tf + "#" + tt + "#" + tr;
         } catch (Exception e) {
             return "*#*#*#*";
@@ -1938,7 +1938,7 @@ public class Crupier implements Runnable {
                     String[] partes = comando.split("#");
 
                     if (partes[2].equals("MEGAPACKET")) {
-                        this.local_mega_packet = Base64.getDecoder().decode(partes[3].replaceAll("\\s+", ""));
+                        this.local_mega_packet = Base64.getDecoder().decode(partes[3]);
                         // [ZERO-TRUST FIX] Save fossil to disk atomically
                         try {
                             String fossilName = "/fossil.lock";
@@ -1958,7 +1958,7 @@ public class Crupier implements Runnable {
 
                     if (partes[2].equals("YOURCARDS")) {
                         ok = true;
-                        byte[] envelope = org.apache.commons.codec.binary.Base64.decodeBase64(partes[3].replaceAll("\\s+", ""));
+                        byte[] envelope = org.apache.commons.codec.binary.Base64.decodeBase64(partes[3]);
 
                         byte[] ephemPub = new byte[32];
                         System.arraycopy(envelope, 0, ephemPub, 0, 32);
@@ -2871,7 +2871,7 @@ public class Crupier implements Runnable {
 
         } else {
             // El cliente envía su semilla en B64 junto al comando
-            String seedB64 = Base64.getEncoder().encodeToString(this.local_hand_seed).replaceAll("\\s+", "");
+            String seedB64 = Base64.getEncoder().encodeToString(this.local_hand_seed);
             this.sendGAMECommandToServer("NEWHANDREADY#" + String.valueOf(this.conta_mano + 1) + "#" + seedB64);
         }
     }
@@ -4504,7 +4504,7 @@ public class Crupier implements Runnable {
                         try {
                             String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (pendientes.contains(nick)) {
-                                byte[] share = Base64.getDecoder().decode(partes[4].replaceAll("\\s+", ""));
+                                byte[] share = Base64.getDecoder().decode(partes[4]);
 
                                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                                 if (p != null) {
@@ -4663,7 +4663,7 @@ public class Crupier implements Runnable {
 
         if (sharesXORed == numPlayersInPacket) {
             this.valid_master_key = finalMasterKey;
-            String mkBase64 = Base64.getEncoder().encodeToString(finalMasterKey).replaceAll("\\s+", "");
+            String mkBase64 = Base64.getEncoder().encodeToString(finalMasterKey);
             broadcastGAMECommandFromServer("HANDVERIFY#" + mkBase64, null, false);
 
             for (Player j : GameFrame.getInstance().getJugadores()) {
@@ -4789,19 +4789,19 @@ public class Crupier implements Runnable {
         byte[] megaPacket = Panoptes.getInstance().easyFlatDeal(playerSeeds, playerPubKeys);
         this.local_mega_packet = megaPacket;
 
-        String megaPacketB64 = Base64.getEncoder().encodeToString(megaPacket).replaceAll("\\s+", "");
+        String megaPacketB64 = Base64.getEncoder().encodeToString(megaPacket);
         broadcastGAMECommandFromServer("MEGAPACKET#" + megaPacketB64, null, false);
 
         int offset = 49 + (numPlayers * 178);
         byte[] timeCapsule = java.util.Arrays.copyOfRange(megaPacket, offset, offset + 68);
         StringBuilder fosilBuilder = new StringBuilder();
-        fosilBuilder.append(Base64.getEncoder().encodeToString(timeCapsule).replaceAll("\\s+", ""));
+        fosilBuilder.append(Base64.getEncoder().encodeToString(timeCapsule));
 
         byte[] flatPubs = new byte[numPlayers * 32];
         for (int i = 0; i < numPlayers; i++) {
             System.arraycopy(playerPubKeys[i], 0, flatPubs, i * 32, 32);
         }
-        fosilBuilder.append("#FLATPUBS@").append(Base64.getEncoder().encodeToString(flatPubs).replaceAll("\\s+", ""));
+        fosilBuilder.append("#FLATPUBS@").append(Base64.getEncoder().encodeToString(flatPubs));
         fosilBuilder.append("#ORDER@").append(orderBuilder.toString());
         fosilBuilder.append("#FULLMEGAPACKET@").append(megaPacketB64);
 
@@ -5683,7 +5683,7 @@ public class Crupier implements Runnable {
                         Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getFlop2()));
                         Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getFlop3()));
                     }
-                    comando = "FLOPCARDS#" + Base64.getEncoder().encodeToString(ramCards).replaceAll("\\s+", "");
+                    comando = "FLOPCARDS#" + Base64.getEncoder().encodeToString(ramCards);
                 }
                 break;
             case TURN:
@@ -5693,7 +5693,7 @@ public class Crupier implements Runnable {
                     if (resisten != null) {
                         Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getTurn()));
                     }
-                    comando = "TURNCARD#" + Base64.getEncoder().encodeToString(ramCards).replaceAll("\\s+", "");
+                    comando = "TURNCARD#" + Base64.getEncoder().encodeToString(ramCards);
                 }
                 break;
             case RIVER:
@@ -5703,7 +5703,7 @@ public class Crupier implements Runnable {
                     if (resisten != null) {
                         Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaCard2LokiCard(GameFrame.getInstance().getRiver()));
                     }
-                    comando = "RIVERCARD#" + Base64.getEncoder().encodeToString(ramCards).replaceAll("\\s+", "");
+                    comando = "RIVERCARD#" + Base64.getEncoder().encodeToString(ramCards);
                 }
                 break;
         }
@@ -7716,7 +7716,7 @@ public class Crupier implements Runnable {
                             try {
                                 byte[] myShare = this.local_mk_share;
                                 if (myShare != null) {
-                                    String shareBase64 = Base64.getEncoder().encodeToString(myShare).replaceAll("\\s+", "");
+                                    String shareBase64 = Base64.getEncoder().encodeToString(myShare);
                                     String responseCmd = "SHOWDOWN_REVEAL#"
                                             + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
                                             + "#" + shareBase64
@@ -7732,7 +7732,7 @@ public class Crupier implements Runnable {
                             if (partes[3].equals("SKIPPED")) {
                                 this.valid_master_key = new byte[0];
                             } else {
-                                this.valid_master_key = Base64.getDecoder().decode(partes[3].replaceAll("\\s+", ""));
+                                this.valid_master_key = Base64.getDecoder().decode(partes[3]);
                             }
                             break;
 

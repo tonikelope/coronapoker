@@ -1558,7 +1558,7 @@ public class WaitingRoomFrame extends JFrame {
                                 "Failed to sign server challenge", e);
                     }
                     String miFirmaBase64 = miFirmaBytes != null
-                            ? Base64.getEncoder().encodeToString(miFirmaBytes).replaceAll("\\s+", "")
+                            ? Base64.getEncoder().encodeToString(miFirmaBytes)
                             : "";
 
                     KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
@@ -1600,7 +1600,7 @@ public class WaitingRoomFrame extends JFrame {
                         int myLocalPort = local_client_socket.getLocalPort();
 
                         byte[] challengeBytes = panoptes.generateChallenge("LOCAL", miIpToUse, myLocalPort);
-                        challengeBase64 = Base64.getEncoder().encodeToString(challengeBytes).replaceAll("\\s+", "");
+                        challengeBase64 = Base64.getEncoder().encodeToString(challengeBytes);
 
                     } catch (Exception e) {
                         Helpers.mostrarMensajeError(THIS, Translator.translate("FATAL ERROR: Failed to generate Panoptes challenge"));
@@ -1840,7 +1840,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                             // --- PANOPTES: EL CLIENTE RECIBE EL LATIDO DE SEGURIDAD Y LO FIRMA ---
                                             try {
-                                                byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", ""));
+                                                byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
                                                 byte[] signatureBytes = Panoptes.getInstance()
                                                         .signChallenge(challengeBytes);
                                                 String signatureBase64 = signatureBytes != null
@@ -2065,7 +2065,7 @@ public class WaitingRoomFrame extends JFrame {
                                         case "SECPONG":
 
                                             try {
-                                                byte[] signature = Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", ""));
+                                                byte[] signature = Base64.getDecoder().decode(partes_comando[1]);
                                                 int isLegit = Panoptes.getInstance().verifyResponse("SERVER_HEARTBEAT", signature);
 
                                                 if (isLegit == Panoptes.STATUS_FAILED) {
@@ -2413,7 +2413,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     byte[] lockbox = org.apache.commons.codec.binary.Base64
                                                                             .decodeBase64(partes_comando[3]
-                                                                                    .replaceAll("\\s+", ""));
+                                                                                    );
 
                                                                     // ----> PON EL CHIVATO 2 AQUÍ <----
                                                                     try {
@@ -2455,7 +2455,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String mkBase64 = (masterKey != null)
                                                                             ? org.apache.commons.codec.binary.Base64
                                                                                     .encodeBase64String(masterKey)
-                                                                                    .replaceAll("\\s+", "")
+                                                                                    
                                                                             : "*";
 
                                                                     String response = "GAME#"
@@ -2489,7 +2489,7 @@ public class WaitingRoomFrame extends JFrame {
                                                         // ==========================================
                                                         case "HANDVERIFY":
 
-                                                            byte[] mk = Base64.getDecoder().decode(partes_comando[3].replaceAll("\\s+", ""));
+                                                            byte[] mk = Base64.getDecoder().decode(partes_comando[3]);
 
                                                             GameFrame.getInstance().getCrupier().verificarManoLocal(mk);
 
@@ -3099,17 +3099,17 @@ public class WaitingRoomFrame extends JFrame {
                         // --- PANOPTES PHASE 1: SIGN CLIENT'S CHALLENGE ---
                         String serverSignatureBase64 = "";
                         try {
-                            byte[] challengeBytes = Base64.getDecoder().decode(clientChallengeBase64.replaceAll("\\s+", ""));
+                            byte[] challengeBytes = Base64.getDecoder().decode(clientChallengeBase64);
                             byte[] signatureBytes = panoptes.signChallenge(challengeBytes);
                             if (signatureBytes != null) {
-                                serverSignatureBase64 = Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "");
+                                serverSignatureBase64 = Base64.getEncoder().encodeToString(signatureBytes);
                             } else {
-                                serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]).replaceAll("\\s+", "");
+                                serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]);
                             }
                         } catch (Exception e) {
                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
                                     "Failed to sign Panoptes challenge", e);
-                            serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]).replaceAll("\\s+", "");
+                            serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]);
                         }
 
                         writeCommandFromServer(Helpers.encryptCommand(
@@ -3160,12 +3160,12 @@ public class WaitingRoomFrame extends JFrame {
 
                                     // --- PANOPTES: GUARDAMOS LA CLAVE PÚBLICA DEL CLIENTE ---
                                     if (!clientPubKeyBase64.isEmpty()) {
-                                        participantes.get(client_nick).setPanoptes_public_key(Base64.getDecoder().decode(clientPubKeyBase64.replaceAll("\\s+", "")));
+                                        participantes.get(client_nick).setPanoptes_public_key(Base64.getDecoder().decode(clientPubKeyBase64));
                                     }
                                     // --------------------------------------------------------
 
                                     // --- PANOPTES: SERVER VERIFIES CLIENT ---
-                                    int isClientLegit = panoptes.verifyResponse(tempSessionId, Base64.getDecoder().decode(clientSignatureBase64.replaceAll("\\s+", "")));
+                                    int isClientLegit = panoptes.verifyResponse(tempSessionId, Base64.getDecoder().decode(clientSignatureBase64));
 
                                     if (isClientLegit == Panoptes.STATUS_FAILED) {
                                         participantes.get(client_nick).setUnsecure_player(true);

@@ -308,7 +308,7 @@ public class Participant implements Runnable {
 
                     // Generamos el reto con los datos del servidor
                     byte[] challenge = panoptes.generateChallenge(sessionId, serverLocalIp, serverLocalPort);
-                    String challengeBase64 = Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+", "");
+                    String challengeBase64 = Base64.getEncoder().encodeToString(challenge);
 
                     // Enviamos el reto de seguridad al cliente
                     writeCommandFromServer(
@@ -872,9 +872,9 @@ public class Participant implements Runnable {
                         }
                     } else if ("SECPING".equals(partes_comando[0])) {
                         try {
-                            byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", ""));
+                            byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
                             byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                            String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "") : "";
+                            String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes) : "";
                             writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
                         } catch (Exception e) {
                             Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Fallo al firmar el latido del cliente", e);
@@ -954,22 +954,22 @@ public class Participant implements Runnable {
                                 if (partes_comando.length >= 5) {
                                     try {
                                         if (!partes_comando[1].equals("*")) {
-                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", "")));
+                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[1]));
                                         }
                                         if (!partes_comando[2].equals("*")) {
-                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[2].replaceAll("\\s+", "")));
+                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[2]));
                                         }
                                         if (!partes_comando[3].equals("*")) {
-                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[3].replaceAll("\\s+", "")));
+                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[3]));
                                         }
                                         if (!partes_comando[4].equals("*")) {
-                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[4].replaceAll("\\s+", "")));
+                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[4]));
                                         }
                                     } catch (Exception e) {
                                     }
                                 } else if (partes_comando.length > 1 && partes_comando[1].length() > 10) {
                                     try {
-                                        this.setMk_share(Base64.getDecoder().decode(partes_comando[1].replaceAll("\\s+", "")));
+                                        this.setMk_share(Base64.getDecoder().decode(partes_comando[1]));
                                     } catch (Exception e) {
                                     }
                                 }
@@ -1102,16 +1102,16 @@ public class Participant implements Runnable {
                                                 if (partes_comando.length >= 7) {
                                                     try {
                                                         if (!partes_comando[3].equals("*")) {
-                                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[3].replaceAll("\\s+", "")));
+                                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[3]));
                                                         }
                                                         if (!partes_comando[4].equals("*")) {
-                                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[4].replaceAll("\\s+", "")));
+                                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[4]));
                                                         }
                                                         if (!partes_comando[5].equals("*")) {
-                                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[5].replaceAll("\\s+", "")));
+                                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[5]));
                                                         }
                                                         if (!partes_comando[6].equals("*")) {
-                                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[6].replaceAll("\\s+", "")));
+                                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[6]));
                                                         }
                                                     } catch (Exception e) {
                                                     }

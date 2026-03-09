@@ -733,6 +733,23 @@ public class Crupier implements Runnable {
                         return; // Silent exit, handled by finally block
                     }
 
+                    // 1. Identificamos si teníamos dinero en juego (no éramos espectadores puros)
+                    boolean fuiJugadorActivo = false;
+                    for (Player j : GameFrame.getInstance().getJugadores()) {
+                        if (j == GameFrame.getInstance().getLocalPlayer() && (!j.isSpectator() || (j.isExit() && !j.isSpectator()))) {
+                            fuiJugadorActivo = true;
+                            break;
+                        }
+                    }
+
+                    // 2. Si éramos espectadores, no tenemos derecho a auditar la criptografía
+                    if (!fuiJugadorActivo) {
+                        Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "[ZERO-TRUST] Auditoría omitida: El jugador local es espectador.");
+                        GameFrame.getInstance().getRegistro().print("👁️ [ZERO-TRUST] Modo Espectador: No tienes fichas en juego, auditoría omitida.");
+                        return; // Salida limpia, la mano continúa normalmente
+                    }
+
+                    // 3. Somos jugadores activos, procedemos con la auditoría estricta
                     int numPlayers = this.local_mega_packet[16] & 0xFF;
                     int myPos = -1;
                     byte[] pureCards = new byte[2];

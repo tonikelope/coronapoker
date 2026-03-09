@@ -1,17 +1,23 @@
+<div align="justify">
+
 <i>Once upon a time, before ChatGPT, some humans coded for pleasure...</i>
 
-<h1>CoronaPoker</h1>
+<h1 align="center">CoronaPoker</h1>
 
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+<p align="center">
+  <a href="https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity"><img src="https://img.shields.io/badge/Maintained%3F-yes-green.svg" alt="Maintenance"></a>
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
+</p>
 
-<p align="justify">This is the project of a perfectionist, who one day during the confinement of COVID19, came up with the idea of developing the most complete and fun open source game of Texas hold'em for his friends. I hope you enjoy playing it as much as I enjoy programming it. Carpe diem.</p>
+This is the project of a perfectionist, who one day during the confinement of COVID19, came up with the idea of developing the most complete and fun open source game of Texas hold'em for his friends. I hope you enjoy playing it as much as I enjoy programming it. Carpe diem.
 
-<p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p><p align="center"><b>(Proudly) developed with:</b><br><img src="java_swing_mini.png" height="100"></p>
+<p align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank"><img src="https://raw.githubusercontent.com/tonikelope/megabasterd/master/src/main/resources/images/linux-mac-windows.png"></a></p>
+
+<p align="center"><b>(Proudly) developed with:</b><br><img src="java_swing_mini.png" height="100"></p>
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
 
 https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62-3567c593482d
-
 
 ## Some features:
 - Cross platform.
@@ -49,44 +55,59 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 <i>Use this option if for any reason you want to compile your own version of CoronaPoker and distribute it to your friends (if you are one of the friends, my security advice is that you all use option A).</i>
 
-# CoronaPoker: Zero-Trust Cryptographic Poker Engine
+<hr>
 
-CoronaPoker is a secure peer-to-peer oriented Texas Hold'em engine built on a strict **Zero-Trust Architecture**. 
+# 👁️ PANOPTES ZERO-TRUST ENGINE
+**Cryptographic Consensus & Stateless Auditing Protocol for Decentralized P2P Environments**
+<p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" height="400" alt="Panoptes Zero-Trust Engine Logo"></p>
 
-In traditional online poker, players must blindly trust the central server. If the server is compromised, or if the administrator is malicious, the integrity of the entire game is destroyed. CoronaPoker solves this by implementing a hybrid Mental Poker cryptographic protocol combined with a native, ring3-aware anti-cheat engine.
+## 📌 Executive Summary
 
-**The core philosophy: The server routes the game, but it cannot cheat.**
+Panoptes is a natively compiled, multi-platform security and consensus engine designed to enforce absolute mathematical fairness in decentralized Peer-to-Peer (P2P) card games.
 
----
+In traditional client-server topologies, players implicitly trust a central authoritative server. In a purely decentralized P2P model, one of the players must act as the host. This introduces the **"Malicious Host" vulnerability**: the host has physical access to the RAM where the deck is shuffled and the game state is maintained, allowing them to theoretically peek at hidden cards, alter the deck, or manipulate outcomes.
 
-## 🛡️ Architecture Overview: The Zero-Trust Paradigm
-
-CoronaPoker separates game routing from cryptographic visibility. Even if the host server is fully compromised, the attacker cannot read the hole cards of other players or manipulate the deck order without triggering immediate cryptographic alarms on the clients.
-
-### 1. Cryptographic Dealing & Mental Poker
-Instead of the server generating a deck and sending plaintext cards to clients, CoronaPoker uses a multi-layered cryptographic approach (KEM - Key Encapsulation Mechanism):
-* **Ephemeral Key Pairs:** For every single hand, new ephemeral keys are generated. 
-* **Blind Envelopes:** The native C-engine (`Panoptes`) generates the deck and encrypts each player's hole cards using their respective Public Keys. The server only sees encrypted "envelopes" (byte chunks).
-* **Decentralized Decryption:** Only the specific client possesses the corresponding Private Key to open their envelope. The server physically cannot know what cards were dealt to the players.
-
-### 2. The Custodian Protocol (Secure State Resumption)
-If the server crashes or the game is paused, the state must be saved to disk. However, allowing the server to encrypt and decrypt the game state alone would violate Zero-Trust.
-* **Distributed Lockboxes:** When the game state is fossilized, the Master Key is encrypted multiple times, creating a "Lockbox" for each *human* player (using their persistent Identity Keys).
-* **Server Impotence:** The server does *not* possess a lockbox for its own private key. It cannot decrypt the paused game state on its own.
-* **Democratic Recovery:** To resume a game, the server must contact an active remote player (a Custodian), send them their specific encrypted Lockbox, and request them to unlock the Master Key. If a legitimate player does not authorize the resumption, the game remains cryptographically locked.
-
-### 3. Anti-Replay Mechanisms
-To prevent a malicious server from intentionally dealing a previously recorded hand (where the server knows the outcome), CoronaPoker implements strict Anti-Replay validation.
-* Each decrypted envelope yields a unique, cryptographic `handId`.
-* Clients independently verify this ID against a local ledger. If the server attempts to serve a historical payload, the client rejects the hand, alerts the player of a "Cheating Server," and forces a fold.
+Panoptes was engineered to eliminate this vulnerability. By replacing implicit trust with rigid cryptographic proofs, the engine ensures that the host is mathematically blind to the game state until the network achieves consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
 
 ---
 
-## 👁️ The Panoptes Anti-Cheat Engine
+## 🃏 The Cryptographic Game Protocol (Hand Lifecycle)
+
+The core achievement of Panoptes is its state machine. A standard game progresses through distinct phases (Pre-flop, Flop, Turn, River, Showdown). Panoptes protects each phase using a combination of asymmetric cryptography, multi-party entropy, and ephemeral permission tokens.
+
+### Phase 1: Distributed Entropy & The Deal
+The game begins by ensuring no single entity—not even the host—can dictate the deck's order.
+* **Sourced Entropy:** Every active player client generates a local cryptographic seed and submits it to the host.
+* **The Master Shuffle:** The host's native engine combines its own entropy with the collected seeds from all players to generate a unified master key. This key is used to deterministically shuffle the deck. Because the final deck order relies on the combined input of all peers, predicting the shuffle is impossible unless all nodes collude.
+* **The Digital Envelopes:** Once shuffled, the engine deals the "pocket cards" to the players. However, these cards are never sent in plaintext. The engine uses asymmetric cryptography to encrypt each player's cards against their specific public key.
+* **The Mega-Packet:** The server constructs a single, immutable data payload containing the public keys, the individual encrypted envelopes, and a cryptographic commitment to the remaining deck. This packet is broadcasted to all peers.
+* **Note on Spectators:** Clients without chips in the pot are mathematically excluded from the Deal. The engine does not generate envelopes for them, maintaining strict data compartmentalization.
+
+### Phase 2: The Memory Vault & Forward Secrecy
+While players decrypt their pocket cards locally, the remaining community cards (the board) reside in the host's RAM. To prevent the host from simply reading these values out of memory, Panoptes uses a secure Vault.
+* **State Shielding:** The community cards are encrypted in memory using a high-speed stream cipher. The key to this cipher is ephemeral and volatile.
+* **Blind Host:** At this stage, the host application has the encrypted data but mathematically lacks the keys to decrypt the Flop, Turn, or River. The host is just as blind as the clients.
+
+### Phase 3: Token Consensus (Advancing the Game State)
+When the betting round concludes and it is time to reveal community cards (e.g., the Flop), the host cannot simply query the engine for the cards.
+* **Permission Tokens:** The host requests cryptographic "Tokens" from all active clients.
+* **Key Reconstruction:** Each client submits their unique token. The native engine aggregates these tokens. Only when all required tokens from the active players are combined can the engine reconstruct the ephemeral key needed to unlock that specific street in the Vault.
+* **Perfect Forward Secrecy:** The moment a street (like the Flop) is decrypted and broadcasted, the underlying ephemeral keys used for that decryption are permanently wiped (zeroed) from the host's RAM. It is mathematically impossible to query the Vault for the same state twice, neutralizing memory replay attacks.
+
+### Phase 4: Showdown & The Stateless Audit
+When the hand reaches the end, the system must prove that the host did not manipulate the envelopes, the community cards, or the original shuffle during the hand's progression.
+* **Master Key Revelation:** At showdown, players reveal the specific key fragments that were hidden inside their original digital envelopes.
+* **Stateless Client Verification:** Once the final Master Key is reconstructed, every client runs a localized, stateless audit. The client inputs the original Mega-Packet from Phase 1, the Master Key, and the final community cards into their own Panoptes engine.
+* **The Avalanche Effect:** The engine re-simulates the entire hand mathematically. If the host manipulated a single bit—whether by altering a community card, faking a signature, or injecting a rogue envelope—the cryptographic hash will avalanche, producing a completely invalid signature. The client will instantly detect the manipulation, flag the host as compromised, and sever the connection.
+
+---
+
+## 🛡️ The Panoptes Anti-Cheat Engine
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
 CoronaPoker includes a custom, native anti-cheat layer written in C (`libpanoptes`), integrated via JNI. It operates at the OS level to ensure the integrity of the JVM and the host environment.
 
-> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE**
-> While the CoronaPoker Java client and server routing logic are open-source (GPLv3), the source code for the native `Panoptes` anti-cheat engine remains **strictly closed-source**. This is a deliberate, non-negotiable security measure. Releasing the source code of the memory monitoring algorithms, process validation checks, and obfuscation parameters would provide malicious actors with the exact blueprint needed to bypass the anti-cheat mechanisms. Pre-compiled binaries are provided for supported platforms.
+> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE** While the CoronaPoker Java client and server routing logic are open-source (GPLv3), the source code for the native `Panoptes` anti-cheat engine remains **strictly closed-source**. This is a deliberate, non-negotiable security measure. Pre-compiled binaries are provided for supported platforms.
+
+</div>

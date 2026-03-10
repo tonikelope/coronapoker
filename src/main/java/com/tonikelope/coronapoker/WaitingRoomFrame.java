@@ -112,6 +112,7 @@ public class WaitingRoomFrame extends JFrame {
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
     public static final long PING_INTERVAL_MS = 5000;
+    public static final long SEC_PING_INTERVAL_MS = 15000;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
@@ -300,16 +301,16 @@ public class WaitingRoomFrame extends JFrame {
 
     public void setUnsecure_server(boolean val) {
 
-        if (!this.unsecure_server && val && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+        if (!this.unsecure_server && val) {
 
-            Helpers.GUIRun(() -> {
-                danger_server.setVisible(unsecure_server);
+            Helpers.GUIRunAndWait(() -> {
+                danger_server.setVisible(val);
                 pack();
             });
 
             Helpers.threadRun(() -> {
                 mostrarMensajeInformativo(THIS,
-                        "CUIDADO: es probable que el servidor intente hacer trampas con una versión hackeada del juego.");
+                        "CUIDADO: es posible que el servidor intente hacer trampas con una versión hackeada del juego.");
             });
 
         }
@@ -1704,8 +1705,9 @@ public class WaitingRoomFrame extends JFrame {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER " + server_nick + " GAME BINARY IS MODIFIED OR GUARDIAN TRIGGERED (cheating?)");
                             } else if (authStatus == Panoptes.STATUS_VM_DETECTED) {
                                 Helpers.threadRun(() -> {
-                                    mostrarMensajeInformativo(THIS, "Parece que el servidor" + server_nick + " está ejecutando CoronaPoker dentro de una Máquina Virtual\n(Es posible que intente hacer trampas de alguna forma)");
+                                    mostrarMensajeInformativo(THIS, "Parece que el servidor [" + server_nick + "] está ejecutando CoronaPoker dentro de una Máquina Virtual\n(Es posible que intente hacer trampas de alguna forma)");
                                 });
+                                
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER is running on a Virtual Machine.");
                             }
 
@@ -1943,7 +1945,7 @@ public class WaitingRoomFrame extends JFrame {
                                                 "Error enviando SECPING al servidor", e);
                                     }
 
-                                    Helpers.pausar(15000);
+                                    Helpers.pausar(SEC_PING_INTERVAL_MS);
                                 }
                             });
                             // --- FIN BLOQUE 1 ---
@@ -2076,8 +2078,7 @@ public class WaitingRoomFrame extends JFrame {
                                                     }
                                                 }
 
-                                            } catch (Exception e) {
-                                            }
+                                            } catch (Exception e) {}
 
                                             break;
 

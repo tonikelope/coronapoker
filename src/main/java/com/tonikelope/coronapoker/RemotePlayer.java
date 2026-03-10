@@ -1164,7 +1164,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.nickname = nickname;
 
         Helpers.GUIRun(() -> {
-            if (Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true")) && GameFrame.getInstance().getParticipantes().get(nickname).isUnsecure_player()) {
+            if (GameFrame.getInstance().getParticipantes().get(nickname).isUnsecure_player()) {
                 danger.setVisible(true);
             }
 

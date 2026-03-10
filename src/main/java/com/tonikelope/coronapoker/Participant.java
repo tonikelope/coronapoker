@@ -513,12 +513,11 @@ public class Participant implements Runnable {
 
     public void setUnsecure_player(boolean val) {
 
-        if (!this.unsecure_player && val
-                && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+        if (!this.unsecure_player && val) {
 
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(),
-                        nick + " " + Translator.translate(WaitingRoomFrame.getInstance().isServer()
+                        "["+nick + "] " + Translator.translate(WaitingRoomFrame.getInstance().isServer()
                                 ? "CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"
                                 : "CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"),
                         new ImageIcon(Init.class.getResource("/images/shield.png")));

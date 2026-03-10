@@ -364,85 +364,99 @@ public class Audio {
 
             InputStream sound_stream;
             if ((sound_stream = getSoundInputStream(sound)) != null) {
-                try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final Clip clip = AudioSystem.getClip()) {
 
-                    if (force_close && WAVS_RESOURCES.get(sound) != null) {
+                // 1. Open streams in a try-with-resources to satisfy the compiler and prevent memory leaks
+                try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final javax.sound.sampled.AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(bis)) {
 
-                        synchronized (WAVS_RESOURCES.get(sound)) {
-                            for (Clip c : WAVS_RESOURCES.get(sound)) {
+                    // Calculate exact duration mathematically (for Dummy Fallback)
+                    long frames = audioInputStream.getFrameLength();
+                    float frameRate = audioInputStream.getFormat().getFrameRate();
+                    long durationMicros = (long) (1000000.0f * frames / frameRate);
 
-                                if (c != null) {
-                                    synchronized (c) {
-                                        if (c.isOpen() && c.isRunning()) {
-                                            c.stop();
+                    // 2. Request physical audio hardware in an inner try-with-resources
+                    try (final Clip clip = AudioSystem.getClip()) {
+
+                        if (force_close && WAVS_RESOURCES.get(sound) != null) {
+
+                            synchronized (WAVS_RESOURCES.get(sound)) {
+                                for (Clip c : WAVS_RESOURCES.get(sound)) {
+
+                                    if (c != null) {
+                                        synchronized (c) {
+                                            if (c.isOpen() && c.isRunning()) {
+                                                c.stop();
+                                            }
                                         }
                                     }
                                 }
+                                WAVS_RESOURCES.get(sound).clear();
+
+                                WAVS_RESOURCES.get(sound).add(clip);
+
+                                clip.open(audioInputStream);
+
+                                setClipVolume(sound, clip, bypass_muted);
+
+                                clip.start();
+
+                                clip.loop(Clip.LOOP_CONTINUOUSLY);
+
                             }
-                            WAVS_RESOURCES.get(sound).clear();
 
-                            WAVS_RESOURCES.get(sound).add(clip);
+                        } else {
 
-                            clip.open(AudioSystem.getAudioInputStream(bis));
+                            WAVS_RESOURCES.putIfAbsent(sound, new ConcurrentLinkedQueue<>());
 
-                            setClipVolume(sound, clip, bypass_muted);
+                            synchronized (WAVS_RESOURCES.get(sound)) {
 
-                            clip.start();
+                                WAVS_RESOURCES.get(sound).add(clip);
 
-                            clip.loop(Clip.LOOP_CONTINUOUSLY);
+                                clip.open(audioInputStream);
 
+                                setClipVolume(sound, clip, bypass_muted);
+
+                                clip.start();
+
+                                clip.loop(Clip.LOOP_CONTINUOUSLY);
+                            }
                         }
 
-                    } else {
+                        Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
-                        WAVS_RESOURCES.putIfAbsent(sound, new ConcurrentLinkedQueue<>());
-
-                        synchronized (WAVS_RESOURCES.get(sound)) {
-
-                            WAVS_RESOURCES.get(sound).add(clip);
-
-                            clip.open(AudioSystem.getAudioInputStream(bis));
-
-                            setClipVolume(sound, clip, bypass_muted);
-
-                            clip.start();
-
-                            clip.loop(Clip.LOOP_CONTINUOUSLY);
+                        synchronized (clip) {
+                            if (clip.isRunning()) {
+                                clip.stop();
+                            }
                         }
-                    }
 
-                    Helpers.parkThreadMicros(clip.getMicrosecondLength());
-
-                    synchronized (clip) {
-                        if (clip.isRunning()) {
-                            clip.stop();
+                        if (WAVS_RESOURCES.get(sound) != null) {
+                            WAVS_RESOURCES.get(sound).remove(clip);
                         }
+
+                        // --- SUCCESS ZONE ---
+                        if (clip.isOpen() && !AUDIO_AVAILABLE) {
+                            AUDIO_AVAILABLE = true;
+                            Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Sound effects restored.");
+                        }
+
+                        return true;
+
+                    } catch (IllegalArgumentException | javax.sound.sampled.LineUnavailableException ex) {
+                        // --- DUMMY AUDIO DEVICE ZONE ---
+                        if (AUDIO_AVAILABLE) {
+                            AUDIO_AVAILABLE = false;
+                            Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "WAV: No audio device found. Emulating playback duration ({0} ms) to maintain UI sync.", durationMicros / 1000);
+                        }
+
+                        // Fake the playback by sleeping exactly the duration of the audio clip
+                        Helpers.parkThreadMicros(durationMicros);
+
+                        return true; // Return true to signal that the "playback" finished normally
+
                     }
-
-                    if (WAVS_RESOURCES.get(sound) != null) {
-                        WAVS_RESOURCES.get(sound).remove(clip);
-                    }
-
-                    // --- SUCCESS ZONE ---
-                    if (clip.isOpen() && !AUDIO_AVAILABLE) {
-                        AUDIO_AVAILABLE = true;
-                        Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Sound effects restored.");
-                    }
-
-                    return true;
-
-                } catch (IllegalArgumentException ex) {
-                    // --- FAILURE ZONE (NO AUDIO DEVICE) ---
-                    if (AUDIO_AVAILABLE) {
-                        AUDIO_AVAILABLE = false;
-                        Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "WAV: No audio device found. Suppressing further errors.");
-                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Exception: {0}", ex.getMessage());
-                    }
-                    return false;
-
                 } catch (Exception ex) {
                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0} | Exception: {1}", new Object[]{sound, ex.getMessage()});
-                    // Blacklist file on hard failure to prevent future spam
+                    // Blacklist file on hard failure (e.g. corrupted header) to prevent future spam
                     BLACKLISTED_SOUNDS.add(sound);
                 }
             }

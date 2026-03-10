@@ -1707,7 +1707,7 @@ public class WaitingRoomFrame extends JFrame {
                                 Helpers.threadRun(() -> {
                                     mostrarMensajeInformativo(THIS, "Parece que el servidor [" + server_nick + "] está ejecutando CoronaPoker dentro de una Máquina Virtual\n(Es posible que intente hacer trampas de alguna forma)");
                                 });
-                                
+
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER is running on a Virtual Machine.");
                             }
 
@@ -2078,7 +2078,8 @@ public class WaitingRoomFrame extends JFrame {
                                                     }
                                                 }
 
-                                            } catch (Exception e) {}
+                                            } catch (Exception e) {
+                                            }
 
                                             break;
 

@@ -1,6 +1,5 @@
 name: Panoptes Zero-Trust Matrix
 
-# Se ejecuta al hacer push en la carpeta 'panoptes' o manualmente
 on:
   push:
     paths:
@@ -8,11 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  audit:
-    name: Ring 3 Audit (${{ matrix.os }})
+  audit_and_generate:
+    name: Ring 3 Audit & Gen (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      # fail-fast en false asegura que si Windows falla, Mac y Linux sigan testeando
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -32,7 +30,6 @@ jobs:
         run: |
           cd panoptes
           echo "[*] Verifying binary integrity..."
-          # Evitamos el chequeo en Windows por problemas de saltos de línea (CRLF) de Git
           if [ "$RUNNER_OS" != "Windows" ]; then
             sha1sum -c checksum.sha1 || echo "[WARNING] Checksum mismatch."
           else
@@ -46,6 +43,58 @@ jobs:
           echo "=========================================================="
           echo "[*] INITIATING BLIND AUDIT ON: ${{ matrix.os }}"
           echo "=========================================================="
+          java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite smoke
+
+      - name: Generate Cross-Platform Payload
+        shell: bash
+        run: |
+          cd panoptes
+          echo "[*] Generating cryptographically signed payload for ${{ matrix.os }}..."
+          java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite generate payload_${{ matrix.os }}.bin
+
+      - name: Upload Payload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload-${{ matrix.os }}
+          path: panoptes/payload_${{ matrix.os }}.bin
+          retention-days: 1
+
+  cross_validation:
+    name: Cross-Platform MAC Verification (${{ matrix.os }})
+    needs: audit_and_generate # Espera a que las 3 máquinas hayan generado sus payloads
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21 (Adoptium)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Download All Payloads
+        uses: actions/download-artifact@v4
+        with:
+          path: panoptes/payloads/ # Se descargarán en carpetas separadas
+
+      - name: Execute Cross-Platform Verification
+        shell: bash
+        run: |
+          cd panoptes
+          echo "=========================================================="
+          echo "[*] EXECUTING CROSS-PLATFORM BOMBARDMENT ON: ${{ matrix.os }}"
+          echo "=========================================================="
           
-          # Ejecuta EXCLUSIVAMENTE el JAR público y el Test Ciego
-          java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite
+          # Buscamos recursivamente todos los .bin descargados
+          for payload in $(find payloads/ -name "*.bin"); do
+            echo -e "\n[*] Verifying foreign payload: $payload"
+            java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite verify "$payload"
+          done
+          
+          echo -e "\n[+] ALL FOREIGN MACS VALIDATED SUCCESSFULLY."

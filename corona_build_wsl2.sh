@@ -51,11 +51,6 @@ if [ ! -f "CoronaPokerMACOSaarch64_${RELEASE_VERSION}_portable.zip" ]; then
         zip -r "CoronaPokerMACOSaarch64_${RELEASE_VERSION}_portable.zip" CoronaPokerMACOSaarch64/
 fi
 
-if [ ! -f "CoronaPokerWINDOWS32_${RELEASE_VERSION}_portable.zip" ]; then
-        cp -f "CoronaPoker_${RELEASE_VERSION}.jar" CoronaPokerWINDOWS32/jar/CoronaPoker.jar
-        zip -r "CoronaPokerWINDOWS32_${RELEASE_VERSION}_portable.zip" CoronaPokerWINDOWS32/
-fi
-
 if [ ! -f "CoronaPokerWINDOWS_${RELEASE_VERSION}_portable.zip" ]; then
         cp -f "CoronaPoker_${RELEASE_VERSION}.jar" CoronaPokerWINDOWS/jar/CoronaPoker.jar
         zip -r "CoronaPokerWINDOWS_${RELEASE_VERSION}_portable.zip" CoronaPokerWINDOWS/

@@ -100,7 +100,7 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer<Pa
                         opaque = true;
                         background = Color.DARK_GRAY;
                         foreground = Color.WHITE;
-                    } else if (unsecure && Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("binary_check", "true"))) {
+                    } else if (unsecure) {
                         opaque = true;
                         background = Color.RED;
                         foreground = Color.WHITE;

@@ -3394,12 +3394,20 @@ public class Helpers {
 
         @Override
         public Component getComponentAfter(Container aContainer, Component aComponent) {
+            // Return null if there are no components to navigate
+            if (components.isEmpty()) {
+                return null;
+            }
             int idx = (components.indexOf(aComponent) + 1) % components.size();
             return components.get(idx);
         }
 
         @Override
         public Component getComponentBefore(Container aContainer, Component aComponent) {
+            // Return null if there are no components to navigate
+            if (components.isEmpty()) {
+                return null;
+            }
             int idx = components.indexOf(aComponent) - 1;
             if (idx < 0) {
                 idx = components.size() - 1;
@@ -3409,11 +3417,19 @@ public class Helpers {
 
         @Override
         public Component getFirstComponent(Container aContainer) {
+            // Prevent IndexOutOfBoundsException when the list is empty
+            if (components.isEmpty()) {
+                return null;
+            }
             return components.get(0);
         }
 
         @Override
         public Component getLastComponent(Container aContainer) {
+            // Prevent IndexOutOfBoundsException when the list is empty
+            if (components.isEmpty()) {
+                return null;
+            }
             return components.get(components.size() - 1);
         }
 

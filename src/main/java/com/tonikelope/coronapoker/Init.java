@@ -171,14 +171,14 @@ public class Init extends JFrame {
             java.io.File logFile = new java.io.File(DEBUG_DIR + "/coronapoker_debug_" + Helpers.genRandomString(10) + ".log");
             java.io.FileOutputStream fileOut = new java.io.FileOutputStream(logFile, true);
 
-            // [!] FIX: Obligamos al archivo a guardarse en formato UTF-8 puro
+            // FIX: Obligamos al archivo a guardarse en formato UTF-8 puro
             java.io.PrintStream filePrintStream = new java.io.PrintStream(fileOut, true, "UTF-8");
 
-            // [!] FIX: Obligamos a la tubería de System.out a usar UTF-8
+            // FIX: Obligamos a la tubería de System.out a usar UTF-8
             TeeOutputStream teeOut = new TeeOutputStream(System.out, filePrintStream);
             java.io.PrintStream outPrintStream = new java.io.PrintStream(teeOut, true, "UTF-8");
 
-            // [!] FIX: Obligamos a la tubería de System.err a usar UTF-8
+            // FIX: Obligamos a la tubería de System.err a usar UTF-8
             TeeOutputStream teeErr = new TeeOutputStream(System.err, filePrintStream);
             java.io.PrintStream errPrintStream = new java.io.PrintStream(teeErr, true, "UTF-8");
 
@@ -1056,7 +1056,7 @@ public class Init extends JFrame {
             // Inject the required parameters
             command.add("--enable-native-access=ALL-UNNAMED");
 
-            // [!] CRITICAL FIX: Do not use single quotes here. ProcessBuilder handles spaces natively.
+            // CRITICAL FIX: Do not use single quotes here. ProcessBuilder handles spaces natively.
             command.add("-Djava.library.path=" + PANOPTES_DIR);
 
             // Force IPv4 Stack

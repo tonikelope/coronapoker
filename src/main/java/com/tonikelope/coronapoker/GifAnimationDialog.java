@@ -87,13 +87,13 @@ public class GifAnimationDialog extends JDialog {
             height = Math.round(height * (100 - (i - 1) * 0.1f));
         }
 
-        // [GRAPHIC OPTIMIZATION] Set container sizes to force aspect ratio
+        // Set container sizes to force aspect ratio
         Dimension targetSize = new Dimension(width, height);
         gif_panel.getGif().setPreferredSize(targetSize);
         gif_panel.setPreferredSize(targetSize);
         setPreferredSize(targetSize);
 
-        // [GRAPHIC OPTIMIZATION] Pass the RAW ImageIcon. The internal JLabel (getGif) 
+        // Pass the RAW ImageIcon. The internal JLabel (getGif) 
         // handles resizing in paintComponent using Graphics2D to prevent thread blocking.
         gif_panel.getGif().setIcon(icon, frames);
 

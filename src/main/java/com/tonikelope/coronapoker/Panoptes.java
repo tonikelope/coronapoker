@@ -26,7 +26,6 @@ https://github.com/tonikelope/coronapoker
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.Init.PANOPTES_DIR;
@@ -69,7 +68,7 @@ public class Panoptes {
         } else {
             libName = "libpanoptes.so";
         }
-        
+
         File localLib = new File(targetDir + File.separator + libName);
         File localKey = new File(targetDir + File.separator + MANIFEST_KEY);
 
@@ -77,7 +76,7 @@ public class Panoptes {
             LOGGER.log(Level.INFO, "[PANOPTES] Checking integrity for: {0} and {1}", new Object[]{libName, MANIFEST_KEY});
             URL manifestUrl = new URL(REPO_RAW_URL + CHECKSUM_FILE);
             String manifestContent = downloadText(manifestUrl);
-            
+
             String expectedLibHash = parseHashFromManifest(manifestContent, libName);
             String expectedKeyHash = parseHashFromManifest(manifestContent, MANIFEST_KEY);
 
@@ -125,12 +124,12 @@ public class Panoptes {
                     }
                 }
             }
-            
+
             if (needsKeyUpdate) {
                 LOGGER.log(Level.INFO, "[PANOPTES] Fetching Consensus Key (panoptes_key.bin) from GitHub...");
                 downloadBinary(new URL(REPO_RAW_URL + MANIFEST_KEY), localKey);
             }
-            
+
             if (needsLibUpdate || needsKeyUpdate) {
                 LOGGER.log(Level.INFO, "[PANOPTES] Local files updated and synchronized with GitHub.");
             } else {
@@ -147,8 +146,8 @@ public class Panoptes {
 
         try {
             System.loadLibrary("panoptes");
-            
-            // [NUEVO ZERO-TRUST] Inyectamos los 48 bytes en la memoria blindada de C
+
+            // Inyectamos los 48 bytes en la memoria blindada de C
             File keyFile = new File(PANOPTES_DIR + File.separator + "panoptes_key.bin");
             if (keyFile.exists()) {
                 byte[] manifestBytes = java.nio.file.Files.readAllBytes(keyFile.toPath());
@@ -157,7 +156,7 @@ public class Panoptes {
             } else {
                 throw new RuntimeException("panoptes_key.bin not found after download sequence.");
             }
-            
+
         } catch (Throwable e) {
             LOGGER.log(Level.SEVERE, "===================================================");
             LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to load 'panoptes' library or key.");
@@ -180,31 +179,46 @@ public class Panoptes {
         return instance;
     }
 
-    // [NUEVO] Inyector del Manifiesto de 48 bytes
+    // Inyector del Manifiesto de 48 bytes
     public native void loadManifest(byte[] manifest);
 
     private native byte[] C(byte[] sessionKey, byte ipType, byte[] ip, short port);
+
     private native byte[] S(byte[] encryptedChallenge);
+
     private native int V(byte[] sessionKey, byte[] encryptedResponse);
-    
+
     public native byte[] initHand();
+
     public native byte[] getPublicKey(byte[] privateKey);
+
     public native byte[] getSharedSecret(byte[] myPrivateKey, byte[] theirPublicKey);
+
     public native byte[] expandSeedPRNG(byte[] seed, int length);
+
     public native byte[] shuffleDeck(byte[] seed);
+
     public native byte[] deal(byte[] playerSeedsFlat, int numPlayers, byte[] playerPubKeysFlat);
+
     public native byte[] decryptMyHand(byte[] myPrivateKey, byte[] ephemeralPubKey, byte[] encryptedCards);
+
     public native byte[] decryptMasterKey(byte[] myPrivateKey, byte[] ephemeralPubKey, byte[] encryptedMasterKey);
+
     public native boolean verifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[] myCards, byte[] comCards);
 
     // Calles con Cerrojo de Consenso
     public native byte[] getFlop(byte[] tokens);
+
     public native byte[] getTurn(byte[] tokens);
+
     public native byte[] getRiver(byte[] tokens);
+
     public native boolean verifyChaosMAC(byte[] data, byte[] mac);
-    
+
     private native byte[] getRadarData(byte[] targetPubKey);
+
     private native byte[] decryptRadarData(byte[] myPrivateKey, byte[] encryptedRadarPacket);
+
     public native byte[] getTacticalScreenshot(int mode);
 
     // Hibernación y Resurrección

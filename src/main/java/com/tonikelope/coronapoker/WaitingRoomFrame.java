@@ -1319,7 +1319,7 @@ public class WaitingRoomFrame extends JFrame {
 
         ArrayList<Participant> targets = new ArrayList<>();
 
-        // [RACE CONDITION FIX] Safely lock the map to extract valid targets without CME
+        // Safely lock the map to extract valid targets without CME
         synchronized (participantes) {
             for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
                 Participant p = entry.getValue();
@@ -2822,7 +2822,7 @@ public class WaitingRoomFrame extends JFrame {
 
         StringBuilder commandBuilder = new StringBuilder("USERSLIST#");
 
-        // [RACE CONDITION FIX] Lock the map while iterating to prevent crashes if someone disconnects
+        // Lock the map while iterating to prevent crashes if someone disconnects
         synchronized (participantes) {
             for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
                 Participant p = entry.getValue();
@@ -3317,7 +3317,7 @@ public class WaitingRoomFrame extends JFrame {
                     CoronaHTMLEditorKit.USE_GIF_CACHE = false;
                     chat_box_panel.setVisible(true);
 
-                    // [GRAPHIC OPTIMIZATION] Removed manual revalidate/repaint of chat and scroll.
+                    // Removed manual revalidate/repaint of chat and scroll.
                     // Swing handles visibility and text changes optimally.
                 });
             }
@@ -3359,7 +3359,7 @@ public class WaitingRoomFrame extends JFrame {
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
-            // [RACE CONDITION FIX] Thread-safe iteration snapshot
+            // Thread-safe iteration snapshot
             ArrayList<Participant> targets;
             synchronized (participantes) {
                 targets = new ArrayList<>(participantes.values());
@@ -3400,7 +3400,7 @@ public class WaitingRoomFrame extends JFrame {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }
             } else {
-                // [RACE CONDITION FIX] Snapshot values to prevent ConcurrentModificationException
+                // Snapshot values to prevent ConcurrentModificationException
                 ArrayList<Participant> targets;
                 synchronized (participantes) {
                     targets = new ArrayList<>(participantes.values());
@@ -3447,7 +3447,7 @@ public class WaitingRoomFrame extends JFrame {
 
             Audio.playWavResource("misc/toilet.wav");
 
-            // [RACE CONDITION FIX] Get the reference BEFORE removing it from the map
+            // Get the reference BEFORE removing it from the map
             Participant pToDel = participantes.get(nick);
             String avatar_src = pToDel.getAvatar_chat_src();
 
@@ -3455,7 +3455,7 @@ public class WaitingRoomFrame extends JFrame {
 
             Helpers.GUIRun(() -> {
                 tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-                // [GRAPHIC OPTIMIZATION] Removed tot_conectados.revalidate/repaint
+                // Removed tot_conectados.revalidate/repaint
 
                 DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
                 ParticipantJListData toRemove = null;
@@ -3482,13 +3482,13 @@ public class WaitingRoomFrame extends JFrame {
 
                 chatHTMLAppendExitUser(nick, avatar_src);
 
-                // [GRAPHIC OPTIMIZATION] Removed global revalidate() and repaint()
+                // Removed global revalidate() and repaint()
             });
 
             if (this.isServer() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
                 try {
                     String comando = "DELUSER#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                    // [NPE FIX] We safely pass the cached reference 'pToDel', preventing a NullPointerException
+                    // We safely pass the cached reference 'pToDel', preventing a NullPointerException
                     this.broadcastASYNCGAMECommandFromServer(comando, pToDel);
                 } catch (UnsupportedEncodingException ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
@@ -3514,7 +3514,7 @@ public class WaitingRoomFrame extends JFrame {
 
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-            // [GRAPHIC OPTIMIZATION] Removed manual revalidate/repaint
+            // Removed manual revalidate/repaint
 
             ParticipantJListData participant_data = new ParticipantJListData(nick);
             ImageIcon participant_avatar = null;
@@ -3547,7 +3547,7 @@ public class WaitingRoomFrame extends JFrame {
                 chatHTMLAppendNewUser(nick);
             }
 
-            // [GRAPHIC OPTIMIZATION] Removed global revalidate() and repaint()
+            // Removed global revalidate() and repaint()
         });
 
     }
@@ -4311,7 +4311,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         boolean ocupados;
 
-                        // [CONSERVATIVE FIX] Prevents ConcurrentModificationException if a player drops while starting
+                        // Prevents ConcurrentModificationException if a player drops while starting
                         do {
                             ocupados = false;
 
@@ -4388,7 +4388,7 @@ public class WaitingRoomFrame extends JFrame {
                         exit = true;
 
                         Helpers.threadRun(() -> {
-                            // [CONSERVATIVE FIX] Thread-safe shutdown iteration
+                            // Thread-safe shutdown iteration
                             if (isServer()) {
                                 synchronized (participantes) {
                                     for (Participant p : participantes.values()) {
@@ -4400,7 +4400,7 @@ public class WaitingRoomFrame extends JFrame {
                                 closeServerSocket();
                             } else if (local_client_socket != null && !reconnecting) {
                                 try {
-                                    // [ZERO-TRUST FIX] We force the client to send the Testament
+                                    // We force the client to send the Testament
                                     String exitCmd = "EXIT";
                                     if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                                         String testamento = GameFrame.getInstance().getCrupier().getTestamentoCriptografico();

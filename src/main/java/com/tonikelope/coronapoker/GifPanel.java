@@ -72,7 +72,7 @@ public class GifPanel extends javax.swing.JPanel {
     }
 
     public void setGifIcon(ImageIcon icon, int w, int h) {
-        // [GRAPHIC OPTIMIZATION] Removed the CPU-heavy getScaledInstance.
+        // Removed the CPU-heavy getScaledInstance.
         // We pass the raw ImageIcon to the label and let the hardware scaling handle it.
         gif.setIcon(icon);
 

@@ -97,7 +97,7 @@ public class Participant implements Runnable {
     private volatile int pong2_timeout_counter = 0;
 
     // =========================================================
-    // [NUEVO ZERO-TRUST] TOKENS DE CONSENSO Y AUTORIZACIÓN
+    // TOKENS DE CONSENSO Y AUTORIZACIÓN
     // =========================================================
     private byte[] token_flop = null;
     private byte[] token_turn = null;
@@ -137,7 +137,7 @@ public class Participant implements Runnable {
     }
     // =========================================================
 
-    // [NUEVO ZERO-TRUST] Semilla de entropía aportada por el cliente para el mazo
+    // Semilla de entropía aportada por el cliente para el mazo
     private byte[] panoptes_hand_seed = null;
 
     public byte[] getPanoptes_hand_seed() {
@@ -148,7 +148,7 @@ public class Participant implements Runnable {
         this.panoptes_hand_seed = panoptes_hand_seed;
     }
 
-    // [ZERO-TRUST] Fragmento de la Master Key aportado por el cliente en el Showdown
+    // Fragmento de la Master Key aportado por el cliente en el Showdown
     private byte[] mk_share = null;
 
     public byte[] getMk_share() {
@@ -865,7 +865,7 @@ public class Participant implements Runnable {
                     if ("PING".equals(partes_comando[0])) {
                         writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
                         try {
-                            // [FIX COMPILED] Usamos la cola correcta del Participant
+                            // Usamos la cola correcta del Participant
                             socket_reader_queue.put(mensaje_recibido);
                         } catch (InterruptedException ex) {
                             System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
@@ -923,7 +923,7 @@ public class Participant implements Runnable {
                             }
                         }
                     } else {
-                        // [FIX] ANTI-FLOOD: Si el socket está muerto, pausamos medio segundo para evitar el 100% de CPU
+                        // ANTI-FLOOD: Si el socket está muerto, pausamos medio segundo para evitar el 100% de CPU
                         Helpers.pausar(500);
                     }
                 }
@@ -1097,7 +1097,7 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         case "EXIT":
-                                            // [FIX GHOSTS] Detect if we are in the Waiting Room or in the Game
+                                            // Detect if we are in the Waiting Room or in the Game
                                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                                                 if (partes_comando.length >= 7) {
                                                     try {
@@ -1128,7 +1128,7 @@ public class Participant implements Runnable {
                                                     GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nick);
                                                 }
                                             } else {
-                                                // [WAITING ROOM SAFE-EXIT] The game hasn't started, safely remove from WaitingRoomFrame
+                                                // The game hasn't started, safely remove from WaitingRoomFrame
                                                 if (sala_espera != null) {
                                                     sala_espera.borrarParticipante(this.nick);
                                                 }
@@ -1152,7 +1152,7 @@ public class Participant implements Runnable {
                                 break;
                         }
                     } else {
-                        // [FIX POISON PILL] If socket is dead, we break the loop immediately to avoid zombies
+                        // If socket is dead, we break the loop immediately to avoid zombies
                         exit = true;
                     }
                 } catch (Exception ex) {

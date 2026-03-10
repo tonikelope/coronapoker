@@ -1585,18 +1585,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 radar_checking = true;
 
                 try {
-                    // [NEW] Retrieve the local player's public key to append it to the KEM request
+                    // Retrieve the local player's public key to append it to the KEM request
                     byte[] myPubKey = GameFrame.getInstance().getSala_espera().getLocal_player_public_key();
 
                     if (GameFrame.getInstance().isPartida_local()) {
-                        // [NEW] Server requesting a radar from a client: Append Local Nickname + Server PubKey
+                        // Server requesting a radar from a client: Append Local Nickname + Server PubKey
                         GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer(
                                 "RADAR#" + Base64.getEncoder().encodeToString(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
                                 + "#" + Base64.getEncoder().encodeToString(myPubKey)
                         );
 
                     } else {
-                        // [NEW] Client requesting a radar from another client via Server: Append Target Nickname + Client PubKey
+                        // Client requesting a radar from another client via Server: Append Target Nickname + Client PubKey
                         GameFrame.getInstance().getCrupier().sendGAMECommandToServer(
                                 "RADAR#" + Base64.getEncoder().encodeToString(this.nickname.getBytes("UTF-8"))
                                 + "#" + Base64.getEncoder().encodeToString(myPubKey)
@@ -1605,7 +1605,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                    radar_checking = false; // [NEW] Reset the flag if the request fails
+                    radar_checking = false; // Reset the flag if the request fails
                 }
 
             } else if (!this.nickname.contains("$") && isRadar_checking() && !isExit()) {

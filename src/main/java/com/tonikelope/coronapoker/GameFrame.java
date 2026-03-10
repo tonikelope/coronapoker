@@ -220,7 +220,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void refreshPlayersAndCommunity() {
         Helpers.GUIRun(() -> {
-            // [GRAPHIC OPTIMIZATION] Let Swing RepaintManager handle the batch repaint cleanly
+            // Let Swing RepaintManager handle the batch repaint cleanly
             if (getTapete() != null) {
                 getTapete().repaint();
             }
@@ -684,6 +684,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 jugador.refreshNotifyChatLabel();
             }
         }
+
     }
 
     public boolean isGame_over_dialog() {
@@ -1453,7 +1454,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void hideTapeteApuestas() {
 
         Helpers.GUIRun(() -> {
-            // [GRAPHIC OPTIMIZATION] Making it invisible is enough. No need to revalidate/repaint an invisible component.
+            // Making it invisible is enough. No need to revalidate/repaint an invisible component.
             tapete.getCommunityCards().getBet_label().setVisible(false);
         });
 
@@ -2140,7 +2141,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.threadRun(crupier);
 
-        // [GRAPHIC OPTIMIZATION] javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
+        // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
         tiempo_juego = new Timer(1000, (ActionEvent ae) -> {
             if (!crupier.isFin_de_la_transmision() && !isTimba_pausada()) {
                 String tiempo_juego1 = Helpers.seconds2FullTime(++conta_tiempo_juego);
@@ -3792,7 +3793,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     rebuy_now_menu.setOpaque(false);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
-                    // [GRAPHIC OPTIMIZATION] Removed forceRepaintComponentNow
+                    // Removed forceRepaintComponentNow
                 });
                 Audio.playWavResource("misc/button_off.wav");
             });
@@ -3820,7 +3821,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         rebuy_now_menu.setEnabled(true);
                         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                         rebuy_dialog = null;
-                        // [GRAPHIC OPTIMIZATION] Removed forceRepaintComponentNow
+                        // Removed forceRepaintComponentNow
                     });
                     Audio.playWavResource("misc/button_on.wav");
                 });
@@ -3834,7 +3835,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(null);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setOpaque(false);
                 rebuy_dialog = null;
-                // [GRAPHIC OPTIMIZATION] Removed forceRepaintComponentNow
+                // Removed forceRepaintComponentNow
             }
 
         }
@@ -4012,7 +4013,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             boolean ok = false;
 
-            // [RACE CONDITION FIX] Bloqueamos modificaciones al mapa mientras iteramos
+            // Bloqueamos modificaciones al mapa mientras iteramos
             synchronized (getParticipantes()) {
                 for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
 

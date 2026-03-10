@@ -237,7 +237,7 @@ public class Crupier implements Runnable {
     // velocidad/precisión
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
 
-    // [NUEVO ZERO-TRUST] VARIABLES CRIPTOGRÁFICAS DE ESTADO
+    // VARIABLES CRIPTOGRÁFICAS DE ESTADO
     private volatile byte[] local_hand_seed = null;
     public volatile byte[] local_mega_packet = null;
     public volatile byte[] local_mk_share = null;
@@ -339,7 +339,7 @@ public class Crupier implements Runnable {
     public int calcularPosicionEnPaquete(String nick) {
         java.util.ArrayList<Player> activos = new java.util.ArrayList<>();
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            // [FIX ZERO-TRUST] Consideramos también a los Zombies que empezaron la mano 
+            // Consideramos también a los Zombies que empezaron la mano 
             // para no desplazar el índice criptográfico cuando alguien se va.
             if (jugador.isActivo() || (jugador.isExit() && !jugador.isSpectator())) {
                 activos.add(jugador);
@@ -357,7 +357,7 @@ public class Crupier implements Runnable {
     // =========================================================
     // =========================================================
 
-    // [ZERO-TRUST] Variables puras para auditoría (Inmunes a la GUI)
+    // Variables puras para auditoría (Inmunes a la GUI)
     public volatile byte[] local_envelope = null;
     public volatile byte[] local_original_cards = new byte[2];
 
@@ -1697,7 +1697,7 @@ public class Crupier implements Runnable {
                 } catch (UnsupportedEncodingException ex) {
                 }
 
-                // [ZOMBIE PROTOCOL] No lo borramos si la mano está activa
+                // No lo borramos si la mano está activa
                 if (this.isFin_de_la_transmision() || !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     if (GameFrame.getInstance().getParticipantes().get(nick).isCpu()) {
                         GameFrame.getInstance().getSala_espera().borrarParticipante(nick);
@@ -1835,7 +1835,7 @@ public class Crupier implements Runnable {
     }
 
     // =========================================================
-    // [TESTAMENTO ZERO-TRUST]
+    //
     // =========================================================
     public String getTestamentoCriptografico() {
         if (this.local_mk_share == null) {
@@ -1875,7 +1875,7 @@ public class Crupier implements Runnable {
                     String[] carta2_partes = carta2.split("_");
 
                     // ===============================================================
-                    // [ZERO-TRUST CLIENT AUDIT] Verify announced cards
+                    // Verify announced cards
                     // ===============================================================
                     if (!GameFrame.getInstance().isPartida_local()) {
                         if (this.valid_master_key != null && this.valid_master_key.length == 0) {
@@ -1956,7 +1956,7 @@ public class Crupier implements Runnable {
 
                     if (partes[2].equals("MEGAPACKET")) {
                         this.local_mega_packet = Base64.getDecoder().decode(partes[3]);
-                        // [ZERO-TRUST FIX] Save fossil to disk atomically
+                        // Save fossil to disk atomically
                         try {
                             String fossilName = "/fossil.lock";
                             if (Init.DEV_MODE) {
@@ -2388,7 +2388,7 @@ public class Crupier implements Runnable {
                             }
                             // ------------------------------------------------------------
 
-                            // [¡¡AQUÍ ESTÁ LA SOLUCIÓN AL FALSO MUCK DEL SERVIDOR!!]
+                            //
                             // Cargar el paquete en la RAM del servidor para que no cancele el Showdown
                             this.local_mega_packet = megaPacket;
 
@@ -2452,7 +2452,7 @@ public class Crupier implements Runnable {
                                                 j.getHoleCard2().actualizarConValorNumerico(c2 + 1);
                                                 if (nick.equals(GameFrame.getInstance().getNick_local())) {
 
-                                                    // [FIX] ACTUALIZAMOS LA MEMORIA DE AUDITORÍA PARA EVITAR EL FALSO "FAKE CARDS"
+                                                    // ACTUALIZAMOS LA MEMORIA DE AUDITORÍA PARA EVITAR EL FALSO "FAKE CARDS"
                                                     this.local_original_cards[0] = (byte) c1;
                                                     this.local_original_cards[1] = (byte) c2;
 
@@ -2615,7 +2615,7 @@ public class Crupier implements Runnable {
                 }
             }
 
-            // [CRITICAL FIX] Sync pure community cards for the Audit Engine after RECOVER
+            // Sync pure community cards for the Audit Engine after RECOVER
             Card[] comCards = GameFrame.getInstance().getCartas_comunes();
             for (int i = 0; i < comCards.length; i++) {
                 if (comCards[i].isIniciada() && !comCards[i].isTapada()) {
@@ -3135,7 +3135,7 @@ public class Crupier implements Runnable {
 
     }
 
-    // [ZERO-TRUST STRICT] Descubre cartas ocultas SOLO si la Master Key ha sido validada.
+    // Descubre cartas ocultas SOLO si la Master Key ha sido validada.
     public boolean extractHandWithMasterKey(Player target) {
         if (this.local_mega_packet == null || this.valid_master_key == null || this.valid_master_key.length != 32) {
             System.out.println("⚠️ [ZERO-TRUST] Imposible revelar cartas de " + target.getNickname() + ". La Master Key no está disponible.");
@@ -3339,7 +3339,7 @@ public class Crupier implements Runnable {
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
                 }
-                // [OPTIMIZACIÓN GRÁFICA] Swing se encarga del repaint de forma fluida.
+                // Swing se encarga del repaint de forma fluida.
             }
         }
     }
@@ -3364,7 +3364,7 @@ public class Crupier implements Runnable {
             }
         }
 
-        // [ZERO-TRUST] Reset raw community cards al inicio de la mano
+        // Reset raw community cards al inicio de la mano
         for (int i = 0; i < 5; i++) {
             this.panoptes_community_cards[i] = (byte) 0xFF;
         }
@@ -4537,10 +4537,10 @@ public class Crupier implements Runnable {
                                     p.setMk_share(share);
                                 }
 
-                                // [ZERO-TRUST] Materializamos las cartas para evitar el NullPointerException
+                                // Materializamos las cartas para evitar el NullPointerException
                                 Player jugadorRemoto = nick2player.get(nick);
                                 if (jugadorRemoto != null && partes.length >= 7) {
-                                    // [PRIVACIDAD UI] Solo pintamos las cartas en la GUI si el jugador está en el Showdown
+                                    // Solo pintamos las cartas en la GUI si el jugador está en el Showdown
                                     if (inShowdown.contains(jugadorRemoto)) {
                                         int c1 = Integer.parseInt(partes[5]);
                                         int c2 = Integer.parseInt(partes[6]);
@@ -4662,7 +4662,7 @@ public class Crupier implements Runnable {
                             }
 
                             if (!isZombie && !isHost) {
-                                // [PRIVACIDAD UI] Solo inyectamos valores de bots/zombies en la GUI si van a Showdown
+                                // Solo inyectamos valores de bots/zombies en la GUI si van a Showdown
                                 if (inShowdown.contains(jugador)) {
                                     jugador.getHoleCard1().actualizarConValorNumerico(((int) clear[0] & 0xFF) + 1);
                                     jugador.getHoleCard2().actualizarConValorNumerico(((int) clear[1] & 0xFF) + 1);
@@ -4698,7 +4698,7 @@ public class Crupier implements Runnable {
             String mkBase64 = Base64.getEncoder().encodeToString(finalMasterKey);
             broadcastGAMECommandFromServer("HANDVERIFY#" + mkBase64, null, false);
 
-            // [PRIVACIDAD UI] Solo comprobamos trampas visuales de la GUI de los que están en el Showdown
+            // Solo comprobamos trampas visuales de la GUI de los que están en el Showdown
             for (Player j : inShowdown) {
                 if (j.isActivo() && !j.isExit() && j.getHoleCard1().getValor() != null && !j.getHoleCard1().getValor().equals("null") && !j.getHoleCard1().getValor().isEmpty()) {
                     int pos = calcularPosicionEnPaquete(j.getNickname());
@@ -4835,7 +4835,7 @@ public class Crupier implements Runnable {
         fosilBuilder.append("#ORDER@").append(orderBuilder.toString());
         fosilBuilder.append("#FULLMEGAPACKET@").append(megaPacketB64);
 
-        // [ZERO-TRUST FIX] Save fossil to disk atomically for the Server
+        // Save fossil to disk atomically for the Server
         try {
             String fossilName = "/fossil.lock";
             if (Init.DEV_MODE) {
@@ -5361,7 +5361,7 @@ public class Crupier implements Runnable {
 
     public void sendGAMECommandToServer(String command, boolean confirmation) {
 
-        // [INTERCEPTOR ZERO-TRUST] Si el menú intenta mandar un EXIT desnudo por otra vía, le pegamos las llaves
+        // Si el menú intenta mandar un EXIT desnudo por otra vía, le pegamos las llaves
         if (command != null && command.equals("EXIT")) {
             command = "EXIT#" + getTestamentoCriptografico();
         }
@@ -7464,7 +7464,7 @@ public class Crupier implements Runnable {
 
                 nicks = new ArrayList<>();
 
-                // [CONSERVATIVE FIX] Safe iteration over map keys to avoid CME during player drop
+                // Safe iteration over map keys to avoid CME during player drop
                 synchronized (GameFrame.getInstance().getParticipantes()) {
                     for (String key : GameFrame.getInstance().getParticipantes().keySet()) {
                         nicks.add(key);
@@ -7654,7 +7654,7 @@ public class Crupier implements Runnable {
             } catch (Exception ex) {
                 Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
             } finally {
-                // [SILENT BYPASS FIX] Even if the animation crashes, we MUST logically flip the card 
+                // Even if the animation crashes, we MUST logically flip the card 
                 // otherwise Hand evaluation crashes later.
                 carta.destapar(false);
             }
@@ -7751,7 +7751,7 @@ public class Crupier implements Runnable {
                                             + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
                                             + "#" + shareBase64;
 
-                                    // [PRIVACIDAD RED] Si no estamos obligados a enseñar, NO mandamos nuestras cartas.
+                                    // Si no estamos obligados a enseñar, NO mandamos nuestras cartas.
                                     if (resistencia.contains(GameFrame.getInstance().getLocalPlayer())) {
                                         responseCmd += "#" + (this.local_original_cards[0] & 0xFF)
                                                 + "#" + (this.local_original_cards[1] & 0xFF);
@@ -7959,7 +7959,7 @@ public class Crupier implements Runnable {
             nick2player.clear();
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 nick2player.put(jugador.getNickname(), jugador);
-                // [LIMPIEZA DE ZOMBIES]
+                //
                 if (jugador.isExit() && GameFrame.getInstance().isPartida_local()) {
                     GameFrame.getInstance().getSala_espera().borrarParticipante(jugador.getNickname());
                 }
@@ -8494,7 +8494,7 @@ public class Crupier implements Runnable {
 
                             switch (resisten.size()) {
                                 case 0:
-                                    // [AUDITORÍA ZERO-TRUST SILENCIOSA] Matemáticas sí, GUI no.
+                                    // Matemáticas sí, GUI no.
                                     requestShowdownKeys(new ArrayList<>());
                                     procesarCartasResistencia(new ArrayList<>(), false);
 
@@ -8513,7 +8513,7 @@ public class Crupier implements Runnable {
                                     }
                                     break;
                                 case 1:
-                                    // [AUDITORÍA ZERO-TRUST SILENCIOSA] El farol del ganador se mantiene privado.
+                                    // El farol del ganador se mantiene privado.
                                     requestShowdownKeys(new ArrayList<>());
                                     procesarCartasResistencia(new ArrayList<>(), false);
 
@@ -8546,7 +8546,7 @@ public class Crupier implements Runnable {
                                     this.sqlNewShowdown(resisten.get(0), null, true, true);
                                     break;
                                 default:
-                                    // [SHOWDOWN NORMAL] Todo el mundo enseña sus cartas y la GUI se actualiza
+                                    // Todo el mundo enseña sus cartas y la GUI se actualiza
                                     requestShowdownKeys(resisten);
                                     procesarCartasResistencia(resisten, false);
                                     if (!this.destapar_resistencia) {
@@ -8734,7 +8734,7 @@ public class Crupier implements Runnable {
 
                         synchronized (lock_fin_mano) {
 
-                            // [OPTIMIZACIÓN GRÁFICA] Agrupamos todo el reseteo visual aquí
+                            // Agrupamos todo el reseteo visual aquí
                             Helpers.GUIRun(() -> {
                                 GameFrame.getInstance().getMenu_rabbit_off().setEnabled(false);
                                 GameFrame.getInstance().getMenu_rabbit_free().setEnabled(false);
@@ -8851,7 +8851,7 @@ public class Crupier implements Runnable {
         }
 
         if (!GameFrame.getInstance().isPartida_local()) {
-            // [TESTAMENTO ZERO-TRUST] Enviamos todas las llaves antes de morir
+            // Enviamos todas las llaves antes de morir
             String exitCmd = "EXIT#" + getTestamentoCriptografico();
             sendGAMECommandToServer(exitCmd, false);
         }
@@ -9054,7 +9054,7 @@ public class Crupier implements Runnable {
 
         for (Player jugador : jugadores) {
 
-            // [ZERO-TRUST STRICT] Si el jugador llega al cálculo de ganadores con las cartas nulas,
+            // Si el jugador llega al cálculo de ganadores con las cartas nulas,
             // significa que se desconectó a lo bestia y la Master Key saltó a SKIPPED.
             // Como es matemáticamente IMPOSIBLE saber sus cartas, su mano se declara MUERTA (Muck).
             if (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty() || jugador.getHoleCard1().getValor().equals("null")) {

@@ -93,7 +93,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     private volatile int rabbit = RABBIT_OFF;
     private volatile boolean mouse_hover = false;
 
-    // [OPTIMIZATION] Global static caches to share images in memory across ALL cards
+    // Global static caches to share images in memory across ALL cards
     private static final ConcurrentHashMap<String, ImageIcon> GLOBAL_FRONT_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, ImageIcon> GLOBAL_DISABLED_CACHE = new ConcurrentHashMap<>();
 
@@ -165,7 +165,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             CARD_HEIGHT = Math.round(DEFAULT_HEIGHT * zoom);
             CARD_CORNER = Math.round(Card.DEFAULT_CORNER * zoom);
 
-            // [OPTIMIZATION] Clear global caches because card sizes changed
+            // Clear global caches because card sizes changed
             GLOBAL_FRONT_CACHE.clear();
             GLOBAL_DISABLED_CACHE.clear();
 
@@ -404,7 +404,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     public void refreshCard(boolean pre_cache, final ConcurrentLinkedQueue<Long> notifier) {
         if (this.gui) {
             Helpers.threadRun(() -> {
-                ImageIcon img = null;
+                ImageIcon img;
 
                 synchronized (image_precache_lock) {
                     if (!pre_cache) {
@@ -419,7 +419,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                                 img = isDesenfocada() ? Card.IMAGEN_TRASERA_B : Card.IMAGEN_TRASERA;
                             }
                         } else {
-                            // [OPTIMIZATION] Read from Global Cache
+                            // Read from Global Cache
                             String key = valor + "_" + palo;
                             if (!isDesenfocada() || mouse_hover) {
                                 img = GLOBAL_FRONT_CACHE.computeIfAbsent(key, k
@@ -441,7 +441,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                 final ImageIcon finalImg = img;
 
                 Runnable guiUpdate = () -> {
-                    // [OPTIMIZATION] Avoid redundant repaints and layout invalidations
+                    // Avoid redundant repaints and layout invalidations
                     Dimension targetSize = new Dimension(CARD_WIDTH, (GameFrame.VISTA_COMPACTA > 0 && compactable) ? Math.round(CARD_HEIGHT / 2) : CARD_HEIGHT);
 
                     if (!targetSize.equals(card_image.getPreferredSize())) {
@@ -480,6 +480,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                     } else {
                         rabbit_image.setVisible(false);
                     }
+
+                    revalidate();
+                    repaint();
+
                 };
 
                 if (notifier == null) {
@@ -650,7 +654,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             String nuevoValor = valor.toUpperCase().trim();
             String nuevoPalo = palo.toUpperCase().trim();
 
-            // [OPTIMIZATION] Avoid flicker and IO by skipping if state is identical
+            // Avoid flicker and IO by skipping if state is identical
             if (this.iniciada && this.valor.equals(nuevoValor) && this.palo.equals(nuevoPalo) && this.tapada == tapada) {
                 return;
             }
@@ -670,7 +674,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             String nuevoValor = valor.toUpperCase().trim();
             String nuevoPalo = palo.toUpperCase().trim();
 
-            // [OPTIMIZATION] Avoid flicker by skipping if value is identical
+            // Avoid flicker by skipping if value is identical
             if (this.valor.equals(nuevoValor) && this.palo.equals(nuevoPalo)) {
                 return;
             }

@@ -94,7 +94,7 @@ public class GifLabel extends JLabel {
         }
     }
 
-    // [GRAPHIC OPTIMIZATION] Hardware-accelerated dynamic scaling.
+    // Hardware-accelerated dynamic scaling.
     // Instead of scaling the image pixel by pixel in CPU, we stretch it dynamically on the GPU.
     @Override
     protected void paintComponent(Graphics g) {

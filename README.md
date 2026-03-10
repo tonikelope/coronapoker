@@ -106,7 +106,7 @@ When the hand reaches the end, the system must prove that the host did not manip
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-CoronaPoker includes a custom, native anti-cheat layer written in C (`libpanoptes`), integrated via JNI. It operates at the OS level to ensure the integrity of the JVM and the host environment.
+CoronaPoker includes a custom, native anti-cheat layer written in C. It operates at the OS level to ensure the integrity of the JVM and the host environment.
 
 > ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE** While the CoronaPoker Java client and server routing logic are open-source (GPLv3), the source code for the native `Panoptes` zero-trust and anti-cheat engine remains **strictly closed-source**. This is a deliberate, non-negotiable security measure. Pre-compiled binaries are provided for supported platforms.
 

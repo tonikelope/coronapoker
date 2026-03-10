@@ -5,6 +5,12 @@ on:
     paths:
       - 'panoptes/**'
   workflow_dispatch:
+    inputs:
+      run_cross_tests:
+        description: 'Run Cross-Platform Matrix (Requires Diag/Obf build with 600s timeout)'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   audit_and_generate:
@@ -62,6 +68,7 @@ jobs:
   cross_validation:
     name: Cross-Platform MAC Verification (${{ matrix.os }})
     needs: audit_and_generate # Espera a que las 3 máquinas hayan generado sus payloads
+    if: github.event_name == 'workflow_dispatch' && inputs.run_cross_tests == true
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

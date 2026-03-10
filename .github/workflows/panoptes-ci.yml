@@ -83,18 +83,30 @@ jobs:
         with:
           path: panoptes/payloads/ # Se descargarán en carpetas separadas
 
-      - name: Execute Cross-Platform Verification
+      - name: Execute Triple Cross-Platform Verification
         shell: bash
         run: |
           cd panoptes
           echo "=========================================================="
-          echo "[*] EXECUTING CROSS-PLATFORM BOMBARDMENT ON: ${{ matrix.os }}"
+          echo "[*] EXECUTING TRIPLE CROSS-PLATFORM BOMBARDMENT ON: ${{ matrix.os }}"
           echo "=========================================================="
           
-          # Buscamos recursivamente todos los .bin descargados
-          for payload in $(find payloads/ -name "*.bin"); do
-            echo -e "\n[*] Verifying foreign payload: $payload"
+          # Buscamos todos los payloads descargados
+          for payload in $(find payloads/ -type f -name "*.bin"); do
+            FILENAME=$(basename "$payload")
+            
+            # Extraemos el OS de origen del nombre del archivo (ej. payload_ubuntu-latest.bin -> ubuntu-latest)
+            ORIGIN_OS=${FILENAME#payload_}
+            ORIGIN_OS=${ORIGIN_OS%.bin}
+            
+            # Si el payload es el nuestro, lo saltamos (ya se probó en la fase 1)
+            if [ "$ORIGIN_OS" == "${{ matrix.os }}" ]; then
+              echo -e "\n[-] Skipping own payload ($ORIGIN_OS)..."
+              continue
+            fi
+
+            echo -e "\n[*] Cross-Testing: [Origin: $ORIGIN_OS] ---> [Destination: ${{ matrix.os }}]"
             java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite verify "$payload"
           done
           
-          echo -e "\n[+] ALL FOREIGN MACS VALIDATED SUCCESSFULLY."
+          echo -e "\n[+] ALL TRIPLE CROSS-PLATFORM MACS VALIDATED SUCCESSFULLY."

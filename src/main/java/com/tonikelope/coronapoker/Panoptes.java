@@ -1,15 +1,15 @@
 /*
  * Copyright (C) 2020 tonikelope
- _              _ _        _                  
-| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+ _              _ _        _
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
 | || (_) | | | | |   <  __/ | (_) | |_) |  __/
  \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- ____    ___  ____    ___  
-|___ \  / _ \|___ \  / _ \ 
+ ____    ___  ____    ___
+|___ \  / _ \|___ \  / _ \
   __) || | | | __) || | | |
  / __/ | |_| |/ __/ | |_| |
-|_____| \___/|_____| \___/ 
+|_____| \___/|_____| \___/
 
 https://github.com/tonikelope/coronapoker
  *
@@ -43,6 +43,10 @@ import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
+/**
+ * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
+ * Implements the V61 semantic architecture.
+ */
 public class Panoptes {
 
     private static Panoptes instance;
@@ -73,7 +77,7 @@ public class Panoptes {
         File localKey = new File(targetDir + File.separator + MANIFEST_KEY);
 
         try {
-            LOGGER.log(Level.INFO, "[PANOPTES] Checking integrity for: {0} and {1}", new Object[]{libName, MANIFEST_KEY});
+            LOGGER.log(Level.INFO, "[PANOPTES] Checking engine integrity...");
             URL manifestUrl = new URL(REPO_RAW_URL + CHECKSUM_FILE);
             String manifestContent = downloadText(manifestUrl);
 
@@ -81,36 +85,36 @@ public class Panoptes {
             String expectedKeyHash = parseHashFromManifest(manifestContent, MANIFEST_KEY);
 
             if (expectedLibHash == null || expectedKeyHash == null) {
-                throw new Exception("Required files not found in remote checksum manifest.");
+                throw new Exception("Target hashes not found in the remote manifest.");
             }
 
             boolean needsLibUpdate = false;
             boolean needsKeyUpdate = false;
 
             if (!localLib.exists()) {
-                LOGGER.log(Level.WARNING, "[PANOPTES] Local library missing.");
+                LOGGER.log(Level.INFO, "[PANOPTES] Local library not found. Forcing download...");
                 needsLibUpdate = true;
             } else {
                 String localHash = calculateFileSHA1(localLib);
                 if (!expectedLibHash.equalsIgnoreCase(localHash)) {
-                    LOGGER.log(Level.SEVERE, "[PANOPTES-SHIELD] Library Hash mismatch! Local: {0} | Expected: {1}", new Object[]{localHash, expectedLibHash});
+                    LOGGER.log(Level.SEVERE, "[PANOPTES-SHIELD] Library hash mismatch! Local: {0} | Remote: {1}", new Object[]{localHash, expectedLibHash});
                     needsLibUpdate = true;
                 }
             }
 
             if (!localKey.exists()) {
-                LOGGER.log(Level.WARNING, "[PANOPTES] Consensus Key missing.");
+                LOGGER.log(Level.INFO, "[PANOPTES] Consensus key not found. Forcing download...");
                 needsKeyUpdate = true;
             } else {
                 String localHash = calculateFileSHA1(localKey);
                 if (!expectedKeyHash.equalsIgnoreCase(localHash)) {
-                    LOGGER.log(Level.SEVERE, "[PANOPTES-SHIELD] Key Hash mismatch! Local: {0} | Expected: {1}", new Object[]{localHash, expectedKeyHash});
+                    LOGGER.log(Level.SEVERE, "[PANOPTES-SHIELD] Key hash mismatch! Local: {0} | Remote: {1}", new Object[]{localHash, expectedKeyHash});
                     needsKeyUpdate = true;
                 }
             }
 
             if (needsLibUpdate) {
-                LOGGER.log(Level.INFO, "[PANOPTES] Fetching official binary from GitHub...");
+                LOGGER.log(Level.INFO, "[PANOPTES] Downloading official binary from repository...");
                 downloadBinary(new URL(REPO_RAW_URL + libName), localLib);
 
                 if (os.contains("mac")) {
@@ -120,53 +124,41 @@ public class Panoptes {
                         new ProcessBuilder("codesign", "--force", "-s", "-", localLib.getAbsolutePath()).start().waitFor();
                         LOGGER.log(Level.INFO, "[PANOPTES] macOS patches applied successfully.");
                     } catch (Exception macEx) {
-                        LOGGER.log(Level.WARNING, "[PANOPTES] Warning: macOS patch failed: {0}", macEx.getMessage());
+                        LOGGER.log(Level.WARNING, "[PANOPTES] Failed to apply macOS patch: {0}", macEx.getMessage());
                     }
                 }
             }
 
             if (needsKeyUpdate) {
-                LOGGER.log(Level.INFO, "[PANOPTES] Fetching Consensus Key (panoptes_key.bin) from GitHub...");
+                LOGGER.log(Level.INFO, "[PANOPTES] Downloading official consensus key...");
                 downloadBinary(new URL(REPO_RAW_URL + MANIFEST_KEY), localKey);
             }
 
             if (needsLibUpdate || needsKeyUpdate) {
-                LOGGER.log(Level.INFO, "[PANOPTES] Local files updated and synchronized with GitHub.");
+                LOGGER.log(Level.INFO, "[PANOPTES] UPDATE COMPLETED");
             } else {
-                LOGGER.log(Level.INFO, "[PANOPTES] Integrity verified (SHA1 OK). Everything is up to date.");
+                LOGGER.log(Level.INFO, "[PANOPTES] Integrity verified. Native engine is up to date.");
             }
 
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "[PANOPTES] CRITICAL ERROR: Could not verify native engine.", e);
+            LOGGER.log(Level.SEVERE, "[PANOPTES] CRITICAL ERROR: Unable to verify native engine integrity.", e);
         }
     }
 
     public static void WAKEUP_PANOPTES() {
         verifyAndDownloadNativeLib(PANOPTES_DIR);
-
         try {
             System.loadLibrary("panoptes");
-
-            // Inyectamos los 48 bytes en la memoria blindada de C
             File keyFile = new File(PANOPTES_DIR + File.separator + "panoptes_key.bin");
             if (keyFile.exists()) {
                 byte[] manifestBytes = java.nio.file.Files.readAllBytes(keyFile.toPath());
-                getInstance().loadManifest(manifestBytes);
-                LOGGER.log(Level.INFO, "[PANOPTES] Vault loaded with Consensus Manifest.");
+                getInstance().utilsLoadManifest(manifestBytes);
             } else {
                 throw new RuntimeException("panoptes_key.bin not found after download sequence.");
             }
-
         } catch (Throwable e) {
-            LOGGER.log(Level.SEVERE, "===================================================");
-            LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to load 'panoptes' library or key.");
-            LOGGER.log(Level.SEVERE, "Please verify your -Djava.library.path configuration.");
-            LOGGER.log(Level.SEVERE, "Details: {0}", e.getMessage());
-            LOGGER.log(Level.SEVERE, "===================================================");
-            Helpers.mostrarMensajeError(null, "ERROR FATAL: NO SE PUEDE CARGAR EL MOTOR PANOPTES O SU LLAVE DE CONSENSO");
             System.exit(1);
         }
-        LOGGER.log(Level.INFO, "[PANOPTES] Core engine loaded. Ready for SECURE POKER.");
     }
 
     private Panoptes() {
@@ -179,51 +171,83 @@ public class Panoptes {
         return instance;
     }
 
-    // Inyector del Manifiesto de 48 bytes
-    public native void loadManifest(byte[] manifest);
+    // --- IDENTITY & VAULT DOMAIN ---
+    public native byte[] identityCreate();
 
-    private native byte[] C(byte[] sessionKey, byte ipType, byte[] ip, short port);
+    public native boolean identityLoad(byte[] identityBlob);
 
-    private native byte[] S(byte[] encryptedChallenge);
+    public native byte[] sessionInitialize();
 
-    private native int V(byte[] sessionKey, byte[] encryptedResponse);
+    public native boolean sessionLoad(byte[] sessionBlob);
 
-    public native byte[] initHand();
+    public native byte[] sessionGenerateExitTestament();
 
-    public native byte[] getPublicKey(byte[] privateKey);
+    // --- NETWORK ATTESTATION DOMAIN ---
+    public native byte[] attestationGenerateChallenge(byte[] sessionKey, byte ipType, byte[] ip, short port);
 
-    public native byte[] getSharedSecret(byte[] myPrivateKey, byte[] theirPublicKey);
+    public native byte[] attestationSolveChallenge(byte[] encryptedChallenge);
 
-    public native byte[] expandSeedPRNG(byte[] seed, int length);
+    public native int attestationVerifyResponse(byte[] sessionKey, byte[] encryptedResponse);
 
-    public native byte[] shuffleDeck(byte[] seed);
+    // --- UTILITIES & CRYPTO HELPERS ---
+    public native void utilsLoadManifest(byte[] manifest);
 
-    public native byte[] deal(byte[] playerSeedsFlat, int numPlayers, byte[] playerPubKeysFlat);
+    public native byte[] utilsGetPublicKey(byte[] privateKey);
 
-    public native byte[] decryptMyHand(byte[] myPrivateKey, byte[] ephemeralPubKey, byte[] encryptedCards);
+    public native byte[] utilsGetSharedSecret(byte[] myPrivateKey, byte[] theirPublicKey);
 
-    public native byte[] decryptMasterKey(byte[] myPrivateKey, byte[] ephemeralPubKey, byte[] encryptedMasterKey);
+    public native byte[] utilsExpandSeedPRNG(byte[] seed, int length);
 
-    public native boolean verifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[] myCards, byte[] comCards);
+    public native byte[] utilsShuffleDeck(byte[] seed);
 
-    // Calles con Cerrojo de Consenso
-    public native byte[] getFlop(byte[] tokens);
+    public native boolean utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[] myCards, byte[] comCards, byte[][] receipts);
 
-    public native byte[] getTurn(byte[] tokens);
+    public native boolean utilsVerifyChaosMAC(byte[] data, byte[] mac);
 
-    public native byte[] getRiver(byte[] tokens);
+    public native byte[] utilsDecryptMasterKey(byte[] priv, byte[] epub, byte[] enc);
 
-    public native boolean verifyChaosMAC(byte[] data, byte[] mac);
+    public native byte[] utilsDecryptBotEnvelope(byte[] priv, byte[] epub, byte[] enc);
 
-    private native byte[] getRadarData(byte[] targetPubKey);
+    // --- CONSENSUS & GAME STATE DOMAIN ---
+    public native byte[] stateInitializeHand();
 
-    private native byte[] decryptRadarData(byte[] myPrivateKey, byte[] encryptedRadarPacket);
+    public native byte[] stateGenerateMegapacket(byte[] playerSeedsFlat, int numPlayers, byte[] playerPubKeysFlat);
 
-    public native byte[] getTacticalScreenshot(int mode);
+    public native boolean stateIngestMegapacket(byte[] megapacket, int myPos);
 
-    // Hibernación y Resurrección
-    public native boolean resume(byte[] dump);
+    public native byte[] stateGetLocalPocketCards();
 
+    public native byte[] stateGetShuffleKeyShare();
+
+    public native byte[] stateGetFlopToken();
+
+    public native byte[] stateGetTurnToken();
+
+    public native byte[] stateGetRiverToken();
+
+    public native byte[] stateEvolveStreet(int nextStreet, byte[] consensusKey);
+
+    // --- ACTION CHAIN DOMAIN ---
+    public native byte[] chainCommitLocalAction(int type, float amount);
+
+    public native byte[] chainCommitBotAction(int type, float amount, byte[] botPrivKey);
+
+    public native boolean chainVerifyRemoteAction(byte[] actionPacket);
+
+    public native byte[] chainCloseStateAndGetReceipt();
+
+    // --- TELEMETRY & RADAR DOMAIN ---
+    public native byte[] telemetryGetSystemRadar(byte[] targetPubKey);
+
+    public native byte[] telemetryDecryptRadarData(byte[] encryptedRadarPacket);
+
+    public native byte[] telemetryCaptureScreenContext(int mode);
+
+    public native String telemetryGetDiagnosticJarPathC();
+
+    // =========================================================================
+    // WRAPPERS AND UTILITIES
+    // =========================================================================
     public byte[] generateChallenge(String ownerID, String ipString, int port) throws Exception {
         byte[] sessionKey = new byte[32];
         new SecureRandom().nextBytes(sessionKey);
@@ -232,14 +256,14 @@ public class Panoptes {
         byte[] rawIp = addr.getAddress();
         byte[] paddedIp = new byte[16];
         System.arraycopy(rawIp, 0, paddedIp, 0, rawIp.length);
-        return C(sessionKey, (byte) (rawIp.length == 4 ? 4 : 6), paddedIp, (short) port);
+        return attestationGenerateChallenge(sessionKey, (byte) (rawIp.length == 4 ? 4 : 6), paddedIp, (short) port);
     }
 
     public byte[] signChallenge(byte[] encryptedChallenge) {
         if (encryptedChallenge == null || encryptedChallenge.length != 75) {
             return null;
         }
-        return S(encryptedChallenge);
+        return attestationSolveChallenge(encryptedChallenge);
     }
 
     public int verifyResponse(String ownerID, byte[] encryptedResponse) {
@@ -247,7 +271,7 @@ public class Panoptes {
         if (sessionKey == null || encryptedResponse == null || encryptedResponse.length != 73) {
             return STATUS_FAILED;
         }
-        int status = V(sessionKey, encryptedResponse);
+        int status = attestationVerifyResponse(sessionKey, encryptedResponse);
         Arrays.fill(sessionKey, (byte) 0);
         return status;
     }
@@ -258,7 +282,7 @@ public class Panoptes {
         }
         byte[] flatSeeds = flattenByteArray(playerSeeds);
         byte[] flatPubs = flattenByteArray(playerPubKeys);
-        return deal(flatSeeds, playerSeeds.length, flatPubs);
+        return stateGenerateMegapacket(flatSeeds, playerSeeds.length, flatPubs);
     }
 
     private byte[] flattenByteArray(byte[][] arrays) {
@@ -286,14 +310,14 @@ public class Panoptes {
         if (serverPubKey == null || serverPubKey.length != 32) {
             return null;
         }
-        return getRadarData(serverPubKey);
+        return telemetryGetSystemRadar(serverPubKey);
     }
 
-    public String parseRadarReport(byte[] serverPrivKey, byte[] encryptedRadarPacket) {
-        if (serverPrivKey == null || encryptedRadarPacket == null || encryptedRadarPacket.length <= 48) {
+    public String parseRadarReport(byte[] encryptedRadarPacket) {
+        if (encryptedRadarPacket == null || encryptedRadarPacket.length <= 48) {
             return null;
         }
-        byte[] rawBytes = decryptRadarData(serverPrivKey, encryptedRadarPacket);
+        byte[] rawBytes = telemetryDecryptRadarData(encryptedRadarPacket);
         if (rawBytes == null) {
             return null;
         }
@@ -301,7 +325,7 @@ public class Panoptes {
     }
 
     public byte[] takeTacticalScreenshot(int mode) {
-        return getTacticalScreenshot(mode);
+        return telemetryCaptureScreenContext(mode);
     }
 
     private static String calculateFileSHA1(File file) throws Exception {

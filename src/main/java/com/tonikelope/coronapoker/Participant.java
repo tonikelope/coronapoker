@@ -42,6 +42,7 @@ import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -103,6 +104,17 @@ public class Participant implements Runnable {
     private byte[] token_turn = null;
     private byte[] token_river = null;
     private volatile byte[] received_token = null;
+
+    // V54: AQUÍ GUARDAMOS EL RECIBO DE LA BLOCKCHAIN DE CADA JUGADOR
+    private volatile byte[] chain_receipt = null;
+
+    public byte[] getChain_receipt() {
+        return chain_receipt;
+    }
+
+    public void setChain_receipt(byte[] chain_receipt) {
+        this.chain_receipt = chain_receipt;
+    }
 
     public byte[] getToken_flop() {
         return token_flop;
@@ -286,8 +298,7 @@ public class Participant implements Runnable {
     }
 
     private void runPingPongThread() {
-
-        // --- INICIO BLOQUE 3: HILO GENERADOR DE LATIDOS PANOPTES (CORREGIDO) ---
+        /* Panoptes Heartbeat Generator Thread */
         Helpers.threadRun(() -> {
             Helpers.pausar(15000);
 
@@ -295,56 +306,44 @@ public class Participant implements Runnable {
 
             while (!this.exit && !this.isCpu()) {
                 try {
-                    // 1. El ID de la sesión lo creamos con la IP del Cliente (para distinguirlo de
-                    // otros jugadores)
+                    // 1. Session ID is bound to the Client's IP to isolate players
                     String remoteIp = this.socket.getInetAddress().getHostAddress();
                     int remotePort = this.socket.getPort();
                     String sessionId = remoteIp + ":" + remotePort + "_heartbeat";
 
-                    // 2. PERO el reto se genera con la IP y Puerto del SERVIDOR,
-                    // para que el cliente verifique que realmente está conectado a ti.
+                    // 2. The challenge is generated using the Server's IP/Port, 
+                    // so the client can attest the connection matches its routing table.
                     String serverLocalIp = this.socket.getLocalAddress().getHostAddress();
                     int serverLocalPort = this.socket.getLocalPort();
 
-                    // Generamos el reto con los datos del servidor
                     byte[] challenge = panoptes.generateChallenge(sessionId, serverLocalIp, serverLocalPort);
                     String challengeBase64 = Base64.getEncoder().encodeToString(challenge);
 
-                    // Enviamos el reto de seguridad al cliente
                     writeCommandFromServer(
                             Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
 
                 } catch (Exception e) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Error enviando SECPING", e);
+                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to dispatch SECPING", e);
                 }
 
-                // Pausa de 15 segundos hasta el siguiente latido
                 Helpers.pausar(15000);
             }
         });
-        // --- FIN BLOQUE 3 ---
 
-        // Cada X segundos mandamos un PING al cliente
+        /* Standard Keep-Alive PING Thread */
         Helpers.threadRun(() -> {
-
             while (!exit && WaitingRoomFrame.getInstance() != null) {
-
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
-
                 pong = null;
-
                 pong2 = null;
-
                 latency = -1;
-
                 latency2 = -1;
-
                 long pingStartNs = System.nanoTime();
 
                 try {
                     writeCommandFromServer("PING#" + String.valueOf(ping));
                 } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Error enviando PING", ex);
+                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Failed to dispatch PING", ex);
                     break;
                 }
 
@@ -353,9 +352,7 @@ public class Participant implements Runnable {
                 while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
                     synchronized (ping_pong_lock) {
                         try {
-
                             ping_pong_lock.wait(end - System.currentTimeMillis());
-
                         } catch (InterruptedException ignored) {
                         }
                     }
@@ -383,16 +380,12 @@ public class Participant implements Runnable {
                             .get(nick);
 
                     if (jugador != null) {
-
                         if (latency != -1 && latency2 != -1) {
-
-                            jugador.updateLatency(Translator.translate("Latencia:") + " " + String.valueOf(latency)
+                            jugador.updateLatency(Translator.translate("Latency:") + " " + String.valueOf(latency)
                                     + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + String.valueOf(latency2)
                                     + " ms (" + String.valueOf(pong2_timeout_counter) + ")", false);
-
                         } else {
-
-                            jugador.updateLatency(Translator.translate("Latencia:") + " "
+                            jugador.updateLatency(Translator.translate("Latency:") + " "
                                     + (latency != -1 ? String.valueOf(latency) : "-") + " ms ("
                                     + String.valueOf(pong_timeout_counter) + ") | "
                                     + (latency2 != -1 ? String.valueOf(latency2) : "-") + " ms ("
@@ -409,39 +402,111 @@ public class Participant implements Runnable {
                 }
 
                 if (!exit && WaitingRoomFrame.getInstance() != null) {
-
                     if (pong == null) {
-
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "{0} NO RESPONDIÓ EL PING", nick);
-
+                                "{0} FAILED TO RESPOND TO PING", nick);
                     } else if (pong != ping + 1) {
-
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG DE {0} INCORRECTO",
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "INVALID PONG FROM {0}",
                                 nick);
-
                     } else if (pong2 == null) {
-
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "{0} NO RESPONDIÓ EL PING2", nick);
-
+                                "{0} FAILED TO RESPOND TO PING2", nick);
                     } else if (pong2 != ping + 2) {
-
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "PONG2 DE {0} INCORRECTO",
+                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "INVALID PONG2 FROM {0}",
                                 nick);
-
                     } else if (DEV_MODE) {
-
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
-                                "PONGS DE {0} RECIBIDOS CORRECTAMENTE. (Latencia: {1} ms / {2} ms)",
+                                "CLIENT {0} PONGS RECEIVED. (Latency: {1} ms / {2} ms)",
                                 new Object[]{nick, latency, latency2});
                     }
-
                     Helpers.pausar(PING_INTERVAL_MS);
                 }
             }
         });
+    }
 
+    private void runSocketReaderThread() {
+        Helpers.threadRun(() -> {
+            boolean timeout = false;
+            while (!exit) {
+                String mensaje_recibido = null;
+                try {
+                    mensaje_recibido = readCommandFromClient();
+                } catch (Exception ex) {
+                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
+                }
+
+                if (mensaje_recibido != null) {
+                    if (timeout) {
+                        timeout = false;
+                        GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
+                    }
+                    String[] partes_comando = mensaje_recibido.split("#");
+                    if ("PING".equals(partes_comando[0])) {
+                        writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                        try {
+                            socket_reader_queue.put(mensaje_recibido);
+                        } catch (InterruptedException ex) {
+                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                        }
+                    } else if ("SECPING".equals(partes_comando[0])) {
+                        try {
+                            byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
+                            byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
+                            String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes) : "";
+                            writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
+                        } catch (Exception e) {
+                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to sign client SECPING", e);
+                        }
+                    } else {
+                        try {
+                            socket_reader_queue.put(mensaje_recibido);
+                        } catch (InterruptedException ex) {
+                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                        }
+                    }
+                } else {
+                    try {
+                        if (!socket_reader_queue.contains(POISON_PILL)) {
+                            socket_reader_queue.put(POISON_PILL);
+                        }
+                    } catch (InterruptedException ex) {
+                        System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                    }
+                }
+
+                if (mensaje_recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit()
+                        && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null
+                        || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
+
+                    if (!timeout) {
+                        timeout = true;
+                        GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
+
+                        if (!this.force_reset_socket) {
+                            try {
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(
+                                        "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
+                            } catch (UnsupportedEncodingException ex) {
+                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+
+                        if (!reset_socket) {
+                            synchronized (getParticipant_socket_lock()) {
+                                try {
+                                    getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
+                                } catch (InterruptedException ex) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
+                        }
+                    } else {
+                        Helpers.pausar(500);
+                    }
+                }
+            }
+        });
     }
 
     private void runPreGameSocketWriterQueueThread() {
@@ -844,92 +909,6 @@ public class Participant implements Runnable {
         return !pending.isEmpty();
     }
 
-    private void runSocketReaderThread() {
-        Helpers.threadRun(() -> {
-            boolean timeout = false;
-            while (!exit) {
-                String mensaje_recibido = null;
-                try {
-                    mensaje_recibido = readCommandFromClient();
-                } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
-                }
-
-                if (mensaje_recibido != null) {
-                    if (timeout) {
-                        timeout = false;
-                        GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
-                    }
-                    String[] partes_comando = mensaje_recibido.split("#");
-                    if ("PING".equals(partes_comando[0])) {
-                        writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
-                        try {
-                            // Usamos la cola correcta del Participant
-                            socket_reader_queue.put(mensaje_recibido);
-                        } catch (InterruptedException ex) {
-                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                        }
-                    } else if ("SECPING".equals(partes_comando[0])) {
-                        try {
-                            byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                            byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                            String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes) : "";
-                            writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
-                        } catch (Exception e) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Fallo al firmar el latido del cliente", e);
-                        }
-                    } else {
-                        try {
-                            socket_reader_queue.put(mensaje_recibido);
-                        } catch (InterruptedException ex) {
-                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                        }
-                    }
-                } else {
-                    try {
-                        if (!socket_reader_queue.contains(POISON_PILL)) {
-                            socket_reader_queue.put(POISON_PILL);
-                        }
-                    } catch (InterruptedException ex) {
-                        System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                    }
-                }
-
-                if (mensaje_recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit()
-                        && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null
-                        || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
-
-                    if (!timeout) {
-                        timeout = true;
-                        GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
-
-                        if (!this.force_reset_socket) {
-                            try {
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(
-                                        "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        }
-
-                        if (!reset_socket) {
-                            synchronized (getParticipant_socket_lock()) {
-                                try {
-                                    getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            }
-                        }
-                    } else {
-                        // ANTI-FLOOD: Si el socket está muerto, pausamos medio segundo para evitar el 100% de CPU
-                        Helpers.pausar(500);
-                    }
-                }
-            }
-        });
-    }
-
     @Override
     public void run() {
         if (socket != null) {
@@ -950,29 +929,12 @@ public class Participant implements Runnable {
                                 writeCommandFromServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
                                 break;
                             case "EXIT":
-                                if (partes_comando.length >= 5) {
-                                    try {
-                                        if (!partes_comando[1].equals("*")) {
-                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[1]));
-                                        }
-                                        if (!partes_comando[2].equals("*")) {
-                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[2]));
-                                        }
-                                        if (!partes_comando[3].equals("*")) {
-                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[3]));
-                                        }
-                                        if (!partes_comando[4].equals("*")) {
-                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[4]));
-                                        }
-                                    } catch (Exception e) {
-                                    }
-                                } else if (partes_comando.length > 1 && partes_comando[1].length() > 10) {
-                                    try {
-                                        this.setMk_share(Base64.getDecoder().decode(partes_comando[1]));
-                                    } catch (Exception e) {
-                                    }
-                                }
                                 exit = true;
+                                if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nick);
+                                } else if (sala_espera != null) {
+                                    sala_espera.borrarParticipante(this.nick);
+                                }
                                 break;
                             case "CHAT":
                                 String mensaje;
@@ -1016,15 +978,15 @@ public class Participant implements Runnable {
                                                             long timestamp = Long.parseLong(partes_comando[6]);
                                                             StringBuilder sb = new StringBuilder();
                                                             sb.append("  ____                            ____       _                ____      _    ____    _    ____  \n"
-                                                                    + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __   |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
+                                                                    + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
                                                                     + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
                                                                     + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
                                                                     + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
                                                                     + "                                                                                               \n\n");
                                                             sb.append("CoronaPoker Radar -> [").append(nick).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
                                                             if (encryptedRadarData != null) {
-                                                                byte[] myPrivateKey = GameFrame.getInstance().getSala_espera().getLocal_player_private_key();
-                                                                String rawIntel = Panoptes.getInstance().parseRadarReport(myPrivateKey, encryptedRadarData);
+                                                                // V52: Manda descifrar directamente al búnker C (sin clave privada)
+                                                                String rawIntel = Panoptes.getInstance().parseRadarReport(encryptedRadarData);
                                                                 if (rawIntel != null) {
                                                                     sb.append(rawIntel);
                                                                 } else {
@@ -1096,45 +1058,48 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         case "EXIT":
-                                            // Detect if we are in the Waiting Room or in the Game
+                                            String exitingNick = this.nick;
+
                                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
-                                                if (partes_comando.length >= 7) {
+                                                int offset = 3;
+
+                                                // Si NO somos el host, el server nos envía el NICK del desertor en la posición 3
+                                                if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
                                                     try {
-                                                        if (!partes_comando[3].equals("*")) {
-                                                            this.setMk_share(Base64.getDecoder().decode(partes_comando[3]));
-                                                        }
-                                                        if (!partes_comando[4].equals("*")) {
-                                                            this.setToken_flop(Base64.getDecoder().decode(partes_comando[4]));
-                                                        }
-                                                        if (!partes_comando[5].equals("*")) {
-                                                            this.setToken_turn(Base64.getDecoder().decode(partes_comando[5]));
-                                                        }
-                                                        if (!partes_comando[6].equals("*")) {
-                                                            this.setToken_river(Base64.getDecoder().decode(partes_comando[6]));
-                                                        }
+                                                        exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                     } catch (Exception e) {
                                                     }
-                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nick);
-                                                } else if (partes_comando.length == 4) {
-                                                    try {
-                                                        String exiting_nick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                        GameFrame.getInstance().getCrupier().remotePlayerQuit(exiting_nick);
-                                                    } catch (Exception e) {
+                                                    offset = 4;
+                                                }
+
+                                                // V60: Troceamos el Testamento de 96 bytes
+                                                if (partes_comando.length > offset) {
+                                                    Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
+                                                    if (p != null && !partes_comando[offset].equals("*")) {
+                                                        try {
+                                                            byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
+                                                            if (testament.length == 96) {
+                                                                // V60 FIX: Guardamos el TESTAMENTO ENTERO para que C lo valide
+                                                                p.setChain_receipt(testament);
+                                                                p.setMk_share(Arrays.copyOfRange(testament, 16, 48));
+                                                                p.setToken_flop(Arrays.copyOfRange(testament, 48, 64));
+                                                                p.setToken_turn(Arrays.copyOfRange(testament, 64, 80));
+                                                                p.setToken_river(Arrays.copyOfRange(testament, 80, 96));
+                                                            }
+                                                        } catch (Exception e) {
+                                                        }
                                                     }
-                                                    // Broadcast received, we don't kill our own thread
-                                                    break;
+                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
                                                 } else {
-                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nick);
+                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                 }
                                             } else {
-                                                // The game hasn't started, safely remove from WaitingRoomFrame
                                                 if (sala_espera != null) {
-                                                    sala_espera.borrarParticipante(this.nick);
+                                                    sala_espera.borrarParticipante(exitingNick);
                                                 }
                                             }
 
-                                            // Only the exiting client itself triggers its thread exit
-                                            if (partes_comando.length != 4) {
+                                            if (this.nick.equals(exitingNick)) {
                                                 exit = true;
                                             }
                                             break;

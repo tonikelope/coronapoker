@@ -2066,6 +2066,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
                 }
 
+                GameFrame.getInstance().getCrupier().cleanTempPanoptesFiles();
+
                 RESET_GAME(recover);
             }
 

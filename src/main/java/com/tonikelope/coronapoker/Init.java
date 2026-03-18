@@ -90,7 +90,7 @@ import java.util.List;
  */
 public class Init extends JFrame {
 
-    public static final boolean DEV_MODE = false;
+    public static final boolean DEV_MODE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String RADAR_DIR = CORONA_DIR + "/RADAR";
@@ -171,40 +171,39 @@ public class Init extends JFrame {
             java.io.File logFile = new java.io.File(DEBUG_DIR + "/coronapoker_debug_" + Helpers.genRandomString(10) + ".log");
             java.io.FileOutputStream fileOut = new java.io.FileOutputStream(logFile, true);
 
-            // FIX: Obligamos al archivo a guardarse en formato UTF-8 puro
+            // Force UTF-8 encoding for the file output
             java.io.PrintStream filePrintStream = new java.io.PrintStream(fileOut, true, "UTF-8");
 
-            // FIX: Obligamos a la tubería de System.out a usar UTF-8
+            // Force UTF-8 encoding for standard output pipeline
             TeeOutputStream teeOut = new TeeOutputStream(System.out, filePrintStream);
             java.io.PrintStream outPrintStream = new java.io.PrintStream(teeOut, true, "UTF-8");
 
-            // FIX: Obligamos a la tubería de System.err a usar UTF-8
+            // Force UTF-8 encoding for standard error pipeline
             TeeOutputStream teeErr = new TeeOutputStream(System.err, filePrintStream);
             java.io.PrintStream errPrintStream = new java.io.PrintStream(teeErr, true, "UTF-8");
 
-            // Inject our custom pipes into the JVM
+            // Inject custom pipes into the JVM
             System.setOut(outPrintStream);
             System.setErr(errPrintStream);
 
-            // --- FIX PARA CAPTURAR LOS MENSAJES DE LOS LOGGERS NATIVOS DE JAVA ---
+            // Intercept native Java loggers
             java.util.logging.Logger rootLogger = java.util.logging.LogManager.getLogManager().getLogger("");
 
-            // 1. Buscamos y destruimos el handler antiguo
+            // Find and destroy the default console handler
             for (java.util.logging.Handler handler : rootLogger.getHandlers()) {
                 if (handler instanceof java.util.logging.ConsoleHandler) {
                     rootLogger.removeHandler(handler);
                 }
             }
 
-            // 2. Creamos uno nuevo y le forzamos la codificación UTF-8
+            // Inject a new handler with explicit UTF-8 encoding
             java.util.logging.ConsoleHandler newConsoleHandler = new java.util.logging.ConsoleHandler();
             try {
                 newConsoleHandler.setEncoding("UTF-8");
             } catch (Exception encodingEx) {
-                // Si falla el setEncoding, ignoramos, usará el default
+                // Ignore failure; fallback to default encoding
             }
             rootLogger.addHandler(newConsoleHandler);
-            // ----------------------------------------------------------------------
 
             // Print a header to mark a new session in the log file
             System.out.println("\n============================================================================");
@@ -233,7 +232,6 @@ public class Init extends JFrame {
                 }
             });
         });
-
     }
 
     /**
@@ -1030,7 +1028,7 @@ public class Init extends JFrame {
             }
         }
 
-        // 2. Check properties directly from the System (ignores shell quote issues)
+        // 2. Check properties directly from the System
         String currentLibPath = System.getProperty("java.library.path");
         boolean hasLibraryPath = currentLibPath != null && currentLibPath.contains(PANOPTES_DIR);
 
@@ -1055,13 +1053,8 @@ public class Init extends JFrame {
 
             // Inject the required parameters
             command.add("--enable-native-access=ALL-UNNAMED");
-
-            // CRITICAL FIX: Do not use single quotes here. ProcessBuilder handles spaces natively.
             command.add("-Djava.library.path=" + PANOPTES_DIR);
-
-            // Force IPv4 Stack
             command.add("-Djava.net.preferIPv4Stack=true");
-
             command.add("-XX:+DisableAttachMechanism");
 
             // Add classpath and main class
@@ -1097,23 +1090,15 @@ public class Init extends JFrame {
         }
     }
 
-    /**
-     * @param args the command line arguments
-     */
     public static void main(String args[]) {
 
         javax.swing.JWindow panoptes_splash = new javax.swing.JWindow();
 
         Helpers.GUIRun(() -> {
-
-            // Load the logo (adjust the path to match your resources)
             java.net.URL logoUrl = Init.class.getResource("/images/panoptes_logo.jpg");
-
             if (logoUrl != null) {
                 panoptes_splash.getContentPane().add(new javax.swing.JLabel(new javax.swing.ImageIcon(logoUrl)));
             }
-
-            // Setup and display the panoptes_splash screen
             panoptes_splash.pack();
             panoptes_splash.setLocationRelativeTo(null);
             panoptes_splash.setAlwaysOnTop(true);
@@ -1125,13 +1110,11 @@ public class Init extends JFrame {
         setupConsoleLogger();
 
         Helpers.threadRun(() -> {
-
-            //Deadlock detection
+            // Deadlock detection
             while (true) {
                 Helpers.detectAndHandleDeadlocks();
                 Helpers.pausar(DEADLOCK_DETECT_WAIT);
             }
-
         });
 
         if (GameFrame.TEST_MODE) {
@@ -1142,7 +1125,6 @@ public class Init extends JFrame {
             SQL_FILE = CORONA_DIR + "/coronapoker.db";
         } else {
             if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {
-
                 try {
                     File db = File.createTempFile("coronapoker_", ".db");
                     Files.copy(Paths.get(CORONA_DIR + "/coronapoker.db"), db.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -1153,11 +1135,6 @@ public class Init extends JFrame {
             }
         }
 
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -1168,14 +1145,11 @@ public class Init extends JFrame {
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        //</editor-fold>
 
         EmojiPanel.initClass();
-
         Helpers.setCoronaLocale();
 
         Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading SQLITE DB...");
-
         Helpers.initSQLITE();
 
         try {
@@ -1184,21 +1158,17 @@ public class Init extends JFrame {
             Helpers.CSPRNG_GENERATOR = SecureRandom.getInstance("DRBG");
             Logger.getLogger(Init.class.getName()).log(Level.INFO, "CSPRNG OK");
         } catch (NoSuchAlgorithmException ex) {
-
             Helpers.CSPRNG_GENERATOR = new SecureRandom();
-            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
+            Logger.getLogger(Init.class.getName()).log(Level.WARNING, "Fallback CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
         }
 
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
-
         Helpers.updateCoronaDialogsFont();
 
         Init.MOD = Helpers.loadMOD();
 
         if (Init.MOD != null) {
-
             WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
-
             PEGI18_MOD = (MOD.containsKey("adults") && (boolean) MOD.get("adults"));
 
             if ((boolean) MOD.get("init_background")) {
@@ -1209,36 +1179,28 @@ public class Init extends JFrame {
                 }
             }
 
-            //Cargamos las barajas del MOD
             for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {
-
                 HashMap<String, Object> baraja = entry.getValue();
-
                 Card.BARAJAS.put((String) baraja.get("name"), new Object[]{baraja.get("aspect"), true, baraja.containsKey("sound") ? baraja.get("sound") : null});
             }
 
             if (Init.MOD.containsKey("fusion_sounds")) {
                 Crupier.FUSION_MOD_SOUNDS = (boolean) Init.MOD.get("fusion_sounds");
             }
-
             if (Init.MOD.containsKey("fusion_cinematics")) {
                 Crupier.FUSION_MOD_CINEMATICS = (boolean) Init.MOD.get("fusion_cinematics");
             }
 
             Crupier.loadMODSounds();
-
             Crupier.loadMODCinematicsAllin();
 
-            //Actualizamos la fuente
             if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
-
                 try {
                     Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
                 } catch (FileNotFoundException ex) {
                     Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-
         }
 
         if (!Card.BARAJAS.containsKey(GameFrame.BARAJA)) {
@@ -1246,30 +1208,22 @@ public class Init extends JFrame {
         }
 
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
-
         Audio.MASTER_VOLUME = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
 
         if (!GameFrame.SONIDOS) {
-
             Audio.muteAll();
-
         } else {
-
             Audio.unmuteAll();
-
         }
 
         Audio.playWavResource("misc/init.wav");
-
         Audio.playLoopMp3Resource("misc/background_music.mp3");
 
-        Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading INIT WINDOW...");
+        Logger.getLogger(Init.class.getName()).log(Level.INFO, "Loading GUI Window...");
 
         Helpers.GUIRun(() -> {
             VENTANA_INICIO = new Init();
-
             VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
-
             VENTANA_INICIO.setVisible(true);
         });
 
@@ -1278,7 +1232,6 @@ public class Init extends JFrame {
             try {
                 Panoptes.WAKEUP_PANOPTES();
             } finally {
-
                 // Once finished, safely destroy the panoptes_splash screen on the GUI thread
                 Helpers.GUIRun(() -> {
                     panoptes_splash.setVisible(false);
@@ -1288,7 +1241,6 @@ public class Init extends JFrame {
         });
 
         if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
-
             if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {
                 try {
                     Files.createFile(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"));
@@ -1296,25 +1248,21 @@ public class Init extends JFrame {
                     Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                 }
             } else {
-
                 System.exit(0);
             }
         }
 
-        Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING UPDATE...");
-
+        Logger.getLogger(Init.class.getName()).log(Level.INFO, "Checking for updates...");
         UPDATE();
 
         if (!Helpers.OSValidator.isMac()) {
             antiScreensaver();
         }
 
-        Logger.getLogger(Init.class.getName()).log(Level.INFO, "LET'S GO");
-
+        Logger.getLogger(Init.class.getName()).log(Level.INFO, "Initialization complete. Ready.");
     }
 
     private static void UPDATE() {
-
         Helpers.threadRun(() -> {
             Helpers.GUIRun(() -> {
                 VENTANA_INICIO.action_buttons_panel.setEnabled(false);
@@ -1329,32 +1277,23 @@ public class Init extends JFrame {
                             VENTANA_INICIO.update_label.setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
                         });
                         try {
-
                             String current_jar_path = Helpers.getCurrentJarPath();
-
                             String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
-
                             String updater_jar = Helpers.downloadUpdater();
 
                             if (updater_jar != null) {
-
                                 Helpers.cleanCacheDIR();
-
                                 if (GameFrame.LANGUAGE.equals("es")) {
                                     String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
-
                                     Runtime.getRuntime().exec(cmdArr);
                                 } else {
                                     String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
-
                                     Runtime.getRuntime().exec(cmdArr);
                                 }
-
                                 System.exit(0);
                             } else {
                                 Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
                             }
-
                         } catch (Exception ex) {
                             Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
                             Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
@@ -1362,21 +1301,20 @@ public class Init extends JFrame {
                     }
                 }
             } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
+
             if (Init.MOD != null) {
-                Logger.getLogger(Init.class.getName()).log(Level.INFO, "CHECKING MOD UPDATE...");
+                Logger.getLogger(Init.class.getName()).log(Level.INFO, "Checking MOD updates...");
                 Helpers.checkMODVersion(VENTANA_INICIO);
             }
+
             Helpers.GUIRun(() -> {
                 VENTANA_INICIO.update_label.setVisible(false);
-
                 if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
                     VENTANA_INICIO.update_button.setVisible(true);
                 }
-
                 VENTANA_INICIO.action_buttons_panel.setEnabled(true);
             });
         });
-
     }
 
     private static void antiScreensaver() {

@@ -141,7 +141,6 @@ public class WaitingRoomFrame extends JFrame {
     private volatile SecretKeySpec local_client_hmac_key = null;
     private volatile SecretKeySpec local_client_hmac_key_orig = null;
     private volatile SecretKeySpec local_client_permutation_key = null;
-    public volatile byte[] local_player_private_key = null;
     public volatile byte[] local_player_public_key = null;
     private volatile String local_client_permutation_key_hash = null;
     private volatile Socket local_client_socket = null;
@@ -169,10 +168,6 @@ public class WaitingRoomFrame extends JFrame {
     private volatile boolean protect_focus = false;
     private volatile int remote_server_latency;
     private volatile int remote_server_latency2;
-
-    public byte[] getLocal_player_private_key() {
-        return local_player_private_key;
-    }
 
     public byte[] getLocal_player_public_key() {
         return local_player_public_key;
@@ -920,43 +915,44 @@ public class WaitingRoomFrame extends JFrame {
         repaint();
     }
 
-    private void gen_priv_session_key() {
-        // ==========================================
-        // PANOPTES IDENTITY: PERSISTENT NODE KEY
-        // ==========================================
+    private synchronized void gen_priv_session_key() {
         try {
             String fileName = "/panoptes_identity.key";
-
             if (Init.DEV_MODE) {
                 String safeNick = local_nick != null ? local_nick.replaceAll("[^a-zA-Z0-9.-]", "_") : "default";
                 fileName = "/panoptes_identity_" + safeNick + ".key";
             }
-
             java.io.File identityFile = new java.io.File(Init.CORONA_DIR + fileName);
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "[ZERO-TRUST] Checking identity file: {0}", identityFile.getAbsolutePath());
 
             if (identityFile.exists()) {
-                local_player_private_key = java.nio.file.Files.readAllBytes(identityFile.toPath());
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "[ZERO-TRUST] Identity loaded. Size: {0} bytes.", local_player_private_key.length);
+                byte[] fileBytes = java.nio.file.Files.readAllBytes(identityFile.toPath());
+                byte[] fossil = java.util.Arrays.copyOfRange(fileBytes, 32, 80);
+                boolean ok = Panoptes.getInstance().identityLoad(fossil);
+
+                if (ok) {
+                    local_player_public_key = java.util.Arrays.copyOfRange(fileBytes, 0, 32);
+                } else {
+                    identityFile.delete();
+                    throw new Exception("Identity fossil rejected by C engine.");
+                }
             } else {
-                local_player_private_key = new byte[32];
-                Helpers.CSPRNG_GENERATOR.nextBytes(local_player_private_key);
-                java.nio.file.Files.write(identityFile.toPath(), local_player_private_key);
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "[ZERO-TRUST] File missing. Created new secure identity.");
+                throw new Exception("No identity fossil found.");
             }
         } catch (Exception e) {
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "[ZERO-TRUST] FATAL ERROR generating identity. Using RAM fallback.", e);
-
-            local_player_private_key = new byte[32];
-            if (Helpers.CSPRNG_GENERATOR != null) {
-                Helpers.CSPRNG_GENERATOR.nextBytes(local_player_private_key);
-            } else {
-                new java.security.SecureRandom().nextBytes(local_player_private_key);
+            byte[] newIdentityBlob = Panoptes.getInstance().identityCreate();
+            local_player_public_key = java.util.Arrays.copyOfRange(newIdentityBlob, 0, 32);
+            try {
+                String fileName = "/panoptes_identity.key";
+                if (Init.DEV_MODE) {
+                    String safeNick = local_nick != null ? local_nick.replaceAll("[^a-zA-Z0-9.-]", "_") : "default";
+                    fileName = "/panoptes_identity_" + safeNick + ".key";
+                }
+                java.io.File dest = new java.io.File(Init.CORONA_DIR + fileName);
+                java.nio.file.Files.write(dest.toPath(), newIdentityBlob);
+            } catch (IOException ex) {
+                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Failed to write identity file", ex);
             }
         }
-
-        local_player_public_key = Panoptes.getInstance().getPublicKey(local_player_private_key);
-        // --------------------------------------------------------------------------------
     }
 
     public JScrollPane getEmoji_scroll_panel() {
@@ -1505,7 +1501,7 @@ public class WaitingRoomFrame extends JFrame {
                 Helpers.GUIRun(() -> {
                     status.setForeground(new Color(51, 153, 0));
                     Helpers.barraIndeterminada(barra);
-                    status.setText(Translator.translate("Conectando..."));
+                    status.setText(Translator.translate("Connecting..."));
                 });
                 booting = true;
                 HashMap<String, Integer> last_received = new HashMap<>();
@@ -1516,14 +1512,16 @@ public class WaitingRoomFrame extends JFrame {
                     String[] direccion = server_ip_port.split(":");
                     local_client_socket = new Socket(direccion[0], Integer.parseInt(direccion[1]));
                     local_client_socket.setTcpNoDelay(true);
-                    // Le mandamos los bytes "mágicos"
+
+                    // Send magic bytes
                     local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
                     local_client_socket.getOutputStream().flush();
+
                     Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("Intercambio de claves..."));
+                        status.setText(Translator.translate("Key exchange in progress..."));
                     });
 
-                    /* INICIO INTERCAMBIO CLAVES */
+                    /* ECDH KEY EXCHANGE INIT */
                     KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
                     clientKpairGen.initialize(EC_KEY_LENGTH);
                     KeyPair clientKpair = clientKpairGen.generateKeyPair();
@@ -1539,10 +1537,10 @@ public class WaitingRoomFrame extends JFrame {
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
 
                     Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("Firmando server challenge..."));
+                        status.setText(Translator.translate("Signing server challenge..."));
                     });
 
-                    // --- PANOPTES: CLIENT READS AND SIGNS SERVER CHALLENGE ---
+                    // --- PANOPTES PHASE 1: CLIENT READS AND SIGNS SERVER CHALLENGE ---
                     int chalLen = dIn.readInt();
                     byte[] serverChallengeBytes = new byte[chalLen];
                     dIn.readFully(serverChallengeBytes, 0, chalLen);
@@ -1568,7 +1566,7 @@ public class WaitingRoomFrame extends JFrame {
                     local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
                     local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
                     local_client_hmac_key_orig = local_client_hmac_key;
-                    /* FIN INTERCAMBIO CLAVES */
+                    /* END KEY EXCHANGE */
 
                     byte[] avatar_bytes = null;
                     if (local_avatar != null && local_avatar.length() > 0) {
@@ -1578,10 +1576,10 @@ public class WaitingRoomFrame extends JFrame {
                     }
 
                     Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("Generando y enviando nuestro challenge..."));
+                        status.setText(Translator.translate("Generating and sending client challenge..."));
                     });
 
-                    // --- PANOPTES PHASE 1: GENERATE CHALLENGE ---
+                    // --- PANOPTES PHASE 2: GENERATE CHALLENGE ---
                     String challengeBase64 = "";
                     try {
                         String serverIp = direccion[0];
@@ -1596,7 +1594,6 @@ public class WaitingRoomFrame extends JFrame {
                         }
 
                         int myLocalPort = local_client_socket.getLocalPort();
-
                         byte[] challengeBytes = panoptes.generateChallenge("LOCAL", miIpToUse, myLocalPort);
                         challengeBase64 = Base64.getEncoder().encodeToString(challengeBytes);
 
@@ -1606,13 +1603,9 @@ public class WaitingRoomFrame extends JFrame {
                         System.exit(1);
                     }
 
-                    String myPublicKeyBase64 = Base64.getEncoder().encodeToString(local_player_public_key).replaceAll("\\s+",
-                            "");
-                    // Juntamos Reto $ Firma $ Clave Publica
+                    String myPublicKeyBase64 = Base64.getEncoder().encodeToString(local_player_public_key).replaceAll("\\s+", "");
                     String securityPayload = challengeBase64 + "$" + miFirmaBase64 + "$" + myPublicKeyBase64;
 
-                    // Send Nick + VERSION + PANOPTES_CHALLENGE$SIGNATURE + AVATAR + PASSWORD to
-                    // server
                     writeCommandToServer(Helpers.encryptCommand(Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
                             + "#" + AboutDialog.VERSION + "@" + securityPayload
                             + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*")
@@ -1627,29 +1620,29 @@ public class WaitingRoomFrame extends JFrame {
                     switch (partes[0]) {
                         case "BADVERSION":
                             exit = true;
-                            mostrarMensajeError(THIS, Translator.translate("Versión de CoronaPoker incorrecta") + " "
-                                    + Translator.translate("SE REQUIERE") + " -> " + partes[1]);
+                            mostrarMensajeError(THIS, Translator.translate("Incorrect CoronaPoker Version") + " "
+                                    + Translator.translate("REQUIRED") + " -> " + partes[1]);
                             break;
                         case "YOUARELATE":
                             exit = true;
                             mostrarMensajeError(THIS,
-                                    "Llegas TARDE. La timba ya ha empezado.\n(Habla con el administrador por otro canal para que te permita entrar).");
+                                    "YOU ARE LATE. The game has already started.\n(Ask the host through another channel to let you in).");
                             break;
                         case "NOSPACE":
                             exit = true;
-                            mostrarMensajeError(THIS, "NO HAY SITIO");
+                            mostrarMensajeError(THIS, "ROOM IS FULL");
                             break;
                         case "NICKFAIL":
                             exit = true;
-                            mostrarMensajeError(THIS, "El nick elegido ya lo está usando otro usuario.");
+                            mostrarMensajeError(THIS, "The chosen nickname is already taken by another user.");
                             break;
                         case "BADPASSWORD":
                             exit = true;
-                            mostrarMensajeError(THIS, "PASSWORD INCORRECTA");
+                            mostrarMensajeError(THIS, "INVALID PASSWORD");
                             break;
                         case "NICKOK":
 
-                            // 1. Verificamos al Servidor
+                            // 1. Verify Server
                             byte[] serverSignature = Base64.getDecoder().decode(partes[2].replaceAll("[^A-Za-z0-9+/=]", ""));
 
                             if ("0".equals(partes[1])) {
@@ -1658,12 +1651,12 @@ public class WaitingRoomFrame extends JFrame {
                                 });
                             }
 
-                            // 2. Leemos la info de la mesa
+                            // 2. Read Game Info
                             gameinfo_original = new String(
                                     Base64.getDecoder().decode(partes[3].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
 
                             Helpers.GUIRun(() -> {
-                                status.setText(Translator.translate("Recibiendo info del servidor..."));
+                                status.setText(Translator.translate("Receiving server info..."));
                                 String[] game_info = gameinfo_original.split("\\|");
 
                                 if (game_info[0].trim().matches("[0-9,.*]+")) {
@@ -1685,7 +1678,7 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             });
 
-                            // 3. Leemos el Nick del Server (ANTI-PING)
+                            // 3. Read Server Nick (ANTI-PING)
                             recibido = readCommandFromServer();
                             while (recibido != null && recibido.startsWith("PING#")) {
                                 String[] ping_parts = recibido.split("#");
@@ -1695,8 +1688,7 @@ public class WaitingRoomFrame extends JFrame {
 
                             partes = recibido.split("#");
 
-                            server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")),
-                                    "UTF-8").trim();
+                            server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8").trim();
 
                             int authStatus = Panoptes.getInstance().verifyResponse("LOCAL", serverSignature);
 
@@ -1705,13 +1697,12 @@ public class WaitingRoomFrame extends JFrame {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER " + server_nick + " GAME BINARY IS MODIFIED OR GUARDIAN TRIGGERED (cheating?)");
                             } else if (authStatus == Panoptes.STATUS_VM_DETECTED) {
                                 Helpers.threadRun(() -> {
-                                    mostrarMensajeInformativo(THIS, "Parece que el servidor [" + server_nick + "] está ejecutando CoronaPoker dentro de una Máquina Virtual\n(Es posible que intente hacer trampas de alguna forma)");
+                                    mostrarMensajeInformativo(THIS, "It seems the server [" + server_nick + "] is running CoronaPoker inside a Virtual Machine\n(It is possible they might try to cheat in some way)");
                                 });
-
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER is running on a Virtual Machine.");
                             }
 
-                            // Generamos y guardamos clave permutacion
+                            // Generate and store permutation key
                             try {
                                 MessageDigest md = MessageDigest.getInstance("MD5");
                                 md.update(local_nick.getBytes("UTF-8"));
@@ -1726,7 +1717,7 @@ public class WaitingRoomFrame extends JFrame {
                             } catch (Exception ex) {
                             }
 
-                            // Leemos avatar del server
+                            // Read Server Avatar
                             String server_avatar_base64 = partes.length > 1
                                     ? partes[1].replaceAll("[^A-Za-z0-9+/=]", "")
                                     : "";
@@ -1744,7 +1735,7 @@ public class WaitingRoomFrame extends JFrame {
                                 server_avatar = null;
                             }
 
-                            // Leemos el contenido del chat (ANTI-PING)
+                            // Read Chat Content (ANTI-PING)
                             recibido = readCommandFromServer();
                             while (recibido != null && recibido.startsWith("PING#")) {
                                 String[] ping_parts = recibido.split("#");
@@ -1757,7 +1748,7 @@ public class WaitingRoomFrame extends JFrame {
                                         Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
 
-                            // Leemos si el RADAR está activado (ANTI-PING)
+                            // Read RADAR status (ANTI-PING)
                             recibido = readCommandFromServer();
                             while (recibido != null && recibido.startsWith("PING#")) {
                                 String[] ping_parts = recibido.split("#");
@@ -1770,21 +1761,20 @@ public class WaitingRoomFrame extends JFrame {
                             if (GameFrame.RADAR_AVAILABLE) {
                                 Helpers.threadRun(() -> {
                                     Helpers.mostrarMensajeInformativo(this,
-                                            "El servidor ha activado el RADAR anti-trampas para esta partida. Cualquier jugador podrá solicitar un informe anti-trampas de otro jugador durante la partida, el cual incluye una captura de pantalla del jugador (sin mostrar sus cartas) así como su listado de procesos del sistema.",
+                                            "The server has activated the Anti-Cheat RADAR for this game. Any player can request an anti-cheat report from another player during the game, which includes a screenshot of the player (without showing their cards) as well as their system process list.",
                                             "justify", (int) Math.round(getWidth() * 0.8f),
                                             new ImageIcon(Init.class.getResource("/images/shield.png")));
-
                                 });
                             }
 
-                            // Añadimos al servidor
+                            // Add Server
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false,
                                     THIS.isUnsecure_server());
-                            // Nos añadimos nosotros
+                            // Add Local Player
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
                             Helpers.GUIRunAndWait(() -> {
-                                status.setText(Translator.translate("CONECTADO"));
+                                status.setText(Translator.translate("CONNECTED"));
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/1.png")));
                                 barra.setVisible(false);
                                 chat_box.setEnabled(true);
@@ -1793,15 +1783,15 @@ public class WaitingRoomFrame extends JFrame {
                                 max_min_label.setEnabled(true);
                                 radar.setEnabled(GameFrame.RADAR_AVAILABLE);
                                 radar.setToolTipText(Translator
-                                        .translate(GameFrame.RADAR_AVAILABLE ? "Informes ANTI-TRAMPAS activados"
-                                                : "Informes ANTI-TRAMPAS desactivados"));
+                                        .translate(GameFrame.RADAR_AVAILABLE ? "ANTI-CHEAT reports enabled"
+                                                : "ANTI-CHEAT reports disabled"));
                             });
 
                             refreshChatPanel();
 
                             booting = false;
 
-                            // --- INICIO BLOQUE 1: HILO DE LECTURA DEL CLIENTE ---
+                            // --- SOCKET READER THREAD ---
                             Helpers.threadRun(() -> {
 
                                 while (!exit) {
@@ -1825,11 +1815,7 @@ public class WaitingRoomFrame extends JFrame {
                                                     "PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
 
                                             try {
-                                                local_client_socket_reader_queue.put(mensaje_recibido); // Metemos el
-                                                // PING en la
-                                                // cola para
-                                                // generar el
-                                                // PONG2
+                                                local_client_socket_reader_queue.put(mensaje_recibido);
                                             } catch (InterruptedException ex) {
                                                 System.getLogger(Participant.class.getName())
                                                         .log(System.Logger.Level.ERROR, (String) null, ex);
@@ -1837,14 +1823,12 @@ public class WaitingRoomFrame extends JFrame {
 
                                         } else if ("SECPING".equals(partes_comando[0])) {
 
-                                            // --- PANOPTES: EL CLIENTE RECIBE EL LATIDO DE SEGURIDAD Y LO FIRMA ---
+                                            // --- PANOPTES: CLIENT SIGNS SERVER HEARTBEAT ---
                                             try {
                                                 byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                                                byte[] signatureBytes = Panoptes.getInstance()
-                                                        .signChallenge(challengeBytes);
+                                                byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
                                                 String signatureBase64 = signatureBytes != null
-                                                        ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+",
-                                                                "")
+                                                        ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "")
                                                         : "";
 
                                                 writeCommandToServer(
@@ -1852,9 +1836,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                 local_client_aes_key, local_client_hmac_key));
                                             } catch (Exception e) {
                                                 Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
-                                                        "Fallo al firmar el latido de Panoptes", e);
+                                                        "Failed to sign Panoptes heartbeat", e);
                                             }
-                                            // ---------------------------------------------------------------------
 
                                         } else if ("PONG".equals(partes_comando[0])) {
 
@@ -1902,13 +1885,14 @@ public class WaitingRoomFrame extends JFrame {
                                 }
 
                             });
-                            // --- FIN BLOQUE 1 ---
+                            // --- END READER THREAD ---
 
-                            // --- INICIO BLOQUE 1: HILO GENERADOR DE LATIDOS DEL CLIENTE (CORREGIDO) ---
+                            // --- HEARTBEAT THREAD ---
                             Helpers.threadRun(() -> {
+
                                 Panoptes panoptes_instance = Panoptes.getInstance();
 
-                                // Esperamos 10 segundos antes de empezar para que la partida cargue
+                                // Wait 10s for game load
                                 Helpers.pausar(10000);
 
                                 while (!exit && WaitingRoomFrame.getInstance() != null) {
@@ -1916,7 +1900,6 @@ public class WaitingRoomFrame extends JFrame {
                                         String[] direccion_server = server_ip_port.split(":");
                                         String serverIp = direccion_server[0];
 
-                                        // Usamos nuestra propia IP para que el servidor la vea en su tabla remota
                                         String miIpToUse;
                                         if (serverIp.equals("localhost") || serverIp.equals("127.0.0.1")
                                                 || serverIp.startsWith("192.168.") || serverIp.startsWith("10.")
@@ -1926,31 +1909,25 @@ public class WaitingRoomFrame extends JFrame {
                                             miIpToUse = Helpers.getMyPublicIP();
                                         }
 
-                                        // EL ARREGLO: Usamos nuestro puerto local, NO el puerto del servidor.
-                                        // El servidor mirará en su tabla "Remote Port", que coincide con nuestro puerto
-                                        // local.
                                         int myLocalPort = local_client_socket.getLocalPort();
 
-                                        byte[] challenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT",
+                                        byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT",
                                                 miIpToUse, myLocalPort);
-                                        String challengeB64 = Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+",
-                                                "");
+                                        String challengeB64 = Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
 
-                                        // Enviamos el reto de seguridad al servidor
                                         writeCommandToServer(Helpers.encryptCommand("SECPING#" + challengeB64,
                                                 local_client_aes_key, local_client_hmac_key));
 
                                     } catch (Exception e) {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
-                                                "Error enviando SECPING al servidor", e);
+                                                "Error dispatching SECPING to server", e);
                                     }
 
                                     Helpers.pausar(SEC_PING_INTERVAL_MS);
                                 }
                             });
-                            // --- FIN BLOQUE 1 ---
 
-                            // Cada X segundos mandamos un PING al server
+                            // --- PING/PONG KEEPALIVE THREAD ---
                             Helpers.threadRun(() -> {
 
                                 while (!exit && WaitingRoomFrame.getInstance() != null) {
@@ -1958,11 +1935,8 @@ public class WaitingRoomFrame extends JFrame {
                                     int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
                                     remote_server_pong = null;
-
                                     remote_server_pong2 = null;
-
                                     remote_server_latency = -1;
-
                                     remote_server_latency2 = -1;
 
                                     long pingStartNs = System.nanoTime();
@@ -1971,7 +1945,7 @@ public class WaitingRoomFrame extends JFrame {
                                         writeCommandToServer("PING#" + ping);
                                     } catch (Exception ex) {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
-                                                "Error enviando PING", ex);
+                                                "Error dispatching PING", ex);
                                         break;
                                     }
 
@@ -2001,12 +1975,11 @@ public class WaitingRoomFrame extends JFrame {
                                         }
                                     }
 
-                                    // SOLO si llegó el remote_server_pong correcto medimos latencia
                                     if (remote_server_latency != -1) {
 
                                         Helpers.GUIRun(() -> {
                                             this.latency_label.setVisible(true);
-                                            this.latency_label.setText(Translator.translate("Latencia del servidor:")
+                                            this.latency_label.setText(Translator.translate("Server Latency:")
                                                     + " " + String.valueOf(remote_server_latency) + " ms");
                                         });
                                     }
@@ -2014,29 +1987,20 @@ public class WaitingRoomFrame extends JFrame {
                                     if (!exit && WaitingRoomFrame.getInstance() != null) {
 
                                         if (remote_server_pong == null) {
-
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                                    "EL SERVIDOR NO RESPONDIÓ EL PING");
-
+                                                    "SERVER FAILED TO RESPOND TO PING");
                                         } else if (remote_server_pong != ping + 1) {
-
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                                    "PONG DEL SERVIDOR INCORRECTO");
-
+                                                    "INVALID PONG FROM SERVER");
                                         } else if (remote_server_pong2 == null) {
-
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                                    "EL SERVIDOR NO RESPONDIÓ EL PING2");
-
+                                                    "SERVER FAILED TO RESPOND TO PING2");
                                         } else if (remote_server_pong2 != ping + 2) {
-
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                                    "PONG2 DEL SERVIDOR INCORRECTO");
-
+                                                    "INVALID PONG2 FROM SERVER");
                                         } else if (DEV_MODE) {
-
                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
-                                                    "PONGS DEL SERVIDOR RECIBIDOS CORRECTAMENTE. (Latencia: {0} ms / {1} ms)",
+                                                    "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
                                                     new Object[]{remote_server_latency, remote_server_latency2});
                                         }
 
@@ -2072,7 +2036,7 @@ public class WaitingRoomFrame extends JFrame {
                                                     if (!THIS.isUnsecure_server()) {
                                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(
                                                                 Level.WARNING,
-                                                                "¡EL SERVIDOR HA FALLADO EL LATIDO PANOPTES! (Trampas detectadas mid-game)");
+                                                                "SERVER FAILED PANOPTES HEARTBEAT! (Cheating detected mid-game)");
 
                                                         THIS.setUnsecure_server(true);
                                                     }
@@ -2099,12 +2063,12 @@ public class WaitingRoomFrame extends JFrame {
                                         case "EXIT":
                                             exit = true;
                                             mostrarMensajeError(THIS,
-                                                    "El servidor ha cancelado la timba antes de empezar.");
+                                                    "The server cancelled the game before starting.");
                                             break;
                                         case "KICKED":
                                             exit = true;
                                             Audio.playWavResource("loser/payaso.wav");
-                                            mostrarMensajeInformativo(THIS, "¡A LA PUTA CALLE!");
+                                            mostrarMensajeInformativo(THIS, "YOU HAVE BEEN KICKED OUT!");
                                             break;
                                         case "GAME":
                                             // Confirmamos recepción al servidor
@@ -2133,7 +2097,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             GameFrame.getInstance(), false,
                                                                             "[" + client_nick2 + "] "
                                                                             + Translator.translate(
-                                                                                    "QUIERE ENTRAR EN LA TIMBA"),
+                                                                                    "WANTS TO ENTER THE GAME"),
                                                                             Color.RED, Color.WHITE,
                                                                             getClass().getResource(
                                                                                     "/images/action/cry.png"),
@@ -2148,7 +2112,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                                             Logger.getLogger(WaitingRoomFrame.class.getName()).log(
                                                                     Level.WARNING,
-                                                                    "El usuario {0} LLEGA TARDE -> DENEGADO",
+                                                                    "User {0} IS LATE -> DENIED",
                                                                     client_nick2);
                                                             break;
                                                         case "RADAR":
@@ -2161,55 +2125,40 @@ public class WaitingRoomFrame extends JFrame {
 
                                                             } else if (partes_comando.length == 7) {
                                                                 try {
-                                                                    // 1. EXTRAER VARIABLES BASE64
                                                                     String suspicious = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     byte[] imageBytes = partes_comando[4].equals("*") ? null : Base64.getDecoder().decode(partes_comando[4]);
                                                                     byte[] encryptedRadarData = partes_comando[5].equals("*") ? null : Base64.getDecoder().decode(partes_comando[5]);
                                                                     long timestamp = Long.parseLong(partes_comando[6]);
 
-                                                                    // 2. CONSTRUIR LA CABECERA ASCII
                                                                     StringBuilder sb = new StringBuilder();
                                                                     sb.append("  ____                            ____       _                ____      _    ____    _    ____  \n"
                                                                             + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
                                                                             + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
                                                                             + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
                                                                             + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
-                                                                            + "                                                                                             \n\n");
+                                                                            + "                                                                                               \n\n");
                                                                     sb.append("CoronaPoker Radar -> [").append(suspicious).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
 
-                                                                    // 3. DESCIFRAR CON PANOPTES
                                                                     if (encryptedRadarData != null) {
                                                                         try {
-                                                                            // Sacamos la Llave Privada del Cliente local
-                                                                            byte[] myPrivateKey = this.local_player_private_key;
-
-                                                                            // Llamamos a la DLL nativa para romper el candado
-                                                                            String rawIntel = Panoptes.getInstance().parseRadarReport(myPrivateKey, encryptedRadarData);
+                                                                            String rawIntel = Panoptes.getInstance().parseRadarReport(encryptedRadarData);
 
                                                                             if (rawIntel != null) {
                                                                                 sb.append(rawIntel);
                                                                             } else {
-                                                                                // Si devuelve null, es que alguien (o el servidor) manipuló el paquete
                                                                                 sb.append("************************************************************************\n");
-                                                                                sb.append("[!] ERROR CRÍTICO DE SEGURIDAD: FALLO EN INTEGRIDAD (MAC POLY1305)\n");
-                                                                                sb.append("El paquete fue alterado en tránsito o la firma Chaos/KEM es inválida.\n");
+                                                                                sb.append("[!] CRITICAL SECURITY ERROR: INTEGRITY CHECK FAILED (MAC POLY1305)\n");
+                                                                                sb.append("Packet was altered in transit or Chaos/KEM signature is invalid.\n");
                                                                                 sb.append("************************************************************************\n");
                                                                             }
                                                                         } catch (Exception ex) {
-                                                                            sb.append("[!] Excepción al intentar descifrar los datos: ").append(ex.getMessage()).append("\n");
-                                                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, () -> "[!] Excepción al intentar descifrar los datos: " + ex.getMessage());
+                                                                            sb.append("[!] Exception decrypting data: ").append(ex.getMessage()).append("\n");
                                                                         }
                                                                     } else {
-                                                                        sb.append("[!] No se recibieron datos cifrados de procesos.\n");
-                                                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "[!] No se recibieron datos cifrados de procesos.\n");
+                                                                        sb.append("[!] No encrypted process data received.\n");
                                                                     }
-
-                                                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, sb.toString());
-
-                                                                    // 4. GUARDAR Y MOSTRAR EN PANTALLA
                                                                     GameFrame.getInstance().getCrupier().saveRADARLog(suspicious, imageBytes, sb.toString(), timestamp);
                                                                 } catch (Exception ex) {
-                                                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, ex.getMessage());
                                                                 }
                                                             }
 
@@ -2246,9 +2195,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                             GameFrame.getInstance(), false,
                                                                             GameFrame.IWTSTH_RULE
                                                                                     ? Translator.translate(
-                                                                                            "REGLA IWTSTH ACTIVADA")
+                                                                                            "IWTSTH RULE ACTIVATED")
                                                                                     : Translator.translate(
-                                                                                            "REGLA IWTSTH DESACTIVADA"),
+                                                                                            "IWTSTH RULE DEACTIVATED"),
                                                                             GameFrame.IWTSTH_RULE ? new Color(0, 130, 0)
                                                                                     : Color.RED,
                                                                             Color.WHITE, null, NOTIFICATION_TIMEOUT);
@@ -2282,26 +2231,26 @@ public class WaitingRoomFrame extends JFrame {
                                                                             GameFrame.getInstance().getMenu_rabbit_off()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING DESACTIVADO");
+                                                                                    "RABBIT HUNTING DEACTIVATED");
                                                                             break;
                                                                         case 1:
                                                                             GameFrame.getInstance()
                                                                                     .getMenu_rabbit_free()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING ACTIVADO (FREE)");
+                                                                                    "RABBIT HUNTING ACTIVATED (FREE)");
                                                                             break;
                                                                         case 2:
                                                                             GameFrame.getInstance().getMenu_rabbit_sb()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING ACTIVADO (FREE + SB)");
+                                                                                    "RABBIT HUNTING ACTIVATED (FREE + SB)");
                                                                             break;
                                                                         case 3:
                                                                             GameFrame.getInstance().getMenu_rabbit_bb()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING ACTIVADO (FREE + SB + BB)");
+                                                                                    "RABBIT HUNTING ACTIVATED (FREE + SB + BB)");
                                                                             break;
                                                                         default:
                                                                             break;
@@ -2378,9 +2327,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         GameFrame.getInstance(), false,
                                                                         GameFrame.TTS_SERVER
                                                                                 ? Translator.translate(
-                                                                                        "TTS ACTIVADO POR EL SERVIDOR")
+                                                                                        "TTS ENABLED BY SERVER")
                                                                                 : Translator.translate(
-                                                                                        "TTS DESACTIVADO POR EL SERVIDOR"),
+                                                                                        "TTS DISABLED BY SERVER"),
                                                                         GameFrame.TTS_SERVER ? new Color(0, 130, 0)
                                                                                 : Color.RED,
                                                                         Color.WHITE, null, NOTIFICATION_TIMEOUT);
@@ -2404,51 +2353,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             });
                                                             break;
-                                                        // ==========================================
-                                                        // PANOPTES: CLIENT DECRYPTS MASTER KEY LOCKBOX
-                                                        // ==========================================
                                                         case "PERMUTATIONKEY":
                                                             Helpers.threadRun(() -> {
                                                                 try {
-                                                                    byte[] lockbox = org.apache.commons.codec.binary.Base64
-                                                                            .decodeBase64(partes_comando[3]
-                                                                            );
-
-                                                                    // ----> PON EL CHIVATO 2 AQUÍ <----
-                                                                    try {
-                                                                        System.out.println(
-                                                                                "[ZERO-TRUST JUICIO] CANDADO RECIBIDO MD5: "
-                                                                                + org.apache.commons.codec.digest.DigestUtils
-                                                                                        .md5Hex(lockbox));
-                                                                    } catch (Exception e) {
-                                                                    }
-
-                                                                    System.out.println(
-                                                                            "[ZERO-TRUST] Cliente recibe Candado. Tamaño real en bytes: "
-                                                                            + lockbox.length
-                                                                            + " (DEBE SER 80)");
-
-                                                                    byte[] myPriv = GameFrame.getInstance()
-                                                                            .getSala_espera().local_player_private_key;
-
-                                                                    byte[] bEpub = java.util.Arrays.copyOfRange(lockbox,
-                                                                            0, 32);
-                                                                    byte[] bEncMk = java.util.Arrays
-                                                                            .copyOfRange(lockbox, 32, 80);
-
-                                                                    byte[] masterKey = Panoptes.getInstance()
-                                                                            .decryptMasterKey(myPriv, bEpub, bEncMk);
+                                                                    byte[] masterKey = Panoptes.getInstance().stateGetShuffleKeyShare();
 
                                                                     if (masterKey != null) {
                                                                         System.out.println(
-                                                                                "[ZERO-TRUST] ¡Candado abierto! Enviando 32 bytes puros al servidor.");
-                                                                        System.out.println(
-                                                                                "[ZERO-TRUST PRUEBA] Cliente sacó MasterKey MD5: "
-                                                                                + org.apache.commons.codec.digest.DigestUtils
-                                                                                        .md5Hex(masterKey));
-                                                                    } else {
-                                                                        System.out.println(
-                                                                                "[ZERO-TRUST] ERROR: Llave incorrecta, candado no se abre.");
+                                                                                "[ZERO-TRUST] Vault Responds! Sending share to server.");
                                                                     }
 
                                                                     String mkBase64 = (masterKey != null)
@@ -2465,9 +2377,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                             local_client_hmac_key));
 
                                                                 } catch (Exception e) {
-                                                                    System.out.println(
-                                                                            "[ZERO-TRUST] Excepción al abrir candado: "
-                                                                            + e.getMessage());
                                                                     try {
                                                                         writeCommandToServer(Helpers.encryptCommand(
                                                                                 "GAME#" + String.valueOf(
@@ -2480,17 +2389,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                 }
                                                             });
-                                                            break;
-
-                                                        // ==========================================
-                                                        // ZERO-TRUST: CLIENT FINAL AUDIT
-                                                        // ==========================================
-                                                        case "HANDVERIFY":
-
-                                                            byte[] mk = Base64.getDecoder().decode(partes_comando[3]);
-
-                                                            GameFrame.getInstance().getCrupier().verificarManoLocal(mk);
-
                                                             break;
 
                                                         case "SHOWCARDS":
@@ -2641,8 +2539,8 @@ public class WaitingRoomFrame extends JFrame {
                                                             if (!participantes.containsKey(nick)) {
                                                                 // Añadimos al participante
 
-                                                                nuevoParticipante(nick, avatar, null, null, null, false,
-                                                                        "1".equals(partes_comando[4]));
+                                                                nuevoParticipante(nick, avatar, null, null, null,
+                                                                        false, "1".equals(partes_comando[4]));
 
                                                             }
 
@@ -2695,7 +2593,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         + ")");
                                                                 sound_icon.setVisible(false);
                                                                 status.setText(
-                                                                        Translator.translate("Inicializando timba..."));
+                                                                        Translator.translate("Initializing game..."));
                                                                 status.setIcon(new ImageIcon(
                                                                         getClass().getResource("/images/gears.gif")));
                                                                 barra.setVisible(true);
@@ -2751,7 +2649,7 @@ public class WaitingRoomFrame extends JFrame {
                                 } else {
                                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                                "EL SOCKET HA RECIBIDO POISON PILL");
+                                                "SOCKET RECEIVED POISON PILL");
                                     }
                                 }
 
@@ -2764,7 +2662,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 } catch (Exception ex) {
                     Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
-                    mostrarMensajeError(THIS, "ERROR INESPERADO -> " + ex.toString());
+                    mostrarMensajeError(THIS, "UNEXPECTED ERROR -> " + ex.toString());
                     System.exit(1);
                 }
 
@@ -2782,8 +2680,8 @@ public class WaitingRoomFrame extends JFrame {
                             int j = i;
                             Helpers.GUIRun(() -> {
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
-                                status.setText(Translator.translate("ERROR (Reconexión en ") + j
-                                        + Translator.translate(" segs...)"));
+                                status.setText(Translator.translate("ERROR (Reconnecting in ") + j
+                                        + Translator.translate(" secs...)"));
                                 barra.setValue(j);
                             });
                             if (!exit) {
@@ -2797,7 +2695,7 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         }
                     } else {
-                        mostrarMensajeError(THIS, "ALGO HA FALLADO. Has perdido la conexión con el servidor.");
+                        mostrarMensajeError(THIS, "SOMETHING FAILED. You have lost connection with the server.");
                     }
                 }
 
@@ -2856,8 +2754,6 @@ public class WaitingRoomFrame extends JFrame {
     private void serverSocketHandler(final Socket client_socket) {
 
         Helpers.threadRun(() -> {
-
-            gen_priv_session_key();
 
             Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
             client_threads.add(Thread.currentThread().threadId());
@@ -3235,6 +3131,8 @@ public class WaitingRoomFrame extends JFrame {
     private void servidor() {
 
         server_nick = local_nick;
+
+        gen_priv_session_key();
 
         Helpers.threadRun(() -> {
             while (!exit) {
@@ -4482,23 +4380,18 @@ public class WaitingRoomFrame extends JFrame {
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_new_bot_buttonActionPerformed
 
         if (participantes.size() < MAX_PARTICIPANTES) {
-
             new_bot_button.setEnabled(false);
-
             Audio.playWavResource("misc/laser.wav");
 
             Helpers.threadRun(() -> {
                 try {
-                    // TODO add your handling code here:
                     String bot_nick;
                     int conta_bot = 0;
                     do {
                         conta_bot++;
-
                         bot_nick = "CoronaBot$" + String.valueOf(conta_bot);
-
                     } while (participantes.get(bot_nick) != null);
-                    // Mandamos el nuevo participante al resto de participantes
+
                     String comando = "NEWUSER#" + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
                     byte[] avatar_b = null;
                     try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
@@ -4507,15 +4400,15 @@ public class WaitingRoomFrame extends JFrame {
                         Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
                     comando += "#" + Base64.getEncoder().encodeToString(avatar_b);
+
                     synchronized (lock_new_client) {
                         nuevoParticipante(bot_nick, null, null, null, null, true, false);
 
-                        // --- PANOPTES: GENERAR LLAVES DETERMINISTAS PARA EL BOT ---
-                        // Zero-Trust: Las llaves del bot deben ser derivables de su nick para poder recuperarlas si el servidor crashea
+                        /* PANOPTES: ZERO-TRUST DETERMINISTIC BOT KEYS */
                         byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(bot_nick.getBytes("UTF-8"));
                         participantes.get(bot_nick).setPanoptes_private_key(botPriv);
-                        participantes.get(bot_nick).setPanoptes_public_key(Panoptes.getInstance().getPublicKey(botPriv));
-                        // --------------------------------------------
+                        participantes.get(bot_nick).setPanoptes_public_key(Panoptes.getInstance().utilsGetPublicKey(botPriv));
+                        /* ------------------------------------------- */
 
                         broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
                         Helpers.GUIRun(() -> {
@@ -4523,7 +4416,6 @@ public class WaitingRoomFrame extends JFrame {
                             kick_user.setEnabled(true);
                             new_bot_button.setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                             chat_box.requestFocus();
-
                             revalidate();
                             repaint();
                         });

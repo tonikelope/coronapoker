@@ -2565,7 +2565,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 Hand jugada = new Hand(cartas_jugada);
                                 player_action.setForeground(Color.WHITE);
                                 setActionBackground(new Color(51, 153, 255));
-                                
+
                                 // LIMPIEZA DE ETIQUETA: Evita el glitch de "HABLAS TÚ"
                                 player_action.putClientProperty("i18n.key", null);
                                 player_action.setText(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));

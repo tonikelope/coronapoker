@@ -3735,21 +3735,6 @@ public class Crupier implements Runnable {
     private void sqlNewHand() {
         synchronized (GameFrame.SQL_LOCK) {
 
-            // [SOLUCIÓN NATIVA]: Sincronizamos la tabla 'player' en caliente.
-            // Esto permite que jugadores que entran mid-game o en recuperaciones
-            // existan en SQLite ANTES de crear la mano, evitando el crash de Foreign Key.
-            String sqlPlayers = "INSERT OR IGNORE INTO player(nick) VALUES (?)";
-            try (PreparedStatement stmt = Helpers.getSQLITE().prepareStatement(sqlPlayers)) {
-                for (Player p : GameFrame.getInstance().getJugadores()) {
-                    if (p.getNickname() != null && !p.getNickname().isEmpty() && !p.getNickname().equals("-----")) {
-                        stmt.setString(1, p.getNickname());
-                        stmt.executeUpdate();
-                    }
-                }
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, "Error syncing native players", ex);
-            }
-
             ArrayList<String> jugadores = new ArrayList<>();
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 if (jugador.isActivo()) {

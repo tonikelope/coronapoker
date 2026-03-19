@@ -1699,7 +1699,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
 
-                    setPlayerBorder(((LineBorder) getBorder()).getLineColor());
+                    setPlayerBorder(border_color);
+                    
                     getAvatar().setVisible(false);
 
                     utg_icon.setVisible(false);

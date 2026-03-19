@@ -1970,9 +1970,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
 
                     hidePlayerActionIcon();
+                    
                     player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-                    setPlayerBorder(((LineBorder) getBorder()).getLineColor());
+                    
+                    setPlayerBorder(border_color);
+                    
                     getAvatar().setVisible(false);
+                    
                     utg_icon.setVisible(false);
 
                     player_check_button.setIcon(null);
@@ -1986,6 +1990,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_name.setIcon(null);
 
                     chip_label.setVisible(false);
+                    
                 });
 
                 Helpers.zoomFonts(this, zoom_factor, null);

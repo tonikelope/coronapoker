@@ -64,10 +64,14 @@ import javax.swing.Timer;
 
     https://www.blender.org/ ( https://www.youtube.com/watch?v=0JnmWfWuMDw )
 
+    Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, Illia Polosukhin
+    https://arxiv.org/abs/1706.03762
+
+
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "19.65";
+    public static final String VERSION = "19.66";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
     public static final String TITLE = "about.titulo";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

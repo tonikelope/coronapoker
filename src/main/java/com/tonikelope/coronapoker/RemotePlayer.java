@@ -69,9 +69,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public static String[][] getActionsLabels() {
         return new String[][]{
-            new String[]{Translator.translate("action.label.fold")},
-            new String[]{Translator.translate("action.label.check"), Translator.translate("action.label.call")},
-            new String[]{Translator.translate("action.label.bet"), Translator.translate("action.label.raise")},
+            new String[]{Translator.translate("action.label.fold2")},
+            new String[]{Translator.translate("action.label.check2"), Translator.translate("action.label.call2")},
+            new String[]{Translator.translate("action.label.bet2"), Translator.translate("action.label.raise2")},
             new String[]{Translator.translate("action.label.allin")}
         };
     }

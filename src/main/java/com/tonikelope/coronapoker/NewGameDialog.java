@@ -1696,6 +1696,7 @@ public class NewGameDialog extends JDialog {
         }
 
         radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
+        radar_label.setEnabled(radar_checkbox.isSelected());
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
     }//GEN-LAST:event_radar_checkboxActionPerformed

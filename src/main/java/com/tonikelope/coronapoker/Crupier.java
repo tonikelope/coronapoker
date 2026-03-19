@@ -2110,7 +2110,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (!perdedores.containsKey(jugador)) {
-                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate("ui.muestra_2") + Card.collection2String(jugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
+                        GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("ui.muestra_2") + Card.collection2String(jugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
 
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
@@ -8057,7 +8057,7 @@ public class Crupier implements Runnable {
                                     requestShowdownKeys(new ArrayList<Player>());
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
+                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + " " + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + " " + Translator.translate("action.sin_tener_que_mostrar"));
                                     Helpers.GUIRun(() -> {
                                         setPotBackground(Color.RED);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
@@ -8083,7 +8083,7 @@ public class Crupier implements Runnable {
                                     }
                                     resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
                                     this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
-                                    GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate("game.gana_bote") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
+                                    GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + " " + Translator.translate("game.gana_bote") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                     Helpers.GUIRun(() -> {
                                         setPotBackground(Color.GREEN);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
@@ -8154,7 +8154,7 @@ public class Crupier implements Runnable {
                                             Player perdedor = entry.getKey();
                                             badbeat = badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
                                         this.showdown(jugadas, ganadores);
@@ -8207,7 +8207,7 @@ public class Crupier implements Runnable {
                                             Player perdedor = entry.getKey();
                                             badbeat = badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate("game.pierde_bote_principal") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
                                         this.showdown(jugadas, ganadores);
@@ -8220,7 +8220,7 @@ public class Crupier implements Runnable {
                                                 bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
                                                 current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
                                                 this.bote_total -= current_pot.getTotal();
-                                                GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
+                                                GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
                                                 this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
                                             } else {
                                                 jugadas = this.calcularJugadas(current_pot.getPlayers());
@@ -8233,13 +8233,13 @@ public class Crupier implements Runnable {
                                                     ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
                                                     this.bote_total -= cantidad_pagar_ganador[0];
                                                     Hand jugada = entry.getValue();
-                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                     this.sqlUpdateShowdownPay(ganador);
                                                 }
                                                 for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                                     Player perdedor = entry.getKey();
                                                     perdedores.put(perdedor, entry.getValue());
-                                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                                 }
                                             }
                                             current_pot = current_pot.getSidePot();
@@ -8606,7 +8606,7 @@ public class Crupier implements Runnable {
 
                 GameFrame.getInstance().getLocalPlayer().setSpectator(null);
 
-                GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
+                GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + " "
                         + Translator.translate("player.te_quedas_de_espectador"));
             }
 

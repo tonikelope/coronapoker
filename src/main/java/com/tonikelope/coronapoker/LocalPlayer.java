@@ -1117,7 +1117,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.stack += cantidad;
         this.buyin += cantidad;
-        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate("rebuy.recompra_2") + String.valueOf(cantidad) + ")");
+        GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(cantidad) + ")");
         Audio.playWavResource("misc/cash_register.wav");
 
         if (!player_stack_click) {
@@ -1970,13 +1970,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     }
 
                     hidePlayerActionIcon();
-                    
+
                     player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * zoom_factor)));
-                    
+
                     setPlayerBorder(border_color);
-                    
+
                     getAvatar().setVisible(false);
-                    
+
                     utg_icon.setVisible(false);
 
                     player_check_button.setIcon(null);
@@ -1990,7 +1990,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_name.setIcon(null);
 
                     chip_label.setVisible(false);
-                    
+
                 });
 
                 Helpers.zoomFonts(this, zoom_factor, null);
@@ -2581,7 +2581,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 }
                                 if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
-                                    GameFrame.getInstance().getRegistro().print(nickname + Translator.translate("ui.muestra_2") + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
+                                    GameFrame.getInstance().getRegistro().print(nickname + " " + Translator.translate("ui.muestra_2") + " " + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
                                 }
                                 Helpers.translateComponents(botonera, false);
                                 // (Línea de traducción problemática eliminada de aquí)

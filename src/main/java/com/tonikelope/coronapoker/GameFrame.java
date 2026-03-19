@@ -1933,7 +1933,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         getRegistro().print(Translator.translate("game.el_server_ha_parado"));
                     }
 
-                    getRegistro().print(Translator.translate("game.fin_de_la_timba") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
+                    getRegistro().print(Translator.translate("game.fin_de_la_timba") + " " + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
                     try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?")) {
                         statement.setQueryTimeout(30);
@@ -2155,7 +2155,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         tiempo_juego.start();
 
-        getRegistro().print(Translator.translate("game.comienza_la_timba") + Helpers.getFechaHoraActual());
+        getRegistro().print(Translator.translate("game.comienza_la_timba") + " " + Helpers.getFechaHoraActual());
     }
 
     private void TTSWatchdog() {

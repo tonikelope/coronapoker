@@ -1700,7 +1700,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * zoom_factor), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * zoom_factor)));
 
                     setPlayerBorder(border_color);
-                    
+
                     getAvatar().setVisible(false);
 
                     utg_icon.setVisible(false);
@@ -1907,7 +1907,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += cantidad;
         this.buyin += cantidad;
 
-        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate("rebuy.recompra_2") + String.valueOf(cantidad) + ")");
+        GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + " " + String.valueOf(cantidad) + ")");
 
         Audio.playWavResource("misc/cash_register.wav");
 

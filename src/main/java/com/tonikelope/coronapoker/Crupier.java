@@ -1781,7 +1781,7 @@ public class Crupier implements Runnable {
                         Helpers.mostrarMensajeError(GameFrame.getInstance(),
                                 "¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + SOBRANTE) != BUYIN");
                         GameFrame.getInstance().getRegistro()
-                                .print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + SOBRANTE) != BUYIN");
+                                .print(Translator.translate("ui.ojo_a_esto_no_salen"));
                     }
 
                 } else {
@@ -1790,7 +1790,7 @@ public class Crupier implements Runnable {
                                     + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
                                     + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
                     GameFrame.getInstance().getRegistro()
-                            .print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + SOBRANTE) != BUYIN");
+                            .print(Translator.translate("ui.ojo_a_esto_no_salen"));
                 }
             } else {
                 GameFrame.getInstance().getRegistro()
@@ -2715,7 +2715,7 @@ public class Crupier implements Runnable {
             if (this.tot_acciones_recuperadas > 0) {
                 this.sincronizando_mano = true;
             } else {
-                GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+                GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                     Audio.playWavResource("misc/startplay.wav");
@@ -2738,7 +2738,7 @@ public class Crupier implements Runnable {
                 });
             }
         } else {
-            GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                 Audio.playWavResource("misc/startplay.wav");
             }
@@ -2766,8 +2766,8 @@ public class Crupier implements Runnable {
 
     private void cancelarManoYDevolverApuestas(String motivo) {
         LOGGER.log(Level.WARNING, "[ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
-        GameFrame.getInstance().getRegistro().print("🚨 [MANO NULA] " + motivo);
-        GameFrame.getInstance().getRegistro().print("Se devuelven las apuestas de esta mano a los jugadores.");
+        GameFrame.getInstance().getRegistro().print(Translator.translate("ame.mano_anulada") + motivo);
+        GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
 
         synchronized (getLock_contabilidad()) {
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -2934,7 +2934,7 @@ public class Crupier implements Runnable {
 
         Audio.playWavResource("misc/double_blinds.wav");
 
-        GameFrame.getInstance().getRegistro().print("SE DOBLAN LAS CIEGAS");
+        GameFrame.getInstance().getRegistro().print(Translator.translate("blinds.se_doblan_las_ciegas"));
 
     }
 
@@ -3611,7 +3611,7 @@ public class Crupier implements Runnable {
         saltar_primera_mano = false;
 
         if (GameFrame.isRECOVER()) {
-            GameFrame.getInstance().getRegistro().print("RECUPERANDO TIMBA...");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("game.recuperando_timba"));
             recuperarDatosClavePartida();
 
             if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
@@ -3648,7 +3648,7 @@ public class Crupier implements Runnable {
                 if (this.tot_acciones_recuperadas > 0) {
                     this.sincronizando_mano = true;
                 } else {
-                    GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+                    GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                         Audio.playWavResource("misc/startplay.wav");
@@ -3671,7 +3671,7 @@ public class Crupier implements Runnable {
                     });
                 }
             } else {
-                GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+                GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
                 if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                     Audio.playWavResource("misc/startplay.wav");
                 }
@@ -5777,7 +5777,7 @@ public class Crupier implements Runnable {
                         Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
                         GameFrame.getInstance().refresh();
                     });
-                    GameFrame.getInstance().getRegistro().print("SESSION RECOVERED");
+                    GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_recuperada"));
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                         Audio.playWavResource("misc/startplay.wav");
                     }
@@ -7113,7 +7113,7 @@ public class Crupier implements Runnable {
 
             this.setSincronizando_mano(false);
 
-            GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
 
@@ -8084,7 +8084,7 @@ public class Crupier implements Runnable {
                                 GameFrame.getInstance().refresh();
                             });
                             this.setSincronizando_mano(false);
-                            GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 
                             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                                 Audio.playWavResource("misc/startplay.wav");
@@ -8466,8 +8466,8 @@ public class Crupier implements Runnable {
                         carta.iniciarCarta();
                     }
                     GameFrame.getInstance().getTiempo_juego().stop();
-                    GameFrame.getInstance().getRegistro().print("LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)");
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "LA TIMBA HA TERMINADO (NO QUEDAN JUGADORES)", new ImageIcon(Init.class.getResource("/images/exit.png")));
+                    GameFrame.getInstance().getRegistro().print(Translator.translate("player.la_timba_ha_terminado_no"));
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("player.la_timba_ha_terminado_no"), new ImageIcon(Init.class.getResource("/images/exit.png")));
                     fin_de_la_transmision = true;
                 }
             } catch (Exception ex) {

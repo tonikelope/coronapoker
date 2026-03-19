@@ -1927,10 +1927,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (partida_terminada) {
 
-                    getRegistro().print("\n*************** LA TIMBA HA TERMINADO ***************");
+                    getRegistro().print(Translator.translate("game.la_timba_ha_terminado_2"));
 
                     if (this.getCrupier().isForce_recover()) {
-                        getRegistro().print("\n*************** (EL SERVER HA PARADO PARA PERMITIR QUE ENTREN JUGADORES NUEVOS) ***************");
+                        getRegistro().print(Translator.translate("game.el_server_ha_parado"));
                     }
 
                     getRegistro().print(Translator.translate("game.fin_de_la_timba") + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
@@ -2869,7 +2869,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void exit_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_menuActionPerformed
         // TODO add your handling code here:
 
-        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(this, "¿FORZAR CIERRE?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+        if (getLocalPlayer().isExit() && Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
 
             System.exit(1);
         }
@@ -2878,7 +2878,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (jugadores.size() > 1) {
 
-                ExitDialog exit_dialog = new ExitDialog(this, true, "¿SALIR DE LA TIMBA?");
+                ExitDialog exit_dialog = new ExitDialog(this, true, Translator.translate("exit.salir_de_la_timba_pregunta"));
                 exit_dialog.setLocationRelativeTo(this);
                 exit_dialog.setVisible(true);
 
@@ -3771,7 +3771,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             }
 
-        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(this, "¿DESACTIVAR EL CHAT DE VOZ PARA TODOS?", new ImageIcon(Init.class.getResource("/images/mute_b.png"))) == 0) {
+        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("chat.desactivar_el_chat_de_voz"), new ImageIcon(Init.class.getResource("/images/mute_b.png"))) == 0) {
 
             GameFrame.TTS_SERVER = false;
 
@@ -4056,7 +4056,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void force_reconnect_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_force_reconnect_menuActionPerformed
         // TODO add your handling code here:
 
-        if (isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿FORZAR RECONEXIÓN DE TODOS LOS JUGADORES?", new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
+        if (isPartida_local() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("conn.forzar_reconexion_de_todos_los"), new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
             boolean ok = false;
 

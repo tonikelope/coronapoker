@@ -83,6 +83,7 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import javax.swing.JWindow;
 
 /**
  *
@@ -158,6 +159,8 @@ public class Init extends JFrame {
         }
 
     }
+
+    private static JWindow panoptes_splash;
 
     public JLabel getBaraja_fondo() {
         return baraja_fondo;
@@ -1094,9 +1097,8 @@ public class Init extends JFrame {
         }
     }
 
-    public static void main(String args[]) {
-
-        javax.swing.JWindow panoptes_splash = new javax.swing.JWindow();
+    private static void showPanoptesSplash() {
+        panoptes_splash = new javax.swing.JWindow();
 
         Helpers.GUIRun(() -> {
             java.net.URL logoUrl = Init.class.getResource("/images/panoptes_logo.jpg");
@@ -1108,6 +1110,18 @@ public class Init extends JFrame {
             panoptes_splash.setAlwaysOnTop(true);
             panoptes_splash.setVisible(true);
         });
+    }
+
+    private static void hidePanoptesSplash() {
+        Helpers.GUIRun(() -> {
+            panoptes_splash.setVisible(false);
+            panoptes_splash.dispose();
+        });
+    }
+
+    public static void main(String args[]) {
+
+        showPanoptesSplash();
 
         ensureRequiredJvmParameters(args, Init.class);
 
@@ -1231,21 +1245,8 @@ public class Init extends JFrame {
             VENTANA_INICIO.setVisible(true);
         });
 
-        // Execute the heavy JNI initialization in a background thread
-        Helpers.threadRun(() -> {
-            try {
-                Panoptes.WAKEUP_PANOPTES();
-            } finally {
-                // Once finished, safely destroy the panoptes_splash screen on the GUI thread
-                Helpers.GUIRun(() -> {
-                    panoptes_splash.setVisible(false);
-                    panoptes_splash.dispose();
-                });
-            }
-        });
-
         if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
-            if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "EL MOD CARGADO CONTIENE MATERIAL CALIFICADO SÓLO PARA MAYORES DE 18 AÑOS. ¿Continuar?", new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {
+            if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("mod.el_mod_cargado_contiene_material"), new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {
                 try {
                     Files.createFile(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"));
                 } catch (IOException ex) {
@@ -1256,8 +1257,16 @@ public class Init extends JFrame {
             }
         }
 
+        Init.hidePanoptesSplash();
+
         LOGGER.log(Level.INFO, "Checking for updates...");
         UPDATE();
+
+        Helpers.threadRun(() -> {
+
+            Panoptes.WAKEUP_PANOPTES();
+
+        });
 
         if (!Helpers.OSValidator.isMac()) {
             antiScreensaver();
@@ -1276,7 +1285,7 @@ public class Init extends JFrame {
             do {
                 NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
                 if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
-                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, "HAY UNA VERSIÓN NUEVA DE CORONAPOKER. ¿QUIERES ACTUALIZAR?", new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
+                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
                         Helpers.GUIRun(() -> {
                             VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
                         });
@@ -1304,7 +1313,7 @@ public class Init extends JFrame {
                         }
                     }
                 }
-            } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, "NO SE HA PODIDO COMPROBAR SI HAY NUEVA VERSIÓN. ¿Volvemos a intentarlo?") == 0);
+            } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_comprobar")) == 0);
 
             if (Init.MOD != null) {
                 LOGGER.log(Level.INFO, "Checking MOD updates...");

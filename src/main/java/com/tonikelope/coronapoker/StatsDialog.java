@@ -2062,7 +2062,7 @@ public class StatsDialog extends JDialog {
 
         delete_game_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), "¿ELIMINAR ESTA TIMBA?\n(Nota: las timbas eliminadas no se pueden continuar)", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("error.eliminar_esta_timba_nota_las"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
             Audio.playWavResource("misc/toilet.wav");
 
@@ -2205,7 +2205,7 @@ public class StatsDialog extends JDialog {
                         game_combo_filter.setBackground(Color.BLACK);
                         game_combo_filter.setForeground(Color.WHITE);
                     });
-                    Helpers.mostrarMensajeInformativo(getContentPane(), "SE HAN BORRADO TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR", new ImageIcon(Init.class.getResource("/images/mantenimiento.png")));
+                    Helpers.mostrarMensajeInformativo(getContentPane(), Translator.translate("player.se_han_borrado_todas_las"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png")));
                     Helpers.GUIRunAndWait(() -> {
                         game_combo_filter.setText("");
                         game_combo_filter.setBackground(null);

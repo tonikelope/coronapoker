@@ -1199,6 +1199,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_fold_button.setForeground(Color.WHITE);
                     } else {
                         player_check_button.setText(Translator.translate("ui.ir_2") + " (+" + Helpers.float2String(call_required) + ")");
+                        player_check_button.putClientProperty("i18n.key", null); // Limpiamos para evitar el glitch de texto dinámico
                         player_check_button.setBackground(null);
                         player_check_button.setForeground(null);
                         player_fold_button.setBackground(Color.DARK_GRAY);
@@ -1214,6 +1215,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_check_button.setIcon(null);
                     player_check_button.setText(" ");
                     player_check_button.setEnabled(false);
+                    player_check_button.putClientProperty("i18n.key", null);
                 }
 
                 if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
@@ -1229,13 +1231,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
                         player_bet_button.setText(Translator.translate("action.apostar_2"));
+                        player_bet_button.putClientProperty("i18n.key", "action.apostar_2");
                         player_bet_button.setBackground(Color.WHITE);
                         player_bet_button.setForeground(Color.BLACK);
 
                     } else {
                         spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
-                        player_bet_button.setText(Translator.translate(GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "action.resubir" : "action.subir"));
+                        String actionKey = GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "action.resubir" : "action.subir";
+                        player_bet_button.setText(Translator.translate(actionKey));
+                        player_bet_button.putClientProperty("i18n.key", actionKey);
 
                         if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
                             player_bet_button.setBackground(RERAISE_BACK_COLOR);
@@ -1284,16 +1289,23 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     } else {
                         player_bet_button.setEnabled(false);
-                        player_bet_button.setText("");
+                        player_bet_button.setText(" ");
+                        player_bet_button.putClientProperty("i18n.key", null);
                         bet_spinner.setValue(new BigDecimal(0));
                         bet_spinner.setEnabled(false);
                     }
+                } else {
+                    player_bet_button.setEnabled(false);
+                    player_bet_button.setText(" ");
+                    player_bet_button.putClientProperty("i18n.key", null);
+                    player_bet_button.setIcon(null);
                 }
 
                 guardarColoresBotonesAccion();
 
                 if ((GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) == 1 || ((GameFrame.getInstance().getCrupier().getLast_aggressor() != null && nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())))) && Helpers.float1DSecureCompare(call_required, stack) < 0) {
                     player_allin_button.setText(" ");
+                    player_allin_button.putClientProperty("i18n.key", null);
                     player_allin_button.setEnabled(false);
                     player_allin_button.setIcon(null);
                 }
@@ -1302,8 +1314,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.setTranslatedText(player_action, "action.hablas_tu");
 
-                Helpers.translateComponents(botonera, false);
-
+                // NOTA: Se ha borrado la línea Helpers.translateComponents(botonera, false) que machacaba los botones dinámicos.
                 Helpers.translateComponents(player_action, false);
 
                 setPlayerActionIcon("action/thinking.png");
@@ -1494,6 +1505,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     ((JButton) c).setText(" ");
                     ((JButton) c).setIcon(null);
                     c.setEnabled(false);
+                    // LIMPIEZA DE ETIQUETA: Evita que el botón resucite textos antiguos
+                    ((JButton) c).putClientProperty("i18n.key", null);
                 }
             }
 
@@ -1512,9 +1525,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void desPrePulsarBotonAuto(JButton boton) {
+
+        // Abort the automatic reset of the pre-action if it is already our turn
+        if (turno) {
+            return;
+        }
+
         pre_pulsado = Player.NODEC;
 
         Helpers.GUIRunAndWait(() -> {
+
+            // Double check inside the GUI thread to prevent race conditions
+            if (turno) {
+                return;
+            }
+
             Color[] colores = action_button_colors.get(boton);
             if (colores != null) {
                 boton.setBackground(colores[0]);
@@ -1528,9 +1553,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void prePulsarBotonAuto(JButton boton, int dec) {
+
+        // Abort the automatic pre-action UI update if it is already our turn
+        if (turno) {
+            return;
+        }
+
         pre_pulsado = dec;
 
         Helpers.GUIRunAndWait(() -> {
+
+            // Double check inside the GUI thread
+            if (turno) {
+                return;
+            }
+
             boton.setBackground(Color.YELLOW);
             boton.setForeground(Color.BLACK);
         });
@@ -1643,10 +1680,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_check_button.setText(" ");
                 player_check_button.setIcon(null);
                 player_check_button.setEnabled(false);
+                player_check_button.putClientProperty("i18n.key", null);
 
                 player_fold_button.setText(" ");
                 player_fold_button.setIcon(null);
                 player_fold_button.setEnabled(false);
+                player_fold_button.putClientProperty("i18n.key", null);
             });
         }
     }
@@ -2436,7 +2475,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (pre_pulsado == Player.FOLD || !GameFrame.CONFIRM_ACTIONS || this.action_button_armed.get(player_fold_button) || click_recuperacion) {
 
-                if (GameFrame.TEST_MODE || Helpers.float1DSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿SEGURO QUE TE QUIERES TIRAR?", new ImageIcon(getClass().getResource("/images/action/down.png"))) == 0) {
+                if (GameFrame.TEST_MODE || Helpers.float1DSecureCompare(0f, call_required) < 0 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("ui.perder_mano_confirmacion"), new ImageIcon(getClass().getResource("/images/action/down.png"))) == 0) {
 
                     Audio.playWavResource("misc/fold.wav");
 

@@ -866,7 +866,7 @@ public class ChatImageDialog extends JDialog {
     private void clear_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clear_buttonActionPerformed
         // TODO add your handling code here:
         // Replaced THIS with 'this' 
-        if (Helpers.mostrarMensajeInformativoSINO(this, "¿BORRAR TODAS LAS IMÁGENES DEL HISTORIAL?\n(Nota: puedes borrar una imagen en concreto haciendo click derecho encima de ella)", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("chat.borrar_todas_las_imagenes_del"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
             STATIC_IMAGE_CACHE.clear();
             GIF_CACHE.clear();

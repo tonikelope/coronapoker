@@ -96,7 +96,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final float MIN_BIG_BLIND = 0.20f;
     public static final float ZOOM_STEP = 0.05f;
 
-    public static final int WAIT_QUEUES = 1000;
+    public static final int WAIT_QUEUES = 250;
     public static final int WAIT_PAUSE = 1000;
     public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
     public static final int CONFIRMATION_TIMEOUT = 10000;

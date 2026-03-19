@@ -186,6 +186,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public CommunityCardsPanel() {
         Helpers.GUIRunAndWait(() -> {
             initComponents();
+            Helpers.translateComponents(this, false);
             last_hand_panel.setVisible(false);
             random_button.setVisible(false);
             hand_limit_spinner.setVisible(false);
@@ -253,11 +254,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         GameFrame.getInstance().getCrupier().setLast_hand(true);
 
         Helpers.GUIRun(() -> {
-            last_hand_label.setText(Translator.translate(GameFrame.getInstance().getCrupier().isForce_recover() ? "PARADA PROGRAMADA AL TERMINAR ESTA MANO" : "ÚLTIMA MANO"));
+            last_hand_label.setText(Translator.translate(GameFrame.getInstance().getCrupier().isForce_recover() ? "game.parada_programada_al_terminar_esta" : "game.ultima_mano_3"));
             getHand_panel().setOpaque(true);
             setHandBackground(Color.YELLOW);
             getHand_label().setForeground(Color.BLACK);
-            getHand_label().setToolTipText(Translator.translate(GameFrame.getInstance().getCrupier().isForce_recover() ? "PARADA PROGRAMADA AL TERMINAR ESTA MANO" : "ÚLTIMA MANO"));
+            getHand_label().setToolTipText(Translator.translate(GameFrame.getInstance().getCrupier().isForce_recover() ? "game.parada_programada_al_terminar_esta" : "game.ultima_mano_3"));
             getLast_hand_panel().setVisible(true);
             GameFrame.getInstance().getLast_hand_menu().setSelected(true);
             Helpers.TapetePopupMenu.LAST_HAND_MENU.setSelected(true);
@@ -367,7 +368,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         tiempo_partida.setDoubleBuffered(true);
         tiempo_partida.setFocusable(false);
 
-        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
+        sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
+        sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setDoubleBuffered(true);
         sound_icon.setFocusable(false);
@@ -431,6 +433,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         pause_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         pause_button.setText("PAUSAR");
+        pause_button.putClientProperty("i18n.key", "ui.pausar");
         pause_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         pause_button.setDoubleBuffered(true);
         pause_button.setFocusable(false);
@@ -510,7 +513,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label.setBackground(new java.awt.Color(255, 255, 0));
         last_hand_label.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         last_hand_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        last_hand_label.setText("ÚLTIMA MANO");
+        last_hand_label.setText(Translator.translate("game.ultima_mano_3"));
+        last_hand_label.putClientProperty("i18n.key", "game.ultima_mano_3");
         last_hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         last_hand_label.setDoubleBuffered(true);
         last_hand_label.setFocusable(false);
@@ -542,7 +546,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         hand_label.setForeground(new java.awt.Color(153, 204, 0));
         hand_label.setText(" ");
-        hand_label.setToolTipText("CLICK IZQ: ÚLTIMA MANO / CLICK DCHO: LÍMITE DE MANOS");
+        hand_label.putClientProperty("i18n.tooltip_key", "tooltip.hand_label_actions");
         hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         hand_label.setDoubleBuffered(true);
@@ -573,6 +577,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         blinds_label.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         blinds_label.setForeground(new java.awt.Color(153, 204, 0));
         blinds_label.setText(" ");
+        blinds_label.setToolTipText(Translator.translate("tooltip.click_para_actualizar_las_ciegas"));
+        blinds_label.putClientProperty("i18n.tooltip_key", "tooltip.click_para_actualizar_las_ciegas");
         blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         blinds_label.setDoubleBuffered(true);
@@ -680,7 +686,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 boolean is_recover = (GameFrame.getInstance().getCrupier().isForce_recover() || (evt != null && (evt.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0));
 
-                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), is_recover ? "¿PROGRAMAR PARADA AL TERMINAR ESTA MANO?" : "¿ÚLTIMA MANO?", new ImageIcon(getClass().getResource(is_recover ? "/images/stop.png" : "/images/exit.png"))) == 0) {
+                if (GameFrame.MANOS == GameFrame.getInstance().getCrupier().getMano() || GameFrame.getInstance().getCrupier().isLast_hand() || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate(is_recover ? "game.programar_parada_al_terminar_esta" : "game.ultima_mano_2"), new ImageIcon(getClass().getResource(is_recover ? "/images/stop.png" : "/images/exit.png"))) == 0) {
 
                     Helpers.threadRun(() -> {
                         if (!GameFrame.getInstance().getCrupier().isLast_hand()) {
@@ -798,7 +804,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!GameFrame.getInstance().getCrupier().isIwtsthing() && !(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local()) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), "¿PAUSAR AHORA MISMO?", new ImageIcon(getClass().getResource("/images/pause.png")));
+            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("game.pausar_ahora_mismo"), new ImageIcon(getClass().getResource("/images/pause.png")));
 
         } else if (GameFrame.getInstance().getCrupier().isIwtsthing()) {
 
@@ -814,7 +820,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 GameFrame.getInstance().getLocalPlayer().setPause_counter(GameFrame.getInstance().getLocalPlayer().getPause_counter() - 1);
                 Helpers.setScaledIconButton(getPause_button(), getClass().getResource("/images/pause.png"), Math.round(0.6f * getPause_button().getHeight()), Math.round(0.6f * getPause_button().getHeight()));
-                getPause_button().setText(Translator.translate("PAUSAR") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
+                getPause_button().setText(Translator.translate("game.pausar") + " (" + GameFrame.getInstance().getLocalPlayer().getPause_counter() + ")");
             }
 
             getPause_button().setEnabled(false);
@@ -834,7 +840,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
                 if (!GameFrame.getInstance().getLocalPlayer().isAuto_pause_warning()) {
                     GameFrame.getInstance().getLocalPlayer().setAuto_pause_warning(true);
-                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "PAUSA PROGRAMADA PARA TU PRÓXIMO TURNO", new ImageIcon(getClass().getResource("/images/pause.png")));
+                    Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("game.pausa_programada_para_tu_proximo"), new ImageIcon(getClass().getResource("/images/pause.png")));
                 }
 
             } else {
@@ -854,7 +860,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         GameFrame.getInstance().getTapete().getCommunityCards().getRandom_button().setVisible(false);
 
-        Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), "SE HA REACTIVADO RANDOM.ORG", new ImageIcon(Init.class.getResource("/images/dados.png")));
+        Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("shuffle.se_ha_reactivado_randomorg"), new ImageIcon(Init.class.getResource("/images/dados.png")));
 
     }//GEN-LAST:event_random_buttonActionPerformed
 

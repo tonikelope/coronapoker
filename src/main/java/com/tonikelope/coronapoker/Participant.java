@@ -381,15 +381,11 @@ public class Participant implements Runnable {
 
                     if (jugador != null) {
                         if (latency != -1 && latency2 != -1) {
-                            jugador.updateLatency(Translator.translate("Latency:") + " " + String.valueOf(latency)
-                                    + " ms (" + String.valueOf(pong_timeout_counter) + ") | " + String.valueOf(latency2)
-                                    + " ms (" + String.valueOf(pong2_timeout_counter) + ")", false);
+                            jugador.updateLatency(Translator.translate("conn.latencia_format", String.valueOf(latency), String.valueOf(latency2)), false);
                         } else {
-                            jugador.updateLatency(Translator.translate("Latency:") + " "
-                                    + (latency != -1 ? String.valueOf(latency) : "-") + " ms ("
-                                    + String.valueOf(pong_timeout_counter) + ") | "
-                                    + (latency2 != -1 ? String.valueOf(latency2) : "-") + " ms ("
-                                    + String.valueOf(pong2_timeout_counter) + ")", true);
+                            jugador.updateLatency(Translator.translate("conn.latencia_format",
+                                    (latency != -1 ? String.valueOf(latency) : "-"),
+                                    (latency2 != -1 ? String.valueOf(latency2) : "-")), true);
                         }
                     }
                 }
@@ -583,8 +579,8 @@ public class Participant implements Runnable {
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(),
                         "[" + nick + "] " + Translator.translate(WaitingRoomFrame.getInstance().isServer()
-                                ? "CUIDADO: el ejecutable del juego de este usuario es diferente\nEs posible que intente hacer trampas con una versión hackeada del juego (¿o eres tú el trampos@?)"
-                                : "CUIDADO: el ejecutable del juego de este usuario es diferente\n(Es posible que intente hacer trampas con una versión hackeada del juego)"),
+                                ? "radar.cuidado_el_ejecutable_del_juego_2"
+                                : "radar.cuidado_el_ejecutable_del_juego"),
                         new ImageIcon(Init.class.getResource("/images/shield.png")));
             });
 

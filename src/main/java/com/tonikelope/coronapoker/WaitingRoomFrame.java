@@ -107,6 +107,8 @@ import java.util.Base64;
  */
 public class WaitingRoomFrame extends JFrame {
 
+    private static final Logger LOGGER = Logger.getLogger(WaitingRoomFrame.class.getName());
+
     public static final int MAX_PARTICIPANTES = 10;
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
@@ -229,7 +231,7 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 server_socket.close();
             } catch (Exception ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         }
 
@@ -241,7 +243,7 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 local_client_socket.close();
             } catch (Exception ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -305,7 +307,7 @@ public class WaitingRoomFrame extends JFrame {
 
             Helpers.threadRun(() -> {
                 mostrarMensajeInformativo(THIS,
-                        "CUIDADO: es posible que el servidor intente hacer trampas con una versión hackeada del juego.");
+                        Translator.translate("ui.error.vm_detected_waiting_room"));
             });
 
         }
@@ -325,7 +327,7 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     getLocalClientSocketLock().wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -341,7 +343,7 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     getLocalClientSocketLock().wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -430,7 +432,7 @@ public class WaitingRoomFrame extends JFrame {
 
         HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick
                 + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:green;'>"
-                + Translator.translate("SE UNE A LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora
+                + Translator.translate("game.se_une_a_la_timba") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora
                 + ")</span></div>");
     }
 
@@ -440,7 +442,7 @@ public class WaitingRoomFrame extends JFrame {
 
         HTMLEditorKitAppend("<div align='center' style='margin-top:7px;margin-bottom:7px;'><img id='avatar_" + nick
                 + "' align='middle' src='" + avatar_src + "' />&nbsp;<b>" + nick + "&nbsp;<span style='color:red;'>"
-                + Translator.translate("ABANDONA LA TIMBA") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora
+                + Translator.translate("game.abandona_la_timba_2") + "</span></b>&nbsp;<span style='font-size:0.8em'>(" + hora
                 + ")</span></div>");
     }
 
@@ -546,7 +548,7 @@ public class WaitingRoomFrame extends JFrame {
                                             .getResource("/images/emoji_chat/image_space.png").toExternalForm()
                                     + "' />");
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
                 lista.add(matcher.group(0));
@@ -632,7 +634,7 @@ public class WaitingRoomFrame extends JFrame {
 
         initComponents();
 
-        setTitle(Init.WINDOW_TITLE + Translator.translate(" - Sala de espera (") + nick + ")");
+        setTitle(Init.WINDOW_TITLE + Translator.translate("game.sala_de_espera") + nick + ")");
 
         class SendButtonListener implements DocumentListener {
 
@@ -658,7 +660,7 @@ public class WaitingRoomFrame extends JFrame {
         radar.setEnabled(GameFrame.RADAR_AVAILABLE);
 
         radar.setToolTipText(Translator.translate(
-                GameFrame.RADAR_AVAILABLE ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+                GameFrame.RADAR_AVAILABLE ? "radar.active" : "radar.inactive"));
 
         chat_box.getDocument().addDocumentListener(new SendButtonListener());
 
@@ -715,7 +717,7 @@ public class WaitingRoomFrame extends JFrame {
         danger_server.setVisible(false);
 
         if (GameFrame.isRECOVER()) {
-            game_info_buyin.setText("CONTINUANDO TIMBA ANTERIOR");
+            game_info_buyin.setText(Translator.translate("game.continuando_timba_anterior"));
             game_info_buyin.setOpaque(true);
             game_info_buyin.setBackground(Color.YELLOW);
             game_info_buyin.setIcon(null);
@@ -726,9 +728,9 @@ public class WaitingRoomFrame extends JFrame {
         if (server) {
 
             if (!GameFrame.isRECOVER()) {
-                game_info_buyin.setToolTipText("Click para actualizar datos de la timba");
-                game_info_blinds.setToolTipText("Click para actualizar datos de la timba");
-                game_info_hands.setToolTipText("Click para actualizar datos de la timba");
+                game_info_buyin.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                game_info_blinds.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                game_info_hands.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
 
             }
 
@@ -770,7 +772,7 @@ public class WaitingRoomFrame extends JFrame {
 
             } catch (IOException ex) {
                 local_avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         } else {
@@ -791,7 +793,7 @@ public class WaitingRoomFrame extends JFrame {
 
             new_bot_button.setEnabled(true);
 
-            status.setText("Esperando jugadores...");
+            status.setText(Translator.translate("ui.waiting_for_players"));
 
             gameinfo_original = GameFrame.BUYIN + (GameFrame.REBUY ? "" : "*") + "|"
                     + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / "
@@ -950,7 +952,7 @@ public class WaitingRoomFrame extends JFrame {
                 java.io.File dest = new java.io.File(Init.CORONA_DIR + fileName);
                 java.nio.file.Files.write(dest.toPath(), newIdentityBlob);
             } catch (IOException ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Failed to write identity file", ex);
+                LOGGER.log(Level.SEVERE, "Failed to write identity file", ex);
             }
         }
     }
@@ -973,7 +975,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -987,7 +989,7 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     getLocalClientSocketLock().wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -1000,7 +1002,7 @@ public class WaitingRoomFrame extends JFrame {
 
             }
         } catch (IOException ex) {
-            System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
     }
 
@@ -1011,7 +1013,7 @@ public class WaitingRoomFrame extends JFrame {
                 socket.getOutputStream().flush();
             }
         } catch (IOException ex) {
-            System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
     }
 
@@ -1025,7 +1027,7 @@ public class WaitingRoomFrame extends JFrame {
                 return Helpers.decryptCommand(in.readLine(), key, hmac_key);
             }
         } catch (Exception ex) {
-            System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
         return null;
     }
@@ -1037,7 +1039,7 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     getLocalClientSocketLock().wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -1047,7 +1049,7 @@ public class WaitingRoomFrame extends JFrame {
                 return Helpers.decryptCommand(getLocal_client_buffer_read_is().readLine(), getLocal_client_aes_key(),
                         getLocal_client_hmac_key());
             } catch (Exception ex) {
-                System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         }
 
@@ -1059,12 +1061,11 @@ public class WaitingRoomFrame extends JFrame {
 
         reconnecting = true;
 
-        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                "Intentando reconectar con el servidor...");
+        LOGGER.log(Level.WARNING, "Attempting to reconnect to server...");
 
         Helpers.GUIRun(() -> {
             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                    Translator.translate("RECONECTANDO CON EL SERVIDOR..."), Color.MAGENTA, Color.BLACK,
+                    Translator.translate("conn.reconectando_con_el_servidor"), Color.MAGENTA, Color.BLACK,
                     getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
             dialog.setLocation(dialog.getParent().getLocation());
             dialog.setVisible(true);
@@ -1110,8 +1111,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         local_client_socket.setTcpNoDelay(true);
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "¡Conectado al servidor! Vamos a intercambiar las claves...");
+                        LOGGER.log(Level.WARNING, "Connected to server! Exchanging keys...");
 
                         // Le mandamos los bytes "mágicos"
                         local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
@@ -1163,8 +1163,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         /* FIN INTERCAMBIO CLAVES */
                         // Le mandamos nuestro nick al server autenticado con la clave HMAC antigua
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "Enviando datos de reconexión...");
+                        LOGGER.log(Level.WARNING, "Sending reconnection data...");
 
                         local_client_socket.getOutputStream().write(
                                 (Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#*#" + b64_hmac_nick,
@@ -1175,16 +1174,14 @@ public class WaitingRoomFrame extends JFrame {
                         local_client_buffer_read_is = new BufferedReader(
                                 new InputStreamReader(local_client_socket.getInputStream()));
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
-                                "HEMOS CONSEGUIDO RECONECTAR CORRECTAMENTE CON EL SERVIDOR");
+                        LOGGER.log(Level.INFO, "RECONNECTED SUCCESSFULLY TO SERVER");
 
                         ok_rec = true;
 
                     } catch (Exception ex) {
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
-                                "EL SOCKET DE RECONEXIÓN PROVOCÓ UNA EXCEPCIÓN");
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, "RECONNECTION SOCKET THREW AN EXCEPTION");
+                        LOGGER.log(Level.SEVERE, null, ex);
 
                     } finally {
 
@@ -1194,7 +1191,7 @@ public class WaitingRoomFrame extends JFrame {
                                     && GameFrame.getInstance() != null) {
                                 Helpers.GUIRun(() -> {
                                     InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                                            Translator.translate("¡NO SE PUDO RECONECTAR CON EL SERVIDOR!"), Color.RED,
+                                            Translator.translate("conn.no_se_pudo_reconectar_con"), Color.RED,
                                             Color.WHITE, getClass().getResource("/images/action/plug.png"),
                                             NOTIFICATION_TIMEOUT);
                                     dialog.setLocation(dialog.getParent().getLocation());
@@ -1245,7 +1242,7 @@ public class WaitingRoomFrame extends JFrame {
                                             try {
                                                 this.lock_reconnect.wait(1000);
                                             } catch (InterruptedException ex) {
-                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                                LOGGER.log(Level.SEVERE,
                                                         null, ex);
                                             }
                                         }
@@ -1281,7 +1278,7 @@ public class WaitingRoomFrame extends JFrame {
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
                         Helpers.GUIRun(() -> {
                             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                                    Translator.translate("CONEXIÓN CON EL SERVIDOR RECUPERADA"), Color.GREEN,
+                                    Translator.translate("conn.conexion_con_el_servidor_recuperada"), Color.GREEN,
                                     Color.WHITE, getClass().getResource("/images/action/plug.png"),
                                     NOTIFICATION_TIMEOUT);
                             dialog.setLocation(dialog.getParent().getLocation());
@@ -1297,7 +1294,7 @@ public class WaitingRoomFrame extends JFrame {
                 return ok_rec;
 
             } catch (Exception ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -1501,7 +1498,7 @@ public class WaitingRoomFrame extends JFrame {
                 Helpers.GUIRun(() -> {
                     status.setForeground(new Color(51, 153, 0));
                     Helpers.barraIndeterminada(barra);
-                    status.setText(Translator.translate("Connecting..."));
+                    status.setText(Translator.translate("status.conectando"));
                 });
                 booting = true;
                 HashMap<String, Integer> last_received = new HashMap<>();
@@ -1518,7 +1515,7 @@ public class WaitingRoomFrame extends JFrame {
                     local_client_socket.getOutputStream().flush();
 
                     Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("Key exchange in progress..."));
+                        status.setText(Translator.translate("status.intercambio_claves"));
                     });
 
                     /* ECDH KEY EXCHANGE INIT */
@@ -1537,7 +1534,7 @@ public class WaitingRoomFrame extends JFrame {
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
 
                     Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("Signing server challenge..."));
+                        status.setText(Translator.translate("status.firmando_desafio"));
                     });
 
                     // --- PANOPTES PHASE 1: CLIENT READS AND SIGNS SERVER CHALLENGE ---
@@ -1550,7 +1547,7 @@ public class WaitingRoomFrame extends JFrame {
                     try {
                         miFirmaBytes = panoptes.signChallenge(serverChallengeBytes);
                     } catch (Exception e) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                        LOGGER.log(Level.SEVERE,
                                 "Failed to sign server challenge", e);
                     }
                     String miFirmaBase64 = miFirmaBytes != null
@@ -1576,7 +1573,7 @@ public class WaitingRoomFrame extends JFrame {
                     }
 
                     Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("Generating and sending client challenge..."));
+                        status.setText(Translator.translate("status.generando_desafio_cliente"));
                     });
 
                     // --- PANOPTES PHASE 2: GENERATE CHALLENGE ---
@@ -1598,8 +1595,8 @@ public class WaitingRoomFrame extends JFrame {
                         challengeBase64 = Base64.getEncoder().encodeToString(challengeBytes);
 
                     } catch (Exception e) {
-                        Helpers.mostrarMensajeError(THIS, Translator.translate("FATAL ERROR: Failed to generate Panoptes challenge"));
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);
+                        Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
+                        LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);
                         System.exit(1);
                     }
 
@@ -1620,25 +1617,24 @@ public class WaitingRoomFrame extends JFrame {
                     switch (partes[0]) {
                         case "BADVERSION":
                             exit = true;
-                            mostrarMensajeError(THIS, Translator.translate("Incorrect CoronaPoker Version") + " "
-                                    + Translator.translate("REQUIRED") + " -> " + partes[1]);
+                            mostrarMensajeError(THIS, Translator.translate("error.version_incorrecta")
+                                    + " " + Translator.translate("ui.requerida") + " -> " + partes[1]);
                             break;
                         case "YOUARELATE":
                             exit = true;
-                            mostrarMensajeError(THIS,
-                                    "YOU ARE LATE. The game has already started.\n(Ask the host through another channel to let you in).");
+                            mostrarMensajeError(THIS, Translator.translate("conn.late"));
                             break;
                         case "NOSPACE":
                             exit = true;
-                            mostrarMensajeError(THIS, "ROOM IS FULL");
+                            mostrarMensajeError(THIS, Translator.translate("conn.full"));
                             break;
                         case "NICKFAIL":
                             exit = true;
-                            mostrarMensajeError(THIS, "The chosen nickname is already taken by another user.");
+                            mostrarMensajeError(THIS, Translator.translate("conn.nick_taken"));
                             break;
                         case "BADPASSWORD":
                             exit = true;
-                            mostrarMensajeError(THIS, "INVALID PASSWORD");
+                            mostrarMensajeError(THIS, Translator.translate("conn.bad_pass"));
                             break;
                         case "NICKOK":
 
@@ -1656,7 +1652,7 @@ public class WaitingRoomFrame extends JFrame {
                                     Base64.getDecoder().decode(partes[3].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
 
                             Helpers.GUIRun(() -> {
-                                status.setText(Translator.translate("Receiving server info..."));
+                                status.setText(Translator.translate("status.recibiendo_info_servidor"));
                                 String[] game_info = gameinfo_original.split("\\|");
 
                                 if (game_info[0].trim().matches("[0-9,.*]+")) {
@@ -1697,7 +1693,7 @@ public class WaitingRoomFrame extends JFrame {
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER " + server_nick + " GAME BINARY IS MODIFIED OR GUARDIAN TRIGGERED (cheating?)");
                             } else if (authStatus == Panoptes.STATUS_VM_DETECTED) {
                                 Helpers.threadRun(() -> {
-                                    mostrarMensajeInformativo(THIS, "It seems the server [" + server_nick + "] is running CoronaPoker inside a Virtual Machine\n(It is possible they might try to cheat in some way)");
+                                    mostrarMensajeInformativo(THIS, Translator.translate("ui.error.vm_detected_waiting_room") + " [" + server_nick + "]");
                                 });
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER is running on a Virtual Machine.");
                             }
@@ -1761,7 +1757,7 @@ public class WaitingRoomFrame extends JFrame {
                             if (GameFrame.RADAR_AVAILABLE) {
                                 Helpers.threadRun(() -> {
                                     Helpers.mostrarMensajeInformativo(this,
-                                            "The server has activated the Anti-Cheat RADAR for this game. Any player can request an anti-cheat report from another player during the game, which includes a screenshot of the player (without showing their cards) as well as their system process list.",
+                                            Translator.translate("radar.activate_info"),
                                             "justify", (int) Math.round(getWidth() * 0.8f),
                                             new ImageIcon(Init.class.getResource("/images/shield.png")));
                                 });
@@ -1774,7 +1770,7 @@ public class WaitingRoomFrame extends JFrame {
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
                             Helpers.GUIRunAndWait(() -> {
-                                status.setText(Translator.translate("CONNECTED"));
+                                status.setText(Translator.translate("status.conectado"));
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/1.png")));
                                 barra.setVisible(false);
                                 chat_box.setEnabled(true);
@@ -1783,8 +1779,7 @@ public class WaitingRoomFrame extends JFrame {
                                 max_min_label.setEnabled(true);
                                 radar.setEnabled(GameFrame.RADAR_AVAILABLE);
                                 radar.setToolTipText(Translator
-                                        .translate(GameFrame.RADAR_AVAILABLE ? "ANTI-CHEAT reports enabled"
-                                                : "ANTI-CHEAT reports disabled"));
+                                        .translate(radar.isEnabled() ? "radar.active" : "radar.inactive"));
                             });
 
                             refreshChatPanel();
@@ -1801,7 +1796,7 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                         mensaje_recibido = readCommandFromServer();
                                     } catch (Exception ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                        LOGGER.log(Level.SEVERE,
                                                 (String) null, ex);
                                     }
 
@@ -1835,7 +1830,7 @@ public class WaitingRoomFrame extends JFrame {
                                                         Helpers.encryptCommand("SECPONG#" + signatureBase64,
                                                                 local_client_aes_key, local_client_hmac_key));
                                             } catch (Exception e) {
-                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                                LOGGER.log(Level.SEVERE,
                                                         "Failed to sign Panoptes heartbeat", e);
                                             }
 
@@ -1859,7 +1854,7 @@ public class WaitingRoomFrame extends JFrame {
                                             try {
                                                 local_client_socket_reader_queue.put(mensaje_recibido);
                                             } catch (Exception ex) {
-                                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                                LOGGER.log(Level.SEVERE,
                                                         (String) null, ex);
                                             }
                                         }
@@ -1868,7 +1863,7 @@ public class WaitingRoomFrame extends JFrame {
                                         try {
                                             local_client_socket_reader_queue.put(POISON_PILL);
                                         } catch (Exception ex) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                            LOGGER.log(Level.SEVERE,
                                                     (String) null, ex);
                                         }
 
@@ -1919,7 +1914,7 @@ public class WaitingRoomFrame extends JFrame {
                                                 local_client_aes_key, local_client_hmac_key));
 
                                     } catch (Exception e) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                        LOGGER.log(Level.SEVERE,
                                                 "Error dispatching SECPING to server", e);
                                     }
 
@@ -1944,7 +1939,7 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                         writeCommandToServer("PING#" + ping);
                                     } catch (Exception ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                                        LOGGER.log(Level.SEVERE,
                                                 "Error dispatching PING", ex);
                                         break;
                                     }
@@ -1979,7 +1974,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                         Helpers.GUIRun(() -> {
                                             this.latency_label.setVisible(true);
-                                            this.latency_label.setText(Translator.translate("Server Latency:")
+                                            this.latency_label.setText(Translator.translate("ui.latencia_servidor")
                                                     + " " + String.valueOf(remote_server_latency) + " ms");
                                         });
                                     }
@@ -1987,19 +1982,19 @@ public class WaitingRoomFrame extends JFrame {
                                     if (!exit && WaitingRoomFrame.getInstance() != null) {
 
                                         if (remote_server_pong == null) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                            LOGGER.log(Level.WARNING,
                                                     "SERVER FAILED TO RESPOND TO PING");
                                         } else if (remote_server_pong != ping + 1) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                            LOGGER.log(Level.WARNING,
                                                     "INVALID PONG FROM SERVER");
                                         } else if (remote_server_pong2 == null) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                            LOGGER.log(Level.WARNING,
                                                     "SERVER FAILED TO RESPOND TO PING2");
                                         } else if (remote_server_pong2 != ping + 2) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                            LOGGER.log(Level.WARNING,
                                                     "INVALID PONG2 FROM SERVER");
                                         } else if (DEV_MODE) {
-                                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
+                                            LOGGER.log(Level.INFO,
                                                     "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
                                                     new Object[]{remote_server_latency, remote_server_latency2});
                                         }
@@ -2068,7 +2063,7 @@ public class WaitingRoomFrame extends JFrame {
                                         case "KICKED":
                                             exit = true;
                                             Audio.playWavResource("loser/payaso.wav");
-                                            mostrarMensajeInformativo(THIS, "YOU HAVE BEEN KICKED OUT!");
+                                            mostrarMensajeInformativo(THIS, Translator.translate("ui.error.kicked_out"));
                                             break;
                                         case "GAME":
                                             // Confirmamos recepción al servidor
@@ -2359,8 +2354,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     byte[] masterKey = Panoptes.getInstance().stateGetShuffleKeyShare();
 
                                                                     if (masterKey != null) {
-                                                                        System.out.println(
-                                                                                "[ZERO-TRUST] Vault Responds! Sending share to server.");
+                                                                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Vault Responds! Sending share to server.");
                                                                     }
 
                                                                     String mkBase64 = (masterKey != null)
@@ -2593,7 +2587,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         + ")");
                                                                 sound_icon.setVisible(false);
                                                                 status.setText(
-                                                                        Translator.translate("Initializing game..."));
+                                                                        Translator.translate("status.inicializando_juego"));
                                                                 status.setIcon(new ImageIcon(
                                                                         getClass().getResource("/images/gears.gif")));
                                                                 barra.setVisible(true);
@@ -2648,7 +2642,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                 } else {
                                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                                        LOGGER.log(Level.WARNING,
                                                 "SOCKET RECEIVED POISON PILL");
                                     }
                                 }
@@ -2661,7 +2655,7 @@ public class WaitingRoomFrame extends JFrame {
                     }
 
                 } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                     mostrarMensajeError(THIS, "UNEXPECTED ERROR -> " + ex.toString());
                     System.exit(1);
                 }
@@ -2680,8 +2674,8 @@ public class WaitingRoomFrame extends JFrame {
                             int j = i;
                             Helpers.GUIRun(() -> {
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
-                                status.setText(Translator.translate("ERROR (Reconnecting in ") + j
-                                        + Translator.translate(" secs...)"));
+                                status.setText(Translator.translate("status.error_reconectando") + " " + j
+                                        + " " + Translator.translate("status.segs"));
                                 barra.setValue(j);
                             });
                             if (!exit) {
@@ -2689,7 +2683,7 @@ public class WaitingRoomFrame extends JFrame {
                                     try {
                                         lock_client_reconnect.wait(1000);
                                     } catch (InterruptedException ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        LOGGER.log(Level.SEVERE, null, ex);
                                     }
                                 }
                             }
@@ -2743,7 +2737,7 @@ public class WaitingRoomFrame extends JFrame {
                         commandBuilder.append("@");
                     }
                 } catch (IOException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -2755,7 +2749,7 @@ public class WaitingRoomFrame extends JFrame {
 
         Helpers.threadRun(() -> {
 
-            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "Un cliente intenta conectar...");
+            LOGGER.log(Level.INFO, "A client is trying to connect...");
             client_threads.add(Thread.currentThread().threadId());
             String recibido;
             String[] partes;
@@ -2800,8 +2794,8 @@ public class WaitingRoomFrame extends JFrame {
                     try {
                         serverChallengeToClient = panoptes.generateChallenge(tempSessionId, serverLocalIp, serverLocalPort);
                     } catch (Exception e) {
-                        Helpers.mostrarMensajeError(THIS, Translator.translate("FATAL ERROR: Failed to generate Panoptes challenge"));
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);
+                        Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
+                        LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);
                         System.exit(1);
                     }
 
@@ -2836,20 +2830,17 @@ public class WaitingRoomFrame extends JFrame {
                     File client_avatar = null;
 
                     if (partes.length == 5) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "Un supuesto cliente quiere reconectar...");
+                        LOGGER.log(Level.WARNING, "A potential client wants to reconnect...");
                         if (participantes.containsKey(client_nick)) {
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "El cliente existe");
+                            LOGGER.log(Level.WARNING, "Client already exists");
                             Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
                             orig_sha256_HMAC.init(participantes.get(client_nick).getHmac_key_orig());
                             byte[] orig_hmac = orig_sha256_HMAC.doFinal(client_nick.getBytes("UTF-8"));
                             boolean rec_error = true;
                             if (MessageDigest.isEqual(orig_hmac, Base64.getDecoder().decode(partes[4]))) {
 
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                        "El HMAC del cliente es auténtico");
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                        "Reseteando el socket del cliente...");
+                                LOGGER.log(Level.WARNING, "Client HMAC is authentic");
+                                LOGGER.log(Level.WARNING, "Resetting client socket...");
 
                                 if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
@@ -2866,8 +2857,7 @@ public class WaitingRoomFrame extends JFrame {
                                         }
                                     }
 
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                            "EL CLIENTE {0} HA RECONECTADO CORRECTAMENTE.", client_nick);
+                                    LOGGER.log(Level.WARNING, "CLIENT {0} HAS RECONNECTED SUCCESSFULLY.", client_nick);
 
                                     rec_error = false;
 
@@ -2875,7 +2865,7 @@ public class WaitingRoomFrame extends JFrame {
                                             && GameFrame.getInstance() != null) {
                                         Helpers.GUIRun(() -> {
                                             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(),
-                                                    false, client_nick + " " + Translator.translate("HA RECONECTADO"),
+                                                    false, client_nick + " " + Translator.translate("conn.ha_reconectado"),
                                                     Color.GREEN, Color.WHITE,
                                                     getClass().getResource("/images/action/plug.png"),
                                                     NOTIFICATION_TIMEOUT);
@@ -2885,8 +2875,7 @@ public class WaitingRoomFrame extends JFrame {
                                     }
 
                                 } else {
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                            "EL CLIENTE {0} NO HA PODIDO RECONECTAR", client_nick);
+                                    LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT", client_nick);
                                     try {
                                         if (!client_socket.isClosed()) {
                                             client_socket.close();
@@ -2896,8 +2885,7 @@ public class WaitingRoomFrame extends JFrame {
                                 }
 
                             } else {
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                        "EL CLIENTE {0} NO HA PODIDO RECONECTAR (BAD HMAC)", client_nick);
+                                LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT (BAD HMAC)", client_nick);
                                 try {
                                     if (!client_socket.isClosed()) {
                                         client_socket.close();
@@ -2908,12 +2896,11 @@ public class WaitingRoomFrame extends JFrame {
                             if (rec_error) {
                                 Helpers.threadRun(() -> {
                                     Helpers.mostrarMensajeError(THIS,
-                                            Translator.translate("ERROR AL INTENTAR RECONECTAR -> ") + client_nick);
+                                            Translator.translate("conn.error_al_intentar_reconectar") + client_nick);
                                 });
                             }
                         } else {
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                    "El usuario {0} INTENTA RECONECTAR UNA TIMBA ANTERIOR -> DENEGADO", client_nick);
+                            LOGGER.log(Level.WARNING, "User {0} TRYING TO RECONNECT TO PREVIOUS GAME -> DENIED", client_nick);
                             try {
                                 if (!client_socket.isClosed()) {
                                     client_socket.close();
@@ -2943,7 +2930,7 @@ public class WaitingRoomFrame extends JFrame {
 
                             Helpers.GUIRun(() -> {
                                 InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                                        "[" + client_nick + "] " + Translator.translate("QUIERE ENTRAR EN LA TIMBA"),
+                                        "[" + client_nick + "] " + Translator.translate("game.quiere_entrar_en_la_timba"),
                                         Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"),
                                         NOTIFICATION_TIMEOUT);
                                 dialog.setLocation(dialog.getParent().getLocation());
@@ -2957,13 +2944,13 @@ public class WaitingRoomFrame extends JFrame {
                                                     + Base64.getEncoder().encodeToString(client_nick.getBytes("UTF-8")) + "#"
                                                     + ipCliente, null);
                                 } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                    LOGGER.log(Level.SEVERE, null, ex);
                                 }
                             });
                         } catch (Exception e) {
                         }
 
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
+                        LOGGER.log(Level.WARNING,
                                 "El usuario {0} LLEGA TARDE -> DENEGADO", client_nick);
 
                     } else if (participantes.size() == MAX_PARTICIPANTES) {
@@ -3001,7 +2988,7 @@ public class WaitingRoomFrame extends JFrame {
                                 serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]);
                             }
                         } catch (Exception e) {
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                            LOGGER.log(Level.SEVERE,
                                     "Failed to sign Panoptes challenge", e);
                             serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]);
                         }
@@ -3066,7 +3053,7 @@ public class WaitingRoomFrame extends JFrame {
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).warning(client_nick + " GAME BINARY IS MODIFIED OR GUARDIAN TRIGGERED (cheating?)");
                                     } else if (isClientLegit == Panoptes.STATUS_VM_DETECTED) {
                                         Helpers.threadRun(() -> {
-                                            mostrarMensajeInformativo(THIS, "Parece que " + client_nick + " está ejecutando CoronaPoker dentro de una Máquina Virtual\n(Es posible que intente hacer trampas de alguna forma)");
+                                            mostrarMensajeInformativo(THIS, Translator.translate("ui.error.vm_detected_client") + " [" + client_nick + "]");
                                         });
                                         Logger.getLogger(WaitingRoomFrame.class.getName()).warning(client_nick + " is running on a Virtual Machine.");
                                     }
@@ -3092,11 +3079,10 @@ public class WaitingRoomFrame extends JFrame {
                                         new_bot_button
                                                 .setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                     });
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO, "{0} CONECTADO",
-                                            client_nick);
+                                    LOGGER.log(Level.INFO, "{0} CONNECTED", client_nick);
                                 } else {
                                     try (client_socket) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
+                                        LOGGER.log(Level.INFO,
                                                 "{0} NO PUDO CONECTAR CORRECTAMENTE (PARTIDA LLENA O EMPEZADA)",
                                                 client_nick);
                                     }
@@ -3116,12 +3102,12 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 } else {
                     try (client_socket) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE,
+                        LOGGER.log(Level.SEVERE,
                                 "BAD MAGIC BYTES FROM CLIENT!");
                     }
                 }
             } catch (Exception ex) {
-                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
             client_threads.remove(Thread.currentThread().threadId());
         });
@@ -3143,7 +3129,7 @@ public class WaitingRoomFrame extends JFrame {
                     if (upnp) {
                         String stat = server_address_label.getText();
                         Helpers.GUIRun(() -> {
-                            server_address_label.setText(Translator.translate("Probando UPnP..."));
+                            server_address_label.setText(Translator.translate("conn.probando_upnp"));
                         });
                         upnp = Helpers.UPnPOpen(server_port);
                         if (upnp) {
@@ -3182,7 +3168,7 @@ public class WaitingRoomFrame extends JFrame {
                     }
 
                 } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
             if (upnp) {
@@ -3241,7 +3227,7 @@ public class WaitingRoomFrame extends JFrame {
                         try {
                             GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, new URL(msg.replaceAll("^img", "http"))});
                         } catch (MalformedURLException ex) {
-                            Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     } else {
                         String tts_msg = cleanTTSChatMessage(msg);
@@ -3274,7 +3260,7 @@ public class WaitingRoomFrame extends JFrame {
                         p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
                     }
                 } catch (IOException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -3297,7 +3283,7 @@ public class WaitingRoomFrame extends JFrame {
                     writeCommandToServer(
                             Helpers.encryptCommand(comando, getLocal_client_aes_key(), iv, getLocal_client_hmac_key()));
                 } catch (IOException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             } else {
                 // Snapshot values to prevent ConcurrentModificationException
@@ -3315,7 +3301,7 @@ public class WaitingRoomFrame extends JFrame {
                                     participante.getAes_key(), iv, participante.getHmac_key()));
                         }
                     } catch (Exception ex) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -3391,7 +3377,7 @@ public class WaitingRoomFrame extends JFrame {
                     // We safely pass the cached reference 'pToDel', preventing a NullPointerException
                     this.broadcastASYNCGAMECommandFromServer(comando, pToDel);
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -3548,8 +3534,7 @@ public class WaitingRoomFrame extends JFrame {
         status.setDoubleBuffered(true);
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon
-                .setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
+        sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setDoubleBuffered(true);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
@@ -3568,7 +3553,7 @@ public class WaitingRoomFrame extends JFrame {
 
         conectados.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-        conectados.setToolTipText("Participantes conectados");
+        conectados.putClientProperty("i18n.tooltip_key", "ui.participantes_conectados");
         conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListLabel());
         conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         conectados.setDoubleBuffered(true);
@@ -3579,7 +3564,8 @@ public class WaitingRoomFrame extends JFrame {
         kick_user.setBackground(new java.awt.Color(255, 0, 0));
         kick_user.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         kick_user.setForeground(new java.awt.Color(255, 255, 255));
-        kick_user.setText("Expulsar jugador");
+        kick_user.setText(Translator.translate("player.expulsar_jugador"));
+        kick_user.putClientProperty("i18n.key", "ui.expulsar_jugador");
         kick_user.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         kick_user.setDoubleBuffered(true);
         kick_user.addActionListener(new java.awt.event.ActionListener() {
@@ -3612,7 +3598,8 @@ public class WaitingRoomFrame extends JFrame {
         empezar_timba.setBackground(new java.awt.Color(0, 130, 0));
         empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         empezar_timba.setForeground(new java.awt.Color(255, 255, 255));
-        empezar_timba.setText("¡A JUGAR!");
+        empezar_timba.setText(Translator.translate("ui.a_jugar"));
+        empezar_timba.putClientProperty("i18n.key", "ui.a_jugar");
         empezar_timba.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         empezar_timba.setDoubleBuffered(true);
         empezar_timba.addActionListener(new java.awt.event.ActionListener() {
@@ -3625,7 +3612,8 @@ public class WaitingRoomFrame extends JFrame {
         new_bot_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         new_bot_button.setForeground(new java.awt.Color(255, 255, 255));
         new_bot_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/robot.png"))); // NOI18N
-        new_bot_button.setText("AÑADIR BOT");
+        new_bot_button.setText(Translator.translate("ui.anadir_bot"));
+        new_bot_button.putClientProperty("i18n.key", "ui.anadir_bot");
         new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         new_bot_button.setDoubleBuffered(true);
         new_bot_button.addActionListener(new java.awt.event.ActionListener() {
@@ -3675,7 +3663,7 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
-        pass_icon.setToolTipText("Click para gestionar contraseña");
+        pass_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_gestionar_contrasena");
         pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -3689,7 +3677,7 @@ public class WaitingRoomFrame extends JFrame {
 
         server_address_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         server_address_label.setText("1.1.1.1");
-        server_address_label.setToolTipText("Click para obtener datos de conexión");
+        server_address_label.putClientProperty("i18n.tooltip_key", "ui.click_para_obtener_datos_conexion");
         server_address_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         server_address_label.setDoubleBuffered(true);
         server_address_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -3822,12 +3810,14 @@ public class WaitingRoomFrame extends JFrame {
         danger_server.setForeground(new java.awt.Color(255, 255, 255));
         danger_server.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         danger_server.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/danger.png"))); // NOI18N
-        danger_server.setText("POSIBLE SERVIDOR TRAMPOSO");
+        danger_server.setText(Translator.translate("ui.posible_servidor_tramposo"));
+        danger_server.putClientProperty("i18n.key", "ui.posible_servidor_tramposo");
         danger_server.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         danger_server.setOpaque(true);
 
         chat_notifications.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        chat_notifications.setText("Notificaciones del chat durante el juego");
+        chat_notifications.setText(Translator.translate("chat.notificaciones_del_chat_durante_el"));
+        chat_notifications.putClientProperty("i18n.key", "ui.notificaciones_del_chat_durante_el_juego");
         chat_notifications.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat_notifications.setDoubleBuffered(true);
         chat_notifications.addActionListener(new java.awt.event.ActionListener() {
@@ -3882,7 +3872,7 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         image_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/chat_image.png"))); // NOI18N
-        image_button.setToolTipText("Enviar imagen");
+        image_button.putClientProperty("i18n.tooltip_key", "ui.enviar_imagen");
         image_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         image_button.setDoubleBuffered(true);
         image_button.setMargin(new java.awt.Insets(0, 0, 0, 0));
@@ -3963,6 +3953,7 @@ public class WaitingRoomFrame extends JFrame {
         tts_warning.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         tts_warning.setText(
                 "Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).");
+        tts_warning.putClientProperty("i18n.key", "ui.aviso_privacidad_chat_tts");
         tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         tts_warning.setDoubleBuffered(true);
         tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -4001,7 +3992,7 @@ public class WaitingRoomFrame extends JFrame {
 
         latency_label.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
         latency_label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        latency_label.setText("Latencia del servidor: 0 ms | 0 ms");
+        latency_label.setText(Translator.translate("ui.server_latency"));
         latency_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
@@ -4105,9 +4096,9 @@ public class WaitingRoomFrame extends JFrame {
                         borrarParticipante(expulsado);
 
                     } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     } catch (IOException ex) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                     Helpers.GUIRun(() -> {
                         kick_user.setEnabled(participantes.size() > 1);
@@ -4121,13 +4112,13 @@ public class WaitingRoomFrame extends JFrame {
                     });
                     if (password != null && !participantes.get(expulsado).isCpu()) {
                         Helpers.copyTextToClipboard(password);
-                        mostrarMensajeInformativo(THIS, "NUEVA PASSWORD COPIADA EN EL PORTAPAPELES");
+                        mostrarMensajeInformativo(THIS, Translator.translate("ui.error.password_copiada"));
                     }
                 });
             }
         } else {
 
-            mostrarMensajeError(THIS, "Tienes que seleccionar algún participante antes");
+            mostrarMensajeError(THIS, Translator.translate("ui.tienes_que_seleccionar_algun_participante"));
             chat_box.requestFocus();
         }
 
@@ -4136,7 +4127,7 @@ public class WaitingRoomFrame extends JFrame {
     private void empezar_timbaActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_empezar_timbaActionPerformed
         // TODO add your handling code here:
 
-        if (mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES EMPEZAR YA?",
+        if (mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.seguro_que_quieres_empezar_ya"),
                 new ImageIcon(Init.class.getResource("/images/start.png"))) == 0 && participantes.size() >= 2
                 && !WaitingRoomFrame.getInstance().isPartida_empezada()
                 && !WaitingRoomFrame.getInstance().isPartida_empezando()) {
@@ -4176,16 +4167,15 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
                 } catch (SQLException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
             }
 
             boolean vamos = ("".equals(missing_players) || mostrarMensajeInformativoSINO(this,
-                    missing_players + Translator.translate(
-                            "<b>HAY JUGADORES QUE TODAVÍA NO HAN RECONECTADO.</b>\n\n(Si no se conectan no se podrá recuperar la última mano en curso).\n\n<b>¿EMPEZAMOS YA?</b>"),
+                    missing_players + Translator.translate("game.reconexion_pendiente"),
                     new ImageIcon(Init.class.getResource("/images/action/timeout.png"))) == 0);
 
             if (vamos) {
@@ -4202,7 +4192,7 @@ public class WaitingRoomFrame extends JFrame {
                 this.kick_user.setEnabled(false);
                 this.kick_user.setVisible(false);
                 this.sound_icon.setVisible(false);
-                this.status.setText(Translator.translate("Inicializando timba..."));
+                this.status.setText(Translator.translate("game.inicializando_timba"));
                 this.barra.setVisible(true);
                 status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
 
@@ -4233,14 +4223,13 @@ public class WaitingRoomFrame extends JFrame {
                             }
 
                             if (ocupados) {
-                                Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                        "Hay algun participante con comandos sin confirmar. NO podemos empezar aún...");
+                                LOGGER.log(Level.WARNING, "There are participants with unconfirmed commands. We CANNOT start yet...");
 
                                 synchronized (lock_client_pre_game_commands_wait) {
                                     try {
                                         lock_client_pre_game_commands_wait.wait(PRE_GAME_COMMANDS_LOCK);
                                     } catch (InterruptedException ex) {
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                        LOGGER.log(Level.SEVERE, null, ex);
                                     }
                                 }
                             }
@@ -4279,12 +4268,12 @@ public class WaitingRoomFrame extends JFrame {
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
                     if (exit || reconnecting) {
-                        if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+                        if (mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
                             System.exit(1);
                         }
-                    } else if (mostrarMensajeInformativoSINO(THIS, "¿SEGURO QUE QUIERES SALIR AHORA?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+                    } else if (mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.seguro_que_quieres_salir_ahora"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                         exit = true;
 
                         Helpers.threadRun(() -> {
@@ -4311,7 +4300,7 @@ public class WaitingRoomFrame extends JFrame {
                                     writeCommandToServer(Helpers.encryptCommand(exitCmd, getLocal_client_aes_key(), getLocal_client_hmac_key()));
                                     local_client_socket.close();
                                 } catch (Exception ex) {
-                                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                                    LOGGER.log(Level.SEVERE, null, ex);
                                 }
                             }
                         });
@@ -4321,7 +4310,7 @@ public class WaitingRoomFrame extends JFrame {
                     setVisible(false);
                 }
 
-            } else if (mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+            } else if (mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                 exit = true;
                 Helpers.savePropertiesFile();
                 System.exit(1);
@@ -4330,7 +4319,7 @@ public class WaitingRoomFrame extends JFrame {
             synchronized (lock_client_reconnect) {
                 lock_client_reconnect.notifyAll();
             }
-        } else if (booting && mostrarMensajeInformativoSINO(THIS, "¿FORZAR CIERRE DE CORONAPOKER?", new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
+        } else if (booting && mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
             exit = true;
             Helpers.savePropertiesFile();
             System.exit(1);
@@ -4397,7 +4386,7 @@ public class WaitingRoomFrame extends JFrame {
                     try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                         avatar_b = is.readAllBytes();
                     } catch (IOException ex) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                     comando += "#" + Base64.getEncoder().encodeToString(avatar_b);
 
@@ -4421,9 +4410,9 @@ public class WaitingRoomFrame extends JFrame {
                         });
                     }
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 } catch (NoSuchAlgorithmException ex) {
-                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             });
         }
@@ -4433,7 +4422,7 @@ public class WaitingRoomFrame extends JFrame {
         // TODO add your handling code here:
 
         if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-            if (mostrarMensajeInformativoSINO(this, Translator.translate("¿GENERAR CONTRASEÑA NUEVA?")) == 0) {
+            if (mostrarMensajeInformativoSINO(this, Translator.translate("auth.generar_contrasena_nueva")) == 0) {
                 password = Helpers.genRandomString(GEN_PASS_LENGTH);
                 pass_icon.setToolTipText(password);
             }
@@ -4441,7 +4430,7 @@ public class WaitingRoomFrame extends JFrame {
             if (password != null) {
                 pass_icon.setEnabled(true);
                 Helpers.copyTextToClipboard(password);
-                mostrarMensajeInformativo(this, Translator.translate("PASSWORD COPIADA EN EL PORTAPAPELES"));
+                mostrarMensajeInformativo(this, Translator.translate("auth.password_copiada_en_el_portapapeles"));
             }
         }
     }// GEN-LAST:event_pass_iconMouseClicked
@@ -4450,7 +4439,7 @@ public class WaitingRoomFrame extends JFrame {
         // TODO add your handling code here:
 
         mostrarMensajeInformativo(this,
-                "Aunque CoronaPoker usa cifrado extremo a extremo en todas las comunicaciones, el chat de voz utiliza APIs externas TTS para convertir el texto en audio, por lo que los mensajes enviados a esos servidores podrían ser (en teoría) leidos por terceros.\n\nPOR FAVOR, TENLO EN CUENTA A LA HORA DE USAR EL CHAT",
+                Translator.translate("ui.tts_warning_detail"),
                 "justify", (int) Math.round(getWidth() * 0.8f));
     }// GEN-LAST:event_tts_warningMouseClicked
 
@@ -4462,7 +4451,7 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":"
                     + String.valueOf(server_socket.getLocalPort()) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":"
                     + String.valueOf(server_socket.getLocalPort()));
-            mostrarMensajeInformativo(this, Translator.translate("DATOS DE CONEXIÓN COPIADOS EN EL PORTAPAPELES"));
+            mostrarMensajeInformativo(this, Translator.translate("conn.datos_de_conexion_copiados_en"));
         }
     }// GEN-LAST:event_server_address_labelMouseClicked
 
@@ -4505,7 +4494,7 @@ public class WaitingRoomFrame extends JFrame {
                                 + game_info_hands.getText()).getBytes("UTF-8")),
                                 null);
                     } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                     Helpers.GUIRun(() -> {
                         game_info_buyin.setEnabled(true);

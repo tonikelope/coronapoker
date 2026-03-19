@@ -38,12 +38,16 @@ import javax.swing.text.html.parser.DTD;
 import javax.swing.text.html.HTMLEditorKit.Parser;
 import javax.swing.text.html.HTMLEditorKit.ParserCallback;
 import javax.swing.text.html.parser.DocumentParser;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
  * T-H-A-N-K Y-O-U!!!!! --> https://stackoverflow.com/a/35012241
  */
 class CoronaParserDelegator extends Parser {
+
+    private static final Logger LOGGER = Logger.getLogger(CoronaParserDelegator.class.getName());
 
     private DTD _dtd;
 
@@ -56,8 +60,7 @@ class CoronaParserDelegator extends Parser {
             javax.swing.text.html.parser.Element div = _dtd.getElement("div");
             _dtd.defineElement("tonimg", div.getType(), true, true, div.getContent(), null, null, div.getAttributes());
         } catch (IOException e) {
-            // (PENDING) UGLY!
-            System.out.println("Throw an exception: could not get default dtd: " + nm);
+            LOGGER.log(Level.SEVERE, "Could not get default dtd: " + nm, e);
         }
     }
 
@@ -71,7 +74,7 @@ class CoronaParserDelegator extends Parser {
                 DTD.putDTDHash(name, dtd);
             }
         } catch (Exception e) {
-            System.out.println(e);
+            LOGGER.log(Level.SEVERE, "Error specialized DTD creation", e);
         }
         return dtd;
     }

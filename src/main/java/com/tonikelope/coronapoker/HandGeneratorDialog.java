@@ -123,7 +123,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("4,74:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 4,74:1");
         });
 
         int total = Card.VALORES.length * Card.PALOS.length;
@@ -174,7 +174,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("1,28:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 1,28:1");
         });
 
         ArrayList<Card> pareja1 = new ArrayList<>();
@@ -203,7 +203,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("3,26:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 3,26:1");
         });
 
         int valor_pareja1 = Helpers.CSPRNG_GENERATOR.nextInt(VALORES.length - 1) + 1;
@@ -264,7 +264,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("19,7:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 19,7:1");
         });
 
         ArrayList<Card> trio = new ArrayList<>();
@@ -294,7 +294,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("20,65:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 20,65:1");
         });
 
         ArrayList<Card> escalera;
@@ -331,7 +331,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("32,05:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 32,05:1");
         });
 
         ArrayList<Card> color = new ArrayList<>();
@@ -381,7 +381,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("37,52:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 37,52:1");
         });
 
         ArrayList<Card> trio = new ArrayList<>();
@@ -435,7 +435,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("594:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 594:1");
         });
 
         int palo = 0;
@@ -455,7 +455,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("3589,57:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 3589,57:1");
         });
 
         int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
@@ -475,7 +475,7 @@ public class HandGeneratorDialog extends JDialog {
         Helpers.GUIRun(() -> {
             nombre_jugada.setText(Hand.NOMBRES_JUGADAS[v]);
 
-            probability.setText("30939:1");
+            probability.setText(Translator.translate("ui.probabilidad") + ": 30939:1");
         });
 
         int palo = Helpers.CSPRNG_GENERATOR.nextInt(PALOS.length);
@@ -522,6 +522,7 @@ public class HandGeneratorDialog extends JDialog {
 
         superior_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         superior_button.setText("Jugada superior");
+        superior_button.putClientProperty("i18n.key", "handgen.jugada_superior");
         superior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         superior_button.setDoubleBuffered(true);
         superior_button.addActionListener(new java.awt.event.ActionListener() {
@@ -532,6 +533,7 @@ public class HandGeneratorDialog extends JDialog {
 
         inferior_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         inferior_button.setText("Jugada inferior");
+        inferior_button.putClientProperty("i18n.key", "handgen.jugada_inferior");
         inferior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         inferior_button.setDoubleBuffered(true);
         inferior_button.addActionListener(new java.awt.event.ActionListener() {

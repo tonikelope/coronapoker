@@ -67,12 +67,25 @@ import javax.swing.border.LineBorder;
  */
 public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
-    public static final String[][] ACTIONS_LABELS_ES = new String[][]{new String[]{"NO VA"}, new String[]{"PASA", "VA"}, new String[]{"APUESTA", "SUBE"}, new String[]{"ALL IN"}};
-    public static final String[][] ACTIONS_LABELS_EN = new String[][]{new String[]{"FOLD"}, new String[]{"CHECK", "CALL"}, new String[]{"BET", "RAISE"}, new String[]{"ALL IN"}};
-    public static volatile String[][] ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
-    public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
-    public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
-    public static volatile String[] POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
+    public static String[][] getActionsLabels() {
+        return new String[][]{
+            new String[]{Translator.translate("action.label.fold")},
+            new String[]{Translator.translate("action.label.check"), Translator.translate("action.label.call")},
+            new String[]{Translator.translate("action.label.bet"), Translator.translate("action.label.raise")},
+            new String[]{Translator.translate("action.label.allin")}
+        };
+    }
+
+    public static String[] getPositionsLabels() {
+        return new String[]{
+            Translator.translate("position.small_blind"),
+            Translator.translate("position.big_blind"),
+            Translator.translate("position.dealer")
+        };
+    }
+
+    public static volatile String[][] ACTIONS_LABELS = getActionsLabels();
+    public static volatile String[] POSITIONS_LABELS = getPositionsLabels();
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;
@@ -583,7 +596,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
-                player_action.setText(Translator.translate("SE PIRA"));
+                player_action.setText(Translator.translate("ui.se_pira"));
                 setPlayerActionIcon("exit.png");
                 player_action.setVisible(true);
 
@@ -672,7 +685,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setForeground(Color.LIGHT_GRAY);
 
-                player_action.setText(Translator.translate("PENSANDO"));
+                player_action.setText(Translator.translate("ui.pensando"));
 
                 setPlayerActionIcon("action/thinking.png");
 
@@ -1127,7 +1140,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setForeground(Color.WHITE);
                 }
 
-                player_action.setText(player_action.getText().equals(Translator.translate("PIERDE")) ? Translator.translate("¿IWTSTH?") : Translator.translate("PIERDE"));
+                player_action.setText(player_action.getText().equals(Translator.translate("ui.pierde_3")) ? Translator.translate("iwtsth.iwtsth") : Translator.translate("ui.pierde_3"));
             });
         });
 
@@ -1172,7 +1185,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(nickname).isCpu()) {
 
-                avatar.setToolTipText("CLICK -> AES-KEY");
+                Helpers.setTranslatedToolTip(avatar, "ui.click_aes_key");
                 avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
             } else if (!GameFrame.getInstance().isPartida_local()) {
@@ -1185,7 +1198,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             if (!nickname.contains("$")) {
-                player_name.setToolTipText("CLICK -> ANTI CHEAT LOG");
+                Helpers.setTranslatedToolTip(player_name, "ui.click_anticheat_log");
             } else {
                 player_name.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
                 avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
@@ -1302,7 +1315,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
+        Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setDoubleBuffered(true);
@@ -1374,7 +1387,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
-        hands_win.setToolTipText("MANOS GANADAS");
+        Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
         hands_win.setDoubleBuffered(true);
 
         shield.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -1434,14 +1447,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         danger.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         danger.setForeground(new java.awt.Color(255, 255, 255));
         danger.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        danger.setText("POSIBLE TRAMPOS@");
+        danger.setText("");
         danger.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         danger.setFocusable(false);
         danger.setOpaque(true);
 
         player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_action.setText("ESCALERA DE COLOR");
+        player_action.setText("");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         player_action.setDoubleBuffered(true);
@@ -1472,7 +1485,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         latency_label.setBackground(new java.awt.Color(0, 0, 255));
         latency_label.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         latency_label.setForeground(new java.awt.Color(255, 255, 255));
-        latency_label.setText("Latencia: * ms | * ms");
+        latency_label.setText("");
         latency_label.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
@@ -1609,7 +1622,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
 
             } else if (!this.nickname.contains("$") && isRadar_checking() && !isExit()) {
-                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("Espera a que termine la solicitud que tienes en curso."));
+                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("ui.espera_solicitud_en_curso"));
             }
 
         }
@@ -1893,7 +1906,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += cantidad;
         this.buyin += cantidad;
 
-        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
+        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate("rebuy.recompra_2") + String.valueOf(cantidad) + ")");
 
         Audio.playWavResource("misc/cash_register.wav");
 
@@ -2207,7 +2220,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
                 Helpers.GUIRun(() -> {
                     if (isSpectator()) {
-                        player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                        player_action.setText(msg != null ? msg : Translator.translate("player.espectador"));
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
 
@@ -2341,7 +2354,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.setScaledIconLabel(shield, getClass().getResource("/images/shield.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
         shield.setEnabled(GameFrame.RADAR_AVAILABLE && !nickname.contains("$"));
-        shield.setToolTipText(Translator.translate(shield.isEnabled() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+        shield.setToolTipText(shield.isEnabled() ? Translator.translate("radar.informes_antitrampas_activados") : Translator.translate("radar.informes_antitrampas_desactivados"));
     }
 
     @Override

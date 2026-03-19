@@ -112,7 +112,7 @@ public class NewGameDialog extends JDialog {
 
         update = true;
 
-        titulo_ventana.setText("MODIFICAR OPCIONES DE LA TIMBA");
+        titulo_ventana.setText(Translator.translate("game.modificar_opciones_de_la_timba"));
 
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
@@ -125,11 +125,11 @@ public class NewGameDialog extends JDialog {
         this.randomorg_apikey.setVisible(false);
         this.randomorg_label.setVisible(false);
         this.recover_panel.setVisible(false);
-        this.vamos.setText("GUARDAR");
+        this.vamos.setText(Translator.translate("ui.guardar"));
 
         radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
 
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
 
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
@@ -187,7 +187,7 @@ public class NewGameDialog extends JDialog {
             this.ciegas_combobox.setSelectedIndex(i);
         }
 
-        Helpers.setTranslatedTitle(this, "Actualizar timba");
+        Helpers.setTranslatedTitle(this, update ? "update.actualizar_timba" : (partida_local ? "ui.crear_timba" : "ui.unirme_a_timba"));
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
@@ -255,7 +255,7 @@ public class NewGameDialog extends JDialog {
 
         initComponents();
 
-        titulo_ventana.setText(loc ? "CREAR TIMBA" : "UNIRME A TIMBA");
+        titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
 
         partida_local = loc;
 
@@ -263,13 +263,13 @@ public class NewGameDialog extends JDialog {
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
         DefaultComboBoxModel<JLabel> random_combobox_model = new DefaultComboBoxModel<>();
-        JLabel random_label1 = new JLabel("MODO PARANOICO [TRNG + CSPRNG]");
+        JLabel random_label1 = new JLabel(Translator.translate("shuffle.modo_paranoico_trng_csprng"));
         random_label1.setIcon(new ImageIcon(getClass().getResource("/images/5stars.png")));
         random_combobox_model.addElement(random_label1);
-        JLabel random_label2 = new JLabel("MODO CASINO [TRNG]");
+        JLabel random_label2 = new JLabel(Translator.translate("shuffle.modo_casino_trng"));
         random_label2.setIcon(new ImageIcon(getClass().getResource("/images/4_5stars.png")));
         random_combobox_model.addElement(random_label2);
-        JLabel random_label3 = new JLabel("MODO NORMAL [CSPRNG]");
+        JLabel random_label3 = new JLabel(Translator.translate("shuffle.modo_normal_csprng"));
         random_combobox_model.addElement(random_label3);
         random_label3.setIcon(new ImageIcon(getClass().getResource("/images/4stars.png")));
         random_combobox.setModel(random_combobox_model);
@@ -292,9 +292,11 @@ public class NewGameDialog extends JDialog {
 
         radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
 
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
+        radar_label.putClientProperty("i18n.tooltip_key", radar_checkbox.isSelected() ? "radar.active" : "radar.inactive");
 
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
+        radar_checkbox.putClientProperty("i18n.tooltip_key", radar_label.getClientProperty("i18n.tooltip_key"));
 
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
@@ -388,7 +390,7 @@ public class NewGameDialog extends JDialog {
 
             ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
 
-            Helpers.setTranslatedTitle(this, "Crear timba");
+            Helpers.setTranslatedTitle(this, "ui.crear_timba");
 
             Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
@@ -397,7 +399,7 @@ public class NewGameDialog extends JDialog {
         } else {
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("server_port", String.valueOf(DEFAULT_PORT)));
             server_ip_textfield.setText(Helpers.PROPERTIES.getProperty("server_ip", "localhost"));
-            Helpers.setTranslatedTitle(this, "Unirme a timba");
+            Helpers.setTranslatedTitle(this, "ui.unirme_a_timba");
             Helpers.updateFonts(this, Helpers.GUI_FONT, null);
             Helpers.translateComponents(this, false);
             config_partida_panel.setVisible(false);
@@ -473,52 +475,73 @@ public class NewGameDialog extends JDialog {
         scroll_panel = new javax.swing.JScrollPane();
         main_panel = new javax.swing.JPanel();
         vamos = new javax.swing.JButton();
+        vamos.putClientProperty("i18n.key", "ui.vamos");
         url_panel = new javax.swing.JPanel();
         server_port_puntos = new javax.swing.JLabel();
         server_port_textfield = new javax.swing.JTextField();
         upnp_checkbox = new javax.swing.JCheckBox();
         server_ip_textfield = new javax.swing.JTextField();
         jLabel5 = new javax.swing.JLabel();
+        jLabel5.putClientProperty("i18n.key", "ui.servidor");
         config_partida_panel = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         ciegas_label = new javax.swing.JLabel();
+        ciegas_label.putClientProperty("i18n.key", "blinds.ciegas_iniciales");
         buyin_label = new javax.swing.JLabel();
+        buyin_label.putClientProperty("i18n.key", "ui.compra_inicial_10_a_100");
+        buyin_label.putClientProperty("i18n.tooltip_key", "tooltip.buyin_range");
         rebuy_checkbox = new javax.swing.JCheckBox();
         buyin_spinner = new javax.swing.JSpinner();
         ciegas_combobox = new javax.swing.JComboBox<>();
         jLabel2 = new javax.swing.JLabel();
+        jLabel2.putClientProperty("i18n.key", "ui.recomprar_2");
+        jLabel2.putClientProperty("i18n.tooltip_key", "tooltip.rebuy_description");
         jPanel1 = new javax.swing.JPanel();
         doblar_checkbox = new javax.swing.JCheckBox();
+        doblar_checkbox.putClientProperty("i18n.key", "blinds.aumentar_ciegas");
         doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
+        double_blinds_radio_minutos.putClientProperty("i18n.key", "ui.minutos");
         double_blinds_radio_manos = new javax.swing.JRadioButton();
+        double_blinds_radio_manos.putClientProperty("i18n.key", "game.manos");
         doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
         manos_checkbox = new javax.swing.JCheckBox();
         jLabel4 = new javax.swing.JLabel();
+        jLabel4.putClientProperty("i18n.key", "game.limite_de_manos");
         manos_spinner = new javax.swing.JSpinner();
         random_panel = new javax.swing.JPanel();
         randomorg_label = new javax.swing.JLabel();
         random_label = new javax.swing.JLabel();
         randomorg_apikey = new javax.swing.JTextField();
+        randomorg_apikey.putClientProperty("i18n.tooltip_key", "tooltip.randomorg_apikey");
         random_combobox = new javax.swing.JComboBox<>();
         info_shuffle_icon = new javax.swing.JLabel();
+        info_shuffle_icon.putClientProperty("i18n.tooltip_key", "tooltip.more_info");
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
+        nick_label.putClientProperty("i18n.key", "ui.nick");
+        nick_label.putClientProperty("i18n.tooltip_key", "tooltip.change_avatar");
         password = new javax.swing.JLabel();
+        password.putClientProperty("i18n.key", "ui.password");
         pass_text = new javax.swing.JPasswordField();
         avatar_label = new javax.swing.JLabel();
         recover_panel = new javax.swing.JPanel();
         recover_checkbox = new javax.swing.JCheckBox();
+        recover_checkbox.putClientProperty("i18n.tooltip_key", "tooltip.recovery_mode");
         recover_checkbox_label = new javax.swing.JLabel();
+        recover_checkbox_label.putClientProperty("i18n.key", "game.recuperar_ultima_timba");
         game_combo = new javax.swing.JComboBox<>();
         radar_label = new javax.swing.JLabel();
+        radar_label.putClientProperty("i18n.key", "radar.informes_antitrampas_activados");
+        radar_label.putClientProperty("i18n.tooltip_key", "radar.activate_info");
         radar_checkbox = new javax.swing.JCheckBox();
         cancel_button = new javax.swing.JButton();
+        cancel_button.putClientProperty("i18n.key", "ui.cancelar");
         titulo_ventana = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
-        setTitle("CoronaPoker - Nueva timba");
+        Helpers.setTranslatedTitle(this, "ui.nueva_timba");
         setIconImage(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage());
         setUndecorated(true);
         setResizable(false);
@@ -786,7 +809,7 @@ public class NewGameDialog extends JDialog {
                         .addGap(0, 0, 0)
                         .addComponent(jLabel4)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(manos_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 140, Short.MAX_VALUE))
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.DEFAULT_SIZE, 166, Short.MAX_VALUE))
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(buyin_label)
@@ -829,13 +852,16 @@ public class NewGameDialog extends JDialog {
 
         randomorg_label.setFont(new java.awt.Font("Dialog", 3, 12)); // NOI18N
         randomorg_label.setText("RANDOM.ORG API KEY (opcional):");
+        randomorg_label.putClientProperty("i18n.key", "shuffle.randomorg_api_key_opcional");
         randomorg_label.setToolTipText("Random.org API KEY");
         randomorg_label.setDoubleBuffered(true);
 
         random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         random_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1058.png"))); // NOI18N
         random_label.setText("ALGORITMO para barajar:");
-        random_label.setToolTipText("Click para más info");
+        random_label.putClientProperty("i18n.key", "ui.algoritmo_para_barajar");
+        random_label.setToolTipText(Translator.translate("tooltip.more_info"));
+        random_label.putClientProperty("i18n.tooltip_key", "tooltip.more_info");
         random_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         random_label.setDoubleBuffered(true);
         random_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -930,7 +956,9 @@ public class NewGameDialog extends JDialog {
 
         nick_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         nick_label.setText("Nick:");
-        nick_label.setToolTipText("Haz click para cambiar el avatar");
+        nick_label.putClientProperty("i18n.key", "ui.nick");
+        nick_label.setToolTipText(Translator.translate("tooltip.change_avatar"));
+        nick_label.putClientProperty("i18n.tooltip_key", "tooltip.change_avatar");
         nick_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         nick_label.setDoubleBuffered(true);
         nick_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -942,6 +970,7 @@ public class NewGameDialog extends JDialog {
         password.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         password.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
         password.setText("Password:");
+        password.putClientProperty("i18n.key", "ui.password");
         password.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         password.setDoubleBuffered(true);
 
@@ -994,7 +1023,8 @@ public class NewGameDialog extends JDialog {
         );
 
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
+        recover_checkbox.setToolTipText(Translator.translate("tooltip.recovery_description_full"));
+        recover_checkbox.putClientProperty("i18n.tooltip_key", "tooltip.recovery_description_full");
         recover_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {
@@ -1006,6 +1036,7 @@ public class NewGameDialog extends JDialog {
         recover_checkbox_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recover_checkbox_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
         recover_checkbox_label.setText("CONTINUAR TIMBA ANTERIOR:");
+        recover_checkbox_label.putClientProperty("i18n.key", "game.continuar_timba_anterior");
         recover_checkbox_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox_label.setDoubleBuffered(true);
         recover_checkbox_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -1071,6 +1102,7 @@ public class NewGameDialog extends JDialog {
         cancel_button.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         cancel_button.setForeground(new java.awt.Color(255, 255, 255));
         cancel_button.setText("CANCELAR");
+        cancel_button.putClientProperty("i18n.key", "ui.cancelar");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         cancel_button.setDoubleBuffered(true);
         cancel_button.addActionListener(new java.awt.event.ActionListener() {
@@ -1299,7 +1331,7 @@ public class NewGameDialog extends JDialog {
                 espera.setVisible(true);
 
             } else {
-                Helpers.mostrarMensajeError(getContentPane(), "Te falta algún campo obligatorio por completar");
+                Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.faltan_campos"));
             }
 
         }
@@ -1355,7 +1387,7 @@ public class NewGameDialog extends JDialog {
                 File selectedFile = fileChooser.getSelectedFile();
 
                 if (selectedFile.length() > NewGameDialog.AVATAR_MAX_FILESIZE * 1024) {
-                    Helpers.mostrarMensajeError(getContentPane(), "MAX: " + NewGameDialog.AVATAR_MAX_FILESIZE + " KB");
+                    Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.max_avatar_size") + " " + NewGameDialog.AVATAR_MAX_FILESIZE + " KB");
                 } else {
                     this.avatar = selectedFile;
 
@@ -1414,7 +1446,7 @@ public class NewGameDialog extends JDialog {
 
                 if (!this.force_recover) {
 
-                    Helpers.mostrarMensajeInformativo(this, "En el <b>MODO RECUPERACIÓN</b> se continuará la timba anterior desde donde se paró:\n\n1) Es <b>OBLIGATORIO</b> que los jugadores antiguos usen los <b>MISMOS NICKS</b>.\n\n2) Para poder continuar desde el <b>PUNTO EXACTO</b> de la mano es <b>OBLIGATORIO</b> que se conecten <b>TODOS</b> los jugadores antiguos. Si esto no fuera posible, se \"perderá\" la mano que estaba en curso cuando se interrumpió la timba.\n\n3) Está permitido que se unan a la timba <b>jugadores nuevos</b> (estarán la primera mano de espectadores).", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/action/robot.png")));
+                    Helpers.mostrarMensajeInformativo(this, Translator.translate("player.en_el_bmodo_recuperacionb_se"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/action/robot.png")));
                 }
             } else {
 
@@ -1423,7 +1455,7 @@ public class NewGameDialog extends JDialog {
                 this.recover_checkbox.setSelected(false);
                 this.game_combo.setEnabled(false);
                 this.recover_checkbox.setEnabled(false);
-                Helpers.mostrarMensajeError(this, "NO HAY TIMBAS QUE SE PUEDAN CONTINUAR");
+                Helpers.mostrarMensajeError(this, Translator.translate("game.no_hay_timbas_que_se"));
 
                 pack();
 
@@ -1648,13 +1680,7 @@ public class NewGameDialog extends JDialog {
 
     private void random_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_random_labelMouseClicked
         // TODO add your handling code here:
-        Helpers.mostrarMensajeInformativo(this, "Cuando empecé a desarrollar el juego, una de las cosas que me preocupaba era conseguir barajar las cartas de la mejor forma posible teniendo en cuenta la mala fama que tienen los ordenadores generando números aleatorios. Entre mis amigos había coñas con este asunto y yo quería zanjar cualquier suspicacia.\n"
-                + "<h2>¿En qué consisten los modos de barajado de CoronaPoker?</h2>"
-                + "<b>MODO NORMAL:</b> este modo utiliza el algoritmo de Fisher-Yates para mezclar una baraja (por defecto ordenada) empleando para ello un generador de números PSEUDOALEATORIOS criptográficamente seguro basado en el algoritmo HASH DRBG SHA-512. Este método de barajar es capaz (teóricamente) de generar de forma impredecible y equiprobable cualquiera de las permutaciones posibles de una baraja de póker, a saber:\n52! = 80 658 175 170 943 878 571 660 636 856 403 766 975 289 505 440 883 277 824 000 000 000 000\n"
-                + "\n"
-                + "<b>MODO CASINO:</b> este modo utiliza la API de Random.org para obtener una permutación de 52 elementos. La aleatoriedad de Random.org proviene de un generador de números ALEATORIOS AUTÉNTICOS obtenidos a partir de RUIDO ATMOSFÉRICO, siendo por tanto capaz de generar cualquiera de las permutaciones posibles de una baraja de póker de forma impredecible y equiprobable.\n"
-                + "\n"
-                + "<b>MODO PARANOICO:</b> este modo es un HÍBRIDO entre el MODO CASINO y el NORMAL. Primero se baraja usando el MODO CASINO y después se vuelve a barajar usando el MODO NORMAL. De esta forma, en un hipotético y MUY improbable caso de que la permutación devuelta por Random.org no fuera totalmente aleatoria por cualquier motivo (fortuito o malicioso), al volver a barajar quedaría neutralizado.", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/dados.png")));
+        Helpers.mostrarMensajeInformativo(this, Translator.translate("ui.shuffle_info_title") + "\n\n" + Translator.translate("ui.shuffle_info_msg"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/dados.png")));
     }//GEN-LAST:event_random_labelMouseClicked
 
     private void radar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_radar_labelMouseClicked
@@ -1666,11 +1692,10 @@ public class NewGameDialog extends JDialog {
         // TODO add your handling code here:
 
         if (radar_checkbox.isSelected()) {
-            Helpers.mostrarMensajeInformativo(this, "Esta funcionalidad permite a cualquier jugador obtener una captura de la pantalla y la lista de procesos de otro jugador, si sospecha que está haciendo trampas o ayudándose de software de terceros para jugar. Como anfitrión, ten en cuenta por favor las implicaciones de privacidad que esto puede suponer antes de activar esta opción (no se puede cambiar durante la partida).\n\nNota: esta funcionalidad es bastante dependiente de la plataforma, por lo que no está garantizado que funcione perfectamente en todos los clientes.", "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/shield.png")));
+            Helpers.mostrarMensajeInformativo(this, Translator.translate("ui.radar_info_msg"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/radar.png")));
         }
 
-        radar_label.setEnabled(radar_checkbox.isSelected());
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "Informes ANTI-TRAMPAS activados" : "Informes ANTI-TRAMPAS desactivados"));
+        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
         radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
     }//GEN-LAST:event_radar_checkboxActionPerformed

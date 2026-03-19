@@ -70,6 +70,8 @@ import javax.swing.JLabel;
  */
 public class Crupier implements Runnable {
 
+    private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
+
     public static final boolean ALLIN_BOT_TEST = false; // TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
     public static final String[] STREETS = new String[]{"Preflop", "Flop", "Turn", "River"};
@@ -620,23 +622,23 @@ public class Crupier implements Runnable {
                     try {
                         isLegit = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, mk, myPos, this.local_original_cards, this.panoptes_community_cards, receiptsArray);
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        LOGGER.log(Level.SEVERE, "Error verifying hand history", ex);
                     }
 
                     if (!isLegit) {
                         if (!GameFrame.getInstance().isPartida_local()) {
                             GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
                             Helpers.GUIRun(() -> {
-                                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("CRITICAL ZERO-TRUST ALERT!\nCryptographic anomaly detected in hand history or card signatures. Corrupted server."));
+                                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.zero_trust_alert"));
                             });
                         }
-                        GameFrame.getInstance().getRegistro().print("❌ [ZERO-TRUST] CRITICAL ALERT: INVALID SIGNATURE OR BROKEN CONSENSUS.");
+                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.critical"));
                     } else {
-                        GameFrame.getInstance().getRegistro().print("✔️ [ZERO-TRUST] Full Audit: Cards and Blockchain are legit.");
+                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.log(Level.SEVERE, "Error in manual hand verification", e);
             } finally {
                 this.hand_verification = false;
                 synchronized (this.lock_hand_verification) {
@@ -654,14 +656,14 @@ public class Crupier implements Runnable {
                 return Base64.getEncoder().encodeToString(testament);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error generating exit testament", e);
         }
         return "*";
     }
 
     public boolean extractHandWithMasterKey(Player target) {
         if (this.local_mega_packet == null || this.valid_master_key == null || this.valid_master_key.length != 32) {
-            System.out.println("⚠️ [ZERO-TRUST] Cannot reveal cards for " + target.getNickname() + ". Master Key is unavailable.");
+            LOGGER.log(Level.WARNING, "⚠️ [ZERO-TRUST] Cannot reveal cards for " + target.getNickname() + ". Master Key is unavailable.");
             return false;
         }
         try {
@@ -1071,7 +1073,7 @@ public class Crupier implements Runnable {
                             + String.valueOf(buyin),
                             nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname()) ? null : nick);
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
             } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
@@ -1355,7 +1357,7 @@ public class Crupier implements Runnable {
                                     .toURL());
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
                 try {
@@ -1363,7 +1365,7 @@ public class Crupier implements Runnable {
                             .getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -1392,7 +1394,7 @@ public class Crupier implements Runnable {
                     return _cinematicAllin(filename, pausa);
 
                 } catch (Exception ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                     Init.PLAYING_CINEMATIC = false;
                     this.current_local_cinematic_b64 = null;
                 }
@@ -1424,7 +1426,7 @@ public class Crupier implements Runnable {
                         Long.parseLong(partes[1]));
 
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
                 Init.PLAYING_CINEMATIC = false;
                 setCurrent_remote_cinematic_b64(null);
             }
@@ -1454,7 +1456,7 @@ public class Crupier implements Runnable {
                         url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
                                 .toUri().toURL();
                     } catch (MalformedURLException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                 } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
                     url_icon = getClass().getResource("/cinematics/allin/" + filename);
@@ -1484,7 +1486,7 @@ public class Crupier implements Runnable {
                                         gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                         gif_dialog.setVisible(true);
                                     } catch (IOException | ImageProcessingException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        LOGGER.log(Level.SEVERE, null, ex);
                                     }
                                 });
 
@@ -1496,7 +1498,7 @@ public class Crupier implements Runnable {
                                             Init.LOCK_CINEMATICS.wait(1000);
 
                                         } catch (InterruptedException ex) {
-                                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                            LOGGER.log(Level.SEVERE, null, ex);
                                         }
                                     }
                                 }
@@ -1770,9 +1772,9 @@ public class Crupier implements Runnable {
                     }
 
                     GameFrame.getInstance().getRegistro()
-                            .print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: "
+                            .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                     + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
-                                    + Translator.translate(" / SOBRANTE: ") + Helpers.float2String(this.bote_sobrante));
+                                    + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
 
                     if (Helpers.float1DSecureCompare(
                             Helpers.floatClean(stack_sum) + Helpers.floatClean(this.bote_sobrante), buyin_sum) != 0) {
@@ -1784,17 +1786,17 @@ public class Crupier implements Runnable {
 
                 } else {
                     GameFrame.getInstance().getRegistro()
-                            .print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: "
+                            .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                     + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
-                                    + Translator.translate(" / SOBRANTE: ") + Helpers.float2String(this.bote_sobrante));
+                                    + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
                     GameFrame.getInstance().getRegistro()
                             .print("¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + SOBRANTE) != BUYIN");
                 }
             } else {
                 GameFrame.getInstance().getRegistro()
-                        .print(Translator.translate("AUDITOR DE CUENTAS") + " -> STACKS: "
+                        .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                 + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
-                                + Translator.translate(" / SOBRANTE: ") + Helpers.float2String(this.bote_sobrante));
+                                + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
             }
         }
     }
@@ -1827,7 +1829,7 @@ public class Crupier implements Runnable {
                         try {
                             nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                         } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
 
                         pending.remove(nick);
@@ -1894,7 +1896,7 @@ public class Crupier implements Runnable {
                                                 nick,
                                                 false);
                                     } catch (UnsupportedEncodingException ex) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                        LOGGER.log(Level.SEVERE, null, ex);
                                     }
                                 }
                             }
@@ -1903,7 +1905,7 @@ public class Crupier implements Runnable {
 
                         // 0=yes, 1=no, 2=cancel
                         if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("¿FORZAMOS RESET DEL SOCKET de los usuarios que no responden?"),
+                                Translator.translate("conn.forzamos_reset_del_socket_de"),
                                 new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                             for (String nick : pending) {
                                 GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
@@ -1922,7 +1924,7 @@ public class Crupier implements Runnable {
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
 
@@ -2128,7 +2130,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (!perdedores.containsKey(jugador)) {
-                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" MUESTRA (") + Card.collection2String(jugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
+                        GameFrame.getInstance().getRegistro().print(nick + Translator.translate("ui.muestra_2") + Card.collection2String(jugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
                     }
 
                     sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
@@ -2198,7 +2200,7 @@ public class Crupier implements Runnable {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -2264,7 +2266,7 @@ public class Crupier implements Runnable {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -2330,7 +2332,7 @@ public class Crupier implements Runnable {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -2377,7 +2379,7 @@ public class Crupier implements Runnable {
     }
 
     private void recuperarDatosClavePartida() {
-        System.out.println("[ZERO-TRUST DEBUG] Starting recuperarDatosClavePartida...");
+        LOGGER.log(Level.INFO, "[ZERO-TRUST DEBUG] Starting recuperarDatosClavePartida...");
 
         killAllPlayerTimers();
         turno = System.currentTimeMillis();
@@ -2403,6 +2405,29 @@ public class Crupier implements Runnable {
                     pendientes.add(jugador.getNickname());
                 }
             }
+
+            // --- FIX: VALIDACIÓN ESTRICTA DE JUGADORES PREFLOP ---
+            // Si un jugador que estaba en la mano ya no está en la mesa, 
+            // la mano es irrecuperable y debemos saltarla forzosamente.
+            if (map.get("preflop_players") != null) {
+                String[] preflop = ((String) map.get("preflop_players")).split("#");
+                for (String b64 : preflop) {
+                    if (b64.isEmpty()) {
+                        continue;
+                    }
+                    try {
+                        String n = new String(Base64.getDecoder().decode(b64), "UTF-8");
+                        Player p = nick2player.get(n);
+                        if (p == null || !p.isActivo()) {
+                            saltar_primera_mano = true;
+                            LOGGER.log(Level.WARNING, "⚠️ [ZERO-TRUST] Cannot recover hand. Player missing or inactive: {0}", n);
+                            break;
+                        }
+                    } catch (Exception e) {
+                    }
+                }
+            }
+            // -----------------------------------------------------
 
             if (!saltar_primera_mano && map.get("hand_end") != null && (Long) map.get("hand_end") == 0L) {
                 try {
@@ -2611,7 +2636,7 @@ public class Crupier implements Runnable {
                 }
                 for (Player j : GameFrame.getInstance().getJugadores()) {
                     if (!nicksRec.contains(j.getNickname())) {
-                        j.setSpectator(Translator.translate("WARMING UP"));
+                        j.setSpectator(Translator.translate("game.calentando"));
                         this.auditor.put(j.getNickname(), new Float[]{j.getStack(), (float) j.getBuyin()});
                     }
                 }
@@ -2622,6 +2647,7 @@ public class Crupier implements Runnable {
             this.dealer_nick = (String) map.get("dealer");
             this.small_blind_nick = (String) map.get("sb");
             this.big_blind_nick = (String) map.get("bb");
+
             if (!saltar_primera_mano) {
                 int bb_pos = permutadoNick2Pos(this.big_blind_nick);
                 if (bb_pos != -1) {
@@ -2639,6 +2665,12 @@ public class Crupier implements Runnable {
                         jugador.refreshPos();
                     }
                 }
+            } else {
+                // Si saltamos la mano, recalculamos las nuevas posiciones y limpiamos el tapete
+                setPositions();
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                    jugador.refreshPos();
+                }
             }
 
             Card[] comCards = GameFrame.getInstance().getCartas_comunes();
@@ -2649,10 +2681,91 @@ public class Crupier implements Runnable {
             }
             actualizarContadoresTapete();
         }
+
+        if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
+            if (GameFrame.MUSICA_AMBIENTAL) {
+                Audio.stopLoopMp3("misc/background_music.mp3");
+                Audio.playLoopMp3Resource("misc/recovering.mp3");
+            }
+
+            final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+
+            Helpers.GUIRun(() -> {
+                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                    GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                    GameFrame.getInstance().getTapete().repaint();
+                }
+
+                recover_dialog = new RecoverDialog(GameFrame.getInstance(), true);
+                recover_dialog.setLocationRelativeTo(recover_dialog.getParent());
+                recover_dialog.setVisible(true);
+
+                if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                    GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+                    GameFrame.getInstance().getTapete().repaint();
+                }
+
+                GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+            });
+
+            if (GameFrame.getInstance().isPartida_local() || GameFrame.getInstance().getLocalPlayer().isActivo()) {
+                recuperarAccionesLocales();
+            }
+
+            if (this.tot_acciones_recuperadas > 0) {
+                this.sincronizando_mano = true;
+            } else {
+                GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+
+                if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                    Audio.playWavResource("misc/startplay.wav");
+                }
+
+                if (GameFrame.MUSICA_AMBIENTAL) {
+                    Audio.stopLoopMp3("misc/recovering.mp3");
+                    Audio.playLoopMp3Resource("misc/background_music.mp3");
+
+                }
+                Helpers.GUIRun(() -> {
+                    if (recover_dialog != null) {
+                        recover_dialog.setVisible(false);
+                        recover_dialog.dispose();
+                        recover_dialog = null;
+                    }
+                    GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                    Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                    GameFrame.getInstance().refresh();
+                });
+            }
+        } else {
+            GameFrame.getInstance().getRegistro().print("TIMBA RECUPERADA");
+            if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
+                Audio.playWavResource("misc/startplay.wav");
+            }
+
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+            });
+        }
+
+        for (Player jugador : GameFrame.getInstance().getJugadores()) {
+            jugador.setContaWin(this.sqlGetPlayerContaWins(jugador.getNickname(), this.sqlite_id_game));
+        }
+
+        this.update_game_seats = true;
+        GameFrame.setRECOVER(false);
+
+        if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
+            this.game_recovered = 1;
+            GameFrame.getInstance().refresh();
+        } else {
+            this.game_recovered = 0;
+        }
     }
 
     private void cancelarManoYDevolverApuestas(String motivo) {
-        Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "[ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
+        LOGGER.log(Level.WARNING, "[ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
         GameFrame.getInstance().getRegistro().print("🚨 [MANO NULA] " + motivo);
         GameFrame.getInstance().getRegistro().print("Se devuelven las apuestas de esta mano a los jugadores.");
 
@@ -2671,7 +2784,7 @@ public class Crupier implements Runnable {
         Audio.playWavResource("misc/error.wav");
 
         Helpers.GUIRun(() -> {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), "MANO ANULADA\n\nMOTIVO: " + motivo + "\n\nSe han devuelto las apuestas intactas a todos los jugadores.");
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + motivo + Translator.translate("game.mano_anulada_footer"));
         });
     }
 
@@ -2709,7 +2822,7 @@ public class Crupier implements Runnable {
                             this.dealer_nick = new String(Base64.getDecoder().decode(partes[6]), "UTF-8");
 
                         } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
 
                         GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[7]));
@@ -2746,7 +2859,7 @@ public class Crupier implements Runnable {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -2879,7 +2992,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING,
+                            LOGGER.log(Level.WARNING,
                                     "{0} -> NEW HAND ({1}) CONFIRMATION TIMEOUT!",
                                     new Object[]{p.getNick(), String.valueOf(this.conta_mano + 1)});
                             nick2player.get(p.getNick()).setTimeout(true);
@@ -2890,7 +3003,7 @@ public class Crupier implements Runnable {
                                             + Base64.getEncoder().encodeToString(p.getNick().getBytes("UTF-8")),
                                             p.getNick(), false);
                                 } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    LOGGER.log(Level.SEVERE, null, ex);
                                 }
                             }
                         } else {
@@ -2906,7 +3019,7 @@ public class Crupier implements Runnable {
                             try {
                                 lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
                             } catch (InterruptedException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
                         }
                     } else {
@@ -2994,7 +3107,7 @@ public class Crupier implements Runnable {
                         }
                     }
 
-                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate(" SOLICITÓ RABBIT HUNTING ")
+                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate("rabbit.solicito_rabbit_hunting")
                             + "(" + Helpers.float2String(coste_rabbit) + ")");
 
                     if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
@@ -3009,13 +3122,13 @@ public class Crupier implements Runnable {
                         }
 
                         GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("[RABBIT HUNTING] CARTAS COMUNITARIAS -> ")
+                                .print(Translator.translate("rabbit.rabbit_hunting_cartas_comunitarias")
                                         + Card.collection2String(cartas));
 
                         cartas = GameFrame.getInstance().getLocalPlayer().getHoleCards();
 
                         GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("[RABBIT HUNTING] TU MANO REPARTIDA -> ")
+                                .print(Translator.translate("rabbit.rabbit_hunting_tu_mano_repartida")
                                         + Card.collection2String(cartas));
 
                         for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
@@ -3030,7 +3143,7 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().getLocalPlayer().setRabbitJugada(jugada.getName());
 
                         GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("[RABBIT HUNTING] MEJOR (HIPOTÉTICA) JUGADA POSIBLE -> ")
+                                .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
                                         + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
 
                     }
@@ -3052,7 +3165,7 @@ public class Crupier implements Runnable {
                         }
 
                     } catch (Exception ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
 
@@ -3091,7 +3204,7 @@ public class Crupier implements Runnable {
                     int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
 
                     GameFrame.getInstance().getRegistro().print(
-                            iwtsther + Translator.translate(" SOLICITA IWTSTH (") + String.valueOf(conta_iwtsth) + ")");
+                            iwtsther + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
 
                     Helpers.GUIRunAndWait(() -> {
                         if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
@@ -3107,7 +3220,7 @@ public class Crupier implements Runnable {
                             broadcastGAMECommandFromServer(
                                     "IWTSTH#" + Base64.getEncoder().encodeToString(iwtsther.getBytes("UTF-8")), null);
                         } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
 
                     }
@@ -3123,7 +3236,7 @@ public class Crupier implements Runnable {
                                 gif_dialog.setLocationRelativeTo(gif_dialog.getParent());
                                 gif_dialog.setVisible(true);
                             } catch (URISyntaxException | IOException | ImageProcessingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
 
                         });
@@ -3140,9 +3253,9 @@ public class Crupier implements Runnable {
 
                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(iwtsther)
                                 || Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                        iwtsther + Translator.translate(" SOLICITA IWTSTH (")
+                                        iwtsther + Translator.translate("iwtsth.solicita_iwtsth")
                                         + String.valueOf(conta_iwtsth)
-                                        + Translator.translate(") ¿AUTORIZAMOS?"),
+                                        + Translator.translate("ui.autorizamos"),
                                         new ImageIcon(Init.class.getResource("/images/action/robot.png"))) == 0) {
                             IWTSTH_SHOW(iwtsther, true);
                         } else {
@@ -3196,7 +3309,7 @@ public class Crupier implements Runnable {
                                         } catch (Exception e) {
                                         }
 
-                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
+                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate("ui.muestra_2") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
                                         sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
                                         sqlUpdateShowdownHand(rp, jugada);
                                     }
@@ -3227,18 +3340,18 @@ public class Crupier implements Runnable {
                                             GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
                                             GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
                                             GameFrame.getInstance().getLocalPlayer().getPlayer_action().setBackground(new Color(51, 153, 255));
-                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate(" MUESTRAS (") + (final_jugada != null ? final_jugada.getName() : "") + ")");
+                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate("ui.muestras") + (final_jugada != null ? final_jugada.getName() : "") + ")");
                                         });
 
                                         GameFrame.getInstance().getLocalPlayer().setMuestra(true);
-                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate(" MUESTRA (") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
+                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate("ui.muestra_2") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
                                         sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
                                         sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
                                     }
                                 }
                             }
                         } else {
-                            GameFrame.getInstance().getRegistro().print(Translator.translate("EL SERVIDOR HA DENEGADO LA SOLICITUD IWTSTH DE ") + iwtsther);
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + iwtsther);
                             if (GameFrame.CINEMATICAS) {
                                 Helpers.GUIRun(() -> {
                                     try {
@@ -3294,10 +3407,10 @@ public class Crupier implements Runnable {
 
         } else {
             Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                    Translator.translate("TIENES QUE ESPERAR ")
+                    Translator.translate("ui.tienes_que_esperar")
                     + Helpers.seconds2FullTime(Math.round(((float) (IWTSTH_ANTI_FLOOD_TIME
                             - (System.currentTimeMillis() - this.last_iwtsth_rejected))) / 1000))
-                    + Translator.translate(" PARA VOLVER A SOLICITAR IWTSTH"));
+                    + Translator.translate("iwtsth.para_volver_a_solicitar_iwtsth"));
         }
     }
 
@@ -3396,7 +3509,7 @@ public class Crupier implements Runnable {
                 sqlUpdateGameDoubleBlinds();
                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                 GameFrame.getInstance().getRegistro()
-                        .print(Translator.translate("LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO"));
+                        .print(Translator.translate("blinds.la_configuracion_de_las_ciegas"));
                 Helpers.threadRun(() -> {
                     Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
                             "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO",
@@ -3441,7 +3554,7 @@ public class Crupier implements Runnable {
         }
 
         Bot.BOT_COMMUNITY_CARDS.makeEmpty();
-        GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("MANO") + " ("
+        GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("game.mano_2") + " ("
                 + String.valueOf(this.conta_mano) + ") ***************");
 
         if (!GameFrame.RECOVER) {
@@ -3469,7 +3582,7 @@ public class Crupier implements Runnable {
             }
             Audio.playWavResource("misc/cash_register.wav");
             GameFrame.getInstance().getRegistro()
-                    .print(Translator.translate("BOTE SOBRANTE") + " -> " + Helpers.float2String(bote_sobrante));
+                    .print(Translator.translate("game.bote_sobrante") + " -> " + Helpers.float2String(bote_sobrante));
         }
 
         this.bote_total = Math.max(0f, this.bote_sobrante);
@@ -3619,7 +3732,7 @@ public class Crupier implements Runnable {
                                 .get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif")
                                 .toUri().toURL();
                     } catch (MalformedURLException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
 
                 } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
@@ -3670,7 +3783,7 @@ public class Crupier implements Runnable {
                         try {
                             shuffle_lock.wait(1000);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 } while (barajando);
@@ -3776,7 +3889,7 @@ public class Crupier implements Runnable {
                 statement.close();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return ret;
@@ -3798,7 +3911,7 @@ public class Crupier implements Runnable {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -3826,7 +3939,7 @@ public class Crupier implements Runnable {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -3849,7 +3962,7 @@ public class Crupier implements Runnable {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -3876,7 +3989,7 @@ public class Crupier implements Runnable {
                     tot = rs.getInt("total");
                 }
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return tot;
@@ -3911,7 +4024,7 @@ public class Crupier implements Runnable {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -3932,7 +4045,7 @@ public class Crupier implements Runnable {
                 statement.close();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             String[] balance_float = new String[auditor.size()];
@@ -3963,19 +4076,19 @@ public class Crupier implements Runnable {
                                 + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]));
                     }
                 } catch (Exception ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
                 i++;
             }
 
-            Logger.getLogger(Crupier.class.getName()).log(Level.INFO,
+            LOGGER.log(Level.INFO,
                     "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance_float));
 
             try {
                 Files.writeString(Paths.get(Init.CORONA_DIR + "/balance_temp"), String.join("@", balance_float));
             } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             try {
@@ -3988,7 +4101,7 @@ public class Crupier implements Runnable {
                 statement.close();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -4005,7 +4118,7 @@ public class Crupier implements Runnable {
                 try {
                     jugadores.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8")));
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -4051,7 +4164,7 @@ public class Crupier implements Runnable {
                 statement.close();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -4084,7 +4197,7 @@ public class Crupier implements Runnable {
                 statement.close();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -4106,7 +4219,7 @@ public class Crupier implements Runnable {
                 statement.close();
 
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         }
     }
@@ -4155,9 +4268,9 @@ public class Crupier implements Runnable {
 
                 sqlite_id_game = statement.getGeneratedKeys().getInt(1);
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -4177,7 +4290,7 @@ public class Crupier implements Runnable {
                     try {
                         jugadores.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8")));
                     } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -4209,7 +4322,7 @@ public class Crupier implements Runnable {
 
                 sqlite_id_hand = statement.getGeneratedKeys().getInt(1);
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             if (this.conta_mano == 1) {
@@ -4533,7 +4646,7 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    GameFrame.getInstance().getRegistro().print("⚠️ [ZERO-TRUST] Fast Consensus Timeout. Forcing advancement.");
+                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.fast_consensus_timeout"));
                     this.hand_verification = false;
                     synchronized (this.lock_hand_verification) {
                         this.lock_hand_verification.notifyAll();
@@ -4695,7 +4808,7 @@ public class Crupier implements Runnable {
                 this.verificarManoLocal(finalMasterKey, verifyCommand.split("#"));
             });
         } else {
-            System.err.println("❌ [ZERO-TRUST WARN] Disconnected player without Testament. Missing shares.");
+            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST WARN] Disconnected player without Testament. Missing shares.");
             this.valid_master_key = new byte[0];
             broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, false);
 
@@ -4743,14 +4856,14 @@ public class Crupier implements Runnable {
                             map.put("hand_id", hand_id != null ? hand_id : -1);
 
                         } catch (IOException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         } catch (ClassNotFoundException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         } finally {
                             try {
                                 in.close();
                             } catch (IOException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
                         }
 
@@ -4779,7 +4892,7 @@ public class Crupier implements Runnable {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -4821,7 +4934,7 @@ public class Crupier implements Runnable {
                                     ? new String(Base64.getDecoder().decode(partes[3]), "UTF-8")
                                     : "";
                         } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
 
                     } else {
@@ -4848,7 +4961,7 @@ public class Crupier implements Runnable {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -4907,7 +5020,7 @@ public class Crupier implements Runnable {
 
                     // 0=yes, 1=no, 2=cancel
                     if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                            Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"),
+                            Translator.translate("game.forzamos_reset_socket"),
                             new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
                             GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
@@ -4929,19 +5042,19 @@ public class Crupier implements Runnable {
                                         "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick,
                                         false);
                             } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
                         }
                     }
 
                 }
             } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             } finally {
                 try {
                     out.close();
                 } catch (IOException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -5000,7 +5113,7 @@ public class Crupier implements Runnable {
 
                     // 0=yes, 1=no, 2=cancel
                     if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                            Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"),
+                            Translator.translate("game.forzamos_reset_socket"),
                             new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
                         for (String nick : pendientes) {
                             GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
@@ -5021,7 +5134,7 @@ public class Crupier implements Runnable {
                                         "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick,
                                         false);
                             } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
 
                         }
@@ -5029,7 +5142,7 @@ public class Crupier implements Runnable {
 
                 }
             } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         } while (!pendientes.isEmpty() && !timeout);
@@ -5071,7 +5184,7 @@ public class Crupier implements Runnable {
             int[] a = new int[]{0};
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
-                        Translator.translate("SE HA RECIBIDO UN INFORME ANTICHEAT DE [") + suspicious
+                        Translator.translate("radar.se_ha_recibido_un_informe") + suspicious
                         + Translator.translate(
                                 "]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."),
                         new ImageIcon(Init.class.getResource("/images/shield.png")));
@@ -5080,8 +5193,8 @@ public class Crupier implements Runnable {
 
                 if (jugador.getRadar_dialog() != null
                         && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("INFORME ANTICHEAT DE [") + suspicious
-                                + Translator.translate("] DISPONIBLE\n\n¿Quieres verlo?"),
+                                Translator.translate("radar.informe_anticheat_de_2") + suspicious
+                                + Translator.translate("ui.disponible_quieres_verlo_2"),
                                 new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0
                         && !isFin_de_la_transmision()) {
 
@@ -5103,8 +5216,8 @@ public class Crupier implements Runnable {
                     jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance(), false, path, timestamp));
 
                     if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                            Translator.translate("INFORME ANTICHEAT DE [") + suspicious
-                            + Translator.translate("] DISPONIBLE\n\n¿Quieres verlo?"),
+                            Translator.translate("radar.informe_anticheat_de_2") + suspicious
+                            + Translator.translate("ui.disponible_quieres_verlo_2"),
                             new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0) {
 
                         jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
@@ -5113,7 +5226,7 @@ public class Crupier implements Runnable {
                 });
                 jugador.setRadar_checking(false);
             } catch (IOException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         });
 
@@ -5229,7 +5342,7 @@ public class Crupier implements Runnable {
                         }
 
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
 
                 }
@@ -5375,7 +5488,7 @@ public class Crupier implements Runnable {
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
             });
-            GameFrame.getInstance().getRegistro().print("⚠️ [ZERO-TRUST ALERT] Invalid MAC on community cards. Possible manipulation.");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.invalid_mac"));
         }
         return cards;
     }
@@ -5546,7 +5659,7 @@ public class Crupier implements Runnable {
 
     private ArrayList<Player> rondaApuestas(int street, ArrayList<Player> resisten) {
 
-        Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "[HAND {0}] ({1})",
+        LOGGER.log(Level.INFO, "[HAND {0}] ({1})",
                 new Object[]{String.valueOf(getMano()), STREETS[street - 1]});
 
         disableAllPlayersTimeout();
@@ -5572,7 +5685,7 @@ public class Crupier implements Runnable {
             // =================================================================
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(Translator.translate("[ZERO-TRUST] DECRYPTING STREET..."));
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(Translator.translate("zero_trust.decrypting_street"));
                 GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
             });
             // =================================================================
@@ -5598,7 +5711,7 @@ public class Crupier implements Runnable {
             });
 
             actualizarContadoresTapete();
-            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "UNCOVER COM CARDS");
+            LOGGER.log(Level.INFO, "UNCOVER COM CARDS");
             destaparCartaComunitaria(street, resisten);
         }
 
@@ -5675,7 +5788,7 @@ public class Crupier implements Runnable {
                 }
 
                 float old_player_bet = current_player.getBet();
-                Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "Read DECISION from -> {0}", current_player.getNickname());
+                LOGGER.log(Level.INFO, "Read DECISION from -> {0}", current_player.getNickname());
 
                 if (current_player.isActivo() && current_player.getDecision() != Player.FOLD && current_player.getDecision() != Player.ALLIN) {
 
@@ -5837,7 +5950,7 @@ public class Crupier implements Runnable {
                                             ? p.getPanoptes_private_key()
                                             : java.security.MessageDigest.getInstance("SHA-256").digest(current_player.getNickname().getBytes("UTF-8"));
                                 } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    LOGGER.log(Level.SEVERE, null, ex);
                                 }
                                 cryptoPacket = Panoptes.getInstance().chainCommitBotAction(decision, (float) action[1], botPriv);
                                 actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
@@ -5846,8 +5959,8 @@ public class Crupier implements Runnable {
                                     cryptoPacket = Base64.getDecoder().decode(actionPacketB64);
                                     boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
                                     if (!validSignature) {
-                                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
-                                        GameFrame.getInstance().getRegistro().print("⚠️ [ZERO-TRUST] Action rejected (Invalid signature) -> " + current_player.getNickname());
+                                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
+                                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.action_rejected_invalid_signature", current_player.getNickname()));
                                     }
                                 }
                             }
@@ -5956,7 +6069,7 @@ public class Crupier implements Runnable {
                         this.sqlNewAction(current_player);
                     } else if (GameFrame.getInstance().isPartida_local()) {
                         if (this.sqlCheckGenuineRecoverAction(current_player)) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.INFO, "RECOVER ACTION OK");
+                            LOGGER.log(Level.INFO, "RECOVER ACTION OK");
                         }
                     }
                 }
@@ -6118,11 +6231,11 @@ public class Crupier implements Runnable {
                         Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
                 stats_registro[i++] = p.getNickname() + " (" + Card.collection2String(p.getHoleCards())
-                        + Translator.translate(")   MULTIVERSO(") + stats[0] + Translator.translate(") -> GANA: ")
+                        + Translator.translate("ui.multiverso") + stats[0] + Translator.translate("ui.gana")
                         + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2)
-                        + Translator.translate("%   PIERDE: ")
+                        + Translator.translate("ui.pierde")
                         + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2)
-                        + Translator.translate("%   EMPATA: ")
+                        + Translator.translate("ui.empata")
                         + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: "
                         + Helpers.floatClean((float) jugadas.get(p).getFuerza(), 2) + "%)";
             }
@@ -6155,7 +6268,7 @@ public class Crupier implements Runnable {
                     try {
                         lock_rabbit.wait(1000);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -6184,7 +6297,7 @@ public class Crupier implements Runnable {
                         GameFrame.getInstance().getJugadores().get(j).getNickname().getBytes("UTF-8")) + "|"
                         + GameFrame.getInstance().getJugadores().get(j).getNickname() + "\n";
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         }
 
@@ -6283,7 +6396,7 @@ public class Crupier implements Runnable {
                                             nick,
                                             false);
                                 } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    LOGGER.log(Level.SEVERE, null, ex);
                                 }
                             }
                         }
@@ -6294,7 +6407,7 @@ public class Crupier implements Runnable {
 
                         // 0=yes, 1=no, 2=cancel
                         if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("¿FORZAMOS RESET del socket de los usuarios que no responden?"),
+                                Translator.translate("game.forzamos_reset_socket"),
                                 new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
 
                             if (!nick2player.isEmpty()) {
@@ -6328,7 +6441,7 @@ public class Crupier implements Runnable {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -6424,7 +6537,7 @@ public class Crupier implements Runnable {
                     big_blind_pos = permutadoNick2Pos(new_big_blind);
 
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
             } else {
@@ -6525,7 +6638,7 @@ public class Crupier implements Runnable {
                         dealer_pos = permutadoNick2Pos(new_dealer);
 
                     } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
 
                 }
@@ -6581,7 +6694,7 @@ public class Crupier implements Runnable {
                         + (doblar_ciegas ? "#1" : "#0");
 
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             broadcastGAMECommandFromServer(comando, null);
@@ -6699,7 +6812,7 @@ public class Crupier implements Runnable {
                 statement.setInt(3, this.sqlite_id_game);
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -6719,7 +6832,7 @@ public class Crupier implements Runnable {
                 statement.setInt(2, this.sqlite_id_game);
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -6743,7 +6856,7 @@ public class Crupier implements Runnable {
 
                 ret = rs.getString("players");
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return ret;
@@ -6766,7 +6879,7 @@ public class Crupier implements Runnable {
 
                 statement.executeUpdate();
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
         }
@@ -6846,7 +6959,7 @@ public class Crupier implements Runnable {
                     // Recuperamos el balance
                     if (Files.exists(Paths.get(Init.CORONA_DIR + "/balance")) && Helpers.mostrarMensajeInformativoSINO(
                             GameFrame.getInstance(),
-                            "SE HA ENCONTRADO UN FICHERO DE RECUPERACIÓN DE BALANCE DE EMERGENCIA. ¿QUIERES USARLO?",
+                            Translator.translate("ui.se_ha_encontrado_un_fichero"),
                             new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
 
                         try {
@@ -6859,12 +6972,12 @@ public class Crupier implements Runnable {
 
                             map.put("forced_balance", true);
 
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, "Balance recuperado forzado");
+                            LOGGER.log(Level.WARNING, "Balance recuperado forzado");
 
-                            Logger.getLogger(Crupier.class.getName()).log(Level.WARNING, balance);
+                            LOGGER.log(Level.WARNING, balance);
 
                         } catch (Exception ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
 
                     } else {
@@ -6897,7 +7010,7 @@ public class Crupier implements Runnable {
                 }
 
             } catch (SQLException | UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return map;
@@ -6930,7 +7043,7 @@ public class Crupier implements Runnable {
                 map.put("sb", rs.getString("sb"));
                 map.put("bb", rs.getString("bb"));
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return map;
@@ -6980,7 +7093,7 @@ public class Crupier implements Runnable {
                 }
 
             } catch (UnsupportedEncodingException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
         }
 
@@ -7066,7 +7179,7 @@ public class Crupier implements Runnable {
                     byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 48);
                     crypto_replay_queue.add(signature);
                 }
-                GameFrame.getInstance().getRegistro().print("✔️ [ZERO-TRUST] Replay queue sincronizada (" + crypto_replay_queue.size() + " firmas).");
+                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 48));
             } else if (GameFrame.getInstance().isPartida_local()) {
                 loadCryptoActionsToQueue();
             }
@@ -7091,7 +7204,7 @@ public class Crupier implements Runnable {
             }
 
         } catch (IOException ex) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
     }
 
@@ -7125,7 +7238,7 @@ public class Crupier implements Runnable {
                 try {
                     command += "#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
                 } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -7166,7 +7279,7 @@ public class Crupier implements Runnable {
                                 try {
                                     permutados[i] = new String(Base64.getDecoder().decode(partes[i + 4]), "UTF-8");
                                 } catch (UnsupportedEncodingException ex) {
-                                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                    LOGGER.log(Level.SEVERE, null, ex);
                                 }
                             }
                         } else {
@@ -7195,7 +7308,7 @@ public class Crupier implements Runnable {
                             try {
                                 this.received_commands.wait(WAIT_QUEUES);
                             } catch (InterruptedException ex) {
-                                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                                LOGGER.log(Level.SEVERE, null, ex);
                             }
                         }
                     }
@@ -7205,7 +7318,7 @@ public class Crupier implements Runnable {
 
         }
 
-        String sitios = "Sorteo de sitios:";
+        String sitios = Translator.translate("ui.sorteo_de_sitios");
 
         for (String nick : permutados) {
 
@@ -7295,7 +7408,7 @@ public class Crupier implements Runnable {
                         "misc/uncover.wav", 1, -1);
 
             } catch (Exception ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             } finally {
                 // Even if the animation crashes, we MUST logically flip the card 
                 // otherwise Hand evaluation crashes later.
@@ -7472,7 +7585,7 @@ public class Crupier implements Runnable {
                                     + jugador.getHoleCard1().toShortString() + "#"
                                     + jugador.getHoleCard2().toShortString();
                         } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
                 }
@@ -7543,13 +7656,13 @@ public class Crupier implements Runnable {
                 float ganancia = Helpers.floatClean(Helpers.floatClean(jugador.getStack()) + Helpers.floatClean(jugador.getPagar())) - Helpers.floatClean(jugador.getBuyin());
                 String ganancia_msg = "";
                 if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                    ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                    ganancia_msg += Translator.translate("ui.pierde_2") + Helpers.float2String(ganancia * -1f);
                 } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                    ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                    ganancia_msg += Translator.translate("ui.gana_4") + Helpers.float2String(ganancia);
                 } else {
-                    ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                    ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
                 }
-                GameFrame.getInstance().getRegistro().print(jugador.getNickname() + " " + Translator.translate("ABANDONA LA TIMBA") + " -> " + ganancia_msg);
+                GameFrame.getInstance().getRegistro().print(jugador.getNickname() + " " + Translator.translate("game.abandona_la_timba_2") + " -> " + ganancia_msg);
                 exit++;
             }
         }
@@ -7643,7 +7756,7 @@ public class Crupier implements Runnable {
                     }
 
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -7741,7 +7854,7 @@ public class Crupier implements Runnable {
 
                 ret = rs.getInt("id");
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return ret;
@@ -7769,7 +7882,7 @@ public class Crupier implements Runnable {
 
                 ret = rs.getInt("hand_id");
             } catch (SQLException ex) {
-                Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             return ret;
@@ -7796,7 +7909,7 @@ public class Crupier implements Runnable {
 
                     ret = rs.getString("ugi");
                 } catch (SQLException ex) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                    LOGGER.log(Level.SEVERE, null, ex);
                 }
 
                 return ret;
@@ -7861,7 +7974,7 @@ public class Crupier implements Runnable {
                     if (!Panoptes.getInstance().sessionLoad(sessionBlob)) {
                         throw new Exception("El motor C rechazó el archivo de sesión (MAC o HWID inválidos).");
                     }
-                    System.out.println("✔️ [ZERO-TRUST V61] Clave de sesión restaurada con éxito.");
+                    LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_restored", true));
                 } else {
                     throw new Exception("No se encontró el archivo de sesión para recuperar.");
                 }
@@ -7872,14 +7985,14 @@ public class Crupier implements Runnable {
                 byte[] sessionBlob = Panoptes.getInstance().sessionInitialize();
                 if (sessionBlob != null && sessionBlob.length == 48) {
                     java.nio.file.Files.write(sessionFile.toPath(), sessionBlob);
-                    System.out.println("✔️ [ZERO-TRUST V61] Nueva sesión generada y anclada al disco.");
+                    LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_generated", true));
                 } else {
                     throw new Exception("Fallo al inicializar la sesión nativa.");
                 }
             }
         } catch (Exception e) {
-            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "[ZERO-TRUST] CRITICAL SESSION ERROR", e);
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), "ERROR CRÍTICO: Fallo criptográfico en la Bóveda de Sesión.\nNo se puede garantizar la integridad de la partida.");
+            LOGGER.log(Level.SEVERE, Translator.translate("zero_trust.critical_session_error", true), e);
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.critical_vault_failure"));
             System.exit(1);
         }
         // =========================================================
@@ -7903,7 +8016,7 @@ public class Crupier implements Runnable {
         }
 
         Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Sorteando sitios..."));
+            GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("ui.sorteando_sitios"));
         });
 
         this.nicks_permutados = sortearSitios();
@@ -7922,7 +8035,7 @@ public class Crupier implements Runnable {
         });
 
         Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("Timba en curso"));
+            GameFrame.getInstance().getSala_espera().getStatus().setText(Translator.translate("game.timba_en_curso"));
             GameFrame.getInstance().getSala_espera().getTts_warning().setVisible(true);
             GameFrame.getInstance().getSala_espera().getChat_notifications().setVisible(true);
             GameFrame.getInstance().getSala_espera().getBarra().setVisible(false);
@@ -7947,7 +8060,7 @@ public class Crupier implements Runnable {
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
                         auditorCuentas();
-                        GameFrame.getInstance().getRegistro().print(this.big_blind_nick + Translator.translate(" es la CIEGA GRANDE (") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + Translator.translate(" es la CIEGA PEQUEÑA (") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + Translator.translate(" es el DEALER"));
+                        GameFrame.getInstance().getRegistro().print(this.big_blind_nick + " " + Translator.translate("blinds.es_la_ciega_grande") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + " " + Translator.translate("blinds.es_la_ciega_pequena") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + " " + Translator.translate("ui.es_el_dealer"));
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
 
@@ -8012,7 +8125,7 @@ public class Crupier implements Runnable {
                                     requestShowdownKeys(new ArrayList<Player>());
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
+                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                     Helpers.GUIRun(() -> {
                                         setPotBackground(Color.RED);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
@@ -8031,14 +8144,14 @@ public class Crupier implements Runnable {
                                     requestShowdownKeys(new ArrayList<Player>());
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                    resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("GANAS") : Translator.translate("GANA"));
+                                    resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
                                     if (resisten.get(0) != GameFrame.getInstance().getLocalPlayer()) {
                                         resisten.get(0).getHoleCard1().desenfocar();
                                         resisten.get(0).getHoleCard2().desenfocar();
                                     }
                                     resisten.get(0).pagar(this.bote.getTotal() + this.bote_sobrante, null);
                                     this.beneficio_bote_principal = this.bote.getTotal() + this.bote_sobrante - this.bote.getBet();
-                                    GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate(" GANA BOTE (") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate(") SIN TENER QUE MOSTRAR"));
+                                    GameFrame.getInstance().getRegistro().print(resisten.get(0).getNickname() + Translator.translate("game.gana_bote") + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                     Helpers.GUIRun(() -> {
                                         setPotBackground(Color.GREEN);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
@@ -8094,7 +8207,7 @@ public class Crupier implements Runnable {
                                             jugadas.remove(ganador);
                                             ganador.pagar(cantidad_pagar_ganador[0], null);
                                             this.bote_total -= cantidad_pagar_ganador[0];
-                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                             unganador = ganador;
                                             jugada_ganadora = jugada.getValue();
                                         }
@@ -8109,7 +8222,7 @@ public class Crupier implements Runnable {
                                             Player perdedor = entry.getKey();
                                             badbeat = badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
                                         this.showdown(jugadas, ganadores);
@@ -8147,7 +8260,7 @@ public class Crupier implements Runnable {
                                             ganador.pagar(cantidad_pagar_ganador[0], 1);
                                             this.bote_total -= cantidad_pagar_ganador[0];
                                             jugada = entry.getValue();
-                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_principal") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                             unganador = ganador;
                                             jugada_ganadora = jugada.getValue();
                                         }
@@ -8162,7 +8275,7 @@ public class Crupier implements Runnable {
                                             Player perdedor = entry.getKey();
                                             badbeat = badbeat(perdedor, unganador);
                                             perdedores.put(perdedor, entry.getValue());
-                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE PRINCIPAL (") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                            GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate("game.pierde_bote_principal") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
                                         this.showdown(jugadas, ganadores);
@@ -8175,7 +8288,7 @@ public class Crupier implements Runnable {
                                                 bote_tapete = bote_tapete + " + #" + String.valueOf(conta_bote_secundario) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
                                                 current_pot.getPlayers().get(0).pagar(current_pot.getTotal(), conta_bote_secundario);
                                                 this.bote_total -= current_pot.getTotal();
-                                                GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + Translator.translate(" RECUPERA BOTE (SOBRANTE) SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
+                                                GameFrame.getInstance().getRegistro().print(current_pot.getPlayers().get(0).getNickname() + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
                                                 this.sqlUpdateShowdownPay(current_pot.getPlayers().get(0));
                                             } else {
                                                 jugadas = this.calcularJugadas(current_pot.getPlayers());
@@ -8188,13 +8301,13 @@ public class Crupier implements Runnable {
                                                     ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
                                                     this.bote_total -= cantidad_pagar_ganador[0];
                                                     Hand jugada = entry.getValue();
-                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate(") GANA BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                     this.sqlUpdateShowdownPay(ganador);
                                                 }
                                                 for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
                                                     Player perdedor = entry.getKey();
                                                     perdedores.put(perdedor, entry.getValue());
-                                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate(" (---) PIERDE BOTE SECUNDARIO #") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
+                                                    GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + Translator.translate("game.pierde_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                                 }
                                             }
                                             current_pot = current_pot.getSidePot();
@@ -8359,8 +8472,8 @@ public class Crupier implements Runnable {
                 }
             } catch (Exception ex) {
                 if (!fin_de_la_transmision) {
-                    Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, "CRUPIER FATAL ERROR", ex);
-                    Helpers.mostrarMensajeError(GameFrame.getInstance(), "CRUPIER FATAL ERROR");
+                    LOGGER.log(Level.SEVERE, "CRUPIER FATAL ERROR", ex);
+                    Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.crupier_fatal"));
                     System.exit(1);
                 }
             }
@@ -8484,7 +8597,7 @@ public class Crupier implements Runnable {
                             this.sendGAMECommandToServer(comando);
                         }
                     } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
                 } else {
                     try {
@@ -8502,7 +8615,7 @@ public class Crupier implements Runnable {
                             this.sendGAMECommandToServer(comando);
                         }
                     } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
 
                     if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
@@ -8514,7 +8627,7 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getLocalPlayer().setSpectator(null);
 
                     GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
-                            + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+                            + Translator.translate("player.te_quedas_de_espectador"));
                 }
 
             } else {
@@ -8547,7 +8660,7 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getLocalPlayer().setSpectator(null);
 
                 GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
-                        + Translator.translate(" -> TE QUEDAS DE ESPECTADOR"));
+                        + Translator.translate("player.te_quedas_de_espectador"));
             }
 
         }
@@ -8564,7 +8677,7 @@ public class Crupier implements Runnable {
                             && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
                         int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("¿RECOMPRA? -> ") + jugador.getNickname(),
+                                Translator.translate("rebuy.recompra") + jugador.getNickname(),
                                 new ImageIcon(getClass().getResource("/images/pot.png")));
 
                         rebuy_players.remove(jugador.getNickname());
@@ -8579,7 +8692,7 @@ public class Crupier implements Runnable {
                             this.broadcastGAMECommandFromServer(comando, null);
 
                         } catch (UnsupportedEncodingException ex) {
-                            Logger.getLogger(Crupier.class.getName()).log(Level.SEVERE, null, ex);
+                            LOGGER.log(Level.SEVERE, null, ex);
                         }
 
                         if (res != 0) {
@@ -8607,7 +8720,7 @@ public class Crupier implements Runnable {
             // significa que se desconectó a lo bestia y la Master Key saltó a SKIPPED.
             // Como es matemáticamente IMPOSIBLE saber sus cartas, su mano se declara MUERTA (Muck).
             if (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty() || jugador.getHoleCard1().getValor().equals("null")) {
-                System.out.println("⚠️ [MUCK] " + jugador.getNickname() + " no pudo revelar sus cartas por desconexión. Bote perdido.");
+                LOGGER.log(Level.WARNING, "⚠️ [MUCK] {0} could not reveal cards due to disconnection. Pot lost.", jugador.getNickname());
                 continue; // Al no meterlo en el mapa 'jugadas', el motor lo ignora para el premio.
             }
 
@@ -9049,7 +9162,7 @@ public class Crupier implements Runnable {
                 fos.getFD().sync();
             }
         } catch (Exception e) {
-            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "[ZERO-TRUST] Fallo al escribir log binario.", e);
+            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, Translator.translate("zero_trust.write_binary_log_failure"), e);
         }
     }
 
@@ -9057,7 +9170,7 @@ public class Crupier implements Runnable {
         crypto_replay_queue.clear();
         java.io.File logFile = new java.io.File(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin");
         if (!logFile.exists()) {
-            GameFrame.getInstance().getRegistro().print("⚠️ [ZERO-TRUST] No hay log binario previo para esta mano.");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.no_binary_log"));
             return;
         }
         try (java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.FileInputStream(logFile))) {
@@ -9073,9 +9186,9 @@ public class Crupier implements Runnable {
                     break; // Fin del archivo alcanzado de forma segura
                 }
             }
-            GameFrame.getInstance().getRegistro().print("✔️ [ZERO-TRUST] Log binario cargado en memoria (" + count + " firmas listas para Replay Sincronizado).");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.binary_log_loaded", count));
         } catch (Exception e) {
-            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "[ZERO-TRUST] Fallo al leer log binario.", e);
+            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, Translator.translate("zero_trust.read_binary_log_failure"), e);
         }
     }
 }

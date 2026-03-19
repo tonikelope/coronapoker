@@ -46,7 +46,7 @@ public class Reconnect2ServerDialog extends JDialog {
 
         Helpers.GUIRun(() -> {
             getIp_port().setEnabled(true);
-            getYes().setText(Translator.translate("RECONECTAR"));
+            getYes().setText(Translator.translate("conn.reconectar"));
             getYes().setEnabled(true);
             getStatus().setEnabled(true);
             getStatus2().setEnabled(true);
@@ -144,6 +144,7 @@ public class Reconnect2ServerDialog extends JDialog {
         status.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status.setText("SE PERDIÓ LA CONEXIÓN CON EL SERVIDOR");
+        status.putClientProperty("i18n.key", "conn.has_perdido_la_conexion_con");
         status.setDoubleBuffered(true);
 
         ip_port.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
@@ -155,6 +156,7 @@ public class Reconnect2ServerDialog extends JDialog {
         yes.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         yes.setForeground(new java.awt.Color(255, 255, 255));
         yes.setText("RECONECTAR");
+        yes.putClientProperty("i18n.key", "conn.reconectar");
         yes.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         yes.setDoubleBuffered(true);
         yes.addActionListener(new java.awt.event.ActionListener() {
@@ -168,12 +170,14 @@ public class Reconnect2ServerDialog extends JDialog {
         status2.setFont(new java.awt.Font("Dialog", 2, 16)); // NOI18N
         status2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status2.setText("(Comprueba si la dirección o el puerto han cambiado antes de reconectar)");
+        status2.putClientProperty("i18n.key", "conn.comprueba_direccion_puerto");
         status2.setDoubleBuffered(true);
 
         exit_button.setBackground(new java.awt.Color(255, 0, 0));
         exit_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         exit_button.setForeground(new java.awt.Color(255, 255, 255));
         exit_button.setText("SALIR DEL JUEGO");
+        exit_button.putClientProperty("i18n.key", "game.salir_de_la_timba_2");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         exit_button.setDoubleBuffered(true);
         exit_button.setFocusable(false);
@@ -242,7 +246,7 @@ public class Reconnect2ServerDialog extends JDialog {
         this.status.setEnabled(false);
         this.status2.setEnabled(false);
         this.yes.setEnabled(false);
-        this.yes.setText(Translator.translate("Reconectando..."));
+        this.yes.setText(Translator.translate("conn.reconectando"));
         this.barra.setVisible(true);
         this.reconectar = true;
         pack();

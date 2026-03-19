@@ -65,7 +65,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     public TapeteFastButtons() {
 
         initComponents();
-        botones = new Object[][]{{chat, "chat.png", "Chat rápido"}, {image, "image.png", "Enviar imagen"}, {compact, "compact.png", "Vista compacta"}, {zoom_in, "zoom_in.png", "Aumentar zoom"}, {zoom_reset, "zoom_reset.png", "Reset zoom"}, {zoom_out, "zoom_out.png", "Reducir zoom"}, {fullscreen, "fullscreen.png", "Pantalla completa"}, {log, "log.png", "Registro"}, {rebuy, "rebuy.png", "Recomprar"}};
+        botones = new Object[][]{{chat, "chat.png", "chat.chat_rapido"}, {image, "image.png", "chat.enviar_imagen"}, {compact, "compact.png", "view.vista_compacta"}, {zoom_in, "zoom_in.png", "view.aumentar_zoom"}, {zoom_reset, "zoom_reset.png", "view.reset_zoom"}, {zoom_out, "zoom_out.png", "view.reducir_zoom"}, {fullscreen, "fullscreen.png", "view.pantalla_completa"}, {log, "log.png", "log.registro"}, {rebuy, "rebuy.png", "rebuy.recomprar"}};
 
         for (Object[] b : botones) {
             Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));

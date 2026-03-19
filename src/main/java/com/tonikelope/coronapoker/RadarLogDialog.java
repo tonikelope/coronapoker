@@ -97,7 +97,7 @@ public class RadarLogDialog extends JDialog {
         if (vm) {
             jLabel1.setBackground(Color.red);
             jLabel1.setForeground(Color.WHITE);
-            jLabel1.setText("AVISO: ESTE USUARIO PARECE ESTAR EJECUTANDO CORONAPOKER DENTRO DE UNA MÁQUINA VIRTUAL, LO QUE RESTA UTILIDAD A ESTE INFORME Y ES BASTANTE SOSPECHOSO.");
+            jLabel1.setText(Translator.translate("ui.aviso_este_usuario_parece_estar"));
         }
 
         Helpers.translateComponents(this, false);
@@ -138,6 +138,7 @@ public class RadarLogDialog extends JDialog {
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("ATENCIÓN: toda esta información debe ser revisada y contrastada manualmente para concluir si el jugador ha hecho trampas.");
+        jLabel1.putClientProperty("i18n.key", "radar.atencion_toda_esta_informacion_debe");
         jLabel1.setDoubleBuffered(true);
         jLabel1.setOpaque(true);
 

@@ -134,7 +134,7 @@ public class RebuyDialog extends JDialog {
         rebuy_spinner = new javax.swing.JSpinner();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
-        setTitle("RECOMPRAR");
+        Helpers.setTranslatedTitle(this, "rebuy.recomprar_3");
         setModal(true);
         setUndecorated(true);
         setResizable(false);
@@ -156,6 +156,7 @@ public class RebuyDialog extends JDialog {
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         jLabel1.setText("RECOMPRAR");
+        jLabel1.putClientProperty("i18n.key", "rebuy.recomprar_3");
         jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
 
@@ -163,6 +164,7 @@ public class RebuyDialog extends JDialog {
         ok_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.setText("Aceptar");
+        ok_button.putClientProperty("i18n.key", "ui.aceptar");
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ok_button.setDoubleBuffered(true);
         ok_button.addActionListener(new java.awt.event.ActionListener() {
@@ -173,6 +175,7 @@ public class RebuyDialog extends JDialog {
 
         cancel_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         cancel_button.setText("Cancelar");
+        cancel_button.putClientProperty("i18n.key", "ui.cancelar_2");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         cancel_button.setDoubleBuffered(true);
         cancel_button.addActionListener(new java.awt.event.ActionListener() {

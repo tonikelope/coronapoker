@@ -156,7 +156,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                             }
                                         } else {
                                             Helpers.GUIRun(() -> {
-                                                label.setText(Translator.translate("IMAGEN NO INSERTABLE"));
+                                                label.setText(Translator.translate("ui.imagen_no_insertable"));
                                                 label.setIcon(new ImageIcon(getClass().getResource("/images/emoji_chat/95.png")));
                                                 label.setBackground(Color.RED);
                                                 label.setForeground(Color.white);

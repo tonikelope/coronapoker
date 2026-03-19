@@ -245,7 +245,7 @@ public class ChatImageDialog extends JDialog {
                                             break;
                                         case KeyEvent.VK_BACK_SPACE:
                                             label.setBorder(new LineBorder(Color.RED, 5));
-                                            if (Helpers.mostrarMensajeInformativoSINO(ChatImageDialog.this, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+                                            if (Helpers.mostrarMensajeInformativoSINO(ChatImageDialog.this, Translator.translate("chat.eliminar_esta_imagen_del_historial"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
                                                 Helpers.threadRun(() -> {
                                                     synchronized (LOAD_IMAGES_LOCK) {
                                                         if (!ChatImageDialog.this.exit) {
@@ -284,7 +284,7 @@ public class ChatImageDialog extends JDialog {
                                         ChatImageDialog.this.send_buttonActionPerformed(null);
                                     } else if (SwingUtilities.isRightMouseButton(e)) {
                                         label.setBorder(new LineBorder(Color.RED, 5));
-                                        if (Helpers.mostrarMensajeInformativoSINO(ChatImageDialog.this, "¿ELIMINAR ESTA IMAGEN DEL HISTORIAL?", new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+                                        if (Helpers.mostrarMensajeInformativoSINO(ChatImageDialog.this, Translator.translate("chat.eliminar_esta_imagen_del_historial"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
                                             Helpers.threadRun(() -> {
                                                 synchronized (LOAD_IMAGES_LOCK) {
                                                     if (!exit) {
@@ -572,6 +572,7 @@ public class ChatImageDialog extends JDialog {
         send_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         send_button.setForeground(new java.awt.Color(255, 255, 255));
         send_button.setText("Enviar");
+        send_button.putClientProperty("i18n.key", "ui.enviar");
         send_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         send_button.setDoubleBuffered(true);
         send_button.setFocusable(false);
@@ -584,6 +585,7 @@ public class ChatImageDialog extends JDialog {
         jLabel2.setFont(new java.awt.Font("Dialog", 2, 12)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.");
+        jLabel2.putClientProperty("i18n.key", "ui.nota_tambien_puedes_buscar_desde");
         jLabel2.setDoubleBuffered(true);
         jLabel2.setFocusable(false);
 
@@ -617,6 +619,7 @@ public class ChatImageDialog extends JDialog {
         );
 
         auto_recibir_checkbox.setText("Añadir imágenes recibidas al historial");
+        auto_recibir_checkbox.putClientProperty("i18n.key", "chat.anadir_imagenes_recibidas_al_historial");
         auto_recibir_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         auto_recibir_checkbox.setDoubleBuffered(true);
         auto_recibir_checkbox.setFocusable(false);
@@ -629,6 +632,7 @@ public class ChatImageDialog extends JDialog {
         clear_button.setBackground(new java.awt.Color(255, 0, 0));
         clear_button.setForeground(new java.awt.Color(255, 255, 255));
         clear_button.setText("Borrar historial");
+        clear_button.putClientProperty("i18n.key", "chat.borrar_historial");
         clear_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         clear_button.setDoubleBuffered(true);
         clear_button.setFocusable(false);
@@ -716,7 +720,7 @@ public class ChatImageDialog extends JDialog {
 
             // Safe atomic read
             if (ANTI_FLOOD_WAIT.get() > 0) {
-                Helpers.mostrarMensajeError(ChatImageDialog.this, "ESPERA UN POCO");
+                Helpers.mostrarMensajeError(ChatImageDialog.this, Translator.translate("ui.espera_un_poco"));
 
                 if (!ChatImageDialog.this.image_url.isEnabled()) {
                     ChatImageDialog.this.image_url.setText("");
@@ -786,11 +790,11 @@ public class ChatImageDialog extends JDialog {
                                     ChatImageDialog.this.image_url.setText("");
                                 });
                             } else {
-                                Helpers.mostrarMensajeError(ChatImageDialog.this, "ERROR: LA IMAGEN NO ES VÁLIDA");
+                                Helpers.mostrarMensajeError(ChatImageDialog.this, Translator.translate("error.error_la_imagen_no_es"));
                             }
                         } catch (MalformedURLException ex) {
                             Logger.getLogger(ChatImageDialog.class.getName()).log(Level.SEVERE, null, ex);
-                            Helpers.mostrarMensajeError(ChatImageDialog.this, "ERROR: LA IMAGEN NO ES VÁLIDA");
+                            Helpers.mostrarMensajeError(ChatImageDialog.this, Translator.translate("error.error_la_imagen_no_es"));
                         }
                         Helpers.GUIRun(() -> {
                             ChatImageDialog.this.barra.setVisible(false);

@@ -51,8 +51,10 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Desktop;
+import java.awt.Dialog;
 import java.awt.Font;
 import java.awt.FontFormatException;
+import java.awt.Frame;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
@@ -154,11 +156,10 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
 import javax.swing.Action;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -169,10 +170,8 @@ import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
-import javax.swing.JRadioButton;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollBar;
 import javax.swing.JTable;
@@ -241,6 +240,8 @@ import java.util.Base64;
  */
 public class Helpers {
 
+    private static final Logger LOGGER = Logger.getLogger(Helpers.class.getName());
+
     public static volatile ThreadPoolExecutor THREAD_POOL;
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
@@ -286,7 +287,7 @@ public class Helpers {
             POKER_QUOTES_EN = (ArrayList<String>) getResourceTextFileAsList("quotes_EN.txt");
 
             if (POKER_QUOTES_ES != null && POKER_QUOTES_ES.size() != POKER_QUOTES_EN.size()) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.WARNING, "QUOTES FILES LENGTH DO NOT MATCH. TRUNCATING...");
+                LOGGER.log(Level.WARNING, "QUOTES FILES LENGTH DO NOT MATCH. TRUNCATING...");
 
                 final int size = Math.min(POKER_QUOTES_ES.size(), POKER_QUOTES_EN.size());
                 POKER_QUOTES_ES = (ArrayList<String>) POKER_QUOTES_ES.subList(0, size);
@@ -294,7 +295,7 @@ public class Helpers {
             }
 
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
 
     }
@@ -484,14 +485,14 @@ public class Helpers {
 
         if (threadIds != null) {
 
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "*************DEADLOCK DETECTED!*************");
+            LOGGER.log(Level.SEVERE, "*************DEADLOCK DETECTED!*************");
 
             for (long threadId : threadIds) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Thread ID: {0} {1}", new Object[]{threadId, threadMXBean.getThreadInfo(threadId).getThreadName()});
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "{0} {1}", new Object[]{threadMXBean.getThreadInfo(threadId).getLockName(), threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName()});
+                LOGGER.log(Level.SEVERE, "Thread ID: {0} {1}", new Object[]{threadId, threadMXBean.getThreadInfo(threadId).getThreadName()});
+                LOGGER.log(Level.SEVERE, "{0} {1}", new Object[]{threadMXBean.getThreadInfo(threadId).getLockName(), threadMXBean.getThreadInfo(threadId).getLockInfo().getClassName()});
             }
 
-            Helpers.mostrarMensajeError(null, "FATAL ERROR: DEADLOCK");
+            Helpers.mostrarMensajeError(null, Translator.translate("error.fatal_deadlock"));
             System.exit(1);
         }
     }
@@ -538,7 +539,7 @@ public class Helpers {
                     sb.append(line).append("\n");
                 }
             } catch (Exception ex) {
-                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.SEVERE, null, ex);
             }
 
             process.waitFor();
@@ -1121,23 +1122,14 @@ public class Helpers {
 
     public static void setCoronaLocale() {
 
-        if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
-            Locale locale = new Locale("es", "ES");
-            Locale.setDefault(locale);
-            JOptionPane.setDefaultLocale(locale);
-            UIManager.put("OptionPane.cancelButtonText", "Cancelar");
-            UIManager.put("OptionPane.noButtonText", "No");
-            UIManager.put("OptionPane.okButtonText", "Vale");
-            UIManager.put("OptionPane.yesButtonText", "Sí");
-        } else {
-            Locale locale = new Locale("en", "EN");
-            Locale.setDefault(locale);
-            JOptionPane.setDefaultLocale(locale);
-            UIManager.put("OptionPane.cancelButtonText", "Cancel");
-            UIManager.put("OptionPane.noButtonText", "No");
-            UIManager.put("OptionPane.okButtonText", "OK");
-            UIManager.put("OptionPane.yesButtonText", "Yes");
-        }
+        Locale locale = new Locale(GameFrame.LANGUAGE, GameFrame.LANGUAGE.toUpperCase());
+        Locale.setDefault(locale);
+        JOptionPane.setDefaultLocale(locale);
+
+        UIManager.put("OptionPane.cancelButtonText", Translator.translate("ui.option_pane.cancel"));
+        UIManager.put("OptionPane.noButtonText", Translator.translate("ui.option_pane.no"));
+        UIManager.put("OptionPane.okButtonText", Translator.translate("ui.option_pane.ok"));
+        UIManager.put("OptionPane.yesButtonText", Translator.translate("ui.option_pane.yes"));
 
     }
 
@@ -1304,7 +1296,7 @@ public class Helpers {
 
         THREAD_POOL.shutdown();
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
+        LOGGER.log(Level.INFO, "THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
 
         THREAD_POOL.shutdownNow();
     }
@@ -1312,7 +1304,7 @@ public class Helpers {
     public static void CREATE_THREAD_POOL() {
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, "********** NEW THREAD-POOL CREATED. LET'S GO! **********");
+        LOGGER.log(Level.INFO, "********** NEW THREAD-POOL CREATED. LET'S GO! **********");
     }
 
     public static boolean UPnPClose(int port) {
@@ -1457,7 +1449,7 @@ public class Helpers {
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.execute("VACUUM");
         } catch (SQLException ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
 
     }
@@ -1714,9 +1706,9 @@ public class Helpers {
                     fos.flush();
                 }
 
-                System.out.println("[SCREENSHOT] Tactical screenshot saved: " + destFile.getName());
+                LOGGER.log(Level.INFO, "Tactical screenshot saved: {0}", destFile.getName());
             } else {
-                System.err.println("[SCREENSHOT] Tactical screenshot failed. (Window minimized/hidden or 5-second cooldown active)");
+                LOGGER.log(Level.WARNING, "Tactical screenshot failed. (Window minimized/hidden or 5-second cooldown active)");
             }
 
         } catch (Exception ex) {
@@ -1901,85 +1893,80 @@ public class Helpers {
         return DatatypeConverter.parseHexBinary(s);
     }
 
+    public static void setTranslatedText(Component c, String key) {
+        if (c == null || key == null) {
+            return;
+        }
+
+        String translated = Translator.translate(key);
+        if (c instanceof JLabel) {
+            ((JLabel) c).setText(translated);
+        } else if (c instanceof AbstractButton) {
+            ((AbstractButton) c).setText(translated);
+        } else if (c instanceof JTextField) {
+            ((JTextField) c).setText(translated);
+        } else if (c instanceof Frame) {
+            ((Frame) c).setTitle(translated);
+        } else if (c instanceof Dialog) {
+            ((Dialog) c).setTitle(translated);
+        }
+
+        if (c instanceof JComponent) {
+            ((JComponent) c).putClientProperty("i18n.key", key);
+        }
+    }
+
+    public static void setTranslatedToolTip(Component c, String key) {
+        if (c instanceof JComponent && key != null) {
+            JComponent jc = (JComponent) c;
+            jc.setToolTipText(Translator.translate(key));
+            jc.putClientProperty("i18n.tooltip_key", key);
+        }
+    }
+
     public static void translateComponents(final Component component, boolean force) {
-
         if (component != null) {
+            if (component instanceof JComponent) {
+                JComponent jc = (JComponent) component;
+                String key = (String) jc.getClientProperty("i18n.key");
+                String tooltipKey = (String) jc.getClientProperty("i18n.tooltip_key");
 
-            if (component instanceof JLabel) {
-
-                ((JLabel) component).setText(Translator.translate(((JLabel) component).getText(), force));
-                ((JLabel) component).setToolTipText(Translator.translate(((JLabel) component).getToolTipText(), force));
-
-            } else if (component instanceof JTextField) {
-
-                ((JTextField) component).setText(Translator.translate(((JTextField) component).getText(), force));
-                ((JTextField) component).setToolTipText(Translator.translate(((JTextField) component).getToolTipText(), force));
-
-            } else if (component instanceof JButton) {
-
-                ((JButton) component).setText(Translator.translate(((JButton) component).getText(), force));
-                ((JButton) component).setToolTipText(Translator.translate(((JButton) component).getToolTipText(), force));
-
-            } else if (component instanceof JRadioButton) {
-
-                ((JRadioButton) component).setText(Translator.translate(((JRadioButton) component).getText(), force));
-                ((JRadioButton) component).setToolTipText(Translator.translate(((JRadioButton) component).getToolTipText(), force));
-
-            } else if (component instanceof JCheckBox) {
-
-                ((JCheckBox) component).setText(Translator.translate(((JCheckBox) component).getText(), force));
-                ((JCheckBox) component).setToolTipText(Translator.translate(((JCheckBox) component).getToolTipText(), force));
-
-            } else if ((component instanceof JMenuItem) && !(component instanceof JMenu)) {
-
-                ((JMenuItem) component).setText(Translator.translate(((JMenuItem) component).getText(), force));
-                ((JMenuItem) component).setToolTipText(Translator.translate(((JMenuItem) component).getToolTipText(), force));
-
-            } else if (component instanceof JMenu) {
-
-                for (Component child : ((JMenu) component).getMenuComponents()) {
-                    if (child instanceof JMenuItem) {
-                        translateComponents(child, force);
+                if (key != null) {
+                    if (jc instanceof JLabel) {
+                        ((JLabel) jc).setText(Translator.translate(key, force));
+                    } else if (jc instanceof AbstractButton) {
+                        ((AbstractButton) jc).setText(Translator.translate(key, force));
+                    } else if (jc instanceof JTextField) {
+                        ((JTextField) jc).setText(Translator.translate(key, force));
                     }
                 }
 
-                ((JMenu) component).setText(Translator.translate(((JMenu) component).getText(), force));
+                if (tooltipKey != null) {
+                    jc.setToolTipText(Translator.translate(tooltipKey, force));
+                }
 
+                // Handle TitledBorder separately
+                if (jc.getBorder() instanceof TitledBorder) {
+                    TitledBorder border = (TitledBorder) jc.getBorder();
+                    String borderKey = (String) jc.getClientProperty("i18n.border_key");
+                    if (borderKey != null) {
+                        border.setTitle(Translator.translate(borderKey, force));
+                    }
+                }
+            }
+
+            if (component instanceof JMenu) {
+                JMenu menu = (JMenu) component;
+                for (Component child : menu.getMenuComponents()) {
+                    translateComponents(child, force);
+                }
             } else if (component instanceof JComboBox) {
-
-                int selected = ((JComboBox) component).getSelectedIndex();
-
-                DefaultComboBoxModel model = (DefaultComboBoxModel) ((JComboBox) component).getModel();
-
-                Object[] elements = new Object[((JComboBox) component).getItemCount()];
-
-                int size = ((JComboBox) component).getItemCount();
-
-                for (int i = 0; i < size; i++) {
-                    if (model.getElementAt(i) instanceof String) {
-                        elements[i] = Translator.translate((String) model.getElementAt(i), force);
-                    } else if (model.getElementAt(i) instanceof JLabel) {
-                        elements[i] = model.getElementAt(i);
-                        ((JLabel) elements[i]).setText(Translator.translate(((JLabel) elements[i]).getText(), force));
-                        ((JLabel) elements[i]).setToolTipText(Translator.translate(((JLabel) elements[i]).getToolTipText(), force));
-                    }
-                }
-
-                ((JComboBox) component).setModel(new DefaultComboBoxModel(elements));
-
-                ((JComboBox) component).setSelectedIndex(selected);
-
+                // JComboBox items are tricky because they can be anything.
+                // If they are translateable strings, they should probably be handled differently.
+                // For now, let's keep it simple or skip if we don't have a reliable way.
             } else if (component instanceof Container) {
-
                 for (Component child : ((Container) component).getComponents()) {
-                    if (child instanceof Container) {
-
-                        translateComponents(child, force);
-                    }
-                }
-
-                if ((component instanceof JPanel) && (((JComponent) component).getBorder() instanceof TitledBorder)) {
-                    ((TitledBorder) ((JComponent) component).getBorder()).setTitle(Translator.translate(((TitledBorder) ((JComponent) component).getBorder()).getTitle(), force));
+                    translateComponents(child, force);
                 }
             }
         }
@@ -2217,7 +2204,7 @@ public class Helpers {
             }
             return ip;
         } catch (Exception ex) {
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.SEVERE, null, ex);
         }
 
         return null;
@@ -2349,7 +2336,7 @@ public class Helpers {
 
     public static byte[] getRandomOrgBytes(int nbytes) {
 
-        Logger.getLogger(Helpers.class.getName()).log(Level.INFO, () -> "Getting TRUE RANDOM [" + String.valueOf(nbytes) + "] BYTES SEED from Random.org...");
+        LOGGER.log(Level.INFO, () -> "Getting TRUE RANDOM [" + String.valueOf(nbytes) + "] BYTES SEED from Random.org...");
 
         byte[] seed = new byte[nbytes];
 
@@ -2380,7 +2367,7 @@ public class Helpers {
 
         } catch (Exception ex) {
             // Log failure and proceed to local fallback
-            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Network random source failed, using fallback", ex);
+            LOGGER.log(Level.SEVERE, "Network random source failed, using fallback", ex);
 
             // Fallback using your existing CSPRNG_GENERATOR logic
             if (Helpers.CSPRNG_GENERATOR != null) {
@@ -2532,7 +2519,7 @@ public class Helpers {
                     Helpers.threadRun(new Runnable() {
                         public void run() {
 
-                            int res = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance() != null ? GameFrame.getInstance() : null, "Parece que hubo algún problema con RANDOM.ORG (se usará el CSPRNG en su lugar)\n¿Quieres desactivar RANDOM.ORG para el resto de la partida?");
+                            int res = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance() != null ? GameFrame.getInstance() : null, Translator.translate("msg.randomorg_problem"));
 
                             if (res == 0) {
 
@@ -2808,14 +2795,14 @@ public class Helpers {
 
                 if (new_version_major != null && (Integer.parseInt(current_version_major) < Integer.parseInt(new_version_major) || (Integer.parseInt(current_version_major) == Integer.parseInt(new_version_major) && Integer.parseInt(current_version_minor) < Integer.parseInt(new_version_minor)))) {
 
-                    if (Helpers.mostrarMensajeInformativoSINO(container, "HAY UNA VERSIÓN NUEVA DEL MOD. ¿QUIERES ACTUALIZAR?", new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
+                    if (Helpers.mostrarMensajeInformativoSINO(container, Translator.translate("msg.mod_update_available"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
 
                         if (container.equals(VENTANA_INICIO)) {
                             Helpers.GUIRun(new Runnable() {
                                 @Override
                                 public void run() {
 
-                                    VENTANA_INICIO.getUpdate_label().setText(Translator.translate("PREPARANDO ACTUALIZACIÓN..."));
+                                    VENTANA_INICIO.getUpdate_label().setText(Translator.translate("update.preparando_actualizacion"));
                                 }
                             });
                         }
@@ -2839,20 +2826,20 @@ public class Helpers {
 
                                 System.exit(0);
                             } else {
-                                Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR AL DESCARGAR EL ACTUALIZADOR)");
+                                Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
 
                             }
 
                         } catch (Exception ex) {
                             Logger.getLogger(Init.class
                                     .getName()).log(Level.SEVERE, null, ex);
-                            Helpers.mostrarMensajeError(VENTANA_INICIO, "NO SE HA PODIDO ACTUALIZAR (ERROR INESPERADO)");
+                            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
                         }
 
                         Helpers.openBrowserURL(update_info.get(1));
                     }
                 } else if (!container.equals(VENTANA_INICIO)) {
-                    Helpers.mostrarMensajeInformativo(container, "YA TIENES LA ÚLTIMA VERSIÓN DEL MOD", new ImageIcon(Init.class.getResource("/images/avatar_default.png")));
+                    Helpers.mostrarMensajeInformativo(container, Translator.translate("msg.mod_already_latest"), new ImageIcon(Init.class.getResource("/images/avatar_default.png")));
 
                 }
             } catch (Exception ex) {
@@ -3307,7 +3294,7 @@ public class Helpers {
         for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
 
             if (metaData.getColumnLabel(columnIndex).equals("TIEMPO")) {
-                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")) + " " + Translator.translate("(SEGUNDOS)"));
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")) + " " + Translator.translate("ui.segundos"));
             } else {
                 tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")));
             }
@@ -3610,7 +3597,7 @@ public class Helpers {
 
             UndoManager undoManager = new UndoManager();
             txtField.getDocument().addUndoableEditListener(undoManager);
-            Action undoAction = new AbstractAction(Translator.translate("Deshacer")) {
+            Action undoAction = new AbstractAction(Translator.translate("ui.deshacer")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     if (undoManager.canUndo() && txtField.isEditable()) {
@@ -3619,25 +3606,25 @@ public class Helpers {
                     }
                 }
             };
-            Action copyAction = new AbstractAction(Translator.translate("Copiar")) {
+            Action copyAction = new AbstractAction(Translator.translate("ui.copiar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtField.copy();
                 }
             };
-            Action cutAction = new AbstractAction(Translator.translate("Cortar")) {
+            Action cutAction = new AbstractAction(Translator.translate("ui.cortar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtField.cut();
                 }
             };
-            Action pasteAction = new AbstractAction(Translator.translate("Pegar")) {
+            Action pasteAction = new AbstractAction(Translator.translate("ui.pegar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtField.paste();
                 }
             };
-            Action selectAllAction = new AbstractAction(Translator.translate("Seleccionar todo")) {
+            Action selectAllAction = new AbstractAction(Translator.translate("ui.seleccionar_todo")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtField.selectAll();
@@ -3680,7 +3667,7 @@ public class Helpers {
             JPopupMenu popup = new JPopupMenu();
             UndoManager undoManager = new UndoManager();
             txtArea.getDocument().addUndoableEditListener(undoManager);
-            Action undoAction = new AbstractAction(Translator.translate("Deshacer")) {
+            Action undoAction = new AbstractAction(Translator.translate("ui.deshacer")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     if (undoManager.canUndo() && txtArea.isEditable()) {
@@ -3689,25 +3676,25 @@ public class Helpers {
                     }
                 }
             };
-            Action copyAction = new AbstractAction(Translator.translate("Copiar")) {
+            Action copyAction = new AbstractAction(Translator.translate("ui.copiar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.copy();
                 }
             };
-            Action cutAction = new AbstractAction(Translator.translate("Cortar")) {
+            Action cutAction = new AbstractAction(Translator.translate("ui.cortar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.cut();
                 }
             };
-            Action pasteAction = new AbstractAction(Translator.translate("Pegar")) {
+            Action pasteAction = new AbstractAction(Translator.translate("ui.pegar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.paste();
                 }
             };
-            Action selectAllAction = new AbstractAction(Translator.translate("Seleccionar todo")) {
+            Action selectAllAction = new AbstractAction(Translator.translate("ui.seleccionar_todo")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.selectAll();
@@ -3748,7 +3735,7 @@ public class Helpers {
             JPopupMenu popup = new JPopupMenu();
             UndoManager undoManager = new UndoManager();
             txtArea.getDocument().addUndoableEditListener(undoManager);
-            Action undoAction = new AbstractAction(Translator.translate("Deshacer")) {
+            Action undoAction = new AbstractAction(Translator.translate("ui.deshacer")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     if (undoManager.canUndo() && txtArea.isEditable()) {
@@ -3757,25 +3744,25 @@ public class Helpers {
                     }
                 }
             };
-            Action copyAction = new AbstractAction(Translator.translate("Copiar")) {
+            Action copyAction = new AbstractAction(Translator.translate("ui.copiar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.copy();
                 }
             };
-            Action cutAction = new AbstractAction(Translator.translate("Cortar")) {
+            Action cutAction = new AbstractAction(Translator.translate("ui.cortar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.cut();
                 }
             };
-            Action pasteAction = new AbstractAction(Translator.translate("Pegar")) {
+            Action pasteAction = new AbstractAction(Translator.translate("ui.pegar")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.paste();
                 }
             };
-            Action selectAllAction = new AbstractAction(Translator.translate("Seleccionar todo")) {
+            Action selectAllAction = new AbstractAction(Translator.translate("ui.seleccionar_todo")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     txtArea.selectAll();
@@ -3854,7 +3841,7 @@ public class Helpers {
 
         private static void generarBarajasMenu() {
 
-            BARAJAS_MENU = new JMenu("Barajas");
+            BARAJAS_MENU = new JMenu(Translator.translate("menu.barajas"));
             BARAJAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
 
             HashMap hm = new HashMap<String, Object[]>();
@@ -3899,35 +3886,35 @@ public class Helpers {
 
         private static void generarTapetesMenu() {
 
-            Action tapeteVerdeAction = new AbstractAction("Verde") {
+            Action tapeteVerdeAction = new AbstractAction(Translator.translate("menu.verde")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_tapete_verde().doClick();
                 }
             };
 
-            Action tapeteAzulAction = new AbstractAction("Azul") {
+            Action tapeteAzulAction = new AbstractAction(Translator.translate("menu.azul")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_tapete_azul().doClick();
                 }
             };
 
-            Action tapeteRojoAction = new AbstractAction("Rojo") {
+            Action tapeteRojoAction = new AbstractAction(Translator.translate("menu.rojo")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_tapete_rojo().doClick();
                 }
             };
 
-            Action tapeteNegroAction = new AbstractAction("Negro") {
+            Action tapeteNegroAction = new AbstractAction(Translator.translate("menu.negro")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_tapete_negro().doClick();
                 }
             };
 
-            Action tapeteMaderaAction = new AbstractAction("Sin tapete") {
+            Action tapeteMaderaAction = new AbstractAction(Translator.translate("menu.sin_tapete")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_tapete_madera().doClick();
@@ -3938,7 +3925,7 @@ public class Helpers {
             TAPETE_ROJO = new LeftClickRadioButtonMenuItem(tapeteRojoAction);
             TAPETE_NEGRO = new LeftClickRadioButtonMenuItem(tapeteNegroAction);
             TAPETE_MADERA = new LeftClickRadioButtonMenuItem(tapeteMaderaAction);
-            TAPETES_MENU = new JMenu("Tapetes");
+            TAPETES_MENU = new JMenu(Translator.translate("menu.tapetes"));
             TAPETES_MENU.add(TAPETE_VERDE);
             TAPETES_MENU.add(TAPETE_AZUL);
             TAPETES_MENU.add(TAPETE_ROJO);
@@ -3988,7 +3975,7 @@ public class Helpers {
             RABBIT_SB = new LeftClickRadioButtonMenuItem(rabbitSbAction);
             RABBIT_BB = new LeftClickRadioButtonMenuItem(rabbitBbAction);
 
-            RABBIT_MENU = new JMenu("Rabbit Hunting");
+            RABBIT_MENU = new JMenu(Translator.translate("menu.rabbit_hunting"));
             RABBIT_MENU.add(RABBIT_OFF);
             RABBIT_MENU.add(RABBIT_FREE);
             RABBIT_MENU.add(RABBIT_SB);
@@ -4015,196 +4002,196 @@ public class Helpers {
 
                 generarRabbitMenu();
 
-                Action shortcutsAction = new AbstractAction("Ver atajos") {
+                Action shortcutsAction = new AbstractAction(Translator.translate("menu.ver_atajos")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getShortcuts_menu().doClick();
                     }
                 };
 
-                Action haltAction = new AbstractAction("DETENER LA TIMBA (ALT+H)") {
+                Action haltAction = new AbstractAction(Translator.translate("menu.detener_timba")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getHalt_game_menu().doClick();
                     }
                 };
 
-                Action exitAction = new AbstractAction("SALIR (ALT+F4)") {
+                Action exitAction = new AbstractAction(Translator.translate("menu.salir")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getExit_menu().doClick();
                     }
                 };
 
-                Action lastHandAction = new AbstractAction("Última mano") {
+                Action lastHandAction = new AbstractAction(Translator.translate("menu.ultima_mano")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getLast_hand_menu().doClick();
                     }
                 };
 
-                Action maxHandsAction = new AbstractAction("Límite de manos") {
+                Action maxHandsAction = new AbstractAction(Translator.translate("menu.limite_manos")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getMax_hands_menu().doClick();
                     }
                 };
 
-                Action soundAction = new AbstractAction("SONIDOS (ALT+S)") {
+                Action soundAction = new AbstractAction(Translator.translate("menu.sonidos")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getSonidos_menu().doClick();
                     }
                 };
 
-                Action comentariosAction = new AbstractAction("Sonidos de coña") {
+                Action comentariosAction = new AbstractAction(Translator.translate("menu.sonidos_cona")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getSonidos_chorra_menu().doClick();
                     }
                 };
 
-                Action musicaAction = new AbstractAction("Música ambiental") {
+                Action musicaAction = new AbstractAction(Translator.translate("menu.musica_ambiental")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAscensor_menu().doClick();
                     }
                 };
 
-                Action TTSAction = new AbstractAction("TTS") {
+                Action TTSAction = new AbstractAction(Translator.translate("menu.tts")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getTts_menu().doClick();
                     }
                 };
 
-                Action chatAction = new AbstractAction("Ver chat (ALT+C)") {
+                Action chatAction = new AbstractAction(Translator.translate("menu.ver_chat")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getChat_menu().doClick();
                     }
                 };
 
-                Action registroAction = new AbstractAction("Ver registro (ALT+R)") {
+                Action registroAction = new AbstractAction(Translator.translate("menu.ver_registro")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getRegistro_menu().doClick();
                     }
                 };
 
-                Action rulesAction = new AbstractAction("Reglas de Robert") {
+                Action rulesAction = new AbstractAction(Translator.translate("menu.reglas_robert")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getRobert_rules_menu().doClick();
                     }
                 };
 
-                Action jugadasAction = new AbstractAction("Generador de jugadas") {
+                Action jugadasAction = new AbstractAction(Translator.translate("menu.generador_jugadas")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getJugadas_menu().doClick();
                     }
                 };
 
-                Action autofullscreenAction = new AbstractAction("Activar pantalla completa al empezar") {
+                Action autofullscreenAction = new AbstractAction(Translator.translate("menu.activar_pantalla_completa_al_empezar")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAuto_fullscreen_menu().doClick();
                     }
                 };
 
-                Action fullscreenAction = new AbstractAction("PANTALLA COMPLETA (ALT+F)") {
+                Action fullscreenAction = new AbstractAction(Translator.translate("menu.pantalla_completa")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getFull_screen_menu().doClick();
                     }
                 };
 
-                Action zoominAction = new AbstractAction("Aumentar zoom (CTRL++)") {
+                Action zoominAction = new AbstractAction(Translator.translate("menu.aumentar_zoom")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getZoom_menu_in().doClick();
                     }
                 };
 
-                Action zoomoutAction = new AbstractAction("Reducir zoom (CTRL+-)") {
+                Action zoomoutAction = new AbstractAction(Translator.translate("menu.reducir_zoom")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getZoom_menu_out().doClick();
                     }
                 };
 
-                Action zoomresetAction = new AbstractAction("Reset zoom (CTRL+0)") {
+                Action zoomresetAction = new AbstractAction(Translator.translate("menu.reset_zoom")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getZoom_menu_reset().doClick();
                     }
                 };
 
-                Action zoomautoAction = new AbstractAction("Auto ajustar zoom") {
+                Action zoomautoAction = new AbstractAction(Translator.translate("menu.auto_ajustar_zoom")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAuto_adjust_zoom_menu().doClick();
                     }
                 };
 
-                Action compactAction = new AbstractAction("VISTA COMPACTA (ALT+X)") {
+                Action compactAction = new AbstractAction(Translator.translate("menu.vista_compacta")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getCompact_menu().doClick();
                     }
                 };
 
-                Action relojAction = new AbstractAction("Mostrar reloj (ALT+W)") {
+                Action relojAction = new AbstractAction(Translator.translate("menu.mostrar_reloj")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getTime_menu().doClick();
                     }
                 };
 
-                Action rebuyNowAction = new AbstractAction("RECOMPRAR (siguiente mano)") {
+                Action rebuyNowAction = new AbstractAction(Translator.translate("menu.recomprar_siguiente_mano")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getRebuy_now_menu().doClick();
                     }
                 };
 
-                Action iwtsthRuleAction = new AbstractAction("Regla IWTSTH") {
+                Action iwtsthRuleAction = new AbstractAction(Translator.translate("menu.regla_iwtsth")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getIwtsth_rule_menu().doClick();
                     }
                 };
 
-                Action confirmAction = new AbstractAction("Confirmar todas las acciones") {
+                Action confirmAction = new AbstractAction(Translator.translate("menu.confirmar_todas_las_acciones")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getConfirmar_menu().doClick();
                     }
                 };
 
-                Action cinematicasAction = new AbstractAction("Cinemáticas") {
+                Action cinematicasAction = new AbstractAction(Translator.translate("menu.cinematicas")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getMenu_cinematicas().doClick();
                     }
                 };
 
-                Action animacionAction = new AbstractAction("Animación de cartas") {
+                Action animacionAction = new AbstractAction(Translator.translate("menu.animacion_cartas")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAnimacion_menu().doClick();
                     }
                 };
 
-                Action chatimageAction = new AbstractAction("Imágenes del chat en el juego") {
+                Action chatimageAction = new AbstractAction(Translator.translate("menu.imagenes_chat_juego")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getChat_image_menu().doClick();
                     }
                 };
 
-                Action autoactAction = new AbstractAction("Botones AUTO") {
+                Action autoactAction = new AbstractAction(Translator.translate("menu.botones_auto")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAuto_action_menu().doClick();

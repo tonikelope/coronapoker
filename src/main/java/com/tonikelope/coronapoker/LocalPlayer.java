@@ -81,12 +81,25 @@ import javax.swing.border.LineBorder;
  */
 public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
-    public static final String[][] ACTIONS_LABELS_ES = new String[][]{new String[]{"NO VAS"}, new String[]{"PASAS", "VAS"}, new String[]{"APUESTAS", "SUBES"}, new String[]{"ALL IN"}};
-    public static final String[][] ACTIONS_LABELS_EN = new String[][]{new String[]{"FOLD"}, new String[]{"CHECK", "CALL"}, new String[]{"BET", "RAISE"}, new String[]{"ALL IN"}};
-    public static String[][] ACTIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? ACTIONS_LABELS_ES : ACTIONS_LABELS_EN;
-    public static final String[] POSITIONS_LABELS_ES = new String[]{"CP", "CG", "DE"};
-    public static final String[] POSITIONS_LABELS_EN = new String[]{"SB", "BB", "DE"};
-    public static String[] POSITIONS_LABELS = GameFrame.LANGUAGE.equals("es") ? POSITIONS_LABELS_ES : POSITIONS_LABELS_EN;
+    public static String[][] getActionsLabels() {
+        return new String[][]{
+            new String[]{Translator.translate("action.label.fold")},
+            new String[]{Translator.translate("action.label.check"), Translator.translate("action.label.call")},
+            new String[]{Translator.translate("action.label.bet"), Translator.translate("action.label.raise")},
+            new String[]{Translator.translate("action.label.allin")}
+        };
+    }
+
+    public static String[] getPositionsLabels() {
+        return new String[]{
+            Translator.translate("position.small_blind"),
+            Translator.translate("position.big_blind"),
+            Translator.translate("position.dealer")
+        };
+    }
+
+    public static String[][] ACTIONS_LABELS = getActionsLabels();
+    public static String[] POSITIONS_LABELS = getPositionsLabels();
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 550;
     public static final int MIN_ACTION_HEIGHT = 45;
@@ -686,9 +699,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             if (parguela) {
-                player_allin_button.setText(Translator.translate("MOSTRAR") + " (" + parguela_counter + ")");
+                player_allin_button.setText(Translator.translate("action.mostrar") + " (" + parguela_counter + ")");
             } else {
-                player_allin_button.setText(Translator.translate("MOSTRAR"));
+                player_allin_button.setText(Translator.translate("action.mostrar"));
 
             }
             player_allin_button.setIcon(null);
@@ -761,7 +774,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
                 Helpers.GUIRun(() -> {
                     if (isSpectator()) {
-                        player_action.setText(msg != null ? msg : Translator.translate("ESPECTADOR"));
+                        player_action.setText(msg != null ? msg : Translator.translate("player.espectador"));
                         setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                     }
 
@@ -868,7 +881,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 holeCard2.resetearCarta();
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
-                player_action.setText(Translator.translate("ABANDONAS LA TIMBA"));
+                player_action.setText(Translator.translate("game.abandonas_la_timba"));
                 setPlayerActionIcon("exit.png");
                 player_action.setVisible(true);
                 chip_label.setVisible(false);
@@ -899,7 +912,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             if (!GameFrame.getInstance().isPartida_local()) {
 
-                avatar.setToolTipText("CLICK -> AES-KEY");
+                Helpers.setTranslatedToolTip(avatar, "ui.click_aes_key");
             } else {
                 player_name.setForeground(Color.YELLOW);
                 avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
@@ -1104,7 +1117,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.stack += cantidad;
         this.buyin += cantidad;
-        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate(" RECOMPRA (") + String.valueOf(cantidad) + ")");
+        GameFrame.getInstance().getRegistro().print(this.nickname + Translator.translate("rebuy.recompra_2") + String.valueOf(cantidad) + ")");
         Audio.playWavResource("misc/cash_register.wav");
 
         if (!player_stack_click) {
@@ -1147,12 +1160,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerBorder(Color.ORANGE);
 
-                player_allin_button.setText("ALL IN");
+                player_allin_button.setText(Translator.translate("game.all_in"));
+                player_allin_button.putClientProperty("i18n.key", "game.all_in");
                 player_allin_button.setEnabled(true);
 
                 Helpers.setScaledIconButton(player_allin_button, getClass().getResource("/images/action/glasses.png"), Math.round(0.6f * player_allin_button.getHeight()), Math.round(0.6f * player_allin_button.getHeight()));
 
-                player_fold_button.setText("NO IR");
+                player_fold_button.setText(Translator.translate("player.no_ir"));
+                player_fold_button.putClientProperty("i18n.key", "player.no_ir");
                 player_fold_button.setEnabled(true);
                 player_fold_button.setBackground(Color.DARK_GRAY);
                 player_fold_button.setForeground(Color.WHITE);
@@ -1171,7 +1186,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
 
                     if (Helpers.float1DSecureCompare(0f, call_required) == 0) {
-                        player_check_button.setText("PASAR");
+                        player_check_button.setText(Translator.translate("game.pasar"));
+                        player_check_button.putClientProperty("i18n.key", "game.pasar");
                         player_check_button.setBackground(new Color(0, 130, 0));
                         player_check_button.setForeground(Color.WHITE);
 
@@ -1182,7 +1198,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_fold_button.setBackground(Color.RED);
                         player_fold_button.setForeground(Color.WHITE);
                     } else {
-                        player_check_button.setText(Translator.translate("IR") + " (+" + Helpers.float2String(call_required) + ")");
+                        player_check_button.setText(Translator.translate("ui.ir_2") + " (+" + Helpers.float2String(call_required) + ")");
                         player_check_button.setBackground(null);
                         player_check_button.setForeground(null);
                         player_fold_button.setBackground(Color.DARK_GRAY);
@@ -1212,14 +1228,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
                         spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
-                        player_bet_button.setText(Translator.translate("APOSTAR"));
+                        player_bet_button.setText(Translator.translate("action.apostar_2"));
                         player_bet_button.setBackground(Color.WHITE);
                         player_bet_button.setForeground(Color.BLACK);
 
                     } else {
                         spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
-                        player_bet_button.setText(Translator.translate((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + "SUBIR"));
+                        player_bet_button.setText(Translator.translate(GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "action.resubir" : "action.subir"));
 
                         if (GameFrame.getInstance().getCrupier().getConta_raise() > 0) {
                             player_bet_button.setBackground(RERAISE_BACK_COLOR);
@@ -1284,7 +1300,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
-                player_action.setText("HABLAS TÚ");
+                Helpers.setTranslatedText(player_action, "action.hablas_tu");
 
                 Helpers.translateComponents(botonera, false);
 
@@ -1593,13 +1609,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRunAndWait(() -> {
                 player_check_button.setBackground(null);
                 player_check_button.setForeground(null);
-                player_check_button.setText("[AUTO](+BB)");
+                Helpers.setTranslatedText(player_check_button, "action.auto_call");
                 player_check_button.setEnabled(true);
                 Helpers.setScaledIconButton(player_check_button, getClass().getResource("/images/action/up.png"), Math.round(0.6f * player_check_button.getHeight()), Math.round(0.6f * player_check_button.getHeight()));
 
                 player_fold_button.setBackground(null);
                 player_fold_button.setForeground(null);
-                player_fold_button.setText("[AUTO]");
+                Helpers.setTranslatedText(player_fold_button, "action.auto_fold");
                 player_fold_button.setEnabled(true);
                 Helpers.setScaledIconButton(player_fold_button, getClass().getResource("/images/action/down.png"), Math.round(0.6f * player_fold_button.getHeight()), Math.round(0.6f * player_fold_button.getHeight()));
 
@@ -2111,7 +2127,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
+        Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setFocusable(false);
@@ -2182,7 +2198,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
-        hands_win.setToolTipText("MANOS GANADAS");
+        Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
         hands_win.setDoubleBuffered(true);
 
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
@@ -2234,7 +2250,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_allin_button.setBackground(new java.awt.Color(0, 0, 0));
         player_allin_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_allin_button.setForeground(new java.awt.Color(255, 255, 255));
-        player_allin_button.setText("ALL IN");
+        Helpers.setTranslatedText(player_allin_button, "action.label.allin");
         player_allin_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_allin_button.setDoubleBuffered(true);
         player_allin_button.setFocusable(false);
@@ -2247,7 +2263,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_fold_button.setBackground(new java.awt.Color(255, 0, 0));
         player_fold_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_fold_button.setForeground(new java.awt.Color(255, 255, 255));
-        player_fold_button.setText("NO IR");
+        Helpers.setTranslatedText(player_fold_button, "action.label.fold");
         player_fold_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_fold_button.setDoubleBuffered(true);
         player_fold_button.setFocusable(false);
@@ -2258,7 +2274,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_check_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_check_button.setText("PASAR");
+        Helpers.setTranslatedText(player_check_button, "action.label.check");
         player_check_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_check_button.setDoubleBuffered(true);
         player_check_button.setFocusable(false);
@@ -2269,7 +2285,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_bet_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        player_bet_button.setText("APOSTAR");
+        Helpers.setTranslatedText(player_bet_button, "action.label.bet");
         player_bet_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_bet_button.setDoubleBuffered(true);
         player_bet_button.setFocusable(false);
@@ -2339,7 +2355,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_action.setText("ESCALERA DE COLOR");
+        player_action.setText("");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
@@ -2509,14 +2525,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 Hand jugada = new Hand(cartas_jugada);
                                 player_action.setForeground(Color.WHITE);
                                 setActionBackground(new Color(51, 153, 255));
-                                player_action.setText(Translator.translate(" MUESTRAS (") + jugada.getName() + ")");
+                                player_action.setText(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
                                 if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
                                     Audio.playWavResource("misc/showyourcards.wav");
 
                                 }
                                 if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
-                                    GameFrame.getInstance().getRegistro().print(nickname + Translator.translate(" MUESTRA (") + hole_cards_string + ") -> " + jugada);
+                                    GameFrame.getInstance().getRegistro().print(nickname + Translator.translate("ui.muestra_2") + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
                                 }
                                 Helpers.translateComponents(botonera, false);
                                 Helpers.translateComponents(player_action, false);
@@ -3020,7 +3036,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             player_action.setForeground(Color.WHITE);
-            player_action.setText("MUESTRA (" + jugada + ")");
+            player_action.setText(Translator.translate("ui.muestra_prefix") + jugada + Translator.translate("ui.suffix_close"));
         });
     }
 

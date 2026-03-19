@@ -51,11 +51,11 @@ public class ExitDialog extends JDialog {
         super(parent, modal);
         initComponents();
 
-        message.setText(GameFrame.getInstance().getCrupier().isForce_recover() ? "¿DETENER LA TIMBA PARA PERMITIR UNIRSE A NUEVOS JUGADORES?" : msg);
+        message.putClientProperty("i18n.key", GameFrame.getInstance().getCrupier().isForce_recover() ? Translator.translate("exit.detener_timba_para_nuevos_jugadores") : msg);
 
         if (GameFrame.getInstance().getCrupier().isForce_recover()) {
             message.setIcon(new ImageIcon(getClass().getResource("/images/stop.png")));
-            exit_button.setText("DETENER LA TIMBA");
+            exit_button.setText(Translator.translate("exit.detener_la_timba"));
             programar_parada_checkbox.setSelected(true);
         }
 
@@ -97,6 +97,7 @@ public class ExitDialog extends JDialog {
         message.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         message.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit.png"))); // NOI18N
         message.setText("¿SALIR DE LA TIMBA?");
+        message.putClientProperty("i18n.key", "exit.salir_de_la_timba_pregunta");
         message.setDoubleBuffered(true);
         message.setFocusable(false);
 
@@ -113,6 +114,7 @@ public class ExitDialog extends JDialog {
         continue_button.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         continue_button.setForeground(new java.awt.Color(255, 255, 255));
         continue_button.setText("SEGUIR JUGANDO");
+        continue_button.putClientProperty("i18n.key", "exit.seguir_jugando");
         continue_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         continue_button.setDoubleBuffered(true);
         continue_button.addActionListener(new java.awt.event.ActionListener() {
@@ -125,6 +127,7 @@ public class ExitDialog extends JDialog {
         exit_button.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         exit_button.setForeground(new java.awt.Color(255, 255, 255));
         exit_button.setText("SALIR DE LA TIMBA");
+        exit_button.putClientProperty("i18n.key", "exit.salir_de_la_timba");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         exit_button.setDoubleBuffered(true);
         exit_button.setEnabled(false);
@@ -136,6 +139,7 @@ public class ExitDialog extends JDialog {
 
         programar_parada_checkbox.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         programar_parada_checkbox.setText("Esperar a que termine la mano para salir");
+        programar_parada_checkbox.putClientProperty("i18n.key", "exit.esperar_que_termine_la_mano");
         programar_parada_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         programar_parada_checkbox.setDoubleBuffered(true);
         programar_parada_checkbox.setEnabled(false);

@@ -33,9 +33,22 @@ import java.util.HashMap;
 
 public class Hand {
 
-    public static final String[] NOMBRES_JUGADAS_ES = new String[]{"CARTA ALTA", "PAREJA", "DOBLE PAREJA", "TRÍO", "ESCALERA", "COLOR", "FULL", "PÓKER", "ESCALERA DE COLOR", "ESCALERA REAL"};
-    public static final String[] NOMBRES_JUGADAS_EN = new String[]{"HIGH CARD", "ONE PAIR", "TWO PAIR", "THREE OF A KIND", "STRAIGHT", "FLUSH", "FULL HOUSE", "FOUR OF A KIND", "STRAIGHT FLUSH", "ROYAL FLUSH"};
-    public static String[] NOMBRES_JUGADAS = GameFrame.LANGUAGE.equals("es") ? NOMBRES_JUGADAS_ES : NOMBRES_JUGADAS_EN;
+    private static final String[] HAND_KEYS = new String[]{
+        "hand.high_card", "hand.one_pair", "hand.two_pair", "hand.three_of_a_kind",
+        "hand.straight", "hand.flush", "hand.full_house", "hand.four_of_a_kind",
+        "hand.straight_flush", "hand.royal_flush"
+    };
+
+    public static String[] getNombreJugadas() {
+        String[] nombres = new String[HAND_KEYS.length];
+        for (int i = 0; i < HAND_KEYS.length; i++) {
+            nombres[i] = Translator.translate(HAND_KEYS[i]);
+        }
+        return nombres;
+    }
+
+    // Mantener para compatibilidad - se actualiza dinámicamente
+    public static String[] NOMBRES_JUGADAS = getNombreJugadas();
     public static final int CARTA_ALTA = 1;
     public static final int PAREJA = 2;
     public static final int DOBLE_PAREJA = 3;

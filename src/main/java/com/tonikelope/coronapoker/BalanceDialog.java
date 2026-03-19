@@ -75,13 +75,13 @@ public class BalanceDialog extends JDialog {
             float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
 
             if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                ganancia_msg += Translator.translate("PIERDE ") + Helpers.float2String(ganancia * -1f);
+                ganancia_msg += Translator.translate("ui.pierde_2") + Helpers.float2String(ganancia * -1f);
                 label.setForeground(Color.RED);
             } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                ganancia_msg += Translator.translate("GANA ") + Helpers.float2String(ganancia);
+                ganancia_msg += Translator.translate("ui.gana_4") + Helpers.float2String(ganancia);
                 label.setForeground(new Color(0, 130, 0));
             } else {
-                ganancia_msg += Translator.translate("NI GANA NI PIERDE");
+                ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
             }
 
             label.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
@@ -95,7 +95,7 @@ public class BalanceDialog extends JDialog {
                 label.setOpaque(true);
             }
 
-            recover_button.setText(GameFrame.getInstance().isPartida_local() ? "CONTINUAR ESTA TIMBA" : "RECONECTAR AL SERVIDOR");
+            recover_button.setText(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"));
 
             String avatar_path = GameFrame.getInstance().getNick2avatar().get(entry.getKey());
 
@@ -193,7 +193,7 @@ public class BalanceDialog extends JDialog {
         title.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         title.setForeground(new java.awt.Color(255, 255, 255));
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        title.setText("LA TIMBA HA TERMINADO");
+        title.setText(Translator.translate("game.la_timba_ha_terminado"));
         title.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         title.setDoubleBuffered(true);
         title.setFocusable(false);
@@ -221,7 +221,7 @@ public class BalanceDialog extends JDialog {
         stats_button.setBackground(new java.awt.Color(255, 102, 0));
         stats_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
-        stats_button.setText("ESTADÍSTICAS");
+        stats_button.setText(Translator.translate("ui.estadisticas"));
         stats_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         stats_button.setDoubleBuffered(true);
@@ -232,7 +232,7 @@ public class BalanceDialog extends JDialog {
         });
 
         log_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        log_button.setText("REGISTRO DE LA TIMBA");
+        log_button.setText(Translator.translate("log.registro_de_la_timba"));
         log_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         log_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         log_button.setDoubleBuffered(true);
@@ -245,7 +245,7 @@ public class BalanceDialog extends JDialog {
         menu_button.setBackground(new java.awt.Color(0, 153, 255));
         menu_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         menu_button.setForeground(new java.awt.Color(255, 255, 255));
-        menu_button.setText("MENÚ PRINCIPAL");
+        menu_button.setText(Translator.translate("ui.menu_principal"));
         menu_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         menu_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         menu_button.setDoubleBuffered(true);
@@ -258,7 +258,7 @@ public class BalanceDialog extends JDialog {
         recover_button.setBackground(new java.awt.Color(0, 130, 0));
         recover_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         recover_button.setForeground(new java.awt.Color(255, 255, 255));
-        recover_button.setText("RECONECTAR AL MISMO SERVIDOR");
+        recover_button.setText(Translator.translate("conn.reconectar_al_servidor"));
         recover_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         recover_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_button.setDoubleBuffered(true);

@@ -84,14 +84,14 @@ public class StatsDialog extends JDialog {
 
         init = true;
 
-        sqlstats.put(Translator.translate("GANANCIAS/PÉRDIDAS"), this::balance);
-        sqlstats.put(Translator.translate("TIEMPO MEDIO DE RESPUESTA"), this::tiempoMedioRespuesta);
-        sqlstats.put(Translator.translate("JUGADAS GANADORAS"), this::mejoresJugadas);
-        sqlstats.put(Translator.translate("RENDIMIENTO DE LOS JUGADORES"), this::rendimiento);
-        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL PREFLOP"), this::subidasPreflop);
-        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL FLOP"), this::subidasFlop);
-        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL TURN"), this::subidasTurn);
-        sqlstats.put(Translator.translate("% APUESTAS/SUBIDAS EN EL RIVER"), this::subidasRiver);
+        sqlstats.put(Translator.translate("ui.gananciasperdidas"), this::balance);
+        sqlstats.put(Translator.translate("ui.tiempo_medio_de_respuesta"), this::tiempoMedioRespuesta);
+        sqlstats.put(Translator.translate("ui.jugadas_ganadoras"), this::mejoresJugadas);
+        sqlstats.put(Translator.translate("stats.rendimiento_de_los_jugadores"), this::rendimiento);
+        sqlstats.put(Translator.translate("stats.apuestassubidas_en_el_preflop"), this::subidasPreflop);
+        sqlstats.put(Translator.translate("stats.apuestassubidas_en_el_flop"), this::subidasFlop);
+        sqlstats.put(Translator.translate("stats.apuestassubidas_en_el_turn"), this::subidasTurn);
+        sqlstats.put(Translator.translate("stats.apuestassubidas_en_el_river"), this::subidasRiver);
 
         initComponents();
 
@@ -112,7 +112,7 @@ public class StatsDialog extends JDialog {
         Helpers.JTextFieldRegularPopupMenu.addTo(game_textarea);
         table_panel.setVisible(false);
         hand_data_panel.setVisible(false);
-        hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
+        hand_combo.addItem(Translator.translate("game.todas_las_manos"));
         hand_combo.setVisible(false);
         game_data_panel.setVisible(false);
         res_table.setDefaultEditor(Object.class, null);
@@ -172,7 +172,7 @@ public class StatsDialog extends JDialog {
             ResultSet rs;
             if (game_combo.getSelectedIndex() > 0) {
 
-                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,BENEFICIO DESC;";
+                String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,\"ui.beneficio\" DESC;";
                 try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
                     statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
@@ -187,7 +187,7 @@ public class StatsDialog extends JDialog {
 
             } else {
 
-                String sql = "select player as JUGADOR, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val as JUGADA, (game.server || '|' || game.start) as TIMBA, hand.counter as MANO, round(showdown.profit,1) as BENEFICIO from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,BENEFICIO DESC; LIMIT 1000";
+                String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", (game.server || '|' || game.start) as \"game.timba\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,\"ui.beneficio\" DESC; LIMIT 1000";
                 try (Statement statement = Helpers.getSQLITE().createStatement()) {
                     statement.setQueryTimeout(30);
                     rs = statement.executeQuery(sql);
@@ -196,7 +196,7 @@ public class StatsDialog extends JDialog {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 Helpers.GUIRunAndWait(() -> {
-                    res_table_warning.setText(Translator.translate("Nota: se muestran las 1000 mejores jugadas ganadoras"));
+                    res_table_warning.setText(Translator.translate("ui.nota_se_muestran_las_1000"));
                     res_table_warning.setVisible(true);
                 });
 
@@ -213,9 +213,7 @@ public class StatsDialog extends JDialog {
 
         try {
             DefaultTableModel tableModel = new DefaultTableModel();
-
             ResultSetMetaData metaData = rs.getMetaData();
-
             int columnCount = metaData.getColumnCount();
 
             for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
@@ -225,65 +223,50 @@ public class StatsDialog extends JDialog {
             Object[] row = new Object[columnCount];
 
             while (rs.next()) {
-
                 for (int i = 0; i < columnCount; i++) {
                     row[i] = rs.getObject(i + 1);
 
-                    if (tableModel.getColumnName(i).equals(Translator.translate("TIMBA"))) {
-                        String timestamp = rs.getString("TIMBA").replaceAll("^.+\\|([0-9]+)$", "$1");
-                        String server = rs.getString("TIMBA").replaceAll("^(.+)\\|[0-9]+$", "$1");
+                    if (tableModel.getColumnName(i).equals(Translator.translate("game.timba"))) {
+                        // Safe fetch by index to avoid Alias issues
+                        String val = rs.getString(i + 1);
+                        String timestamp = val.replaceAll("^.+\\|([0-9]+)$", "$1");
+                        String server = val.replaceAll("^(.+)\\|[0-9]+$", "$1");
                         Timestamp ts = new Timestamp(Long.parseLong(timestamp));
                         DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
                         Date date = new Date(ts.getTime());
                         row[i] = server + " @ " + timeZoneFormat.format(date);
-                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS RECIBIDAS"))) {
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_recibidas"))) {
                         ArrayList<Card> cartas = new ArrayList<>();
                         if (row[i] != null) {
                             for (String c : ((String) row[i]).split("#")) {
-
                                 String[] partes = c.split("_");
-
                                 if (partes.length == 2) {
-
                                     Card carta = new Card(false);
-
                                     carta.actualizarValorPalo(partes[0], partes[1]);
-
                                     cartas.add(carta);
                                 }
                             }
-
                             Card.sortCollection(cartas);
                         }
-
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "*****";
 
-                    } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS JUGADA"))) {
-
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_jugada"))) {
                         ArrayList<Card> cartas = new ArrayList<>();
                         if (row[i] != null) {
                             for (String c : ((String) row[i]).split("#")) {
-
                                 String[] partes = c.split("_");
-
                                 if (partes.length == 2) {
-
                                     Card carta = new Card(false);
-
                                     carta.actualizarValorPalo(partes[0], partes[1]);
-
                                     cartas.add(carta);
                                 }
                             }
-
                         }
-
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
-                    } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
                         row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
                     }
                 }
-
                 tableModel.addRow(row);
             }
 
@@ -291,18 +274,37 @@ public class StatsDialog extends JDialog {
                 res_table.setModel(tableModel);
                 TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
                 Helpers.disableSortAllColumns(res_table, tableRowSorter);
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANO")), true);
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANO")), (Comparator<Integer>) (o1, o2) -> o1.compareTo(o2));
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), true);
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), true);
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handnameToHandValue(o1), Hand.handnameToHandValue(o2)));
-                if (Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")) != -1) {
 
-                    tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")), true);
+                // Get indexes securely
+                int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
+                int idxMano = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("game.mano_2"));
+                int idxBeneficio = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.beneficio"));
+                int idxJugada = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.jugada"));
+                int idxTimba = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("game.timba"));
 
-                    tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIMBA")), (Comparator<String>) (o1, o2) -> {
+                // Apply constraints if indices exist
+                if (idxPlayer != -1) {
+                    tableRowSorter.setSortable(idxPlayer, true);
+                }
+
+                if (idxMano != -1) {
+                    tableRowSorter.setSortable(idxMano, true);
+                    tableRowSorter.setComparator(idxMano, (Comparator<Integer>) (o1, o2) -> o1.compareTo(o2));
+                }
+
+                if (idxBeneficio != -1) {
+                    tableRowSorter.setSortable(idxBeneficio, true);
+                    tableRowSorter.setComparator(idxBeneficio, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                }
+
+                if (idxJugada != -1) {
+                    tableRowSorter.setSortable(idxJugada, true);
+                    tableRowSorter.setComparator(idxJugada, (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handnameToHandValue(o1), Hand.handnameToHandValue(o2)));
+                }
+
+                if (idxTimba != -1) {
+                    tableRowSorter.setSortable(idxTimba, true);
+                    tableRowSorter.setComparator(idxTimba, (Comparator<String>) (o1, o2) -> {
                         try {
                             return Long.compare(new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o1.split(" @ ")[1]).getTime()).getTime(), new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o2.split(" @ ")[1]).getTime()).getTime());
                         } catch (ParseException ex) {
@@ -311,13 +313,13 @@ public class StatsDialog extends JDialog {
                         return 0;
                     });
                 }
+
                 res_table.setRowSorter(tableRowSorter);
                 table_panel.setVisible(true);
             });
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
-
     }
 
     private void rendimiento() {
@@ -335,93 +337,104 @@ public class StatsDialog extends JDialog {
             ResultSet rs = null;
             Statement st = null;
             if (game_combo.getSelectedIndex() > 0) {
-
                 try {
-
-                    String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISIÓN, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and hand.id_game=? and action>=2 and round=1 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown,hand left join (select player,count(distinct id_hand) as GANADAS from showdown,hand where showdown.id_hand=hand.id and hand.id_game=? and winner=1 group by player) as tc on showdown.player=tc.player where showdown.id_hand=hand.id and hand.id_game=? group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
-
+                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_jugadas\", ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_ganadas_2\", CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS \"stats.precision\", roi||'%' AS \"stats.roi\", case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as \"stats.efectividad\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and hand.id_game=? and action>=2 and round=1 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown,hand left join (select player,count(distinct id_hand) as GANADAS from showdown,hand where showdown.id_hand=hand.id and hand.id_game=? and winner=1 group by player) as tc on showdown.player=tc.player where showdown.id_hand=hand.id and hand.id_game=? group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"stats.efectividad\" DESC";
                     st = Helpers.getSQLITE().prepareStatement(sql);
-
                     PreparedStatement statement = (PreparedStatement) st;
-
                     statement.setQueryTimeout(30);
-
                     statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
                     statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
                     statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
                     statement.setInt(4, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
                     statement.setInt(5, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
                     statement.setInt(6, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     rs = statement.executeQuery();
-
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
             } else {
-
                 try {
-
-                    String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_JUGADAS, ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS_GANADAS, CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS PRECISIÓN, roi||'%' AS ROI, case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as EFECTIVIDAD from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where action>=2 and round=1 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown left join (select player,count(distinct id_hand) as GANADAS from showdown where winner=1 group by player) as tc on showdown.player=tc.player group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by EFECTIVIDAD DESC";
-
+                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_jugadas\", ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_ganadas_2\", CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS \"stats.precision\", roi||'%' AS \"stats.roi\", case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as \"stats.efectividad\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where action>=2 and round=1 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown left join (select player,count(distinct id_hand) as GANADAS from showdown where winner=1 group by player) as tc on showdown.player=tc.player group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"stats.efectividad\" DESC";
                     st = Helpers.getSQLITE().createStatement();
-
                     st.setQueryTimeout(30);
-
                     rs = st.executeQuery(sql);
-
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
             }
-            try {
-                Helpers.resultSetToTableModel(rs, res_table);
 
-                st.close();
+            try {
+                // Parse ResultSet explicitly to build safe translation mapping
+                DefaultTableModel tableModel = new DefaultTableModel();
+                if (rs != null) {
+                    ResultSetMetaData metaData = rs.getMetaData();
+                    int columnCount = metaData.getColumnCount();
+                    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                        tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+                    }
+                    Object[] row = new Object[columnCount];
+                    while (rs.next()) {
+                        for (int i = 0; i < columnCount; i++) {
+                            row[i] = rs.getObject(i + 1);
+                        }
+                        tableModel.addRow(row);
+                    }
+                }
+
+                if (st != null) {
+                    st.close();
+                }
+
+                Helpers.GUIRunAndWait(() -> {
+                    res_table.setModel(tableModel);
+                    TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
+                    Helpers.disableSortAllColumns(res_table, tableRowSorter);
+
+                    int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
+                    int idxEfec = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.efectividad"));
+                    int idxManosJ = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.manos_jugadas"));
+                    int idxManosG = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.manos_ganadas_2"));
+                    int idxPrec = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.precision"));
+                    int idxRoi = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.roi"));
+
+                    // Avoid mapping against non-existing columns
+                    if (idxPlayer != -1) {
+                        tableRowSorter.setSortable(idxPlayer, true);
+                    }
+
+                    if (idxEfec != -1) {
+                        tableRowSorter.setSortable(idxEfec, true);
+                        tableRowSorter.setComparator(idxEfec, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                    }
+                    if (idxManosJ != -1) {
+                        tableRowSorter.setSortable(idxManosJ, true);
+                        tableRowSorter.setComparator(idxManosJ, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                    }
+                    if (idxManosG != -1) {
+                        tableRowSorter.setSortable(idxManosG, true);
+                        tableRowSorter.setComparator(idxManosG, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                    }
+                    if (idxPrec != -1) {
+                        tableRowSorter.setSortable(idxPrec, true);
+                        tableRowSorter.setComparator(idxPrec, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                    }
+                    if (idxRoi != -1) {
+                        tableRowSorter.setSortable(idxRoi, true);
+                        tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                    }
+
+                    res_table.setRowSorter(tableRowSorter);
+                    table_panel.setVisible(true);
+
+                    res_table_warning.setText(Translator.translate("stats.nota_efectividad_roi_manosjugadas_si"));
+                    res_table_warning.setVisible(true);
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
             } catch (SQLException ex) {
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-            Helpers.GUIRunAndWait(() -> {
-                TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
-
-                Helpers.disableSortAllColumns(res_table, tableRowSorter);
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFECTIVIDAD")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("EFECTIVIDAD")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS JUGADAS")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS JUGADAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS GANADAS")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS GANADAS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("PRECISIÓN")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("PRECISIÓN")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
-
-                res_table.setRowSorter(tableRowSorter);
-
-                table_panel.setVisible(true);
-
-                res_table_warning.setText(Translator.translate("Nota: EFECTIVIDAD = (ROI / MANOS_JUGADAS) si ROI >=0, si no, EFECTIVIDAD = (ROI x MANOS_JUGADAS) (la EFECTIVIDAD mínima es -1)"));
-
-                res_table_warning.setVisible(true);
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
         });
-
     }
 
     private void subidasRonda(int ronda) {
@@ -439,77 +452,90 @@ public class StatsDialog extends JDialog {
             ResultSet rs = null;
             PreparedStatement statement = null;
             if (game_combo.getSelectedIndex() > 0) {
-
                 try {
-
-                    String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and action>=2 and round=? and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
-
+                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"game.manos_3\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and action>=2 and round=? and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"game.manos_3\" DESC";
                     statement = Helpers.getSQLITE().prepareStatement(sql);
-
                     statement.setQueryTimeout(30);
-
                     statement.setInt(1, ronda);
-
                     statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     statement.setInt(4, ronda);
-
                     statement.setInt(5, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     rs = statement.executeQuery();
-
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             } else {
                 try {
-
-                    String sql = "select t1.JUGADOR, ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS MANOS from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action WHERE action>=2 and round=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by MANOS DESC";
-
+                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"game.manos_3\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action WHERE action>=2 and round=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"game.manos_3\" DESC";
                     statement = Helpers.getSQLITE().prepareStatement(sql);
-
                     statement.setQueryTimeout(30);
-
                     statement.setInt(1, ronda);
-
                     statement.setInt(2, ronda);
-
                     rs = statement.executeQuery();
-
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
             try {
-                Helpers.resultSetToTableModel(rs, res_table);
-                statement.close();
+                // Parse ResultSet into a DefaultTableModel directly to handle translations safely
+                DefaultTableModel tableModel = new DefaultTableModel();
+                if (rs != null) {
+                    ResultSetMetaData metaData = rs.getMetaData();
+                    int columnCount = metaData.getColumnCount();
+                    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                        tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+                    }
+                    Object[] row = new Object[columnCount];
+                    while (rs.next()) {
+                        for (int i = 0; i < columnCount; i++) {
+                            row[i] = rs.getObject(i + 1);
+                        }
+                        tableModel.addRow(row);
+                    }
+                }
+
+                if (statement != null) {
+                    statement.close();
+                }
+
+                Helpers.GUIRunAndWait(() -> {
+                    res_table.setModel(tableModel);
+                    TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
+
+                    Helpers.disableSortAllColumns(res_table, tableRowSorter);
+
+                    int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
+                    int idxHands = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("game.manos_3"));
+
+                    if (idxPlayer != -1) {
+                        tableRowSorter.setSortable(idxPlayer, true);
+                    }
+                    if (idxHands != -1) {
+                        tableRowSorter.setSortable(idxHands, true);
+                        tableRowSorter.setComparator(idxHands, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                    }
+
+                    res_table.setRowSorter(tableRowSorter);
+
+                    if (idxHands != -1) {
+                        res_table.getRowSorter().toggleSortOrder(idxHands);
+                        res_table.getRowSorter().toggleSortOrder(idxHands);
+                    }
+
+                    table_panel.setVisible(true);
+
+                    res_table_warning.setText(Translator.translate("stats.nota_lo_que_se_muestra"));
+
+                    res_table_warning.setVisible(true);
+                });
             } catch (SQLException ex) {
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
+
             Helpers.GUIRunAndWait(() -> {
-                TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
-
-                Helpers.disableSortAllColumns(res_table, tableRowSorter);
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
-
-                res_table.setRowSorter(tableRowSorter);
-                res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")));
-                res_table.getRowSorter().toggleSortOrder(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("MANOS")));
-                table_panel.setVisible(true);
-
-                res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el porcentaje de manos subidas en relación a las manos jugadas."));
-
-                res_table_warning.setVisible(true);
-
                 cargando.setVisible(false);
                 setEnabled(true);
             });
@@ -547,7 +573,6 @@ public class StatsDialog extends JDialog {
         setEnabled(false);
 
         if (!hand_combo.isVisible() && game_combo.getSelectedIndex() > 0) {
-
             hand_combo.setVisible(true);
             hand_combo.setSelectedIndex(0);
         }
@@ -557,7 +582,7 @@ public class StatsDialog extends JDialog {
                 ResultSet rs;
                 Statement st = null;
                 if (hand_combo.getSelectedIndex() > 0) {
-                    String sql = "SELECT player as JUGADOR, ROUND(stack, 1) as STACK, buyin as BUYIN, ROUND(stack-buyin,1) as BENEFICIO, ROUND(((stack-buyin)/(buyin))*100,0) as ROI FROM balance WHERE id_hand=? GROUP BY JUGADOR ORDER BY ROI DESC";
+                    String sql = "SELECT player as \"player.jugador\", ROUND(stack, 1) as \"stats.stack\", buyin as \"stats.buyin\", ROUND(stack-buyin,1) as \"ui.beneficio\", ROUND(((stack-buyin)/(buyin))*100,0) as \"stats.roi\" FROM balance WHERE id_hand=? GROUP BY \"player.jugador\" ORDER BY \"stats.roi\" DESC";
                     st = Helpers.getSQLITE().prepareStatement(sql);
                     PreparedStatement statement = (PreparedStatement) st;
                     statement.setQueryTimeout(30);
@@ -565,82 +590,79 @@ public class StatsDialog extends JDialog {
                     rs = statement.executeQuery();
                     if (hand_combo.isVisible() && hand_combo.getSelectedIndex() > 0) {
                         Helpers.GUIRunAndWait(() -> {
-                            res_table_warning.setText(Translator.translate("Nota: lo que se muestra es el balance general después de terminar la mano actual."));
-
+                            res_table_warning.setText(Translator.translate("game.nota_lo_que_se_muestra"));
                             res_table_warning.setVisible(true);
                         });
                     }
                 } else if (game_combo.getSelectedIndex() > 0) {
-
-                    String sql = "SELECT player as JUGADOR, ROUND(stack,1) AS STACK, buyin AS BUYIN, ROUND(stack-buyin,1) AS BENEFICIO, ROUND(((stack-buyin)/(buyin))*100,0) as ROI FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ORDER BY ROI DESC";
-
+                    String sql = "SELECT player as \"player.jugador\", ROUND(stack,1) AS \"stats.stack\", buyin AS \"stats.buyin\", ROUND(stack-buyin,1) AS \"ui.beneficio\", ROUND(((stack-buyin)/(buyin))*100,0) as \"stats.roi\" FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY \"player.jugador\" ORDER BY \"stats.roi\" DESC";
                     st = Helpers.getSQLITE().prepareStatement(sql);
-
                     PreparedStatement statement = (PreparedStatement) st;
-
                     statement.setQueryTimeout(30);
-
                     statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     rs = statement.executeQuery();
-
                 } else {
-                    String sql = "SELECT player AS JUGADOR, ROUND(SUM(stack),1) AS STACK, SUM(buyin) AS BUYIN, ROUND(SUM(stack-buyin),1) AS BENEFICIO, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as ROI from balance WHERE id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ORDER BY ROI DESC";
-
+                    String sql = "SELECT player AS \"player.jugador\", ROUND(SUM(stack),1) AS \"stats.stack\", SUM(buyin) AS \"stats.buyin\", ROUND(SUM(stack-buyin),1) AS \"ui.beneficio\", ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as \"stats.roi\" from balance WHERE id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY \"player.jugador\" ORDER BY \"stats.roi\" DESC";
                     st = Helpers.getSQLITE().createStatement();
-
                     st.setQueryTimeout(30);
-
                     rs = st.executeQuery(sql);
-
                 }
                 try {
                     DefaultTableModel tableModel = new DefaultTableModel();
                     ResultSetMetaData metaData = rs.getMetaData();
                     int columnCount = metaData.getColumnCount();
+
                     for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
                         tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
                     }
+
                     Object[] row = new Object[columnCount];
                     while (rs.next()) {
-
                         for (int i = 0; i < columnCount; i++) {
+                            // Fetch object by index to avoid 'no such column' errors caused by aliases
                             row[i] = rs.getObject(i + 1);
 
-                            if (tableModel.getColumnName(i).equals(Translator.translate("ROI"))) {
-                                row[i] = String.valueOf(rs.getFloat("ROI")) + "%";
+                            // Add percentage sign to ROI if the column matches
+                            if (tableModel.getColumnName(i).equals(Translator.translate("stats.roi"))) {
+                                row[i] = String.valueOf(row[i]) + "%";
                             }
                         }
-
                         tableModel.addRow(row);
                     }
+
                     Helpers.GUIRunAndWait(() -> {
                         res_table.setModel(tableModel);
-
                         TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
-
                         Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-                        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
+                        int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
+                        int idxBuyin = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.buyin"));
+                        int idxStack = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.stack"));
+                        int idxProfit = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.beneficio"));
+                        int idxRoi = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.roi"));
 
-                        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BUYIN")), true);
-
-                        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("STACK")), true);
-
-                        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("STACK")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-
-                        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), true);
-
-                        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-
-                        tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), true);
-
-                        tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ROI")), (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        // Safely apply sortability to prevent IndexOutOfBoundsExceptions
+                        if (idxPlayer != -1) {
+                            tableRowSorter.setSortable(idxPlayer, true);
+                        }
+                        if (idxBuyin != -1) {
+                            tableRowSorter.setSortable(idxBuyin, true);
+                        }
+                        if (idxStack != -1) {
+                            tableRowSorter.setSortable(idxStack, true);
+                            tableRowSorter.setComparator(idxStack, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                        }
+                        if (idxProfit != -1) {
+                            tableRowSorter.setSortable(idxProfit, true);
+                            tableRowSorter.setComparator(idxProfit, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                        }
+                        if (idxRoi != -1) {
+                            tableRowSorter.setSortable(idxRoi, true);
+                            tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        }
 
                         res_table.setRowSorter(tableRowSorter);
-
                         table_panel.setVisible(true);
                     });
                 } catch (SQLException ex) {
@@ -713,7 +735,7 @@ public class StatsDialog extends JDialog {
 
                         game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO");
 
-                        game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("SÍ") : "NO");
+                        game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO");
 
                     } catch (Exception ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
@@ -865,7 +887,7 @@ public class StatsDialog extends JDialog {
         Helpers.threadRun(() -> {
 
             ResultSet rs;
-            String sql = "SELECT player AS JUGADOR, winner as GANA, hole_cards as CARTAS_RECIBIDAS, hand_cards as CARTAS_JUGADA, hand_val AS JUGADA, ROUND(pay,1) as PAGAR, ROUND(profit,1) as BENEFICIO FROM showdown WHERE id_hand=? order by GANA DESC,PAGAR DESC";
+            String sql = "SELECT player AS \"player.jugador\", winner as \"ui.gana_3\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val AS \"ui.jugada\", ROUND(pay,1) as \"action.pagar\", ROUND(profit,1) as \"ui.beneficio\" FROM showdown WHERE id_hand=? order by \"ui.gana_3\" DESC,\"action.pagar\" DESC";
 
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
@@ -892,9 +914,7 @@ public class StatsDialog extends JDialog {
             try {
 
                 DefaultTableModel tableModel = new DefaultTableModel();
-
                 ResultSetMetaData metaData = rs.getMetaData();
-
                 int columnCount = metaData.getColumnCount();
 
                 for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
@@ -904,91 +924,87 @@ public class StatsDialog extends JDialog {
                 Object[] row = new Object[columnCount];
 
                 while (rs.next()) {
-
                     for (int i = 0; i < columnCount; i++) {
                         row[i] = rs.getObject(i + 1);
 
-                        if (tableModel.getColumnName(i).equals(Translator.translate("GANA"))) {
-                            row[i] = (int) row[i] == 1 ? Translator.translate("SÍ") : "NO";
-                        } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS RECIBIDAS"))) {
-
+                        if (tableModel.getColumnName(i).equals(Translator.translate("ui.gana_3"))) {
+                            row[i] = (int) row[i] == 1 ? Translator.translate("ui.si") : "NO";
+                        } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_recibidas"))) {
                             ArrayList<Card> cartas = new ArrayList<>();
-
                             if (row[i] != null) {
                                 for (String c : ((String) row[i]).split("#")) {
-
                                     String[] partes = c.split("_");
-
-                                    Card carta = new Card(false);
-
-                                    carta.actualizarValorPalo(partes[0], partes[1]);
-
-                                    cartas.add(carta);
+                                    if (partes.length == 2) {
+                                        Card carta = new Card(false);
+                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                        cartas.add(carta);
+                                    }
                                 }
-
                                 Card.sortCollection(cartas);
                             }
-
                             row[i] = row[i] != null ? Card.collection2String(cartas) : "*****";
 
-                        } else if (tableModel.getColumnName(i).equals(Translator.translate("CARTAS JUGADA"))) {
-
+                        } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_jugada"))) {
                             ArrayList<Card> cartas = new ArrayList<>();
-
                             if (row[i] != null) {
                                 for (String c : ((String) row[i]).split("#")) {
-
                                     String[] partes = c.split("_");
-
-                                    Card carta = new Card(false);
-
-                                    carta.actualizarValorPalo(partes[0], partes[1]);
-
-                                    cartas.add(carta);
+                                    if (partes.length == 2) {
+                                        Card carta = new Card(false);
+                                        carta.actualizarValorPalo(partes[0], partes[1]);
+                                        cartas.add(carta);
+                                    }
                                 }
                             }
-
                             row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
-                        } else if (tableModel.getColumnName(i).equals(Translator.translate("JUGADA"))) {
+                        } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
                             row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
                         }
                     }
-
                     tableModel.addRow(row);
-
                 }
 
                 showdown_table.setModel(tableModel);
-
                 TableRowSorter tableRowSorter = new TableRowSorter(showdown_table.getModel());
 
-                Helpers.disableSortAllColumns(res_table, tableRowSorter);
+                // Fixed minor bug: use showdown_table instead of res_table here
+                Helpers.disableSortAllColumns(showdown_table, tableRowSorter);
 
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADOR")), true);
+                int idxPlayer = Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("player.jugador"));
+                int idxGana = Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("ui.gana_3"));
+                int idxPagar = Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("action.pagar"));
+                int idxBeneficio = Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("ui.beneficio"));
+                int idxJugada = Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("ui.jugada"));
 
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("GANA")), true);
+                if (idxPlayer != -1) {
+                    tableRowSorter.setSortable(idxPlayer, true);
+                }
+                if (idxGana != -1) {
+                    tableRowSorter.setSortable(idxGana, true);
+                }
 
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("PAGAR")), true);
+                if (idxPagar != -1) {
+                    tableRowSorter.setSortable(idxPagar, true);
+                    tableRowSorter.setComparator(idxPagar, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                }
 
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("PAGAR")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                if (idxBeneficio != -1) {
+                    tableRowSorter.setSortable(idxBeneficio, true);
+                    tableRowSorter.setComparator(idxBeneficio, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                }
 
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("BENEFICIO")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("BENEFICIO")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-
-                tableRowSorter.setSortable(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), true);
-
-                tableRowSorter.setComparator(Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("JUGADA")), (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handnameToHandValue(o1), Hand.handnameToHandValue(o2)));
+                if (idxJugada != -1) {
+                    tableRowSorter.setSortable(idxJugada, true);
+                    tableRowSorter.setComparator(idxJugada, (Comparator<String>) (o1, o2) -> Integer.compare(Hand.handnameToHandValue(o1), Hand.handnameToHandValue(o2)));
+                }
 
                 showdown_table.setRowSorter(tableRowSorter);
-
                 showdown_panel.setVisible(true);
 
             } catch (SQLException ex) {
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
-
     }
 
     private void tiempoMedioRespuesta() {
@@ -1005,54 +1021,67 @@ public class StatsDialog extends JDialog {
             try {
                 ResultSet rs;
                 Statement st = null;
+                // Updated SQL queries to use valid translation keys as aliases
                 if (hand_combo.getSelectedIndex() > 0) {
-
-                    String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action WHERE id_hand=? GROUP BY JUGADOR order by TIEMPO DESC";
-
+                    String sql = "SELECT player as \"player.jugador\", ROUND(AVG(response_time),1) as \"ui.tiempo\" from action WHERE id_hand=? GROUP BY \"player.jugador\" order by \"ui.tiempo\" DESC";
                     st = Helpers.getSQLITE().prepareStatement(sql);
-
                     PreparedStatement statement = (PreparedStatement) st;
-
                     statement.setQueryTimeout(30);
-
                     statement.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
-
                     rs = statement.executeQuery();
-
                 } else if (game_combo.getSelectedIndex() > 0) {
-
-                    String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY JUGADOR order by TIEMPO DESC";
-
+                    String sql = "SELECT player as \"player.jugador\", ROUND(AVG(response_time),1) as \"ui.tiempo\" from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY \"player.jugador\" order by \"ui.tiempo\" DESC";
                     st = Helpers.getSQLITE().prepareStatement(sql);
-
                     PreparedStatement statement = (PreparedStatement) st;
-
                     statement.setQueryTimeout(30);
-
                     statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-
                     rs = statement.executeQuery();
-
                 } else {
-                    String sql = "SELECT player as JUGADOR, ROUND(AVG(response_time),1) as TIEMPO from action GROUP BY JUGADOR order by TIEMPO DESC";
-
+                    String sql = "SELECT player as \"player.jugador\", ROUND(AVG(response_time),1) as \"ui.tiempo\" from action GROUP BY \"player.jugador\" order by \"ui.tiempo\" DESC";
                     st = Helpers.getSQLITE().createStatement();
-
                     st.setQueryTimeout(30);
-
                     rs = st.executeQuery(sql);
                 }
-                Helpers.resultSetToTableModel(rs, res_table);
+
+                // Build the table model manually to apply translations
+                DefaultTableModel tableModel = new DefaultTableModel();
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                    String colLabel = metaData.getColumnLabel(columnIndex);
+                    if (colLabel.equals("ui.tiempo")) {
+                        // Append seconds text to time column header
+                        tableModel.addColumn(Translator.translate(colLabel) + " " + Translator.translate("ui.segundos"));
+                    } else {
+                        tableModel.addColumn(Translator.translate(colLabel));
+                    }
+                }
+
+                Object[] row = new Object[columnCount];
+                while (rs.next()) {
+                    for (int i = 0; i < columnCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    tableModel.addRow(row);
+                }
+
                 Helpers.GUIRunAndWait(() -> {
+                    res_table.setModel(tableModel);
                     TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
 
                     Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
-                    tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("JUGADOR")), true);
+                    int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
+                    int idxTime = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.tiempo") + " " + Translator.translate("ui.segundos"));
 
-                    tableRowSorter.setSortable(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIEMPO") + " " + Translator.translate("(SEGUNDOS)")), true);
-
-                    tableRowSorter.setComparator(Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("TIEMPO") + " " + Translator.translate("(SEGUNDOS)")), (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                    // Verify column existence before setting sortable
+                    if (idxPlayer != -1) {
+                        tableRowSorter.setSortable(idxPlayer, true);
+                    }
+                    if (idxTime != -1) {
+                        tableRowSorter.setSortable(idxTime, true);
+                        tableRowSorter.setComparator(idxTime, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                    }
 
                     res_table.setRowSorter(tableRowSorter);
 
@@ -1088,20 +1117,20 @@ public class StatsDialog extends JDialog {
 
                     hand_combo.removeAllItems();
 
-                    hand_combo.addItem(Translator.translate("TODAS LAS MANOS"));
+                    hand_combo.addItem(Translator.translate("game.todas_las_manos"));
 
                     try {
 
                         while (rs.next()) {
 
                             try {
-                                hand_combo.addItem(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")));
+                                hand_combo.addItem(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")));
 
                                 HashMap<String, Object> map = new HashMap<>();
 
                                 map.put("id", rs.getInt("id"));
 
-                                hand.put(Translator.translate("MANO") + " " + String.valueOf(rs.getInt("counter")), map);
+                                hand.put(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")), map);
 
                             } catch (Exception ex) {
                                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
@@ -1220,7 +1249,7 @@ public class StatsDialog extends JDialog {
 
                 game_combo.removeAllItems();
 
-                game_combo.addItem(Translator.translate("TODAS LAS TIMBAS"));
+                game_combo.addItem(Translator.translate("game.todas_las_timbas"));
 
                 String filtro = null;
 
@@ -1390,7 +1419,8 @@ public class StatsDialog extends JDialog {
         title.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         title.setForeground(new java.awt.Color(255, 255, 255));
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        title.setText("ESTADÍSTICAS");
+        title.setText(Translator.translate("ui.estadisticas"));
+        title.putClientProperty("i18n.key", "ui.estadisticas");
         title.setDoubleBuffered(true);
         title.setFocusable(false);
         title.setOpaque(true);
@@ -1410,27 +1440,33 @@ public class StatsDialog extends JDialog {
         game_data_panel.setOpaque(false);
 
         game_hand_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_hand_label.setText("Manos:");
+        game_hand_label.setText(Translator.translate("stats.manos"));
+        game_hand_label.putClientProperty("i18n.key", "stats.manos");
         game_hand_label.setDoubleBuffered(true);
 
         game_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_players_label.setText("Jugadores:");
+        game_players_label.setText(Translator.translate("stats.jugadores"));
+        game_players_label.putClientProperty("i18n.key", "stats.jugadores");
         game_players_label.setDoubleBuffered(true);
 
         game_buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_buyin_label.setText("Compra:");
+        game_buyin_label.setText(Translator.translate("stats.buyin"));
+        game_buyin_label.putClientProperty("i18n.key", "stats.compra");
         game_buyin_label.setDoubleBuffered(true);
 
         game_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_blinds_label.setText("Ciegas:");
+        game_blinds_label.setText(Translator.translate("stats.ciegas"));
+        game_blinds_label.putClientProperty("i18n.key", "stats.ciegas");
         game_blinds_label.setDoubleBuffered(true);
 
         game_blinds_double_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_blinds_double_label.setText("Aumentar ciegas:");
+        game_blinds_double_label.setText(Translator.translate("stats.aumentar_ciegas"));
+        game_blinds_double_label.putClientProperty("i18n.key", "stats.aumentar_ciegas");
         game_blinds_double_label.setDoubleBuffered(true);
 
         game_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_rebuy_label.setText("Recomprar:");
+        game_rebuy_label.setText(Translator.translate("stats.recomprar"));
+        game_rebuy_label.putClientProperty("i18n.key", "stats.recomprar");
         game_rebuy_label.setDoubleBuffered(true);
 
         game_hand_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -1458,7 +1494,8 @@ public class StatsDialog extends JDialog {
         game_rebuy_val.setDoubleBuffered(true);
 
         game_playtime_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        game_playtime_label.setText("Duración:");
+        game_playtime_label.setText(Translator.translate("stats.duracion"));
+        game_playtime_label.putClientProperty("i18n.key", "stats.duracion");
         game_playtime_label.setDoubleBuffered(true);
 
         game_playtime_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -1469,7 +1506,8 @@ public class StatsDialog extends JDialog {
         delete_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         delete_game_button.setForeground(new java.awt.Color(255, 255, 255));
         delete_game_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/remove.png"))); // NOI18N
-        delete_game_button.setText("ELIMINAR TIMBA");
+        delete_game_button.setText(Translator.translate("stats.eliminar_timba"));
+        delete_game_button.putClientProperty("i18n.key", "stats.eliminar_timba");
         delete_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         delete_game_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1481,7 +1519,8 @@ public class StatsDialog extends JDialog {
         log_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         log_game_button.setForeground(new java.awt.Color(255, 255, 255));
         log_game_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/log2.png"))); // NOI18N
-        log_game_button.setText("REGISTRO DE LA TIMBA");
+        log_game_button.setText(Translator.translate("stats.registro_de_la_timba"));
+        log_game_button.putClientProperty("i18n.key", "stats.registro_de_la_timba");
         log_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         log_game_button.setDoubleBuffered(true);
         log_game_button.setPreferredSize(new java.awt.Dimension(242, 34));
@@ -1495,7 +1534,8 @@ public class StatsDialog extends JDialog {
         chat_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         chat_game_button.setForeground(new java.awt.Color(255, 255, 255));
         chat_game_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/chat.png"))); // NOI18N
-        chat_game_button.setText("CHAT DE LA TIMBA");
+        chat_game_button.setText(Translator.translate("stats.chat_de_la_timba"));
+        chat_game_button.putClientProperty("i18n.key", "stats.chat_de_la_timba");
         chat_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         chat_game_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1587,7 +1627,8 @@ public class StatsDialog extends JDialog {
         );
 
         game_combo_filter.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
-        game_combo_filter.setToolTipText("Listar sólo timbas donde participó este jugador");
+        game_combo_filter.putClientProperty("i18n.tooltip_key", "tooltip.search_games_player");
+        game_combo_filter.putClientProperty("i18n.tooltip_key", "stats.listar_solo_timbas_donde_participo");
         game_combo_filter.setPreferredSize(new java.awt.Dimension(5, 3));
         game_combo_filter.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1599,7 +1640,8 @@ public class StatsDialog extends JDialog {
         purge_games_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         purge_games_button.setForeground(new java.awt.Color(255, 255, 255));
         purge_games_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/remove.png"))); // NOI18N
-        purge_games_button.setText("PURGAR");
+        purge_games_button.setText(Translator.translate("ui.purgar"));
+        purge_games_button.putClientProperty("i18n.key", "stats.purgar");
         purge_games_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         purge_games_button.setDoubleBuffered(true);
         purge_games_button.addActionListener(new java.awt.event.ActionListener() {
@@ -1622,7 +1664,8 @@ public class StatsDialog extends JDialog {
         hand_data_panel.setOpaque(false);
 
         hand_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_blinds_label.setText("Ciegas:");
+        hand_blinds_label.setText(Translator.translate("stats.ciegas"));
+        hand_blinds_label.putClientProperty("i18n.key", "stats.ciegas");
         hand_blinds_label.setDoubleBuffered(true);
         hand_blinds_label.setPreferredSize(new java.awt.Dimension(45, 17));
 
@@ -1631,39 +1674,48 @@ public class StatsDialog extends JDialog {
         hand_blinds_val.setDoubleBuffered(true);
 
         hand_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_time_label.setText("Duración:");
+        hand_time_label.setText(Translator.translate("stats.duracion"));
+        hand_time_label.putClientProperty("i18n.key", "stats.duracion");
         hand_time_label.setDoubleBuffered(true);
 
         hand_cp_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_cp_label.setText("Ciega pequeña:");
+        hand_cp_label.setText(Translator.translate("stats.ciega_pequena"));
+        hand_cp_label.putClientProperty("i18n.key", "stats.ciega_pequena");
         hand_cp_label.setDoubleBuffered(true);
 
         hand_cg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_cg_label.setText("Ciega grande:");
+        hand_cg_label.setText(Translator.translate("stats.ciega_grande"));
+        hand_cg_label.putClientProperty("i18n.key", "stats.ciega_grande");
         hand_cg_label.setDoubleBuffered(true);
 
         hand_comcards_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_comcards_label.setText("Cartas comunitarias:");
+        hand_comcards_label.setText(Translator.translate("stats.cartas_comunitarias"));
+        hand_comcards_label.putClientProperty("i18n.key", "stats.cartas_comunitarias");
         hand_comcards_label.setDoubleBuffered(true);
 
         hand_preflop_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_preflop_players_label.setText("Jugadores PREFLOP:");
+        hand_preflop_players_label.setText(Translator.translate("stats.jugadores_preflop"));
+        hand_preflop_players_label.putClientProperty("i18n.key", "stats.jugadores_preflop");
         hand_preflop_players_label.setDoubleBuffered(true);
 
         hand_flop_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_flop_players_label.setText("Jugadores FLOP:");
+        hand_flop_players_label.setText(Translator.translate("stats.jugadores_flop"));
+        hand_flop_players_label.putClientProperty("i18n.key", "stats.jugadores_flop");
         hand_flop_players_label.setDoubleBuffered(true);
 
         hand_turn_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_turn_players_label.setText("Jugadores TURN:");
+        hand_turn_players_label.setText(Translator.translate("stats.jugadores_turn"));
+        hand_turn_players_label.putClientProperty("i18n.key", "stats.jugadores_turn");
         hand_turn_players_label.setDoubleBuffered(true);
 
         hand_river_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_river_players_label.setText("Jugadores RIVER:");
+        hand_river_players_label.setText(Translator.translate("stats.jugadores_river"));
+        hand_river_players_label.putClientProperty("i18n.key", "stats.jugadores_river");
         hand_river_players_label.setDoubleBuffered(true);
 
         hand_bote_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        hand_bote_label.setText("BOTE:");
+        hand_bote_label.setText(Translator.translate("stats.bote"));
+        hand_bote_label.putClientProperty("i18n.key", "stats.bote");
         hand_bote_label.setDoubleBuffered(true);
 
         hand_time_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -1826,7 +1878,7 @@ public class StatsDialog extends JDialog {
         table_panel.setViewportView(res_table);
 
         res_table_warning.setFont(new java.awt.Font("Dialog", 2, 14)); // NOI18N
-        res_table_warning.setText("Nota:");
+        res_table_warning.setText(Translator.translate("ui.nota"));
         res_table_warning.setDoubleBuffered(true);
 
         javax.swing.GroupLayout hands_panelLayout = new javax.swing.GroupLayout(hands_panel);
@@ -2072,7 +2124,7 @@ public class StatsDialog extends JDialog {
                     res_table_warning.setVisible(false);
                     game_data_panel.setVisible(false);
                 });
-                Helpers.mostrarMensajeError(getContentPane(), "NO HAY TIMBAS EN LAS CUALES HAYA PARTICIPADO ESE JUGADOR");
+                Helpers.mostrarMensajeError(getContentPane(), Translator.translate("player.no_hay_timbas_en_las"));
             }
         });
 
@@ -2135,7 +2187,7 @@ public class StatsDialog extends JDialog {
         // TODO add your handling code here:
         purge_games_button.setEnabled(false);
 
-        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("¿ELIMINAR TODAS LAS TIMBAS DONDE PARTICIPÓ ESE JUGADOR?\n(Nota: las timbas eliminadas no se pueden continuar)"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("player.eliminar_todas_las_timbas_donde"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
             Audio.playWavResource("misc/toilet.wav");
 
             Helpers.threadRun(() -> {

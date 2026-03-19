@@ -203,7 +203,7 @@ public final class FastChatDialog extends JDialog {
 
         auto_close_checkbox.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         auto_close_checkbox.setForeground(new java.awt.Color(255, 255, 255));
-        auto_close_checkbox.setText("Cerrar esta ventana después de enviar un mensaje.");
+        auto_close_checkbox.setText(Translator.translate("ui.fastchat.auto_close"));
         auto_close_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         auto_close_checkbox.setDoubleBuffered(true);
         auto_close_checkbox.setFocusable(false);

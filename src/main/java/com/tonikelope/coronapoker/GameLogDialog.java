@@ -39,15 +39,15 @@ import javax.swing.JTextArea;
  */
 public final class GameLogDialog extends JDialog {
 
-    public final static String TITLE = "REGISTRO DE LA TIMBA";
-    private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";
+    public final static String TITLE = "log.registro_de_la_timba";
+    private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
     private volatile boolean auto_scroll = true;
     private volatile boolean utf8_cards = false;
     private volatile boolean fin_transmision = false;
     private final Object log_lock = new Object();
 
     public static void resetLOG() {
-        LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate(" - REGISTRO DE LA TIMBA]") + "\n\n";
+        LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
     }
 
     public void setFin_transmision(boolean fin_transmision) {
@@ -263,11 +263,13 @@ public final class GameLogDialog extends JDialog {
 
         opciones_menu.setMnemonic('p');
         opciones_menu.setText("Preferencias");
+        opciones_menu.putClientProperty("i18n.key", "menu.preferencias");
         opciones_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
         auto_scroll_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         auto_scroll_menu.setSelected(true);
         auto_scroll_menu.setText("Auto scroll");
+        auto_scroll_menu.putClientProperty("i18n.key", "ui.auto_scroll");
         auto_scroll_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 auto_scroll_menuActionPerformed(evt);
@@ -278,6 +280,7 @@ public final class GameLogDialog extends JDialog {
         utf8_cards_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         utf8_cards_menu.setSelected(true);
         utf8_cards_menu.setText("Cartas UTF-8");
+        utf8_cards_menu.putClientProperty("i18n.key", "ui.cartas_utf8");
         utf8_cards_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 utf8_cards_menuActionPerformed(evt);

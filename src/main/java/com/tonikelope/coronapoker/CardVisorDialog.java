@@ -99,7 +99,7 @@ public class CardVisorDialog extends javax.swing.JDialog {
         this.setAutoRequestFocus(modal);
         this.setFocusableWindowState(modal);
 
-        setTitle(Init.WINDOW_TITLE + " - Visor de cartas");
+        Helpers.setTranslatedTitle(this, "ui.visor_de_cartas");
 
         valores.put("A", 1);
         valores.put("J", 11);

@@ -1721,6 +1721,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void disablePlayerAction() {
 
         Helpers.GUIRun(() -> {
+            player_action.putClientProperty("i18n.key", null); // Asegura que se vacía la clave del traductor
             player_action.setText(" ");
             player_action.setForeground(Color.LIGHT_GRAY);
             setActionBackground(new Color(204, 204, 204, 75));
@@ -2564,7 +2565,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 Hand jugada = new Hand(cartas_jugada);
                                 player_action.setForeground(Color.WHITE);
                                 setActionBackground(new Color(51, 153, 255));
+                                
+                                // LIMPIEZA DE ETIQUETA: Evita el glitch de "HABLAS TÚ"
+                                player_action.putClientProperty("i18n.key", null);
                                 player_action.setText(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
+
                                 if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
                                     Audio.playWavResource("misc/showyourcards.wav");
@@ -2574,7 +2579,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     GameFrame.getInstance().getRegistro().print(nickname + Translator.translate("ui.muestra_2") + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
                                 }
                                 Helpers.translateComponents(botonera, false);
-                                Helpers.translateComponents(player_action, false);
+                                // (Línea de traducción problemática eliminada de aquí)
                             }
                         }
                     });
@@ -3066,14 +3071,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void showCards(String jugada) {
         this.muestra = true;
         Helpers.GUIRun(() -> {
-
             if (GameFrame.getInstance().getCrupier().getRabbit_players().containsKey(nickname)) {
                 setActionBackground(Color.BLUE);
                 setPlayerActionIcon("action/rabbit_action.png");
             } else {
                 setActionBackground(new Color(51, 153, 255));
             }
-
+            player_action.putClientProperty("i18n.key", null); // Limpiamos fantasma
             player_action.setForeground(Color.WHITE);
             player_action.setText(Translator.translate("ui.muestra_prefix") + jugada + Translator.translate("ui.suffix_close"));
         });

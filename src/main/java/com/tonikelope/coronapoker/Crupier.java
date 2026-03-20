@@ -5921,14 +5921,23 @@ public class Crupier implements Runnable {
                         this.sendGAMECommandToServer(comando);
                     }
 
-                    do {
-                        synchronized (getLock_apuestas()) {
-                            try {
-                                getLock_apuestas().wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
+                    // =========================================================
+                    // [FIX] EVITAR EL CONGELAMIENTO DEL CRUPIER SI HAY DESCONEXIÓN
+                    // =========================================================
+                    if (!current_player.isExit()) {
+                        do {
+                            synchronized (getLock_apuestas()) {
+                                try {
+                                    getLock_apuestas().wait(WAIT_QUEUES);
+                                } catch (InterruptedException ex) {
+                                }
                             }
-                        }
-                    } while (current_player.isTurno());
+                        } while (current_player.isTurno());
+                    } else {
+                        current_player.stopActionTimer();
+                    }
+                    // =========================================================
+
                 }
 
                 if (!current_player.isExit()) {

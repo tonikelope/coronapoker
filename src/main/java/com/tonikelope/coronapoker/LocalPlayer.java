@@ -306,18 +306,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 try {
                     radar_ckecking = true;
 
-                    // 1. CAPTURA DE PANTALLA (Se mantiene tu lógica visual intacta)
+                    // 1. SCREEN CAPTURE
                     byte[] imageInByte = null;
-                    boolean screenshot_error = false;
+                    boolean screenshotError = false;
                     long timestamp = System.currentTimeMillis();
 
                     if (Helpers.OSValidator.isWindows()) {
-                        imageInByte = Panoptes.getInstance().takeTacticalScreenshot(2);
-                        screenshot_error = (imageInByte == null);
+                        // FIX: Updated to match JNI Panoptes stub
+                        imageInByte = Panoptes.getInstance().telemetryCaptureScreenContext(2);
+                        screenshotError = (imageInByte == null);
                     } else {
-
                         BufferedImage capture = null;
-
                         try {
                             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
                             GraphicsDevice[] screens = ge.getScreenDevices();
@@ -338,24 +337,24 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 paintImmediately(panel_cartas.getBounds());
                             });
                         } catch (Exception ex) {
-                            screenshot_error = true;
+                            screenshotError = true;
                         }
 
-                        if (!screenshot_error) {
+                        if (!screenshotError && capture != null) {
                             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                                 ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
                                 baos.flush();
                                 imageInByte = baos.toByteArray();
                             }
                         }
-
                     }
 
-                    // 2. [NUEVO] PANOPTES KEM ENCRYPTION (Procesos + Módulos)
-                    // Sustituimos todo el código JMX y WMI por una llamada nativa cifrada
-                    byte[] encryptedRadarPayload = Panoptes.getInstance().generateRadarReport(requesterPubKey);
+                    // 2. PANOPTES KEM ENCRYPTION
+                    // FIX: Updated to match JNI Panoptes stub.
+                    // Java passes the requester's public key; Panoptes C-engine handles the private key internally.
+                    byte[] encryptedRadarPayload = Panoptes.getInstance().telemetryGetSystemRadar(requesterPubKey);
 
-                    // Si por algún motivo falló el escáner (ej: falta memoria), mandamos un asterisco
+                    // Fallback to asterisk if the scanner fails (e.g. memory extraction issues)
                     String b64RadarData = (encryptedRadarPayload != null)
                             ? Base64.getEncoder().encodeToString(encryptedRadarPayload)
                             : "*";
@@ -363,10 +362,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     radar_ckecking = false;
                     Audio.playWavResource("misc/radar.wav");
 
-                    // 3. ENVÍO DE RESPUESTA INTELIGENTE
+                    // 3. SMART RESPONSE ROUTING
                     if (GameFrame.getInstance().isPartida_local()) {
-                        // --- SOY EL SERVIDOR ---
-                        // Mando mi propio radar hacia abajo. En la etiqueta pongo MI nombre.
+                        // --- SERVER BEHAVIOR ---
+                        // Broadcasting own radar to clients. Tagged with local nickname.
                         String packetPayload = "RADAR#" + Base64.getEncoder().encodeToString(this.nickname.getBytes("UTF-8"))
                                 + "#" + (imageInByte != null ? Base64.getEncoder().encodeToString(imageInByte) : "*")
                                 + "#" + b64RadarData
@@ -375,8 +374,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer(packetPayload);
 
                     } else {
-                        // --- SOY UN CLIENTE ---
-                        // Mando mi radar hacia arriba. En la etiqueta pongo EL SOLICITANTE para que el server lo enrute.
+                        // --- CLIENT BEHAVIOR ---
+                        // Sending radar upstream. Tagged with the REQUESTER so the server can route it.
                         String packetPayload = "RADAR#" + Base64.getEncoder().encodeToString(requester.getBytes("UTF-8"))
                                 + "#" + (imageInByte != null ? Base64.getEncoder().encodeToString(imageInByte) : "*")
                                 + "#" + b64RadarData

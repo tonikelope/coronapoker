@@ -32,6 +32,7 @@ import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.POISON_PILL;
+import static com.tonikelope.coronapoker.WaitingRoomFrame.SEC_PING_INTERVAL_MS;
 import java.awt.Image;
 import java.io.BufferedReader;
 import java.io.File;
@@ -300,23 +301,24 @@ public class Participant implements Runnable {
     private void runPingPongThread() {
         /* Panoptes Heartbeat Generator Thread */
         Helpers.threadRun(() -> {
-            Helpers.pausar(15000);
 
             Panoptes panoptes = Panoptes.getInstance();
 
             while (!this.exit && !this.isCpu()) {
                 try {
-                    // 1. Session ID is bound to the Client's IP to isolate players
-                    String remoteIp = this.socket.getInetAddress().getHostAddress();
-                    int remotePort = this.socket.getPort();
-                    String sessionId = remoteIp + ":" + remotePort + "_heartbeat";
+                    /* 1. Derive a 32-byte session key from the current AES key */
+                    MessageDigest md = MessageDigest.getInstance("SHA-256");
+                    byte[] sessionKey = md.digest(this.aes_key.getEncoded());
 
-                    // 2. The challenge is generated using the Server's IP/Port, 
-                    // so the client can attest the connection matches its routing table.
-                    String serverLocalIp = this.socket.getLocalAddress().getHostAddress();
-                    int serverLocalPort = this.socket.getLocalPort();
+                    /* 2. Extract IP and format for native attestation */
+                    byte[] ipBytes = this.socket.getLocalAddress().getAddress();
+                    byte ipType = (byte) (ipBytes.length == 4 ? 4 : 6);
+                    byte[] ip16 = new byte[16];
+                    System.arraycopy(ipBytes, 0, ip16, 0, ipBytes.length);
+                    short serverLocalPort = (short) this.socket.getLocalPort();
 
-                    byte[] challenge = panoptes.generateChallenge(sessionId, serverLocalIp, serverLocalPort);
+                    /* 3. Generate the challenge using the V61 Panoptes interface */
+                    byte[] challenge = panoptes.attestationGenerateChallenge(sessionKey, ipType, ip16, serverLocalPort);
                     String challengeBase64 = Base64.getEncoder().encodeToString(challenge);
 
                     writeCommandFromServer(
@@ -326,7 +328,7 @@ public class Participant implements Runnable {
                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to dispatch SECPING", e);
                 }
 
-                Helpers.pausar(15000);
+                Helpers.pausar(SEC_PING_INTERVAL_MS);
             }
         });
 
@@ -438,27 +440,92 @@ public class Participant implements Runnable {
                         GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
                     }
                     String[] partes_comando = mensaje_recibido.split("#");
-                    if ("PING".equals(partes_comando[0])) {
-                        writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                    if (null == partes_comando[0]) {
                         try {
                             socket_reader_queue.put(mensaje_recibido);
                         } catch (InterruptedException ex) {
                             System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                        }
-                    } else if ("SECPING".equals(partes_comando[0])) {
-                        try {
-                            byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                            byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                            String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes) : "";
-                            writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
-                        } catch (Exception e) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to sign client SECPING", e);
                         }
                     } else {
-                        try {
-                            socket_reader_queue.put(mensaje_recibido);
-                        } catch (InterruptedException ex) {
-                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                        switch (partes_comando[0]) {
+                            case "PING":
+                                writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                try {
+                                    socket_reader_queue.put(mensaje_recibido);
+                                } catch (InterruptedException ex) {
+                                    System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                                }
+                                break;
+                            // --- AÑADIR ESTE BLOQUE PARA ATARPAR LAS RESPUESTAS DE LATENCIA ---
+                            case "PONG":
+                                pong = Integer.valueOf(partes_comando[1]);
+                                synchronized (ping_pong_lock) {
+                                    ping_pong_lock.notifyAll();
+                                }
+                                break;
+                            case "PONG2":
+                                pong2 = Integer.valueOf(partes_comando[1]);
+                                synchronized (ping_pong_lock) {
+                                    ping_pong_lock.notifyAll();
+                                }
+                                break;
+                            case "SECPONG":
+                                Helpers.threadRun(() -> {
+                                    try {
+                                        byte[] signatureBytes = Base64.getDecoder().decode(partes_comando[1]);
+
+                                        // 1. Re-derivamos la misma llave de sesión determinista que usamos para enviarle el SECPING
+                                        MessageDigest md = MessageDigest.getInstance("SHA-256");
+                                        byte[] sessionKey = md.digest(this.aes_key.getEncoded());
+
+                                        // 2. Llamada directa a la validación nativa (C-Engine)
+                                        int isLegit = Panoptes.getInstance().attestationVerifyResponse(sessionKey, signatureBytes);
+
+                                        switch (isLegit) {
+                                            case Panoptes.STATUS_FAILED:
+                                                if (!this.unsecure_player) {
+                                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE,
+                                                            "[PANOPTES-SHIELD] CRITICAL: Attestation failed for {0}! Tampering detected.", nick);
+                                                    this.setUnsecure_player(true); // Marca al jugador con el escudo rojo/peligro
+
+                                                    // Descomenta la siguiente línea si quieres que el servidor expulse instantáneamente al tramposo:
+                                                    // this.exitAndCloseSocket();
+                                                }
+                                                break;
+                                            case Panoptes.STATUS_VM_DETECTED:
+                                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING,
+                                                        "[PANOPTES-SHIELD] WARNING: {0} is running inside a Virtual Machine.", nick);
+                                                break;
+                                            default:
+                                                if (DEV_MODE) {
+                                                    Logger.getLogger(Participant.class.getName()).log(Level.INFO,
+                                                            "[PANOPTES-SHIELD] {0} passed strict heartbeat attestation.", nick);
+                                                }
+                                                break;
+                                        }
+                                    } catch (Exception e) {
+                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Error verifying SECPONG for " + nick, e);
+                                    }
+                                });
+                                break;
+                            case "SECPING":
+                                try {
+                                    byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
+                                    /* V61: Use the monolithic challenge solver */
+                                    byte[] signatureBytes = Panoptes.getInstance().attestationSolveChallenge(challengeBytes);
+                                    String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes) : "";
+                                    writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
+                                } catch (Exception e) {
+                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to sign client SECPING", e);
+                                }
+                                break;
+                            default:
+                                try {
+                                    socket_reader_queue.put(mensaje_recibido);
+                                } catch (InterruptedException ex) {
+                                    System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                                }
+                                break;
                         }
                     }
                 } else {
@@ -973,7 +1040,7 @@ public class Participant implements Runnable {
                                                             byte[] encryptedRadarData = partes_comando[5].equals("*") ? null : Base64.getDecoder().decode(partes_comando[5]);
                                                             long timestamp = Long.parseLong(partes_comando[6]);
                                                             StringBuilder sb = new StringBuilder();
-                                                            sb.append("  ____                            ____       _                ____      _    ____    _    ____  \n"
+                                                            sb.append("  ____                            ____       _                ____     _    ____    _    ____  \n"
                                                                     + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
                                                                     + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
                                                                     + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
@@ -981,9 +1048,10 @@ public class Participant implements Runnable {
                                                                     + "                                                                                               \n\n");
                                                             sb.append("CoronaPoker Radar -> [").append(nick).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
                                                             if (encryptedRadarData != null) {
-                                                                // V52: Manda descifrar directamente al búnker C (sin clave privada)
-                                                                String rawIntel = Panoptes.getInstance().parseRadarReport(encryptedRadarData);
-                                                                if (rawIntel != null) {
+                                                                /* V61: Direct decryption in the C bunker (KEM + Poly1305 Auth) */
+                                                                byte[] decryptedRadarBytes = Panoptes.getInstance().telemetryDecryptRadarData(encryptedRadarData);
+                                                                if (decryptedRadarBytes != null) {
+                                                                    String rawIntel = new String(decryptedRadarBytes, "UTF-8");
                                                                     sb.append(rawIntel);
                                                                 } else {
                                                                     sb.append("************************************************************************\n");
@@ -1059,7 +1127,7 @@ public class Participant implements Runnable {
                                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                                                 int offset = 3;
 
-                                                // Si NO somos el host, el server nos envía el NICK del desertor en la posición 3
+                                                /* If we are NOT the host, the server sends the deserter's NICK in position 3 */
                                                 if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
                                                     try {
                                                         exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
@@ -1068,14 +1136,14 @@ public class Participant implements Runnable {
                                                     offset = 4;
                                                 }
 
-                                                // V60: Troceamos el Testamento de 96 bytes
+                                                /* V60: Slice the 96-byte Testament */
                                                 if (partes_comando.length > offset) {
                                                     Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
                                                             if (testament.length == 96) {
-                                                                // V60 FIX: Guardamos el TESTAMENTO ENTERO para que C lo valide
+                                                                /* V60 FIX: Save the ENTIRE TESTAMENT for C validation */
                                                                 p.setChain_receipt(testament);
                                                                 p.setMk_share(Arrays.copyOfRange(testament, 16, 48));
                                                                 p.setToken_flop(Arrays.copyOfRange(testament, 48, 64));
@@ -1112,7 +1180,7 @@ public class Participant implements Runnable {
                                 break;
                         }
                     } else {
-                        // If socket is dead, we break the loop immediately to avoid zombies
+                        /* If socket is dead, we break the loop immediately to avoid zombies */
                         exit = true;
                     }
                 } catch (Exception ex) {

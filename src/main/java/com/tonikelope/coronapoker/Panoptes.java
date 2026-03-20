@@ -1,15 +1,15 @@
 /*
  * Copyright (C) 2020 tonikelope
- _              _ _        _
-| |_ ___  _ __ (_) | _____| | ___  _ __   ___
+ _              _ _        _                 
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
 | || (_) | | | | |   <  __/ | (_) | |_) |  __/
  \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- ____    ___  ____    ___
-|___ \  / _ \|___ \  / _ \
+ ____    ___  ____    ___  
+|___ \  / _ \|___ \  / _ \ 
   __) || | | | __) || | | |
  / __/ | |_| |/ __/ | |_| |
-|_____| \___/|_____| \___/
+|_____| \___/|_____| \___/ 
 
 https://github.com/tonikelope/coronapoker
  *
@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -49,8 +50,7 @@ import java.util.logging.Level;
  */
 public class Panoptes {
 
-    private static Panoptes instance;
-    private final ConcurrentHashMap<String, byte[]> activeSessionKeys = new ConcurrentHashMap<>();
+    private static Panoptes instance = null;
     private static final java.util.logging.Logger LOGGER = java.util.logging.Logger.getLogger(Panoptes.class.getName());
 
     private static final String REPO_RAW_URL = "https://github.com/tonikelope/coronapoker/raw/refs/heads/master/panoptes/";
@@ -60,6 +60,8 @@ public class Panoptes {
     public static final int STATUS_FAILED = 0;
     public static final int STATUS_CLEAN = 1;
     public static final int STATUS_VM_DETECTED = 2;
+
+    private final ConcurrentHashMap<String, byte[]> activeSessionKeys = new ConcurrentHashMap<>();
 
     private static void verifyAndDownloadNativeLib(String targetDir) {
         String os = System.getProperty("os.name").toLowerCase();
@@ -171,6 +173,9 @@ public class Panoptes {
         return instance;
     }
 
+    // =========================================================================
+    // NATIVE JNI METHODS (V61)
+    // =========================================================================
     // --- IDENTITY & VAULT DOMAIN ---
     public native byte[] identityCreate();
 
@@ -194,8 +199,6 @@ public class Panoptes {
 
     public native byte[] utilsGetPublicKey(byte[] privateKey);
 
-    public native byte[] utilsGetSharedSecret(byte[] myPrivateKey, byte[] theirPublicKey);
-
     public native byte[] utilsExpandSeedPRNG(byte[] seed, int length);
 
     public native byte[] utilsShuffleDeck(byte[] seed);
@@ -203,8 +206,6 @@ public class Panoptes {
     public native boolean utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[] myCards, byte[] comCards, byte[][] receipts);
 
     public native boolean utilsVerifyChaosMAC(byte[] data, byte[] mac);
-
-    public native byte[] utilsDecryptMasterKey(byte[] priv, byte[] epub, byte[] enc);
 
     public native byte[] utilsDecryptBotEnvelope(byte[] priv, byte[] epub, byte[] enc);
 
@@ -246,16 +247,18 @@ public class Panoptes {
     public native String telemetryGetDiagnosticJarPathC();
 
     // =========================================================================
-    // WRAPPERS AND UTILITIES
+    // JAVA COMPATIBILITY WRAPPERS
     // =========================================================================
     public byte[] generateChallenge(String ownerID, String ipString, int port) throws Exception {
         byte[] sessionKey = new byte[32];
         new SecureRandom().nextBytes(sessionKey);
         activeSessionKeys.put(ownerID, sessionKey);
+
         InetAddress addr = InetAddress.getByName(ipString);
         byte[] rawIp = addr.getAddress();
         byte[] paddedIp = new byte[16];
         System.arraycopy(rawIp, 0, paddedIp, 0, rawIp.length);
+
         return attestationGenerateChallenge(sessionKey, (byte) (rawIp.length == 4 ? 4 : 6), paddedIp, (short) port);
     }
 
@@ -280,30 +283,15 @@ public class Panoptes {
         if (playerSeeds == null || playerPubKeys == null || playerSeeds.length != playerPubKeys.length) {
             return null;
         }
-        byte[] flatSeeds = flattenByteArray(playerSeeds);
-        byte[] flatPubs = flattenByteArray(playerPubKeys);
-        return stateGenerateMegapacket(flatSeeds, playerSeeds.length, flatPubs);
-    }
+        int numPlayers = playerSeeds.length;
+        byte[] flatSeeds = new byte[numPlayers * 32];
+        byte[] flatPubs = new byte[numPlayers * 32];
 
-    private byte[] flattenByteArray(byte[][] arrays) {
-        if (arrays == null || arrays.length == 0) {
-            return null;
+        for (int i = 0; i < numPlayers; i++) {
+            System.arraycopy(playerSeeds[i], 0, flatSeeds, i * 32, 32);
+            System.arraycopy(playerPubKeys[i], 0, flatPubs, i * 32, 32);
         }
-        int totalLength = 0;
-        for (byte[] arr : arrays) {
-            if (arr != null) {
-                totalLength += arr.length;
-            }
-        }
-        byte[] result = new byte[totalLength];
-        int offset = 0;
-        for (byte[] arr : arrays) {
-            if (arr != null) {
-                System.arraycopy(arr, 0, result, offset, arr.length);
-                offset += arr.length;
-            }
-        }
-        return result;
+        return stateGenerateMegapacket(flatSeeds, numPlayers, flatPubs);
     }
 
     public byte[] generateRadarReport(byte[] serverPubKey) {
@@ -321,13 +309,16 @@ public class Panoptes {
         if (rawBytes == null) {
             return null;
         }
-        return new String(rawBytes, java.nio.charset.Charset.forName("windows-1252"));
+        return new String(rawBytes, Charset.forName("UTF-8"));
     }
 
     public byte[] takeTacticalScreenshot(int mode) {
         return telemetryCaptureScreenContext(mode);
     }
 
+    // =========================================================================
+    // HASHING UTILS
+    // =========================================================================
     private static String calculateFileSHA1(File file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-1");
         try (InputStream is = new FileInputStream(file)) {

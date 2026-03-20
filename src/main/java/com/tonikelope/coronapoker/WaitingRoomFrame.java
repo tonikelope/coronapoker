@@ -132,6 +132,7 @@ public class WaitingRoomFrame extends JFrame {
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
     private final Object lock_client_pre_game_commands_wait = new Object();
+    private final HashMap<String, Integer> cliente_last_received = new HashMap<>();
     private final boolean server;
     private final String local_nick;
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
@@ -1488,6 +1489,235 @@ public class WaitingRoomFrame extends JFrame {
         return r;
     }
 
+    private void runPingPongThreadCliente() {
+
+        Helpers.threadRun(() -> {
+
+            while (!exit) {
+
+                String mensaje_recibido = null;
+
+                try {
+                    mensaje_recibido = readCommandFromServer();
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE,
+                            (String) null, ex);
+                }
+
+                if (mensaje_recibido != null) {
+
+                    String[] partes_comando = mensaje_recibido.split("#");
+
+                    if (null == partes_comando[0]) {
+
+                        try {
+                            local_client_socket_reader_queue.put(mensaje_recibido);
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.SEVERE,
+                                    (String) null, ex);
+                        }
+                    } else {
+                        switch (partes_comando[0]) {
+                            case "PING":
+                                writeCommandToServer(
+                                        "PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                try {
+                                    local_client_socket_reader_queue.put(mensaje_recibido);
+                                } catch (InterruptedException ex) {
+                                    System.getLogger(Participant.class.getName())
+                                            .log(System.Logger.Level.ERROR, (String) null, ex);
+                                }
+                                break;
+                            case "SECPING":
+                                // --- PANOPTES: CLIENT SIGNS SERVER HEARTBEAT ---
+                                try {
+                                    byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
+                                    byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
+                                    String signatureBase64 = signatureBytes != null
+                                            ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "")
+                                            : "";
+
+                                    writeCommandToServer(
+                                            Helpers.encryptCommand("SECPONG#" + signatureBase64,
+                                                    local_client_aes_key, local_client_hmac_key));
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "Failed to sign Panoptes heartbeat", e);
+                                }
+                                break;
+                            case "PONG":
+                                remote_server_pong = Integer.valueOf(partes_comando[1]);
+                                synchronized (ping_pong_lock) {
+                                    ping_pong_lock.notifyAll();
+                                }
+                                break;
+                            case "PONG2":
+                                remote_server_pong2 = Integer.valueOf(partes_comando[1]);
+                                synchronized (ping_pong_lock) {
+                                    ping_pong_lock.notifyAll();
+                                }
+                                break;
+                            default:
+                                try {
+                                    local_client_socket_reader_queue.put(mensaje_recibido);
+                                } catch (Exception ex) {
+                                    LOGGER.log(Level.SEVERE,
+                                            (String) null, ex);
+                                }
+                                break;
+                        }
+                    }
+
+                } else {
+                    try {
+                        if (!local_client_socket_reader_queue.contains(POISON_PILL)) {
+                            local_client_socket_reader_queue.put(POISON_PILL);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.SEVERE,
+                                (String) null, ex);
+                    }
+
+                    cliente_last_received.clear();
+                }
+
+                if (mensaje_recibido == null) {
+                    if (!exit && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada())
+                            || (GameFrame.getInstance() != null && !GameFrame.getInstance().getLocalPlayer().isExit()))) {
+
+                        if (!reconectarCliente()) {
+                            exit = true;
+                        }
+                    } else {
+                        // Si ya estábamos saliendo o la reconexión no aplica, aniquilamos el hilo
+                        exit = true;
+                    }
+                }
+            }
+
+        });
+
+        // --- HEARTBEAT THREAD ---
+        Helpers.threadRun(() -> {
+
+            Panoptes panoptes_instance = Panoptes.getInstance();
+
+            while (!exit && WaitingRoomFrame.getInstance() != null) {
+                try {
+                    String[] direccion_server = server_ip_port.split(":");
+                    String serverIp = direccion_server[0];
+
+                    String miIpToUse;
+                    if (serverIp.equals("localhost") || serverIp.equals("127.0.0.1")
+                            || serverIp.startsWith("192.168.") || serverIp.startsWith("10.")
+                            || serverIp.startsWith("172.16.")) {
+                        miIpToUse = local_client_socket.getLocalAddress().getHostAddress();
+                    } else {
+                        miIpToUse = Helpers.getMyPublicIP();
+                    }
+
+                    int myLocalPort = local_client_socket.getLocalPort();
+
+                    byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT",
+                            miIpToUse, myLocalPort);
+                    String challengeB64 = Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
+
+                    writeCommandToServer(Helpers.encryptCommand("SECPING#" + challengeB64,
+                            local_client_aes_key, local_client_hmac_key));
+
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE,
+                            "Error dispatching SECPING to server", e);
+                }
+
+                Helpers.pausar(SEC_PING_INTERVAL_MS);
+            }
+        });
+
+        // --- PING/PONG KEEPALIVE THREAD ---
+        Helpers.threadRun(() -> {
+
+            while (!exit && WaitingRoomFrame.getInstance() != null) {
+
+                int ping = Helpers.CSPRNG_GENERATOR.nextInt();
+
+                remote_server_pong = null;
+                remote_server_pong2 = null;
+                remote_server_latency = -1;
+                remote_server_latency2 = -1;
+
+                long pingStartNs = System.nanoTime();
+
+                try {
+                    writeCommandToServer("PING#" + ping);
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE,
+                            "Error dispatching PING", ex);
+                    break;
+                }
+
+                long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
+
+                while (!exit && (remote_server_pong == null || remote_server_pong2 == null)
+                        && System.currentTimeMillis() < end) {
+                    synchronized (ping_pong_lock) {
+                        try {
+                            ping_pong_lock.wait(end - System.currentTimeMillis());
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+
+                    if (remote_server_latency == -1 && remote_server_pong != null
+                            && remote_server_pong == ping + 1) {
+
+                        remote_server_latency = Math
+                                .round((System.nanoTime() - pingStartNs) / 1_000_000);
+                    }
+
+                    if (remote_server_latency2 == -1 && remote_server_pong2 != null
+                            && remote_server_pong2 == ping + 2) {
+
+                        remote_server_latency2 = Math
+                                .round((System.nanoTime() - pingStartNs) / 1_000_000);
+                    }
+                }
+
+                if (remote_server_latency != -1) {
+
+                    Helpers.GUIRun(() -> {
+                        this.latency_label.setVisible(true);
+                        this.latency_label.setText(Translator.translate("ui.latencia_servidor")
+                                + " " + String.valueOf(remote_server_latency) + " ms");
+                    });
+                }
+
+                if (!exit && WaitingRoomFrame.getInstance() != null) {
+
+                    if (remote_server_pong == null) {
+                        LOGGER.log(Level.WARNING,
+                                "SERVER FAILED TO RESPOND TO PING");
+                    } else if (remote_server_pong != ping + 1) {
+                        LOGGER.log(Level.WARNING,
+                                "INVALID PONG FROM SERVER");
+                    } else if (remote_server_pong2 == null) {
+                        LOGGER.log(Level.WARNING,
+                                "SERVER FAILED TO RESPOND TO PING2");
+                    } else if (remote_server_pong2 != ping + 2) {
+                        LOGGER.log(Level.WARNING,
+                                "INVALID PONG2 FROM SERVER");
+                    } else if (DEV_MODE) {
+                        LOGGER.log(Level.INFO,
+                                "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
+                                new Object[]{remote_server_latency, remote_server_latency2});
+                    }
+
+                    Helpers.pausar(PING_INTERVAL_MS);
+                }
+
+            }
+        });
+    }
+
     private void cliente() {
 
         Helpers.threadRun(() -> {
@@ -1501,7 +1731,7 @@ public class WaitingRoomFrame extends JFrame {
                     status.setText(Translator.translate("status.conectando"));
                 });
                 booting = true;
-                HashMap<String, Integer> last_received = new HashMap<>();
+
                 String recibido;
                 String[] partes;
 
@@ -1786,224 +2016,7 @@ public class WaitingRoomFrame extends JFrame {
 
                             booting = false;
 
-                            // --- SOCKET READER THREAD ---
-                            Helpers.threadRun(() -> {
-
-                                while (!exit) {
-
-                                    String mensaje_recibido = null;
-
-                                    try {
-                                        mensaje_recibido = readCommandFromServer();
-                                    } catch (Exception ex) {
-                                        LOGGER.log(Level.SEVERE,
-                                                (String) null, ex);
-                                    }
-
-                                    if (mensaje_recibido != null) {
-
-                                        String[] partes_comando = mensaje_recibido.split("#");
-
-                                        if ("PING".equals(partes_comando[0])) {
-
-                                            writeCommandToServer(
-                                                    "PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
-
-                                            try {
-                                                local_client_socket_reader_queue.put(mensaje_recibido);
-                                            } catch (InterruptedException ex) {
-                                                System.getLogger(Participant.class.getName())
-                                                        .log(System.Logger.Level.ERROR, (String) null, ex);
-                                            }
-
-                                        } else if ("SECPING".equals(partes_comando[0])) {
-
-                                            // --- PANOPTES: CLIENT SIGNS SERVER HEARTBEAT ---
-                                            try {
-                                                byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                                                byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                                                String signatureBase64 = signatureBytes != null
-                                                        ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "")
-                                                        : "";
-
-                                                writeCommandToServer(
-                                                        Helpers.encryptCommand("SECPONG#" + signatureBase64,
-                                                                local_client_aes_key, local_client_hmac_key));
-                                            } catch (Exception e) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        "Failed to sign Panoptes heartbeat", e);
-                                            }
-
-                                        } else if ("PONG".equals(partes_comando[0])) {
-
-                                            remote_server_pong = Integer.valueOf(partes_comando[1]);
-
-                                            synchronized (ping_pong_lock) {
-                                                ping_pong_lock.notifyAll();
-                                            }
-
-                                        } else if ("PONG2".equals(partes_comando[0])) {
-
-                                            remote_server_pong2 = Integer.valueOf(partes_comando[1]);
-
-                                            synchronized (ping_pong_lock) {
-                                                ping_pong_lock.notifyAll();
-                                            }
-                                        } else {
-
-                                            try {
-                                                local_client_socket_reader_queue.put(mensaje_recibido);
-                                            } catch (Exception ex) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        (String) null, ex);
-                                            }
-                                        }
-
-                                    } else {
-                                        try {
-                                            local_client_socket_reader_queue.put(POISON_PILL);
-                                        } catch (Exception ex) {
-                                            LOGGER.log(Level.SEVERE,
-                                                    (String) null, ex);
-                                        }
-
-                                        last_received.clear();
-                                    }
-
-                                    if (mensaje_recibido == null && (!exit
-                                            && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada())
-                                            || (GameFrame.getInstance() != null
-                                            && !GameFrame.getInstance().getLocalPlayer().isExit())))
-                                            && !reconectarCliente()) {
-                                        exit = true;
-                                    }
-                                }
-
-                            });
-                            // --- END READER THREAD ---
-
-                            // --- HEARTBEAT THREAD ---
-                            Helpers.threadRun(() -> {
-
-                                Panoptes panoptes_instance = Panoptes.getInstance();
-
-                                // Wait 10s for game load
-                                Helpers.pausar(10000);
-
-                                while (!exit && WaitingRoomFrame.getInstance() != null) {
-                                    try {
-                                        String[] direccion_server = server_ip_port.split(":");
-                                        String serverIp = direccion_server[0];
-
-                                        String miIpToUse;
-                                        if (serverIp.equals("localhost") || serverIp.equals("127.0.0.1")
-                                                || serverIp.startsWith("192.168.") || serverIp.startsWith("10.")
-                                                || serverIp.startsWith("172.16.")) {
-                                            miIpToUse = local_client_socket.getLocalAddress().getHostAddress();
-                                        } else {
-                                            miIpToUse = Helpers.getMyPublicIP();
-                                        }
-
-                                        int myLocalPort = local_client_socket.getLocalPort();
-
-                                        byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT",
-                                                miIpToUse, myLocalPort);
-                                        String challengeB64 = Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
-
-                                        writeCommandToServer(Helpers.encryptCommand("SECPING#" + challengeB64,
-                                                local_client_aes_key, local_client_hmac_key));
-
-                                    } catch (Exception e) {
-                                        LOGGER.log(Level.SEVERE,
-                                                "Error dispatching SECPING to server", e);
-                                    }
-
-                                    Helpers.pausar(SEC_PING_INTERVAL_MS);
-                                }
-                            });
-
-                            // --- PING/PONG KEEPALIVE THREAD ---
-                            Helpers.threadRun(() -> {
-
-                                while (!exit && WaitingRoomFrame.getInstance() != null) {
-
-                                    int ping = Helpers.CSPRNG_GENERATOR.nextInt();
-
-                                    remote_server_pong = null;
-                                    remote_server_pong2 = null;
-                                    remote_server_latency = -1;
-                                    remote_server_latency2 = -1;
-
-                                    long pingStartNs = System.nanoTime();
-
-                                    try {
-                                        writeCommandToServer("PING#" + ping);
-                                    } catch (Exception ex) {
-                                        LOGGER.log(Level.SEVERE,
-                                                "Error dispatching PING", ex);
-                                        break;
-                                    }
-
-                                    long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
-
-                                    while (!exit && (remote_server_pong == null || remote_server_pong2 == null)
-                                            && System.currentTimeMillis() < end) {
-                                        synchronized (ping_pong_lock) {
-                                            try {
-                                                ping_pong_lock.wait(end - System.currentTimeMillis());
-                                            } catch (InterruptedException ignored) {
-                                            }
-                                        }
-
-                                        if (remote_server_latency == -1 && remote_server_pong != null
-                                                && remote_server_pong == ping + 1) {
-
-                                            remote_server_latency = Math
-                                                    .round((System.nanoTime() - pingStartNs) / 1_000_000);
-                                        }
-
-                                        if (remote_server_latency2 == -1 && remote_server_pong2 != null
-                                                && remote_server_pong2 == ping + 2) {
-
-                                            remote_server_latency2 = Math
-                                                    .round((System.nanoTime() - pingStartNs) / 1_000_000);
-                                        }
-                                    }
-
-                                    if (remote_server_latency != -1) {
-
-                                        Helpers.GUIRun(() -> {
-                                            this.latency_label.setVisible(true);
-                                            this.latency_label.setText(Translator.translate("ui.latencia_servidor")
-                                                    + " " + String.valueOf(remote_server_latency) + " ms");
-                                        });
-                                    }
-
-                                    if (!exit && WaitingRoomFrame.getInstance() != null) {
-
-                                        if (remote_server_pong == null) {
-                                            LOGGER.log(Level.WARNING,
-                                                    "SERVER FAILED TO RESPOND TO PING");
-                                        } else if (remote_server_pong != ping + 1) {
-                                            LOGGER.log(Level.WARNING,
-                                                    "INVALID PONG FROM SERVER");
-                                        } else if (remote_server_pong2 == null) {
-                                            LOGGER.log(Level.WARNING,
-                                                    "SERVER FAILED TO RESPOND TO PING2");
-                                        } else if (remote_server_pong2 != ping + 2) {
-                                            LOGGER.log(Level.WARNING,
-                                                    "INVALID PONG2 FROM SERVER");
-                                        } else if (DEV_MODE) {
-                                            LOGGER.log(Level.INFO,
-                                                    "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
-                                                    new Object[]{remote_server_latency, remote_server_latency2});
-                                        }
-
-                                        Helpers.pausar(PING_INTERVAL_MS);
-                                    }
-
-                                }
-                            });
+                            runPingPongThreadCliente();
 
                             // Nos quedamos en bucle esperando y procesando mensajes del server
                             do {
@@ -2024,6 +2037,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                             try {
                                                 byte[] signature = Base64.getDecoder().decode(partes_comando[1]);
+
                                                 int isLegit = Panoptes.getInstance().verifyResponse("SERVER_HEARTBEAT", signature);
 
                                                 if (isLegit == Panoptes.STATUS_FAILED) {
@@ -2034,6 +2048,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                 "SERVER FAILED PANOPTES HEARTBEAT! (Cheating detected mid-game)");
 
                                                         THIS.setUnsecure_server(true);
+                                                    }
+                                                } else {
+                                                    if (DEV_MODE) {
+                                                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(
+                                                                Level.INFO,
+                                                                "[PANOPTES-SHIELD] Server passed strict heartbeat attestation.");;
                                                     }
                                                 }
 
@@ -2070,9 +2090,9 @@ public class WaitingRoomFrame extends JFrame {
                                             String subcomando = partes_comando[2];
                                             int id = Integer.parseInt(partes_comando[1]);
                                             writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
-                                            if (!last_received.containsKey(subcomando)
-                                                    || last_received.get(subcomando) != id) {
-                                                last_received.put(subcomando, id);
+                                            if (!cliente_last_received.containsKey(subcomando)
+                                                    || cliente_last_received.get(subcomando) != id) {
+                                                cliente_last_received.put(subcomando, id);
                                                 if (isPartida_empezada()) {
                                                     switch (subcomando) {
                                                         case "YOUARELATE":

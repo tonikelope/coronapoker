@@ -1144,7 +1144,7 @@ public class Init extends JFrame {
         } else {
             if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {
                 try {
-                    File db = File.createTempFile("coronapoker_", ".db");
+                    File db = File.createTempFile("coronapoker_" + Helpers.genRandomString(WIDTH), ".db");
                     Files.copy(Paths.get(CORONA_DIR + "/coronapoker.db"), db.toPath(), StandardCopyOption.REPLACE_EXISTING);
                     SQL_FILE = db.getAbsolutePath();
                 } catch (IOException ex) {

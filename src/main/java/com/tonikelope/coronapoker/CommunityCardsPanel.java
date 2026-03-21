@@ -950,6 +950,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void zoomIcons() {
 
         Helpers.threadRun(() -> {
+
+            while (pot_label.getHeight() == 0) {
+                Helpers.pausar(125);
+            }
+
             synchronized (zoom_lock) {
                 Helpers.GUIRunAndWait(() -> {
                     sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));

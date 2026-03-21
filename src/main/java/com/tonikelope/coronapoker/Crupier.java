@@ -58,6 +58,10 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -338,6 +342,7 @@ public class Crupier implements Runnable {
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
+    public volatile String[] active_crypto_ring = null;
 
     private void enviarCartasJugadoresRemotos() {
         this.local_mk_share = null;
@@ -355,8 +360,13 @@ public class Crupier implements Runnable {
         byte[][] playerPubKeys = new byte[numPlayers][32];
         StringBuilder orderBuilder = new StringBuilder();
 
+        // Array to freeze the cryptographic truth for this hand
+        String[] currentRing = new String[numPlayers];
+
         for (int i = 0; i < numPlayers; i++) {
             Player j = ringCriptografico.get(i);
+            currentRing[i] = j.getNickname();
+
             byte[] pubKey = null;
             byte[] seed = null;
             try {
@@ -386,9 +396,19 @@ public class Crupier implements Runnable {
             playerSeeds[i] = (seed != null) ? seed : new byte[32];
         }
 
+        // Freeze the local ring order
+        this.active_crypto_ring = currentRing;
+
         this.activeHandId = Panoptes.getInstance().stateInitializeHand();
         this.local_mega_packet = Panoptes.getInstance().easyFlatDeal(playerSeeds, playerPubKeys);
         String megaPacketB64 = java.util.Base64.getEncoder().encodeToString(this.local_mega_packet);
+
+        // Encode the exact order to broadcast
+        String orderB64 = "";
+        try {
+            orderB64 = java.util.Base64.getEncoder().encodeToString(orderBuilder.toString().getBytes("UTF-8"));
+        } catch (Exception e) {
+        }
 
         try {
             String fossilName = Init.DEV_MODE ? "/fossil_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".lock" : "/fossil.lock";
@@ -397,7 +417,8 @@ public class Crupier implements Runnable {
         } catch (Exception e) {
         }
 
-        broadcastGAMECommandFromServer("MEGAPACKET#" + megaPacketB64, null, true);
+        // Send the absolute truth of the layout to the clients
+        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64, null, true);
 
         for (int i = 0; i < numPlayers; i++) {
             Player j = ringCriptografico.get(i);
@@ -455,19 +476,39 @@ public class Crupier implements Runnable {
 
                     if (partes[2].equals("MEGAPACKET")) {
                         ok = true;
-                        this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[3]);
 
-                        // Store local fossil for client recovery
+                        // Parse the explicitly provided ring order
+                        String orderB64 = partes[3];
+                        this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
+
+                        String orderStr = "";
+                        try {
+                            orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
+                            String[] orderTokens = orderStr.split(",");
+                            java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
+                            for (String token : orderTokens) {
+                                if (!token.isEmpty()) {
+                                    ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
+                                }
+                            }
+                            this.active_crypto_ring = ringList.toArray(new String[0]);
+                        } catch (Exception e) {
+                            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "Failed to decode exact ring order", e);
+                        }
+
+                        // Store local fossil for client recovery using Host compatible text format
                         try {
                             String fossilName = "/fossil.lock";
                             if (Init.DEV_MODE) {
                                 String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
                                 fossilName = "/fossil_" + safeNick + ".lock";
                             }
-                            java.nio.file.Files.write(java.nio.file.Paths.get(Init.CORONA_DIR + fossilName), this.local_mega_packet);
+                            String fullData = "ORDER@" + orderStr + "#FULLMEGAPACKET@" + partes[4];
+                            java.nio.file.Files.writeString(java.nio.file.Paths.get(Init.CORONA_DIR + fossilName), fullData);
                         } catch (Exception e) {
                         }
 
+                        // MyPos calculation is now guaranteed mathematically stable
                         int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
 
                         if (myPos != -1) {
@@ -696,6 +737,18 @@ public class Crupier implements Runnable {
     }
 
     public int calcularPosicionEnPaquete(String nick) {
+
+        // 1. Strict explicit packet layout (Prevents ZERO-TRUST index shifting)
+        if (this.active_crypto_ring != null) {
+            for (int i = 0; i < this.active_crypto_ring.length; i++) {
+                if (this.active_crypto_ring[i].equals(nick)) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // 2. Fallback to dynamic UI ring (Only used in edge cases/recoveries before MEGAPACKET)
         java.util.ArrayList<Player> ring = getAnilloCriptografico();
         for (int i = 0; i < ring.size(); i++) {
             if (ring.get(i).getNickname().equals(nick)) {
@@ -3432,8 +3485,8 @@ public class Crupier implements Runnable {
     }
 
     private boolean NUEVA_MANO() {
-        // [CRITICAL FIX]: Force clear the recovery flag. If we don't, normal hands
-        // will skip Megapacket generation and new clients will read 0,0 (Aces).
+
+        this.active_crypto_ring = null;
         this.game_recovered = 0;
 
         synchronized (this.lock_hand_verification) {
@@ -5608,37 +5661,54 @@ public class Crupier implements Runnable {
 
         if (street > PREFLOP) {
 
+            // Create a scheduler to delay the UI loading state
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
             // =================================================================
-            // [LATENCY MASKING] - Visual feedback for network wait
+            // [LATENCY MASKING] - Visual feedback for network wait (Delayed 1s)
             // =================================================================
-            Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(Translator.translate("zero_trust.decrypting_street"));
-                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
-            });
+            ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(Translator.translate("zero_trust.decrypting_street"));
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+                });
+            }, 500, TimeUnit.MILLISECONDS);
             // =================================================================
 
-            if (GameFrame.getInstance().isPartida_local()) {
-                if (!enviarCartasComunitarias(resisten)) {
-                    resisten.clear();
-                    return resisten; // MISDEAL TRIGGERED
+            boolean success = false;
+
+            try {
+                // Perform network operations
+                if (GameFrame.getInstance().isPartida_local()) {
+                    success = enviarCartasComunitarias(resisten);
+                } else {
+                    success = recibirCartasComunitarias();
                 }
-            } else {
-                if (!recibirCartasComunitarias()) {
-                    resisten.clear();
-                    return resisten; // MISDEAL TRIGGERED
-                }
+            } finally {
+                // Cancel the delayed UI update immediately. 
+                // If 1 second hasn't passed, the loading message will never appear.
+                loadingTask.cancel(false);
+                scheduler.shutdown();
+
+                // Always restore original UI state, regardless of success or failure.
+                // This is safe to run even if the loading state was never triggered.
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
+                            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground()
+                    );
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
+                });
             }
 
-            // Restore original pot label color
-            Helpers.GUIRunAndWait(() -> {
-                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
-                        GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground()
-                );
-                GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-            });
+            // Handle MISDEAL logic after UI has been safely restored
+            if (!success) {
+                resisten.clear();
+                return resisten; // MISDEAL TRIGGERED
+            }
 
             actualizarContadoresTapete();
+
             LOGGER.log(Level.INFO, "UNCOVER COM CARDS");
             destaparCartaComunitaria(street, resisten);
         }

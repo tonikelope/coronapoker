@@ -109,7 +109,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int PEPILLO_COUNTER_MAX = 5;
     public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 3000;
-    public static final int GUI_ZOOM_WAIT = 250;
+    public static final int GUI_ZOOM_WAIT = 125;
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
     public static final int NOTIFY_INGAME_GIF_REPEAT = 2;
@@ -3761,7 +3761,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
 
-                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("sound.tts_activado_por_el_servidor_2"), new Color(0, 130, 0), Color.WHITE, null, NOTIFICATION_TIMEOUT);
+                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("sound.tts_activado_por_el_servidor"), new Color(0, 130, 0), Color.WHITE, null, NOTIFICATION_TIMEOUT);
 
                         dialog.setLocation(dialog.getParent().getLocation());
 
@@ -3790,7 +3790,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
 
-                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("sound.tts_desactivado_por_el_servidor_2"), Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
+                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("sound.tts_desactivado_por_el_servidor"), Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
 
                     dialog.setLocation(dialog.getParent().getLocation());
 

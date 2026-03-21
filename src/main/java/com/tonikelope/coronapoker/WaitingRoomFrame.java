@@ -2210,12 +2210,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                             GameFrame.getInstance(), false,
                                                                             GameFrame.IWTSTH_RULE
                                                                                     ? Translator.translate(
-                                                                                            "IWTSTH RULE ACTIVATED")
+                                                                                            "iwtsth.regla_iwtsth_activada")
                                                                                     : Translator.translate(
-                                                                                            "IWTSTH RULE DEACTIVATED"),
+                                                                                            "iwtsth.regla_iwtsth_desactivada"),
                                                                             GameFrame.IWTSTH_RULE ? new Color(0, 130, 0)
                                                                                     : Color.RED,
-                                                                            Color.WHITE, null, NOTIFICATION_TIMEOUT);
+                                                                            Color.WHITE, getClass().getResource("/images/menu/eyes.png"), NOTIFICATION_TIMEOUT);
                                                                     dialog.setLocation(
                                                                             dialog.getParent().getLocation());
                                                                     dialog.setVisible(true);
@@ -2246,26 +2246,26 @@ public class WaitingRoomFrame extends JFrame {
                                                                             GameFrame.getInstance().getMenu_rabbit_off()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING DEACTIVATED");
+                                                                                    "rabbit.rabbit_hunting_desactivado");
                                                                             break;
                                                                         case 1:
                                                                             GameFrame.getInstance()
                                                                                     .getMenu_rabbit_free()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING ACTIVATED (FREE)");
+                                                                                    "rabbit.rabbit_hunting_activado_free");
                                                                             break;
                                                                         case 2:
                                                                             GameFrame.getInstance().getMenu_rabbit_sb()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING ACTIVATED (FREE + SB)");
+                                                                                    "rabbit.rabbit_hunting_activado_free_sb");
                                                                             break;
                                                                         case 3:
                                                                             GameFrame.getInstance().getMenu_rabbit_bb()
                                                                                     .setSelected(true);
                                                                             notification = Translator.translate(
-                                                                                    "RABBIT HUNTING ACTIVATED (FREE + SB + BB)");
+                                                                                    "rabbit.rabbit_hunting_activado_free_sb_2");
                                                                             break;
                                                                         default:
                                                                             break;
@@ -2342,9 +2342,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         GameFrame.getInstance(), false,
                                                                         GameFrame.TTS_SERVER
                                                                                 ? Translator.translate(
-                                                                                        "TTS ENABLED BY SERVER")
+                                                                                        "sound.tts_activado_por_el_servidor")
                                                                                 : Translator.translate(
-                                                                                        "TTS DISABLED BY SERVER"),
+                                                                                        "sound.tts_desactivado_por_el_servidor"),
                                                                         GameFrame.TTS_SERVER ? new Color(0, 130, 0)
                                                                                 : Color.RED,
                                                                         Color.WHITE, null, NOTIFICATION_TIMEOUT);

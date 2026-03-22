@@ -28,11 +28,13 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import static com.tonikelope.coronapoker.GameFrame.GUI_RENDER_WAIT;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
+import static com.tonikelope.coronapoker.GifLabel.GIF_BARRIER_TIMEOUT;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
@@ -61,6 +63,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -467,6 +470,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         final ImageIcon orig = ImageCacheManager.getIcon(new URL(u.toString() + "#" + String.valueOf(System.currentTimeMillis())));
 
+                        while (orig.getIconHeight() == 0 || orig.getIconWidth() == 0) {
+
+                            Helpers.pausar(GUI_RENDER_WAIT);
+                        }
+
                         int max_width = panel_cartas.getWidth();
 
                         int max_height = Math.round(getHoleCard1().getHeight() / 2);
@@ -490,7 +498,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         int gif_frames_count = isgif ? Helpers.getGIFFramesCount(u) : 0;
 
-                        Helpers.GUIRunAndWait(() -> {
+                        Helpers.GUIRun(() -> {
                             if (isgif) {
                                 getChat_notify_label().setIcon(image, gif_frames_count);
                             } else {
@@ -503,10 +511,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             getChat_notify_label().setLocation(pos_x, pos_y);
                             getChat_notify_label().setVisible(true);
 
-                            getChat_notify_label().revalidate();
-                            getChat_notify_label().repaint();
-
                         });
+
                     } catch (Exception ex) {
                         Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -515,7 +521,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (isgif) {
 
                     try {
-                        gif_barrier.await();
+                        gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
                     } catch (Exception ex) {
                         Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -1036,7 +1042,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             utg_icon.setVisible(false);
             player_pot.setText("----");
             player_name.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, (ActionEvent ae) -> {
+            icon_zoom_timer = new Timer(GameFrame.GUI_RENDER_WAIT, (ActionEvent ae) -> {
                 icon_zoom_timer.stop();
                 zoomIcons();
                 holeCard1.updateImagePreloadCache();

@@ -109,7 +109,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int PEPILLO_COUNTER_MAX = 5;
     public static final int PAUSE_COUNTER_MAX = 3;
     public static final int AUTO_ZOOM_TIMEOUT = 3000;
-    public static final int GUI_ZOOM_WAIT = 125;
+    public static final int GUI_RENDER_WAIT = 125;
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
     public static final int NOTIFY_INGAME_GIF_REPEAT = 2;
@@ -2066,7 +2066,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
                 }
 
-                GameFrame.getInstance().getCrupier().cleanTempPanoptesFiles();
+                GameFrame.getInstance().getCrupier().cleanTempCrupierFiles();
 
                 RESET_GAME(recover);
             }
@@ -2978,7 +2978,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
             if (GameFrame.AUTO_ZOOM) {
                 Helpers.threadRun(() -> {
-                    Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+                    Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
                     tapete.autoZoom(false);
                 });
             }
@@ -3054,7 +3054,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
                 if (GameFrame.AUTO_ZOOM) {
                     Helpers.threadRun(() -> {
-                        Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+                        Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
                         tapete.autoZoom(false);
                     });
                 }

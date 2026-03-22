@@ -470,9 +470,10 @@ public class Participant implements Runnable {
                                 }
                                 break;
                             case "SECPONG":
+                                final String[] partes_final_secpong = partes_comando;
                                 Helpers.threadRun(() -> {
                                     try {
-                                        byte[] signatureBytes = Base64.getDecoder().decode(partes_comando[1]);
+                                        byte[] signatureBytes = Base64.getDecoder().decode(partes_final_secpong[1]);
 
                                         // 1. Re-derivamos la misma llave de sesión determinista que usamos para enviarle el SECPING
                                         MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -488,8 +489,6 @@ public class Participant implements Runnable {
                                                             "[PANOPTES-SHIELD] CRITICAL: Attestation failed for {0}! Tampering detected.", nick);
                                                     this.setUnsecure_player(true); // Marca al jugador con el escudo rojo/peligro
 
-                                                    // Descomenta la siguiente línea si quieres que el servidor expulse instantáneamente al tramposo:
-                                                    // this.exitAndCloseSocket();
                                                 }
                                                 break;
                                             case Panoptes.STATUS_VM_DETECTED:
@@ -645,9 +644,7 @@ public class Participant implements Runnable {
 
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(),
-                        "[" + nick + "] " + Translator.translate(WaitingRoomFrame.getInstance().isServer()
-                                ? "radar.cuidado_el_ejecutable_del_juego_2"
-                                : "radar.cuidado_el_ejecutable_del_juego"),
+                        "[" + nick + "] " + Translator.translate("radar.cuidado_el_ejecutable_del_juego"),
                         new ImageIcon(Init.class.getResource("/images/shield.png")));
             });
 
@@ -976,7 +973,7 @@ public class Participant implements Runnable {
     public void run() {
         if (socket != null) {
             runPreGameSocketWriterQueueThread();
-            runPingPongThread();
+            //runPingPongThread();
             runSocketReaderThread();
 
             String recibido;
@@ -1023,22 +1020,23 @@ public class Participant implements Runnable {
 
                                     switch (subcomando) {
                                         case "RADAR":
+                                            final String[] partes_final_radar = partes_comando;
                                             Helpers.threadRun(() -> {
                                                 try {
-                                                    if (partes_comando.length == 5) {
-                                                        String suspicious = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                        byte[] requesterPubKey = Base64.getDecoder().decode(partes_comando[4]);
+                                                    if (partes_final_radar.length == 5) {
+                                                        String suspicious = new String(Base64.getDecoder().decode(partes_final_radar[3]), "UTF-8");
+                                                        byte[] requesterPubKey = Base64.getDecoder().decode(partes_final_radar[4]);
                                                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
                                                             GameFrame.getInstance().getLocalPlayer().RADAR(nick, requesterPubKey);
                                                         } else if (!GameFrame.getInstance().getParticipantes().get(suspicious).isCpu()) {
-                                                            GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_comando[4]);
+                                                            GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_final_radar[4]);
                                                         }
-                                                    } else if (partes_comando.length == 7) {
-                                                        String requester = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                    } else if (partes_final_radar.length == 7) {
+                                                        String requester = new String(Base64.getDecoder().decode(partes_final_radar[3]), "UTF-8");
                                                         if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
-                                                            byte[] imageBytes = partes_comando[4].equals("*") ? null : Base64.getDecoder().decode(partes_comando[4]);
-                                                            byte[] encryptedRadarData = partes_comando[5].equals("*") ? null : Base64.getDecoder().decode(partes_comando[5]);
-                                                            long timestamp = Long.parseLong(partes_comando[6]);
+                                                            byte[] imageBytes = partes_final_radar[4].equals("*") ? null : Base64.getDecoder().decode(partes_final_radar[4]);
+                                                            byte[] encryptedRadarData = partes_final_radar[5].equals("*") ? null : Base64.getDecoder().decode(partes_final_radar[5]);
+                                                            long timestamp = Long.parseLong(partes_final_radar[6]);
                                                             StringBuilder sb = new StringBuilder();
                                                             sb.append("  ____                            ____       _                ____     _    ____    _    ____  \n"
                                                                     + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
@@ -1064,7 +1062,7 @@ public class Participant implements Runnable {
                                                             }
                                                             GameFrame.getInstance().getCrupier().saveRADARLog(nick, imageBytes, sb.toString(), timestamp);
                                                         } else {
-                                                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_comando[4] + "#" + partes_comando[5] + "#" + partes_comando[6]);
+                                                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_final_radar[4] + "#" + partes_final_radar[5] + "#" + partes_final_radar[6]);
                                                         }
                                                     }
                                                 } catch (Exception ex) {
@@ -1073,17 +1071,19 @@ public class Participant implements Runnable {
                                             });
                                             break;
                                         case "PERMUTATIONKEY":
+                                            final String[] partes_final_permutationkey = partes_comando;
                                             Helpers.threadRun(() -> {
                                                 synchronized (GameFrame.getInstance().getCrupier().getPermutation_key_lock()) {
-                                                    GameFrame.getInstance().getCrupier().setPermutation_key(partes_comando[3]);
+                                                    GameFrame.getInstance().getCrupier().setPermutation_key(partes_final_permutationkey[3]);
                                                     GameFrame.getInstance().getCrupier().getPermutation_key_lock().notifyAll();
                                                 }
                                             });
                                             break;
                                         case "PAUSE":
+                                            final String[] partes_final_pause = partes_comando;
                                             Helpers.threadRun(() -> {
                                                 synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                    if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada()) && nick.equals(GameFrame.getInstance().getNick_pause()) || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                    if (("0".equals(partes_final_pause[3]) && GameFrame.getInstance().isTimba_pausada()) && nick.equals(GameFrame.getInstance().getNick_pause()) || ("1".equals(partes_final_pause[3]) && !GameFrame.getInstance().isTimba_pausada())) {
                                                         GameFrame.getInstance().pauseTimba(nick);
                                                         if (GameFrame.getInstance().isTimba_pausada()) {
                                                             GameFrame.getInstance().getRegistro().print("PAUSE (" + nick + ")");

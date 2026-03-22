@@ -294,13 +294,6 @@ public class Panoptes {
         return stateGenerateMegapacket(flatSeeds, numPlayers, flatPubs);
     }
 
-    public byte[] generateRadarReport(byte[] serverPubKey) {
-        if (serverPubKey == null || serverPubKey.length != 32) {
-            return null;
-        }
-        return telemetryGetSystemRadar(serverPubKey);
-    }
-
     public String parseRadarReport(byte[] encryptedRadarPacket) {
         if (encryptedRadarPacket == null || encryptedRadarPacket.length <= 48) {
             return null;

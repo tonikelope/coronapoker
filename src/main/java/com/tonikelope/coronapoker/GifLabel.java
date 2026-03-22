@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.Icon;
@@ -39,6 +40,8 @@ import javax.swing.JLabel;
 
 //Thanks to -> https://stackoverflow.com/a/42079313
 public class GifLabel extends JLabel {
+
+    public final static long GIF_BARRIER_TIMEOUT = 5;
 
     private volatile int frames = 0;
     private volatile int conta_frames = 0;
@@ -152,11 +155,13 @@ public class GifLabel extends JLabel {
         }
 
         if (gif_finished && gif_barrier != null) {
-            try {
-                gif_barrier.await();
-            } catch (Exception ex) {
-                Logger.getLogger(GifLabel.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            Helpers.threadRun(() -> {
+                try {
+                    gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+                } catch (Exception ex) {
+                    Logger.getLogger(GifLabel.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            });
         }
 
         // Stop Swing from requesting more frames if the animation is done and not repeating

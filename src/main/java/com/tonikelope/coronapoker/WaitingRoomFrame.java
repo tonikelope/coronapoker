@@ -306,11 +306,6 @@ public class WaitingRoomFrame extends JFrame {
                 pack();
             });
 
-            Helpers.threadRun(() -> {
-                mostrarMensajeInformativo(THIS,
-                        Translator.translate("ui.error.vm_detected_waiting_room"));
-            });
-
         }
 
         this.unsecure_server = val;
@@ -1489,8 +1484,7 @@ public class WaitingRoomFrame extends JFrame {
         return r;
     }
 
-    private void runPingPongThreadCliente() {
-
+    private void runSocketReaderClientThread() {
         Helpers.threadRun(() -> {
 
             while (!exit) {
@@ -1596,6 +1590,9 @@ public class WaitingRoomFrame extends JFrame {
             }
 
         });
+    }
+
+    private void runPingPongThreadCliente() {
 
         // --- HEARTBEAT THREAD ---
         Helpers.threadRun(() -> {
@@ -1925,6 +1922,7 @@ public class WaitingRoomFrame extends JFrame {
                                 Helpers.threadRun(() -> {
                                     mostrarMensajeInformativo(THIS, Translator.translate("ui.error.vm_detected_waiting_room") + " [" + server_nick + "]");
                                 });
+
                                 Logger.getLogger(WaitingRoomFrame.class.getName()).warning("SERVER is running on a Virtual Machine.");
                             }
 
@@ -1987,7 +1985,7 @@ public class WaitingRoomFrame extends JFrame {
                             if (GameFrame.RADAR_AVAILABLE) {
                                 Helpers.threadRun(() -> {
                                     Helpers.mostrarMensajeInformativo(this,
-                                            Translator.translate("radar.activate_info"),
+                                            Translator.translate("radar.el_servidor_ha_activado_el"),
                                             "justify", (int) Math.round(getWidth() * 0.8f),
                                             new ImageIcon(Init.class.getResource("/images/shield.png")));
                                 });
@@ -2016,8 +2014,9 @@ public class WaitingRoomFrame extends JFrame {
 
                             booting = false;
 
-                            runPingPongThreadCliente();
+                            runSocketReaderClientThread();
 
+                            //runPingPongThreadCliente();
                             // Nos quedamos en bucle esperando y procesando mensajes del server
                             do {
 
@@ -2198,9 +2197,10 @@ public class WaitingRoomFrame extends JFrame {
 
                                                             break;
                                                         case "IWTSTHRULE":
+                                                            final String[] partes_final_iwtsthrule = partes_comando;
                                                             Helpers.threadRun(() -> {
 
-                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
+                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_final_iwtsthrule[3]);
                                                                 Helpers.GUIRun(() -> {
                                                                     GameFrame.getInstance().getIwtsth_rule_menu()
                                                                             .setSelected(GameFrame.IWTSTH_RULE);
@@ -2224,10 +2224,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             });
                                                             break;
                                                         case "RABBITRULE":
+                                                            final String[] partes_final_rabbitrule = partes_comando;
                                                             Helpers.threadRun(() -> {
 
                                                                 GameFrame.RABBIT_HUNTING = Integer
-                                                                        .parseInt(partes_comando[3]);
+                                                                        .parseInt(partes_final_rabbitrule[3]);
                                                                 Helpers.GUIRun(() -> {
 
                                                                     GameFrame.getInstance().getMenu_rabbit_off()
@@ -2356,11 +2357,12 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
 
                                                         case "PAUSE":
+                                                            final String[] partes_final_pause = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                                    if (("0".equals(partes_comando[3]) && GameFrame
+                                                                    if (("0".equals(partes_final_pause[3]) && GameFrame
                                                                             .getInstance().isTimba_pausada())
-                                                                            || ("1".equals(partes_comando[3])
+                                                                            || ("1".equals(partes_final_pause[3])
                                                                             && !GameFrame.getInstance()
                                                                                     .isTimba_pausada())) {
                                                                         GameFrame.getInstance().pauseTimba(null);
@@ -2369,6 +2371,8 @@ public class WaitingRoomFrame extends JFrame {
                                                             });
                                                             break;
                                                         case "PERMUTATIONKEY":
+                                                            final String[] partes_final_permutationkey = partes_comando;
+
                                                             Helpers.threadRun(() -> {
                                                                 try {
                                                                     byte[] masterKey = Panoptes.getInstance().stateGetShuffleKeyShare();

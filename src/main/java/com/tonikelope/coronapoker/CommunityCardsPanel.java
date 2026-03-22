@@ -180,6 +180,24 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return lights_label;
     }
 
+    public void showVerifiedHandIcon() {
+
+        Helpers.GUIRun(() -> {
+
+            bet_label.setText("");
+            Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/panoptes_verified.png"), pot_label.getHeight(), pot_label.getHeight());
+            bet_label.setVisible(true);
+
+        });
+    }
+
+    public void restoreBetLabelicon() {
+
+        Helpers.GUIRunAndWait(() -> {
+            Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+        });
+    }
+
     /**
      * Creates new form CommunityCards
      */
@@ -201,7 +219,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             });
             max_hands_button.setVisible(false);
-            icon_zoom_timer = new Timer(GameFrame.GUI_ZOOM_WAIT, (ActionEvent ae) -> {
+            icon_zoom_timer = new Timer(GameFrame.GUI_RENDER_WAIT, (ActionEvent ae) -> {
                 icon_zoom_timer.stop();
                 zoomIcons();
                 flop1.updateImagePreloadCache();
@@ -977,7 +995,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
         while (!ready) {
-            Helpers.pausar(GameFrame.GUI_ZOOM_WAIT);
+            Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
         }
 
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();

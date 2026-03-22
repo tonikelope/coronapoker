@@ -95,6 +95,8 @@ public class TeeOutputStream extends OutputStream {
         for (int i = off; i < off + len; i++) {
             this.write(b[i]);
         }
+
+        this.flush();
     }
 
     @Override
@@ -105,10 +107,8 @@ public class TeeOutputStream extends OutputStream {
 
     @Override
     public void close() throws IOException {
-        try {
+        try (out2) {
             out1.close();
-        } finally {
-            out2.close();
         }
     }
 }

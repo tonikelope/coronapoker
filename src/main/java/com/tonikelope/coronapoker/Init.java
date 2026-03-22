@@ -604,7 +604,6 @@ public class Init extends JFrame {
         update_button.setText(Translator.translate("update.actualizar"));
         update_button.putClientProperty("i18n.key", "update.actualizar");
         update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        update_button.setDoubleBuffered(true);
         update_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 update_buttonActionPerformed(evt);
@@ -620,7 +619,6 @@ public class Init extends JFrame {
         join_button.putClientProperty("i18n.key", "ui.unirme_a_timba");
         join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         join_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        join_button.setDoubleBuffered(true);
         join_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 join_buttonMouseEntered(evt);
@@ -641,7 +639,6 @@ public class Init extends JFrame {
         stats_button.setText(Translator.translate("ui.estadisticas"));
         stats_button.putClientProperty("i18n.key", "ui.estadisticas");
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        stats_button.setDoubleBuffered(true);
         stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 stats_buttonActionPerformed(evt);
@@ -655,7 +652,6 @@ public class Init extends JFrame {
         create_button.putClientProperty("i18n.key", "ui.crear_timba");
         create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        create_button.setDoubleBuffered(true);
         create_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 create_buttonMouseEntered(evt);
@@ -714,7 +710,6 @@ public class Init extends JFrame {
         exit_button.setText(Translator.translate("ui.salir"));
         exit_button.putClientProperty("i18n.key", "ui.salir");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_button.setDoubleBuffered(true);
         exit_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exit_buttonActionPerformed(evt);
@@ -800,7 +795,6 @@ public class Init extends JFrame {
 
         baraja_fondo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         baraja_fondo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        baraja_fondo.setDoubleBuffered(true);
         baraja_fondo.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 baraja_fondoMouseClicked(evt);

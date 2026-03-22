@@ -868,12 +868,10 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         card_image = new javax.swing.JLabel();
         rabbit_image = new javax.swing.JLabel();
 
-        setDoubleBuffered(true);
         setFocusable(false);
         setPreferredSize(new java.awt.Dimension(148, 200));
 
         card_image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        card_image.setDoubleBuffered(true);
         card_image.setFocusable(false);
         card_image.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -890,7 +888,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         rabbit_image.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         rabbit_image.setVerticalAlignment(javax.swing.SwingConstants.TOP);
         rabbit_image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rabbit_image.setDoubleBuffered(true);
         rabbit_image.setFocusable(false);
 
         setLayer(card_image, javax.swing.JLayeredPane.DEFAULT_LAYER);

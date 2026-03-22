@@ -206,24 +206,20 @@ public class AboutDialog extends JDialog {
         });
 
         main_scroll_panel.setBorder(null);
-        main_scroll_panel.setDoubleBuffered(true);
 
         jPanel2.setBackground(new java.awt.Color(255, 255, 255));
 
         jLabel2.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText(Translator.translate("about.gracias_1"));
-        jLabel2.setDoubleBuffered(true);
 
         dedicado.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         dedicado.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         dedicado.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/luto.png"))); // NOI18N
         dedicado.setText(Translator.translate("about.dedicado"));
-        dedicado.setDoubleBuffered(true);
 
         jvm.setText(Helpers.getSystemInfo());
         jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        jvm.setDoubleBuffered(true);
         jvm.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 jvmMouseClicked(evt);
@@ -231,47 +227,38 @@ public class AboutDialog extends JDialog {
         });
 
         jLabel3.setText("Jn 8:32");
-        jLabel3.setDoubleBuffered(true);
 
         jLabel4.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText(Translator.translate("about.centimos"));
-        jLabel4.setDoubleBuffered(true);
 
         merecemos.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         merecemos.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         merecemos.setText(Translator.translate("about.merecemos"));
-        merecemos.setDoubleBuffered(true);
 
         jLabel6.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel6.setText(Translator.translate("about.copyright"));
-        jLabel6.setDoubleBuffered(true);
 
         jLabel5.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel5.setText(Translator.translate("about.gracias_2"));
-        jLabel5.setDoubleBuffered(true);
 
         jLabel7.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel7.setText(Translator.translate("about.musica_juego"));
-        jLabel7.setDoubleBuffered(true);
 
         jLabel8.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel8.setText(Translator.translate("about.musica_stats"));
-        jLabel8.setDoubleBuffered(true);
 
         jLabel10.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel10.setText(Translator.translate("about.musica_about"));
-        jLabel10.setDoubleBuffered(true);
 
         jLabel11.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel11.setText(Translator.translate("about.musica_espera"));
-        jLabel11.setDoubleBuffered(true);
 
         jPanel1.setOpaque(false);
 
@@ -281,7 +268,6 @@ public class AboutDialog extends JDialog {
         mod_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mod_label.setText("MOD");
         mod_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        mod_label.setDoubleBuffered(true);
         mod_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 mod_labelMouseClicked(evt);
@@ -291,7 +277,6 @@ public class AboutDialog extends JDialog {
         corona_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         corona_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_logo.gif"))); // NOI18N
         corona_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        corona_icon_label.setDoubleBuffered(true);
         corona_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 corona_icon_labelMouseClicked(evt);
@@ -301,7 +286,6 @@ public class AboutDialog extends JDialog {
         panoptes_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         panoptes_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/panoptes_logo_about.jpg"))); // NOI18N
         panoptes_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        panoptes_icon_label.setDoubleBuffered(true);
         panoptes_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 panoptes_icon_labelMouseClicked(evt);
@@ -361,7 +345,6 @@ public class AboutDialog extends JDialog {
         jLabel12.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/open-book.png"))); // NOI18N
         jLabel12.putClientProperty("i18n.tooltip_key", "tooltip.robert_rules");
         jLabel12.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        jLabel12.setDoubleBuffered(true);
         jLabel12.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 jLabel12MouseClicked(evt);
@@ -391,9 +374,7 @@ public class AboutDialog extends JDialog {
         );
 
         memory_usage.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        memory_usage.setDoubleBuffered(true);
 
-        threads.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);

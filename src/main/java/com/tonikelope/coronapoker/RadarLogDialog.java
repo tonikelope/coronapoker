@@ -123,7 +123,6 @@ public class RadarLogDialog extends JDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         screenshot.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        screenshot.setDoubleBuffered(true);
         jScrollPane1.setViewportView(screenshot);
 
         procesos.setEditable(false);
@@ -131,7 +130,6 @@ public class RadarLogDialog extends JDialog {
         procesos.setColumns(20);
         procesos.setFont(new java.awt.Font("Monospaced", 0, 14)); // NOI18N
         procesos.setRows(5);
-        procesos.setDoubleBuffered(true);
         jScrollPane2.setViewportView(procesos);
 
         jLabel1.setBackground(new java.awt.Color(255, 255, 0));
@@ -139,7 +137,6 @@ public class RadarLogDialog extends JDialog {
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("ATENCIÓN: toda esta información debe ser revisada y contrastada manualmente para concluir si el jugador ha hecho trampas.");
         jLabel1.putClientProperty("i18n.key", "radar.atencion_toda_esta_informacion_debe");
-        jLabel1.setDoubleBuffered(true);
         jLabel1.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());

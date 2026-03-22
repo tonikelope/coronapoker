@@ -57,7 +57,6 @@ public class GifPanel extends javax.swing.JPanel {
      * Creates new form NewJPanel
      */
     public GifPanel() {
-        setDoubleBuffered(true);
         initComponents();
 
     }
@@ -66,7 +65,6 @@ public class GifPanel extends javax.swing.JPanel {
      * Creates new form NewJPanel
      */
     public GifPanel(boolean b) {
-        setDoubleBuffered(true);
         initComponents();
         brillo = b;
     }
@@ -97,7 +95,6 @@ public class GifPanel extends javax.swing.JPanel {
 
         setFocusable(false);
 
-        gif.setDoubleBuffered(true);
         gif.setFocusable(false);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

@@ -98,12 +98,10 @@ public class ExitDialog extends JDialog {
         message.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit.png"))); // NOI18N
         message.setText("¿SALIR DE LA TIMBA?");
         message.putClientProperty("i18n.key", "exit.salir_de_la_timba_pregunta");
-        message.setDoubleBuffered(true);
         message.setFocusable(false);
 
         exit_checkbox.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         exit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_checkbox.setDoubleBuffered(true);
         exit_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exit_checkboxActionPerformed(evt);
@@ -116,7 +114,6 @@ public class ExitDialog extends JDialog {
         continue_button.setText("SEGUIR JUGANDO");
         continue_button.putClientProperty("i18n.key", "exit.seguir_jugando");
         continue_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        continue_button.setDoubleBuffered(true);
         continue_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 continue_buttonActionPerformed(evt);
@@ -129,7 +126,6 @@ public class ExitDialog extends JDialog {
         exit_button.setText("SALIR DE LA TIMBA");
         exit_button.putClientProperty("i18n.key", "exit.salir_de_la_timba");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_button.setDoubleBuffered(true);
         exit_button.setEnabled(false);
         exit_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -141,7 +137,6 @@ public class ExitDialog extends JDialog {
         programar_parada_checkbox.setText("Esperar a que termine la mano para salir");
         programar_parada_checkbox.putClientProperty("i18n.key", "exit.esperar_que_termine_la_mano");
         programar_parada_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        programar_parada_checkbox.setDoubleBuffered(true);
         programar_parada_checkbox.setEnabled(false);
         programar_parada_checkbox.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
 

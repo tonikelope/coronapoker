@@ -551,7 +551,6 @@ public class ChatImageDialog extends JDialog {
         jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
         image_url.setFont(new java.awt.Font("Dialog", 0, 18)); // NOI18N
-        image_url.setDoubleBuffered(true);
         image_url.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 image_urlActionPerformed(evt);
@@ -565,7 +564,6 @@ public class ChatImageDialog extends JDialog {
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel1.setText("URL:");
-        jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
 
         send_button.setBackground(new java.awt.Color(0, 130, 0));
@@ -574,7 +572,6 @@ public class ChatImageDialog extends JDialog {
         send_button.setText("Enviar");
         send_button.putClientProperty("i18n.key", "ui.enviar");
         send_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        send_button.setDoubleBuffered(true);
         send_button.setFocusable(false);
         send_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -586,7 +583,6 @@ public class ChatImageDialog extends JDialog {
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Nota: también puedes buscar desde aquí imágenes en Google introduciendo palabras clave.");
         jLabel2.putClientProperty("i18n.key", "ui.nota_tambien_puedes_buscar_desde");
-        jLabel2.setDoubleBuffered(true);
         jLabel2.setFocusable(false);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
@@ -621,7 +617,6 @@ public class ChatImageDialog extends JDialog {
         auto_recibir_checkbox.setText("Añadir imágenes recibidas al historial");
         auto_recibir_checkbox.putClientProperty("i18n.key", "chat.anadir_imagenes_recibidas_al_historial");
         auto_recibir_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        auto_recibir_checkbox.setDoubleBuffered(true);
         auto_recibir_checkbox.setFocusable(false);
         auto_recibir_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -634,7 +629,6 @@ public class ChatImageDialog extends JDialog {
         clear_button.setText("Borrar historial");
         clear_button.putClientProperty("i18n.key", "chat.borrar_historial");
         clear_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        clear_button.setDoubleBuffered(true);
         clear_button.setFocusable(false);
         clear_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -642,11 +636,9 @@ public class ChatImageDialog extends JDialog {
             }
         });
 
-        barra.setDoubleBuffered(true);
         barra.setFocusable(false);
 
         scroll_panel.setBorder(null);
-        scroll_panel.setDoubleBuffered(true);
         scroll_panel.setFocusCycleRoot(true);
 
         javax.swing.GroupLayout historial_panelLayout = new javax.swing.GroupLayout(historial_panel);

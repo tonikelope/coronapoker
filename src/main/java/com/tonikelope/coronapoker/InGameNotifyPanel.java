@@ -79,7 +79,6 @@ public class InGameNotifyPanel extends javax.swing.JPanel {
         msg.setFont(new java.awt.Font("Dialog", 1, 28)); // NOI18N
         msg.setForeground(new java.awt.Color(255, 255, 255));
         msg.setText("NICK: bla bla bla");
-        msg.setDoubleBuffered(true);
         msg.setFocusable(false);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);

@@ -376,20 +376,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         bet_label.setForeground(new java.awt.Color(153, 204, 0));
         bet_label.setText(" ");
         bet_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        bet_label.setDoubleBuffered(true);
         bet_label.setFocusable(false);
 
         tiempo_partida.setFont(new java.awt.Font("Monospaced", 1, 28)); // NOI18N
         tiempo_partida.setForeground(new java.awt.Color(153, 204, 0));
         tiempo_partida.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         tiempo_partida.setText("00:00:00");
-        tiempo_partida.setDoubleBuffered(true);
         tiempo_partida.setFocusable(false);
 
         sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
         sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        sound_icon.setDoubleBuffered(true);
         sound_icon.setFocusable(false);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -401,7 +398,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         panel_barra.setFocusable(false);
         panel_barra.setOpaque(false);
 
-        barra_tiempo.setDoubleBuffered(true);
         barra_tiempo.setFocusable(false);
         barra_tiempo.setMinimumSize(new java.awt.Dimension(1, 1));
         barra_tiempo.setPreferredSize(new Dimension(-1, (int)Math.round((float)pot_label.getHeight()*0.65)));
@@ -453,7 +449,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pause_button.setText("PAUSAR");
         pause_button.putClientProperty("i18n.key", "ui.pausar");
         pause_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        pause_button.setDoubleBuffered(true);
         pause_button.setFocusable(false);
         pause_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -466,7 +461,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         random_button.setForeground(new java.awt.Color(255, 255, 255));
         random_button.setText("RANDOM.ORG");
         random_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        random_button.setDoubleBuffered(true);
         random_button.setFocusable(false);
         random_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -476,13 +470,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         hand_limit_spinner.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hand_limit_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        hand_limit_spinner.setDoubleBuffered(true);
         hand_limit_spinner.setFocusable(false);
 
         max_hands_button.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         max_hands_button.setText("OK");
         max_hands_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        max_hands_button.setDoubleBuffered(true);
         max_hands_button.setFocusable(false);
         max_hands_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -493,7 +485,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         lights_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         lights_label.setText(" ");
         lights_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        lights_label.setDoubleBuffered(true);
         lights_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseReleased(java.awt.event.MouseEvent evt) {
                 lights_labelMouseReleased(evt);
@@ -506,7 +497,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pot_label.setForeground(new java.awt.Color(153, 204, 0));
         pot_label.setText(" ");
         pot_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 5, 1, 5));
-        pot_label.setDoubleBuffered(true);
         pot_label.setFocusable(false);
 
         javax.swing.GroupLayout pot_panelLayout = new javax.swing.GroupLayout(pot_panel);
@@ -534,7 +524,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         last_hand_label.setText(Translator.translate("game.ultima_mano_3"));
         last_hand_label.putClientProperty("i18n.key", "game.ultima_mano_3");
         last_hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        last_hand_label.setDoubleBuffered(true);
         last_hand_label.setFocusable(false);
         last_hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -567,7 +556,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         hand_label.putClientProperty("i18n.tooltip_key", "tooltip.hand_label_actions");
         hand_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         hand_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        hand_label.setDoubleBuffered(true);
         hand_label.setFocusable(false);
         hand_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -599,7 +587,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         blinds_label.putClientProperty("i18n.tooltip_key", "tooltip.click_para_actualizar_las_ciegas");
         blinds_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(1, 1, 1, 1));
         blinds_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        blinds_label.setDoubleBuffered(true);
         blinds_label.setFocusable(false);
         blinds_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {

@@ -184,12 +184,10 @@ public class CardVisorDialog extends javax.swing.JDialog {
         });
 
         scroll_panel.setBorder(null);
-        scroll_panel.setDoubleBuffered(true);
         scroll_panel.setFocusable(false);
 
         card.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         card.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        card.setDoubleBuffered(true);
         card.setFocusable(false);
         scroll_panel.setViewportView(card);
 

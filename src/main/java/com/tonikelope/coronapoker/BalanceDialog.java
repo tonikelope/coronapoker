@@ -195,7 +195,6 @@ public class BalanceDialog extends JDialog {
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         title.setText(Translator.translate("game.la_timba_ha_terminado"));
         title.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        title.setDoubleBuffered(true);
         title.setFocusable(false);
         title.setOpaque(true);
 
@@ -204,12 +203,10 @@ public class BalanceDialog extends JDialog {
         date.setForeground(new java.awt.Color(255, 255, 255));
         date.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         date.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        date.setDoubleBuffered(true);
         date.setFocusable(false);
         date.setOpaque(true);
 
         scroll_panel.setBorder(null);
-        scroll_panel.setDoubleBuffered(true);
         scroll_panel.setFocusable(false);
 
         jugadores.setBackground(new java.awt.Color(245, 245, 245));
@@ -224,7 +221,6 @@ public class BalanceDialog extends JDialog {
         stats_button.setText(Translator.translate("ui.estadisticas"));
         stats_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        stats_button.setDoubleBuffered(true);
         stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 stats_buttonActionPerformed(evt);
@@ -235,7 +231,6 @@ public class BalanceDialog extends JDialog {
         log_button.setText(Translator.translate("log.registro_de_la_timba"));
         log_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         log_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        log_button.setDoubleBuffered(true);
         log_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 log_buttonActionPerformed(evt);
@@ -248,7 +243,6 @@ public class BalanceDialog extends JDialog {
         menu_button.setText(Translator.translate("ui.menu_principal"));
         menu_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         menu_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        menu_button.setDoubleBuffered(true);
         menu_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 menu_buttonActionPerformed(evt);
@@ -261,7 +255,6 @@ public class BalanceDialog extends JDialog {
         recover_button.setText(Translator.translate("conn.reconectar_al_servidor"));
         recover_button.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         recover_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        recover_button.setDoubleBuffered(true);
         recover_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 recover_buttonActionPerformed(evt);

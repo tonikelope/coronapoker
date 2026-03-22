@@ -151,13 +151,11 @@ public class RebuyDialog extends JDialog {
         panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
         jLabel2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/chips.png"))); // NOI18N
-        jLabel2.setDoubleBuffered(true);
         jLabel2.setFocusable(false);
 
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         jLabel1.setText("RECOMPRAR");
         jLabel1.putClientProperty("i18n.key", "rebuy.recomprar_3");
-        jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
 
         ok_button.setBackground(new java.awt.Color(0, 130, 0));
@@ -166,7 +164,6 @@ public class RebuyDialog extends JDialog {
         ok_button.setText("Aceptar");
         ok_button.putClientProperty("i18n.key", "ui.aceptar");
         ok_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ok_button.setDoubleBuffered(true);
         ok_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ok_buttonActionPerformed(evt);
@@ -177,19 +174,16 @@ public class RebuyDialog extends JDialog {
         cancel_button.setText("Cancelar");
         cancel_button.putClientProperty("i18n.key", "ui.cancelar_2");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        cancel_button.setDoubleBuffered(true);
         cancel_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 cancel_buttonActionPerformed(evt);
             }
         });
 
-        barra.setDoubleBuffered(true);
 
         rebuy_spinner.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         rebuy_spinner.setModel(new SpinnerNumberModel(GameFrame.BUYIN, 1, GameFrame.BUYIN, NewGameDialog.BUYIN_SPINNER_STEP) );
         rebuy_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rebuy_spinner.setDoubleBuffered(true);
         rebuy_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
                 rebuy_spinnerStateChanged(evt);

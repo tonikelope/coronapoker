@@ -1090,14 +1090,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             hands_win.setVisible(false);
             sec_pot_win_label.setVisible(false);
-            sec_pot_win_label.setDoubleBuffered(true);
             sec_pot_win_label.setHorizontalAlignment(JLabel.CENTER);
             sec_pot_win_label.setOpaque(true);
             sec_pot_win_label.setFocusable(false);
             sec_pot_win_label.setFont(player_action.getFont().deriveFont(player_action.getFont().getStyle(), Math.round(player_action.getFont().getSize() * 0.7f)));
             panel_cartas.add(sec_pot_win_label, Integer.valueOf(1003));
             chat_notify_label.setVisible(false);
-            chat_notify_label.setDoubleBuffered(true);
             chat_notify_label.setFocusable(false);
             chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chat_notify_label.addMouseListener(new MouseAdapter() {
@@ -1117,7 +1115,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
             panel_cartas.add(chat_notify_label, Integer.valueOf(1002));
             chip_label.setVisible(false);
-            chip_label.setDoubleBuffered(true);
             chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chip_label.setOpaque(false);
             chip_label.setFocusable(false);
@@ -1255,7 +1252,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setFocusable(false);
         setOpaque(false);
 
-        panel_cartas.setDoubleBuffered(true);
 
         panel_cartas.setLayer(holeCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
         panel_cartas.setLayer(holeCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
@@ -1289,7 +1285,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
         avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
         avatar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1302,7 +1297,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_pot.setForeground(new java.awt.Color(255, 255, 255));
         player_pot.setText("----");
         player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        player_pot.setDoubleBuffered(true);
         player_pot.setFocusable(false);
 
         javax.swing.GroupLayout player_pot_panelLayout = new javax.swing.GroupLayout(player_pot_panel);
@@ -1330,7 +1324,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        player_stack.setDoubleBuffered(true);
         player_stack.setFocusable(false);
         player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1383,7 +1376,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setText("12345678901");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1393,17 +1385,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         utg_icon.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         utg_icon.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        utg_icon.setDoubleBuffered(true);
         utg_icon.setFocusable(false);
 
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
         Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
-        hands_win.setDoubleBuffered(true);
 
         shield.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        shield.setDoubleBuffered(true);
         shield.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 shieldMouseClicked(evt);
@@ -1469,7 +1458,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setText("");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {

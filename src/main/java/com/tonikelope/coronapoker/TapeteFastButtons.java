@@ -190,12 +190,10 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/menu.png"))); // NOI18N
         menu.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        menu.setDoubleBuffered(true);
         add(menu);
 
         chat.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/chat.png"))); // NOI18N
         chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        chat.setDoubleBuffered(true);
         chat.setFocusable(false);
         chat.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -206,7 +204,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         image.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/image.png"))); // NOI18N
         image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        image.setDoubleBuffered(true);
         image.setFocusable(false);
         image.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -217,7 +214,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         rebuy.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/rebuy.png"))); // NOI18N
         rebuy.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        rebuy.setDoubleBuffered(true);
         rebuy.setFocusable(false);
         rebuy.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -228,7 +224,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         log.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/log.png"))); // NOI18N
         log.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        log.setDoubleBuffered(true);
         log.setFocusable(false);
         log.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -239,7 +234,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         compact.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/compact.png"))); // NOI18N
         compact.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        compact.setDoubleBuffered(true);
         compact.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 compactMouseClicked(evt);
@@ -249,7 +243,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         zoom_out.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/zoom_out.png"))); // NOI18N
         zoom_out.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        zoom_out.setDoubleBuffered(true);
         zoom_out.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 zoom_outMouseClicked(evt);
@@ -259,7 +252,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         zoom_reset.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/zoom_reset.png"))); // NOI18N
         zoom_reset.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        zoom_reset.setDoubleBuffered(true);
         zoom_reset.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 zoom_resetMouseClicked(evt);
@@ -269,7 +261,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         zoom_in.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/zoom_in.png"))); // NOI18N
         zoom_in.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        zoom_in.setDoubleBuffered(true);
         zoom_in.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 zoom_inMouseClicked(evt);
@@ -279,7 +270,6 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         fullscreen.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/fullscreen.png"))); // NOI18N
         fullscreen.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        fullscreen.setDoubleBuffered(true);
         fullscreen.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 fullscreenMouseClicked(evt);

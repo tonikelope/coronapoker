@@ -246,7 +246,6 @@ public final class GameLogDialog extends JDialog {
             }
         });
 
-        jScrollPane1.setDoubleBuffered(true);
 
         textarea.setEditable(false);
         textarea.setBackground(new java.awt.Color(102, 102, 102));
@@ -256,10 +255,8 @@ public final class GameLogDialog extends JDialog {
         textarea.setLineWrap(true);
         textarea.setRows(5);
         textarea.setText("\n");
-        textarea.setDoubleBuffered(true);
         jScrollPane1.setViewportView(textarea);
 
-        jMenuBar1.setDoubleBuffered(true);
 
         opciones_menu.setMnemonic('p');
         opciones_menu.setText("Preferencias");

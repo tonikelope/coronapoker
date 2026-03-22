@@ -129,7 +129,6 @@ public class PauseDialog extends JDialog {
         pausa_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         pausa_label.setText("TIMBA PAUSADA");
         pausa_label.putClientProperty("i18n.key", "game.timba_pausada");
-        pausa_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout panelLayout = new javax.swing.GroupLayout(panel);
         panel.setLayout(panelLayout);

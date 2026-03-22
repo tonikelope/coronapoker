@@ -55,7 +55,6 @@ public class GifLabel extends JLabel {
     private volatile boolean audio_playing = false;
 
     public GifLabel() {
-        setDoubleBuffered(true);
     }
 
     @Override

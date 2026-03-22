@@ -1421,16 +1421,13 @@ public class StatsDialog extends JDialog {
         title.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         title.setText(Translator.translate("ui.estadisticas"));
         title.putClientProperty("i18n.key", "ui.estadisticas");
-        title.setDoubleBuffered(true);
         title.setFocusable(false);
         title.setOpaque(true);
 
         scroll_stats_panel.setBorder(null);
-        scroll_stats_panel.setDoubleBuffered(true);
 
         game_combo.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         game_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        game_combo.setDoubleBuffered(true);
         game_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 game_comboItemStateChanged(evt);
@@ -1442,65 +1439,51 @@ public class StatsDialog extends JDialog {
         game_hand_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_hand_label.setText(Translator.translate("stats.manos"));
         game_hand_label.putClientProperty("i18n.key", "stats.manos");
-        game_hand_label.setDoubleBuffered(true);
 
         game_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_players_label.setText(Translator.translate("stats.jugadores"));
         game_players_label.putClientProperty("i18n.key", "stats.jugadores");
-        game_players_label.setDoubleBuffered(true);
 
         game_buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_buyin_label.setText(Translator.translate("stats.buyin"));
         game_buyin_label.putClientProperty("i18n.key", "stats.compra");
-        game_buyin_label.setDoubleBuffered(true);
 
         game_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_blinds_label.setText(Translator.translate("stats.ciegas"));
         game_blinds_label.putClientProperty("i18n.key", "stats.ciegas");
-        game_blinds_label.setDoubleBuffered(true);
 
         game_blinds_double_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_blinds_double_label.setText(Translator.translate("stats.aumentar_ciegas"));
         game_blinds_double_label.putClientProperty("i18n.key", "stats.aumentar_ciegas");
-        game_blinds_double_label.setDoubleBuffered(true);
 
         game_rebuy_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_rebuy_label.setText(Translator.translate("stats.recomprar"));
         game_rebuy_label.putClientProperty("i18n.key", "stats.recomprar");
-        game_rebuy_label.setDoubleBuffered(true);
 
         game_hand_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_hand_val.setText(" ");
-        game_hand_val.setDoubleBuffered(true);
 
         game_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_players_val.setText(" ");
-        game_players_val.setDoubleBuffered(true);
 
         game_buyin_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_buyin_val.setText(" ");
-        game_buyin_val.setDoubleBuffered(true);
 
         game_blinds_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_blinds_val.setText(" ");
-        game_blinds_val.setDoubleBuffered(true);
 
         game_blinds_double_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_blinds_double_val.setText(" ");
-        game_blinds_double_val.setDoubleBuffered(true);
 
         game_rebuy_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_rebuy_val.setText(" ");
-        game_rebuy_val.setDoubleBuffered(true);
 
         game_playtime_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         game_playtime_label.setText(Translator.translate("stats.duracion"));
         game_playtime_label.putClientProperty("i18n.key", "stats.duracion");
-        game_playtime_label.setDoubleBuffered(true);
 
         game_playtime_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         game_playtime_val.setText(" ");
-        game_playtime_val.setDoubleBuffered(true);
 
         delete_game_button.setBackground(new java.awt.Color(255, 0, 0));
         delete_game_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
@@ -1522,7 +1505,6 @@ public class StatsDialog extends JDialog {
         log_game_button.setText(Translator.translate("stats.registro_de_la_timba"));
         log_game_button.putClientProperty("i18n.key", "stats.registro_de_la_timba");
         log_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        log_game_button.setDoubleBuffered(true);
         log_game_button.setPreferredSize(new java.awt.Dimension(242, 34));
         log_game_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1543,11 +1525,9 @@ public class StatsDialog extends JDialog {
             }
         });
 
-        game_textarea_scrollpane.setDoubleBuffered(true);
 
         game_textarea.setEditable(false);
         game_textarea.setBorder(null);
-        game_textarea.setDoubleBuffered(true);
         game_textarea_scrollpane.setViewportView(game_textarea);
 
         javax.swing.GroupLayout game_data_panelLayout = new javax.swing.GroupLayout(game_data_panel);
@@ -1643,7 +1623,6 @@ public class StatsDialog extends JDialog {
         purge_games_button.setText(Translator.translate("ui.purgar"));
         purge_games_button.putClientProperty("i18n.key", "stats.purgar");
         purge_games_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        purge_games_button.setDoubleBuffered(true);
         purge_games_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 purge_games_button_buttonActionPerformed(evt);
@@ -1654,7 +1633,6 @@ public class StatsDialog extends JDialog {
 
         hand_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        hand_combo.setDoubleBuffered(true);
         hand_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 hand_comboItemStateChanged(evt);
@@ -1666,95 +1644,74 @@ public class StatsDialog extends JDialog {
         hand_blinds_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_blinds_label.setText(Translator.translate("stats.ciegas"));
         hand_blinds_label.putClientProperty("i18n.key", "stats.ciegas");
-        hand_blinds_label.setDoubleBuffered(true);
         hand_blinds_label.setPreferredSize(new java.awt.Dimension(45, 17));
 
         hand_blinds_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_blinds_val.setText(" ");
-        hand_blinds_val.setDoubleBuffered(true);
 
         hand_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_time_label.setText(Translator.translate("stats.duracion"));
         hand_time_label.putClientProperty("i18n.key", "stats.duracion");
-        hand_time_label.setDoubleBuffered(true);
 
         hand_cp_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_cp_label.setText(Translator.translate("stats.ciega_pequena"));
         hand_cp_label.putClientProperty("i18n.key", "stats.ciega_pequena");
-        hand_cp_label.setDoubleBuffered(true);
 
         hand_cg_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_cg_label.setText(Translator.translate("stats.ciega_grande"));
         hand_cg_label.putClientProperty("i18n.key", "stats.ciega_grande");
-        hand_cg_label.setDoubleBuffered(true);
 
         hand_comcards_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_comcards_label.setText(Translator.translate("stats.cartas_comunitarias"));
         hand_comcards_label.putClientProperty("i18n.key", "stats.cartas_comunitarias");
-        hand_comcards_label.setDoubleBuffered(true);
 
         hand_preflop_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_preflop_players_label.setText(Translator.translate("stats.jugadores_preflop"));
         hand_preflop_players_label.putClientProperty("i18n.key", "stats.jugadores_preflop");
-        hand_preflop_players_label.setDoubleBuffered(true);
 
         hand_flop_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_flop_players_label.setText(Translator.translate("stats.jugadores_flop"));
         hand_flop_players_label.putClientProperty("i18n.key", "stats.jugadores_flop");
-        hand_flop_players_label.setDoubleBuffered(true);
 
         hand_turn_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_turn_players_label.setText(Translator.translate("stats.jugadores_turn"));
         hand_turn_players_label.putClientProperty("i18n.key", "stats.jugadores_turn");
-        hand_turn_players_label.setDoubleBuffered(true);
 
         hand_river_players_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_river_players_label.setText(Translator.translate("stats.jugadores_river"));
         hand_river_players_label.putClientProperty("i18n.key", "stats.jugadores_river");
-        hand_river_players_label.setDoubleBuffered(true);
 
         hand_bote_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         hand_bote_label.setText(Translator.translate("stats.bote"));
         hand_bote_label.putClientProperty("i18n.key", "stats.bote");
-        hand_bote_label.setDoubleBuffered(true);
 
         hand_time_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_time_val.setText(" ");
-        hand_time_val.setDoubleBuffered(true);
 
         hand_cp_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_cp_val.setText(" ");
-        hand_cp_val.setDoubleBuffered(true);
 
         hand_cg_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_cg_val.setText(" ");
-        hand_cg_val.setDoubleBuffered(true);
 
         hand_comcards_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_comcards_val.setText(" ");
-        hand_comcards_val.setDoubleBuffered(true);
 
         hand_preflop_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_preflop_players_val.setText(" ");
-        hand_preflop_players_val.setDoubleBuffered(true);
 
         hand_flop_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_flop_players_val.setText(" ");
-        hand_flop_players_val.setDoubleBuffered(true);
 
         hand_turn_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_turn_players_val.setText(" ");
-        hand_turn_players_val.setDoubleBuffered(true);
 
         hand_river_players_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_river_players_val.setText(" ");
-        hand_river_players_val.setDoubleBuffered(true);
 
         hand_bote_val.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         hand_bote_val.setText(" ");
-        hand_bote_val.setDoubleBuffered(true);
 
-        showdown_panel.setDoubleBuffered(true);
 
         showdown_table.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         showdown_table.setModel(new javax.swing.table.DefaultTableModel(
@@ -1854,14 +1811,12 @@ public class StatsDialog extends JDialog {
 
         stats_combo.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         stats_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        stats_combo.setDoubleBuffered(true);
         stats_combo.addItemListener(new java.awt.event.ItemListener() {
             public void itemStateChanged(java.awt.event.ItemEvent evt) {
                 stats_comboItemStateChanged(evt);
             }
         });
 
-        table_panel.setDoubleBuffered(true);
 
         res_table.setFont(new java.awt.Font("DejaVu Sans", 0, 16)); // NOI18N
         res_table.setModel(new javax.swing.table.DefaultTableModel(
@@ -1879,7 +1834,6 @@ public class StatsDialog extends JDialog {
 
         res_table_warning.setFont(new java.awt.Font("Dialog", 2, 14)); // NOI18N
         res_table_warning.setText(Translator.translate("ui.nota"));
-        res_table_warning.setDoubleBuffered(true);
 
         javax.swing.GroupLayout hands_panelLayout = new javax.swing.GroupLayout(hands_panel);
         hands_panel.setLayout(hands_panelLayout);

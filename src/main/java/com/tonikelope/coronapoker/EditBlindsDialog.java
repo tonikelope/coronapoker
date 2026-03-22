@@ -152,7 +152,6 @@ public class EditBlindsDialog extends JDialog {
         doblar_checkbox.setText("Aumentar ciegas");
         doblar_checkbox.putClientProperty("i18n.key", "blinds.aumentar_ciegas");
         doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        doblar_checkbox.setDoubleBuffered(true);
         doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 doblar_checkboxActionPerformed(evt);
@@ -162,13 +161,11 @@ public class EditBlindsDialog extends JDialog {
         doblar_ciegas_spinner_minutos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         doblar_ciegas_spinner_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        doblar_ciegas_spinner_minutos.setDoubleBuffered(true);
 
         double_blinds_radio_minutos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         double_blinds_radio_minutos.setText("Minutos:");
         double_blinds_radio_minutos.putClientProperty("i18n.key", "ui.minutos");
         double_blinds_radio_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        double_blinds_radio_minutos.setDoubleBuffered(true);
         double_blinds_radio_minutos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 double_blinds_radio_minutosActionPerformed(evt);
@@ -179,7 +176,6 @@ public class EditBlindsDialog extends JDialog {
         double_blinds_radio_manos.setText("Manos:");
         double_blinds_radio_manos.putClientProperty("i18n.key", "game.manos");
         double_blinds_radio_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        double_blinds_radio_manos.setDoubleBuffered(true);
         double_blinds_radio_manos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 double_blinds_radio_manosActionPerformed(evt);
@@ -189,7 +185,6 @@ public class EditBlindsDialog extends JDialog {
         doblar_ciegas_spinner_manos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         doblar_ciegas_spinner_manos.setModel(new javax.swing.SpinnerNumberModel(30, 1, null, 1));
         doblar_ciegas_spinner_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        doblar_ciegas_spinner_manos.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -233,7 +228,6 @@ public class EditBlindsDialog extends JDialog {
         vamos_button.setText("GUARDAR");
         vamos_button.putClientProperty("i18n.key", "ui.guardar");
         vamos_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        vamos_button.setDoubleBuffered(true);
         vamos_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 vamos_buttonActionPerformed(evt);
@@ -243,7 +237,6 @@ public class EditBlindsDialog extends JDialog {
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,10 / 0,20":"0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,20 / 0,40":"0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,30 / 0,60":"0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,50 / 1":"0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        ciegas_combobox.setDoubleBuffered(true);
 
         jLabel1.setBackground(new java.awt.Color(255, 255, 255));
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 30)); // NOI18N
@@ -251,14 +244,12 @@ public class EditBlindsDialog extends JDialog {
         jLabel1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
         jLabel1.setText("ACTUALIZAR CIEGAS");
         jLabel1.putClientProperty("i18n.key", "blinds.actualizar_ciegas");
-        jLabel1.setDoubleBuffered(true);
         jLabel1.setOpaque(true);
 
         cancel_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         cancel_button.setText("Cancelar");
         cancel_button.putClientProperty("i18n.key", "ui.cancelar_2");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        cancel_button.setDoubleBuffered(true);
         cancel_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 cancel_buttonActionPerformed(evt);

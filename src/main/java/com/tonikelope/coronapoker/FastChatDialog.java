@@ -164,7 +164,6 @@ public final class FastChatDialog extends JDialog {
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 24)); // NOI18N
         chat_box.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        chat_box.setDoubleBuffered(true);
         chat_box.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 chat_boxFocusGained(evt);
@@ -197,7 +196,6 @@ public final class FastChatDialog extends JDialog {
         history_chat.setRows(5);
         history_chat.setText("\n");
         history_chat.setBorder(null);
-        history_chat.setDoubleBuffered(true);
         history_chat.setFocusable(false);
         history_scroll_panel.setViewportView(history_chat);
 
@@ -205,7 +203,6 @@ public final class FastChatDialog extends JDialog {
         auto_close_checkbox.setForeground(new java.awt.Color(255, 255, 255));
         auto_close_checkbox.setText(Translator.translate("ui.fastchat.auto_close"));
         auto_close_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        auto_close_checkbox.setDoubleBuffered(true);
         auto_close_checkbox.setFocusable(false);
         auto_close_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {

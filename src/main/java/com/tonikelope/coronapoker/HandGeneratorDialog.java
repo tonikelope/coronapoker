@@ -524,7 +524,6 @@ public class HandGeneratorDialog extends JDialog {
         superior_button.setText("Jugada superior");
         superior_button.putClientProperty("i18n.key", "handgen.jugada_superior");
         superior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        superior_button.setDoubleBuffered(true);
         superior_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 superior_buttonActionPerformed(evt);
@@ -535,7 +534,6 @@ public class HandGeneratorDialog extends JDialog {
         inferior_button.setText("Jugada inferior");
         inferior_button.putClientProperty("i18n.key", "handgen.jugada_inferior");
         inferior_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        inferior_button.setDoubleBuffered(true);
         inferior_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 inferior_buttonActionPerformed(evt);
@@ -545,14 +543,12 @@ public class HandGeneratorDialog extends JDialog {
         nombre_jugada.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         nombre_jugada.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         nombre_jugada.setText("Escalera de color real");
-        nombre_jugada.setDoubleBuffered(true);
         nombre_jugada.setFocusable(false);
 
         probability.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         probability.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         probability.setText("(4 de 2.598.960) ");
         probability.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        probability.setDoubleBuffered(true);
         probability.setFocusable(false);
         probability.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {

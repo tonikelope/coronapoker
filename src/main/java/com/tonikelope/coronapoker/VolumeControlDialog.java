@@ -132,12 +132,10 @@ public class VolumeControlDialog extends JDialog {
 
         sound_icon.setBackground(new java.awt.Color(255, 255, 255));
         sound_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/volumen.png"))); // NOI18N
-        sound_icon.setDoubleBuffered(true);
         sound_icon.setFocusable(false);
         sound_icon.setOpaque(true);
 
         barra.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        barra.setDoubleBuffered(true);
         barra.setFocusable(false);
         barra.setStringPainted(true);
 

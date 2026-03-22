@@ -102,7 +102,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel14.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel14.setText("PASAR / IR / MOSTRAR");
         jLabel14.putClientProperty("i18n.key", "action.pasar_ir_mostrar");
-        jLabel14.setDoubleBuffered(true);
         jLabel14.setFocusable(false);
         jLabel14.setOpaque(true);
 
@@ -111,7 +110,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel15.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel15.setText("SUBIR/BAJAR APUESTA -> OK");
         jLabel15.putClientProperty("i18n.key", "action.subirbajar_apuesta_ok");
-        jLabel15.setDoubleBuffered(true);
         jLabel15.setFocusable(false);
         jLabel15.setOpaque(true);
 
@@ -120,7 +118,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel16.setText("ALL IN");
         jLabel16.putClientProperty("i18n.key", "action.label.allin");
-        jLabel16.setDoubleBuffered(true);
         jLabel16.setFocusable(false);
         jLabel16.setOpaque(true);
 
@@ -129,7 +126,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel17.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel17.setText("NO IR");
         jLabel17.putClientProperty("i18n.key", "action.no_ir");
-        jLabel17.setDoubleBuffered(true);
         jLabel17.setFocusable(false);
         jLabel17.setOpaque(true);
 
@@ -138,7 +134,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel18.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel18.setText("CHAT RÁPIDO");
         jLabel18.putClientProperty("i18n.key", "chat.chat_rapido_2");
-        jLabel18.setDoubleBuffered(true);
         jLabel18.setFocusable(false);
         jLabel18.setOpaque(true);
 
@@ -147,7 +142,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel19.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel19.setText("VER TU BUYIN");
         jLabel19.putClientProperty("i18n.key", "ui.ver_tu_buyin");
-        jLabel19.setDoubleBuffered(true);
         jLabel19.setFocusable(false);
         jLabel19.setOpaque(true);
 
@@ -156,7 +150,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel20.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel20.setText("SCREENSHOT");
         jLabel20.putClientProperty("i18n.key", "shortcut.screenshot");
-        jLabel20.setDoubleBuffered(true);
         jLabel20.setFocusable(false);
         jLabel20.setOpaque(true);
 
@@ -165,7 +158,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel21.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel21.setText("GIFS/IMÁGENES");
         jLabel21.putClientProperty("i18n.key", "ui.gifsimagenes");
-        jLabel21.setDoubleBuffered(true);
         jLabel21.setFocusable(false);
         jLabel21.setOpaque(true);
 
@@ -174,7 +166,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel22.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel22.setText("IMAGEN SIGUIENTE");
         jLabel22.putClientProperty("i18n.key", "ui.imagen_siguiente");
-        jLabel22.setDoubleBuffered(true);
         jLabel22.setFocusable(false);
         jLabel22.setOpaque(true);
 
@@ -183,7 +174,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel23.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel23.setText("IMAGEN ANTERIOR");
         jLabel23.putClientProperty("i18n.key", "ui.imagen_anterior");
-        jLabel23.setDoubleBuffered(true);
         jLabel23.setFocusable(false);
         jLabel23.setOpaque(true);
 
@@ -192,7 +182,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel24.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel24.setText("ENVIAR IMAGEN SELECCIONADA");
         jLabel24.putClientProperty("i18n.key", "chat.enviar_imagen_seleccionada");
-        jLabel24.setDoubleBuffered(true);
         jLabel24.setFocusable(false);
         jLabel24.setOpaque(true);
 
@@ -201,7 +190,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel25.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel25.setText("ELIMINAR IMAGEN SELECCIONADA");
         jLabel25.putClientProperty("i18n.key", "ui.eliminar_imagen_seleccionada");
-        jLabel25.setDoubleBuffered(true);
         jLabel25.setFocusable(false);
         jLabel25.setOpaque(true);
 
@@ -260,7 +248,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("[ SPACE ]");
-        jLabel1.setDoubleBuffered(true);
         jLabel1.setFocusable(false);
         jLabel1.setOpaque(true);
 
@@ -268,7 +255,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("[ UP/DOWN ] -> [ ENTER ]");
-        jLabel2.setDoubleBuffered(true);
         jLabel2.setFocusable(false);
         jLabel2.setOpaque(true);
 
@@ -276,7 +262,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel3.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel3.setText("[ SHIFT ] + [ ENTER ]");
-        jLabel3.setDoubleBuffered(true);
         jLabel3.setFocusable(false);
         jLabel3.setOpaque(true);
 
@@ -284,7 +269,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel4.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText("[ SCAPE ]");
-        jLabel4.setDoubleBuffered(true);
         jLabel4.setFocusable(false);
         jLabel4.setOpaque(true);
 
@@ -292,7 +276,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel5.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel5.setText("[ º ]");
-        jLabel5.setDoubleBuffered(true);
         jLabel5.setFocusable(false);
         jLabel5.setOpaque(true);
 
@@ -300,7 +283,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel6.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel6.setText("[ S ]");
-        jLabel6.setDoubleBuffered(true);
         jLabel6.setFocusable(false);
         jLabel6.setOpaque(true);
 
@@ -308,7 +290,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel7.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel7.setText("[ CTRL ] + [ P ]");
-        jLabel7.setDoubleBuffered(true);
         jLabel7.setFocusable(false);
         jLabel7.setOpaque(true);
 
@@ -316,7 +297,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel8.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel8.setText("[ 1 ]");
-        jLabel8.setDoubleBuffered(true);
         jLabel8.setFocusable(false);
         jLabel8.setOpaque(true);
 
@@ -324,7 +304,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setText("[ TAB ]");
-        jLabel9.setDoubleBuffered(true);
         jLabel9.setFocusable(false);
         jLabel9.setOpaque(true);
 
@@ -332,7 +311,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel10.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel10.setText("[ SHIFT ] + [ TAB ]");
-        jLabel10.setDoubleBuffered(true);
         jLabel10.setFocusable(false);
         jLabel10.setOpaque(true);
 
@@ -340,7 +318,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel11.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel11.setText("[ S ]");
-        jLabel11.setDoubleBuffered(true);
         jLabel11.setFocusable(false);
         jLabel11.setOpaque(true);
 
@@ -348,7 +325,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel12.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel12.setText("[ BACK ]");
-        jLabel12.setDoubleBuffered(true);
         jLabel12.setFocusable(false);
         jLabel12.setOpaque(true);
 
@@ -409,7 +385,6 @@ public class ShortcutsDialog extends JDialog implements ZoomableInterface {
         jLabel13.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel13.setText("ATAJOS DE TECLADO");
         jLabel13.putClientProperty("i18n.key", "ui.atajos_de_teclado");
-        jLabel13.setDoubleBuffered(true);
         jLabel13.setOpaque(true);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);

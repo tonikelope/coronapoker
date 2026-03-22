@@ -120,7 +120,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             initComponents();
             add(fastbuttons, JLayeredPane.POPUP_LAYER);
             fastbuttons.setSize(fastbuttons.getPref_size());
-            central_label.setDoubleBuffered(true);
             central_label.setFocusable(false);
             central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             central_label.setBarrier(central_label_barrier);

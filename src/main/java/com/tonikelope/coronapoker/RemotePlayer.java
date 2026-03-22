@@ -134,6 +134,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile RadarLogDialog radar_dialog = null;
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
+    private volatile float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+    private volatile float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
     @Override
     public void stopActionTimer() {
@@ -168,8 +170,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     0, 0,
                     getWidth(),
                     getHeight(),
-                    Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP),
-                    Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+                    arc,
+                    arc
             ));
         }
     }
@@ -177,8 +179,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     protected void paintBorder(Graphics g) {
 
-        float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
-        float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -507,6 +507,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             border_color = color;
         }
 
+        repaint();
+
     }
 
     public JLabel getPlayer_name() {
@@ -737,7 +739,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 }
 
                             }
-                            revalidate();
+
                             repaint();
                         }
 
@@ -880,7 +882,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
-
         });
 
     }
@@ -889,7 +890,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             player_pot_panel.setBackground(color);
-
         });
 
     }
@@ -897,7 +897,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void setPlayerStackBackground(Color color) {
         Helpers.GUIRun(() -> {
             player_stack_panel.setBackground(color);
-
         });
     }
 
@@ -1692,6 +1691,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
+        border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
+        arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
         if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
@@ -2096,7 +2099,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setLocation(0, 0);
                 chip_label.setVisible(true);
 
-                chip_label.revalidate();
                 chip_label.repaint();
 
             } else {
@@ -2462,7 +2464,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(() -> {
                 player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
 
-                revalidate();
                 repaint();
             });
         }

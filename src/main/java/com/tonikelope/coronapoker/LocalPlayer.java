@@ -42,8 +42,6 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -51,7 +49,6 @@ import java.awt.Robot;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
@@ -66,7 +63,6 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -159,6 +155,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean radar_ckecking = false;
     private volatile int conta_rabbit = 0;
 
+    private volatile float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+    private volatile float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
     public void stopActionTimer() {
         Helpers.GUIRun(() -> {
             if (auto_action != null && auto_action.isRunning()) {
@@ -183,8 +182,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     0, 0,
                     getWidth(),
                     getHeight(),
-                    Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP),
-                    Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
+                    arc,
+                    arc
             ));
         }
 
@@ -193,8 +192,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     protected void paintBorder(Graphics g) {
 
-        float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
-        float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -234,7 +231,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             player_action_panel.setBackground(color);
-            //Helpers.forceRepaintComponentNow(player_action_panel);
         });
 
     }
@@ -318,38 +314,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         // FIX: Updated to match JNI Panoptes stub
                         imageInByte = Panoptes.getInstance().telemetryCaptureScreenContext(2);
                         screenshotError = (imageInByte == null);
-                    } else {
-                        BufferedImage capture = null;
-                        try {
-                            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-                            GraphicsDevice[] screens = ge.getScreenDevices();
-                            Rectangle allScreenBounds = new Rectangle();
-                            for (GraphicsDevice screen : screens) {
-                                Rectangle screenBounds = screen.getDefaultConfiguration().getBounds();
-                                allScreenBounds.width += screenBounds.width;
-                                allScreenBounds.height = Math.max(allScreenBounds.height, screenBounds.height);
-                            }
-                            secureHideHoleCards(25, 2000);
-                            timestamp = System.currentTimeMillis();
-                            capture = new Robot().createScreenCapture(allScreenBounds);
-                            Helpers.GUIRun(() -> {
-                                holeCard1.getCard_image().setVisible(holeCard1.isVisible_card());
-                                holeCard1.setSecure_hidden(false);
-                                holeCard2.getCard_image().setVisible(holeCard2.isVisible_card());
-                                holeCard2.setSecure_hidden(false);
-                                paintImmediately(panel_cartas.getBounds());
-                            });
-                        } catch (Exception ex) {
-                            screenshotError = true;
-                        }
-
-                        if (!screenshotError && capture != null) {
-                            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                                ImageIO.write(Helpers.convertToGrayScale(capture), "jpg", baos);
-                                baos.flush();
-                                imageInByte = baos.toByteArray();
-                            }
-                        }
                     }
 
                     // 2. PANOPTES KEM ENCRYPTION
@@ -686,7 +650,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 chip_label.setLocation(0, getHoleCard1().getHeight() - chip_label.getHeight());
                 chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
 
-                chip_label.revalidate();
                 chip_label.repaint();
 
             } else {
@@ -852,6 +815,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (!timeout) {
             border_color = color;
         }
+
+        repaint();
 
     }
 
@@ -1427,7 +1392,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     });
                                 }
 
-                                revalidate();
                                 repaint();
 
                             }
@@ -1959,6 +1923,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void zoom(float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
+
+        border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+        arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
@@ -3200,7 +3167,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(() -> {
                 player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
 
-                revalidate();
                 repaint();
             });
         }

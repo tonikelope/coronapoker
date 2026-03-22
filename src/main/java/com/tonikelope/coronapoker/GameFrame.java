@@ -202,6 +202,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile GraphicsDevice device = null;
     private volatile boolean latency_stats = false;
 
+    // Accumulates mouse wheel clicks to process them all at once
+    private volatile int zoom_accumulator = 0;
+    private javax.swing.Timer zoom_debounce_timer;
+
     public JCheckBoxMenuItem getAuto_fullscreen_menu() {
         return auto_fullscreen_menu;
     }
@@ -259,16 +263,71 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         e.consume();
 
         if (e.isControlDown()) {
+            // Negative rotation means scroll up (zoom in), positive means scroll down (zoom out)
+            zoom_accumulator -= e.getWheelRotation();
 
-            if (e.getWheelRotation() < 0) {
-                zoom_menu_in.doClick();
-            } else {
-                zoom_menu_out.doClick();
-            }
+            // Restart the timer. It will only execute applyAccumulatedZoom() 
+            // if 250ms pass without another wheel movement.
+            zoom_debounce_timer.restart();
 
         } else if (getParent() != null) {
             getParent().dispatchEvent(e);
         }
+    }
+
+    /**
+     * Executes the heavy zoom logic only once after the user has finished
+     * scrolling the mouse wheel, applying the total accumulated zoom.
+     */
+    private void applyAccumulatedZoom() {
+        if (zoom_accumulator == 0) {
+            return;
+        }
+
+        // Play the sound just once based on the overall scroll direction
+        Audio.playWavResource(zoom_accumulator > 0 ? "misc/zoom_in.wav" : "misc/zoom_out.wav");
+
+        Helpers.threadRun(() -> {
+            synchronized (ZOOM_LOCK) {
+                ZOOM_LEVEL += zoom_accumulator;
+                zoom_accumulator = 0; // Reset for the next scroll action
+
+                // Safety check: Prevent zooming out too much (scale dropping to 0 or negative)
+                if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) >= 0) {
+                    ZOOM_LEVEL = (int) Math.ceil(-1f / ZOOM_STEP) + 1;
+                }
+            }
+
+            // --- THE HEAVY LIFTING HAPPENS ONLY ONCE HERE ---
+            Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+            zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+
+            if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+                for (Card carta : jugadas_dialog.getCartas()) {
+                    carta.invalidateImagePrecache();
+                    carta.refreshCard();
+                }
+                Helpers.GUIRun(jugadas_dialog::pack);
+            }
+
+            if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+            }
+
+            synchronized (zoom_menu) {
+                zoom_menu.notifyAll();
+            }
+
+            if (GameFrame.AUTO_ZOOM) {
+                Helpers.threadRun(() -> {
+                    Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
+                    tapete.autoZoom(false);
+                });
+            }
+
+            Helpers.savePropertiesFile();
+        });
     }
 
     public JCheckBoxMenuItem getAuto_adjust_zoom_menu() {
@@ -1780,6 +1839,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         for (Player jugador : jugadores) {
             jugador.setStack(GameFrame.BUYIN);
         }
+
+        // Initialize the debounce timer for mouse wheel zooming
+        zoom_debounce_timer = new javax.swing.Timer(250, (java.awt.event.ActionEvent e) -> {
+            applyAccumulatedZoom();
+        });
+        // VERY IMPORTANT: It must only fire once after the scrolling stops
+        zoom_debounce_timer.setRepeats(false);
 
         setupGlobalShortcuts();
 

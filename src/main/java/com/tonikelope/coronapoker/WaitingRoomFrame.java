@@ -407,6 +407,7 @@ public class WaitingRoomFrame extends JFrame {
             StringReader reader = new StringReader(text);
             try {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
+                chat.setCaretPosition(chat.getDocument().getLength());
             } catch (Exception ex) {
             }
         });
@@ -2016,7 +2017,8 @@ public class WaitingRoomFrame extends JFrame {
 
                             runSocketReaderClientThread();
 
-                            //runPingPongThreadCliente();
+                            runPingPongThreadCliente();
+
                             // Nos quedamos en bucle esperando y procesando mensajes del server
                             do {
 
@@ -3216,19 +3218,15 @@ public class WaitingRoomFrame extends JFrame {
 
         Helpers.threadRun(() -> {
             synchronized (chat_box_panel) {
-                Helpers.GUIRun(() -> {
-                    chat_box_panel.setVisible(false);
-                });
+
                 final String html = "<html><body style='background-image: url(" + background_chat_src + ")'>"
                         + (chat_text.toString().isEmpty() ? "" : txtChat2HTML(chat_text.toString())) + "</body></html>";
+
                 Helpers.GUIRun(() -> {
                     CoronaHTMLEditorKit.USE_GIF_CACHE = true;
                     chat.setText(html);
                     CoronaHTMLEditorKit.USE_GIF_CACHE = false;
-                    chat_box_panel.setVisible(true);
-
-                    // Removed manual revalidate/repaint of chat and scroll.
-                    // Swing handles visibility and text changes optimally.
+                    chat.setCaretPosition(chat.getDocument().getLength());
                 });
             }
         });

@@ -973,8 +973,10 @@ public class Participant implements Runnable {
     public void run() {
         if (socket != null) {
             runPreGameSocketWriterQueueThread();
-            //runPingPongThread();
+
             runSocketReaderThread();
+
+            runPingPongThread();
 
             String recibido;
             do {

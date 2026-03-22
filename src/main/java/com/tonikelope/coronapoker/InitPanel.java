@@ -34,7 +34,6 @@ import java.awt.Image;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -48,140 +47,87 @@ public class InitPanel extends javax.swing.JLayeredPane {
     protected volatile TexturePaint tp = null;
     protected volatile boolean invalidate = false;
     protected final Object paint_lock = new Object();
+    private static TexturePaint CACHED_TAPETE = null;
 
     /**
      * Creates new form InitPanel
      */
     public InitPanel() {
-        BufferedImage tile = null;
-        if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
-
-            try {
-                tile = Helpers.toBufferedImage(Init.I1);
-
-            } catch (Exception ex) {
-                Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        } else {
-            try {
-
-                tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
-
-            } catch (Exception ex) {
-
-                try {
-                    tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
-                } catch (IOException ex1) {
-                    Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex1);
-                }
-            }
-        }
-
-        Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
-        tp = new TexturePaint(tile, tr);
-
+        // 1. Inicialización rápida de componentes UI
         Helpers.GUIRunAndWait(this::initComponents);
 
+        // 2. Carga asíncrona de la textura
+        // No bloqueamos el constructor, dejamos que el tapete aparezca cuando esté listo
+        if (CACHED_TAPETE != null && !GameFrame.COLOR_TAPETE.endsWith("*")) {
+            this.tp = CACHED_TAPETE;
+        } else {
+            updateTexture(); // El método que creamos antes, que usa un hilo separado
+        }
+
+        // 3. Listener de redimensionado (se mantiene igual, es eficiente)
         addComponentListener(new ComponentResizeEndListener() {
             @Override
             public void resizeTimedOut() {
-
                 if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                    invalidate = true;
-
-                    revalidate();
-                    repaint();
-
+                    refresh();
                 }
             }
         });
     }
 
     public void refresh() {
-
         this.invalidate = true;
+        updateTexture(); // Start the background loading process
+    }
 
-        Helpers.GUIRun(() -> {
+    private void updateTexture() {
+        Helpers.threadRun(() -> {
+            synchronized (paint_lock) {
+                try {
+                    BufferedImage tile;
+                    int w = Math.max(getWidth(), 1); // Evita 0
+                    int h = Math.max(getHeight(), 1);
 
-            revalidate();
-            repaint();
+                    if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
+                        Image scaled = Init.I1.getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                        tile = Helpers.toBufferedImage(scaled);
+                    } else {
+                        String resPath = "/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg";
+                        tile = ImageIO.read(getClass().getResourceAsStream(resPath));
+                    }
+
+                    Rectangle2D anchor = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+                    this.tp = new TexturePaint(tile, anchor);
+
+                    // --- AQUÍ SE ACTIVA EL CACHÉ ---
+                    if (!GameFrame.COLOR_TAPETE.endsWith("*")) {
+                        CACHED_TAPETE = this.tp;
+                    }
+
+                    this.invalidate = false;
+                    Helpers.GUIRun(this::repaint);
+
+                } catch (Exception ex) {
+                    Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, "Error loading texture", ex);
+                }
+            }
         });
     }
 
     @Override
     protected void paintComponent(Graphics g) {
+        super.paintComponent(g); // Important to maintain transparency and child components
 
-        boolean ok = false;
-
-        do {
-
-            try {
-                super.paintComponent(g);
-
-                if (invalidate || tp == null) {
-
-                    Helpers.threadRun(() -> {
-                        synchronized (paint_lock) {
-                            BufferedImage tile = null;
-                            if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
-                                try {
-                                    tile = Helpers.toBufferedImage(Init.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
-                                } catch (Exception ex) {
-                                    Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            } else {
-                                try {
-
-                                    tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
-
-                                } catch (Exception ex) {
-
-                                    try {
-                                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
-                                    } catch (IOException ex1) {
-                                        Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex1);
-                                    }
-                                }
-                            }
-                            Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
-                            tp = new TexturePaint(tile, tr);
-                            invalidate = false;
-                            Helpers.GUIRun(() -> {
-
-                                revalidate();
-                                repaint();
-                            });
-                        }
-                    });
-
-                    if (tp != null) {
-
-                        Graphics2D g2d = (Graphics2D) g;
-
-                        g2d.setPaint(tp);
-
-                        g2d.fill(getBounds());
-                    }
-
-                    ok = true;
-
-                } else if (tp != null) {
-
-                    Graphics2D g2d = (Graphics2D) g;
-
-                    g2d.setPaint(tp);
-
-                    g2d.fill(getBounds());
-
-                    ok = true;
-                }
-
-            } catch (Exception ex) {
-                Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-        } while (!ok);
-
+        if (tp != null) {
+            Graphics2D g2d = (Graphics2D) g;
+            // Optimization: Use the current paint (texture) and fill the area
+            g2d.setPaint(tp);
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+        } else {
+            // Optional: Fallback color while texture is loading
+            g.setColor(java.awt.Color.DARK_GRAY);
+            g.fillRect(0, 0, getWidth(), getHeight());
+        }
     }
 
     /**

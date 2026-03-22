@@ -59,6 +59,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 # 👁️ PANOPTES ZERO-TRUST POKER ENGINE
 **Cryptographic Consensus, Stateless Auditing & Anti-Tamper Protocol for Decentralized P2P Environments**
+<p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" height="400" alt="Panoptes Zero-Trust Engine Logo"></p>
 
 ### 📌 Executive Summary
 Panoptes is a natively compiled, multi-platform cryptographic engine designed to enforce absolute mathematical fairness in decentralized Peer-to-Peer (P2P) card games.

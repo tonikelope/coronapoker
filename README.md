@@ -58,56 +58,63 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 <hr>
 
 # 👁️ PANOPTES ZERO-TRUST POKER ENGINE
-**Cryptographic Consensus & Stateless Auditing Protocol for Decentralized P2P Environments**
-<p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" height="400" alt="Panoptes Zero-Trust Engine Logo"></p>
+**Cryptographic Consensus, Stateless Auditing & Anti-Tamper Protocol for Decentralized P2P Environments**
 
-## 📌 Executive Summary
+### 📌 Executive Summary
+Panoptes is a natively compiled, multi-platform cryptographic engine designed to enforce absolute mathematical fairness in decentralized Peer-to-Peer (P2P) card games.
 
-Panoptes is a natively compiled, multi-platform security and consensus engine designed to enforce absolute mathematical fairness in decentralized Peer-to-Peer (P2P) card games.
+In traditional client-server topologies, players implicitly trust a central authoritative server. In a purely decentralized P2P model, one of the players must act as the host. This introduces the **"Malicious Host" vulnerability**: the host has physical access to the RAM where the deck is shuffled and the game state is maintained, allowing them to theoretically peek at hidden cards, alter the deck, or manipulate betting outcomes.
 
-In traditional client-server topologies, players implicitly trust a central authoritative server. In a purely decentralized P2P model, one of the players must act as the host. This introduces the **"Malicious Host" vulnerability**: the host has physical access to the RAM where the deck is shuffled and the game state is maintained, allowing them to theoretically peek at hidden cards, alter the deck, or manipulate outcomes.
-
-Panoptes was engineered to eliminate this vulnerability. By replacing implicit trust with rigid cryptographic proofs, the engine ensures that the host is mathematically blind to the game state until the network achieves consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
+Panoptes was engineered to eradicate this vulnerability. By replacing implicit trust with rigid cryptographic proofs, the engine ensures that the host is **mathematically blind** to the game state until the network achieves mutual consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
 
 ---
 
-## 🃏 The Cryptographic Game Protocol (Hand Lifecycle)
+## 🛡️ PART I: THE ZERO-TRUST CRYPTOGRAPHIC PROTOCOL
+The core achievement of Panoptes is its state machine. A standard game progresses through distinct cryptographic phases, protecting the integrity of the deck, the community cards, and the sequence of bets without relying on a trusted third party.
 
-The core achievement of Panoptes is its state machine. A standard game progresses through distinct phases (Pre-flop, Flop, Turn, River, Showdown). Panoptes protects each phase using a combination of asymmetric cryptography, multi-party entropy, and ephemeral permission tokens.
+### Phase 0: Identity & Ephemeral Sessions
+Before a hand begins, Panoptes establishes a secure, forward-secret communication channel.
+* **Hardware Anchors (X25519):** Each client generates an asymmetric identity keypair via X25519 Elliptic Curve Diffie-Hellman.
+* **Ephemeral Volatility:** Session keys are strictly ephemeral. Once a session ends or a player disconnects, the keys are mathematically zeroed, ensuring perfect forward secrecy.
 
 ### Phase 1: Distributed Entropy & The Deal
-The game begins by ensuring no single entity—not even the host—can dictate the deck's order.
-* **Sourced Entropy:** Every active player client generates a local cryptographic seed and submits it to the host.
-* **The Master Shuffle:** The host's native engine combines its own entropy with the collected seeds from all players to generate a unified master key. This key is used to deterministically shuffle the deck. Because the final deck order relies on the combined input of all peers, predicting the shuffle is impossible unless all nodes collude.
-* **The Digital Envelopes:** Once shuffled, the engine deals the "pocket cards" to the players. However, these cards are never sent in plaintext. The engine uses asymmetric cryptography to encrypt each player's cards against their specific public key.
-* **The Mega-Packet:** The server constructs a single, immutable data payload containing the public keys, the individual encrypted envelopes, and a cryptographic commitment to the remaining deck. This packet is broadcasted to all peers.
-* **Note on Spectators:** Clients without chips in the pot are mathematically excluded from the Deal. The engine does not generate envelopes for them, maintaining strict data compartmentalization.
+The game begins by ensuring no single entity—not even the host—can dictate or predict the deck's order.
+* **Multi-Party Entropy:** Every active player client generates a local cryptographic seed and submits it alongside their Public Key to the host.
+* **The Master Shuffle:** The host's native engine aggregates all player seeds using deterministic XOR operations, combining them with a server-side seed and a hidden `Shuffle Key`. This resulting Master Seed drives a ChaCha20 keystream applied to a strict Fisher-Yates shuffle. 
+* **Key Encapsulation Mechanism (KEM):** Pocket cards are never transmitted in plaintext. Panoptes uses a hybrid KEM (X25519 + ChaCha20 + Poly1305) to encrypt each player's cards against their specific Public Key.
+* **The Megapacket:** The server constructs a single, immutable data payload containing the public keys, the individual KEM envelopes, an encrypted capsule of the remaining deck, and a Poly1305 Message Authentication Code (MAC). This Megapacket is broadcasted to all peers as the irrefutable genesis state of the hand.
 
-### Phase 2: The Memory Vault & Forward Secrecy
-While players decrypt their pocket cards locally, the remaining community cards (the board) reside in the host's RAM. To prevent the host from simply reading these values out of memory, Panoptes uses a secure Vault.
-* **State Shielding:** The community cards are encrypted in memory using a high-speed stream cipher. The key to this cipher is ephemeral and volatile.
-* **Blind Host:** At this stage, the host application has the encrypted data but mathematically lacks the keys to decrypt the Flop, Turn, or River. The host is just as blind as the clients.
+### Phase 2: Cryptographic Escrow & Compartmentalization
+While players decrypt their pocket cards locally, the remaining community cards (the board) reside in the host's RAM.
+* **The Escrow:** The Flop, Turn, and River cards are locked in an encrypted Escrow payload using independent, isolated ChaCha20 keystreams. 
+* **The Blind Host:** At this stage, the host application has the encrypted Escrow data but mathematically lacks the keys to decrypt it. The host is just as blind as the clients.
 
-### Phase 3: Token Consensus (Advancing the Game State)
-When the betting round concludes and it is time to reveal community cards (e.g., the Flop), the host cannot simply query the engine for the cards.
-* **Permission Tokens:** The host requests cryptographic "Tokens" from all active clients.
-* **Key Reconstruction:** Each client submits their unique token. The native engine aggregates these tokens. Only when all required tokens from the active players are combined can the engine reconstruct the ephemeral key needed to unlock that specific street in the Vault.
-* **Perfect Forward Secrecy:** The moment a street (like the Flop) is decrypted and broadcasted, the underlying ephemeral keys used for that decryption are permanently wiped (zeroed) from the host's RAM. It is mathematically impossible to query the Vault for the same state twice, neutralizing memory replay attacks.
+### Phase 3: Token Consensus (Street Evolution)
+When a betting round concludes and community cards must be revealed, the host cannot unilaterally query the engine for the cards.
+* **Fractional Keys (Tokens):** Inside their original Megapacket envelope, every player received cryptographic "Street Tokens" (for the Flop, Turn, and River).
+* **Consensus Aggregation:** The host requests the specific street token from all active clients. The native engine aggregates these tokens via XOR operations. Only when **all** required tokens are combined can the engine reconstruct the ephemeral key needed to unlock that specific street in the Escrow.
+* **Scorched Earth Defense:** The moment a street is decrypted and broadcasted, the underlying ephemeral keys are permanently wiped. If an attacker attempts to extract the master shuffle key prematurely, Panoptes proactively burns the street tokens, locking the game state forever.
 
-### Phase 4: Showdown & The Stateless Audit
-When the hand reaches the end, the system must prove that the host did not manipulate the envelopes, the community cards, or the original shuffle during the hand's progression.
-* **Master Key Revelation:** At showdown, players reveal the specific key fragments that were hidden inside their original digital envelopes.
-* **Stateless Client Verification:** Once the final Master Key is reconstructed, every client runs a localized, stateless audit. The client inputs the original Mega-Packet from Phase 1, the Master Key, and the final community cards into their own Panoptes engine.
-* **The Avalanche Effect:** The engine re-simulates the entire hand mathematically. If the host manipulated a single bit—whether by altering a community card, faking a signature, or injecting a rogue envelope—the cryptographic hash will avalanche, producing a completely invalid signature. The client will instantly detect the manipulation, flag the host as compromised, and sever the connection.
+### Phase 4: The Action Chain (Betting Integrity)
+Betting sequences are protected against reordering, injection, or modification.
+* **Sponge Construction:** Every action (Bet, Fold, Call) is signed with a Poly1305 MAC and absorbed into a running cryptographic "Sponge" hash (`STATE_CHAIN_MAC`). 
+* **Atomic Chain:** If the host attempts to drop a player's bet or inject a fake action, the state hash will desynchronize, immediately failing verification on all remote clients.
+
+### Phase 5: Showdown & The Stateless Audit
+When the hand reaches the end, the system must definitively prove that the host did not manipulate the envelopes, the community cards, or the original shuffle.
+* **Master Key Revelation:** At showdown, players reveal the `Shuffle Key Share` that was hidden inside their original digital envelopes.
+* **Stateless Client Verification:** Every client runs a localized, stateless audit. The client inputs the original Megapacket, the reconstructed Master Seed, and the final community cards into their own Panoptes engine.
+* **The Avalanche Effect:** The client engine re-simulates the entire hand. If the host manipulated a single bit during the game, the cryptographic hashes will avalanche, producing a massive mismatch. The client will instantly flag the host as compromised and mathematically prove the cheating attempt to the rest of the P2P swarm.
 
 ---
 
-## 🛡️ The Panoptes Anti-Cheat Engine
+## 🛑 PART II: THE ANTI-TAMPER & ANTI-CHEAT ENGINE
+While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine (PACE) is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.
+
+*(Note: The exact operational vectors of PACE are deliberately abstracted to maintain operational security).*
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-CoronaPoker includes a custom, native anti-cheat layer written in C. It operates at the OS level to ensure the integrity of the JVM and the host environment.
-
-> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE** While CoronaPoker is open-source (GPLv3), the source code for the `Panoptes` zero-trust and anti-cheat engine library remains **strictly closed-source**. This is a deliberate, non-negotiable security measure. Pre-compiled binaries are provided for supported platforms.
+> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE** Although CoronaPoker is open-source (GPLv3), the source code for the `Panoptes` zero-trust and anti-cheat engine library remains **strictly closed-source**. This is a deliberate, non-negotiable security measure. Pre-compiled binaries are provided for supported platforms.
 
 </div>

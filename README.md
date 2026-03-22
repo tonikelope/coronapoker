@@ -45,18 +45,6 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - English and spanish language.
 - Customizable: create and share your MODs with custom font, decks, sounds and cinematics.
 
-## GET CORONAPOKER
-
-### [OPTION A (Recommended)] DOWNLOAD <a href="https://github.com/tonikelope/coronapoker/releases/latest">LATEST RELEASE</a>
-
-<i>Important: if you plan to distribute CoronaPoker as a package for your favorite Linux distribution and you wish to keep anticheat module enabled you MUST use this option (otherwise the binaries will be different for each player, generating false positives).</i>
-
-### [OPTION B] BUILD CORONAPOKER FROM SOURCE:
-
-<i>Use this option if for any reason you want to compile your own version of CoronaPoker and distribute it to your friends (if you are one of the friends, my security advice is that you all use option A).</i>
-
-<hr>
-
 # 👁️ PANOPTES ZERO-TRUST POKER ENGINE
 **Cryptographic Consensus, Stateless Auditing & Anti-Tamper Protocol for Decentralized P2P Environments**
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" height="400" alt="Panoptes Zero-Trust Engine Logo"></p>

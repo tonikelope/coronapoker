@@ -256,7 +256,6 @@ public class Crupier implements Runnable {
     public volatile byte[] local_token_river = null;
 
     public volatile byte[] pure_local_cards = new byte[2];
-    public volatile byte[] panoptes_community_cards = new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
 
     private final ConcurrentLinkedQueue<byte[]> crypto_replay_queue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
@@ -352,7 +351,6 @@ public class Crupier implements Runnable {
             }
         }
 
-        // Generate packet based on the master cryptographic ring
         java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
         int numPlayers = ringCriptografico.size();
 
@@ -360,7 +358,6 @@ public class Crupier implements Runnable {
         byte[][] playerPubKeys = new byte[numPlayers][32];
         StringBuilder orderBuilder = new StringBuilder();
 
-        // Array to freeze the cryptographic truth for this hand
         String[] currentRing = new String[numPlayers];
 
         for (int i = 0; i < numPlayers; i++) {
@@ -396,14 +393,12 @@ public class Crupier implements Runnable {
             playerSeeds[i] = (seed != null) ? seed : new byte[32];
         }
 
-        // Freeze the local ring order
         this.active_crypto_ring = currentRing;
 
-        this.activeHandId = Panoptes.getInstance().stateInitializeHand();
+        // V71 FIX: Removed the call to stateInitializeHand() that wiped the entropy generated in readyForNextHand()
         this.local_mega_packet = Panoptes.getInstance().easyFlatDeal(playerSeeds, playerPubKeys);
         String megaPacketB64 = java.util.Base64.getEncoder().encodeToString(this.local_mega_packet);
 
-        // Encode the exact order to broadcast
         String orderB64 = "";
         try {
             orderB64 = java.util.Base64.getEncoder().encodeToString(orderBuilder.toString().getBytes("UTF-8"));
@@ -417,7 +412,6 @@ public class Crupier implements Runnable {
         } catch (Exception e) {
         }
 
-        // Send the absolute truth of the layout to the clients
         broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64, null, true);
 
         for (int i = 0; i < numPlayers; i++) {
@@ -441,7 +435,6 @@ public class Crupier implements Runnable {
                     byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(j.getNickname().getBytes("UTF-8"));
                     byte[] clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, enc);
 
-                    // Clean card extraction. No fake Aces fallback.
                     if (clear != null && clear.length >= 2) {
                         if (j.isActivo()) {
                             j.getHoleCard1().iniciarConValorNumerico(((int) clear[0] & 0xFF) + 1);
@@ -619,7 +612,7 @@ public class Crupier implements Runnable {
                             int numPlayers = this.local_mega_packet[16] & 0xFF;
                             receiptsArray = new byte[numPlayers][];
 
-                            // 1. Extract Host/Server receipt
+                            // Extract Host/Server receipt
                             int serverPos = calcularPosicionEnPaquete(GameFrame.getInstance().getSala_espera().getServer_nick());
                             if (serverPos != -1 && !partesHandVerify[offset + 2].equals("*")) {
                                 try {
@@ -628,7 +621,7 @@ public class Crupier implements Runnable {
                                 }
                             }
 
-                            // 2. Extract Peers and Bots receipts
+                            // Extract Peers and Bots receipts
                             for (int i = offset + 3; i < partesHandVerify.length; i++) {
                                 String[] peerData = partesHandVerify[i].split(":");
                                 if (peerData.length == 2) {
@@ -647,7 +640,8 @@ public class Crupier implements Runnable {
 
                     boolean isLegit = false;
                     try {
-                        isLegit = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, mk, myPos, this.local_original_cards, this.panoptes_community_cards, receiptsArray);
+                        // V71 FIX: We only send mega_packet, master_key, myPos and receipts. C-Engine extracts cards from vault.
+                        isLegit = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, mk, myPos, receiptsArray);
                     } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE, "Error verifying hand history", ex);
                     }
@@ -2722,12 +2716,6 @@ public class Crupier implements Runnable {
                 }
             }
 
-            Card[] comCards = GameFrame.getInstance().getCartas_comunes();
-            for (int i = 0; i < comCards.length; i++) {
-                if (comCards[i].isIniciada() && !comCards[i].isTapada()) {
-                    this.panoptes_community_cards[i] = (byte) (comCards[i].getCartaComoEntero() - 1);
-                }
-            }
             actualizarContadoresTapete();
         }
 
@@ -2994,30 +2982,12 @@ public class Crupier implements Runnable {
     private void readyForNextHand() {
         received_commands.clear();
 
-        // PANOPTES ZERO-TRUST: Generamos 32 bytes de entropía local para el mazo
-        byte[] mySeed;
+        // PANOPTES ZERO-TRUST V71: We initialize the hand and generate the seed anchored in the native vault.
+        this.activeHandId = Panoptes.getInstance().stateInitializeHand();
+        this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed();
 
-        // Supongamos que tienes una variable booleana GameFrame.USE_RANDOM_ORG 
-        // que viene del checkbox de crear partida:
-        if (GameFrame.getInstance().isPartida_local() && (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG_CSPRNG || Helpers.DECK_RANDOM_GENERATOR == Helpers.CSPRNG)) {
-            mySeed = Helpers.getRandomOrgBytes(32);
-        } else {
-            // Los clientes (o el server si no marcó la opción) usan su entropía local
-            mySeed = new byte[32];
-            if (Helpers.CSPRNG_GENERATOR != null) {
-                Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
-            } else {
-                new java.security.SecureRandom().nextBytes(mySeed);
-            }
-        }
-
-        this.local_hand_seed = mySeed; // La guardamos en RAM
-
-        // [ELIMINADA LA ROTACIÓN DE LLAVES. LA IDENTIDAD ES PERSISTENTE Y LA CONOCE EL
-        // SERVIDOR]
         if (GameFrame.getInstance().isPartida_local()) {
 
-            // El Servidor genera las semillas para los bots (CPU)
             for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
                 Participant p = entry.getValue();
                 if (p != null && p.isCpu()) {
@@ -3086,7 +3056,6 @@ public class Crupier implements Runnable {
             } while (!ready);
 
         } else {
-            // El cliente envía su semilla en B64 junto al comando
             String seedB64 = Base64.getEncoder().encodeToString(this.local_hand_seed);
             this.sendGAMECommandToServer("NEWHANDREADY#" + String.valueOf(this.conta_mano + 1) + "#" + seedB64);
         }
@@ -3513,11 +3482,6 @@ public class Crupier implements Runnable {
                     System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                 }
             }
-        }
-
-        // Reset raw community cards al inicio de la mano
-        for (int i = 0; i < 5; i++) {
-            this.panoptes_community_cards[i] = (byte) 0xFF;
         }
 
         Helpers.GUIRun(() -> {
@@ -5455,25 +5419,6 @@ public class Crupier implements Runnable {
         return last_aggressor;
     }
 
-    private byte[] extractAndVerifyComCard(String b64Data) {
-        byte[] raw = Base64.getDecoder().decode(b64Data);
-        int cardLen = raw.length - 16;
-        byte[] cards = Arrays.copyOfRange(raw, 0, cardLen);
-        byte[] mac = Arrays.copyOfRange(raw, cardLen, raw.length);
-
-        byte[] macInput = new byte[cardLen + 16];
-        System.arraycopy(cards, 0, macInput, 0, cardLen);
-        System.arraycopy(this.activeHandId != null ? this.activeHandId : new byte[16], 0, macInput, cardLen, 16);
-
-        if (!Panoptes.getInstance().utilsVerifyChaosMAC(macInput, mac)) {
-            Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
-            });
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.invalid_mac"));
-        }
-        return cards;
-    }
-
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "[PANOPTES] Initiating street unlock: {0}", street);
 
@@ -5522,18 +5467,16 @@ public class Crupier implements Runnable {
                 GameFrame.getInstance().getFlop1().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
                 GameFrame.getInstance().getFlop2().actualizarConValorNumerico((ramCards[1] & 0xFF) + 1);
                 GameFrame.getInstance().getFlop3().actualizarConValorNumerico((ramCards[2] & 0xFF) + 1);
-                this.panoptes_community_cards[0] = ramCards[0];
-                this.panoptes_community_cards[1] = ramCards[1];
-                this.panoptes_community_cards[2] = ramCards[2];
+
                 // Se envía el texto plano para los espectadores nuevos
                 comando = "FLOPCARDS#" + keyB64 + "#" + (ramCards[0] & 0xFF) + "#" + (ramCards[1] & 0xFF) + "#" + (ramCards[2] & 0xFF);
             } else if (street == Crupier.TURN && ramCards.length >= 1) {
                 GameFrame.getInstance().getTurn().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                this.panoptes_community_cards[3] = ramCards[0];
+
                 comando = "TURNCARD#" + keyB64 + "#" + (ramCards[0] & 0xFF);
             } else if (street == Crupier.RIVER && ramCards.length >= 1) {
                 GameFrame.getInstance().getRiver().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                this.panoptes_community_cards[4] = ramCards[0];
+
                 comando = "RIVERCARD#" + keyB64 + "#" + (ramCards[0] & 0xFF);
             }
         }
@@ -5590,9 +5533,7 @@ public class Crupier implements Runnable {
                                     GameFrame.getInstance().getFlop1().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
                                     GameFrame.getInstance().getFlop2().actualizarConValorNumerico((ramCards[1] & 0xFF) + 1);
                                     GameFrame.getInstance().getFlop3().actualizarConValorNumerico((ramCards[2] & 0xFF) + 1);
-                                    this.panoptes_community_cards[0] = ramCards[0];
-                                    this.panoptes_community_cards[1] = ramCards[1];
-                                    this.panoptes_community_cards[2] = ramCards[2];
+
                                     ok = true;
                                 } else {
                                     rejected.add(comando);
@@ -5610,7 +5551,7 @@ public class Crupier implements Runnable {
 
                                 if (ramCards != null && ramCards.length >= 1) {
                                     GameFrame.getInstance().getTurn().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                                    this.panoptes_community_cards[3] = ramCards[0];
+
                                     ok = true;
                                 } else {
                                     rejected.add(comando);
@@ -5626,7 +5567,7 @@ public class Crupier implements Runnable {
 
                                 if (ramCards != null && ramCards.length >= 1) {
                                     GameFrame.getInstance().getRiver().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                                    this.panoptes_community_cards[4] = ramCards[0];
+
                                     ok = true;
                                 } else {
                                     rejected.add(comando);
@@ -5971,7 +5912,13 @@ public class Crupier implements Runnable {
                         } else {
                             if (current_player == GameFrame.getInstance().getLocalPlayer()) {
                                 cryptoPacket = Panoptes.getInstance().chainCommitLocalAction(decision, (float) action[1]);
-                                actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
+                                // V71 FIX: If vault locks up and returns null, we gracefully handle it to avoid NPE on Base64
+                                if (cryptoPacket == null) {
+                                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] NATIVE VAULT REJECTED LOCAL ACTION COMMIT! VAULT POISONED.");
+                                    actionPacketB64 = "*";
+                                } else {
+                                    actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
+                                }
                             } else if (isBotLocal) {
                                 byte[] botPriv = null;
                                 try {

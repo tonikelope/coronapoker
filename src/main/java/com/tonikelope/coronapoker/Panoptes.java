@@ -46,7 +46,7 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the V61 semantic architecture.
+ * Implements the V71 semantic architecture.
  */
 public class Panoptes {
 
@@ -174,7 +174,7 @@ public class Panoptes {
     }
 
     // =========================================================================
-    // NATIVE JNI METHODS (V61)
+    // NATIVE JNI METHODS (V71)
     // =========================================================================
     // --- IDENTITY & VAULT DOMAIN ---
     public native byte[] identityCreate();
@@ -199,11 +199,9 @@ public class Panoptes {
 
     public native byte[] utilsGetPublicKey(byte[] privateKey);
 
-    public native byte[] utilsExpandSeedPRNG(byte[] seed, int length);
-
     public native byte[] utilsShuffleDeck(byte[] seed);
 
-    public native boolean utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[] myCards, byte[] comCards, byte[][] receipts);
+    public native boolean utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[][] receipts);
 
     public native boolean utilsVerifyChaosMAC(byte[] data, byte[] mac);
 
@@ -236,6 +234,8 @@ public class Panoptes {
     public native boolean chainVerifyRemoteAction(byte[] actionPacket);
 
     public native byte[] chainCloseStateAndGetReceipt();
+
+    public native byte[] stateGenerateLocalSeed();
 
     // --- TELEMETRY & RADAR DOMAIN ---
     public native byte[] telemetryGetSystemRadar(byte[] targetPubKey);

@@ -2470,7 +2470,35 @@ public class Crupier implements Runnable {
 
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
+
+                            // Parse the explicitly provided ring order
+                            String[] orderTokens = orderMap.split(",");
+                            java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
+                            for (String token : orderTokens) {
+                                if (!token.isEmpty()) {
+                                    ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
+                                }
+                            }
+                            this.active_crypto_ring = ringList.toArray(new String[0]);
+
+                            // 1. Inicializa la mano (esto limpia la memoria de la bóveda C)
                             this.activeHandId = Panoptes.getInstance().stateInitializeHand();
+
+                            // 2. INYECTAR ENTROPÍA AQUÍ (Para que sobreviva a la inicialización)
+                            String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
+                            java.io.File entropyFile = new java.io.File(Init.CORONA_DIR + entropyFileName);
+                            if (entropyFile.exists()) {
+                                try {
+                                    byte[] entropyBlob = java.nio.file.Files.readAllBytes(entropyFile.toPath());
+                                    if (Panoptes.getInstance().stateImportLocalEntropy(entropyBlob)) {
+                                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Local entropy restored successfully before ingest.");
+                                    } else {
+                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
+                                    }
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.SEVERE, "Failed to restore entropy", e);
+                                }
+                            }
 
                             map.put("permutation_key", true);
                             java.util.HashMap<String, String> netPayloads = new java.util.HashMap<>();
@@ -2490,13 +2518,15 @@ public class Crupier implements Runnable {
                                 }
                                 boolean isBot = (p != null && p.isCpu()) || nick.startsWith("CoronaBot$");
 
+                                // --- FIX: Declarar epub y encCards fuera del bloque if para que el else pueda usarlos ---
+                                byte[] epub = new byte[32];
+                                System.arraycopy(megaPacket, 49 + (i * 210) + 64, epub, 0, 32);
+
+                                byte[] encCards = new byte[114];
+                                System.arraycopy(megaPacket, 49 + (i * 210) + 96, encCards, 0, 114);
+                                // ------------------------------------------------------------------------------------------
+
                                 if (j != null) {
-                                    byte[] epub = new byte[32];
-                                    System.arraycopy(megaPacket, 49 + (i * 210) + 64, epub, 0, 32);
-
-                                    byte[] encCards = new byte[114];
-                                    System.arraycopy(megaPacket, 49 + (i * 210) + 96, encCards, 0, 114);
-
                                     if (p != null) {
                                         p.setEphemeral_pub_key(epub);
                                         p.setEncrypted_cards(encCards);
@@ -2543,17 +2573,15 @@ public class Crupier implements Runnable {
                                                 }
                                             }
                                         }
-                                    } else {
-                                        byte[] netChunk = new byte[146];
-                                        System.arraycopy(epub, 0, netChunk, 0, 32);
-                                        System.arraycopy(encCards, 0, netChunk, 32, 114);
-                                        netPayloads.put(nick, Base64.getEncoder().encodeToString(netChunk));
                                     }
+                                } else {
+                                    byte[] netChunk = new byte[146];
+                                    System.arraycopy(epub, 0, netChunk, 0, 32);
+                                    System.arraycopy(encCards, 0, netChunk, 32, 114);
+                                    netPayloads.put(nick, Base64.getEncoder().encodeToString(netChunk));
                                 }
                             }
                         }
-                    } else {
-                        saltar_primera_mano = true;
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -2609,7 +2637,25 @@ public class Crupier implements Runnable {
                             }
                             this.active_crypto_ring = ringList.toArray(new String[0]);
 
+                            // 1. Inicializa la mano (esto limpia la memoria de la bóveda C)
                             this.activeHandId = Panoptes.getInstance().stateInitializeHand();
+
+                            // 2. INYECTAR ENTROPÍA AQUÍ (Para que sobreviva a la inicialización)
+                            String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
+                            java.io.File entropyFile = new java.io.File(Init.CORONA_DIR + entropyFileName);
+                            if (entropyFile.exists()) {
+                                try {
+                                    byte[] entropyBlob = java.nio.file.Files.readAllBytes(entropyFile.toPath());
+                                    if (Panoptes.getInstance().stateImportLocalEntropy(entropyBlob)) {
+                                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Local entropy restored successfully before ingest.");
+                                    } else {
+                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
+                                    }
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.SEVERE, "Failed to restore entropy", e);
+                                }
+                            }
+
                             int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
 
                             if (myPos != -1) {
@@ -2982,9 +3028,24 @@ public class Crupier implements Runnable {
     private void readyForNextHand() {
         received_commands.clear();
 
-        // PANOPTES ZERO-TRUST V71: We initialize the hand and generate the seed anchored in the native vault.
+        // PANOPTES ZERO-TRUST V71/V73: We initialize the hand and generate the seed anchored in the native vault.
         this.activeHandId = Panoptes.getInstance().stateInitializeHand();
         this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed();
+
+        // --- V73: EXPORT LOCAL ENTROPY TO DISK ---
+        // CRITICAL FIX: Do not overwrite the old entropy file if we are in the middle of a recovery!
+        if (!GameFrame.isRECOVER()) {
+            try {
+                byte[] entropyBlob = Panoptes.getInstance().stateExportLocalEntropy();
+                if (entropyBlob != null && entropyBlob.length == 48) {
+                    String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
+                    java.nio.file.Files.write(java.nio.file.Paths.get(Init.CORONA_DIR + entropyFileName), entropyBlob);
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Failed to save entropy state", e);
+            }
+        }
+        // -----------------------------------------
 
         if (GameFrame.getInstance().isPartida_local()) {
 
@@ -8686,19 +8747,24 @@ public class Crupier implements Runnable {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            String sessionFileName = sessionFileName = Init.DEV_MODE ? "/panoptes_session_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_session.bin";
-
+            String sessionFileName = Init.DEV_MODE ? "/panoptes_session_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_session.bin";
             File sessionFile = new File(Init.CORONA_DIR + sessionFileName);
 
             try {
-
                 java.nio.file.Files.deleteIfExists(sessionFile.toPath());
             } catch (IOException ex) {
                 System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
             }
 
-            String fossilName = Init.DEV_MODE ? "/fossil_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".lock" : "/fossil.lock";
+            // --- V73: CLEANUP ENTROPY FILE ---
+            String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
+            try {
+                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + entropyFileName));
+            } catch (Exception ex) {
+            }
+            // ---------------------------------
 
+            String fossilName = Init.DEV_MODE ? "/fossil_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".lock" : "/fossil.lock";
             File fossilFile = new File(Init.CORONA_DIR + fossilName);
 
             try {
@@ -8706,7 +8772,6 @@ public class Crupier implements Runnable {
             } catch (IOException ex) {
                 System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
             }
-
         }
     }
 

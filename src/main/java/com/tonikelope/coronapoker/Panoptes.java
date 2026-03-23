@@ -46,7 +46,7 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the V71 semantic architecture.
+ * Implements the V73 semantic architecture.
  */
 public class Panoptes {
 
@@ -174,7 +174,7 @@ public class Panoptes {
     }
 
     // =========================================================================
-    // NATIVE JNI METHODS (V71)
+    // NATIVE JNI METHODS (V73)
     // =========================================================================
     // --- IDENTITY & VAULT DOMAIN ---
     public native byte[] identityCreate();
@@ -186,6 +186,10 @@ public class Panoptes {
     public native boolean sessionLoad(byte[] sessionBlob);
 
     public native byte[] sessionGenerateExitTestament();
+
+    public native byte[] stateExportLocalEntropy();
+
+    public native boolean stateImportLocalEntropy(byte[] entropyBlob);
 
     // --- NETWORK ATTESTATION DOMAIN ---
     public native byte[] attestationGenerateChallenge(byte[] sessionKey, byte ipType, byte[] ip, short port);

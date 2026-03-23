@@ -35,14 +35,14 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - IWTSTH rule available (can be enabled/disabled by the host during the game).
 - RABBIT HUNTING (can be enabled/disabled by the host during the game).
 - All blinds stuff adjustable by the host during the game.
-- Rebuy available.
+- REBUY available during games.
 - Waiting room chat with emojis, custom gifs and urls support.
 - Text to speech fast chat and sending of custom gifs during the game.
 - 3 view modes for different screen sizes (normal, compact, and super compact) and low brightness mode.
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - It is possible to pause the game at any time and add new players.
 - Game log and statistics.
-- English and spanish language.
+- i18n support (english and spanish).
 - Customizable: create and share your MODs with custom font, decks, sounds and cinematics.
 
 # 👁️ PANOPTES ZERO-TRUST POKER ENGINE

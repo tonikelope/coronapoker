@@ -3710,6 +3710,15 @@ public class Crupier implements Runnable {
 
         this.apuesta_actual = this.ciega_grande;
 
+        // --- TRACK NEW HAND FOR ALL PLAYERS ---
+        for (Player p : GameFrame.getInstance().getJugadores()) {
+            if (p.isActivo()) {
+                Bot.TRACKER_MEMORY.putIfAbsent(p.getNickname(), new Bot.OpponentTracker());
+                Bot.TRACKER_MEMORY.get(p.getNickname()).recordHandPlayed();
+            }
+        }
+        // --------------------------------------
+        
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             if (this.sqlite_id_hand == -1) {
                 sqlNewHand();
@@ -6070,6 +6079,25 @@ public class Crupier implements Runnable {
                 }
 
                 if (!current_player.isExit()) {
+                    
+                    // --- TRACK EVERY PLAYER ACTION (UNIVERSAL TRACKING) ---
+                    Bot.TRACKER_MEMORY.putIfAbsent(current_player.getNickname(), new Bot.OpponentTracker());
+                    Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
+                    
+                    if (this.street == Crupier.PREFLOP) {
+                        // Track VPIP (Any voluntary money put into pot: Call/Bet/Raise/All-in)
+                        if (current_player.getDecision() == Player.CHECK || 
+                            current_player.getDecision() == Player.BET || 
+                            current_player.getDecision() == Player.ALLIN) {
+                            stats.recordVPIP();
+                        }
+                        // Track PFR (Preflop Raise/All-in)
+                        if (current_player.getDecision() == Player.BET || 
+                            current_player.getDecision() == Player.ALLIN) {
+                            stats.recordPFR();
+                        }
+                    }
+                    // ------------------------------------------------------
 
                     GameFrame.getInstance().getRegistro().print(current_player.getLastActionString());
 

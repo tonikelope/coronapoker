@@ -1692,7 +1692,7 @@ public class Helpers {
         }
     }
 
-    public static void screenshotWindows() {
+    public static boolean screenshotWindows() {
         try {
             /* Call the native layer to capture the window bypassing the protection (Mode 1) */
             byte[] imageBytes = Panoptes.getInstance().takeTacticalScreenshot(1);
@@ -1707,6 +1707,9 @@ public class Helpers {
                 }
 
                 LOGGER.log(Level.INFO, "Tactical screenshot saved: {0}", destFile.getName());
+                
+                return true;
+                
             } else {
                 LOGGER.log(Level.WARNING, "Tactical screenshot failed. (Window minimized/hidden or 5-second cooldown active)");
             }
@@ -1714,6 +1717,8 @@ public class Helpers {
         } catch (Exception ex) {
             java.util.logging.Logger.getLogger(Helpers.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        
+        return false;
     }
 
     public static void createIfNoExistsCoronaDirs() {

@@ -328,26 +328,26 @@ public class Init extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
 
-                if (GameFrame.getInstance() != null) {
+                if (Helpers.OSValidator.isWindows()) {
 
-                    Audio.playWavResource("misc/screenshot.wav");
+                    if (GameFrame.getInstance() != null) {
 
-                    Helpers.threadRun(() -> {
+                        Helpers.threadRun(() -> {
 
-                        if (Helpers.OSValidator.isWindows()) {
-                            Helpers.screenshotWindows();
-                        } else {
-                            Helpers.screenshot(new Rectangle(GameFrame.getInstance().getTapete().getLocationOnScreen(), GameFrame.getInstance().getTapete().getSize()), null);
-                        }
+                            boolean ok = Helpers.screenshotWindows();
 
-                        Helpers.GUIRun(() -> {
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "CAPTURA OK", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), NOTIFICATION_TIMEOUT);
-                            dialog.setLocation(dialog.getParent().getLocation());
-                            dialog.setVisible(true);
+                            if (ok) {
+                                Audio.playWavResource("misc/screenshot.wav");
+
+                                Helpers.GUIRun(() -> {
+                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "SCREENSHOT", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 1000);
+                                    dialog.setLocation(dialog.getParent().getLocation());
+                                    dialog.setVisible(true);
+                                });
+                            }
                         });
-                    });
+                    }
                 }
-
             }
         });
 

@@ -4156,15 +4156,10 @@ public class Crupier implements Runnable {
 
             LOGGER.log(Level.INFO, () -> "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance_float));
 
-            String fileName = "/balance_backup";
-
-            if (Init.DEV_MODE) {
-                String safeNick = GameFrame.getInstance().getLocalPlayer().getNickname() != null ? GameFrame.getInstance().getLocalPlayer().getNickname().replaceAll("[^a-zA-Z0-9.-]", "_") : "default";
-                fileName = "/balance_backup_" + safeNick;
-            }
+            String balanceFileName = Init.DEV_MODE ? "/balance_backup_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt" : "/balance_backup.txt";
 
             try {
-                Files.writeString(Paths.get(Init.CORONA_DIR + fileName), String.join("@", balance_float));
+                Files.writeString(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
@@ -8172,10 +8167,10 @@ public class Crupier implements Runnable {
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
         try {
-            String sessionFileName = "/panoptes_session.bin";
+            String sessionFileName = "/panoptes_session.key";
             if (Init.DEV_MODE) {
                 String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                sessionFileName = "/panoptes_session_" + safeNick + ".bin";
+                sessionFileName = "/panoptes_session_" + safeNick + ".key";
             }
 
             File sessionFile = new File(Init.CORONA_DIR + sessionFileName);
@@ -8188,7 +8183,7 @@ public class Crupier implements Runnable {
                     sessionLoaded = true;
                     LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_restored", true));
                 } else {
-                    LOGGER.log(Level.WARNING, "Session file rejected (invalid MAC or HWID). Generating fresh session...");
+                    LOGGER.log(Level.WARNING, "Session file rejected (invalid MAC or HWID). Generating fresh session key...");
                 }
             }
 
@@ -8727,50 +8722,38 @@ public class Crupier implements Runnable {
 
     public void cleanTempCrupierFiles() {
 
+        String handFileName = "/hand_" + this.sqlite_id_hand + ".bin";
+
         try {
-            java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin"));
+            java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + handFileName));
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, null, e);
+            LOGGER.log(Level.SEVERE, "Failed to delete temporary file: " + handFileName, e);
         }
 
         if (!isForce_recover()) {
-            String balanceFileName = "/balance_backup";
-
+            // Determine the file suffix once based on DEV_MODE
+            String suffix = "";
             if (Init.DEV_MODE) {
-                String safeNick = GameFrame.getInstance().getLocalPlayer().getNickname() != null ? GameFrame.getInstance().getLocalPlayer().getNickname().replaceAll("[^a-zA-Z0-9.-]", "_") : "default";
-                balanceFileName = "/balance_backup_" + safeNick;
+                String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
+                suffix = "_" + sanitizedNick;
             }
 
-            try {
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + balanceFileName));
-            } catch (IOException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
+            // Array of file templates using %s as a placeholder for the suffix
+            String[] fileTemplates = {
+                "/balance_backup%s.txt",
+                "/panoptes_session%s.key",
+                "/panoptes_entropy%s.bin",
+                "/panoptes_hand_commit%s.bin"
+            };
 
-            String sessionFileName = Init.DEV_MODE ? "/panoptes_session_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_session.bin";
-            File sessionFile = new File(Init.CORONA_DIR + sessionFileName);
-
-            try {
-                java.nio.file.Files.deleteIfExists(sessionFile.toPath());
-            } catch (IOException ex) {
-                System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-            }
-
-            // --- V73: CLEANUP ENTROPY FILE ---
-            String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
-            try {
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + entropyFileName));
-            } catch (Exception ex) {
-            }
-            // ---------------------------------
-
-            String panoptesFossilName = Init.DEV_MODE ? "/panoptes_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_hand_commit.bin";
-            File panoptesFossilFile = new File(Init.CORONA_DIR + panoptesFossilName);
-
-            try {
-                java.nio.file.Files.deleteIfExists(panoptesFossilFile.toPath());
-            } catch (IOException ex) {
-                System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            // Iterate and delete all temporary files
+            for (String template : fileTemplates) {
+                String fileName = String.format(template, suffix);
+                try {
+                    java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
+                } catch (IOException e) {
+                    LOGGER.log(Level.SEVERE, "Failed to delete temporary file: " + fileName, e);
+                }
             }
         }
     }

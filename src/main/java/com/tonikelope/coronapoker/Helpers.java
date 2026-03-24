@@ -1707,9 +1707,9 @@ public class Helpers {
                 }
 
                 LOGGER.log(Level.INFO, "Tactical screenshot saved: {0}", destFile.getName());
-                
+
                 return true;
-                
+
             } else {
                 LOGGER.log(Level.WARNING, "Tactical screenshot failed. (Window minimized/hidden or 5-second cooldown active)");
             }
@@ -1717,7 +1717,7 @@ public class Helpers {
         } catch (Exception ex) {
             java.util.logging.Logger.getLogger(Helpers.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        
+
         return false;
     }
 

@@ -46,9 +46,9 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the V73 semantic architecture.
- * WARNING: Native methods strictly expect exact byte array sizes. 
- * Passing incorrectly sized arrays will result in JVM crashes (SIGSEGV).
+ * Implements the V73 semantic architecture. WARNING: Native methods strictly
+ * expect exact byte array sizes. Passing incorrectly sized arrays will result
+ * in JVM crashes (SIGSEGV).
  */
 public class Panoptes {
 
@@ -178,58 +178,71 @@ public class Panoptes {
     // =========================================================================
     // NATIVE JNI METHODS (V73)
     // =========================================================================
-
     // --- IDENTITY & VAULT DOMAIN ---
-
     /**
-     * Generates a new X25519 identity keypair and stores the private key in the encrypted Vault.
-     * @return An 80-byte array: [0-31: Public Key] + [32-79: Encrypted Private Key Blob].
+     * Generates a new X25519 identity keypair and stores the private key in the
+     * encrypted Vault.
+     *
+     * @return An 80-byte array: [0-31: Public Key] + [32-79: Encrypted Private
+     * Key Blob].
      */
     public native byte[] identityCreate();
 
     /**
      * Loads a previously generated encrypted identity into the Vault.
+     *
      * @param identityBlob Exactly 48 bytes (Encrypted Private Key Blob).
-     * @return true if successfully loaded and verified; false if MAC validation fails.
+     * @return true if successfully loaded and verified; false if MAC validation
+     * fails.
      */
     public native boolean identityLoad(byte[] identityBlob);
 
     /**
      * Generates an ephemeral session keypair and locks it in the Vault.
+     *
      * @return Exactly 48 bytes representing the encrypted session blob.
      */
     public native byte[] sessionInitialize();
 
     /**
      * Loads a previously generated encrypted session into the Vault.
+     *
      * @param sessionBlob Exactly 48 bytes.
-     * @return true if successfully loaded and verified; false if MAC validation fails.
+     * @return true if successfully loaded and verified; false if MAC validation
+     * fails.
      */
     public native boolean sessionLoad(byte[] sessionBlob);
 
     /**
-     * Executes a secure "Lobotomy" on the Vault, wiping session keys and generating an exit proof.
-     * @return A 96-byte Cryptographic Testament to be distributed to peers upon legitimate exit.
+     * Executes a secure "Lobotomy" on the Vault, wiping session keys and
+     * generating an exit proof.
+     *
+     * @return A 96-byte Cryptographic Testament to be distributed to peers upon
+     * legitimate exit.
      */
     public native byte[] sessionGenerateExitTestament();
 
     /**
-     * Exports the local entropy seed state from the Vault for persistent recovery.
+     * Exports the local entropy seed state from the Vault for persistent
+     * recovery.
+     *
      * @return Exactly 48 bytes representing the encrypted local entropy blob.
      */
     public native byte[] stateExportLocalEntropy();
 
     /**
      * Imports and restores the local entropy seed state into the Vault.
+     *
      * @param entropyBlob Exactly 48 bytes.
-     * @return true if successfully loaded and verified; false if MAC validation fails.
+     * @return true if successfully loaded and verified; false if MAC validation
+     * fails.
      */
     public native boolean stateImportLocalEntropy(byte[] entropyBlob);
 
     // --- NETWORK ATTESTATION DOMAIN ---
-
     /**
      * Generates a network attestation challenge for a remote peer.
+     *
      * @param sessionKey Exactly 32 bytes.
      * @param ipType 4 for IPv4, 6 for IPv6.
      * @param ip Exactly 16 bytes (padded with zeros if IPv4).
@@ -239,7 +252,9 @@ public class Panoptes {
     public native byte[] attestationGenerateChallenge(byte[] sessionKey, byte ipType, byte[] ip, short port);
 
     /**
-     * Solves an incoming attestation challenge, executing Ring-0 system telemetry and verifying JAR hashes.
+     * Solves an incoming attestation challenge, executing Ring-0 system
+     * telemetry and verifying JAR hashes.
+     *
      * @param encryptedChallenge Exactly 75 bytes.
      * @return A 73-byte encrypted response containing the system audit MAC.
      */
@@ -247,22 +262,26 @@ public class Panoptes {
 
     /**
      * Verifies the solved attestation response from a remote peer.
-     * @param sessionKey Exactly 32 bytes (must match the key used to generate the challenge).
+     *
+     * @param sessionKey Exactly 32 bytes (must match the key used to generate
+     * the challenge).
      * @param encryptedResponse Exactly 73 bytes.
      * @return 0 (FAILED), 1 (CLEAN), or 2 (VM_DETECTED).
      */
     public native int attestationVerifyResponse(byte[] sessionKey, byte[] encryptedResponse);
 
     // --- UTILITIES & CRYPTO HELPERS ---
-
     /**
-     * Loads the official panoptes_key.bin manifest into the Vault for cross-platform binary verification.
+     * Loads the official panoptes_key.bin manifest into the Vault for
+     * cross-platform binary verification.
+     *
      * @param manifest Exactly 48 bytes containing expected DLL/SO/DYLIB hashes.
      */
     public native void utilsLoadManifest(byte[] manifest);
 
     /**
      * Derives an X25519 Public Key from a raw Private Key.
+     *
      * @param privateKey Exactly 32 bytes.
      * @return Exactly 32 bytes (Public Key).
      */
@@ -270,6 +289,7 @@ public class Panoptes {
 
     /**
      * Performs a deterministic Fisher-Yates shuffle on a standard 52-card deck.
+     *
      * @param seed Exactly 32 bytes (Master Seed).
      * @return Exactly 52 bytes representing the shuffled deck (values 0-51).
      */
@@ -277,16 +297,20 @@ public class Panoptes {
 
     /**
      * Executes a full stateless forensic audit of a completed hand.
+     *
      * @param dealPacket The original Megapacket byte array.
      * @param masterKey Exactly 32 bytes (The reconstructed Master Shuffle Key).
      * @param myPos The executing player's physical seat index.
-     * @param receipts A 2D array of exactly 32-byte final receipts OR 96-byte Exit Testaments for all players.
-     * @return true if the entire history is mathematically flawless; false if tampering is detected.
+     * @param receipts A 2D array of exactly 32-byte final receipts OR 96-byte
+     * Exit Testaments for all players.
+     * @return true if the entire history is mathematically flawless; false if
+     * tampering is detected.
      */
     public native boolean utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[][] receipts);
 
     /**
      * Verifies a Poly1305 Chaos MAC signature.
+     *
      * @param data The raw data to verify.
      * @param mac Exactly 16 bytes.
      * @return true if the signature is valid; false otherwise.
@@ -295,6 +319,7 @@ public class Panoptes {
 
     /**
      * Decrypts a Key Encapsulation Mechanism (KEM) envelope directed to a bot.
+     *
      * @param priv Exactly 32 bytes (Bot's private key).
      * @param epub Exactly 32 bytes (Ephemeral public key from the packet).
      * @param enc Exactly 114 bytes (Encrypted payload).
@@ -303,24 +328,30 @@ public class Panoptes {
     public native byte[] utilsDecryptBotEnvelope(byte[] priv, byte[] epub, byte[] enc);
 
     // --- CONSENSUS & GAME STATE DOMAIN ---
-
     /**
      * Initializes a new hand, generating a random 16-byte HAND_ID.
+     *
      * @return Exactly 16 bytes (HAND_ID).
      */
     public native byte[] stateInitializeHand();
 
     /**
-     * Generates the immutable genesis Megapacket for a new hand (Server/Host only).
-     * @param playerSeedsFlat Flattened array of all player seeds (numPlayers * 32 bytes).
+     * Generates the immutable genesis Megapacket for a new hand (Server/Host
+     * only).
+     *
+     * @param playerSeedsFlat Flattened array of all player seeds (numPlayers *
+     * 32 bytes).
      * @param numPlayers Total number of players (2-22).
-     * @param playerPubKeysFlat Flattened array of all player public keys (numPlayers * 32 bytes).
+     * @param playerPubKeysFlat Flattened array of all player public keys
+     * (numPlayers * 32 bytes).
      * @return The variable-length Megapacket byte array.
      */
     public native byte[] stateGenerateMegapacket(byte[] playerSeedsFlat, int numPlayers, byte[] playerPubKeysFlat);
 
     /**
-     * Ingests the Megapacket into the client Vault, verifying structure and extracting local pocket cards.
+     * Ingests the Megapacket into the client Vault, verifying structure and
+     * extracting local pocket cards.
+     *
      * @param megapacket The full Megapacket byte array.
      * @param myPos The client's physical seat index.
      * @return true on successful ingestion; false on tampering or OOB errors.
@@ -329,47 +360,54 @@ public class Panoptes {
 
     /**
      * Retrieves the decrypted pocket cards for the local player.
+     *
      * @return Exactly 2 bytes representing card IDs (0-51).
      */
     public native byte[] stateGetLocalPocketCards();
 
     /**
-     * Retrieves the local fragment of the Master Shuffle Key. 
-     * WARNING: Calling this triggers the "Scorched Earth" defense, wiping street tokens.
+     * Retrieves the local fragment of the Master Shuffle Key. WARNING: Calling
+     * this triggers the "Scorched Earth" defense, wiping street tokens.
+     *
      * @return Exactly 32 bytes.
      */
     public native byte[] stateGetShuffleKeyShare();
 
     /**
      * Retrieves the cryptographic token required to unlock the Flop.
+     *
      * @return Exactly 16 bytes.
      */
     public native byte[] stateGetFlopToken();
 
     /**
      * Retrieves the cryptographic token required to unlock the Turn.
+     *
      * @return Exactly 16 bytes.
      */
     public native byte[] stateGetTurnToken();
 
     /**
      * Retrieves the cryptographic token required to unlock the River.
+     *
      * @return Exactly 16 bytes.
      */
     public native byte[] stateGetRiverToken();
 
     /**
      * Evolves the community cards by applying the aggregated consensus key.
+     *
      * @param nextStreet The target street index (1=Flop, 2=Turn, 3=River).
-     * @param consensusKey Exactly 16 bytes (aggregated XOR of all player tokens).
+     * @param consensusKey Exactly 16 bytes (aggregated XOR of all player
+     * tokens).
      * @return 3 bytes for Flop, 1 byte for Turn/River.
      */
     public native byte[] stateEvolveStreet(int nextStreet, byte[] consensusKey);
 
     // --- ACTION CHAIN DOMAIN ---
-
     /**
      * Commits and signs a local player action into the cryptographic Sponge.
+     *
      * @param type Action type identifier (e.g., Fold, Call, Raise).
      * @param amount The betting amount involved.
      * @return Exactly 52 bytes containing the signed action packet.
@@ -378,6 +416,7 @@ public class Panoptes {
 
     /**
      * Commits and signs an action on behalf of a server-side bot.
+     *
      * @param type Action type identifier.
      * @param amount The betting amount involved.
      * @param botPrivKey Exactly 32 bytes (Bot's private key).
@@ -387,49 +426,64 @@ public class Panoptes {
 
     /**
      * Verifies and absorbs a remote action packet into the local Sponge state.
+     *
      * @param actionPacket Exactly 52 bytes.
-     * @return true if signature and sequence are valid; false on desynchronization or tampering.
+     * @return true if signature and sequence are valid; false on
+     * desynchronization or tampering.
      */
     public native boolean chainVerifyRemoteAction(byte[] actionPacket);
 
     /**
-     * Closes the state machine and returns the final Sponge hash for P2P comparison.
+     * Closes the state machine and returns the final Sponge hash for P2P
+     * comparison.
+     *
      * @return Exactly 32 bytes (Final State Receipt).
      */
     public native byte[] chainCloseStateAndGetReceipt();
 
     /**
-     * Generates or retrieves the 32-byte local entropy seed for the current hand.
-     * Protected by anti-grinding idempotency locks.
+     * Generates or retrieves the 32-byte local entropy seed for the current
+     * hand. Protected by anti-grinding idempotency locks.
+     *
      * @return Exactly 32 bytes.
      */
     public native byte[] stateGenerateLocalSeed();
 
     // --- TELEMETRY & RADAR DOMAIN ---
-
     /**
-     * Captures a deep system telemetry report (loaded modules, hooks, anomalous memory).
-     * @param targetPubKey Exactly 32 bytes (Requesting peer's public key for KEM encryption).
-     * @return A variable-length encrypted KEM envelope containing the radar data.
+     * Captures a deep system telemetry report (loaded modules, hooks, anomalous
+     * memory).
+     *
+     * @param targetPubKey Exactly 32 bytes (Requesting peer's public key for
+     * KEM encryption).
+     * @return A variable-length encrypted KEM envelope containing the radar
+     * data.
      */
     public native byte[] telemetryGetSystemRadar(byte[] targetPubKey);
 
     /**
      * Decrypts an incoming system radar telemetry packet.
+     *
      * @param encryptedRadarPacket The variable-length encrypted packet.
-     * @return The plaintext UTF-8 string bytes of the radar report, or null if tampered.
+     * @return The plaintext UTF-8 string bytes of the radar report, or null if
+     * tampered.
      */
     public native byte[] telemetryDecryptRadarData(byte[] encryptedRadarPacket);
 
     /**
      * Captures a visual context representation of the host's screen.
-     * @param mode 1 = Target Application Window (100% Quality JPG), 2 = Desktop (Grayscale 70% Quality JPG).
-     * @return A variable-length byte array representing a valid JPEG image, or null on failure/cooldown.
+     *
+     * @param mode 1 = Target Application Window (100% Quality JPG), 2 = Desktop
+     * (Grayscale 70% Quality JPG).
+     * @return A variable-length byte array representing a valid JPEG image, or
+     * null on failure/cooldown.
      */
     public native byte[] telemetryCaptureScreenContext(int mode);
 
     /**
-     * Diagnostics: Retrieves the path to the JAR file currently locked by the C engine.
+     * Diagnostics: Retrieves the path to the JAR file currently locked by the C
+     * engine.
+     *
      * @return String representation of the absolute file path.
      */
     public native String telemetryGetDiagnosticJarPathC();
@@ -437,7 +491,6 @@ public class Panoptes {
     // =========================================================================
     // JAVA COMPATIBILITY WRAPPERS
     // =========================================================================
-
     public byte[] generateChallenge(String ownerID, String ipString, int port) throws Exception {
         byte[] sessionKey = new byte[32];
         new SecureRandom().nextBytes(sessionKey);
@@ -501,7 +554,6 @@ public class Panoptes {
     // =========================================================================
     // HASHING UTILS
     // =========================================================================
-    
     private static String calculateFileSHA1(File file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-1");
         try (InputStream is = new FileInputStream(file)) {

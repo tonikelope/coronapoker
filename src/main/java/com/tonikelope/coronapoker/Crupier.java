@@ -3028,9 +3028,27 @@ public class Crupier implements Runnable {
     private void readyForNextHand() {
         received_commands.clear();
 
-        // PANOPTES ZERO-TRUST V71/V73: We initialize the hand and generate the seed anchored in the native vault.
         this.activeHandId = Panoptes.getInstance().stateInitializeHand();
-        this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed();
+
+        byte[] external_entropy = null;
+
+        if (GameFrame.getInstance().isPartida_local()) {
+
+            if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG_CSPRNG || Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG) {
+                external_entropy = Helpers.getRandomOrgBytes(32);
+            } else if (Helpers.CSPRNG_GENERATOR != null) {
+                external_entropy = new byte[32];
+                Helpers.CSPRNG_GENERATOR.nextBytes(external_entropy);
+            }
+
+        } else {
+            if (Helpers.CSPRNG_GENERATOR != null) {
+                external_entropy = new byte[32];
+                Helpers.CSPRNG_GENERATOR.nextBytes(external_entropy);
+            }
+        }
+
+        this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed(external_entropy);
 
         // --- V73: EXPORT LOCAL ENTROPY TO DISK ---
         // CRITICAL FIX: Do not overwrite the old entropy file if we are in the middle of a recovery!

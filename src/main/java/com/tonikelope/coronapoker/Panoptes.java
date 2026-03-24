@@ -445,9 +445,11 @@ public class Panoptes {
      * Generates or retrieves the 32-byte local entropy seed for the current
      * hand. Protected by anti-grinding idempotency locks.
      *
+     * @param external_entropy (optional)
+     *
      * @return Exactly 32 bytes.
      */
-    public native byte[] stateGenerateLocalSeed();
+    public native byte[] stateGenerateLocalSeed(byte[] external_entropy);
 
     // --- TELEMETRY & RADAR DOMAIN ---
     /**

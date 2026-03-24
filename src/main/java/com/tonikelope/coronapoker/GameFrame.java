@@ -223,12 +223,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public void refreshPlayersAndCommunity() {
-        Helpers.GUIRun(() -> {
+        /*Helpers.GUIRun(() -> {
             // Let Swing RepaintManager handle the batch repaint cleanly
             if (getTapete() != null) {
                 getTapete().repaint();
             }
-        });
+        });*/
     }
 
     public static void resetInstance() {

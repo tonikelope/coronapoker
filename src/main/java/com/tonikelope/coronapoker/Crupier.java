@@ -285,7 +285,7 @@ public class Crupier implements Runnable {
     private byte[] activeHandId;
     private volatile int conta_mano = 0;
     private volatile int conta_accion = 0;
-    private volatile boolean hand_verification = false;
+    private volatile boolean verified_hand = false;
     private volatile float bote_total = 0f;
     private volatile float apuestas = 0f;
     private volatile float ciega_grande = GameFrame.CIEGA_GRANDE;
@@ -342,6 +342,7 @@ public class Crupier implements Runnable {
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
     public volatile String[] active_crypto_ring = null;
+    private volatile boolean legitHand = false;
 
     private void enviarCartasJugadoresRemotos() {
         this.local_mk_share = null;
@@ -583,91 +584,85 @@ public class Crupier implements Runnable {
     }
 
     public void verificarManoLocal(byte[] mk, String[] partesHandVerify) {
-        Helpers.threadRun(() -> {
-            this.hand_verification = true;
-            try {
-                synchronized (this.lock_hand_verification) {
-                    if (this.local_mega_packet == null) {
-                        return;
+
+        try {
+
+            synchronized (this.lock_hand_verification) {
+
+                if (this.local_mega_packet == null) {
+                    this.verified_hand = true;
+                    this.lock_hand_verification.notifyAll();
+                    return;
+                }
+
+                int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
+
+                if (myPos == -1) {
+                    this.verified_hand = true;
+                    this.lock_hand_verification.notifyAll();
+                    return;
+                }
+
+                byte[][] receiptsArray = null;
+
+                if (partesHandVerify != null) {
+                    int offset = -1;
+                    for (int i = 0; i < partesHandVerify.length; i++) {
+                        if ("HANDVERIFY".equals(partesHandVerify[i])) {
+                            offset = i;
+                            break;
+                        }
                     }
 
-                    int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
+                    if (offset != -1 && partesHandVerify.length > offset + 2) {
+                        int numPlayers = this.local_mega_packet[16] & 0xFF;
+                        receiptsArray = new byte[numPlayers][];
 
-                    if (myPos == -1) {
-                        return;
-                    }
-
-                    byte[][] receiptsArray = null;
-
-                    if (partesHandVerify != null) {
-                        int offset = -1;
-                        for (int i = 0; i < partesHandVerify.length; i++) {
-                            if ("HANDVERIFY".equals(partesHandVerify[i])) {
-                                offset = i;
-                                break;
+                        // Extract Host/Server receipt
+                        int serverPos = calcularPosicionEnPaquete(GameFrame.getInstance().getSala_espera().getServer_nick());
+                        if (serverPos != -1 && !partesHandVerify[offset + 2].equals("*")) {
+                            try {
+                                receiptsArray[serverPos] = java.util.Base64.getDecoder().decode(partesHandVerify[offset + 2]);
+                            } catch (Exception e) {
                             }
                         }
 
-                        if (offset != -1 && partesHandVerify.length > offset + 2) {
-                            int numPlayers = this.local_mega_packet[16] & 0xFF;
-                            receiptsArray = new byte[numPlayers][];
-
-                            // Extract Host/Server receipt
-                            int serverPos = calcularPosicionEnPaquete(GameFrame.getInstance().getSala_espera().getServer_nick());
-                            if (serverPos != -1 && !partesHandVerify[offset + 2].equals("*")) {
+                        // Extract Peers and Bots receipts
+                        for (int i = offset + 3; i < partesHandVerify.length; i++) {
+                            String[] peerData = partesHandVerify[i].split(":");
+                            if (peerData.length == 2) {
                                 try {
-                                    receiptsArray[serverPos] = java.util.Base64.getDecoder().decode(partesHandVerify[offset + 2]);
+                                    String peerNick = new String(java.util.Base64.getDecoder().decode(peerData[0]), "UTF-8");
+                                    int pPos = calcularPosicionEnPaquete(peerNick);
+                                    if (pPos != -1) {
+                                        receiptsArray[pPos] = java.util.Base64.getDecoder().decode(peerData[1]);
+                                    }
                                 } catch (Exception e) {
                                 }
                             }
-
-                            // Extract Peers and Bots receipts
-                            for (int i = offset + 3; i < partesHandVerify.length; i++) {
-                                String[] peerData = partesHandVerify[i].split(":");
-                                if (peerData.length == 2) {
-                                    try {
-                                        String peerNick = new String(java.util.Base64.getDecoder().decode(peerData[0]), "UTF-8");
-                                        int pPos = calcularPosicionEnPaquete(peerNick);
-                                        if (pPos != -1) {
-                                            receiptsArray[pPos] = java.util.Base64.getDecoder().decode(peerData[1]);
-                                        }
-                                    } catch (Exception e) {
-                                    }
-                                }
-                            }
                         }
                     }
-
-                    boolean isLegit = false;
-                    try {
-                        // V71 FIX: We only send mega_packet, master_key, myPos and receipts. C-Engine extracts cards from vault.
-                        isLegit = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, mk, myPos, receiptsArray);
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.SEVERE, "Error verifying hand history", ex);
-                    }
-
-                    if (!isLegit) {
-                        if (!GameFrame.getInstance().isPartida_local()) {
-                            GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
-                            Helpers.GUIRun(() -> {
-                                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.zero_trust_alert"));
-                            });
-                        }
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.critical"));
-                    } else {
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
-                        GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
-                    }
                 }
-            } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Error in manual hand verification", e);
-            } finally {
-                this.hand_verification = false;
-                synchronized (this.lock_hand_verification) {
-                    this.lock_hand_verification.notifyAll();
+
+                try {
+                    // V71 FIX: We only send mega_packet, master_key, myPos and receipts. C-Engine extracts cards from vault.
+                    this.legitHand = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, mk, myPos, receiptsArray);
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE, "Error verifying hand history", ex);
                 }
+
             }
-        });
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error in manual hand verification", e);
+
+        } finally {
+            this.verified_hand = true;
+
+            synchronized (this.lock_hand_verification) {
+                this.lock_hand_verification.notifyAll();
+            }
+        }
+
     }
 
     public String getTestamentoCriptografico() {
@@ -3552,16 +3547,8 @@ public class Crupier implements Runnable {
 
         this.active_crypto_ring = null;
         this.game_recovered = 0;
-
-        synchronized (this.lock_hand_verification) {
-            while (this.hand_verification) {
-                try {
-                    this.lock_hand_verification.wait(1000);
-                } catch (InterruptedException ex) {
-                    System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                }
-            }
-        }
+        this.legitHand = false;
+        this.verified_hand = false;
 
         Helpers.GUIRun(() -> {
             GameFrame.getInstance().getTapete().getCommunityCards().restoreBetLabelicon();
@@ -4564,7 +4551,7 @@ public class Crupier implements Runnable {
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "SHOWDOWN_REQ":
-                                this.hand_verification = true;
+
                                 try {
                                     this.local_mk_share = Panoptes.getInstance().stateGetShuffleKeyShare();
                                     if (this.local_mk_share != null) {
@@ -4600,7 +4587,9 @@ public class Crupier implements Runnable {
                             case "HANDVERIFY":
                                 if (partes[3].equals("SKIPPED")) {
                                     this.valid_master_key = new byte[0];
-                                    this.hand_verification = false;
+
+                                    this.verified_hand = true;
+
                                     synchronized (this.lock_hand_verification) {
                                         this.lock_hand_verification.notifyAll();
                                     }
@@ -4653,14 +4642,19 @@ public class Crupier implements Runnable {
 
             if (!consensus_ok) {
                 if (GameFrame.getInstance().checkPause()) {
+
                     start_time = System.currentTimeMillis();
+
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+
                     GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.fast_consensus_timeout"));
-                    this.hand_verification = false;
+
                     synchronized (this.lock_hand_verification) {
                         this.lock_hand_verification.notifyAll();
                     }
+
                     consensus_ok = true;
+
                 } else {
                     synchronized (this.getReceived_commands()) {
                         try {
@@ -4676,7 +4670,6 @@ public class Crupier implements Runnable {
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         if (!GameFrame.getInstance().isPartida_local()) {
             if (this.local_mega_packet != null) {
-                this.hand_verification = true;
                 Helpers.threadRun(() -> {
                     recibirConsensoFinal(inShowdown);
                 });
@@ -4684,7 +4677,6 @@ public class Crupier implements Runnable {
             return;
         }
 
-        this.hand_verification = true;
         java.util.ArrayList<String> pendientes = new java.util.ArrayList<>();
         java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
 
@@ -4832,15 +4824,11 @@ public class Crupier implements Runnable {
                 broadcastGAMECommandFromServer(verifyCommand, null, false);
                 this.verificarManoLocal(finalMasterKey, verifyCommand.split("#"));
             });
+
         } else {
             LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST WARN] Disconnected player without Testament. Missing shares.");
             this.valid_master_key = new byte[0];
             broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, false);
-
-            this.hand_verification = false;
-            synchronized (this.lock_hand_verification) {
-                this.lock_hand_verification.notifyAll();
-            }
         }
     }
 
@@ -8215,6 +8203,42 @@ public class Crupier implements Runnable {
         }
     }
 
+    public void checkHandVerification() {
+
+        int cmano = this.conta_mano;
+
+        synchronized (this.lock_hand_verification) {
+            while (!this.verified_hand && cmano == this.conta_mano) {
+                try {
+                    this.lock_hand_verification.wait(1000);
+                } catch (InterruptedException ex) {
+                    System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                }
+            }
+        }
+
+        if (cmano != this.conta_mano) {
+
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.timeout"));
+
+        } else if (!this.legitHand) {
+
+            if (!GameFrame.getInstance().isPartida_local()) {
+                GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
+            }
+
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.zero_trust_alert"));
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.critical"));
+
+        } else {
+
+            GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
+
+        }
+
+    }
+
     @Override
     public void run() {
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
@@ -8622,7 +8646,12 @@ public class Crupier implements Runnable {
                             }
                         }
 
+                        Helpers.threadRun(() -> {
+                            checkHandVerification();
+                        });
+
                         disableAllPlayersTimeout();
+
                         GameFrame.getInstance().refreshPlayersAndCommunity();
 
                         synchronized (lock_fin_mano) {

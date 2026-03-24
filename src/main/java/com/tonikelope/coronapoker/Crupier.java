@@ -3736,7 +3736,7 @@ public class Crupier implements Runnable {
             }
         }
         // --------------------------------------
-        
+
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             if (this.sqlite_id_hand == -1) {
                 sqlNewHand();
@@ -6097,25 +6097,32 @@ public class Crupier implements Runnable {
                 }
 
                 if (!current_player.isExit()) {
-                    
-                    // --- TRACK EVERY PLAYER ACTION (UNIVERSAL TRACKING) ---
+
+                    // --- TRACK EVERY PLAYER ACTION (BUG FIXED + AF TRACKING) ---
                     Bot.TRACKER_MEMORY.putIfAbsent(current_player.getNickname(), new Bot.OpponentTracker());
                     Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
-                    
+
                     if (this.street == Crupier.PREFLOP) {
-                        // Track VPIP (Any voluntary money put into pot: Call/Bet/Raise/All-in)
-                        if (current_player.getDecision() == Player.CHECK || 
-                            current_player.getDecision() == Player.BET || 
-                            current_player.getDecision() == Player.ALLIN) {
-                            stats.recordVPIP();
+                        // Pass hand ID to prevent stat inflation from multiple actions per round
+                        if (current_player.getDecision() == Player.CHECK
+                                || current_player.getDecision() == Player.BET
+                                || current_player.getDecision() == Player.ALLIN) {
+                            stats.recordVPIP(this.conta_mano);
                         }
-                        // Track PFR (Preflop Raise/All-in)
-                        if (current_player.getDecision() == Player.BET || 
-                            current_player.getDecision() == Player.ALLIN) {
-                            stats.recordPFR();
+                        if (current_player.getDecision() == Player.BET
+                                || current_player.getDecision() == Player.ALLIN) {
+                            stats.recordPFR(this.conta_mano);
+                        }
+                    } else {
+                        // Post-Flop Aggression Factor (AF) Tracking
+                        if (current_player.getDecision() == Player.BET || current_player.getDecision() == Player.ALLIN) {
+                            stats.recordPostFlopBetOrRaise();
+                        } else if (current_player.getDecision() == Player.CHECK && this.apuesta_actual > old_player_bet) {
+                            // In this engine's architecture, CHECK acts as a CALL if there is a pending bet
+                            stats.recordPostFlopCall();
                         }
                     }
-                    // ------------------------------------------------------
+                    // -----------------------------------------------------------
 
                     GameFrame.getInstance().getRegistro().print(current_player.getLastActionString());
 

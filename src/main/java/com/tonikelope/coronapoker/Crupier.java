@@ -406,9 +406,9 @@ public class Crupier implements Runnable {
         }
 
         try {
-            String fossilName = Init.DEV_MODE ? "/fossil_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".lock" : "/fossil.lock";
+            String panoptesFossilName = Init.DEV_MODE ? "/panoptes_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_hand_commit.bin";
             String fullData = "ORDER@" + orderBuilder.toString() + "#FULLMEGAPACKET@" + megaPacketB64;
-            Files.writeString(Paths.get(Init.CORONA_DIR + fossilName), fullData);
+            Files.writeString(Paths.get(Init.CORONA_DIR + panoptesFossilName), fullData);
         } catch (Exception e) {
         }
 
@@ -489,15 +489,15 @@ public class Crupier implements Runnable {
                             java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "Failed to decode exact ring order", e);
                         }
 
-                        // Store local fossil for client recovery using Host compatible text format
+                        // Store local panoptesFossil for client recovery using Host compatible text format
                         try {
-                            String fossilName = "/fossil.lock";
+                            String panoptesFossilName = "/panoptes_hand_commit.bin";
                             if (Init.DEV_MODE) {
                                 String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                                fossilName = "/fossil_" + safeNick + ".lock";
+                                panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
                             }
                             String fullData = "ORDER@" + orderStr + "#FULLMEGAPACKET@" + partes[4];
-                            java.nio.file.Files.writeString(java.nio.file.Paths.get(Init.CORONA_DIR + fossilName), fullData);
+                            java.nio.file.Files.writeString(java.nio.file.Paths.get(Init.CORONA_DIR + panoptesFossilName), fullData);
                         } catch (Exception e) {
                         }
 
@@ -2445,22 +2445,22 @@ public class Crupier implements Runnable {
             if (!saltar_primera_mano && map.get("hand_end") != null && (Long) map.get("hand_end") == 0L) {
                 try {
                     String fosil = null;
-                    String fossilName = "/fossil.lock";
+                    String panoptesFossilName = "/panoptes_hand_commit.bin";
                     if (Init.DEV_MODE) {
                         String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                        fossilName = "/fossil_" + safeNick + ".lock";
+                        panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
                     }
-                    java.io.File fFile = new java.io.File(Init.CORONA_DIR + fossilName);
+                    java.io.File fFile = new java.io.File(Init.CORONA_DIR + panoptesFossilName);
                     if (fFile.exists()) {
                         fosil = java.nio.file.Files.readString(fFile.toPath());
                     }
 
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
-                        String[] fossilParts = fosil.split("#");
+                        String[] panoptesFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
 
-                        for (String part : fossilParts) {
+                        for (String part : panoptesFossilParts) {
                             if (part.startsWith("ORDER@")) {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
@@ -2599,12 +2599,12 @@ public class Crupier implements Runnable {
             }
 
             try {
-                String fossilName = "/fossil.lock";
+                String panoptesFossilName = "/panoptes_hand_commit.bin";
                 if (Init.DEV_MODE) {
                     String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                    fossilName = "/fossil_" + safeNick + ".lock";
+                    panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
                 }
-                java.io.File fFile = new java.io.File(Init.CORONA_DIR + fossilName);
+                java.io.File fFile = new java.io.File(Init.CORONA_DIR + panoptesFossilName);
                 if (fFile.exists()) {
 
                     // Read file as string to parse the custom format
@@ -2612,11 +2612,11 @@ public class Crupier implements Runnable {
 
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
-                        String[] fossilParts = fosil.split("#");
+                        String[] panoptesFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
 
                         // Extract order and megapacket data
-                        for (String part : fossilParts) {
+                        for (String part : panoptesFossilParts) {
                             if (part.startsWith("ORDER@")) {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
@@ -2677,7 +2677,7 @@ public class Crupier implements Runnable {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Failed to recover client fossil data", e);
+                LOGGER.log(Level.SEVERE, "Failed to recover client panoptesFossil data", e);
             }
 
             if (map == null || !Boolean.TRUE.equals(map.get("permutation_key")) || (map.get("hand_end") != null && (Long) map.get("hand_end") != 0L)) {
@@ -8764,11 +8764,11 @@ public class Crupier implements Runnable {
             }
             // ---------------------------------
 
-            String fossilName = Init.DEV_MODE ? "/fossil_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".lock" : "/fossil.lock";
-            File fossilFile = new File(Init.CORONA_DIR + fossilName);
+            String panoptesFossilName = Init.DEV_MODE ? "/panoptes_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_hand_commit.bin";
+            File panoptesFossilFile = new File(Init.CORONA_DIR + panoptesFossilName);
 
             try {
-                java.nio.file.Files.deleteIfExists(fossilFile.toPath());
+                java.nio.file.Files.deleteIfExists(panoptesFossilFile.toPath());
             } catch (IOException ex) {
                 System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
             }

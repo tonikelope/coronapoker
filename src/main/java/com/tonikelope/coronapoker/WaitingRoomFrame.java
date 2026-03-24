@@ -925,17 +925,17 @@ public class WaitingRoomFrame extends JFrame {
 
             if (identityFile.exists()) {
                 byte[] fileBytes = java.nio.file.Files.readAllBytes(identityFile.toPath());
-                byte[] fossil = java.util.Arrays.copyOfRange(fileBytes, 32, 80);
-                boolean ok = Panoptes.getInstance().identityLoad(fossil);
+                byte[] panoptesFossil = java.util.Arrays.copyOfRange(fileBytes, 32, 80);
+                boolean ok = Panoptes.getInstance().identityLoad(panoptesFossil);
 
                 if (ok) {
                     local_player_public_key = java.util.Arrays.copyOfRange(fileBytes, 0, 32);
                 } else {
                     identityFile.delete();
-                    throw new Exception("Identity fossil rejected by C engine.");
+                    throw new Exception("Identity panoptesFossil rejected by C engine.");
                 }
             } else {
-                throw new Exception("No identity fossil found.");
+                throw new Exception("No identity panoptesFossil found.");
             }
         } catch (Exception e) {
             byte[] newIdentityBlob = Panoptes.getInstance().identityCreate();

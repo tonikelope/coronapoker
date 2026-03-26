@@ -1605,9 +1605,10 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-    private void runPingPongThreadCliente() {
+    private void runSecPingPongThreadCliente() {
 
-        // --- HEARTBEAT THREAD ---
+        //Not really required for Panoptes
+        
         Helpers.threadRun(() -> {
 
             Panoptes panoptes_instance = Panoptes.getInstance();
@@ -1647,6 +1648,9 @@ public class WaitingRoomFrame extends JFrame {
                 Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
             }
         });
+    }
+
+    private void runPingPongThreadCliente() {
 
         // --- PING/PONG KEEPALIVE THREAD ---
         Helpers.threadRun(() -> {

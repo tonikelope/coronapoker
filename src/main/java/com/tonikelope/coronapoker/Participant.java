@@ -298,8 +298,9 @@ public class Participant implements Runnable {
         return avatar_chat_src;
     }
 
-    private void runPingPongThread() {
-        /* Panoptes Heartbeat Generator Thread (Server/Participant Side) */
+    private void runSecPingPongThread() {
+        //Not really required for Panoptes
+        
         Helpers.threadRun(() -> {
 
             Panoptes panoptes = Panoptes.getInstance();
@@ -329,6 +330,10 @@ public class Participant implements Runnable {
                 Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
             }
         });
+
+    }
+
+    private void runPingPongThread() {
 
         /* Standard Keep-Alive PING Thread */
         Helpers.threadRun(() -> {
@@ -422,6 +427,7 @@ public class Participant implements Runnable {
     }
 
     private void runSocketReaderThread() {
+
         Helpers.threadRun(() -> {
             boolean timeout = false;
             while (!exit) {
@@ -506,10 +512,10 @@ public class Participant implements Runnable {
                             case "SECPING":
                                 try {
                                     byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                                    
+
                                     /* Use the wrapper to solve the challenge securely */
                                     byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                                    
+
                                     String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "") : "";
                                     writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
                                 } catch (Exception e) {

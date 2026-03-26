@@ -300,7 +300,7 @@ public class Participant implements Runnable {
 
     private void runSecPingPongThread() {
         //Not really required for Panoptes
-        
+
         Helpers.threadRun(() -> {
 
             Panoptes panoptes = Panoptes.getInstance();

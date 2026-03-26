@@ -1608,7 +1608,6 @@ public class WaitingRoomFrame extends JFrame {
     private void runSecPingPongThreadCliente() {
 
         //Not really required for Panoptes
-        
         Helpers.threadRun(() -> {
 
             Panoptes panoptes_instance = Panoptes.getInstance();

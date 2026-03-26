@@ -8961,8 +8961,6 @@ public class Crupier implements Runnable {
             sendGAMECommandToServer(exitCmd, false);
         }
 
-        cleanTempCrupierFiles();
-
         GameFrame.getInstance().finTransmision(fin_de_la_transmision);
     }
 
@@ -8978,44 +8976,6 @@ public class Crupier implements Runnable {
                 stmt.executeUpdate();
             } catch (Exception e) {
                 // Ignore silent constraints
-            }
-        }
-    }
-
-    public void cleanTempCrupierFiles() {
-
-        String handFileName = "/hand_" + this.sqlite_id_hand + ".bin";
-
-        try {
-            java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + handFileName));
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to delete temporary file: " + handFileName, e);
-        }
-
-        if (!isForce_recover()) {
-            // Determine the file suffix once based on DEV_MODE
-            String suffix = "";
-            if (Init.DEV_MODE) {
-                String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                suffix = "_" + sanitizedNick;
-            }
-
-            // Array of file templates using %s as a placeholder for the suffix
-            String[] fileTemplates = {
-                "/balance_backup%s.txt",
-                "/panoptes_session%s.key",
-                "/panoptes_entropy%s.bin",
-                "/panoptes_hand_commit%s.bin"
-            };
-
-            // Iterate and delete all temporary files
-            for (String template : fileTemplates) {
-                String fileName = String.format(template, suffix);
-                try {
-                    java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
-                } catch (IOException e) {
-                    LOGGER.log(Level.SEVERE, "Failed to delete temporary file: " + fileName, e);
-                }
             }
         }
     }

@@ -403,6 +403,34 @@ public class Helpers {
         }
     }
 
+    public static void cleanOldTempCrupierFiles() {
+
+        // Determine the file suffix once based on DEV_MODE
+        String suffix = "";
+        if (Init.DEV_MODE) {
+            String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
+            suffix = "_" + sanitizedNick;
+        }
+
+        // Array of file templates using %s as a placeholder for the suffix
+        String[] fileTemplates = {
+            "/balance_backup%s.txt",
+            "/panoptes_session%s.key",
+            "/panoptes_entropy%s.bin",
+            "/panoptes_hand_commit%s.bin"
+        };
+
+        // Iterate and delete all temporary files
+        for (String template : fileTemplates) {
+            String fileName = String.format(template, suffix);
+            try {
+                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
+            } catch (IOException e) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "Failed to delete temporary file: " + fileName, e);
+            }
+        }
+    }
+
     public static void setSpinnerColors(JSpinner spinner, Color background, Color foreground) {
 
         final JComponent editor = spinner.getEditor();

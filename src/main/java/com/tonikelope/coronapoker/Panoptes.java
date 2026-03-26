@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2020 tonikelope
- * _             _ _        _                 
- *| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
- *| __/ _ \| '_ \| | |/ / _ \ |/ _ \ | '_ \ / _ \
+ * _              _ _        _                 
+ *| |_ ___  _ __ (_) | _____| | ___  _ __  ___ 
+ *| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
  *| || (_) | | | | |   <  __/ | (_) | |_) |  __/
  * \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
  * ____    ___  ____    ___  
@@ -46,9 +46,9 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the V76 semantic architecture (Ephemeral Session Only). WARNING:
- * Native methods strictly expect exact byte array sizes. Passing incorrectly
- * sized arrays will result in JVM crashes (SIGSEGV).
+ * Implements the V76 semantic architecture (Ephemeral Session Only). 
+ * WARNING: Native methods strictly expect exact byte array sizes. Passing 
+ * incorrectly sized arrays will result in JVM crashes (SIGSEGV).
  */
 public class Panoptes {
 
@@ -63,12 +63,18 @@ public class Panoptes {
     public static final int STATUS_CLEAN = 1;
     public static final int STATUS_VM_DETECTED = 2;
 
+    /* Thread-safe storage mapping peer identifiers to their ephemeral session keys */
     private final ConcurrentHashMap<String, byte[]> activeSessionKeys = new ConcurrentHashMap<>();
 
+    /**
+     * Bootstraps the native engine by comparing local binaries against remote checksums,
+     * triggering a secure download if the binary is missing or tampered with.
+     */
     private static void verifyAndDownloadNativeLib(String targetDir) {
         String os = System.getProperty("os.name").toLowerCase();
         String libName;
 
+        // 1. Resolve OS-specific binary extension
         if (os.contains("win")) {
             libName = "panoptes.dll";
         } else if (os.contains("mac")) {
@@ -82,6 +88,8 @@ public class Panoptes {
 
         try {
             LOGGER.log(Level.INFO, "[PANOPTES] Checking engine integrity...");
+            
+            // 2. Fetch official manifest from remote repository
             URL manifestUrl = new URL(REPO_RAW_URL + CHECKSUM_FILE);
             String manifestContent = downloadText(manifestUrl);
 
@@ -95,6 +103,7 @@ public class Panoptes {
             boolean needsLibUpdate = false;
             boolean needsKeyUpdate = false;
 
+            // 3. Verify Library Integrity
             if (!localLib.exists()) {
                 LOGGER.log(Level.INFO, "[PANOPTES] Local library not found. Forcing download...");
                 needsLibUpdate = true;
@@ -106,6 +115,7 @@ public class Panoptes {
                 }
             }
 
+            // 4. Verify Consensus Key Integrity
             if (!localKey.exists()) {
                 LOGGER.log(Level.INFO, "[PANOPTES] Consensus key not found. Forcing download...");
                 needsKeyUpdate = true;
@@ -117,10 +127,12 @@ public class Panoptes {
                 }
             }
 
+            // 5. Download and Patch if necessary
             if (needsLibUpdate) {
                 LOGGER.log(Level.INFO, "[PANOPTES] Downloading official binary from repository...");
                 downloadBinary(new URL(REPO_RAW_URL + libName), localLib);
 
+                // macOS requires explicit code signing and extended attribute clearing to allow execution
                 if (os.contains("mac")) {
                     try {
                         LOGGER.log(Level.INFO, "[PANOPTES] Applying macOS security patches...");
@@ -149,6 +161,10 @@ public class Panoptes {
         }
     }
 
+    /**
+     * Triggers the environment preparation sequence, loads the native C engine,
+     * and securely imports the cryptographic manifest.
+     */
     public static void WAKEUP_PANOPTES() {
         verifyAndDownloadNativeLib(PANOPTES_DIR);
         try {
@@ -161,6 +177,7 @@ public class Panoptes {
                 throw new RuntimeException("panoptes_key.bin not found after download sequence.");
             }
         } catch (Throwable e) {
+            LOGGER.log(Level.SEVERE, "[PANOPTES] Initialization failed. Aborting execution.", e);
             System.exit(1);
         }
     }
@@ -178,12 +195,13 @@ public class Panoptes {
     // =========================================================================
     // NATIVE JNI METHODS (V76)
     // =========================================================================
+    
     // --- SESSION & VAULT DOMAIN ---
+    
     /**
      * Generates an ephemeral session keypair and locks it in the Vault.
      *
-     * @return An 80-byte array: [0-31: Public Key] + [32-79: Encrypted Private
-     * Key Blob].
+     * @return An 80-byte array: [0-31: Public Key] + [32-79: Encrypted Private Key Blob].
      */
     public native byte[] sessionInitialize();
 
@@ -191,8 +209,7 @@ public class Panoptes {
      * Loads a previously generated encrypted session into the Vault.
      *
      * @param sessionBlob Exactly 48 bytes (Encrypted Private Key Blob).
-     * @return true if successfully loaded and verified; false if MAC validation
-     * fails.
+     * @return true if successfully loaded and verified; false if MAC validation fails.
      */
     public native boolean sessionLoad(byte[] sessionBlob);
 
@@ -200,14 +217,12 @@ public class Panoptes {
      * Executes a secure "Lobotomy" on the Vault, wiping session keys and
      * generating an exit proof.
      *
-     * @return A 96-byte Cryptographic Testament to be distributed to peers upon
-     * legitimate exit.
+     * @return A 96-byte Cryptographic Testament to be distributed to peers upon legitimate exit.
      */
     public native byte[] sessionGenerateExitTestament();
 
     /**
-     * Exports the local entropy seed state from the Vault for persistent
-     * recovery.
+     * Exports the local entropy seed state from the Vault for persistent recovery.
      *
      * @return Exactly 48 bytes representing the encrypted local entropy blob.
      */
@@ -217,12 +232,13 @@ public class Panoptes {
      * Imports and restores the local entropy seed state into the Vault.
      *
      * @param entropyBlob Exactly 48 bytes.
-     * @return true if successfully loaded and verified; false if MAC validation
-     * fails.
+     * @return true if successfully loaded and verified; false if MAC validation fails.
      */
     public native boolean stateImportLocalEntropy(byte[] entropyBlob);
 
+
     // --- NETWORK ATTESTATION DOMAIN ---
+    
     /**
      * Generates a network attestation challenge for a remote peer.
      *
@@ -246,14 +262,15 @@ public class Panoptes {
     /**
      * Verifies the solved attestation response from a remote peer.
      *
-     * @param sessionKey Exactly 32 bytes (must match the key used to generate
-     * the challenge).
+     * @param sessionKey Exactly 32 bytes (must match the key used to generate the challenge).
      * @param encryptedResponse Exactly 73 bytes.
      * @return 0 (FAILED), 1 (CLEAN), or 2 (VM_DETECTED).
      */
     public native int attestationVerifyResponse(byte[] sessionKey, byte[] encryptedResponse);
 
+
     // --- UTILITIES & CRYPTO HELPERS ---
+    
     /**
      * Loads the official panoptes_key.bin manifest into the Vault for
      * cross-platform binary verification.
@@ -285,8 +302,7 @@ public class Panoptes {
      * @param dealPacket The original Megapacket byte array.
      * @param masterKey Exactly 32 bytes (The reconstructed Master Shuffle Key).
      * @param myPos The executing player's physical seat index.
-     * @return A 49-byte array: [0-47: AEAD Receipt] + [48: Boolean 1=OK,
-     * 0=FAILED].
+     * @return A 49-byte array: [0-47: AEAD Receipt] + [48: Boolean 1=OK, 0=FAILED].
      */
     public native byte[] utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos);
 
@@ -294,12 +310,9 @@ public class Panoptes {
      * PHASE 2: Executes global table consensus verification. Absorbs all P2P
      * receipts AND Exit Testaments to guarantee no player has desynchronized.
      *
-     * @param dealPacket The original Megapacket byte array (needed to extract
-     * static keys for testaments).
-     * @param allReceipts Array containing 48-byte receipts or 96-byte
-     * testaments from all peers.
-     * @return true if consensus is mathematically sound; false if
-     * spoofing/desync detected.
+     * @param dealPacket The original Megapacket byte array (needed to extract static keys for testaments).
+     * @param allReceipts Array containing 48-byte receipts or 96-byte testaments from all peers.
+     * @return true if consensus is mathematically sound; false if spoofing/desync detected.
      */
     public native boolean utilsVerifyHandConsensus(byte[] dealPacket, byte[][] allReceipts);
 
@@ -322,7 +335,9 @@ public class Panoptes {
      */
     public native byte[] utilsDecryptBotEnvelope(byte[] priv, byte[] epub, byte[] enc);
 
+
     // --- CONSENSUS & GAME STATE DOMAIN ---
+    
     /**
      * Initializes a new hand, generating a random 16-byte HAND_ID.
      *
@@ -331,14 +346,11 @@ public class Panoptes {
     public native byte[] stateInitializeHand();
 
     /**
-     * Generates the immutable genesis Megapacket for a new hand (Server/Host
-     * only).
+     * Generates the immutable genesis Megapacket for a new hand (Server/Host only).
      *
-     * @param playerSeedsFlat Flattened array of all player seeds (numPlayers *
-     * 32 bytes).
+     * @param playerSeedsFlat Flattened array of all player seeds (numPlayers * 32 bytes).
      * @param numPlayers Total number of players (2-22).
-     * @param playerPubKeysFlat Flattened array of all player public keys
-     * (numPlayers * 32 bytes).
+     * @param playerPubKeysFlat Flattened array of all player public keys (numPlayers * 32 bytes).
      * @return The variable-length Megapacket byte array.
      */
     public native byte[] stateGenerateMegapacket(byte[] playerSeedsFlat, int numPlayers, byte[] playerPubKeysFlat);
@@ -361,8 +373,8 @@ public class Panoptes {
     public native byte[] stateGetLocalPocketCards();
 
     /**
-     * Retrieves the local fragment of the Master Shuffle Key. WARNING: Calling
-     * this triggers the "Scorched Earth" defense, wiping street tokens.
+     * Retrieves the local fragment of the Master Shuffle Key. 
+     * WARNING: Calling this triggers the "Scorched Earth" defense, wiping street tokens.
      *
      * @return Exactly 32 bytes.
      */
@@ -393,13 +405,14 @@ public class Panoptes {
      * Evolves the community cards by applying the aggregated consensus key.
      *
      * @param nextStreet The target street index (1=Flop, 2=Turn, 3=River).
-     * @param consensusKey Exactly 16 bytes (aggregated XOR of all player
-     * tokens).
+     * @param consensusKey Exactly 16 bytes (aggregated XOR of all player tokens).
      * @return 3 bytes for Flop, 1 byte for Turn/River.
      */
     public native byte[] stateEvolveStreet(int nextStreet, byte[] consensusKey);
 
+
     // --- ACTION CHAIN DOMAIN ---
+    
     /**
      * Commits and signs a local player action into the cryptographic Sponge.
      *
@@ -423,22 +436,19 @@ public class Panoptes {
      * Verifies and absorbs a remote action packet into the local Sponge state.
      *
      * @param actionPacket Exactly 52 bytes.
-     * @return true if signature and sequence are valid; false on
-     * desynchronization or tampering.
+     * @return true if signature and sequence are valid; false on desynchronization or tampering.
      */
     public native boolean chainVerifyRemoteAction(byte[] actionPacket);
 
     /**
-     * Closes the state machine and returns the final AEAD receipt for P2P
-     * comparison.
+     * Closes the state machine and returns the final AEAD receipt for P2P comparison.
      *
      * @return Exactly 48 bytes (Final State AEAD Receipt).
      */
     public native byte[] chainCloseStateAndGetReceipt();
 
     /**
-     * Closes the state machine and returns the final AEAD receipt on behalf of
-     * a bot.
+     * Closes the state machine and returns the final AEAD receipt on behalf of a bot.
      *
      * @param botPrivKey Exactly 32 bytes (Bot's private key).
      * @return Exactly 48 bytes (Final State AEAD Receipt).
@@ -446,24 +456,22 @@ public class Panoptes {
     public native byte[] chainCloseBotStateAndGetReceipt(byte[] botPrivKey);
 
     /**
-     * Generates or retrieves the 32-byte local entropy seed for the current
-     * hand. Protected by anti-grinding idempotency locks.
+     * Generates or retrieves the 32-byte local entropy seed for the current hand. 
+     * Protected by anti-grinding idempotency locks.
      *
-     * @param external_entropy (optional)
-     *
+     * @param external_entropy Hardware/User provided entropy (optional, can be null).
      * @return Exactly 32 bytes.
      */
     public native byte[] stateGenerateLocalSeed(byte[] external_entropy);
 
+
     // --- TELEMETRY & RADAR DOMAIN ---
+    
     /**
-     * Captures a deep system telemetry report (loaded modules, hooks, anomalous
-     * memory).
+     * Captures a deep system telemetry report (loaded modules, hooks, anomalous memory).
      *
-     * @param targetPubKey Exactly 32 bytes (Requesting peer's public key for
-     * KEM encryption).
-     * @return A variable-length encrypted KEM envelope containing the radar
-     * data.
+     * @param targetPubKey Exactly 32 bytes (Requesting peer's public key for KEM encryption).
+     * @return A variable-length encrypted KEM envelope containing the radar data.
      */
     public native byte[] telemetryGetSystemRadar(byte[] targetPubKey);
 
@@ -471,45 +479,64 @@ public class Panoptes {
      * Decrypts an incoming system radar telemetry packet.
      *
      * @param encryptedRadarPacket The variable-length encrypted packet.
-     * @return The plaintext UTF-8 string bytes of the radar report, or null if
-     * tampered.
+     * @return The plaintext UTF-8 string bytes of the radar report, or null if tampered.
      */
     public native byte[] telemetryDecryptRadarData(byte[] encryptedRadarPacket);
 
     /**
      * Captures a visual context representation of the host's screen.
      *
-     * @param mode 1 = Target Application Window (100% Quality JPG), 2 = Desktop
-     * (Grayscale 70% Quality JPG).
-     * @return A variable-length byte array representing a valid JPEG image, or
-     * null on failure/cooldown.
+     * @param mode 1 = Target Application Window (100% Quality JPG), 2 = Desktop (Grayscale 70% Quality JPG).
+     * @return A variable-length byte array representing a valid JPEG image, or null on failure/cooldown.
      */
     public native byte[] telemetryCaptureScreenContext(int mode);
 
     /**
-     * Diagnostics: Retrieves the path to the JAR file currently locked by the C
-     * engine.
+     * Diagnostics: Retrieves the path to the JAR file currently locked by the C engine.
      *
      * @return String representation of the absolute file path.
      */
     public native String telemetryGetDiagnosticJarPathC();
 
+    
     // =========================================================================
     // JAVA COMPATIBILITY WRAPPERS
     // =========================================================================
+
+    /**
+     * High-level wrapper that generates an attestation challenge for a remote peer.
+     * It automatically creates a SecureRandom session key and caches it using the owner's ID.
+     *
+     * @param ownerID  The unique identifier for the target peer (e.g., "PARTICIPANT_1234").
+     * @param ipString The raw string representation of the target IP address.
+     * @param port     The target network port.
+     * @return A 75-byte encrypted challenge payload ready for network transmission.
+     * @throws Exception If IP parsing or underlying JNI cryptographic generation fails.
+     */
     public byte[] generateChallenge(String ownerID, String ipString, int port) throws Exception {
         byte[] sessionKey = new byte[32];
         new SecureRandom().nextBytes(sessionKey);
+        
+        // Map the ephemeral session key to the connection owner
         activeSessionKeys.put(ownerID, sessionKey);
 
         InetAddress addr = InetAddress.getByName(ipString);
         byte[] rawIp = addr.getAddress();
+        
+        // Zero-padding up to 16 bytes for strict native C array constraints
         byte[] paddedIp = new byte[16];
         System.arraycopy(rawIp, 0, paddedIp, 0, rawIp.length);
 
         return attestationGenerateChallenge(sessionKey, (byte) (rawIp.length == 4 ? 4 : 6), paddedIp, (short) port);
     }
 
+    /**
+     * High-level wrapper that delegates an incoming challenge to the native C engine.
+     * Generates a cryptographic response authenticating the JVM's clean state.
+     *
+     * @param encryptedChallenge The raw 75-byte challenge payload.
+     * @return A 73-byte encrypted response payload, or null if the input is malformed.
+     */
     public byte[] signChallenge(byte[] encryptedChallenge) {
         if (encryptedChallenge == null || encryptedChallenge.length != 75) {
             return null;
@@ -517,20 +544,43 @@ public class Panoptes {
         return attestationSolveChallenge(encryptedChallenge);
     }
 
+    /**
+     * High-level wrapper that verifies an incoming attestation response from a peer.
+     * Automatically retrieves and destroys the stored session key ensuring Perfect Forward Secrecy.
+     *
+     * @param ownerID           The unique identifier used previously in generateChallenge().
+     * @param encryptedResponse The raw 73-byte response payload from the peer.
+     * @return STATUS_CLEAN (1), STATUS_VM_DETECTED (2), or STATUS_FAILED (0).
+     */
     public int verifyResponse(String ownerID, byte[] encryptedResponse) {
+        // Remove guarantees the key is wiped from memory immediately after use
         byte[] sessionKey = activeSessionKeys.remove(ownerID);
+        
         if (sessionKey == null || encryptedResponse == null || encryptedResponse.length != 73) {
-            return STATUS_FAILED;
+            return STATUS_FAILED; // Fail-safe fallback
         }
+        
         int status = attestationVerifyResponse(sessionKey, encryptedResponse);
+        
+        // Deep memory wipe of the session key bytes
         Arrays.fill(sessionKey, (byte) 0);
+        
         return status;
     }
 
+    /**
+     * Convenience wrapper that consolidates 2D arrays into flattened memory arrays 
+     * required by the native C Megapacket generator.
+     *
+     * @param playerSeeds   A 2D array containing the 32-byte seeds of all players.
+     * @param playerPubKeys A 2D array containing the 32-byte public keys of all players.
+     * @return The complete encrypted Megapacket, or null if parameter constraints fail.
+     */
     public byte[] easyFlatDeal(byte[][] playerSeeds, byte[][] playerPubKeys) {
         if (playerSeeds == null || playerPubKeys == null || playerSeeds.length != playerPubKeys.length) {
             return null;
         }
+        
         int numPlayers = playerSeeds.length;
         byte[] flatSeeds = new byte[numPlayers * 32];
         byte[] flatPubs = new byte[numPlayers * 32];
@@ -539,9 +589,15 @@ public class Panoptes {
             System.arraycopy(playerSeeds[i], 0, flatSeeds, i * 32, 32);
             System.arraycopy(playerPubKeys[i], 0, flatPubs, i * 32, 32);
         }
+        
         return stateGenerateMegapacket(flatSeeds, numPlayers, flatPubs);
     }
 
+    /**
+     * Parses an encrypted system radar envelope generated by a remote peer.
+     * * @param encryptedRadarPacket The raw byte array containing the encrypted intel.
+     * @return The plaintext UTF-8 representation of the system radar, or null on decryption failure.
+     */
     public String parseRadarReport(byte[] encryptedRadarPacket) {
         if (encryptedRadarPacket == null || encryptedRadarPacket.length <= 48) {
             return null;
@@ -553,6 +609,11 @@ public class Panoptes {
         return new String(rawBytes, Charset.forName("UTF-8"));
     }
 
+    /**
+     * Convenience wrapper for capturing the visual application context.
+     * * @param mode 1 = Target Application Window (100% Quality), 2 = Desktop Screen (Grayscale 70% Quality).
+     * @return JPEG byte array or null.
+     */
     public byte[] takeTacticalScreenshot(int mode) {
         return telemetryCaptureScreenContext(mode);
     }
@@ -560,6 +621,10 @@ public class Panoptes {
     // =========================================================================
     // HASHING UTILS
     // =========================================================================
+    
+    /**
+     * Standard SHA-1 fallback to verify remote repository files.
+     */
     private static String calculateFileSHA1(File file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-1");
         try (InputStream is = new FileInputStream(file)) {
@@ -577,6 +642,9 @@ public class Panoptes {
         return sb.toString();
     }
 
+    /**
+     * Simple utility to download and read plain text files from an URL.
+     */
     private static String downloadText(URL url) throws IOException {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()))) {
             StringBuilder sb = new StringBuilder();
@@ -588,6 +656,9 @@ public class Panoptes {
         }
     }
 
+    /**
+     * Utility to download binary artifacts and commit them safely to the local disk.
+     */
     private static void downloadBinary(URL url, File destination) throws IOException {
         if (destination.getParentFile() != null) {
             destination.getParentFile().mkdirs();
@@ -597,6 +668,9 @@ public class Panoptes {
         }
     }
 
+    /**
+     * Extrapolates a target file hash from the official repository manifest structure.
+     */
     private static String parseHashFromManifest(String manifest, String fileName) {
         for (String line : manifest.split("\n")) {
             if (line.contains(fileName)) {

@@ -299,36 +299,34 @@ public class Participant implements Runnable {
     }
 
     private void runPingPongThread() {
-        /* Panoptes Heartbeat Generator Thread */
+        /* Panoptes Heartbeat Generator Thread (Server/Participant Side) */
         Helpers.threadRun(() -> {
 
             Panoptes panoptes = Panoptes.getInstance();
+            java.security.SecureRandom rng = new java.security.SecureRandom();
 
             while (!this.exit && !this.isCpu()) {
+                /* Define a unique ID for this client to store its session key */
+                String ownerId = "PARTICIPANT_" + this.hashCode();
+
                 try {
-                    /* 1. Derive a 32-byte session key from the current AES key */
-                    MessageDigest md = MessageDigest.getInstance("SHA-256");
-                    byte[] sessionKey = md.digest(this.aes_key.getEncoded());
+                    String localIpString = this.socket.getLocalAddress().getHostAddress();
+                    int serverLocalPort = this.socket.getLocalPort();
 
-                    /* 2. Extract IP and format for native attestation */
-                    byte[] ipBytes = this.socket.getLocalAddress().getAddress();
-                    byte ipType = (byte) (ipBytes.length == 4 ? 4 : 6);
-                    byte[] ip16 = new byte[16];
-                    System.arraycopy(ipBytes, 0, ip16, 0, ipBytes.length);
-                    short serverLocalPort = (short) this.socket.getLocalPort();
-
-                    /* 3. Generate the challenge using the V61 Panoptes interface */
-                    byte[] challenge = panoptes.attestationGenerateChallenge(sessionKey, ipType, ip16, serverLocalPort);
-                    String challengeBase64 = Base64.getEncoder().encodeToString(challenge);
+                    /* Use the wrapper which handles key generation and IP padding internally */
+                    byte[] challenge = panoptes.generateChallenge(ownerId, localIpString, serverLocalPort);
+                    String challengeBase64 = java.util.Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+", "");
 
                     writeCommandFromServer(
                             Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
 
                 } catch (Exception e) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to dispatch SECPING", e);
+                    java.util.logging.Logger.getLogger(Participant.class.getName()).log(java.util.logging.Level.SEVERE, "Failed to dispatch SECPING", e);
                 }
 
-                Helpers.pausar(SEC_PING_INTERVAL_MS);
+                /* Jitter: Randomized sleep between base interval and 2x base interval */
+                int jitter = rng.nextInt((int) SEC_PING_INTERVAL_MS);
+                Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
             }
         });
 
@@ -475,20 +473,18 @@ public class Participant implements Runnable {
                                     try {
                                         byte[] signatureBytes = Base64.getDecoder().decode(partes_final_secpong[1]);
 
-                                        // 1. Re-derivamos la misma llave de sesión determinista que usamos para enviarle el SECPING
-                                        MessageDigest md = MessageDigest.getInstance("SHA-256");
-                                        byte[] sessionKey = md.digest(this.aes_key.getEncoded());
+                                        /* 1. Reconstruct the exact same ownerID used during generateChallenge() */
+                                        String ownerId = "PARTICIPANT_" + this.hashCode();
 
-                                        // 2. Llamada directa a la validación nativa (C-Engine)
-                                        int isLegit = Panoptes.getInstance().attestationVerifyResponse(sessionKey, signatureBytes);
+                                        /* 2. Call the Java wrapper (handles session key lookup automatically) */
+                                        int isLegit = Panoptes.getInstance().verifyResponse(ownerId, signatureBytes);
 
                                         switch (isLegit) {
                                             case Panoptes.STATUS_FAILED:
                                                 if (!this.unsecure_player) {
                                                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE,
                                                             "[PANOPTES-SHIELD] CRITICAL: Attestation failed for {0}! Tampering detected.", nick);
-                                                    this.setUnsecure_player(true); // Marca al jugador con el escudo rojo/peligro
-
+                                                    this.setUnsecure_player(true); // Marks the player with the red shield/danger icon
                                                 }
                                                 break;
                                             case Panoptes.STATUS_VM_DETECTED:
@@ -496,7 +492,7 @@ public class Participant implements Runnable {
                                                         "[PANOPTES-SHIELD] WARNING: {0} is running inside a Virtual Machine.", nick);
                                                 break;
                                             default:
-                                                if (DEV_MODE) {
+                                                if (Init.DEV_MODE) {
                                                     Logger.getLogger(Participant.class.getName()).log(Level.INFO,
                                                             "[PANOPTES-SHIELD] {0} passed strict heartbeat attestation.", nick);
                                                 }
@@ -510,9 +506,11 @@ public class Participant implements Runnable {
                             case "SECPING":
                                 try {
                                     byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                                    /* V61: Use the monolithic challenge solver */
-                                    byte[] signatureBytes = Panoptes.getInstance().attestationSolveChallenge(challengeBytes);
-                                    String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes) : "";
+                                    
+                                    /* Use the wrapper to solve the challenge securely */
+                                    byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
+                                    
+                                    String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "") : "";
                                     writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
                                 } catch (Exception e) {
                                     Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to sign client SECPING", e);

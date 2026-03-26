@@ -1611,6 +1611,7 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.threadRun(() -> {
 
             Panoptes panoptes_instance = Panoptes.getInstance();
+            java.security.SecureRandom rng = new java.security.SecureRandom();
 
             while (!exit && WaitingRoomFrame.getInstance() != null) {
                 try {
@@ -1628,19 +1629,22 @@ public class WaitingRoomFrame extends JFrame {
 
                     int myLocalPort = local_client_socket.getLocalPort();
 
+                    /* Generate the challenge using a static ownerID for the server */
                     byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT",
                             miIpToUse, myLocalPort);
-                    String challengeB64 = Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
+                    String challengeB64 = java.util.Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
 
                     writeCommandToServer(Helpers.encryptCommand("SECPING#" + challengeB64,
                             local_client_aes_key, local_client_hmac_key));
 
                 } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE,
+                    LOGGER.log(java.util.logging.Level.SEVERE,
                             "Error dispatching SECPING to server", e);
                 }
 
-                Helpers.pausar(SEC_PING_INTERVAL_MS);
+                /* Jitter: Randomized sleep between base interval and 2x base interval */
+                int jitter = rng.nextInt((int) SEC_PING_INTERVAL_MS);
+                Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
             }
         });
 

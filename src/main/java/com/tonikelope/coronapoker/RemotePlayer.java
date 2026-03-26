@@ -747,11 +747,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     auto_action.start();
 
-                    GameFrame.getInstance().refreshPlayersAndCommunity();
                 });
-            } else {
-
-                GameFrame.getInstance().refreshPlayersAndCommunity();
             }
 
         } else {

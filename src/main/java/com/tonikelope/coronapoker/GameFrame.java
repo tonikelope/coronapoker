@@ -222,15 +222,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return notify_dialog;
     }
 
-    public void refreshPlayersAndCommunity() {
-        /*Helpers.GUIRun(() -> {
-            // Let Swing RepaintManager handle the batch repaint cleanly
-            if (getTapete() != null) {
-                getTapete().repaint();
-            }
-        });*/
-    }
-
     public static void resetInstance() {
 
         GameFrame.getInstance().getFull_screen_menu().setEnabled(false);

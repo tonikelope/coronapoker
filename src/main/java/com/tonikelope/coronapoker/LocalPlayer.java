@@ -1420,8 +1420,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 }
 
-                GameFrame.getInstance().refreshPlayersAndCommunity();
-
             });
 
         } else {
@@ -1454,7 +1452,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 activarPreBotones();
             }
 
-            GameFrame.getInstance().refreshPlayersAndCommunity();
         });
     }
 

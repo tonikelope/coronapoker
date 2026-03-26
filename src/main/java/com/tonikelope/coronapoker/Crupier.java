@@ -343,6 +343,7 @@ public class Crupier implements Runnable {
     private volatile boolean force_recover = false;
     public volatile String[] active_crypto_ring = null;
     private volatile boolean legitHand = false;
+    private volatile boolean legitHandSkip = false;
 
     private void enviarCartasJugadoresRemotos() {
         this.local_mk_share = null;
@@ -586,49 +587,51 @@ public class Crupier implements Runnable {
     public void verificarManoLocal(byte[] mk, String[] partesHandVerify) {
 
         try {
-
             synchronized (this.lock_hand_verification) {
 
                 if (this.local_mega_packet == null) {
+                    this.legitHand = true;
                     this.verified_hand = true;
                     this.lock_hand_verification.notifyAll();
                     return;
                 }
 
-                int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
-
-                if (myPos == -1) {
-                    this.verified_hand = true;
-                    this.lock_hand_verification.notifyAll();
-                    return;
-                }
-
+                // ¡ELIMINADO EL BLOQUE if (myPos == -1)!
+                // TODOS los jugadores (activos y espectadores) DEBEN auditar la matriz de consenso.
                 byte[][] receiptsArray = null;
 
                 if (partesHandVerify != null) {
                     int offset = -1;
                     for (int i = 0; i < partesHandVerify.length; i++) {
-                        if ("HANDVERIFY".equals(partesHandVerify[i])) {
+                        if ("FINAL_CONSENSUS".equals(partesHandVerify[i])) {
                             offset = i;
                             break;
                         }
                     }
 
-                    if (offset != -1 && partesHandVerify.length > offset + 2) {
+                    if (offset != -1 && partesHandVerify.length > offset + 1) {
                         int numPlayers = this.local_mega_packet[16] & 0xFF;
                         receiptsArray = new byte[numPlayers][];
 
                         // Extract Host/Server receipt
                         int serverPos = calcularPosicionEnPaquete(GameFrame.getInstance().getSala_espera().getServer_nick());
-                        if (serverPos != -1 && !partesHandVerify[offset + 2].equals("*")) {
+
+                        if (serverPos == -1) {
+                            this.verified_hand = true;
+                            this.legitHand = true;
+                            this.legitHandSkip = true;
+                            return;
+                        }
+
+                        if (serverPos != -1 && !partesHandVerify[offset + 1].equals("*")) {
                             try {
-                                receiptsArray[serverPos] = java.util.Base64.getDecoder().decode(partesHandVerify[offset + 2]);
+                                receiptsArray[serverPos] = java.util.Base64.getDecoder().decode(partesHandVerify[offset + 1]);
                             } catch (Exception e) {
                             }
                         }
 
-                        // Extract Peers and Bots receipts
-                        for (int i = offset + 3; i < partesHandVerify.length; i++) {
+                        // Extract Peers, Bots and Zombie Testaments
+                        for (int i = offset + 2; i < partesHandVerify.length; i++) {
                             String[] peerData = partesHandVerify[i].split(":");
                             if (peerData.length == 2) {
                                 try {
@@ -645,16 +648,25 @@ public class Crupier implements Runnable {
                 }
 
                 try {
-                    // V71 FIX: We only send mega_packet, master_key, myPos and receipts. C-Engine extracts cards from vault.
-                    this.legitHand = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, mk, myPos, receiptsArray);
+                    // --- V76 TWO-STEP CONSENSUS VERIFICATION (PHASE 2) ---
+                    if (receiptsArray != null) {
+                        // Execute the matrix evaluation natively
+                        boolean matrixValid = Panoptes.getInstance().utilsVerifyHandConsensus(this.local_mega_packet, receiptsArray);
+
+                        // Hand is only legit if Phase 1 (already evaluated) AND Phase 2 are mathematically true
+                        this.legitHand = this.legitHand && matrixValid;
+                    } else {
+                        this.legitHand = false;
+                    }
+
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, "Error verifying hand history", ex);
+                    this.legitHand = false;
                 }
 
             }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error in manual hand verification", e);
-
         } finally {
             this.verified_hand = true;
 
@@ -662,7 +674,6 @@ public class Crupier implements Runnable {
                 this.lock_hand_verification.notifyAll();
             }
         }
-
     }
 
     public String getTestamentoCriptografico() {
@@ -2389,6 +2400,63 @@ public class Crupier implements Runnable {
         }
     }
 
+    private void sqlSyncRecoveryShells(java.util.HashMap<String, Object> map) {
+        if (map == null) {
+            return;
+        }
+
+        synchronized (GameFrame.SQL_LOCK) {
+            try {
+                // 1. Ensure the Game record exists locally
+                String sqlGame = "INSERT OR IGNORE INTO game(id, start, players, buyin, sb, blinds_time, rebuy, server, blinds_time_type, ugi, local) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                try (java.sql.PreparedStatement stG = Helpers.getSQLITE().prepareStatement(sqlGame)) {
+                    stG.setInt(1, this.sqlite_id_game);
+                    stG.setLong(2, map.get("start") != null ? (long) map.get("start") : System.currentTimeMillis());
+                    stG.setString(3, (String) map.get("balance"));
+                    stG.setInt(4, map.get("buyin") != null ? (int) map.get("buyin") : 100);
+                    stG.setFloat(5, map.get("sbval") != null ? (float) map.get("sbval") : 0.1f);
+                    stG.setInt(6, map.get("blinds_time") != null ? (int) map.get("blinds_time") : 0);
+                    stG.setBoolean(7, map.get("rebuy") != null ? (boolean) map.get("rebuy") : true);
+                    stG.setString(8, (String) map.get("server"));
+                    stG.setInt(9, map.get("blinds_time_type") != null ? (int) map.get("blinds_time_type") : 0);
+                    stG.setString(10, GameFrame.UGI);
+                    stG.setInt(11, 0);
+                    stG.executeUpdate();
+                }
+
+                // 2. Ensure the Hand record exists locally
+                String sqlHand = "INSERT OR IGNORE INTO hand(id, id_game, counter, sbval, blinds_double, dealer, sb, bb, start, preflop_players) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                try (java.sql.PreparedStatement stH = Helpers.getSQLITE().prepareStatement(sqlHand)) {
+                    stH.setInt(1, this.sqlite_id_hand);
+                    stH.setInt(2, this.sqlite_id_game);
+                    stH.setInt(3, map.get("conta_mano") != null ? (int) map.get("conta_mano") : 1);
+                    stH.setFloat(4, map.get("sbval") != null ? (float) map.get("sbval") : 0.1f);
+                    stH.setInt(5, map.get("blinds_double") != null ? (int) map.get("blinds_double") : 0);
+                    stH.setString(6, (String) map.get("dealer"));
+                    stH.setString(7, (String) map.get("sb"));
+                    stH.setString(8, (String) map.get("bb"));
+                    stH.setLong(9, System.currentTimeMillis());
+                    stH.setString(10, (String) map.get("preflop_players"));
+                    stH.executeUpdate();
+                }
+
+                // 3. Ensure all involved players exist in the 'player' table
+                if (map.get("balance") != null) {
+                    String[] bal = ((String) map.get("balance")).split("@");
+                    for (String d : bal) {
+                        if (!d.isEmpty()) {
+                            String name = new String(java.util.Base64.getDecoder().decode(d.split("\\|")[0]), "UTF-8");
+                            ensurePlayerExists(name);
+                        }
+                    }
+                }
+                LOGGER.log(Level.INFO, "[SQL-RECOVERY] Local database shells synchronized with server IDs.");
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Failed to sync local SQL shell records", ex);
+            }
+        }
+    }
+
     private void recuperarDatosClavePartida() {
         LOGGER.log(Level.INFO, "[ZERO-TRUST DEBUG] Starting recuperarDatosClavePartida...");
 
@@ -2592,6 +2660,8 @@ public class Crupier implements Runnable {
             if (map != null && map.get("hand_id") != null) {
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
+
+            sqlSyncRecoveryShells(map);
 
             try {
                 String panoptesFossilName = "/panoptes_hand_commit.bin";
@@ -3548,6 +3618,7 @@ public class Crupier implements Runnable {
         this.active_crypto_ring = null;
         this.game_recovered = 0;
         this.legitHand = false;
+        this.legitHandSkip = false;
         this.verified_hand = false;
 
         Helpers.GUIRun(() -> {
@@ -4483,7 +4554,7 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();
     }
 
-    private boolean recibirShares(ArrayList<String> pendientes, ArrayList<Player> inShowdown) {
+    private boolean recibirShares(ArrayList<String> pendientes) {
         boolean timeout = false;
         long start_time = System.currentTimeMillis();
         do {
@@ -4493,7 +4564,7 @@ public class Crupier implements Runnable {
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#");
 
-                    // PURE ZERO-TRUST: GAME#ID#SHOWDOWN_REVEAL#NICK#SHARE (No more plain text cards here)
+                    // PURE ZERO-TRUST V76: GAME#ID#SHOWDOWN_REVEAL#NICK#SHARE
                     if (partes.length >= 5 && partes[2].equals("SHOWDOWN_REVEAL")) {
                         try {
                             String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
@@ -4502,6 +4573,60 @@ public class Crupier implements Runnable {
                                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                                 if (p != null) {
                                     p.setMk_share(share);
+                                }
+                                pendientes.remove(nick);
+                            } else {
+                                rejected.add(comando);
+                            }
+                        } catch (Exception ex) {
+                        }
+                    } else {
+                        rejected.add(comando);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+
+            if (!pendientes.isEmpty()) {
+                if (GameFrame.getInstance().checkPause()) {
+                    start_time = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    timeout = true;
+                } else {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.received_commands.wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
+                        }
+                    }
+                }
+            }
+        } while (!pendientes.isEmpty() && !timeout);
+
+        return timeout;
+    }
+
+    private boolean recibirReceipts(ArrayList<String> pendientes) {
+        boolean timeout = false;
+        long start_time = System.currentTimeMillis();
+        do {
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!pendientes.isEmpty() && !this.getReceived_commands().isEmpty()) {
+                    String comando = this.received_commands.poll();
+                    String[] partes = comando.split("#");
+
+                    // PURE ZERO-TRUST V76 PHASE 2: GAME#ID#RECEIPT_REVEAL#NICK#RECEIPT
+                    if (partes.length >= 5 && partes[2].equals("RECEIPT_REVEAL")) {
+                        try {
+                            String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (pendientes.contains(nick)) {
+                                byte[] receipt = Base64.getDecoder().decode(partes[4]);
+                                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                                if (p != null) {
+                                    p.setChain_receipt(receipt);
                                 }
                                 pendientes.remove(nick);
                             } else {
@@ -4551,55 +4676,31 @@ public class Crupier implements Runnable {
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "SHOWDOWN_REQ":
-
                                 try {
                                     this.local_mk_share = Panoptes.getInstance().stateGetShuffleKeyShare();
                                     if (this.local_mk_share != null) {
                                         String shareBase64 = Base64.getEncoder().encodeToString(this.local_mk_share);
-                                        // PURE ZERO-TRUST: NO plaintext cards appended
                                         String responseCmd = "SHOWDOWN_REVEAL#"
                                                 + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
                                                 + "#" + shareBase64;
-
                                         sendGAMECommandToServer(responseCmd, false);
                                     }
                                 } catch (Exception e) {
                                 }
                                 break;
 
-                            case "SHOWDOWN_REVEAL":
-                                if (partes.length >= 5) {
-                                    try {
-                                        String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                        Player jugadorRemoto = nick2player.get(nick);
-
-                                        if (jugadorRemoto != null && !jugadorRemoto.equals(GameFrame.getInstance().getLocalPlayer())) {
-                                            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                            if (p != null) {
-                                                p.setMk_share(Base64.getDecoder().decode(partes[4]));
-                                            }
-                                        }
-                                    } catch (Exception ex) {
-                                    }
-                                }
-                                break;
-
                             case "HANDVERIFY":
                                 if (partes[3].equals("SKIPPED")) {
                                     this.valid_master_key = new byte[0];
-
                                     this.verified_hand = true;
-
                                     synchronized (this.lock_hand_verification) {
                                         this.lock_hand_verification.notifyAll();
                                     }
+                                    consensus_ok = true;
                                 } else {
                                     this.valid_master_key = Base64.getDecoder().decode(partes[3]);
 
-                                    // ====================================================================
-                                    // PURE ZERO-TRUST EXTRACTION FOR CLIENTS
-                                    // Forcefully extract real cards for humans before evaluating
-                                    // ====================================================================
+                                    // Extract real cards for humans before evaluating
                                     if (!GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getLocalPlayer().isCalentando()) {
                                         for (Player jugador : inShowdown) {
                                             if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
@@ -4608,13 +4709,45 @@ public class Crupier implements Runnable {
                                             }
                                         }
                                     }
-                                    // ====================================================================
 
+                                    // V76: CLIENT PHASE 1
                                     Helpers.threadRun(() -> {
-                                        Panoptes.getInstance().chainCloseStateAndGetReceipt();
-                                        GameFrame.getInstance().getCrupier().verificarManoLocal(this.valid_master_key, partes);
+                                        try {
+                                            int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
+
+                                            if (myPos != -1) {
+                                                byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
+
+                                                if (localAuditData != null && localAuditData.length == 49) {
+                                                    byte[] myReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, 48);
+                                                    this.legitHand = (localAuditData[48] & 0xFF) == 1; // Stage 1 Verification
+
+                                                    String receiptBase64 = Base64.getEncoder().encodeToString(myReceipt);
+                                                    String responseCmd = "RECEIPT_REVEAL#"
+                                                            + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
+                                                            + "#" + receiptBase64;
+
+                                                    sendGAMECommandToServer(responseCmd, false);
+                                                } else {
+                                                    this.legitHand = false;
+                                                }
+                                            } else {
+
+                                                this.legitHand = true;
+                                            }
+                                        } catch (Exception ex) {
+                                            LOGGER.log(Level.SEVERE, "Client Phase 1 Verification Failed", ex);
+                                            this.legitHand = false;
+                                        }
                                     });
                                 }
+                                break;
+
+                            case "FINAL_CONSENSUS":
+                                // V76: CLIENT PHASE 2
+                                Helpers.threadRun(() -> {
+                                    GameFrame.getInstance().getCrupier().verificarManoLocal(this.valid_master_key, partes);
+                                });
                                 consensus_ok = true;
                                 break;
 
@@ -4642,19 +4775,13 @@ public class Crupier implements Runnable {
 
             if (!consensus_ok) {
                 if (GameFrame.getInstance().checkPause()) {
-
                     start_time = System.currentTimeMillis();
-
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-
                     GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.fast_consensus_timeout"));
-
                     synchronized (this.lock_hand_verification) {
                         this.lock_hand_verification.notifyAll();
                     }
-
                     consensus_ok = true;
-
                 } else {
                     synchronized (this.getReceived_commands()) {
                         try {
@@ -4680,6 +4807,7 @@ public class Crupier implements Runnable {
         java.util.ArrayList<String> pendientes = new java.util.ArrayList<>();
         java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
 
+        // PHASE 1: Collect Master Key Shares
         for (Player jugador : ringCriptografico) {
             if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
@@ -4707,7 +4835,7 @@ public class Crupier implements Runnable {
 
                 java.util.ArrayList<String> pendientes_conf = new java.util.ArrayList<>(pendientes);
                 this.waitSyncConfirmations(id, pendientes_conf);
-                boolean timeout = recibirShares(pendientes, inShowdown);
+                boolean timeout = recibirShares(pendientes);
 
                 if (timeout && !pendientes.isEmpty()) {
                     for (String nick : pendientes) {
@@ -4721,50 +4849,37 @@ public class Crupier implements Runnable {
         }
 
         int numPlayersInPacket = this.local_mega_packet[16] & 0xFF;
+
+        // Extract Bot Shares natively
         for (Player jugador : ringCriptografico) {
             Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-            boolean isHost = jugador.getNickname().equals(GameFrame.getInstance().getNick_local());
             boolean isBot = (p != null && p.isCpu());
-            boolean isZombie = jugador.isExit();
 
-            if (isHost || isBot || isZombie) {
-                if (isHost) {
-                    // BLINDAJE: NO TOCAMOS AL HOST. 
-                } else {
-                    try {
-                        int pos = calcularPosicionEnPaquete(jugador.getNickname());
-                        if (pos != -1) {
-                            byte[] epub = new byte[32];
-                            System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 64, epub, 0, 32);
+            if (isBot && !jugador.isExit()) {
+                try {
+                    int pos = calcularPosicionEnPaquete(jugador.getNickname());
+                    if (pos != -1) {
+                        byte[] epub = new byte[32];
+                        System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 64, epub, 0, 32);
 
-                            byte[] encCards = new byte[114];
-                            System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 96, encCards, 0, 114);
+                        byte[] encCards = new byte[114];
+                        System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 96, encCards, 0, 114);
 
-                            byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(jugador.getNickname().getBytes("UTF-8"));
-                            byte[] clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, encCards);
+                        byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(jugador.getNickname().getBytes("UTF-8"));
+                        byte[] clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, encCards);
 
-                            if (clear != null && clear.length >= 98) {
-                                byte[] mkS = new byte[32];
-                                System.arraycopy(clear, 18, mkS, 0, 32);
-                                if (p != null) {
-                                    p.setMk_share(mkS);
-                                }
-
-                                if (!isZombie && inShowdown.contains(jugador)) {
-                                    jugador.getHoleCard1().actualizarConValorNumerico(((int) clear[0] & 0xFF) + 1);
-                                    jugador.getHoleCard2().actualizarConValorNumerico(((int) clear[1] & 0xFF) + 1);
-                                    jugador.ordenarCartas();
-                                }
-                            }
+                        if (clear != null && clear.length >= 98) {
+                            byte[] mkS = new byte[32];
+                            System.arraycopy(clear, 18, mkS, 0, 32);
+                            p.setMk_share(mkS);
                         }
-                    } catch (Exception e) {
                     }
+                } catch (Exception e) {
                 }
             }
         }
 
         this.local_mk_share = Panoptes.getInstance().stateGetShuffleKeyShare();
-
         byte[] finalMasterKey = new byte[32];
         int sharesXORed = 0;
 
@@ -4774,6 +4889,7 @@ public class Crupier implements Runnable {
             }
             sharesXORed++;
         }
+
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null && p.getMk_share() != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())) {
                 for (int k = 0; k < 32; k++) {
@@ -4786,10 +4902,7 @@ public class Crupier implements Runnable {
         if (sharesXORed == numPlayersInPacket) {
             this.valid_master_key = finalMasterKey;
 
-            // ====================================================================
-            // PURE ZERO-TRUST EXTRACTION FOR HOST
-            // Forcefully extract real cards for humans before sending POTCARDS
-            // ====================================================================
+            // Forcefully extract real cards for humans before evaluating
             for (Player jugador : inShowdown) {
                 if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
                     Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
@@ -4799,17 +4912,71 @@ public class Crupier implements Runnable {
                     }
                 }
             }
-            // ====================================================================
 
             String mkBase64 = java.util.Base64.getEncoder().encodeToString(finalMasterKey);
 
             Helpers.threadRun(() -> {
-                byte[] myLocalReceipt = Panoptes.getInstance().chainCloseStateAndGetReceipt();
+                // STEP 1: Broadcast the Master Key so clients can run Phase 1
+                broadcastGAMECommandFromServer("HANDVERIFY#" + mkBase64, null, false);
+
+                // STEP 2: Server runs Phase 1 locally to get its own 48-byte receipt
+                int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
+                byte[] myLocalReceipt = null;
+
+                if (myPos != -1) {
+                    byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
+                    if (localAuditData != null && localAuditData.length == 49) {
+                        myLocalReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, 48);
+                        this.legitHand = (localAuditData[48] & 0xFF) == 1;
+                    } else {
+                        this.legitHand = false;
+                    }
+                } else {
+                    // Servidor en pausa/espectador. Fase 1 válida por defecto.
+                    this.legitHand = true;
+                }
+
+                // Get bot receipts natively
+                for (Player jugador : ringCriptografico) {
+                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                    if (p != null && p.isCpu() && !jugador.isExit()) {
+                        try {
+                            byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(jugador.getNickname().getBytes("UTF-8"));
+                            byte[] botReceipt = Panoptes.getInstance().chainCloseBotStateAndGetReceipt(botPriv);
+                            p.setChain_receipt(botReceipt);
+                        } catch (Exception e) {
+                        }
+                    }
+                }
+
+                // STEP 3: Wait for Phase 1 receipts from remote clients
+                java.util.ArrayList<String> pendientesReceipts = new java.util.ArrayList<>();
+                for (Player jugador : ringCriptografico) {
+                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                    if (p != null && !p.isCpu() && !jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
+                        pendientesReceipts.add(jugador.getNickname());
+                    }
+                }
+
+                if (!pendientesReceipts.isEmpty()) {
+                    boolean timeoutReceipts = recibirReceipts(pendientesReceipts);
+                    if (timeoutReceipts && !pendientesReceipts.isEmpty()) {
+                        for (String nick : pendientesReceipts) {
+                            if (!nick2player.get(nick).isExit()) {
+                                this.remotePlayerQuit(nick);
+                            }
+                        }
+                    }
+                }
+
+                // STEP 4: Build the Consensus Matrix and broadcast it
                 String myReceiptStr = myLocalReceipt != null ? java.util.Base64.getEncoder().encodeToString(myLocalReceipt) : "*";
                 StringBuilder allReceipts = new StringBuilder();
                 allReceipts.append(myReceiptStr);
 
                 for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
+                    // Si el jugador está activo usamos getChain_receipt (48 bytes). 
+                    // Si está en EXIT, el testamento de 96 bytes ya se guardó ahí mismo en remotePlayerQuit.
                     if (p != null && p.getChain_receipt() != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())) {
                         try {
                             String rB64 = java.util.Base64.getEncoder().encodeToString(p.getChain_receipt());
@@ -4820,8 +4987,10 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                String verifyCommand = "HANDVERIFY#" + mkBase64 + "#" + allReceipts.toString();
+                String verifyCommand = "FINAL_CONSENSUS#" + allReceipts.toString();
                 broadcastGAMECommandFromServer(verifyCommand, null, false);
+
+                // STEP 5: Server validates Phase 2 consensus locally
                 this.verificarManoLocal(finalMasterKey, verifyCommand.split("#"));
             });
 
@@ -5977,7 +6146,11 @@ public class Crupier implements Runnable {
                         if (isCryptoReplay) {
                             byte[] pastPacket = crypto_replay_queue.poll();
                             if (pastPacket != null) {
-                                Panoptes.getInstance().chainVerifyRemoteAction(pastPacket);
+                                if (this.local_mega_packet != null) {
+                                    Panoptes.getInstance().chainVerifyRemoteAction(pastPacket);
+                                } else {
+                                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (new player in spectator mode)");
+                                }
                                 actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
                             }
                         } else {
@@ -6004,10 +6177,14 @@ public class Crupier implements Runnable {
                             } else {
                                 if (actionPacketB64 != null) {
                                     cryptoPacket = Base64.getDecoder().decode(actionPacketB64);
-                                    boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
-                                    if (!validSignature) {
-                                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
-                                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.action_rejected_invalid_signature", current_player.getNickname()));
+                                    if (this.local_mega_packet != null) {
+                                        boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
+                                        if (!validSignature) {
+                                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
+                                            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.action_rejected_invalid_signature", current_player.getNickname()));
+                                        }
+                                    } else {
+                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (new player in spectator mode)");
                                     }
                                 }
                             }
@@ -6391,8 +6568,6 @@ public class Crupier implements Runnable {
                 }
             }
 
-            GameFrame.getInstance().refreshPlayersAndCommunity();
-
             HashMap<Player, Integer[]> multiverse = monteCarlo(resisten, MONTECARLO_ITERATIONS);
 
             for (Player p : resisten) {
@@ -6446,8 +6621,6 @@ public class Crupier implements Runnable {
                         + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: "
                         + Helpers.floatClean((float) manoParcial.getFuerza(), 2) + "%)");
             }
-
-            GameFrame.getInstance().refreshPlayersAndCommunity();
 
             if (!stats_registro.isEmpty()) {
                 GameFrame.getInstance().getRegistro().print(String.join("\n\n", stats_registro));
@@ -7987,8 +8160,6 @@ public class Crupier implements Runnable {
 
         this.setTiempo_pausa(tiempo);
 
-        GameFrame.getInstance().refreshPlayersAndCommunity();
-
         while (getTiempoPausa() > 0) {
 
             synchronized (lock_pausa_barra) {
@@ -8011,8 +8182,6 @@ public class Crupier implements Runnable {
                 }
             }
         }
-
-        GameFrame.getInstance().refreshPlayersAndCommunity();
 
         synchronized (lock_iwtsth) {
             lock_iwtsth.notifyAll();
@@ -8230,7 +8399,7 @@ public class Crupier implements Runnable {
             Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.zero_trust_alert"));
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.critical"));
 
-        } else {
+        } else if (!this.legitHandSkip) {
 
             GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
@@ -8253,26 +8422,39 @@ public class Crupier implements Runnable {
             File sessionFile = new File(Init.CORONA_DIR + sessionFileName);
             boolean sessionLoaded = false;
 
-            // Attempt to load existing session if recovering
-            if (GameFrame.RECOVER && sessionFile.exists()) {
-                byte[] sessionBlob = java.nio.file.Files.readAllBytes(sessionFile.toPath());
-                if (Panoptes.getInstance().sessionLoad(sessionBlob)) {
-                    sessionLoaded = true;
-                    LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_restored", true));
-                } else {
-                    LOGGER.log(Level.WARNING, "Session file rejected (invalid MAC or HWID). Generating fresh session key...");
+            // FIX: ALWAYS load the existing session if the file exists.
+            // WaitingRoomFrame just generated it and sent the Public Key to the server.
+            // If we generate a new one here, the KEM decryption will mathematically fail.
+            if (sessionFile.exists()) {
+                byte[] fileBytes = java.nio.file.Files.readAllBytes(sessionFile.toPath());
+
+                // V76: The file contains exactly 80 bytes (32 PubKey + 48 Encrypted PrivKey)
+                if (fileBytes.length == 80) {
+                    byte[] sessionEncryptedBlob = java.util.Arrays.copyOfRange(fileBytes, 32, 80);
+                    if (Panoptes.getInstance().sessionLoad(sessionEncryptedBlob)) {
+                        // Extract and set the Public Key for the GUI/Network to use
+                        GameFrame.getInstance().getSala_espera().local_player_public_key = java.util.Arrays.copyOfRange(fileBytes, 0, 32);
+                        sessionLoaded = true;
+                        LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_restored", true));
+                    } else {
+                        LOGGER.log(Level.WARNING, "Session file rejected by C engine. Generating fresh session...");
+                    }
                 }
             }
 
-            // CRITICAL FIX: If the session could not be loaded (because the player is NEW 
-            // and joining a recovered game, or the file was corrupted), DO NOT crash. 
-            // Generate a fresh session for them instead.
+            // Generate fresh session ONLY if the file was missing or corrupted
             if (!sessionLoaded) {
                 java.nio.file.Files.deleteIfExists(sessionFile.toPath());
 
-                byte[] sessionBlob = Panoptes.getInstance().sessionInitialize();
-                if (sessionBlob != null && sessionBlob.length == 48) {
-                    java.nio.file.Files.write(sessionFile.toPath(), sessionBlob);
+                // sessionInitialize() returns 80 bytes: [32-byte PubKey] + [48-byte Encrypted PrivKey]
+                byte[] sessionBlobFull = Panoptes.getInstance().sessionInitialize();
+
+                if (sessionBlobFull != null && sessionBlobFull.length == 80) {
+                    // Extract and set the Public Key for the GUI/Network to use
+                    GameFrame.getInstance().getSala_espera().local_player_public_key = java.util.Arrays.copyOfRange(sessionBlobFull, 0, 32);
+
+                    // Save the entire 80 bytes so we can recover the public key later
+                    java.nio.file.Files.write(sessionFile.toPath(), sessionBlobFull);
                     LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_generated", true));
                 } else {
                     throw new Exception("Failed to initialize native session.");
@@ -8651,8 +8833,6 @@ public class Crupier implements Runnable {
                         });
 
                         disableAllPlayersTimeout();
-
-                        GameFrame.getInstance().refreshPlayersAndCommunity();
 
                         synchronized (lock_fin_mano) {
 
@@ -9524,4 +9704,5 @@ public class Crupier implements Runnable {
         java.util.Collections.sort(ring, (p1, p2) -> p1.getNickname().compareTo(p2.getNickname()));
         return ring;
     }
+
 }

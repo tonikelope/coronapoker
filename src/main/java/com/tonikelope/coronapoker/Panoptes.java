@@ -2,7 +2,7 @@
  * Copyright (C) 2020 tonikelope
  * _             _ _        _                 
  *| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
- *| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
+ *| __/ _ \| '_ \| | |/ / _ \ |/ _ \ | '_ \ / _ \
  *| || (_) | | | | |   <  __/ | (_) | |_) |  __/
  * \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
  * ____    ___  ____    ___  
@@ -46,9 +46,9 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the V73 semantic architecture. WARNING: Native methods strictly
- * expect exact byte array sizes. Passing incorrectly sized arrays will result
- * in JVM crashes (SIGSEGV).
+ * Implements the V76 semantic architecture (Ephemeral Session Only). WARNING:
+ * Native methods strictly expect exact byte array sizes. Passing incorrectly
+ * sized arrays will result in JVM crashes (SIGSEGV).
  */
 public class Panoptes {
 
@@ -176,38 +176,21 @@ public class Panoptes {
     }
 
     // =========================================================================
-    // NATIVE JNI METHODS (V73)
+    // NATIVE JNI METHODS (V76)
     // =========================================================================
-    // --- IDENTITY & VAULT DOMAIN ---
-    /**
-     * Generates a new X25519 identity keypair and stores the private key in the
-     * encrypted Vault.
-     *
-     * @return An 80-byte array: [0-31: Public Key] + [32-79: Encrypted Private
-     * Key Blob].
-     */
-    public native byte[] identityCreate();
-
-    /**
-     * Loads a previously generated encrypted identity into the Vault.
-     *
-     * @param identityBlob Exactly 48 bytes (Encrypted Private Key Blob).
-     * @return true if successfully loaded and verified; false if MAC validation
-     * fails.
-     */
-    public native boolean identityLoad(byte[] identityBlob);
-
+    // --- SESSION & VAULT DOMAIN ---
     /**
      * Generates an ephemeral session keypair and locks it in the Vault.
      *
-     * @return Exactly 48 bytes representing the encrypted session blob.
+     * @return An 80-byte array: [0-31: Public Key] + [32-79: Encrypted Private
+     * Key Blob].
      */
     public native byte[] sessionInitialize();
 
     /**
      * Loads a previously generated encrypted session into the Vault.
      *
-     * @param sessionBlob Exactly 48 bytes.
+     * @param sessionBlob Exactly 48 bytes (Encrypted Private Key Blob).
      * @return true if successfully loaded and verified; false if MAC validation
      * fails.
      */
@@ -296,17 +279,29 @@ public class Panoptes {
     public native byte[] utilsShuffleDeck(byte[] seed);
 
     /**
-     * Executes a full stateless forensic audit of a completed hand.
+     * PHASE 1: Executes a local forensic audit of a completed hand.
+     * Reconstructs the deck and verifies local seed contributions.
      *
      * @param dealPacket The original Megapacket byte array.
      * @param masterKey Exactly 32 bytes (The reconstructed Master Shuffle Key).
      * @param myPos The executing player's physical seat index.
-     * @param receipts A 2D array of exactly 32-byte final receipts OR 96-byte
-     * Exit Testaments for all players.
-     * @return true if the entire history is mathematically flawless; false if
-     * tampering is detected.
+     * @return A 49-byte array: [0-47: AEAD Receipt] + [48: Boolean 1=OK,
+     * 0=FAILED].
      */
-    public native boolean utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos, byte[][] receipts);
+    public native byte[] utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos);
+
+    /**
+     * PHASE 2: Executes global table consensus verification. Absorbs all P2P
+     * receipts AND Exit Testaments to guarantee no player has desynchronized.
+     *
+     * @param dealPacket The original Megapacket byte array (needed to extract
+     * static keys for testaments).
+     * @param allReceipts Array containing 48-byte receipts or 96-byte
+     * testaments from all peers.
+     * @return true if consensus is mathematically sound; false if
+     * spoofing/desync detected.
+     */
+    public native boolean utilsVerifyHandConsensus(byte[] dealPacket, byte[][] allReceipts);
 
     /**
      * Verifies a Poly1305 Chaos MAC signature.
@@ -434,12 +429,21 @@ public class Panoptes {
     public native boolean chainVerifyRemoteAction(byte[] actionPacket);
 
     /**
-     * Closes the state machine and returns the final Sponge hash for P2P
+     * Closes the state machine and returns the final AEAD receipt for P2P
      * comparison.
      *
-     * @return Exactly 32 bytes (Final State Receipt).
+     * @return Exactly 48 bytes (Final State AEAD Receipt).
      */
     public native byte[] chainCloseStateAndGetReceipt();
+
+    /**
+     * Closes the state machine and returns the final AEAD receipt on behalf of
+     * a bot.
+     *
+     * @param botPrivKey Exactly 32 bytes (Bot's private key).
+     * @return Exactly 48 bytes (Final State AEAD Receipt).
+     */
+    public native byte[] chainCloseBotStateAndGetReceipt(byte[] botPrivKey);
 
     /**
      * Generates or retrieves the 32-byte local entropy seed for the current

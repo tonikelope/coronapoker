@@ -3629,6 +3629,8 @@ public class WaitingRoomFrame extends JFrame {
                 .addGap(0, 0, 0))
         );
 
+        kick_user.putClientProperty("i18n.key", "ui.expulsar_jugador");
+
         empezar_timba.setBackground(new java.awt.Color(0, 130, 0));
         empezar_timba.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         empezar_timba.setForeground(new java.awt.Color(255, 255, 255));
@@ -3782,6 +3784,8 @@ public class WaitingRoomFrame extends JFrame {
                 .addGap(0, 0, 0))
         );
 
+        new_bot_button.putClientProperty("i18n.key", "ui.anadir_bot");
+
         javax.swing.GroupLayout panel_arribaLayout = new javax.swing.GroupLayout(panel_arriba);
         panel_arriba.setLayout(panel_arribaLayout);
         panel_arribaLayout.setHorizontalGroup(
@@ -3814,6 +3818,8 @@ public class WaitingRoomFrame extends JFrame {
                 .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(8, Short.MAX_VALUE))
         );
+
+        empezar_timba.putClientProperty("i18n.key", "ui.a_jugar");
 
         danger_server.setBackground(new java.awt.Color(255, 0, 0));
         danger_server.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
@@ -3989,6 +3995,8 @@ public class WaitingRoomFrame extends JFrame {
                 .addComponent(tts_warning))
         );
 
+        tts_warning.putClientProperty("i18n.key", "chat.aviso_la_privacidad_del_chat");
+
         latency_label.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
         latency_label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         latency_label.setText("Latencia del servidor: 0 ms | 0 ms");
@@ -4026,6 +4034,8 @@ public class WaitingRoomFrame extends JFrame {
                 .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))
         );
+
+        chat_notifications.putClientProperty("i18n.key", "ui.notificaciones_del_chat_durante_el_juego");
 
         main_scroll_panel.setViewportView(main_panel);
 

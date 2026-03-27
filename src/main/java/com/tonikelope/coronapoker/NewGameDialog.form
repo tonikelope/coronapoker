@@ -157,7 +157,7 @@
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" attributes="0">
                               <EmptySpace max="-2" attributes="0"/>
-                              <Component id="jLabel5" min="-2" max="-2" attributes="0"/>
+                              <Component id="server_label" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="server_ip_textfield" pref="512" max="32767" attributes="0"/>
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
@@ -173,7 +173,7 @@
                       <Group type="103" groupAlignment="1" attributes="0">
                           <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                               <Component id="server_ip_textfield" alignment="3" max="32767" attributes="0"/>
-                              <Component id="jLabel5" alignment="3" min="-2" max="-2" attributes="0"/>
+                              <Component id="server_label" alignment="3" min="-2" max="-2" attributes="0"/>
                           </Group>
                           <Group type="102" alignment="1" attributes="0">
                               <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
@@ -239,7 +239,7 @@
                         <EventHandler event="keyReleased" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="server_ip_textfieldKeyReleased"/>
                       </Events>
                     </Component>
-                    <Component class="javax.swing.JLabel" name="jLabel5">
+                    <Component class="javax.swing.JLabel" name="server_label">
                       <Properties>
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                           <Font name="Dialog" size="16" style="1"/>
@@ -250,6 +250,9 @@
                         <Property name="text" type="java.lang.String" value="Servidor:"/>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
+                      <AuxValues>
+                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="server_label.putClientProperty(&quot;i18n.key&quot;, &quot;ui.servidor&quot;);"/>
+                      </AuxValues>
                     </Component>
                   </SubComponents>
                 </Container>
@@ -304,11 +307,11 @@
                                       <Group type="102" alignment="0" attributes="0">
                                           <Component id="rebuy_checkbox" min="-2" max="-2" attributes="0"/>
                                           <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                                          <Component id="jLabel2" min="-2" max="-2" attributes="0"/>
+                                          <Component id="recomprar_label" min="-2" max="-2" attributes="0"/>
                                           <EmptySpace type="unrelated" max="-2" attributes="0"/>
                                           <Component id="manos_checkbox" min="-2" max="-2" attributes="0"/>
                                           <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                                          <Component id="jLabel4" min="-2" max="-2" attributes="0"/>
+                                          <Component id="limite_manos_label" min="-2" max="-2" attributes="0"/>
                                           <EmptySpace max="-2" attributes="0"/>
                                           <Component id="manos_spinner" pref="166" max="32767" attributes="0"/>
                                       </Group>
@@ -350,9 +353,9 @@
                                           </Group>
                                           <Group type="103" groupAlignment="1" max="-2" attributes="0">
                                               <Component id="manos_spinner" alignment="1" max="32767" attributes="0"/>
-                                              <Component id="jLabel4" alignment="1" max="32767" attributes="0"/>
+                                              <Component id="limite_manos_label" alignment="1" max="32767" attributes="0"/>
                                               <Component id="manos_checkbox" alignment="1" max="32767" attributes="0"/>
-                                              <Component id="jLabel2" alignment="1" max="32767" attributes="0"/>
+                                              <Component id="recomprar_label" alignment="1" max="32767" attributes="0"/>
                                               <Component id="rebuy_checkbox" alignment="1" max="32767" attributes="0"/>
                                           </Group>
                                           <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
@@ -376,6 +379,9 @@
                             <Property name="text" type="java.lang.String" value="Ciegas iniciales:"/>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="ciegas_label.putClientProperty(&quot;i18n.key&quot;, &quot;blinds.ciegas_iniciales&quot;);"/>
+                          </AuxValues>
                         </Component>
                         <Component class="javax.swing.JLabel" name="buyin_label">
                           <Properties>
@@ -389,6 +395,9 @@
                             <Property name="toolTipText" type="java.lang.String" value="[10-100] ciegas grandes"/>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="buyin_label.putClientProperty(&quot;i18n.key&quot;, &quot;ui.compra_inicial_10_a_100&quot;);"/>
+                          </AuxValues>
                         </Component>
                         <Component class="javax.swing.JCheckBox" name="rebuy_checkbox">
                           <Properties>
@@ -439,7 +448,7 @@
                             <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
                           </AuxValues>
                         </Component>
-                        <Component class="javax.swing.JLabel" name="jLabel2">
+                        <Component class="javax.swing.JLabel" name="recomprar_label">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                               <Font name="Dialog" size="16" style="1"/>
@@ -454,8 +463,11 @@
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jLabel2MouseClicked"/>
+                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recomprar_labelMouseClicked"/>
                           </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="recomprar_label.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.recomprar_2&quot;);"/>
+                          </AuxValues>
                         </Component>
                         <Container class="javax.swing.JPanel" name="jPanel1">
                           <Properties>
@@ -529,6 +541,9 @@
                               <Events>
                                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="doblar_checkboxActionPerformed"/>
                               </Events>
+                              <AuxValues>
+                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="doblar_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;stats.aumentar_ciegas&quot;);"/>
+                              </AuxValues>
                             </Component>
                             <Component class="javax.swing.JSpinner" name="doblar_ciegas_spinner_minutos">
                               <Properties>
@@ -558,6 +573,9 @@
                               <Events>
                                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_minutosActionPerformed"/>
                               </Events>
+                              <AuxValues>
+                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="double_blinds_radio_minutos.putClientProperty(&quot;i18n.key&quot;, &quot;ui.minutos&quot;);"/>
+                              </AuxValues>
                             </Component>
                             <Component class="javax.swing.JRadioButton" name="double_blinds_radio_manos">
                               <Properties>
@@ -573,6 +591,9 @@
                               <Events>
                                 <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_manosActionPerformed"/>
                               </Events>
+                              <AuxValues>
+                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="double_blinds_radio_manos.putClientProperty(&quot;i18n.key&quot;, &quot;stats.manos&quot;);"/>
+                              </AuxValues>
                             </Component>
                             <Component class="javax.swing.JSpinner" name="doblar_ciegas_spinner_manos">
                               <Properties>
@@ -604,7 +625,7 @@
                             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="manos_checkboxActionPerformed"/>
                           </Events>
                         </Component>
-                        <Component class="javax.swing.JLabel" name="jLabel4">
+                        <Component class="javax.swing.JLabel" name="limite_manos_label">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                               <Font name="Dialog" size="16" style="1"/>
@@ -619,8 +640,11 @@
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jLabel4MouseClicked"/>
+                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="limite_manos_labelMouseClicked"/>
                           </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="limite_manos_label.putClientProperty(&quot;i18n.key&quot;, &quot;game.limite_de_manos&quot;);"/>
+                          </AuxValues>
                         </Component>
                         <Component class="javax.swing.JSpinner" name="manos_spinner">
                           <Properties>
@@ -701,6 +725,9 @@
                             <Property name="toolTipText" type="java.lang.String" value="Random.org API KEY"/>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="randomorg_label.putClientProperty(&quot;i18n.key&quot;, &quot;randomorg_api_key_opcional&quot;);"/>
+                          </AuxValues>
                         </Component>
                         <Component class="javax.swing.JLabel" name="random_label">
                           <Properties>
@@ -720,6 +747,9 @@
                           <Events>
                             <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="random_labelMouseClicked"/>
                           </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="random_label.putClientProperty(&quot;i18n.key&quot;, &quot;shuffle.algoritmo_para_barajar&quot;);"/>
+                          </AuxValues>
                         </Component>
                         <Component class="javax.swing.JTextField" name="randomorg_apikey">
                           <Properties>

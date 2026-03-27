@@ -460,7 +460,6 @@ public class Participant implements Runnable {
                                     System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                                 }
                                 break;
-                            // --- AÑADIR ESTE BLOQUE PARA ATARPAR LAS RESPUESTAS DE LATENCIA ---
                             case "PONG":
                                 pong = Integer.valueOf(partes_comando[1]);
                                 synchronized (ping_pong_lock) {
@@ -531,6 +530,7 @@ public class Participant implements Runnable {
                                 break;
                         }
                     }
+
                 } else {
                     try {
                         if (!socket_reader_queue.contains(POISON_PILL)) {
@@ -568,7 +568,10 @@ public class Participant implements Runnable {
                             }
                         }
                     } else {
-                        Helpers.pausar(500);
+                        // [CRITICAL FIX]: If we loop back here and it's still null, the timeout expired.
+                        // The socket is dead and didn't recover. We MUST terminate the thread.
+                        Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "[ZERO-TRUST] Socket reader timeout expired for {0}. Terminating thread.", nick);
+                        exit = true;
                     }
                 }
             }

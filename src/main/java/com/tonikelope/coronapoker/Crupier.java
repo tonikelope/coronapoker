@@ -1827,47 +1827,32 @@ public class Crupier implements Runnable {
 
         Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
-        // Esperamos confirmación
         long start_time = System.currentTimeMillis();
-
         boolean timeout = false;
 
         while (!pending.isEmpty() && !timeout) {
 
             synchronized (this.getReceived_commands()) {
-
                 ArrayList<String> rejected = new ArrayList<>();
-
                 while (!this.getReceived_commands().isEmpty()) {
-
                     String comando = this.received_commands.poll();
-
                     String[] partes = comando.split("#");
 
                     if (partes[2].equals("REBUY")) {
-
                         String nick = null;
-
                         try {
                             nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                         } catch (UnsupportedEncodingException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
                         }
-
                         pending.remove(nick);
-
                         Player jugador = nick2player.get(nick);
-
                         jugador.setTimeout(false);
 
                         if (GameFrame.getInstance().isPartida_local()) {
-
-                            broadcastGAMECommandFromServer(
-                                    "REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
+                            broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
                         }
 
                         if (partes.length > 4) {
-
                             if (partes[4].equals("0")) {
                                 jugador.setSpectator(null);
                             } else {
@@ -1876,25 +1861,20 @@ public class Crupier implements Runnable {
                         } else {
                             rebuy_now.put(nick, GameFrame.BUYIN);
                         }
-
                     } else {
                         rejected.add(comando);
                     }
                 }
-
                 if (!rejected.isEmpty()) {
                     this.getReceived_commands().addAll(rejected);
                     rejected.clear();
                 }
-
             }
 
             if (!pending.isEmpty()) {
                 Iterator<String> iterator = pending.iterator();
-
                 while (iterator.hasNext()) {
                     String nick = iterator.next();
-
                     if (nick2player.get(nick).isExit()) {
                         iterator.remove();
                     }
@@ -1903,42 +1883,16 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
-
                     if (GameFrame.getInstance().isPartida_local()) {
-
-                        if (!pending.isEmpty()) {
-
-                            for (String nick : pending) {
-                                nick2player.get(nick).setTimeout(true);
-
-                                if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
-                                    try {
-                                        this.broadcastGAMECommandFromServer(
-                                                "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),
-                                                nick,
-                                                false);
-                                    } catch (UnsupportedEncodingException ex) {
-                                        LOGGER.log(Level.SEVERE, null, ex);
-                                    }
-                                }
+                        // [CRITICAL FIX]: Auto-kick unresponsive players during Rebuy phase
+                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] REBUY TIMEOUT. Kicking unresponsive zombies...");
+                        for (String nick : pending) {
+                            if (!nick2player.get(nick).isExit()) {
+                                this.remotePlayerQuit(nick);
                             }
-
                         }
-
-                        // 0=yes, 1=no, 2=cancel
-                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("conn.forzamos_reset_del_socket_de"),
-                                new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
-                            for (String nick : pending) {
-                                GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
-                            }
-
-                        }
-
-                        start_time = System.currentTimeMillis();
-
+                        timeout = true;
                     } else {
-
                         start_time = System.currentTimeMillis();
                     }
                 } else {
@@ -1946,12 +1900,9 @@ public class Crupier implements Runnable {
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
                         }
                     }
-
                 }
-
             }
 
         }
@@ -2914,25 +2865,34 @@ public class Crupier implements Runnable {
 
     private void cancelarManoYDevolverApuestas(String motivo) {
         LOGGER.log(Level.WARNING, "[ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
-        GameFrame.getInstance().getRegistro().print(Translator.translate("ame.mano_anulada") + motivo);
+        GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + Translator.translate(motivo));
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
 
         synchronized (getLock_contabilidad()) {
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                if (jugador.getBet() > 0) {
-                    jugador.setStack(jugador.getStack() + jugador.getBet());
+
+                // [CRITICAL FINANCIAL FIX V76]: 'getBote()' contains the absolute total 
+                // invested by the player in the current hand across all streets.
+                float refund = Helpers.floatClean(jugador.getBote());
+
+                if (Helpers.float1DSecureCompare(refund, 0f) > 0) {
+                    jugador.setStack(Helpers.floatClean(jugador.getStack()) + refund);
                     jugador.setBet(0f);
+                    jugador.resetBote(); // Purge the financial memory for this aborted hand
                 }
             }
+
             this.apuestas = 0f;
             this.bote_total = 0f;
-            this.bote = new HandPot(0f); // Reiniciamos el bote
+
+            // Note: bote_sobrante is kept intact by design (it belongs to the global game, not the aborted hand)
+            this.bote = new HandPot(0f);
         }
 
         Audio.playWavResource("misc/error.wav");
 
         Helpers.GUIRun(() -> {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + motivo + Translator.translate("game.mano_anulada_footer"));
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
         });
     }
 
@@ -3115,8 +3075,6 @@ public class Crupier implements Runnable {
 
         this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed(external_entropy);
 
-        // --- V73: EXPORT LOCAL ENTROPY TO DISK ---
-        // CRITICAL FIX: Do not overwrite the old entropy file if we are in the middle of a recovery!
         if (!GameFrame.isRECOVER()) {
             try {
                 byte[] entropyBlob = Panoptes.getInstance().stateExportLocalEntropy();
@@ -3128,7 +3086,6 @@ public class Crupier implements Runnable {
                 LOGGER.log(Level.SEVERE, "Failed to save entropy state", e);
             }
         }
-        // -----------------------------------------
 
         if (GameFrame.getInstance().isPartida_local()) {
 
@@ -3145,8 +3102,6 @@ public class Crupier implements Runnable {
 
             boolean ready;
             int timeout = 0;
-            boolean[] timeout_msg = new boolean[1];
-            timeout_msg[0] = false;
 
             do {
                 ready = true;
@@ -3155,20 +3110,9 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            LOGGER.log(Level.WARNING,
-                                    "{0} -> NEW HAND ({1}) CONFIRMATION TIMEOUT!",
-                                    new Object[]{p.getNick(), String.valueOf(this.conta_mano + 1)});
-                            nick2player.get(p.getNick()).setTimeout(true);
-                            if (!p.isForce_reset_socket()) {
-                                try {
-                                    this.broadcastGAMECommandFromServer(
-                                            "TIMEOUT#"
-                                            + Base64.getEncoder().encodeToString(p.getNick().getBytes("UTF-8")),
-                                            p.getNick(), false);
-                                } catch (UnsupportedEncodingException ex) {
-                                    LOGGER.log(Level.SEVERE, null, ex);
-                                }
-                            }
+                            LOGGER.log(Level.SEVERE, "[ZERO-TRUST] {0} -> NEW HAND CONFIRMATION TIMEOUT! Player is a zombie. Kicking...", p.getNick());
+                            // [CRITICAL FIX]: Auto-kick unresponsive player to break the infinite loop
+                            this.remotePlayerQuit(p.getNick());
                         } else {
                             break;
                         }
@@ -3186,14 +3130,7 @@ public class Crupier implements Runnable {
                             }
                         }
                     } else {
-                        Helpers.threadRun(() -> {
-                            if (!timeout_msg[0]) {
-                                timeout_msg[0] = true;
-                                Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                                        "HAY JUGADORES QUE NO HAN CONFIRMADO LA NUEVA MANO (SEGUIMOS ESPERANDO...)");
-                                timeout_msg[0] = false;
-                            }
-                        });
+                        // Reset timeout ONLY if we processed a kick, so the loop checks the updated roster and continues
                         timeout = 0;
                     }
                 }
@@ -5166,187 +5103,119 @@ public class Crupier implements Runnable {
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
         long start = System.currentTimeMillis();
-
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
         boolean timeout = false;
-
         byte[] iv = new byte[16];
-
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         do {
-
             ObjectOutputStream out = null;
             try {
-
                 ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-
                 out = new ObjectOutputStream(byteOut);
-
                 out.writeObject(datos);
-
                 String command = "GAME#" + String.valueOf(id) + "#RECOVERDATA#"
                         + Base64.getEncoder().encodeToString(byteOut.toByteArray());
 
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
                     if (pendientes.contains(jugador.getNickname())) {
-
                         Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-
                         if (p != null && !p.isCpu()) {
-
-                            p.writeCommandFromServer(
-                                    Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-
+                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
                         }
                     }
                 }
 
-                // Esperamos confirmaciones
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-
-                    // 0=yes, 1=no, 2=cancel
-                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                            Translator.translate("game.forzamos_reset_socket"),
-                            new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
-                        for (String nick : pendientes) {
-                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
-                        }
-
-                    }
-                    start = System.currentTimeMillis();
-
-                }
-                if (!pendientes.isEmpty()) {
-
+                    // [CRITICAL FIX]: No UI blocking popups. Break the loop.
+                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] RECOVER DATA CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
                     for (String nick : pendientes) {
+                        if (!nick2player.get(nick).isExit()) {
+                            this.remotePlayerQuit(nick);
+                        }
+                    }
+                    timeout = true;
+                }
 
+                if (!pendientes.isEmpty() && !timeout) {
+                    for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
-
                         if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
                             try {
-                                this.broadcastGAMECommandFromServer(
-                                        "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick,
-                                        false);
+                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
                             } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
                             }
                         }
                     }
-
                 }
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             } finally {
                 try {
-                    out.close();
+                    if (out != null) {
+                        out.close();
+                    }
                 } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
 
         } while (!pendientes.isEmpty() && !timeout);
-
-        if (timeout) {
-
-            for (String nick : pendientes) {
-                if (!nick2player.get(nick).isExit()) {
-                    this.remotePlayerQuit(nick);
-                }
-            }
-        }
-
     }
 
     public void enviarAccionesRecuperadas(ArrayList<String> pendientes, String datos) {
 
         long start = System.currentTimeMillis();
-
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
         boolean timeout = false;
-
         byte[] iv = new byte[16];
-
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
         do {
-
             try {
-
                 String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#"
                         + ((datos == null || datos.isEmpty()) ? "*"
                         : Base64.getEncoder().encodeToString(datos.getBytes("UTF-8")));
 
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
-
                     if (pendientes.contains(jugador.getNickname())) {
-
                         Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-
                         if (p != null && !p.isCpu()) {
-
-                            p.writeCommandFromServer(
-                                    Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-
+                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
                         }
                     }
                 }
 
-                // Esperamos confirmaciones
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-
-                    // 0=yes, 1=no, 2=cancel
-                    if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                            Translator.translate("game.forzamos_reset_socket"),
-                            new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
-                        for (String nick : pendientes) {
-                            GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
+                    // [CRITICAL FIX]: No UI blocking popups. Break the loop.
+                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] ACTION RECOVER CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                    for (String nick : pendientes) {
+                        if (!nick2player.get(nick).isExit()) {
+                            this.remotePlayerQuit(nick);
                         }
-
                     }
-                    start = System.currentTimeMillis();
-
+                    timeout = true;
                 }
-                if (!pendientes.isEmpty()) {
 
+                if (!pendientes.isEmpty() && !timeout) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
-
                         if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
                             try {
-                                this.broadcastGAMECommandFromServer(
-                                        "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick,
-                                        false);
+                                this.broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
                             } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
                             }
-
                         }
                     }
-
                 }
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
         } while (!pendientes.isEmpty() && !timeout);
-
-        if (timeout) {
-
-            for (String nick : pendientes) {
-                if (!nick2player.get(nick).isExit()) {
-                    this.remotePlayerQuit(nick);
-                }
-            }
-        }
-
     }
 
     private float[] calcularBoteParaGanador(float cantidad, int tot_ganadores) {
@@ -5550,7 +5419,7 @@ public class Crupier implements Runnable {
     public Object[] readActionFromRemotePlayer(Player jugador) {
         long start = System.currentTimeMillis();
         boolean ok = false, timeout = false;
-        Object[] action = new Object[3]; // [0] decision, [1] bet (o cinemática en ALLIN), [2] packetB64
+        Object[] action = new Object[3]; // [0] decision, [1] bet (or cinematic on ALLIN), [2] packetB64
 
         do {
             ok = false;
@@ -5588,7 +5457,7 @@ public class Crupier implements Runnable {
                                     }
                                 }
                             } catch (Exception ex) {
-                                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "Error parseando acción remota", ex);
+                                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "Error parsing remote action", ex);
                             }
                         }
                         if (!ok) {
@@ -5605,6 +5474,11 @@ public class Crupier implements Runnable {
                         start = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                         timeout = true;
+
+                        // [CRITICAL FIX]: Actively purge the disconnected player from the game state
+                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] ACTION TIMEOUT. Kicking unresponsive zombie: {0}", jugador.getNickname());
+                        this.remotePlayerQuit(jugador.getNickname());
+
                     } else {
                         synchronized (this.getReceived_commands()) {
                             try {
@@ -5617,8 +5491,9 @@ public class Crupier implements Runnable {
             }
         } while (!ok && !jugador.isExit() && !timeout);
 
-        if (jugador.isExit()) {
-            action[0] = -1;
+        if (jugador.isExit() || timeout) {
+            // [CRITICAL FIX]: Return a clean FOLD instead of a crash-inducing -1
+            action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;
         } else {
@@ -5675,13 +5550,15 @@ public class Crupier implements Runnable {
         byte[] aggregatedTokens = (byte[]) tokenResult[0];
 
         if (aggregatedTokens == null) {
-            String missing = (String) tokenResult[1];
-            String motivo = "CONSENSUS FAILED: Missing keys from [" + missing + "]";
+            String motivo = "game.mano_anulada_llaves";
+
             try {
                 broadcastGAMECommandFromServer("MISDEAL#" + java.util.Base64.getEncoder().encodeToString(motivo.getBytes("UTF-8")), null, false);
             } catch (Exception e) {
             }
+
             cancelarManoYDevolverApuestas(motivo);
+
             return false;
         }
 
@@ -5731,7 +5608,7 @@ public class Crupier implements Runnable {
         }
 
         if (ramCards == null) {
-            String motivo = "CRYPTOGRAPHIC ERROR: Native Vault rejected the consensus tokens.";
+            String motivo = "game.mano_anulada_vault";
             cancelarManoYDevolverApuestas(motivo);
             return false;
         }
@@ -6675,102 +6552,68 @@ public class Crupier implements Runnable {
         ArrayList<String> pendientes = new ArrayList<>();
 
         for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-
             Participant p = entry.getValue();
-
             if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && !p.isExit()) {
-
                 pendientes.add(p.getNick());
-
             }
-
         }
 
         if (!pendientes.isEmpty()) {
 
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
             boolean timeout = false;
-
             byte[] iv = new byte[16];
-
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
             do {
-
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
                 for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-
                     Participant p = entry.getValue();
-
                     if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
-
-                        p.writeCommandFromServer(
-                                Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
-
+                        p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                     }
                 }
 
                 if (confirmation) {
-                    // Esperamos confirmaciones y en caso de que alguna no llegue pasado un tiempo
-                    // volvermos a enviar todos los que fallaron la confirmación la primera vez
                     this.waitSyncConfirmations(id, pendientes);
 
                     for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-
                         Participant p = entry.getValue();
-
                         if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && p.isExit()) {
-
                             pendientes.remove(p.getNick());
-
                             if (nick2player.containsKey(p.getNick())) {
-
                                 nick2player.get(p.getNick()).setTimeout(false);
-
                             }
-
                         }
-
                     }
 
                     if (!pendientes.isEmpty() && !nick2player.isEmpty()) {
-
                         for (String nick : pendientes) {
                             nick2player.get(nick).setTimeout(true);
                             if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
                                 try {
                                     this.broadcastGAMECommandFromServer(
                                             "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),
-                                            nick,
-                                            false);
+                                            nick, false);
                                 } catch (UnsupportedEncodingException ex) {
                                     LOGGER.log(Level.SEVERE, null, ex);
                                 }
                             }
                         }
-
                     }
 
                     if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-
-                        // 0=yes, 1=no, 2=cancel
-                        if (Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("game.forzamos_reset_socket"),
-                                new ImageIcon(getClass().getResource("/images/action/timeout.png"))) == 0) {
-
-                            if (!nick2player.isEmpty()) {
-                                for (String nick : pendientes) {
-                                    if (!nick2player.get(nick).isExit()) {
-                                        GameFrame.getInstance().getParticipantes().get(nick).forceSocketReconnect();
-                                    }
+                        // [CRITICAL FIX]: Automate the kick. No UI blocking popups. Break the loop.
+                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] BROADCAST CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                        if (!nick2player.isEmpty()) {
+                            for (String nick : pendientes) {
+                                if (!nick2player.get(nick).isExit()) {
+                                    this.remotePlayerQuit(nick);
                                 }
                             }
-
                         }
-                        start = System.currentTimeMillis();
-
+                        timeout = true;
                     }
                 }
 
@@ -8356,7 +8199,7 @@ public class Crupier implements Runnable {
 
         if (cmano != this.conta_mano) {
 
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.timeout"));
+            GameFrame.getInstance().getRegistro().print("(" + String.valueOf(cmano) + ") " + Translator.translate("zero_trust.timeout"));
 
         } else if (!this.legitHand) {
 

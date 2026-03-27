@@ -114,6 +114,8 @@ public class NewGameDialog extends JDialog {
 
         titulo_ventana.setText(Translator.translate("game.modificar_opciones_de_la_timba"));
 
+        recover_checkbox_label.setText(Translator.translate("game.continuar_timba_anterior"));
+
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
         url_panel.setVisible(false);
@@ -256,6 +258,8 @@ public class NewGameDialog extends JDialog {
         initComponents();
 
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
+
+        recover_checkbox_label.setText(Translator.translate("game.continuar_timba_anterior"));
 
         partida_local = loc;
 

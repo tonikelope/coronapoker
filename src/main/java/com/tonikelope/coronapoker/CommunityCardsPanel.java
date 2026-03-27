@@ -191,9 +191,20 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
     }
 
+    public void showVerifiedConsensusHandIcon() {
+
+        Helpers.GUIRun(() -> {
+
+            bet_label.setText("");
+            Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/panoptes_verified2.png"), pot_label.getHeight() * 2, pot_label.getHeight());
+            bet_label.setVisible(true);
+
+        });
+    }
+
     public void restoreBetLabelicon() {
 
-        Helpers.GUIRunAndWait(() -> {
+        Helpers.GUIRun(() -> {
             Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
         });
     }

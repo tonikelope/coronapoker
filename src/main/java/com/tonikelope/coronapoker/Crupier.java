@@ -3622,10 +3622,11 @@ public class Crupier implements Runnable {
         this.verified_hand = false;
 
         Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getTapete().getCommunityCards().restoreBetLabelicon();
+
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_panel().setOpaque(false);
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label()
                     .setHorizontalAlignment(JLabel.LEADING);
+            GameFrame.getInstance().getTapete().getCommunityCards().restoreBetLabelicon();
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
                     GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText("---");
@@ -4719,6 +4720,10 @@ public class Crupier implements Runnable {
                                                 byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
 
                                                 if (localAuditData != null && localAuditData.length == 49) {
+
+                                                    GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
+                                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
+
                                                     byte[] myReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, 48);
                                                     this.legitHand = (localAuditData[48] & 0xFF) == 1; // Stage 1 Verification
 
@@ -4925,7 +4930,11 @@ public class Crupier implements Runnable {
 
                 if (myPos != -1) {
                     byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
+
                     if (localAuditData != null && localAuditData.length == 49) {
+                        GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
+                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
+
                         myLocalReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, 48);
                         this.legitHand = (localAuditData[48] & 0xFF) == 1;
                     } else {
@@ -8331,7 +8340,7 @@ public class Crupier implements Runnable {
         }
     }
 
-    public void checkHandVerification() {
+    public void checkDoubleCheckHandVerification() {
 
         int cmano = this.conta_mano;
 
@@ -8360,8 +8369,8 @@ public class Crupier implements Runnable {
 
         } else if (!this.legitHandSkip) {
 
-            GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
+            GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedConsensusHandIcon();
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit2"));
 
         }
 
@@ -8546,6 +8555,10 @@ public class Crupier implements Runnable {
                             this.bote.genSidePots();
                             badbeat = false;
                             float sql_bote_total = this.bote_total;
+
+                            Helpers.threadRun(() -> {
+                                checkDoubleCheckHandVerification();
+                            });
 
                             switch (resisten.size()) {
                                 case 0:
@@ -8786,10 +8799,6 @@ public class Crupier implements Runnable {
                                 jugador.checkGameOver();
                             }
                         }
-
-                        Helpers.threadRun(() -> {
-                            checkHandVerification();
-                        });
 
                         disableAllPlayersTimeout();
 

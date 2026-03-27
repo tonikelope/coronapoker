@@ -1257,8 +1257,6 @@ public class NewGameDialog extends JDialog {
 
                 if (GameFrame.RECOVER) {
                     GameFrame.RECOVER_ID = (int) game.get((String) game_combo.getSelectedItem()).get("id");
-                } else {
-                    Helpers.cleanOldTempCrupierFiles();
                 }
 
                 if (this.manos_checkbox.isSelected()) {

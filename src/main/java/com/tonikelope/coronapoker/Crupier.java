@@ -5976,6 +5976,21 @@ public class Crupier implements Runnable {
 
                 Player current_player = GameFrame.getInstance().getJugadores().get(conta_pos);
 
+                // [CRITICAL FIX V76]: Skip Spectators ("Calentando"), previously Folded players,
+                // and All-In players. If they are not in 'resisten', they are not in this hand.
+                // If they are ALLIN, they have no actions left.
+                // This prevents ghost actions from consuming the Crypto Replay Queue.
+                if (!resisten.contains(current_player)
+                        || current_player.getDecision() == Player.ALLIN
+                        || current_player.getDecision() == Player.FOLD) {
+
+                    conta_pos++;
+                    if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
+                        conta_pos %= GameFrame.getInstance().getJugadores().size();
+                    }
+                    continue;
+                }
+
                 boolean isCryptoReplay = this.conta_accion < this.tot_acciones_recuperadas;
                 boolean eraSincronizacion = this.isSincronizando_mano();
 
@@ -6004,70 +6019,68 @@ public class Crupier implements Runnable {
                 float old_player_bet = current_player.getBet();
                 LOGGER.log(Level.INFO, "Read DECISION from -> {0}", current_player.getNickname());
 
-                if (current_player.isActivo() && current_player.getDecision() != Player.FOLD && current_player.getDecision() != Player.ALLIN) {
+                if (GameFrame.AUTO_ACTION_BUTTONS && current_player != GameFrame.getInstance().getLocalPlayer()
+                        && GameFrame.getInstance().getLocalPlayer().getDecision() != Player.FOLD
+                        && GameFrame.getInstance().getLocalPlayer().getDecision() != Player.ALLIN) {
+                    GameFrame.getInstance().getLocalPlayer().activarPreBotones();
+                }
 
-                    if (GameFrame.AUTO_ACTION_BUTTONS && current_player != GameFrame.getInstance().getLocalPlayer()
-                            && GameFrame.getInstance().getLocalPlayer().getDecision() != Player.FOLD
-                            && GameFrame.getInstance().getLocalPlayer().getDecision() != Player.ALLIN) {
-                        GameFrame.getInstance().getLocalPlayer().activarPreBotones();
+                if (current_player == GameFrame.getInstance().getLocalPlayer()) {
+
+                    current_player.esTuTurno();
+
+                    if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
+                        LocalPlayer localplayer = (LocalPlayer) current_player;
+                        localplayer.setClick_recuperacion(true);
+
+                        switch ((int) accion_recuperada[0]) {
+                            case Player.FOLD:
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_fold_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
+                                });
+                                break;
+                            case Player.CHECK:
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_check_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
+                                });
+                                break;
+                            case Player.ALLIN:
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_allin_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
+                                });
+                                break;
+                            case Player.BET:
+                                localplayer.setApuesta_recuperada((float) accion_recuperada[1]);
+                                Helpers.GUIRun(() -> {
+                                    localplayer.getPlayer_bet_button().doClick();
+                                    localplayer.setClick_recuperacion(false);
+                                });
+                                break;
+                            default:
+                                break;
+                        }
                     }
 
-                    if (current_player == GameFrame.getInstance().getLocalPlayer()) {
-
-                        current_player.esTuTurno();
-
-                        if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
-
-                            LocalPlayer localplayer = (LocalPlayer) current_player;
-                            localplayer.setClick_recuperacion(true);
-
-                            switch ((int) accion_recuperada[0]) {
-                                case Player.FOLD:
-                                    Helpers.GUIRun(() -> {
-                                        localplayer.getPlayer_fold_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    });
-                                    break;
-                                case Player.CHECK:
-                                    Helpers.GUIRun(() -> {
-                                        localplayer.getPlayer_check_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    });
-                                    break;
-                                case Player.ALLIN:
-                                    Helpers.GUIRun(() -> {
-                                        localplayer.getPlayer_allin_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    });
-                                    break;
-                                case Player.BET:
-                                    localplayer.setApuesta_recuperada((float) accion_recuperada[1]);
-                                    Helpers.GUIRun(() -> {
-                                        localplayer.getPlayer_bet_button().doClick();
-                                        localplayer.setClick_recuperacion(false);
-                                    });
-                                    break;
-                                default:
-                                    break;
+                    do {
+                        synchronized (getLock_apuestas()) {
+                            try {
+                                getLock_apuestas().wait(WAIT_QUEUES);
+                            } catch (InterruptedException ex) {
                             }
                         }
+                    } while (current_player.isTurno());
 
-                        do {
-                            synchronized (getLock_apuestas()) {
-                                try {
-                                    getLock_apuestas().wait(WAIT_QUEUES);
-                                } catch (InterruptedException ex) {
-                                }
-                            }
-                        } while (current_player.isTurno());
+                    decision = current_player.getDecision();
+                    action = new Object[]{decision, current_player.getBet(), null};
 
-                        decision = current_player.getDecision();
-                        action = new Object[]{decision, current_player.getBet(), null};
+                } else {
 
-                    } else {
+                    current_player.esTuTurno();
 
-                        current_player.esTuTurno();
-
+                    if (!current_player.isExit()) {
                         if (!GameFrame.getInstance().isPartida_local() || !GameFrame.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
                             action = this.readActionFromRemotePlayer(current_player);
                         } else {
@@ -6117,216 +6130,174 @@ public class Crupier implements Runnable {
                                 action = accion_recuperada;
                             }
                         }
-                    }
-
-                    if (action == null || action.length < 2) {
-                        action = new Object[]{Player.FOLD, 0f, null};
-                    } else if (action.length < 3) {
-                        action = new Object[]{action[0], action[1], null};
-                    }
-
-                    decision = (int) action[0];
-                    String actionPacketB64 = action[2] != null ? (String) action[2] : null;
-
-                    if (decision == Player.ALLIN) {
-                        if ((action[1] instanceof String) && !"".equals((String) action[1])) {
-                            this.current_remote_cinematic_b64 = (String) action[1];
-                        }
-                        action[1] = 0f;
-                    } else {
-                        this.current_remote_cinematic_b64 = null;
-                    }
-
-                    if (!current_player.isExit()) {
-
-                        byte[] cryptoPacket = null;
-                        Participant p = GameFrame.getInstance().getParticipantes().get(current_player.getNickname());
-                        boolean isBotLocal = GameFrame.getInstance().isPartida_local() && ((p != null && p.isCpu()) || current_player.getNickname().startsWith("CoronaBot$"));
-
-                        if (isCryptoReplay) {
-                            byte[] pastPacket = crypto_replay_queue.poll();
-                            if (pastPacket != null) {
-                                if (this.local_mega_packet != null) {
-                                    Panoptes.getInstance().chainVerifyRemoteAction(pastPacket);
-                                } else {
-                                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (new player in spectator mode)");
-                                }
-                                actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
-                            }
-                        } else {
-                            if (current_player == GameFrame.getInstance().getLocalPlayer()) {
-                                cryptoPacket = Panoptes.getInstance().chainCommitLocalAction(decision, (float) action[1]);
-                                // V71 FIX: If vault locks up and returns null, we gracefully handle it to avoid NPE on Base64
-                                if (cryptoPacket == null) {
-                                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] NATIVE VAULT REJECTED LOCAL ACTION COMMIT! VAULT POISONED.");
-                                    actionPacketB64 = "*";
-                                } else {
-                                    actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
-                                }
-                            } else if (isBotLocal) {
-                                byte[] botPriv = null;
-                                try {
-                                    botPriv = p != null && p.getPanoptes_private_key() != null
-                                            ? p.getPanoptes_private_key()
-                                            : java.security.MessageDigest.getInstance("SHA-256").digest(current_player.getNickname().getBytes("UTF-8"));
-                                } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
-                                    LOGGER.log(Level.SEVERE, null, ex);
-                                }
-                                cryptoPacket = Panoptes.getInstance().chainCommitBotAction(decision, (float) action[1], botPriv);
-                                actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
-                            } else {
-                                if (actionPacketB64 != null) {
-                                    cryptoPacket = Base64.getDecoder().decode(actionPacketB64);
-                                    if (this.local_mega_packet != null) {
-                                        boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
-                                        if (!validSignature) {
-                                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
-                                            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.action_rejected_invalid_signature", current_player.getNickname()));
-                                        }
-                                    } else {
-                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (new player in spectator mode)");
-                                    }
-                                }
-                            }
-                        }
-
-                        if (cryptoPacket != null) {
-                            saveCryptoActionToBin(cryptoPacket);
-                        }
-
-                        String comando = null;
-
-                        try {
-                            comando = "ACTION#"
-                                    + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
-                                    + "#" + decision
-                                    + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : "")
-                                    + (actionPacketB64 != null ? "#" + actionPacketB64 : "");
-                        } catch (Exception ex) {
-                        }
-
-                        if (current_player == GameFrame.getInstance().getLocalPlayer()) {
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-
-                                //Soy el server y tengo que reenviar mi decisión de otro jugador al resto
-                                if (decision == Player.ALLIN && this.current_remote_cinematic_b64 != null) {
-                                    comando += "#" + this.current_remote_cinematic_b64;
-                                }
-
-                                broadcastGAMECommandFromServer(comando, current_player.getNickname());
-
-                            } else {
-
-                                //Soy un jugador normal y le mando mi decisión al server
-                                if (decision == Player.ALLIN && this.current_local_cinematic_b64 != null) {
-                                    comando += "#" + this.current_local_cinematic_b64;
-                                }
-
-                                this.sendGAMECommandToServer(comando);
-                            }
-
-                        } else {
-
-                            ((RemotePlayer) current_player).setDecisionFromRemotePlayer(decision, (float) action[1]);
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-
-                                //Soy el server y tengo que reenviar la decisión de otro jugador al resto
-                                if (decision == Player.ALLIN && this.current_remote_cinematic_b64 != null) {
-                                    comando += "#" + this.current_remote_cinematic_b64;
-                                }
-
-                                broadcastGAMECommandFromServer(comando, current_player.getNickname());
-                            }
-                        }
-
-                        do {
-
-                            synchronized (getLock_apuestas()) {
-
-                                try {
-
-                                    getLock_apuestas().wait(WAIT_QUEUES);
-
-                                } catch (InterruptedException ex) {
-                                }
-                            }
-
-                        } while (current_player.isTurno());
-
                     } else {
                         current_player.stopActionTimer();
                     }
-
                 }
 
-                if (!current_player.isExit()) {
+                if (action == null || action.length < 2) {
+                    action = new Object[]{Player.FOLD, 0f, null};
+                } else if (action.length < 3) {
+                    action = new Object[]{action[0], action[1], null};
+                }
 
-                    // --- TRACK EVERY PLAYER ACTION (BUG FIXED + AF TRACKING) ---
-                    Bot.TRACKER_MEMORY.putIfAbsent(current_player.getNickname(), new Bot.OpponentTracker());
-                    Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
+                decision = (int) action[0];
+                String actionPacketB64 = action[2] != null ? (String) action[2] : null;
 
-                    if (this.street == Crupier.PREFLOP) {
-                        // Pass hand ID to prevent stat inflation from multiple actions per round
-                        if (current_player.getDecision() == Player.CHECK
-                                || current_player.getDecision() == Player.BET
-                                || current_player.getDecision() == Player.ALLIN) {
-                            stats.recordVPIP(this.conta_mano);
+                if (decision == Player.ALLIN) {
+                    if ((action[1] instanceof String) && !"".equals((String) action[1])) {
+                        this.current_remote_cinematic_b64 = (String) action[1];
+                    }
+                    action[1] = 0f;
+                } else {
+                    this.current_remote_cinematic_b64 = null;
+                }
+
+                // =========================================================================
+                // THE CRYPTO & NETWORKING BLOCK
+                // =========================================================================
+                byte[] cryptoPacket = null;
+                Participant p = GameFrame.getInstance().getParticipantes().get(current_player.getNickname());
+                boolean isBotLocal = GameFrame.getInstance().isPartida_local() && ((p != null && p.isCpu()) || current_player.getNickname().startsWith("CoronaBot$"));
+
+                if (isCryptoReplay) {
+                    byte[] pastPacket = crypto_replay_queue.poll();
+                    if (pastPacket != null) {
+                        if (this.local_mega_packet != null) {
+                            Panoptes.getInstance().chainVerifyRemoteAction(pastPacket);
+                        } else {
+                            LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (spectator mode)");
                         }
-                        if (current_player.getDecision() == Player.BET
-                                || current_player.getDecision() == Player.ALLIN) {
-                            stats.recordPFR(this.conta_mano);
+                        actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
+                    }
+                } else {
+                    if (current_player == GameFrame.getInstance().getLocalPlayer()) {
+                        cryptoPacket = Panoptes.getInstance().chainCommitLocalAction(decision, (float) action[1]);
+                        if (cryptoPacket == null) {
+                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] NATIVE VAULT REJECTED LOCAL ACTION COMMIT! VAULT POISONED.");
+                            actionPacketB64 = "*";
+                        } else {
+                            actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
                         }
+                    } else if (isBotLocal) {
+                        byte[] botPriv = null;
+                        try {
+                            botPriv = p != null && p.getPanoptes_private_key() != null
+                                    ? p.getPanoptes_private_key()
+                                    : java.security.MessageDigest.getInstance("SHA-256").digest(current_player.getNickname().getBytes("UTF-8"));
+                        } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
+                            LOGGER.log(Level.SEVERE, null, ex);
+                        }
+                        cryptoPacket = Panoptes.getInstance().chainCommitBotAction(decision, (float) action[1], botPriv);
+                        actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
                     } else {
-                        // Post-Flop Aggression Factor (AF) Tracking
-                        if (current_player.getDecision() == Player.BET || current_player.getDecision() == Player.ALLIN) {
-                            stats.recordPostFlopBetOrRaise();
-                        } else if (current_player.getDecision() == Player.CHECK && this.apuesta_actual > old_player_bet) {
-                            // In this engine's architecture, CHECK acts as a CALL if there is a pending bet
-                            stats.recordPostFlopCall();
+                        if (actionPacketB64 != null && !actionPacketB64.equals("*")) {
+                            cryptoPacket = Base64.getDecoder().decode(actionPacketB64);
+                            if (this.local_mega_packet != null) {
+                                boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
+                                if (!validSignature) {
+                                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
+                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.action_rejected_invalid_signature", current_player.getNickname()));
+                                }
+                            }
                         }
                     }
-                    // -----------------------------------------------------------
+                }
 
-                    GameFrame.getInstance().getRegistro().print(current_player.getLastActionString());
+                if (cryptoPacket != null) {
+                    saveCryptoActionToBin(cryptoPacket);
+                }
 
-                    if (current_player.getDecision() != Player.FOLD) {
+                String comando = null;
+                try {
+                    comando = "ACTION#"
+                            + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
+                            + "#" + decision
+                            + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : "")
+                            + (actionPacketB64 != null ? "#" + actionPacketB64 : "");
+                } catch (Exception ex) {
+                }
 
-                        this.apuestas += current_player.getBet() - old_player_bet;
-                        this.bote_total += current_player.getBet() - old_player_bet;
+                if (current_player == GameFrame.getInstance().getLocalPlayer()) {
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        if (decision == Player.ALLIN && this.current_remote_cinematic_b64 != null) {
+                            comando += "#" + this.current_remote_cinematic_b64;
+                        }
+                        broadcastGAMECommandFromServer(comando, current_player.getNickname());
+                    } else {
+                        if (decision == Player.ALLIN && this.current_local_cinematic_b64 != null) {
+                            comando += "#" + this.current_local_cinematic_b64;
+                        }
+                        this.sendGAMECommandToServer(comando);
+                    }
+                } else {
+                    ((RemotePlayer) current_player).setDecisionFromRemotePlayer(decision, (float) action[1]);
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        if (decision == Player.ALLIN && this.current_remote_cinematic_b64 != null) {
+                            comando += "#" + this.current_remote_cinematic_b64;
+                        }
+                        broadcastGAMECommandFromServer(comando, current_player.getNickname());
+                    }
+                }
 
-                        if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0)) {
+                do {
+                    synchronized (getLock_apuestas()) {
+                        try {
+                            getLock_apuestas().wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
+                        }
+                    }
+                } while (current_player.isTurno());
 
-                            boolean partial_raise = false;
-                            float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean(getCiega_grande());
-                            float current_raise = current_player.getBet() - this.apuesta_actual + this.partial_raise_cum;
+                Bot.TRACKER_MEMORY.putIfAbsent(current_player.getNickname(), new Bot.OpponentTracker());
+                Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
 
-                            if (Helpers.float1DSecureCompare(min_raise, current_raise) <= 0) {
-                                this.ultimo_raise = current_raise;
-                                this.partial_raise_cum = 0f;
-                                this.conta_raise++;
-                            } else if (decision == Player.ALLIN) {
-                                partial_raise = true;
-                                this.partial_raise_cum += current_player.getBet() - this.apuesta_actual;
-                            }
+                if (this.street == Crupier.PREFLOP) {
+                    if (decision == Player.CHECK || decision == Player.BET || decision == Player.ALLIN) {
+                        stats.recordVPIP(this.conta_mano);
+                    }
+                    if (decision == Player.BET || decision == Player.ALLIN) {
+                        stats.recordPFR(this.conta_mano);
+                    }
+                } else {
+                    if (decision == Player.BET || decision == Player.ALLIN) {
+                        stats.recordPostFlopBetOrRaise();
+                    } else if (decision == Player.CHECK && this.apuesta_actual > old_player_bet) {
+                        stats.recordPostFlopCall();
+                    }
+                }
 
-                            this.conta_bet++;
-                            this.apuesta_actual = current_player.getBet();
+                GameFrame.getInstance().getRegistro().print(current_player.getLastActionString());
 
-                            resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
+                if (decision != Player.FOLD) {
+                    this.apuestas += current_player.getBet() - old_player_bet;
+                    this.bote_total += current_player.getBet() - old_player_bet;
 
-                            if (street == PREFLOP) {
-                                limpers = 0;
-                            }
-                            end_pos = conta_pos;
+                    if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0)) {
+                        boolean partial_raise = false;
+                        float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean(getCiega_grande());
+                        float current_raise = current_player.getBet() - this.apuesta_actual + this.partial_raise_cum;
 
-                        } else if (street == PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
-                            limpers++;
+                        if (Helpers.float1DSecureCompare(min_raise, current_raise) <= 0) {
+                            this.ultimo_raise = current_raise;
+                            this.partial_raise_cum = 0f;
+                            this.conta_raise++;
+                        } else if (decision == Player.ALLIN) {
+                            partial_raise = true;
+                            this.partial_raise_cum += current_player.getBet() - this.apuesta_actual;
                         }
 
-                    } else {
-                        resisten.remove(current_player);
+                        this.conta_bet++;
+                        this.apuesta_actual = current_player.getBet();
+                        resetBetPlayerDecisions(GameFrame.getInstance().getJugadores(), partial_raise ? (this.last_aggressor != null ? this.last_aggressor.getNickname() : null) : current_player.getNickname(), partial_raise);
+
+                        if (street == PREFLOP) {
+                            limpers = 0;
+                        }
+                        end_pos = conta_pos;
+
+                    } else if (street == PREFLOP && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0 && !current_player.getNickname().equals(this.getBb_nick()) && !current_player.getNickname().equals(this.getSb_nick())) {
+                        limpers++;
                     }
                 } else {
                     resisten.remove(current_player);
@@ -6334,37 +6305,25 @@ public class Crupier implements Runnable {
 
                 try {
                     this.acciones.add(java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
-                            + "#" + String.valueOf(current_player.getDecision())
-                            + (current_player.getDecision() == Player.BET ? "#" + String.valueOf(current_player.getBet()) : ""));
+                            + "#" + String.valueOf(decision)
+                            + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : ""));
                 } catch (Exception ex) {
+                }
+
+                this.conta_accion++;
+
+                if (!isCryptoReplay) {
+                    this.sqlNewAction(current_player);
+                } else if (GameFrame.getInstance().isPartida_local()) {
+                    if (this.sqlCheckGenuineRecoverAction(current_player)) {
+                        LOGGER.log(Level.INFO, "RECOVER ACTION OK");
+                    }
                 }
 
                 actualizarContadoresTapete();
                 conta_pos++;
-
                 if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
                     conta_pos %= GameFrame.getInstance().getJugadores().size();
-                }
-
-                if (current_player.isActivo()) {
-                    this.conta_accion++;
-
-                    if (!isCryptoReplay) {
-                        this.sqlNewAction(current_player);
-                    } else if (GameFrame.getInstance().isPartida_local()) {
-                        if (this.sqlCheckGenuineRecoverAction(current_player)) {
-                            LOGGER.log(Level.INFO, "RECOVER ACTION OK");
-                        }
-                    }
-                }
-
-                while (Init.PLAYING_CINEMATIC) {
-                    synchronized (getLock_apuestas()) {
-                        try {
-                            getLock_apuestas().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
-                    }
                 }
 
             } while (conta_pos != end_pos && resisten.size() > 1 && !isFin_de_la_transmision());

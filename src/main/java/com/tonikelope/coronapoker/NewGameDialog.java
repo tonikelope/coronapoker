@@ -146,18 +146,25 @@ public class NewGameDialog extends JDialog {
         this.recover_panel.setVisible(false);
         this.vamos.setText(Translator.translate("ui.guardar"));
 
-        DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
+        if (partida_local) {
+            DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
 
-        bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
+            bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
 
-        bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
+            bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
 
-        bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
+            bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
 
-        bots_combobox.setModel(bots_combobox_model);
+            bots_combobox.setModel(bots_combobox_model);
 
-        bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
-        bots_label.setText(Translator.translate("ui.bots_dificultad"));
+            bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
+
+            bots_label.setText(Translator.translate("ui.bots_dificultad"));
+
+        } else {
+            bots_label.setVisible(false);
+            bots_combobox.setVisible(false);
+        }
 
         radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
 
@@ -296,19 +303,25 @@ public class NewGameDialog extends JDialog {
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
 
-        DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
+        if (partida_local) {
+            DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
 
-        bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
+            bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
 
-        bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
+            bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
 
-        bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
+            bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
 
-        bots_combobox.setModel(bots_combobox_model);
+            bots_combobox.setModel(bots_combobox_model);
 
-        bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
+            bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
 
-        bots_label.setText(Translator.translate("ui.bots_dificultad"));
+            bots_label.setText(Translator.translate("ui.bots_dificultad"));
+
+        } else {
+            bots_label.setVisible(false);
+            bots_combobox.setVisible(false);
+        }
 
         DefaultComboBoxModel<JLabel> random_combobox_model = new DefaultComboBoxModel<>();
         JLabel random_label1 = new JLabel(Translator.translate("shuffle.modo_paranoico_trng_csprng"));
@@ -349,8 +362,8 @@ public class NewGameDialog extends JDialog {
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
         } else {
-            upnp_checkbox.setEnabled(false);
-            radar_checkbox.setEnabled(false);
+            upnp_checkbox.setVisible(false);
+            radar_checkbox.setVisible(false);
             recover_panel.setVisible(false);
         }
 

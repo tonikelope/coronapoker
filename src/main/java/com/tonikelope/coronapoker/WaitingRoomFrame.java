@@ -753,6 +753,9 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.JTextFieldRegularPopupMenu.addTo(chat);
 
         Helpers.JTextFieldRegularPopupMenu.addTo(chat_box);
+        
+        image_button.setToolTipText(Translator.translate("tooltip.send_image"));
+        sound_icon.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
 
         if (avatar != null) {
             avatar_label.setPreferredSize(

@@ -101,6 +101,23 @@ public class NewGameDialog extends JDialog {
         return vamos;
     }
 
+    private int getCurrentBotLevel() {
+
+        if (Bot.DIFFICULTY == Bot.Difficulty.EASY) {
+            return 0;
+        }
+
+        if (Bot.DIFFICULTY == Bot.Difficulty.MEDIUM) {
+            return 1;
+        }
+
+        if (Bot.DIFFICULTY == Bot.Difficulty.HARD) {
+            return 2;
+        }
+
+        return 1;
+    }
+
     public boolean isDialog_ok() {
         return dialog_ok;
     }
@@ -128,6 +145,19 @@ public class NewGameDialog extends JDialog {
         this.randomorg_label.setVisible(false);
         this.recover_panel.setVisible(false);
         this.vamos.setText(Translator.translate("ui.guardar"));
+
+        DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
+
+        bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
+
+        bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
+
+        bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
+
+        bots_combobox.setModel(bots_combobox_model);
+
+        bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
+        bots_label.setText(Translator.translate("ui.bots_dificultad"));
 
         radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
 
@@ -265,6 +295,20 @@ public class NewGameDialog extends JDialog {
 
         scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
+
+        DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
+
+        bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
+
+        bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
+
+        bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
+
+        bots_combobox.setModel(bots_combobox_model);
+
+        bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
+
+        bots_label.setText(Translator.translate("ui.bots_dificultad"));
 
         DefaultComboBoxModel<JLabel> random_combobox_model = new DefaultComboBoxModel<>();
         JLabel random_label1 = new JLabel(Translator.translate("shuffle.modo_paranoico_trng_csprng"));
@@ -523,6 +567,8 @@ public class NewGameDialog extends JDialog {
         radar_checkbox = new javax.swing.JCheckBox();
         cancel_button = new javax.swing.JButton();
         cancel_button.putClientProperty("i18n.key", "ui.cancelar");
+        bots_combobox = new javax.swing.JComboBox<>();
+        bots_label = new javax.swing.JLabel();
         titulo_ventana = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
@@ -602,7 +648,7 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap()
                 .addComponent(server_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, 512, Short.MAX_VALUE)
+                .addComponent(server_ip_textfield, javax.swing.GroupLayout.DEFAULT_SIZE, 521, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
                 .addComponent(server_port_puntos)
                 .addGap(0, 0, 0)
@@ -619,10 +665,9 @@ public class NewGameDialog extends JDialog {
                 .addGap(0, 0, Short.MAX_VALUE)
                 .addComponent(upnp_checkbox))
             .addGroup(javax.swing.GroupLayout.Alignment.LEADING, url_panelLayout.createSequentialGroup()
-                .addGroup(url_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(server_port_puntos, javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(server_port_textfield, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addComponent(server_port_puntos)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addComponent(server_port_textfield)
         );
 
         server_label.putClientProperty("i18n.key", "ui.servidor");
@@ -1101,6 +1146,17 @@ public class NewGameDialog extends JDialog {
             }
         });
 
+        bots_combobox.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
+        bots_combobox.setSelectedItem(1);
+        bots_combobox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bots_comboboxActionPerformed(evt);
+            }
+        });
+
+        bots_label.setFont(new java.awt.Font("Segoe UI", 1, 16)); // NOI18N
+        bots_label.setText("Dificultad bots:");
+
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);
         main_panelLayout.setHorizontalGroup(
@@ -1113,6 +1169,12 @@ public class NewGameDialog extends JDialog {
                 .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE))
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, main_panelLayout.createSequentialGroup()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(bots_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
         main_panelLayout.setVerticalGroup(
             main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1123,7 +1185,11 @@ public class NewGameDialog extends JDialog {
                 .addComponent(recover_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(18, 18, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(bots_label))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
@@ -1701,8 +1767,28 @@ public class NewGameDialog extends JDialog {
         pack();
     }//GEN-LAST:event_game_comboItemStateChanged
 
+    private void bots_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bots_comboboxActionPerformed
+        // TODO add your handling code here:
+        switch (bots_combobox.getSelectedIndex()) {
+            case 0:
+                Bot.DIFFICULTY = Bot.Difficulty.EASY;
+                break;
+            case 1:
+                Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
+                break;
+            case 2:
+                Bot.DIFFICULTY = Bot.Difficulty.HARD;
+                break;
+            default:
+                Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
+                break;
+        }
+    }//GEN-LAST:event_bots_comboboxActionPerformed
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
+    private javax.swing.JComboBox<String> bots_combobox;
+    private javax.swing.JLabel bots_label;
     private javax.swing.JLabel buyin_label;
     private javax.swing.JSpinner buyin_spinner;
     private javax.swing.JButton cancel_button;

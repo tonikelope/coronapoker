@@ -6139,7 +6139,11 @@ public class Crupier implements Runnable {
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
 
                 if (this.street == Crupier.PREFLOP) {
-                    if (decision == Player.CHECK || decision == Player.BET || decision == Player.ALLIN) {
+                    // VPIP: Only count if player voluntarily puts money in. BB checking their option is NOT VPIP.
+                    boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
+                            && decision == Player.CHECK
+                            && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0;
+                    if (!isBBCheck && (decision == Player.CHECK || decision == Player.BET || decision == Player.ALLIN)) {
                         stats.recordVPIP(this.conta_mano);
                     }
                     if (decision == Player.BET || decision == Player.ALLIN) {
@@ -8048,6 +8052,17 @@ public class Crupier implements Runnable {
                     }
                 }
             }
+
+            // Track hand result for bot tilt simulation
+            if (GameFrame.getInstance().isPartida_local()
+                    && jugador_actual != GameFrame.getInstance().getLocalPlayer()
+                    && jugador_actual instanceof RemotePlayer) {
+                Bot bot = ((RemotePlayer) jugador_actual).getBot();
+                if (bot != null) {
+                    bot.recordHandResult(ganadores.containsKey(jugador_actual));
+                }
+            }
+
             pos = (pos + 1) % GameFrame.getInstance().getJugadores().size();
         } while (pos != pivote);
     }

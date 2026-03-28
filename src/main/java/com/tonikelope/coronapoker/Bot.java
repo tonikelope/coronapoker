@@ -428,6 +428,31 @@ public class Bot {
         double npot = HANDPOTENTIAL.getLastNPot();
         double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
+        // --- RELATIVE STRENGTH FIXES ---
+        // 1. Pocket Pair vs Overcards (The "22 vs AKJ" fix)
+        if (holeCard1.getRank() == holeCard2.getRank()) {
+            int overcards = 0;
+            for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
+                if (BOT_COMMUNITY_CARDS.getCard(i).getRank() > holeCard1.getRank()) {
+                    overcards++;
+                }
+            }
+            if (overcards >= 2) {
+                effectiveStrength -= (0.15 * overcards);
+                logVerbose("Overcard Penalty: Pair crushed by " + overcards + " cards.");
+            }
+        }
+
+        // 2. Weak Kicker Penalty (Top Pair with garbage kicker)
+        if (strength > 0.50 && strength < 0.80 && holeCard1.getRank() != holeCard2.getRank()) {
+            int lowCard = Math.min(holeCard1.getRank(), holeCard2.getRank());
+            if (lowCard < 6) { // Kicker lower than 8
+                effectiveStrength -= 0.12;
+                logVerbose("Weak Kicker Penalty applied.");
+            }
+        }
+        effectiveStrength = Math.max(0.10, effectiveStrength); // Sanity floor
+
         if (street != previousStreet) {
             if (previousStrength != -1.0) {
                 scareCardDetected = ((effectiveStrength - previousStrength) < -0.15);
@@ -613,9 +638,13 @@ public class Bot {
             }
         }
 
-        if (evRaise > 0 && effectiveStrength > 0.55) {
+        // Value bet only if strength justifies it AND board isn't terrifying
+        boolean boardTooScary = boardTexture.totalScore >= 5 && effectiveStrength < 0.85;
+        if (evRaise > 0 && effectiveStrength > 0.55 && !boardTooScary) {
             logVerbose("Standard Value Bet based on EV.");
             return Player.BET;
+        } else if (boardTooScary && evRaise > 0) {
+            logVerbose("Value bet blocked: Board texture too dangerous for current strength.");
         }
 
         if (skillLevel == Skill.RECREATIONAL && onTilt && effectiveStrength > 0.35) {
@@ -636,8 +665,18 @@ public class Bot {
 
         // Fix: Dynamic Check-Raise Execution instead of pre-flop flag
         if (skillLevel != Skill.RECREATIONAL && currentProfile != Profile.STATION && betCount == 1 && street < Crupier.RIVER) {
-            if (effectiveStrength >= 0.82 && betRatio < 0.75 && boardTexture.totalScore <= 3) {
-                logVerbose("Dynamic Check-Raise executed. Favorable hand, texture, and bet size.");
+            // Refined Check-Raise: Ensure no overcards are crushing our hand
+            boolean hasOvercards = false;
+            if (holeCard1.getRank() == holeCard2.getRank()) {
+                for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
+                    if (BOT_COMMUNITY_CARDS.getCard(i).getRank() > holeCard1.getRank()) {
+                        hasOvercards = true;
+                    }
+                }
+            }
+
+            if (effectiveStrength >= 0.82 && betRatio < 0.75 && boardTexture.totalScore <= 3 && !hasOvercards) {
+                logVerbose("Dynamic Check-Raise executed. Favorable hand and texture.");
                 return Player.BET;
             }
         }

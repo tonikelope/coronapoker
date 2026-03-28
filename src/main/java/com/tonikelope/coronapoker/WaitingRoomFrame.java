@@ -2701,8 +2701,6 @@ public class WaitingRoomFrame extends JFrame {
 
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
-                    mostrarMensajeError(THIS, "UNEXPECTED ERROR -> " + ex.toString());
-                    System.exit(1);
                 }
 
                 if (WaitingRoomFrame.getInstance() != null && GameFrame.getInstance() != null

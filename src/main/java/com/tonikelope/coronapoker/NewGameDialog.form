@@ -726,7 +726,7 @@
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <AuxValues>
-                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="randomorg_label.putClientProperty(&quot;i18n.key&quot;, &quot;randomorg_api_key_opcional&quot;);"/>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="randomorg_label.putClientProperty(&quot;i18n.key&quot;, &quot;shuffle.randomorg_api_key_opcional&quot;);"/>
                           </AuxValues>
                         </Component>
                         <Component class="javax.swing.JLabel" name="random_label">

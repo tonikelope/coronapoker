@@ -918,7 +918,7 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap())
         );
 
-        randomorg_label.putClientProperty("i18n.key", "randomorg_api_key_opcional");
+        randomorg_label.putClientProperty("i18n.key", "shuffle.randomorg_api_key_opcional");
         random_label.putClientProperty("i18n.key", "shuffle.algoritmo_para_barajar");
 
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);

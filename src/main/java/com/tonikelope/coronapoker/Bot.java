@@ -1,17 +1,30 @@
 /*
  * Copyright (C) 2020 tonikelope
- * _              _ _        _                 
- * | |_ ___  _ __ (_) | _____| | ___  _ __  ___ 
- * | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
- * | || (_) | | | | |   <  __/ | (_) | |_) |  __/
- * \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- * ____    ___  ____    ___  
- * |___ \  / _ \|___ \  / _ \ 
- * __) || | | | __) || | | |
- * / __/ | |_| |/ __/ | |_| |
- * |_____| \___/|_____| \___/ 
+ _              _ _        _                  
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
+| || (_) | | | | |   <  __/ | (_) | |_) |  __/
+ \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
+ ____    ___  ____    ___  
+|___ \  / _ \|___ \  / _ \ 
+  __) || | | | __) || | | |
+ / __/ | |_| |/ __/ | |_| |
+|_____| \___/|_____| \___/ 
+
+https://github.com/tonikelope/coronapoker
  *
- * https://github.com/tonikelope/coronapoker
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
@@ -19,9 +32,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * HUMANIZED EXPLOITATIVE ENGINE Balanced for a fun, realistic club-level poker
- * experience. Features softened MDF (fear factor), reduced geometric pressure,
- * and heavily weighted TAG profiles.
+ * THE "PERFECT" REALISTIC ENGINE (V3 - Final) - Double-Axis System: Skill
+ * (Recreational, Regular, Shark) + Profile (Tag, Lag, Station, Nit). - Restored
+ * Opponent Tracking: Skilled bots dynamically adjust their Fold Equity and Call
+ * logic based on the human player's historical tendencies. - Crupier
+ * Compatibility: All original API converters restored.
  *
  * @author tonikelope
  */
@@ -47,9 +62,14 @@ public class Bot {
         NIT, STATION, TAG, LAG
     }
 
+    public enum Skill {
+        RECREATIONAL, REGULAR, SHARK
+    }
+
     private volatile RemotePlayer cpuPlayer = null;
-    private volatile Profile currentProfile;
     private volatile Profile baseProfile;
+    private volatile Profile currentProfile;
+    private volatile Skill skillLevel;
 
     private volatile org.alberta.poker.Card holeCard1 = null;
     private volatile org.alberta.poker.Card holeCard2 = null;
@@ -57,13 +77,11 @@ public class Bot {
     private volatile boolean slowPlay = false;
     private volatile boolean cBetInitiative = false;
 
-    // Delta Analysis & Bayesian Memory
     private volatile double previousStrength = -1.0;
     private volatile int previousStreet = -1;
     private volatile boolean scareCardDetected = false;
-    private volatile boolean highActionPot = false;
 
-    // --- INNER CLASS: OPPONENT TRACKER ---
+    // --- OPPONENT TRACKER ---
     public static class OpponentTracker {
 
         private int handsPlayed = 0;
@@ -110,9 +128,9 @@ public class Bot {
 
         public double getAF() {
             if (postFlopCalls == 0) {
-                return postFlopBetsAndRaises > 0 ? 5.0 : 1.0;
+                return postFlopBetsAndRaises > 0 ? 3.0 : 1.0;
             }
-            return Math.min(5.0, (double) postFlopBetsAndRaises / postFlopCalls);
+            return Math.min(3.0, (double) postFlopBetsAndRaises / postFlopCalls);
         }
 
         public boolean isStation() {
@@ -124,27 +142,56 @@ public class Bot {
         }
 
         public boolean isManiac() {
-            return handsPlayed > 10 && getVPIP() > 0.40 && getPFR() > 0.25 && getAF() > 2.0;
+            return handsPlayed > 10 && getVPIP() > 0.35 && getAF() > 2.0;
         }
     }
 
     public Bot(RemotePlayer player) {
         this.cpuPlayer = player;
-        assignBaseProfile();
+        assignPersonality();
     }
 
-    private void assignBaseProfile() {
-        int roll = Helpers.CSPRNG_GENERATOR.nextInt(100);
-        // More human distribution: mostly solid players, a few stations, rare maniacs/nits
-        if (roll < 10) {
-            baseProfile = Profile.NIT; // 10% Rock
-        } else if (roll < 35) {
-            baseProfile = Profile.STATION; // 25% Calling Station (fun to value bet)
-        } else if (roll < 90) {
-            baseProfile = Profile.TAG; // 55% Solid Standard
+    /**
+     * Logically distributes Skill and Profile so they don't contradict each
+     * other.
+     */
+    private void assignPersonality() {
+        int skillRoll = Helpers.CSPRNG_GENERATOR.nextInt(100);
+        int styleRoll = Helpers.CSPRNG_GENERATOR.nextInt(100);
+
+        // 1. Determine Skill Level
+        if (skillRoll < 30) {
+            skillLevel = Skill.RECREATIONAL;      // 30% Weak players
+        } else if (skillRoll < 90) {
+            skillLevel = Skill.REGULAR;      // 60% Solid Club Players
         } else {
-            baseProfile = Profile.LAG; // 10% Aggressive
+            skillLevel = Skill.SHARK;                            // 10% Dangerous Pros
         }
+        // 2. Determine Profile based on Skill (Logical distribution)
+        if (skillLevel == Skill.RECREATIONAL) {
+            if (styleRoll < 60) {
+                baseProfile = Profile.STATION;    // Mostly passive callers
+            } else if (styleRoll < 85) {
+                baseProfile = Profile.LAG;   // Some crazy maniacs
+            } else {
+                baseProfile = Profile.NIT;                       // Few scared rocks
+            }
+        } else if (skillLevel == Skill.REGULAR) {
+            if (styleRoll < 70) {
+                baseProfile = Profile.TAG;        // Mostly standard solid
+            } else if (styleRoll < 90) {
+                baseProfile = Profile.NIT;   // Some overly tight
+            } else {
+                baseProfile = Profile.LAG;                       // Few aggressive regs
+            }
+        } else { // SHARK
+            if (styleRoll < 75) {
+                baseProfile = Profile.TAG;        // Optimal aggressive
+            } else {
+                baseProfile = Profile.LAG;                       // Hyper-aggressive optimal
+            }
+        }
+
         currentProfile = baseProfile;
     }
 
@@ -154,10 +201,15 @@ public class Bot {
         float blindsCost = dealer.getCiega_grande() + dealer.getCiega_pequeña();
         float mRatio = stack / (blindsCost > 0 ? blindsCost : 1);
 
-        if (mRatio < 12.0f && (baseProfile == Profile.LAG || baseProfile == Profile.STATION)) {
-            currentProfile = Profile.TAG;
-        } else if (mRatio > 60.0f && baseProfile == Profile.NIT) {
-            currentProfile = Profile.TAG;
+        // Sharks and Regs adapt to stack sizes. Recreationals just play their base style.
+        if (skillLevel != Skill.RECREATIONAL) {
+            if (mRatio < 12.0f && baseProfile == Profile.LAG) {
+                currentProfile = Profile.TAG;
+            } else if (mRatio > 60.0f && baseProfile == Profile.NIT) {
+                currentProfile = Profile.TAG;
+            } else {
+                currentProfile = baseProfile;
+            }
         } else {
             currentProfile = baseProfile;
         }
@@ -168,13 +220,19 @@ public class Bot {
         holeCard2 = Bot.coronaCard2LokiCard(cpuPlayer.getHoleCard2());
 
         adjustProfileElasticity();
-        slowPlay = Helpers.CSPRNG_GENERATOR.nextInt(100) < (currentProfile == Profile.TAG ? 15 : 5);
+
+        // Only skilled players slowplay properly
+        if (skillLevel == Skill.RECREATIONAL) {
+            slowPlay = false;
+        } else {
+            slowPlay = Helpers.CSPRNG_GENERATOR.nextInt(100) < (currentProfile == Profile.TAG ? 15 : 5);
+        }
+
         callCount = 0;
         cBetInitiative = false;
         previousStrength = -1.0;
         previousStreet = Crupier.PREFLOP;
         scareCardDetected = false;
-        highActionPot = false;
     }
 
     public float getBetSize() {
@@ -185,44 +243,37 @@ public class Bot {
         float bb = dealer.getCiega_grande();
         float targetBet;
 
-        OpponentTracker targetStats = getPrimaryOpponentStats();
-
         if (dealer.getStreet() == Crupier.PREFLOP) {
             if (dealer.getConta_bet() > 0) {
-                // Standard 3-bet sizing
-                boolean oop = !isInPositionPostflop();
-                targetBet = minRaise * (oop ? 3.5f : 3.0f);
+                targetBet = Math.min(minRaise * 3.0f, (pot > 0 ? pot * 1.5f : minRaise * 4.0f));
             } else {
                 int limpers = dealer.getLimpersCount();
                 targetBet = (2.5f + (limpers * 1.5f)) * bb;
             }
         } else {
             int textureScore = calculateBoardTexture();
-            boolean inPosition = isInPositionPostflop();
 
-            // Relaxed sizing: less suffocating geometric pressure, more standard poker fractions
-            if (targetStats != null && targetStats.isStation()) {
-                targetBet = pot * 0.80f; // Solid value against stations
+            // Skill dictates sizing logic. Recreationals use simple sizing, skilled use texture.
+            if (skillLevel == Skill.RECREATIONAL) {
+                targetBet = pot * 0.50f; // Simple half pot
             } else {
                 if (textureScore >= 3) {
-                    targetBet = pot * (inPosition ? 0.60f : 0.75f); // Protect hands but don't over-commit
+                    targetBet = pot * 0.70f; // Protect on wet boards
                 } else if (textureScore == 2) {
-                    targetBet = pot * 0.50f; // Half pot standard
+                    targetBet = pot * 0.55f;
                 } else {
-                    targetBet = pot * 0.33f; // Dry board C-Bet
+                    targetBet = pot * 0.35f;
                 }
             }
 
-            // Occasional polarized River bets (human unpredictability)
-            if (dealer.getStreet() == Crupier.RIVER && currentProfile == Profile.LAG) {
-                if (Helpers.CSPRNG_GENERATOR.nextInt(100) < 10) {
-                    targetBet = pot * 1.25f; // Slight overbet, not crazy 1.5x
-                }
+            // Sharks use polarized overbets occasionally
+            if (skillLevel == Skill.SHARK && dealer.getStreet() == Crupier.RIVER && Helpers.CSPRNG_GENERATOR.nextInt(100) < 20) {
+                targetBet = pot * 1.25f;
             }
         }
 
-        // Gaussian Noise for varied sizing
-        if (Helpers.CSPRNG_GENERATOR.nextInt(100) < 15) {
+        // Noise
+        if (Helpers.CSPRNG_GENERATOR.nextInt(100) < 25) {
             targetBet += (targetBet * (Helpers.CSPRNG_GENERATOR.nextFloat() * 0.2f - 0.1f));
         }
 
@@ -241,12 +292,8 @@ public class Bot {
         int activePlayers = dealer.getJugadoresActivos();
         int betCount = dealer.getConta_bet();
 
-        if (betCount > 1) {
-            highActionPot = true;
-        }
-
         if (street == Crupier.PREFLOP) {
-            int decision = calculateGTOPreflopAction();
+            int decision = calculatePreflopAction(betCount);
             if (decision == Player.BET && currentProfile != Profile.STATION) {
                 cBetInitiative = true;
             }
@@ -269,121 +316,92 @@ public class Bot {
         double pot = dealer.getBote_total();
         double callCost = dealer.getApuesta_actual() - cpuPlayer.getBet();
         float spr = cpuPlayer.getStack() / (pot > 0 ? (float) pot : 1.0f);
+
         boolean potCommitted = false;
-
-        float multiWayFactor = (activePlayers > 2) ? 0.08f * activePlayers : 0f;
-
         if (callCost > 0) {
-            // slightly higher commitment thresholds so the bot doesn't stack off lightly
-            if (spr <= 3.0f && effectiveStrength >= (0.75 + multiWayFactor)) {
+            // Recreationals commit easier (they get married to their hands)
+            float commitAdjust = (skillLevel == Skill.RECREATIONAL) ? -0.05f : 0f;
+            if (spr <= 2.0f && effectiveStrength >= (0.80 + commitAdjust)) {
                 potCommitted = true;
-            } else if (spr <= 6.0f && effectiveStrength >= (0.88 + multiWayFactor)) {
-                potCommitted = true;
-            } else if (spr > 6.0f && effectiveStrength >= (0.95 + multiWayFactor)) {
+            } else if (spr <= 4.0f && effectiveStrength >= (0.90 + commitAdjust)) {
                 potCommitted = true;
             }
         }
 
-        boolean inPosition = isInPositionPostflop();
         double winProb = effectiveStrength;
-
-        // Softened Bayesian reduction
-        if (highActionPot && street >= Crupier.FLOP) {
-            winProb -= 0.10;
-        }
-
-        if (activePlayers > 2) {
-            winProb -= (activePlayers * 0.05);
-        }
-
-        if (scareCardDetected) {
-            winProb += (currentProfile == Profile.NIT || currentProfile == Profile.STATION) ? -0.25 : 0.00;
-        }
-        if (!inPosition) {
-            winProb -= 0.03;
-        }
-
         OpponentTracker targetStats = getPrimaryOpponentStats();
 
-        if (betCount > 0 && street > Crupier.PREFLOP && targetStats != null) {
-            double af = targetStats.getAF();
-            double vpip = targetStats.getVPIP();
-            if (af < 0.8) {
+        // COMPLEX LOGIC & TRACKER ANALYSIS (Skilled Bots Only)
+        if (skillLevel != Skill.RECREATIONAL) {
+            if (betCount > 1 && street >= Crupier.FLOP) {
+                winProb -= 0.10; // Respect action
+            }
+            if (activePlayers > 2) {
+                winProb -= 0.05; // Multiway fear
+            }
+            if (scareCardDetected && currentProfile != Profile.LAG) {
                 winProb -= 0.15;
-            } else if (af > 2.5 && vpip < 0.15) {
-                winProb -= 0.20;
-            } else if (af > 2.5) {
-                winProb += 0.05;
+            }
+            if (!isInPositionPostflop()) {
+                winProb -= 0.03;
+            }
+
+            // Analyze Opponent Stats
+            if (betCount > 0 && targetStats != null) {
+                if (targetStats.isNit()) {
+                    winProb -= 0.20; // Nits only bet with the absolute nuts
+                } else if (targetStats.isManiac()) {
+                    winProb += 0.15; // Maniacs bluff constantly. Play Sheriff.
+                }
             }
         }
 
         winProb = Math.max(0.0, Math.min(1.0, winProb));
         double impliedPot = pot;
-
         boolean safeDraw = (npot < 0.15);
 
+        // Implied odds calculation
         if (street < Crupier.RIVER && ppot > 0.15 && strength < 0.50 && safeDraw) {
-            double extractionFactor = 0.15; // More conservative implied odds
-            if (targetStats != null) {
-                if (targetStats.isStation()) {
-                    extractionFactor = 0.35;
-                } else if (targetStats.isNit()) {
-                    extractionFactor = 0.05;
-                }
-            }
-            impliedPot += (cpuPlayer.getStack() * extractionFactor);
+            impliedPot += (cpuPlayer.getStack() * 0.20);
         }
 
         double evCall = (winProb * impliedPot) - ((1.0 - winProb) * callCost);
-        double foldEquity = 0.20;
 
-        if (targetStats != null) {
+        // Fold Equity Calculation based on Opponent Tracking
+        double foldEquity = 0.20;
+        if (skillLevel == Skill.RECREATIONAL) {
+            foldEquity = 0.0; // Fish don't calculate fold equity
+        } else if (targetStats != null) {
             if (targetStats.isStation()) {
-                foldEquity -= 0.20;
+                foldEquity = 0.0; // NEVER bluff a calling station
             } else if (targetStats.isNit()) {
-                foldEquity += 0.15;
+                foldEquity += 0.15; // Nits fold easily to pressure
             }
         }
 
         double raiseAmount = getBetSize();
-        double betToPotRatio = raiseAmount / (pot > 0 ? pot : 1);
-        foldEquity += (betToPotRatio * 0.10);
-
-        if (betCount == 0) {
-            foldEquity += 0.15;
-        }
-        if (calculateBoardTexture() >= 3) {
-            foldEquity -= 0.10;
-        }
-        if (inPosition) {
-            foldEquity += 0.05;
-        }
-
-        foldEquity = Math.max(0, Math.min(0.75, foldEquity / Math.max(1, activePlayers - 1)));
         double raiseCost = raiseAmount - cpuPlayer.getBet();
         double evRaise = (foldEquity * impliedPot) + ((1.0 - foldEquity) * ((winProb * (impliedPot + raiseCost)) - ((1.0 - winProb) * raiseCost)));
 
         int decision = Player.FOLD;
-        boolean trappingAggro = (!inPosition && effectiveStrength >= 0.88 && targetStats != null && targetStats.getAF() >= 2.0);
 
         if (betCount == 0) {
-            if ((slowPlay || trappingAggro) && effectiveStrength >= 0.88 && street < Crupier.RIVER) {
+            if (slowPlay && effectiveStrength >= 0.90 && street < Crupier.RIVER) {
                 decision = Player.CHECK;
             } else if (street == Crupier.RIVER) {
-                if (effectiveStrength >= 0.70) { // Safer thin value
+                if (effectiveStrength >= 0.70) {
                     decision = Player.BET;
-                } else if (effectiveStrength < 0.30 && foldEquity > 0.40) {
+                } else if (skillLevel != Skill.RECREATIONAL && effectiveStrength < 0.30 && foldEquity > 0.25) {
+                    // Only skilled players run pure bluffs on the river, and ONLY if opponent isn't a station
                     boolean holdsBlocker = (holeCard1.getRank() >= 10 || holeCard2.getRank() >= 10);
-                    // Bluffs are slightly less frequent to feel more recreational
-                    boolean feelsLikeBluffing = Helpers.CSPRNG_GENERATOR.nextInt(100) < 60;
-                    decision = (holdsBlocker && feelsLikeBluffing) ? Player.BET : Player.CHECK;
+                    decision = holdsBlocker ? Player.BET : Player.CHECK;
                 } else {
                     decision = Player.CHECK;
                 }
-            } else if (cBetInitiative && street == Crupier.FLOP && evRaise > -0.5 && (targetStats == null || !targetStats.isStation())) {
+            } else if (cBetInitiative && street == Crupier.FLOP && evRaise > -0.5) {
                 decision = Player.BET;
                 cBetInitiative = false;
-            } else if (evRaise > 0 && evRaise > evCall) {
+            } else if (evRaise > 0 && evRaise > evCall && effectiveStrength > 0.60) {
                 decision = Player.BET;
                 callCount++;
             } else {
@@ -395,22 +413,26 @@ public class Bot {
                 evRaise = -9999;
             }
 
-            // HUMAN FEAR FACTOR (Softened MDF)
-            // Humans over-fold. We reduce the required defense threshold by 25%.
-            double mathMdf = pot / (pot + callCost);
-            double humanMdf = mathMdf * 0.75;
-            boolean passesHumanMdf = (winProb >= (1.0 - humanMdf));
+            double betRatio = callCost / (pot > 0 ? pot : 1);
+
+            // MDF / Fear Logic depends on Profile and Skill
+            if (betRatio > 0.50) {
+                if (currentProfile == Profile.STATION) {
+                    evCall += 20; // Stations don't care about bet size
+                } else if (currentProfile == Profile.NIT) {
+                    evCall -= 30; // Nits overfold to big bets
+                } else if (skillLevel == Skill.REGULAR && effectiveStrength < 0.75) {
+                    evCall -= 15; // Regs respect sizing
+                }
+            }
 
             if (potCommitted) {
                 decision = Player.CHECK;
                 callCount++;
-            } else if (evRaise > evCall && evRaise > 0 && effectiveStrength > 0.85 && currentProfile != Profile.STATION) {
+            } else if (evRaise > evCall && evRaise > 0 && effectiveStrength > 0.88 && currentProfile != Profile.STATION) {
                 decision = Player.BET;
                 callCount++;
-            } else if ((evCall > 0 || passesHumanMdf) && safeDraw) {
-                decision = Player.CHECK;
-                callCount++;
-            } else if (ppot > 1.5 * potOdds() && safeDraw) {
+            } else if ((evCall > 0) || (ppot > 1.5 * potOdds() && safeDraw)) {
                 decision = Player.CHECK;
                 callCount++;
             } else {
@@ -421,10 +443,8 @@ public class Bot {
         return decision;
     }
 
-    private int calculateGTOPreflopAction() {
+    private int calculatePreflopAction(int betCount) {
         Position pos = determinePosition();
-        int betCount = GameFrame.getInstance().getCrupier().getConta_bet();
-
         int v1 = holeCard1.getRank();
         int v2 = holeCard2.getRank();
         boolean suited = holeCard1.getSuit() == holeCard2.getSuit();
@@ -432,63 +452,61 @@ public class Bot {
         int low = Math.min(v1, v2);
         boolean isPair = (high == low);
 
-        int handPercentile = 5;
+        // 1: Premium, 2: Strong, 3: Playable, 4: Marginal, 5: Trash
+        int handTier = 5;
 
         if (isPair) {
-            if (high >= 9) {
-                handPercentile = 1;
-            } else if (high >= 6) {
-                handPercentile = 2;
+            if (high >= 10) {
+                handTier = 1; // QQ+
+            } else if (high >= 8) {
+                handTier = 2; // TT, JJ
             } else {
-                handPercentile = 3;
+                handTier = 3; // 22-99
             }
         } else if (high == 12) {
-            if (low >= 10) {
-                handPercentile = 1;
+            if (low >= 11) {
+                handTier = 1; // AK
             } else if (low >= 9) {
-                handPercentile = suited ? 1 : 2;
+                handTier = suited ? 2 : 3; // AQ, AJ
             } else if (suited) {
-                handPercentile = 3;
+                handTier = 3; // A2s-ATs
             } else {
-                handPercentile = 4;
+                handTier = 4; // A2o-ATo
             }
         } else if (high == 11) {
             if (low >= 10) {
-                handPercentile = suited ? 2 : 3;
+                handTier = suited ? 2 : 3; // KQ
             } else if (suited && low >= 8) {
-                handPercentile = 4;
+                handTier = 3;
+            } else {
+                handTier = 4;
             }
         } else if (suited && (high - low <= 2) && high >= 7) {
-            handPercentile = 3;
+            handTier = 3; // Suited connectors
         } else if (high >= 9 && low >= 8) {
-            handPercentile = 4;
+            handTier = 4; // Broadways
         }
 
-        // SOFTENED 3-BETTING
-        // Less robotic bluffs. Humans don't always 3-bet A5s unless they feel creative.
-        if (betCount == 1) {
-            boolean isMonster = (isPair && high >= 10) || (high == 12 && low == 11); // QQ+, AK
-            boolean isSuitedWheelAce = (high == 12 && suited && low <= 3);
+        // Stations play almost anything playable regardless of action
+        if (currentProfile == Profile.STATION && handTier <= 4 && betCount < 2) {
+            return Player.CHECK;
+        }
 
-            boolean feelsCreative = Helpers.CSPRNG_GENERATOR.nextInt(100) < 25; // Only 25% of the time
-
-            if (isMonster || (isSuitedWheelAce && feelsCreative)) {
+        if (betCount >= 2) {
+            if (handTier == 1) {
                 return Player.BET;
             }
-        }
-
-        if (betCount > 1 && cpuPlayer.getStack() > 0 && ((GameFrame.getInstance().getCrupier().getApuesta_actual() - cpuPlayer.getBet()) > (cpuPlayer.getStack() * 0.20f))) {
-            if (handPercentile == 1) {
+            if (handTier == 2 && skillLevel == Skill.RECREATIONAL) {
                 return Player.CHECK;
             }
             return Player.FOLD;
         }
 
-        if (betCount > 0) {
-            if (handPercentile <= 2) {
-                return (betCount < Bot.MAX_BET_COUNT && !slowPlay) ? Player.BET : Player.CHECK;
+        if (betCount == 1) {
+            if (handTier == 1) {
+                return Player.BET;
             }
-            if (handPercentile == 3 && currentProfile != Profile.NIT) {
+            if (handTier <= 3) {
                 return Player.CHECK;
             }
             return Player.FOLD;
@@ -496,33 +514,28 @@ public class Bot {
 
         switch (pos) {
             case EARLY:
-                if (handPercentile <= 2) {
+                if (handTier <= 2) {
                     return Player.BET;
                 }
-                if (handPercentile == 3 && (currentProfile == Profile.STATION || currentProfile == Profile.LAG)) {
+                if (handTier == 3 && currentProfile == Profile.STATION) {
                     return Player.CHECK;
                 }
                 return Player.FOLD;
             case MIDDLE:
-                if (handPercentile <= 3) {
+                if (handTier <= 3) {
                     return Player.BET;
                 }
-                if (handPercentile == 4 && currentProfile == Profile.LAG) {
+                return Player.FOLD;
+            case LATE:
+                if (handTier <= 4 && currentProfile != Profile.NIT) {
                     return Player.BET;
                 }
                 return Player.FOLD;
             case BLINDS:
-                if (betCount == 0) {
-                    if (handPercentile <= 3 && currentProfile != Profile.NIT) {
-                        return Player.BET;
-                    }
-                    return Player.CHECK;
-                }
-            case LATE:
-                if (handPercentile <= 4 && currentProfile != Profile.NIT) {
+                if (handTier <= 3 && currentProfile != Profile.NIT) {
                     return Player.BET;
                 }
-                return Player.FOLD;
+                return Player.CHECK;
             default:
                 return Player.FOLD;
         }
@@ -532,29 +545,11 @@ public class Bot {
         if (BOT_COMMUNITY_CARDS.size() < 3) {
             return 0;
         }
-
         int score = 0;
         int[] suits = new int[4];
-        int maxRank = 0;
-        int minRank = 14;
-        boolean pairOnBoard = false;
-        int[] ranks = new int[15];
-
         for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
-            org.alberta.poker.Card c = BOT_COMMUNITY_CARDS.getCard(i);
-            suits[c.getSuit()]++;
-            ranks[c.getRank()]++;
-            if (ranks[c.getRank()] == 2) {
-                pairOnBoard = true;
-            }
-            if (c.getRank() > maxRank) {
-                maxRank = c.getRank();
-            }
-            if (c.getRank() < minRank) {
-                minRank = c.getRank();
-            }
+            suits[BOT_COMMUNITY_CARDS.getCard(i).getSuit()]++;
         }
-
         for (int s : suits) {
             if (s == 2) {
                 score += 1;
@@ -562,17 +557,6 @@ public class Bot {
             if (s >= 3) {
                 score += 3;
             }
-        }
-
-        int gap = maxRank - minRank;
-        if (gap <= 4) {
-            score += 2;
-        } else if (gap <= 5) {
-            score += 1;
-        }
-
-        if (pairOnBoard) {
-            score += 1;
         }
         return Math.min(score, 5);
     }
@@ -603,6 +587,7 @@ public class Bot {
         return toCall / (d.getBote_total() + toCall);
     }
 
+    // --- RESTORED: THE "EYES" OF THE BOT ---
     private OpponentTracker getPrimaryOpponentStats() {
         Player lastAggressor = GameFrame.getInstance().getCrupier().getLast_aggressor();
         if (lastAggressor != null && TRACKER_MEMORY.containsKey(lastAggressor.getNickname())) {
@@ -611,15 +596,21 @@ public class Bot {
         return null;
     }
 
+    // --- API CONVERTERS RESTORED (Prevents Crupier Compilation Errors) ---
     public static int coronaCardSuit2LokiCardSuit(Card carta) {
         return Bot.SUITS.indexOf(carta.getPalo());
     }
 
+    // Overloaded to accept both primitive int and Integer object to be absolutely safe
     public static org.alberta.poker.Card coronaIntegerCard2LokiCard(int carta) {
         int v = (carta - 1) % 13;
         int val = (v == 0 ? 14 : v + 1);
         String palo = Card.PALOS[(int) ((float) (carta - 1) / 13)];
         return new org.alberta.poker.Card(val - 2, Bot.SUITS.indexOf(palo));
+    }
+
+    public static org.alberta.poker.Card coronaIntegerCard2LokiCard(Integer carta) {
+        return coronaIntegerCard2LokiCard(carta.intValue());
     }
 
     public static org.alberta.poker.Card coronaCard2LokiCard(Card carta) {

@@ -637,7 +637,6 @@ public class Init extends JFrame {
         update_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         update_button.setText("ACTUALIZAR");
         update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        update_button.setDoubleBuffered(true);
         update_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 update_buttonActionPerformed(evt);
@@ -652,7 +651,6 @@ public class Init extends JFrame {
         join_button.setText("UNIRME A TIMBA");
         join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         join_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        join_button.setDoubleBuffered(true);
         join_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 join_buttonMouseEntered(evt);
@@ -672,7 +670,6 @@ public class Init extends JFrame {
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
         stats_button.setText("ESTADÍSTICAS");
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        stats_button.setDoubleBuffered(true);
         stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 stats_buttonActionPerformed(evt);
@@ -685,7 +682,6 @@ public class Init extends JFrame {
         create_button.setText("CREAR TIMBA");
         create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        create_button.setDoubleBuffered(true);
         create_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 create_buttonMouseEntered(evt);
@@ -743,7 +739,6 @@ public class Init extends JFrame {
         exit_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit2.png"))); // NOI18N
         exit_button.setText("SALIR");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        exit_button.setDoubleBuffered(true);
         exit_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exit_buttonActionPerformed(evt);
@@ -843,7 +838,6 @@ public class Init extends JFrame {
 
         baraja_fondo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         baraja_fondo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        baraja_fondo.setDoubleBuffered(true);
         baraja_fondo.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 baraja_fondoMouseClicked(evt);

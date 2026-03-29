@@ -3561,7 +3561,6 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         main_scroll_panel.setBorder(null);
-        main_scroll_panel.setDoubleBuffered(true);
         main_scroll_panel.setPreferredSize(new java.awt.Dimension(700, 750));
 
         panel_arriba.setPreferredSize(new java.awt.Dimension(700, 487));
@@ -3569,12 +3568,10 @@ public class WaitingRoomFrame extends JFrame {
         status.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        status.setDoubleBuffered(true);
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
         sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        sound_icon.setDoubleBuffered(true);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -3585,7 +3582,6 @@ public class WaitingRoomFrame extends JFrame {
         panel_con.setFocusable(false);
         panel_con.setOpaque(false);
 
-        panel_conectados.setDoubleBuffered(true);
         panel_conectados.setFocusable(false);
         panel_conectados.setOpaque(false);
 
@@ -3594,7 +3590,6 @@ public class WaitingRoomFrame extends JFrame {
         conectados.setToolTipText("Participantes conectados");
         conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListLabel());
         conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        conectados.setDoubleBuffered(true);
         conectados.setFocusable(false);
         conectados.setOpaque(false);
         panel_conectados.setViewportView(conectados);
@@ -3604,7 +3599,6 @@ public class WaitingRoomFrame extends JFrame {
         kick_user.setForeground(new java.awt.Color(255, 255, 255));
         kick_user.setText("Expulsar jugador");
         kick_user.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        kick_user.setDoubleBuffered(true);
         kick_user.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 kick_userActionPerformed(evt);
@@ -3637,7 +3631,6 @@ public class WaitingRoomFrame extends JFrame {
         empezar_timba.setForeground(new java.awt.Color(255, 255, 255));
         empezar_timba.setText("¡A JUGAR!");
         empezar_timba.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        empezar_timba.setDoubleBuffered(true);
         empezar_timba.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 empezar_timbaActionPerformed(evt);
@@ -3650,7 +3643,6 @@ public class WaitingRoomFrame extends JFrame {
         new_bot_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/robot.png"))); // NOI18N
         new_bot_button.setText("AÑADIR BOT");
         new_bot_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        new_bot_button.setDoubleBuffered(true);
         new_bot_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 new_bot_buttonActionPerformed(evt);
@@ -3660,7 +3652,6 @@ public class WaitingRoomFrame extends JFrame {
         game_info_blinds.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         game_info_blinds.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
         game_info_blinds.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        game_info_blinds.setDoubleBuffered(true);
         game_info_blinds.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 game_info_blindsMouseClicked(evt);
@@ -3670,7 +3661,6 @@ public class WaitingRoomFrame extends JFrame {
         game_info_hands.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         game_info_hands.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
         game_info_hands.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        game_info_hands.setDoubleBuffered(true);
         game_info_hands.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 game_info_handsMouseClicked(evt);
@@ -3680,7 +3670,6 @@ public class WaitingRoomFrame extends JFrame {
         logo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         logo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_poker_15.png"))); // NOI18N
         logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        logo.setDoubleBuffered(true);
         logo.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 logoMouseClicked(evt);
@@ -3714,7 +3703,6 @@ public class WaitingRoomFrame extends JFrame {
         server_address_label.setText("1.1.1.1");
         server_address_label.setToolTipText("Click para obtener datos de conexión");
         server_address_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        server_address_label.setDoubleBuffered(true);
         server_address_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 server_address_labelMouseClicked(evt);
@@ -3722,7 +3710,6 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         radar.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/shield.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)));
-        radar.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
@@ -3834,7 +3821,6 @@ public class WaitingRoomFrame extends JFrame {
         chat_notifications.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         chat_notifications.setText("Notificaciones del chat durante el juego");
         chat_notifications.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        chat_notifications.setDoubleBuffered(true);
         chat_notifications.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 chat_notificationsActionPerformed(evt);
@@ -3843,13 +3829,11 @@ public class WaitingRoomFrame extends JFrame {
 
         chat_scroll.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         chat_scroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
-        chat_scroll.setDoubleBuffered(true);
 
         chat.setEditable(false);
         chat.setBorder(null);
         chat.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        chat.setDoubleBuffered(true);
         chat.setFocusable(false);
         chat.addCaretListener(new javax.swing.event.CaretListener() {
             public void caretUpdate(javax.swing.event.CaretEvent evt) {
@@ -3869,7 +3853,6 @@ public class WaitingRoomFrame extends JFrame {
         chat_scroll.setViewportView(chat);
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        chat_box.setDoubleBuffered(true);
         chat_box.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 chat_boxActionPerformed(evt);
@@ -3878,7 +3861,6 @@ public class WaitingRoomFrame extends JFrame {
 
         emoji_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1.png"))); // NOI18N
         emoji_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        emoji_button.setDoubleBuffered(true);
         emoji_button.setMargin(new java.awt.Insets(2, 2, 2, 2));
         emoji_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -3889,7 +3871,6 @@ public class WaitingRoomFrame extends JFrame {
         image_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/chat_image.png"))); // NOI18N
         image_button.setToolTipText("Enviar imagen");
         image_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        image_button.setDoubleBuffered(true);
         image_button.setMargin(new java.awt.Insets(0, 0, 0, 0));
         image_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -3898,7 +3879,6 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         send_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        send_label.setDoubleBuffered(true);
         send_label.setFocusable(false);
         send_label.setRequestFocusEnabled(false);
         send_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -3908,7 +3888,6 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         max_min_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        max_min_label.setDoubleBuffered(true);
         max_min_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 max_min_labelMouseClicked(evt);
@@ -3918,7 +3897,6 @@ public class WaitingRoomFrame extends JFrame {
         avatar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         avatar_label.setText("Toni");
         avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        avatar_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout chat_box_panelLayout = new javax.swing.GroupLayout(chat_box_panel);
         chat_box_panel.setLayout(chat_box_panelLayout);
@@ -3952,7 +3930,6 @@ public class WaitingRoomFrame extends JFrame {
 
         emoji_scroll_panel.setBorder(null);
         emoji_scroll_panel.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
-        emoji_scroll_panel.setDoubleBuffered(true);
         emoji_scroll_panel.setFocusable(false);
         emoji_scroll_panel.setRequestFocusEnabled(false);
         emoji_scroll_panel.addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -3966,7 +3943,6 @@ public class WaitingRoomFrame extends JFrame {
         tts_warning.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         tts_warning.setText("Aviso: la privacidad del CHAT no está garantizada si algún jugador usa la función de voz TTS (click para más info).");
         tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        tts_warning.setDoubleBuffered(true);
         tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 tts_warningMouseClicked(evt);
@@ -4001,7 +3977,6 @@ public class WaitingRoomFrame extends JFrame {
         latency_label.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
         latency_label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
         latency_label.setText("Latencia del servidor: 0 ms | 0 ms");
-        latency_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);

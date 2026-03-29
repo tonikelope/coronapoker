@@ -2016,6 +2016,43 @@ public class Helpers {
         }
     }
 
+    /**
+     * Reliably restarts the CoronaPoker application by spawning a new JVM
+     * process and terminating the current one.
+     */
+    public static void restartCoronaPoker() {
+        try {
+            // 1. Get the Java executable and the current JAR paths
+            String javaBin = Helpers.getJavaBinPath();
+            String currentJar = Helpers.getCurrentJarPath();
+
+            // 2. Build the launch command: java -jar CoronaPoker.jar
+            ProcessBuilder builder = new ProcessBuilder(javaBin, "-jar", currentJar);
+
+            // Set the working directory to the folder where the JAR is located
+            builder.directory(new java.io.File(Helpers.getCurrentJarParentPath()));
+
+            // 3. Start the new independent process
+            builder.start();
+
+            // 4. Safely close resources to prevent locks in the new instance
+            Helpers.closeSQLITE();
+            if (Helpers.THREAD_POOL != null) {
+                Helpers.SHUTDOWN_THREAD_POOL();
+            }
+
+            // 5. Terminate the current JVM instance
+            System.exit(0);
+
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(Helpers.class.getName())
+                    .log(java.util.logging.Level.SEVERE, "Critical error during restart", ex);
+
+            // Fallback to manual restart if process creation fails
+            Helpers.mostrarMensajeError(null, "RESTART ERROR");
+        }
+    }
+
     public static void updateFonts(final Component component, final Font font, final Float zoom_factor) {
 
         if (component != null) {

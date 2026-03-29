@@ -113,6 +113,8 @@ public class Init extends JFrame {
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
+    public static final String[] GLOBAL_ZOOM_VALUES = new String[]{"0.5", "0.75", "1", "1.25", "1.5", "1.75", "2"};
+    public static volatile int GLOBAL_ZOOM_INDEX = 2;
     public static volatile Init VENTANA_INICIO = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
@@ -130,7 +132,9 @@ public class Init extends JFrame {
     static {
         LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
 
-        System.setProperty("sun.java2d.uiScale", "1");
+        loadGlobalZoomFactor();
+
+        System.setProperty("sun.java2d.uiScale", GLOBAL_ZOOM_VALUES[GLOBAL_ZOOM_INDEX]);
 
         if (Helpers.OSValidator.isUnix()) {
             System.setProperty("sun.java2d.opengl", "true");
@@ -156,6 +160,17 @@ public class Init extends JFrame {
             LOGGER.log(Level.WARNING, "Huevos is not present!");
         }
 
+    }
+
+    private static void loadGlobalZoomFactor() {
+
+        String i = Helpers.PROPERTIES.getProperty("global_scale", "2");
+
+        GLOBAL_ZOOM_INDEX = Integer.parseInt(i);
+
+        if (GLOBAL_ZOOM_INDEX < 0 || GLOBAL_ZOOM_INDEX > GLOBAL_ZOOM_VALUES.length - 1) {
+            GLOBAL_ZOOM_INDEX = 2;
+        }
     }
 
     private static JWindow panoptes_splash;
@@ -234,12 +249,31 @@ public class Init extends JFrame {
         });
     }
 
+    private void initTranslations() {
+
+        // Asignamos las "etiquetas" (keys) de traducción a cada componente.
+        // Como esto está fuera de initComponents, NetBeans NUNCA lo borrará.
+        update_label.putClientProperty("i18n.key", "ui.comprobando_actualizacion");
+        update_button.putClientProperty("i18n.key", "update.actualizar");
+        join_button.putClientProperty("i18n.key", "ui.unirme_a_timba");
+        stats_button.putClientProperty("i18n.key", "ui.estadisticas");
+        create_button.putClientProperty("i18n.key", "ui.crear_timba");
+        exit_button.putClientProperty("i18n.key", "ui.salir");
+
+        // También los Tooltips
+        sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
+
+    }
+
     /**
      * Creates new form Inicio
      */
     public Init() {
 
         initComponents();
+
+        initTranslations();
+
         translateGlobalLabels();
 
         setTitle(Init.WINDOW_TITLE);
@@ -307,6 +341,8 @@ public class Init extends JFrame {
         } else {
             language_combobox.setSelectedIndex(1);
         }
+
+        global_zoom_combobox.setSelectedIndex(GLOBAL_ZOOM_INDEX);
 
         create_button.setBackground(Color.WHITE);
 
@@ -564,6 +600,7 @@ public class Init extends JFrame {
         sound_icon = new javax.swing.JLabel();
         exit_button = new javax.swing.JButton();
         language_combobox = new javax.swing.JComboBox<>();
+        global_zoom_combobox = new javax.swing.JComboBox<>();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
@@ -594,14 +631,13 @@ public class Init extends JFrame {
         update_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         update_label.setForeground(new java.awt.Color(255, 255, 255));
         update_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        update_label.setText(Translator.translate("ui.comprobando_actualizacion"));
-        update_label.putClientProperty("i18n.key", "ui.comprobando_actualizacion");
+        update_label.setText("COMPROBANDO ACTUALIZACIÓN...");
         update_label.setOpaque(true);
 
         update_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        update_button.setText(Translator.translate("update.actualizar"));
-        update_button.putClientProperty("i18n.key", "update.actualizar");
+        update_button.setText("ACTUALIZAR");
         update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        update_button.setDoubleBuffered(true);
         update_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 update_buttonActionPerformed(evt);
@@ -613,10 +649,10 @@ public class Init extends JFrame {
         join_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         join_button.setForeground(new java.awt.Color(102, 0, 204));
         join_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/unirme.png"))); // NOI18N
-        join_button.setText(Translator.translate("ui.unirme_a_timba"));
-        join_button.putClientProperty("i18n.key", "ui.unirme_a_timba");
+        join_button.setText("UNIRME A TIMBA");
         join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         join_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        join_button.setDoubleBuffered(true);
         join_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 join_buttonMouseEntered(evt);
@@ -634,9 +670,9 @@ public class Init extends JFrame {
         stats_button.setBackground(new java.awt.Color(255, 102, 0));
         stats_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
-        stats_button.setText(Translator.translate("ui.estadisticas"));
-        stats_button.putClientProperty("i18n.key", "ui.estadisticas");
+        stats_button.setText("ESTADÍSTICAS");
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        stats_button.setDoubleBuffered(true);
         stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 stats_buttonActionPerformed(evt);
@@ -646,10 +682,10 @@ public class Init extends JFrame {
         create_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         create_button.setForeground(new java.awt.Color(102, 0, 204));
         create_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/crear.png"))); // NOI18N
-        create_button.setText(Translator.translate("ui.crear_timba"));
-        create_button.putClientProperty("i18n.key", "ui.crear_timba");
+        create_button.setText("CREAR TIMBA");
         create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        create_button.setDoubleBuffered(true);
         create_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 create_buttonMouseEntered(evt);
@@ -693,7 +729,7 @@ public class Init extends JFrame {
         jPanel1.setOpaque(false);
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
-        sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
+        sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -705,9 +741,9 @@ public class Init extends JFrame {
         exit_button.setBackground(new java.awt.Color(204, 0, 0));
         exit_button.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
         exit_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit2.png"))); // NOI18N
-        exit_button.setText(Translator.translate("ui.salir"));
-        exit_button.putClientProperty("i18n.key", "ui.salir");
+        exit_button.setText("SALIR");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_button.setDoubleBuffered(true);
         exit_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exit_buttonActionPerformed(evt);
@@ -723,13 +759,24 @@ public class Init extends JFrame {
             }
         });
 
+        global_zoom_combobox.setFont(new java.awt.Font("Segoe UI", 0, 20)); // NOI18N
+        global_zoom_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "50%", "75%", "100%", "125%", "150%", "175%", "200%" }));
+        global_zoom_combobox.setSelectedIndex(2);
+        global_zoom_combobox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                global_zoom_comboboxActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -738,11 +785,14 @@ public class Init extends JFrame {
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
-                    .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(exit_button)
                     .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE))
+                .addGap(0, 0, Short.MAX_VALUE))
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(0, 0, 0)
+                .addComponent(global_zoom_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 46, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
 
@@ -793,6 +843,7 @@ public class Init extends JFrame {
 
         baraja_fondo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         baraja_fondo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        baraja_fondo.setDoubleBuffered(true);
         baraja_fondo.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 baraja_fondoMouseClicked(evt);
@@ -1011,6 +1062,29 @@ public class Init extends JFrame {
         join_button.setBackground(new Color(102, 0, 204));
         join_button.setForeground(Color.WHITE);
     }//GEN-LAST:event_join_buttonMouseEntered
+
+    private void global_zoom_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_global_zoom_comboboxActionPerformed
+        // TODO add your handling code here:
+        if (VENTANA_INICIO != null) {
+
+            int old = GLOBAL_ZOOM_INDEX;
+
+            if (old != global_zoom_combobox.getSelectedIndex() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("ui.zoom_global_restart")) == 0) {
+
+                GLOBAL_ZOOM_INDEX = global_zoom_combobox.getSelectedIndex();
+
+                Helpers.PROPERTIES.setProperty("global_scale", String.valueOf(global_zoom_combobox.getSelectedIndex()));
+
+                Helpers.savePropertiesFile();
+
+                Helpers.restartCoronaPoker();
+
+            } else {
+                global_zoom_combobox.setSelectedIndex(old);
+            }
+        }
+
+    }//GEN-LAST:event_global_zoom_comboboxActionPerformed
 
     public static void ensureRequiredJvmParameters(String[] args, Class<?> mainClass) {
         List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
@@ -1354,6 +1428,7 @@ public class Init extends JFrame {
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
     private javax.swing.JButton exit_button;
+    private javax.swing.JComboBox<String> global_zoom_combobox;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;

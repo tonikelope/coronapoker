@@ -152,6 +152,7 @@ public class Panoptes {
             }
 
             if (needsLibUpdate || needsKeyUpdate) {
+                Helpers.cleanOldTempCrupierFiles();
                 LOGGER.log(Level.INFO, "[PANOPTES] UPDATE COMPLETED");
             } else {
                 LOGGER.log(Level.INFO, "[PANOPTES] Integrity verified. Native engine is up to date.");

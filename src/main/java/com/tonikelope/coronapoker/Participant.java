@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2020 tonikelope
- _              _ _        _                  
+ _              _ _        _                 
 | |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
 | || (_) | | | | |   <  __/ | (_) | |_) |  __/
@@ -12,24 +12,10 @@
 |_____| \___/|_____| \___/ 
 
 https://github.com/tonikelope/coronapoker
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
-import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.POISON_PILL;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.SEC_PING_INTERVAL_MS;
@@ -38,10 +24,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -54,10 +38,6 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
-/**
- *
- * @author tonikelope
- */
 public class Participant implements Runnable {
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
@@ -98,16 +78,15 @@ public class Participant implements Runnable {
     private volatile int pong_timeout_counter = 0;
     private volatile int pong2_timeout_counter = 0;
 
-    // =========================================================
-    // TOKENS DE CONSENSO Y AUTORIZACIÓN
-    // =========================================================
     private byte[] token_flop = null;
     private byte[] token_turn = null;
     private byte[] token_river = null;
     private volatile byte[] received_token = null;
-
-    // V54: AQUÍ GUARDAMOS EL RECIBO DE LA BLOCKCHAIN DE CADA JUGADOR
     private volatile byte[] chain_receipt = null;
+    private byte[] panoptes_hand_seed = null;
+    private byte[] mk_share = null;
+    private byte[] ephemeral_pub_key = null;
+    private byte[] encrypted_cards = null;
 
     public byte[] getChain_receipt() {
         return chain_receipt;
@@ -148,10 +127,6 @@ public class Participant implements Runnable {
     public void setReceived_token(byte[] received_token) {
         this.received_token = received_token;
     }
-    // =========================================================
-
-    // Semilla de entropía aportada por el cliente para el mazo
-    private byte[] panoptes_hand_seed = null;
 
     public byte[] getPanoptes_hand_seed() {
         return panoptes_hand_seed;
@@ -161,9 +136,6 @@ public class Participant implements Runnable {
         this.panoptes_hand_seed = panoptes_hand_seed;
     }
 
-    // Fragmento de la Master Key aportado por el cliente en el Showdown
-    private byte[] mk_share = null;
-
     public byte[] getMk_share() {
         return mk_share;
     }
@@ -171,9 +143,6 @@ public class Participant implements Runnable {
     public void setMk_share(byte[] mk_share) {
         this.mk_share = mk_share;
     }
-
-    private byte[] ephemeral_pub_key = null; // Server's ephemeral public key KEM (OUTPUT)
-    private byte[] encrypted_cards = null; // AEAD encrypted envelope for showdown
 
     public byte[] getEphemeral_pub_key() {
         return ephemeral_pub_key;
@@ -215,9 +184,7 @@ public class Participant implements Runnable {
         return latency;
     }
 
-    public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k,
-            SecretKeySpec hmac_k, boolean cpu) {
-
+    public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
         this.nick = nick;
         this.setSocket(socket);
         this.sala_espera = espera;
@@ -236,31 +203,22 @@ public class Participant implements Runnable {
                 md.update(this.hmac_key.getEncoded());
                 this.permutation_key = new SecretKeySpec(md.digest(), "AES");
                 md = MessageDigest.getInstance("MD5");
-                this.permutation_key_hash = Base64.getEncoder()
-                        .encodeToString(md.digest(this.permutation_key.getEncoded()));
-            } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
+                this.permutation_key_hash = Base64.getEncoder().encodeToString(md.digest(this.permutation_key.getEncoded()));
+            } catch (Exception ex) {
                 Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
         if (avatar != null) {
             try {
-                // Guardamos una versión de 32x32 del avatar para el chat
-                ImageIO.write(
-                        Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage()
-                                .getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()),
-                        "png", new File(avatar.getAbsolutePath() + "_chat"));
+                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(avatar.getAbsolutePath() + "_chat"));
                 avatar_chat_src = new File(avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
             } catch (IOException ex) {
                 avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
             }
-
         } else {
-            avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm()
-                    : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
+            avatar_chat_src = cpu ? getClass().getResource("/images/avatar_bot_chat.png").toExternalForm() : getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
         }
-
     }
 
     public void setForce_reset_socket(boolean force) {
@@ -276,18 +234,13 @@ public class Participant implements Runnable {
     }
 
     public void setAsync_wait(boolean async_w) {
-
         if (this.async_wait != async_w) {
-
             this.async_wait = async_w;
-
             Helpers.GUIRun(() -> {
-
                 WaitingRoomFrame.getInstance().getConectados().revalidate();
                 WaitingRoomFrame.getInstance().getConectados().repaint();
             });
         }
-
     }
 
     public Socket getSocket() {
@@ -299,43 +252,26 @@ public class Participant implements Runnable {
     }
 
     private void runSecPingPongThread() {
-        //Not really required for Panoptes
-
         Helpers.threadRun(() -> {
-
             Panoptes panoptes = Panoptes.getInstance();
             java.security.SecureRandom rng = new java.security.SecureRandom();
-
             while (!this.exit && !this.isCpu()) {
-                /* Define a unique ID for this client to store its session key */
                 String ownerId = "PARTICIPANT_" + this.hashCode();
-
                 try {
                     String localIpString = this.socket.getLocalAddress().getHostAddress();
                     int serverLocalPort = this.socket.getLocalPort();
-
-                    /* Use the wrapper which handles key generation and IP padding internally */
                     byte[] challenge = panoptes.generateChallenge(ownerId, localIpString, serverLocalPort);
                     String challengeBase64 = java.util.Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+", "");
-
-                    writeCommandFromServer(
-                            Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
-
+                    writeCommandFromServer(Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
                 } catch (Exception e) {
-                    java.util.logging.Logger.getLogger(Participant.class.getName()).log(java.util.logging.Level.SEVERE, "Failed to dispatch SECPING", e);
                 }
-
-                /* Jitter: Randomized sleep between base interval and 2x base interval */
                 int jitter = rng.nextInt((int) SEC_PING_INTERVAL_MS);
                 Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
             }
         });
-
     }
 
     private void runPingPongThread() {
-
-        /* Standard Keep-Alive PING Thread */
         Helpers.threadRun(() -> {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
@@ -348,7 +284,6 @@ public class Participant implements Runnable {
                 try {
                     writeCommandFromServer("PING#" + String.valueOf(ping));
                 } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, "Failed to dispatch PING", ex);
                     break;
                 }
 
@@ -361,11 +296,9 @@ public class Participant implements Runnable {
                         } catch (InterruptedException ignored) {
                         }
                     }
-
                     if (latency == -1 && pong != null && pong == ping + 1) {
                         latency = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
                     }
-
                     if (latency2 == -1 && pong2 != null && pong2 == ping + 2) {
                         latency2 = Math.round((System.nanoTime() - pingStartNs) / 1_000_000);
                     }
@@ -374,52 +307,26 @@ public class Participant implements Runnable {
                 if (latency == -1) {
                     pong_timeout_counter++;
                 }
-
                 if (latency2 == -1) {
                     pong2_timeout_counter++;
                 }
 
-                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada()
-                        && GameFrame.getInstance() != null) {
-                    RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player()
-                            .get(nick);
-
+                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                    RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
                     if (jugador != null) {
                         if (latency != -1 && latency2 != -1) {
                             jugador.updateLatency(Translator.translate("conn.latencia_format", String.valueOf(latency), String.valueOf(latency2)), false);
                         } else {
-                            jugador.updateLatency(Translator.translate("conn.latencia_format",
-                                    (latency != -1 ? String.valueOf(latency) : "-"),
-                                    (latency2 != -1 ? String.valueOf(latency2) : "-")), true);
+                            jugador.updateLatency(Translator.translate("conn.latencia_format", (latency != -1 ? String.valueOf(latency) : "-"), (latency2 != -1 ? String.valueOf(latency2) : "-")), true);
                         }
                     }
                 }
 
-                if (WaitingRoomFrame.getInstance() != null && !isCpu()
-                        && (!WaitingRoomFrame.getInstance().isPartida_empezada()
-                        || WaitingRoomFrame.getInstance().isVisible())) {
-
+                if (WaitingRoomFrame.getInstance() != null && !isCpu() && (!WaitingRoomFrame.getInstance().isPartida_empezada() || WaitingRoomFrame.getInstance().isVisible())) {
                     WaitingRoomFrame.getInstance().updateParticipantLatency(nick, latency, latency2);
                 }
 
                 if (!exit && WaitingRoomFrame.getInstance() != null) {
-                    if (pong == null) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "{0} FAILED TO RESPOND TO PING", nick);
-                    } else if (pong != ping + 1) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "INVALID PONG FROM {0}",
-                                nick);
-                    } else if (pong2 == null) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING,
-                                "{0} FAILED TO RESPOND TO PING2", nick);
-                    } else if (pong2 != ping + 2) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.WARNING, "INVALID PONG2 FROM {0}",
-                                nick);
-                    } else if (DEV_MODE) {
-                        Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.INFO,
-                                "CLIENT {0} PONGS RECEIVED. (Latency: {1} ms / {2} ms)",
-                                new Object[]{nick, latency, latency2});
-                    }
                     Helpers.pausar(PING_INTERVAL_MS);
                 }
             }
@@ -427,7 +334,6 @@ public class Participant implements Runnable {
     }
 
     private void runSocketReaderThread() {
-
         Helpers.threadRun(() -> {
             boolean timeout = false;
             while (!exit) {
@@ -435,7 +341,6 @@ public class Participant implements Runnable {
                 try {
                     mensaje_recibido = readCommandFromClient();
                 } catch (Exception ex) {
-                    Logger.getLogger(WaitingRoomFrame.class.getName()).log(Level.SEVERE, (String) null, ex);
                 }
 
                 if (mensaje_recibido != null) {
@@ -447,8 +352,7 @@ public class Participant implements Runnable {
                     if (null == partes_comando[0]) {
                         try {
                             socket_reader_queue.put(mensaje_recibido);
-                        } catch (InterruptedException ex) {
-                            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                        } catch (Exception ex) {
                         }
                     } else {
                         switch (partes_comando[0]) {
@@ -456,8 +360,7 @@ public class Participant implements Runnable {
                                 writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
                                 try {
                                     socket_reader_queue.put(mensaje_recibido);
-                                } catch (InterruptedException ex) {
-                                    System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                                } catch (Exception ex) {
                                 }
                                 break;
                             case "PONG":
@@ -477,67 +380,54 @@ public class Participant implements Runnable {
                                 Helpers.threadRun(() -> {
                                     try {
                                         byte[] signatureBytes = Base64.getDecoder().decode(partes_final_secpong[1]);
-
-                                        /* 1. Reconstruct the exact same ownerID used during generateChallenge() */
                                         String ownerId = "PARTICIPANT_" + this.hashCode();
-
-                                        /* 2. Call the Java wrapper (handles session key lookup automatically) */
                                         int isLegit = Panoptes.getInstance().verifyResponse(ownerId, signatureBytes);
 
                                         switch (isLegit) {
                                             case Panoptes.STATUS_FAILED:
                                                 if (!this.unsecure_player) {
-                                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE,
-                                                            "[PANOPTES-SHIELD] CRITICAL: Attestation failed for {0}! Tampering detected.", nick);
-                                                    this.setUnsecure_player(true); // Marks the player with the red shield/danger icon
-                                                }
-                                                break;
-                                            case Panoptes.STATUS_VM_DETECTED:
-                                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING,
-                                                        "[PANOPTES-SHIELD] WARNING: {0} is running inside a Virtual Machine.", nick);
-                                                break;
-                                            default:
-                                                if (Init.DEV_MODE) {
-                                                    Logger.getLogger(Participant.class.getName()).log(Level.INFO,
-                                                            "[PANOPTES-SHIELD] {0} passed strict heartbeat attestation.", nick);
+                                                    this.setUnsecure_player(true);
                                                 }
                                                 break;
                                         }
                                     } catch (Exception e) {
-                                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Error verifying SECPONG for " + nick, e);
                                     }
                                 });
                                 break;
                             case "SECPING":
                                 try {
                                     byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-
-                                    /* Use the wrapper to solve the challenge securely */
                                     byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-
                                     String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "") : "";
                                     writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
                                 } catch (Exception e) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, "Failed to sign client SECPING", e);
                                 }
                                 break;
+                            // --- V81 P2P SERVER-SIDE ROUTING (ROOT COMMANDS) ---
+                            case "P2P_CHALLENGES":
+                                WaitingRoomFrame.getInstance().p2pSwarmManager.receiveChallenges(this.nick, partes_comando.length > 1 ? partes_comando[1] : "*");
+                                break;
+                            case "P2P_RESPONSES":
+                                WaitingRoomFrame.getInstance().p2pSwarmManager.receiveResponses(this.nick, partes_comando.length > 1 ? partes_comando[1] : "*");
+                                break;
+                            case "P2P_VERIFY_DONE":
+                                WaitingRoomFrame.getInstance().p2pSwarmManager.receiveVerifyDone(this.nick);
+                                break;
+                            // ---------------------------------------------------
                             default:
                                 try {
                                     socket_reader_queue.put(mensaje_recibido);
-                                } catch (InterruptedException ex) {
-                                    System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                                } catch (Exception ex) {
                                 }
                                 break;
                         }
                     }
-
                 } else {
                     try {
                         if (!socket_reader_queue.contains(POISON_PILL)) {
                             socket_reader_queue.put(POISON_PILL);
                         }
-                    } catch (InterruptedException ex) {
-                        System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+                    } catch (Exception ex) {
                     }
                 }
 
@@ -551,10 +441,8 @@ public class Participant implements Runnable {
 
                         if (!this.force_reset_socket) {
                             try {
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(
-                                        "TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
-                            } catch (UnsupportedEncodingException ex) {
-                                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
+                            } catch (Exception ex) {
                             }
                         }
 
@@ -562,78 +450,48 @@ public class Participant implements Runnable {
                             synchronized (getParticipant_socket_lock()) {
                                 try {
                                     getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
-                                } catch (InterruptedException ex) {
-                                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (Exception ex) {
                                 }
                             }
                         }
                     } else {
-                        // [CRITICAL FIX]: If we loop back here and it's still null, the timeout expired.
-                        // The socket is dead and didn't recover. We MUST terminate the thread.
-                        Logger.getLogger(Participant.class.getName()).log(Level.WARNING, "[ZERO-TRUST] Socket reader timeout expired for {0}. Terminating thread.", nick);
                         exit = true;
                     }
                 }
-            }
+            } // END WHILE
         });
     }
 
     private void runPreGameSocketWriterQueueThread() {
-        // Creamos un hilo por cada participante para enviar comandos de juego con
-        // confirmación y no bloquear el servidor por si se conectan nuevos usuarios
         Helpers.threadRun(() -> {
-            while (!exit && !WaitingRoomFrame.getInstance().isExit()
-                    && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+            while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                while (!exit && !WaitingRoomFrame.getInstance().isExit()
-                        && !WaitingRoomFrame.getInstance().isPartida_empezada()
-                        && !getPre_game_socket_writer_queue().isEmpty()) {
-
+                while (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !getPre_game_socket_writer_queue().isEmpty()) {
                     String command = getPre_game_socket_writer_queue().peek();
-
                     ArrayList<String> pendientes = new ArrayList<>();
-
                     pendientes.add(getNick());
 
                     do {
                         int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
                         String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                        if (!writeCommandFromServer(
-                                Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
-
+                        if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
                             waitPreGameCommandConfirmations(id, pendientes);
-
-                            if (!pendientes.isEmpty()) {
-                                Logger.getLogger(Participant.class.getName()).log(Level.WARNING,
-                                        "{0} COMANDO ASYNC CONFIRMATION ERROR!", getNick());
-                            }
-
-                        } else {
-                            Logger.getLogger(Participant.class.getName()).log(Level.WARNING,
-                                    "{0} COMANDO ASYNC SOCKET ERROR!", getNick());
                         }
-
-                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit()
-                            && !WaitingRoomFrame.getInstance().isPartida_empezada());
+                    } while (!pendientes.isEmpty() && !exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada());
 
                     getPre_game_socket_writer_queue().poll();
-
                 }
 
                 synchronized (WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait()) {
                     WaitingRoomFrame.getInstance().getLock_client_pre_game_commands_wait().notifyAll();
                 }
 
-                if (!exit && !WaitingRoomFrame.getInstance().isExit()
-                        && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                if (!exit && !WaitingRoomFrame.getInstance().isExit() && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     synchronized (getPre_game_socket_writer_queue()) {
-
                         try {
                             getPre_game_socket_writer_queue().wait(ASYNC_COMMAND_QUEUE_WAIT);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (Exception ex) {
                         }
                     }
                 }
@@ -646,19 +504,15 @@ public class Participant implements Runnable {
     }
 
     public void setUnsecure_player(boolean val) {
-
         if (!this.unsecure_player && val) {
-
             Helpers.threadRun(() -> {
-                Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(),
-                        "[" + nick + "] " + Translator.translate("radar.cuidado_el_ejecutable_del_juego"),
-                        new ImageIcon(Init.class.getResource("/images/shield.png")));
+                Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(), "[" + nick + "] " + Translator.translate("radar.cuidado_el_ejecutable_del_juego"), new ImageIcon(Init.class.getResource("/images/shield.png")));
             });
-
+            if (WaitingRoomFrame.getInstance() != null) {
+                WaitingRoomFrame.getInstance().markPlayerAsCheater(nick);
+            }
         }
-
         this.unsecure_player = val;
-
     }
 
     public String getPermutation_key_hash() {
@@ -674,7 +528,6 @@ public class Participant implements Runnable {
     }
 
     public Object getParticipant_socket_lock() {
-
         return participant_socket_lock;
     }
 
@@ -687,48 +540,38 @@ public class Participant implements Runnable {
     }
 
     public SecretKeySpec getHmac_key() {
-
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
                 }
             }
         }
-
         return hmac_key;
     }
 
     public SecretKeySpec getAes_key() {
-
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
                 }
             }
         }
-
         return aes_key;
-
     }
 
     public BufferedReader getInput_stream_reader() {
-
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
                 }
             }
         }
-
         return input_stream_reader;
     }
 
@@ -741,20 +584,16 @@ public class Participant implements Runnable {
     }
 
     public void exitAndCloseSocket() {
-
         this.exit = true;
-
         if (this.socket != null) {
             if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
                 this.writeCommandFromServer(Helpers.encryptCommand("EXIT", this.getAes_key(), this.getHmac_key()));
             }
             this.socketClose();
-
             synchronized (ping_pong_lock) {
                 ping_pong_lock.notifyAll();
             }
         }
-
     }
 
     public boolean isExit() {
@@ -771,59 +610,44 @@ public class Participant implements Runnable {
 
     public boolean writeGAMECommandFromServer(String command) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
         return writeCommandFromServer("GAME#" + String.valueOf(id) + "#" + command);
     }
 
     public boolean writeCommandFromServer(String command) {
-
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
                 }
             }
         }
-
         try {
             synchronized (this.socket.getOutputStream()) {
-
                 this.socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
                 this.socket.getOutputStream().flush();
-
                 return false;
             }
         } catch (IOException ex) {
-            System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
-
         return true;
-
     }
 
     public String readCommandFromClient() {
-
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
-                } catch (InterruptedException ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
                 }
             }
         }
-
         synchronized (getInput_stream_reader()) {
-
             try {
                 return Helpers.decryptCommand(getInput_stream_reader().readLine(), getAes_key(), getHmac_key());
             } catch (Exception ex) {
-                System.getLogger(Participant.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
             }
         }
-
         return null;
     }
 
@@ -839,109 +663,71 @@ public class Participant implements Runnable {
     }
 
     public void forceSocketReconnect() {
-
         if (this.recon_socket != null) {
             try {
                 this.recon_socket.close();
             } catch (Exception ex) {
             }
         }
-
         if (this.socket != null) {
             try {
                 this.socket.close();
             } catch (Exception ex) {
             }
         }
-
         force_reset_socket = true;
-
     }
 
     private void setSocket(Socket socket) {
-
         synchronized (getParticipant_socket_lock()) {
             this.socket = socket;
-
             if (this.socket != null) {
-
                 try {
                     this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
                 } catch (Exception ex) {
-                    Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
     }
 
     public boolean resetSocket(Socket sock, SecretKeySpec aes_k, SecretKeySpec hmac_k) {
-
         this.resetting_socket = true;
-
         forceSocketReconnect();
-
         this.recon_socket = sock;
 
         synchronized (getParticipant_socket_lock()) {
-
             try {
-
                 this.socket = this.recon_socket;
-
                 this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-
                 this.aes_key = aes_k;
-
                 this.hmac_key = hmac_k;
-
                 if (!isForce_reset_socket()) {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
-
                 this.reset_socket = true;
-
             } catch (Exception ex) {
-
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-
                 this.reset_socket = false;
-
             } finally {
-
                 this.recon_socket = null;
-
                 this.force_reset_socket = false;
-
                 this.resetting_socket = false;
             }
-
             getParticipant_socket_lock().notifyAll();
-
             return this.reset_socket;
         }
     }
 
     public boolean waitPreGameCommandConfirmations(int id, ArrayList<String> pending) {
-
-        // Esperamos confirmación
         long start_time = System.currentTimeMillis();
-
         boolean timeout = false;
-
         ArrayList<Object[]> rejected = new ArrayList<>();
 
         while (!exit && !pending.isEmpty() && !timeout) {
-
             Object[] confirmation;
-
             synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {
-
                 while (!exit && !WaitingRoomFrame.getInstance().getReceived_confirmations().isEmpty()) {
-
                     confirmation = WaitingRoomFrame.getInstance().getReceived_confirmations().poll();
-
                     if (confirmation != null && confirmation[0] != null && confirmation[1] != null) {
-
                         if ((int) confirmation[1] == id + 1) {
                             pending.remove((String) confirmation[0]);
                         } else {
@@ -951,7 +737,6 @@ public class Participant implements Runnable {
                 }
 
                 if (!exit) {
-
                     if (!rejected.isEmpty()) {
                         WaitingRoomFrame.getInstance().getReceived_confirmations().addAll(rejected);
                         rejected.clear();
@@ -960,19 +745,14 @@ public class Participant implements Runnable {
                     if (System.currentTimeMillis() - start_time > GameFrame.CONFIRMATION_TIMEOUT) {
                         timeout = true;
                     } else if (!pending.isEmpty()) {
-
                         try {
                             WaitingRoomFrame.getInstance().getReceived_confirmations().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
+                        } catch (Exception ex) {
                         }
-
                     }
                 }
             }
-
         }
-
         return !pending.isEmpty();
     }
 
@@ -980,9 +760,7 @@ public class Participant implements Runnable {
     public void run() {
         if (socket != null) {
             runPreGameSocketWriterQueueThread();
-
             runSocketReaderThread();
-
             runPingPongThread();
 
             String recibido;
@@ -1055,7 +833,6 @@ public class Participant implements Runnable {
                                                                     + "                                                                                               \n\n");
                                                             sb.append("CoronaPoker Radar -> [").append(nick).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
                                                             if (encryptedRadarData != null) {
-                                                                /* V61: Direct decryption in the C bunker (KEM + Poly1305 Auth) */
                                                                 byte[] decryptedRadarBytes = Panoptes.getInstance().telemetryDecryptRadarData(encryptedRadarData);
                                                                 if (decryptedRadarBytes != null) {
                                                                     String rawIntel = new String(decryptedRadarBytes, "UTF-8");
@@ -1075,7 +852,6 @@ public class Participant implements Runnable {
                                                         }
                                                     }
                                                 } catch (Exception ex) {
-                                                    ex.printStackTrace();
                                                 }
                                             });
                                             break;
@@ -1136,7 +912,6 @@ public class Participant implements Runnable {
                                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                                                 int offset = 3;
 
-                                                /* If we are NOT the host, the server sends the deserter's NICK in position 3 */
                                                 if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
                                                     try {
                                                         exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
@@ -1145,14 +920,12 @@ public class Participant implements Runnable {
                                                     offset = 4;
                                                 }
 
-                                                /* V60: Slice the 96-byte Testament */
                                                 if (partes_comando.length > offset) {
                                                     Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
                                                             if (testament.length == 96) {
-                                                                /* V60 FIX: Save the ENTIRE TESTAMENT for C validation */
                                                                 p.setChain_receipt(testament);
                                                                 p.setMk_share(Arrays.copyOfRange(testament, 16, 48));
                                                                 p.setToken_flop(Arrays.copyOfRange(testament, 48, 64));
@@ -1188,9 +961,6 @@ public class Participant implements Runnable {
                             default:
                                 break;
                         }
-                    } else {
-                        /* If socket is dead, we break the loop immediately to avoid zombies */
-                        exit = true;
                     }
                 } catch (Exception ex) {
                     if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isExit()) {
@@ -1214,5 +984,4 @@ public class Participant implements Runnable {
             this.exit = true;
         }
     }
-
 }

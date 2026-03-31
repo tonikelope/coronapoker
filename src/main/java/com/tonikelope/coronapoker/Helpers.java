@@ -403,7 +403,7 @@ public class Helpers {
         }
     }
 
-    public static void cleanOldTempCrupierFiles() {
+    public static void cleanAllOldTempCrupierFiles() {
 
         // Determine the file suffix once based on DEV_MODE
         String suffix = "";
@@ -417,7 +417,8 @@ public class Helpers {
             "/balance_backup%s.txt",
             "/panoptes_session%s.key",
             "/panoptes_entropy%s.bin",
-            "/panoptes_hand_commit%s.bin"
+            "/panoptes_hand_commit%s.bin",
+            "/panoptes_hand_actions%s.bin"
         };
 
         // Iterate and delete all temporary files
@@ -427,6 +428,22 @@ public class Helpers {
                 java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
             } catch (IOException e) {
                 Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "Failed to delete temporary file: " + fileName, e);
+            }
+        }
+    }
+
+    public static void cleanHandCrupierTempFiles() {
+        String suffix = Init.DEV_MODE ? "_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") : "";
+        // ¡OJO! Solo borramos los logs binarios de la mano que acaba de terminar
+        String[] fileTemplates = {
+            "/panoptes_hand_commit%s.bin",
+            "/panoptes_hand_actions%s.bin"
+        };
+
+        for (String template : fileTemplates) {
+            try {
+                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + String.format(template, suffix)));
+            } catch (IOException e) {
             }
         }
     }

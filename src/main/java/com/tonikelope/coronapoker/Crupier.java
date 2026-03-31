@@ -3578,17 +3578,7 @@ public class Crupier implements Runnable {
         });
 
         if (!GameFrame.RECOVER) {
-            // ZERO-TRUST: Delete previous hand ID and Binary Log to start clean
-            try {
-                String fileName = "/hand.id";
-                if (Init.DEV_MODE) {
-                    String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                    fileName = "/hand_" + safeNick + ".id";
-                }
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin"));
-            } catch (Exception e) {
-            }
+            Helpers.cleanHandCrupierTempFiles();
         }
 
         readyForNextHand();
@@ -6057,9 +6047,9 @@ public class Crupier implements Runnable {
                             LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (spectator mode)");
                         }
                         actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
-                        
+
                         // [CRITICAL FIX]: Assign the recovered packet to cryptoPacket so it gets saved to the binary log
-                        cryptoPacket = pastPacket; 
+                        cryptoPacket = pastPacket;
                     }
                 } else {
                     if (current_player == GameFrame.getInstance().getLocalPlayer()) {
@@ -6096,7 +6086,7 @@ public class Crupier implements Runnable {
                 }
 
                 saveCryptoActionToBin(cryptoPacket);
-                
+
                 String comando = null;
                 try {
                     comando = "ACTION#"
@@ -7341,7 +7331,17 @@ public class Crupier implements Runnable {
                 datos = sqlRecoverHandActions();
 
                 // [V58] EL SERVIDOR LEE EL LOG BINARIO (LA VERDAD ABSOLUTA)
-                File logFile = new File(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin");
+                String suffix = "";
+
+                if (Init.DEV_MODE) {
+                    String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
+                    suffix = "_" + sanitizedNick;
+                }
+
+                String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
+
+                File logFile = new File(Init.CORONA_DIR + fileName);
+
                 if (logFile.exists()) {
                     byte[] logBytes = java.nio.file.Files.readAllBytes(logFile.toPath());
                     cryptoLogB64 = Base64.getEncoder().encodeToString(logBytes);
@@ -7376,8 +7376,8 @@ public class Crupier implements Runnable {
                 byte[] remoteLog = Base64.getDecoder().decode(cryptoLogB64);
                 crypto_replay_queue.clear();
                 // FIX: Iteramos en bloques de 52 bytes (Eran 48)
-                for (int i = 0; i < remoteLog.length; i += 52) { 
-                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 52); 
+                for (int i = 0; i < remoteLog.length; i += 52) {
+                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 52);
                     crypto_replay_queue.add(signature);
                 }
                 GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 52));
@@ -9443,13 +9443,26 @@ public class Crupier implements Runnable {
         if (packet == null || packet.length != 52) {
             return;
         }
+
         try {
-            java.io.File logFile = new java.io.File(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin");
+
+            String suffix = "";
+
+            if (Init.DEV_MODE) {
+                String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
+                suffix = "_" + sanitizedNick;
+            }
+
+            String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
+
+            java.io.File logFile = new java.io.File(Init.CORONA_DIR + fileName);
+
             try (java.io.FileOutputStream fos = new java.io.FileOutputStream(logFile, true)) {
                 fos.write(packet);
                 fos.flush();
                 fos.getFD().sync();
             }
+
         } catch (Exception e) {
             java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, Translator.translate("zero_trust.write_binary_log_failure"), e);
         }
@@ -9457,11 +9470,23 @@ public class Crupier implements Runnable {
 
     private void loadCryptoActionsToQueue() {
         crypto_replay_queue.clear();
-        java.io.File logFile = new java.io.File(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin");
+
+        String suffix = "";
+
+        if (Init.DEV_MODE) {
+            String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
+            suffix = "_" + sanitizedNick;
+        }
+
+        String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
+
+        java.io.File logFile = new java.io.File(Init.CORONA_DIR + fileName);
+
         if (!logFile.exists()) {
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.no_binary_log"));
             return;
         }
+
         try (java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.FileInputStream(logFile))) {
             int count = 0;
             while (true) {

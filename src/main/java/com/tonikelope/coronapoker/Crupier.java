@@ -3577,16 +3577,18 @@ public class Crupier implements Runnable {
             }
         });
 
-        // ZERO-TRUST: Delete previous hand ID and Binary Log to start clean
-        try {
-            String fileName = "/hand.id";
-            if (Init.DEV_MODE) {
-                String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                fileName = "/hand_" + safeNick + ".id";
+        if (!GameFrame.RECOVER) {
+            // ZERO-TRUST: Delete previous hand ID and Binary Log to start clean
+            try {
+                String fileName = "/hand.id";
+                if (Init.DEV_MODE) {
+                    String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
+                    fileName = "/hand_" + safeNick + ".id";
+                }
+                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
+                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin"));
+            } catch (Exception e) {
             }
-            java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
-            java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + "/hand_" + this.sqlite_id_hand + ".bin"));
-        } catch (Exception e) {
         }
 
         readyForNextHand();
@@ -6055,6 +6057,9 @@ public class Crupier implements Runnable {
                             LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (spectator mode)");
                         }
                         actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
+                        
+                        // [CRITICAL FIX]: Assign the recovered packet to cryptoPacket so it gets saved to the binary log
+                        cryptoPacket = pastPacket; 
                     }
                 } else {
                     if (current_player == GameFrame.getInstance().getLocalPlayer()) {
@@ -6083,17 +6088,15 @@ public class Crupier implements Runnable {
                                 boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
                                 if (!validSignature) {
                                     LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
-                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.action_rejected_invalid_signature", current_player.getNickname()));
+                                    // Let the game register the error but continue execution to avoid GUI deadlocks
                                 }
                             }
                         }
                     }
                 }
 
-                if (cryptoPacket != null) {
-                    saveCryptoActionToBin(cryptoPacket);
-                }
-
+                saveCryptoActionToBin(cryptoPacket);
+                
                 String comando = null;
                 try {
                     comando = "ACTION#"
@@ -7372,11 +7375,12 @@ public class Crupier implements Runnable {
             if (!"*".equals(cryptoLogB64)) {
                 byte[] remoteLog = Base64.getDecoder().decode(cryptoLogB64);
                 crypto_replay_queue.clear();
-                for (int i = 0; i < remoteLog.length; i += 48) {
-                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 48);
+                // FIX: Iteramos en bloques de 52 bytes (Eran 48)
+                for (int i = 0; i < remoteLog.length; i += 52) { 
+                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 52); 
                     crypto_replay_queue.add(signature);
                 }
-                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 48));
+                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 52));
             } else if (GameFrame.getInstance().isPartida_local()) {
                 loadCryptoActionsToQueue();
             }
@@ -9436,7 +9440,7 @@ public class Crupier implements Runnable {
     }
 
     private void saveCryptoActionToBin(byte[] packet) {
-        if (packet == null || packet.length != 48) {
+        if (packet == null || packet.length != 52) {
             return;
         }
         try {
@@ -9462,8 +9466,8 @@ public class Crupier implements Runnable {
             int count = 0;
             while (true) {
                 try {
-                    // V57: Leemos bloques exactos de 48 bytes a la cola en RAM
-                    byte[] buffer = new byte[48];
+                    // V57: Leemos bloques exactos de 52 bytes a la cola en RAM
+                    byte[] buffer = new byte[52];
                     dis.readFully(buffer);
                     crypto_replay_queue.add(buffer);
                     count++;

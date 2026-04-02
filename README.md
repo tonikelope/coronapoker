@@ -19,6 +19,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 
 https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62-3567c593482d
 
+
 ## Some features:
 - Cross platform.
 - Secure by design: Zero-Trust Architecture + a modest (but pain-in-the-ass) Ring-3 anticheat.

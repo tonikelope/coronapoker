@@ -64,18 +64,22 @@ The core achievement of Panoptes is its state machine. A standard game progresse
 
 ### Phase 0: Environment Integrity & Secure Enclaves
 Before a hand begins, Panoptes establishes a secure, forward-secret communication channel and locks its own memory to prevent host interference.
-
-* **Encrypted Memory Vault (PanoptesVault):** All sensitive game state is continuously encrypted in RAM using ChaCha20. The vault's decryption keys are dynamically managed and intrinsically tied to the engine's execution integrity, meaning any attempt to dump or scrape memory yields unusable noise.
-* **Execution Flow Protection:** The engine utilizes polymorphic execution techniques and active environmental checks to detect and neutralize runtime analysis, debuggers, or memory hooking attempts.
-* **Hardware Anchors (X25519):** Each client generates an asymmetric identity keypair via X25519 Elliptic Curve Diffie-Hellman to anchor their session.
+* **Build-Time Cryptographic DNA:** A unique 32-byte deterministic polymorphic seed is injected by the Python Builder into the C engine at compile-time, ensuring no two versions share the same internal logic.
+* **OS-Native Environment Anchoring anti-TOCTOU measures:** The kernel enforces physical file locks and continuous Inode/Hash validation on all critical assets (.jar and .dll).
+* **Hybrid JIT Key Forging Build-time:** Logic is fused with live boot hardware entropy to forge a unique ChaCha20 JIT Vault Key. 
+* **Polymorphic Memory Shield:** The engine spawns several isolated and encrypted memory structs (all decoys, 1 true state), constantly mutating and shifting to mitigate memory-dumping attacks.
+* **Ephemeral Session Isolation X25519:** Session Keys are generated and sealed strictly within the encrypted enclave, establishing Perfect Forward Secrecy (PFS) without the private key ever touching plain-text RAM.
+<img width="1404" height="870" alt="imagen" src="https://github.com/user-attachments/assets/2a1f20b0-2678-4e6b-9858-45b0138b5321" />
 
 ### Phase 1: Distributed Entropy & The Megapacket
 The game begins by ensuring no single entity—not even the host—can dictate or predict the deck's order.
-
-* **Multi-Party Entropy:** Every active player client generates a local cryptographic seed and submits it alongside their Public Key to the host.
-* **The Master Shuffle:** The host's native engine aggregates all player seeds using deterministic XOR operations, combining them with a server-side seed and a hidden Shuffle Key. This resulting Master Seed drives a ChaCha20 keystream applied to a strict Fisher-Yates shuffle.
-* **Key Encapsulation Mechanism (KEM):** Pocket cards are never transmitted in plaintext. Panoptes uses a hybrid KEM (X25519 + ChaCha20 + Poly1305) to encrypt each player's cards against their specific Public Key.
-* **The Megapacket & Sponge MAC:** The server constructs a single, immutable data payload containing the public keys, KEM envelopes, and an encrypted capsule of the remaining deck. This packet is sealed using a cryptographic Sponge construction (`STATE_CHAIN_MAC`) and broadcasted to all peers as the irrefutable genesis state of the hand.
+* **Collaborative Multi-Party Entropy:** Entropy contributions from all players and the Host are fused into a global pool. This ensures that no single entity can control or predict the final deck order.
+* **Internal Entropy Blinding:** The engine performs a final "blinding" operation by mixing external seeds with OS hardware noise and the Polymorphic Root Seed. This prevents the Host from "mining" favorable decks even if they control the OS.
+* **Immutable Hand Commitment:** The resulting deck state is digested via Mix Sponge (ChaCha20-based) and signed with Poly1305. Once the "Hand Commitment MAC" is generated, the future of the hand is mathematically set in stone.
+* **Hand State Blockchain Genesis:** The commitment is ingested as the Hand Genesis Block. This anchors the initial deal as the immutable root of a private, ephemeral blockchain that tracks every subsequent action in the hand.
+* **Zero-Knowledge Distribution:** Sensitive data is sealed in X25519-encrypted envelopes. Each player can only decrypt their own pocket cards and their unique shards (Splits) of the street keys (Flop, Turn, River).
+* **Decentralized Key Sharding:** Street keys are broken into fragments using XOR-based secret sharing. Revelation of board cards requires a decentralized consensus, as no single player or Host holds a complete street key.
+<img width="1363" height="992" alt="imagen" src="https://github.com/user-attachments/assets/e71fec35-e610-4282-a00d-c0f3ad7a32ae" />
 
 ### Phase 2: Cryptographic Escrow & Compartmentalization
 While players decrypt their pocket cards locally, the remaining community cards (the board) reside in the host's memory.

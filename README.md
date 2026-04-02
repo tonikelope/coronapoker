@@ -95,10 +95,10 @@ When a betting round concludes and community cards must be revealed, the host ca
 * **Scorched Earth Defense:** The moment a street is decrypted and broadcasted, the underlying ephemeral keys are permanently wiped from the Vault. If an attacker attempts to extract the master shuffle key prematurely, Panoptes proactively burns the street tokens, locking the game state forever.
 * **The Exit Testament:** If a player legitimately disconnects mid-hand, the engine performs a permanent wipe of their session keys and generates a cryptographic "Testament". This signature allows the remaining peers to verify the exit and close the state audit without failing the final validation.
 
-### Phase 4: The Action Chain (Betting Integrity)
+### Phase 4: The Action Blockchain (Betting Integrity)
 Betting sequences are protected against reordering, injection, or modification.
 
-* **Sponge Construction:** Every action (Bet, Fold, Call) is signed with a Poly1305 MAC and absorbed into the running cryptographic Sponge hash (`STATE_CHAIN_MAC`).
+* **Sponge Construction:** Every action (Bet, Fold, Call) is signed with a Poly1305 MAC and absorbed into the running cryptographic Sponge hash (`HAND_STATE_BLOCKCHAIN`).
 * **Zero-Trust Bot Delegation:** Server-side bots operate under the exact same zero-trust rules as human players. Bot actions are deterministically signed via their delegated private keys, ensuring the host cannot forge or silently alter bot behavior.
 * **Atomic Chain:** If the host attempts to drop a player's bet, inject a fake action, or manipulate the betting phase, the state hash will instantly desynchronize, invalidating the hand across the network.
 

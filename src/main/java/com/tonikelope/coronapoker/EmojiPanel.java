@@ -60,7 +60,9 @@ public class EmojiPanel extends javax.swing.JPanel {
      */
     public EmojiPanel() {
         initComponents();
-        populateEmojis();
+        if (!java.beans.Beans.isDesignTime()) {
+            populateEmojis();
+        }
     }
 
     public static void initClass() {

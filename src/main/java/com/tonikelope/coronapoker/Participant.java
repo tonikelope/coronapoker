@@ -505,9 +505,11 @@ public class Participant implements Runnable {
 
     public void setUnsecure_player(boolean val) {
         if (!this.unsecure_player && val) {
+
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(), "[" + nick + "] " + Translator.translate("radar.cuidado_el_ejecutable_del_juego"), new ImageIcon(Init.class.getResource("/images/shield.png")));
             });
+
             if (WaitingRoomFrame.getInstance() != null) {
                 WaitingRoomFrame.getInstance().markPlayerAsCheater(nick);
             }

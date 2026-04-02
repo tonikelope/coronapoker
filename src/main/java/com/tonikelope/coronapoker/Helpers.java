@@ -4446,7 +4446,7 @@ public class Helpers {
                 exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
                 popup.add(exit_menu);
 
-                Helpers.updateFonts(popup, Helpers.GUI_FONT, 1.05f);
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
                 Helpers.translateComponents(popup, false);
 
             }

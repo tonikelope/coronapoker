@@ -177,12 +177,15 @@ public class WaitingRoomFrame extends JFrame {
 
     public void markPlayerAsCheater(String nick) {
         Helpers.GUIRun(() -> {
+
             DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
+
             for (int i = 0; i < model.getSize(); i++) {
+
                 ParticipantJListData p = model.getElementAt(i);
-                String cleanNick = p.getNick().replaceAll("\\<.*?\\>", "");
-                if (cleanNick.equals(nick)) {
-                    p.setNick("<html><font color='red'>" + nick + "</font></html>");
+
+                if (p.getNick().equals(nick)) {
+
                     model.set(i, p);
                     break;
                 }
@@ -565,7 +568,9 @@ public class WaitingRoomFrame extends JFrame {
                                     LOGGER.log(Level.INFO, "[ZERO-TRUST CLIENT] Verification result for [{0}]: {1}", new Object[]{target, (ok ? "CLEAN" : "CHEAT DETECTED")});
                                     if (!ok) {
                                         allClean = false;
-                                        markPlayerAsCheater(target);
+                                        if (p != null) {
+                                            p.setUnsecure_player(true); // Cambia el dato Y dispara el fondo rojo de la lista
+                                        }
                                     }
                                 }
                             }
@@ -576,15 +581,28 @@ public class WaitingRoomFrame extends JFrame {
                         sendP2PCommandToServer("P2P_VERIFY_DONE");
                     } else {
                         Helpers.GUIRun(() -> {
-                            // --- i18n IMPLEMENTADO AQUÍ ---
                             int r = mostrarMensajeErrorSINO(THIS, Translator.translate("zero_trust.cheater_detected"));
 
-                            if (r == 0) { // El usuario le da a "Sí, continuar"
+                            if (r == 0) {
+                                // User chose to continue anyway despite the warning
                                 sendP2PCommandToServer("P2P_VERIFY_DONE");
-                            } else {      // El usuario le da a "No, abortar"
+                            } else {
+                                // User chose to abort the game start
                                 if (isServer()) {
+
+                                    // Restore UI controls that were disabled during startup
                                     empezar_timba.setEnabled(true);
-                                    // --- i18n IMPLEMENTADO AQUÍ ---
+                                    new_bot_button.setEnabled(participantes.size() < MAX_PARTICIPANTES);
+                                    new_bot_button.setVisible(true);
+                                    kick_user.setEnabled(true);
+                                    kick_user.setVisible(true);
+                                    sound_icon.setVisible(true);
+
+                                    // Restore tooltips
+                                    game_info_buyin.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                                    game_info_blinds.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                                    game_info_hands.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+
                                     status.setText(Translator.translate("zero_trust.game_aborted"));
                                     status.setIcon(null);
                                     barra.setVisible(false);
@@ -599,418 +617,6 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 } catch (Exception e) {
                     LOGGER.log(Level.SEVERE, "[ZERO-TRUST CLIENT] Error in handleClientP2PVerify", e);
-                }
-            });
-        }
-    }
-
-    public class P2PSwarmManager2 {
-
-        private final Map<String, Map<String, String>> generatedChallenges = new ConcurrentHashMap<>();
-        private final Map<String, Map<String, String>> solvedResponses = new ConcurrentHashMap<>();
-        private java.util.concurrent.CountDownLatch challengesLatch;
-        private java.util.concurrent.CountDownLatch responsesLatch;
-        private java.util.concurrent.CountDownLatch verifyDoneLatch;
-
-        private void sendP2PCommandToServer(String command) {
-            if (isServer()) {
-                String[] partes = command.split("#");
-                if (partes[0].equals("P2P_CHALLENGES")) {
-                    receiveChallenges(local_nick, partes.length > 1 ? partes[1] : "*");
-                } else if (partes[0].equals("P2P_RESPONSES")) {
-                    receiveResponses(local_nick, partes.length > 1 ? partes[1] : "*");
-                } else if (partes[0].equals("P2P_VERIFY_DONE")) {
-                    receiveVerifyDone(local_nick);
-                }
-            } else {
-                try {
-                    writeCommandToServer(Helpers.encryptCommand(command, local_client_aes_key, local_client_hmac_key));
-                } catch (Exception e) {
-                }
-            }
-        }
-
-        private void broadcastP2PCommandFromServer(String command, Participant skip) {
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            synchronized (participantes) {
-                for (Participant p : participantes.values()) {
-                    if (p != null && !p.isCpu() && !p.isExit() && p != skip) {
-                        try {
-                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-        }
-
-        private void sendP2PCommandToClient(String command, Participant target) {
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            try {
-                target.writeCommandFromServer(Helpers.encryptCommand(command, target.getAes_key(), iv, target.getHmac_key()));
-            } catch (Exception e) {
-            }
-        }
-
-        public void startSwarm() {
-            int humans = 0;
-            int totalPlayers = 0;
-            StringBuilder pubKeys = new StringBuilder();
-
-            synchronized (participantes) {
-                for (String pNick : participantes.keySet()) {
-                    Participant p = participantes.get(pNick);
-                    totalPlayers++;
-
-                    byte[] pk = null;
-                    boolean isCpu = false;
-
-                    // Si es el Host (local_nick), p es null, pero cogemos la clave de la variable global
-                    if (pNick.equals(local_nick)) {
-                        pk = local_player_public_key;
-                        humans++;
-                    } else if (p != null) {
-                        pk = p.getPanoptes_public_key();
-                        isCpu = p.isCpu();
-                        if (!isCpu) {
-                            humans++;
-                        }
-                    }
-
-                    if (pk != null && pk.length == 32) {
-                        try {
-                            pubKeys.append(java.util.Base64.getEncoder().encodeToString(pNick.getBytes("UTF-8")))
-                                    .append(":")
-                                    .append(java.util.Base64.getEncoder().encodeToString(pk))
-                                    .append("$");
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-
-            if (humans < 1) {
-                finishSwarmAndStartGame();
-                return;
-            }
-
-            challengesLatch = new java.util.concurrent.CountDownLatch(humans);
-            responsesLatch = new java.util.concurrent.CountDownLatch(totalPlayers);
-            verifyDoneLatch = new java.util.concurrent.CountDownLatch(humans);
-            generatedChallenges.clear();
-            solvedResponses.clear();
-
-            String cmdPayload = "P2P_START#" + pubKeys.toString();
-            broadcastP2PCommandFromServer(cmdPayload, participantes.get(local_nick));
-            handleClientP2PStart(cmdPayload.split("#"));
-        }
-
-        public void receiveChallenges(String senderNick, String payload) {
-            Map<String, String> cmap = new HashMap<>();
-            if (!payload.isEmpty() && !payload.equals("*")) {
-                String[] chunks = payload.split("\\$");
-                for (String chunk : chunks) {
-                    String[] kv = chunk.split(":");
-                    if (kv.length == 2) {
-                        try {
-                            cmap.put(new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8"), kv[1]);
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-            generatedChallenges.put(senderNick, cmap);
-            challengesLatch.countDown();
-            if (challengesLatch.getCount() == 0) {
-                routeInboxes();
-            }
-        }
-
-        private void routeInboxes() {
-            synchronized (participantes) {
-                for (String targetNick : participantes.keySet()) {
-                    Participant targetP = participantes.get(targetNick);
-                    if (targetP == null || targetP.isExit()) {
-                        continue;
-                    }
-
-                    StringBuilder inbox = new StringBuilder();
-                    for (String senderNick : generatedChallenges.keySet()) {
-                        if (senderNick.equals(targetNick)) {
-                            continue;
-                        }
-                        Map<String, String> senderMap = generatedChallenges.get(senderNick);
-                        if (senderMap != null && senderMap.containsKey(targetNick)) {
-                            try {
-                                inbox.append(java.util.Base64.getEncoder().encodeToString(senderNick.getBytes("UTF-8"))).append(":").append(senderMap.get(targetNick)).append("$");
-                            } catch (Exception e) {
-                            }
-                        }
-                    }
-                    String cmdPayload = "P2P_INBOX#" + (inbox.length() > 0 ? inbox.toString() : "*");
-
-                    if (targetP.isCpu()) {
-                        Helpers.threadRun(() -> {
-                            Map<String, String> botResponses = new HashMap<>();
-                            String[] chunks = inbox.toString().split("\\$");
-                            for (String chunk : chunks) {
-                                String[] kv = chunk.split(":");
-                                if (kv.length == 2) {
-                                    try {
-                                        String sender = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                        byte[] encChal = java.util.Base64.getDecoder().decode(kv[1]);
-                                        Participant senderP = participantes.get(sender);
-                                        // BLINDAJE JNI
-                                        if (senderP != null && senderP.getPanoptes_public_key() != null && senderP.getPanoptes_public_key().length == 32 && targetP.getPanoptes_private_key() != null && targetP.getPanoptes_private_key().length == 32) {
-                                            byte[] resp = Panoptes.getInstance().p2pSolveBotChallenge(encChal, senderP.getPanoptes_public_key(), targetP.getPanoptes_private_key());
-                                            if (resp != null) {
-                                                botResponses.put(sender, java.util.Base64.getEncoder().encodeToString(resp));
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                    }
-                                }
-                            }
-                            solvedResponses.put(targetNick, botResponses);
-                            responsesLatch.countDown();
-                            if (responsesLatch.getCount() == 0) {
-                                routeVerifications();
-                            }
-                        });
-                    } else if (targetP.getNick().equals(local_nick)) {
-                        handleClientP2PInbox(cmdPayload.split("#"));
-                    } else {
-                        sendP2PCommandToClient(cmdPayload, targetP);
-                    }
-                }
-            }
-        }
-
-        public void receiveResponses(String solverNick, String payload) {
-            Map<String, String> rmap = new HashMap<>();
-            if (!payload.isEmpty() && !payload.equals("*")) {
-                String[] chunks = payload.split("\\$");
-                for (String chunk : chunks) {
-                    String[] kv = chunk.split(":");
-                    if (kv.length == 2) {
-                        try {
-                            rmap.put(new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8"), kv[1]);
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-            solvedResponses.put(solverNick, rmap);
-            responsesLatch.countDown();
-            if (responsesLatch.getCount() == 0) {
-                routeVerifications();
-            }
-        }
-
-        private void routeVerifications() {
-            synchronized (participantes) {
-                for (String challengerNick : participantes.keySet()) {
-                    Participant challengerP = participantes.get(challengerNick);
-                    if (challengerP == null || challengerP.isCpu() || challengerP.isExit()) {
-                        continue;
-                    }
-
-                    StringBuilder verifications = new StringBuilder();
-                    for (String solverNick : solvedResponses.keySet()) {
-                        if (solverNick.equals(challengerNick)) {
-                            continue;
-                        }
-                        Map<String, String> solverMap = solvedResponses.get(solverNick);
-                        if (solverMap != null && solverMap.containsKey(challengerNick)) {
-                            try {
-                                verifications.append(java.util.Base64.getEncoder().encodeToString(solverNick.getBytes("UTF-8"))).append(":").append(solverMap.get(challengerNick)).append("$");
-                            } catch (Exception e) {
-                            }
-                        }
-                    }
-                    String cmdPayload = "P2P_VERIFY#" + (verifications.length() > 0 ? verifications.toString() : "*");
-
-                    if (challengerP.getNick().equals(local_nick)) {
-                        handleClientP2PVerify(cmdPayload.split("#"));
-                    } else {
-                        sendP2PCommandToClient(cmdPayload, challengerP);
-                    }
-                }
-            }
-        }
-
-        public void receiveVerifyDone(String nick) {
-            verifyDoneLatch.countDown();
-            if (verifyDoneLatch.getCount() == 0) {
-                finishSwarmAndStartGame();
-            }
-        }
-
-        private void finishSwarmAndStartGame() {
-            Helpers.GUIRunAndWait(() -> new GameFrame(THIS, local_nick, true));
-            partida_empezada = true;
-            GameFrame.getInstance().AJUGAR();
-        }
-
-        public void handleClientP2PStart(String[] partes) {
-            Helpers.threadRun(() -> {
-                try {
-                    Helpers.GUIRun(() -> status.setText(Translator.translate("zero_trust.generating_kem")));
-
-                    // 1. Actualizamos claves recibidas del servidor en el mapa local
-                    if (partes.length > 1 && !partes[1].equals("*")) {
-                        String[] chunks = partes[1].split("\\$");
-                        for (String chunk : chunks) {
-                            String[] kv = chunk.split(":");
-                            if (kv.length == 2) {
-                                try {
-                                    String n = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                    byte[] pk = java.util.Base64.getDecoder().decode(kv[1]);
-                                    Participant p = participantes.get(n);
-                                    if (p != null) {
-                                        p.setPanoptes_public_key(pk);
-                                    } else if (n.equals(server_nick)) {
-                                        // Si el servidor no está como Participant (pero sí en el mapa como null)
-                                        // Podemos crear un Participant temporal o guardar la clave en una estructura auxiliar
-                                        // Para este diseño, asumimos que nuevoParticipante() ya creó el objeto.
-                                    }
-                                } catch (Exception e) {
-                                }
-                            }
-                        }
-                    }
-
-                    // 2. Generamos desafíos para todos los demás
-                    StringBuilder batch = new StringBuilder();
-                    synchronized (participantes) {
-                        for (String targetNick : participantes.keySet()) {
-                            // No nos desafiamos a nosotros mismos
-                            if (targetNick.equals(local_nick)) {
-                                continue;
-                            }
-
-                            byte[] pk = null;
-                            Participant p = participantes.get(targetNick);
-
-                            // Caso especial: El Host/Server a veces es null en el mapa del Host
-                            if (targetNick.equals(local_nick)) {
-                                pk = local_player_public_key;
-                            } else if (p != null) {
-                                pk = p.getPanoptes_public_key();
-                            }
-
-                            // BLINDAJE JNI: Solo llamamos a C si la clave es válida (32 bytes)
-                            if (pk != null && pk.length == 32) {
-                                byte[] chal = Panoptes.getInstance().p2pGenerateChallenge(pk);
-
-                                // chal contiene [32 bytes nonce local] + [48 bytes encrypted challenge]
-                                if (chal != null && chal.length == 80) {
-                                    // Guardamos el nonce original para verificar luego la respuesta de este target
-                                    localP2POriginalNonces.put(targetNick, java.util.Arrays.copyOfRange(chal, 0, 32));
-
-                                    // Añadimos al batch: NICK_B64 : CHALLENGE_ENC_B64
-                                    batch.append(java.util.Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8")))
-                                            .append(":")
-                                            .append(java.util.Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(chal, 32, 80)))
-                                            .append("$");
-                                }
-                            }
-                        }
-                    }
-
-                    // Enviamos todos nuestros desafíos al servidor para que los distribuya
-                    sendP2PCommandToServer("P2P_CHALLENGES#" + (batch.length() > 0 ? batch.toString() : "*"));
-
-                } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] Error en handleClientP2PStart", e);
-                }
-            });
-        }
-
-        public void handleClientP2PInbox(String[] partes) {
-            Helpers.threadRun(() -> {
-                try {
-                    Helpers.GUIRun(() -> status.setText(Translator.translate("zero_trust.auditing_memory")));
-                    StringBuilder batch = new StringBuilder();
-                    if (partes.length > 1 && !partes[1].equals("*")) {
-                        String[] chunks = partes[1].split("\\$");
-                        for (String chunk : chunks) {
-                            String[] kv = chunk.split(":");
-                            if (kv.length == 2) {
-                                String sender = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                byte[] encChal = java.util.Base64.getDecoder().decode(kv[1]);
-                                Participant p = participantes.get(sender);
-                                byte[] pk = p != null ? p.getPanoptes_public_key() : null;
-                                // BLINDAJE JNI
-                                if (pk != null && pk.length == 32 && encChal.length == 48) {
-                                    byte[] resp = Panoptes.getInstance().p2pSolveChallenge(encChal, pk);
-                                    if (resp != null) {
-                                        batch.append(kv[0]).append(":").append(java.util.Base64.getEncoder().encodeToString(resp)).append("$");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    sendP2PCommandToServer("P2P_RESPONSES#" + (batch.length() > 0 ? batch.toString() : "*"));
-                } catch (Exception e) {
-                }
-            });
-        }
-
-        public void handleClientP2PVerify(String[] partes) {
-            Helpers.threadRun(() -> {
-                try {
-                    Helpers.GUIRun(() -> status.setText(Translator.translate("zero_trust.verifying_swarm")));
-                    boolean allClean = true;
-                    if (partes.length > 1 && !partes[1].equals("*")) {
-                        String[] chunks = partes[1].split("\\$");
-                        for (String chunk : chunks) {
-                            String[] kv = chunk.split(":");
-                            if (kv.length == 2) {
-                                String target = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                byte[] resp = java.util.Base64.getDecoder().decode(kv[1]);
-                                Participant p = participantes.get(target);
-                                byte[] origNonce = localP2POriginalNonces.get(target);
-                                byte[] pk = p != null ? p.getPanoptes_public_key() : null;
-
-                                // BLINDAJE JNI
-                                if (pk != null && pk.length == 32 && origNonce != null && origNonce.length == 32 && resp.length == 17) {
-                                    boolean ok = Panoptes.getInstance().p2pVerifyResponse(pk, origNonce, resp);
-                                    if (!ok) {
-                                        allClean = false;
-                                        markPlayerAsCheater(target);
-                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] P2P Attestation FAILED for {0}", target);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (allClean) {
-                        sendP2PCommandToServer("P2P_VERIFY_DONE");
-                    } else {
-                        Helpers.GUIRun(() -> {
-                            int r = mostrarMensajeErrorSINO(THIS, "Se ha detectado algún jugador con una versión de CoronaPoker modificada, lo que sugiere que probablemente trate de hacer trampas. ¿Quieres continuar?");
-                            if (r == 0) {
-                                sendP2PCommandToServer("P2P_VERIFY_DONE");
-                            } else {
-                                if (isServer()) {
-                                    empezar_timba.setEnabled(true);
-                                    status.setText("Juego abortado. Expulsa a los tramposos.");
-                                    status.setIcon(null);
-                                    barra.setVisible(false);
-                                    partida_empezando = false;
-                                } else {
-                                    setExit(true);
-                                    closeClientSocket();
-                                    System.exit(0);
-                                }
-                            }
-                        });
-                    }
-                } catch (Exception e) {
                 }
             });
         }

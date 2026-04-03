@@ -436,6 +436,7 @@ public class Helpers {
         String suffix = Init.DEV_MODE ? "_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") : "";
         // ¡OJO! Solo borramos los logs binarios de la mano que acaba de terminar
         String[] fileTemplates = {
+            "/panoptes_entropy%s.bin",
             "/panoptes_hand_commit%s.bin",
             "/panoptes_hand_actions%s.bin"
         };

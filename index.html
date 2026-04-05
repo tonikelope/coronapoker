@@ -43,8 +43,8 @@
         .bg-grid {
             background-size: 40px 40px;
             background-image: 
-                linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
         }
         /* Custom scrollbar */
         ::-webkit-scrollbar { width: 8px; }
@@ -66,7 +66,7 @@
             <div class="flex items-center gap-6">
                 <a href="#features" class="hidden md:block hover:text-terminal-green transition-colors text-sm font-medium">Features</a>
                 <a href="#panoptes" class="hidden md:block hover:text-terminal-green transition-colors text-sm font-medium">Panoptes Engine</a>
-                <a href="https://github.com/tonikelope/coronapoker" target="_blank" class="text-slate-300 hover:text-white transition-colors">
+                <a href="https://github.com/tonikelope/coronapoker" target="_blank" rel="noopener noreferrer" class="text-slate-300 hover:text-white transition-colors" aria-label="GitHub Repository">
                     <i class="fa-brands fa-github text-xl"></i>
                 </a>
             </div>
@@ -75,31 +75,32 @@
 
     <header class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-grid">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dark-800 border border-dark-700 text-xs font-mono text-terminal-green mb-8">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-dark-800 border border-dark-700 text-xs font-mono text-terminal-green mb-8 shadow-sm">
                 <span class="w-2 h-2 rounded-full bg-terminal-green animate-pulse"></span>
                 Secure P2P Architecture
             </div>
             
             <h1 class="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-6">
-                Zero-Trust <span class="text-transparent bg-clip-text bg-gradient-to-r from-terminal-green to-teal-400">Texas Hold'em</span>
+                Zero-Trust <br class="hidden sm:block" />
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-terminal-green to-teal-400">Texas Hold'em</span>
             </h1>
             
-            <p class="mt-4 max-w-2xl text-lg md:text-xl text-slate-400 mx-auto mb-10">
-                A project by a perfectionist. No central servers. No third-party logging. Backed by a purely decentralized cryptographic engine. Just you and your friends.
+            <p class="mt-4 max-w-2xl text-lg md:text-xl text-slate-400 mx-auto mb-10 leading-relaxed">
+                No central servers. No third-party logging. Backed by a purely decentralized cryptographic engine. Just you and your friends.
             </p>
             
             <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
-                <a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank" class="group relative px-8 py-4 bg-terminal-green hover:bg-terminal-glow text-dark-900 font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] flex items-center gap-2 w-full sm:w-auto justify-center">
+                <a href="https://github.com/tonikelope/coronapoker/releases/latest" target="_blank" rel="noopener noreferrer" class="group relative px-8 py-4 bg-terminal-green hover:bg-terminal-glow text-dark-900 font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-2 w-full sm:w-auto justify-center">
                     <i class="fa-solid fa-download"></i>
                     Download Latest Release
                 </a>
-                <a href="https://github.com/tonikelope/coronapoker" target="_blank" class="px-8 py-4 bg-dark-800 hover:bg-dark-700 border border-dark-700 text-white font-medium rounded-lg transition-all flex items-center gap-2 w-full sm:w-auto justify-center">
+                <a href="https://github.com/tonikelope/coronapoker" target="_blank" rel="noopener noreferrer" class="px-8 py-4 bg-dark-800 hover:bg-dark-700 border border-dark-700 text-white font-medium rounded-lg transition-all flex items-center gap-2 w-full sm:w-auto justify-center">
                     <i class="fa-brands fa-github"></i>
                     View Source
                 </a>
             </div>
 
-            <div class="mt-10 flex justify-center gap-4 flex-wrap">
+            <div class="mt-10 flex justify-center gap-4 flex-wrap opacity-90">
                 <img src="https://img.shields.io/badge/Maintained%3F-yes-10b981.svg?style=flat-square" alt="Maintenance">
                 <img src="https://img.shields.io/badge/License-GPLv3-3b82f6.svg?style=flat-square" alt="License: GPL v3">
                 <img src="https://img.shields.io/badge/OS-Windows%20%7C%20Mac%20%7C%20Linux-475569.svg?style=flat-square" alt="Supported OS">
@@ -110,7 +111,7 @@
     <section class="py-12 -mt-16 relative z-20">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="rounded-2xl border border-dark-700 bg-dark-800 p-2 shadow-2xl overflow-hidden aspect-video relative group">
-                <video controls class="w-full h-full rounded-xl object-cover" poster="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg">
+                <video controls class="w-full h-full rounded-xl object-cover bg-dark-900" poster="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg">
                     <source src="https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62-3567c593482d" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -127,7 +128,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="bg-dark-800 border border-dark-700 p-6 rounded-xl hover:border-terminal-green/50 transition-colors group">
-                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform shadow-inner">
                         <i class="fa-solid fa-network-wired text-xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-2">Decentralized P2P</h3>
@@ -135,15 +136,15 @@
                 </div>
 
                 <div class="bg-dark-800 border border-dark-700 p-6 rounded-xl hover:border-terminal-green/50 transition-colors group">
-                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform shadow-inner">
                         <i class="fa-solid fa-dice text-xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-2">True Random Shuffle</h3>
-                    <p class="text-slate-400 text-sm">Cryptographically secure deck shuffling ensuring mathematical fairness.</p>
+                    <p class="text-slate-400 text-sm">Cryptographically secure deck shuffling ensuring absolute mathematical fairness across the network.</p>
                 </div>
 
                 <div class="bg-dark-800 border border-dark-700 p-6 rounded-xl hover:border-terminal-green/50 transition-colors group">
-                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform shadow-inner">
                         <i class="fa-solid fa-gavel text-xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-2">Pro Rulesets</h3>
@@ -151,39 +152,40 @@
                 </div>
 
                 <div class="bg-dark-800 border border-dark-700 p-6 rounded-xl hover:border-terminal-green/50 transition-colors group">
-                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform shadow-inner">
                         <i class="fa-solid fa-plug-circle-exclamation text-xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-2">Fault Tolerant</h3>
-                    <p class="text-slate-400 text-sm">High tolerance to network or power failures. Games can be resumed from the exact stop point.</p>
+                    <p class="text-slate-400 text-sm">High tolerance to network or power failures. Games can be resumed precisely from the exact stop point.</p>
                 </div>
 
                 <div class="bg-dark-800 border border-dark-700 p-6 rounded-xl hover:border-terminal-green/50 transition-colors group">
-                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform shadow-inner">
                         <i class="fa-solid fa-display text-xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-2">UHD & Visuals</h3>
-                    <p class="text-slate-400 text-sm">Global zoom, 3 view modes, cool sounds, 3D card effects, and low brightness modes.</p>
+                    <p class="text-slate-400 text-sm">Global zoom, 3 view modes, cool sounds, 3D card effects, and dynamic low brightness modes.</p>
                 </div>
 
                 <div class="bg-dark-800 border border-dark-700 p-6 rounded-xl hover:border-terminal-green/50 transition-colors group">
-                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform">
+                    <div class="w-12 h-12 bg-dark-900 rounded-lg flex items-center justify-center border border-dark-700 text-terminal-green mb-4 group-hover:scale-110 transition-transform shadow-inner">
                         <i class="fa-solid fa-palette text-xl"></i>
                     </div>
                     <h3 class="text-xl font-bold text-white mb-2">Fully Customizable</h3>
-                    <p class="text-slate-400 text-sm">Create and share MODs with custom fonts, decks, sounds, gifs, and cinematics.</p>
+                    <p class="text-slate-400 text-sm">Create and share MODs with custom fonts, decks, sounds, gifs, and game cinematics.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="panoptes" class="py-24 bg-dark-900 relative overflow-hidden">
-        <div class="absolute inset-0 opacity-[0.03] font-mono text-xs overflow-hidden pointer-events-none select-none text-terminal-green break-all leading-none" aria-hidden="true">
+    <section id="panoptes" class="py-24 bg-dark-900 relative overflow-hidden border-t border-dark-800">
+        <div class="absolute inset-0 opacity-[0.02] font-mono text-xs overflow-hidden pointer-events-none select-none text-terminal-green break-all leading-none" aria-hidden="true">
             0x0000 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 00 00 00 00 
             0x0010 50 61 6E 6F 70 74 65 73 20 45 6E 67 69 6E 65 00 
             0x0020 5A 65 72 6F 2D 54 72 75 73 74 20 41 72 63 68 2E 
             0x0030 43 48 41 4F 53 5F 53 45 45 44 20 49 4E 49 54 00 
-            (repeating hex pattern...)
+            0x0040 4D 41 4C 49 43 49 4F 55 53 20 48 4F 53 54 00 00
+            0x0050 56 41 55 4C 54 20 4C 4F 42 4F 54 4F 4D 59 00 00
         </div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -196,40 +198,44 @@
                         Eradicating the <br/>
                         <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400">Malicious Host</span>
                     </h2>
-                    <p class="text-slate-400 mb-6 text-lg">
+                    <p class="text-slate-400 mb-8 text-lg">
                         In traditional P2P, the host holds the game state in RAM, opening the door for cheating. Panoptes treats <strong>all players, including the host, as compromised nodes</strong>.
                     </p>
                     
-                    <div class="space-y-4 font-mono text-sm">
-                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green">
+                    <div class="space-y-3 font-mono text-sm">
+                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green shadow-md hover:bg-dark-700/50 transition-colors">
                             <span class="text-white font-bold block mb-1">Phase 0: Secure Enclaves</span>
-                            <span class="text-slate-400">Memory isolation via ChaCha20 encrypted vaults and background telemetry against debuggers.</span>
+                            <span class="text-slate-400 leading-relaxed">Memory isolation via ChaCha20 vaults and continuous telemetry against debuggers.</span>
                         </div>
-                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green">
+                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green shadow-md hover:bg-dark-700/50 transition-colors">
                             <span class="text-white font-bold block mb-1">Phase 1: Hand Commitment</span>
-                            <span class="text-slate-400">Multi-party entropy XOR fusion. Deck generation inside a Zero-Knowledge KEM Envelope.</span>
+                            <span class="text-slate-400 leading-relaxed">Multi-party entropy XOR fusion. Deck generation strictly inside a Zero-Knowledge KEM Envelope.</span>
                         </div>
-                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green">
+                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green shadow-md hover:bg-dark-700/50 transition-colors">
                             <span class="text-white font-bold block mb-1">Phase 2: Action Blockchain</span>
-                            <span class="text-slate-400">Every bet is digested via a Sponge function. Poly1305 MACs prevent dropped or injected actions.</span>
+                            <span class="text-slate-400 leading-relaxed">Every bet is digested via a Sponge function. Poly1305 MACs prevent dropped or injected actions.</span>
                         </div>
-                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green">
+                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green shadow-md hover:bg-dark-700/50 transition-colors">
+                            <span class="text-white font-bold block mb-1">Phase 3: Token Consensus & Escrow</span>
+                            <span class="text-slate-400 leading-relaxed">Community cards are decrypted by mathematically fusing "Street Tokens" from all active peers.</span>
+                        </div>
+                        <div class="bg-dark-800 p-4 rounded-lg border border-dark-700 border-l-4 border-l-terminal-green shadow-md hover:bg-dark-700/50 transition-colors">
                             <span class="text-white font-bold block mb-1">Phase 4: Forensic Audit</span>
-                            <span class="text-slate-400">Post-hand deterministic state verification. Any manipulation triggers terminal network poisoning.</span>
+                            <span class="text-slate-400 leading-relaxed">Post-hand deterministic state verification. Any manipulation triggers terminal network poisoning.</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="w-full lg:w-1/2">
-                    <div class="relative rounded-2xl overflow-hidden border border-dark-700 bg-dark-800 shadow-2xl group">
+                    <div class="relative rounded-2xl overflow-hidden border border-dark-700 bg-dark-800 shadow-2xl group mt-8 lg:mt-0">
                         <div class="absolute inset-0 bg-terminal-green/10 mix-blend-overlay group-hover:opacity-0 transition-opacity duration-500 z-10"></div>
-                        <img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" alt="Panoptes Zero-Trust Protocol" class="w-full h-auto object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700">
+                        <img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" alt="Panoptes Zero-Trust Protocol Logo" class="w-full h-auto object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 transform group-hover:scale-105">
                         
-                        <div class="absolute bottom-4 right-4 z-20 bg-dark-900/90 backdrop-blur border border-red-500/50 p-3 rounded-lg flex items-start gap-3 max-w-xs">
-                            <i class="fa-solid fa-shield-virus text-red-500 text-xl mt-1"></i>
+                        <div class="absolute bottom-6 right-6 z-20 bg-dark-900/90 backdrop-blur-md border border-red-500/50 p-4 rounded-xl flex items-start gap-4 max-w-xs shadow-lg">
+                            <i class="fa-solid fa-shield-virus text-red-500 text-2xl mt-1"></i>
                             <div>
-                                <h4 class="text-white font-bold text-sm mb-1">Ring-3 Anti-Cheat</h4>
-                                <p class="text-slate-400 text-xs leading-tight">Prevents reverse-engineering, RAM dumping, and key-stealing hooks.</p>
+                                <h4 class="text-white font-bold text-sm mb-1 uppercase tracking-wider">Ring-3 Anti-Cheat</h4>
+                                <p class="text-slate-400 text-xs leading-relaxed">Prevents reverse-engineering, RAM dumping, and key-stealing hooks.</p>
                             </div>
                         </div>
                     </div>
@@ -238,7 +244,7 @@
         </div>
     </section>
 
-    <footer class="bg-dark-900 border-t border-dark-800 py-12">
+    <footer class="bg-dark-900 border-t border-dark-800 py-12 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-spade text-terminal-green text-xl"></i>
@@ -246,12 +252,12 @@
             </div>
             
             <p class="text-slate-500 text-sm text-center md:text-left">
-                Developed for pleasure during confinement. <br class="hidden md:block">
+                An open-source Zero-Trust poker engine. <br class="hidden md:block">
                 May your pockets be aces. Carpe diem.
             </p>
             
             <div class="flex gap-4">
-                <a href="https://github.com/tonikelope/coronapoker" class="w-10 h-10 rounded-full bg-dark-800 border border-dark-700 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+                <a href="https://github.com/tonikelope/coronapoker" target="_blank" rel="noopener noreferrer" aria-label="GitHub Repository" class="w-10 h-10 rounded-full bg-dark-800 border border-dark-700 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition-colors shadow-sm">
                     <i class="fa-brands fa-github text-lg"></i>
                 </a>
             </div>

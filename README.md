@@ -86,13 +86,7 @@ The game begins by ensuring no single entity—not even the host—can dictate o
 * **Zero-Knowledge Distribution:** Sensitive data is sealed in X25519-encrypted envelopes. Each player can only decrypt their own pocket cards and their unique shards (Splits) of the street keys (Flop, Turn, River).
 * **Decentralized Key Sharding:** Street keys are broken into fragments using XOR-based secret sharing. Revelation of board cards requires a decentralized consensus, as no single player or Host holds a complete street key.
 
-### Phase 2: Cryptographic Escrow & Compartmentalization
-While players decrypt their pocket cards locally, the remaining community cards (the board) reside in the host's memory.
-
-* **The Escrow:** The Flop, Turn, and River cards are locked in an encrypted Escrow payload using independent, isolated ChaCha20 keystreams.
-* **The Blind Host:** At this stage, the host application possesses the encrypted Escrow data but mathematically lacks the keys required to decrypt it. The host is strictly isolated and just as blind as the connected clients.
-
-### Phase 3: Token Consensus & Scorched Earth
+### Phase 2: Token Consensus & Scorched Earth
 When a betting round concludes and community cards must be revealed, the host cannot unilaterally query the engine for the cards.
 
 * **Fractional Keys (Tokens):** Inside their original Megapacket envelope, every player received cryptographic "Street Tokens" (for the Flop, Turn, and River).
@@ -100,14 +94,14 @@ When a betting round concludes and community cards must be revealed, the host ca
 * **Scorched Earth Defense:** The moment a street is decrypted and broadcasted, the underlying ephemeral keys are permanently wiped from the Vault. If an attacker attempts to extract the master shuffle key prematurely, Panoptes proactively burns the street tokens, locking the game state forever.
 * **The Exit Testament:** If a player legitimately disconnects mid-hand, the engine performs a permanent wipe of their session keys and generates a cryptographic "Testament". This signature allows the remaining peers to verify the exit and close the state audit without failing the final validation.
 
-### Phase 4: The Action Blockchain (Betting Integrity)
+### Phase 3: The Action Blockchain (Betting Integrity)
 Betting sequences are protected against reordering, injection, or modification.
 
 * **Sponge Construction:** Every action (Bet, Fold, Call) is signed with a Poly1305 MAC and absorbed into the running cryptographic Sponge hash (`HAND_STATE_BLOCKCHAIN`).
 * **Zero-Trust Bot Delegation:** Server-side bots operate under the exact same zero-trust rules as human players. Bot actions are deterministically signed via their delegated private keys, ensuring the host cannot forge or silently alter bot behavior.
 * **Atomic Chain:** If the host attempts to drop a player's bet, inject a fake action, or manipulate the betting phase, the state hash will instantly desynchronize, invalidating the hand across the network.
 
-### Phase 5: Showdown & The Stateless Audit
+### Phase 4: Showdown & The Stateless Audit
 When the hand reaches the end, the system must definitively prove that the host did not manipulate the envelopes, the community cards, or the original shuffle.
 
 * **Master Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their original digital envelopes.

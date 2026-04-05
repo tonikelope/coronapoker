@@ -266,7 +266,7 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_DEALER = null;
     public static volatile ImageIcon IMAGEN_DEAD_DEALER = null;
 
-    public volatile static int DECK_RANDOM_GENERATOR = Helpers.TRNG_CSPRNG;
+    public volatile static int DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = loadPropertiesFile();

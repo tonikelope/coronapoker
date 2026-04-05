@@ -3055,25 +3055,14 @@ public class Crupier implements Runnable {
 
         this.activeHandId = Panoptes.getInstance().stateInitializeHand();
 
-        byte[] external_entropy = null;
+        byte[] jvm_entropy = null;
 
-        if (GameFrame.getInstance().isPartida_local()) {
-
-            if (Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG_CSPRNG || Helpers.DECK_RANDOM_GENERATOR == Helpers.TRNG) {
-                external_entropy = Helpers.getRandomOrgBytes(32);
-            } else if (Helpers.CSPRNG_GENERATOR != null) {
-                external_entropy = new byte[32];
-                Helpers.CSPRNG_GENERATOR.nextBytes(external_entropy);
-            }
-
-        } else {
-            if (Helpers.CSPRNG_GENERATOR != null) {
-                external_entropy = new byte[32];
-                Helpers.CSPRNG_GENERATOR.nextBytes(external_entropy);
-            }
+        if (Helpers.CSPRNG_GENERATOR != null) {
+            jvm_entropy = new byte[32];
+            Helpers.CSPRNG_GENERATOR.nextBytes(jvm_entropy);
         }
 
-        this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed(external_entropy);
+        this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed(jvm_entropy);
 
         if (!GameFrame.isRECOVER()) {
             try {

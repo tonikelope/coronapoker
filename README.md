@@ -86,7 +86,7 @@ The game begins by ensuring no single entity—not even the host—can dictate o
 * **Zero-Knowledge Distribution:** Sensitive data is sealed in X25519-encrypted envelopes. Each player can only decrypt their own pocket cards and their unique shards (Splits) of the street keys (Flop, Turn, River).
 * **Decentralized Key Sharding:** Street keys are broken into fragments using XOR-based secret sharing. Revelation of board cards requires a decentralized consensus, as no single player or Host holds a complete street key.
 
-### Phase 2: Token Consensus & Scorched Earth
+### Phase 2: Token Consensus
 When a betting round concludes and community cards must be revealed, the host cannot unilaterally query the engine for the cards.
 
 * **Fractional Keys (Tokens):** Inside their original Megapacket envelope, every player received cryptographic "Street Tokens" (for the Flop, Turn, and River).

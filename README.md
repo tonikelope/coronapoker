@@ -75,7 +75,7 @@ Before a hand begins, Panoptes establishes a secure, forward-secret communicatio
 * **Ephemeral Session Isolation X25519:** Session Keys are generated and sealed strictly within the encrypted enclave, establishing Perfect Forward Secrecy (PFS) without the private key ever touching plain-text RAM.
 
 ### Phase 1: Distributed Entropy & The Hand Commitment
-<img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/9d5c810e-01b8-4696-9270-21a73da914d7" />
+<img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/491afd04-ae89-42d3-af4d-fc782fa04c6d" />
 
 The game begins by ensuring no single entity—not even the host—can dictate or predict the deck's order.
 

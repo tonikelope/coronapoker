@@ -103,11 +103,12 @@ When a betting round concludes and community cards must be revealed, the protoco
 
 ### Phase 4: Showdown & The Stateless Forensic Audit
 
-Upon hand completion, the system executes a deterministic, localized proof to guarantee no manipulation occurred during the hand's lifecycle.
+Upon hand completion, the system executes a deterministic, localized proof to guarantee no manipulation occurred during the hand's lifecycle, followed by a mandatory peer-to-peer cross-validation.
 
-* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SLICE` that was hidden inside their Phase 1 envelopes.
-* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the Hand Commitment, the newly reconstructed Shuffle Key, and the final community cards.
-* **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive mismatch.
+* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 envelopes.
+* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the Hand Commitment, the newly reconstructed Master Shuffle Key, and the final community cards.
+* **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive internal mismatch.
+* **Cross-Verification Receipts:** Upon a successful local audit, each client generates a Poly1305-signed "Receipt" of their final state hash and broadcasts it to the table. Every player must verify the receipts of all other players. This mathematically proves that the host did not split the game state (e.g., sending divergent hand histories to different players).
 
 ## 🛑 PART II: THE ANTI-TAMPER & ANTI-CHEAT ENGINE
 While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.

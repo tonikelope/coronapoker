@@ -111,7 +111,7 @@ Upon hand completion, the system executes a deterministic, localized proof to gu
 * **Cross-Verification Receipts:** Upon a successful local audit, each client generates a Poly1305-signed "Receipt" of their final state hash and broadcasts it to the table. Every player must verify the receipts of all other players. This mathematically proves that the host did not split the game state (e.g., sending divergent hand histories to different players).
 * **Terminal Poisoning (Quarantine):** If the local audit fails, or if a peer's receipt does not match the consensus, the engine triggers a terminal poisoning of the state (`v.poison |= final_fail`). The client instantly generates invalid MACs for all future network traffic, mathematically isolating the compromised host and proving the cheating attempt to the rest of the P2P mesh.
 
-## 🛑 PART II: THE ANTI-TAMPER & ANTI-CHEAT ENGINE
+## 🛑 PART II: ANTI-CHEAT ENGINE
 While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.
 
 <p align="center"><img src="panoptes.png" height="500"></p>

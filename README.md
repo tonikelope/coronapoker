@@ -66,48 +66,48 @@ The core achievement of Panoptes is its state machine. A standard game progresse
 ### Phase 0: Environment Integrity & Secure Enclaves
 <img width="1404" height="870" alt="imagen" src="https://github.com/user-attachments/assets/2a1f20b0-2678-4e6b-9858-45b0138b5321" />
 
-Before a hand begins, Panoptes establishes a secure, forward-secret communication channel and locks its own memory to prevent host interference.
+Before any gameplay occurs, Panoptes establishes a secure execution context, locking its own memory to prevent host interference, memory-dumping, or runtime instrumentation.
 
-* **Build-Time Cryptographic DNA:** A unique 32-byte deterministic polymorphic seed is injected by the Python Builder into the C engine at compile-time, ensuring no two versions share the same internal logic.
-* **OS-Native Environment Anchoring anti-TOCTOU measures:** The kernel enforces physical file locks and continuous Inode/Hash validation on all critical assets (.jar and .dll).
-* **Hybrid JIT Key Forging Build-time:** Logic is fused with live boot hardware entropy to forge a unique ChaCha20 JIT Vault Key. 
-* **Polymorphic Memory Shield:** The engine spawns several isolated and encrypted memory structs (all decoys, 1 true state), constantly mutating and shifting to mitigate memory-dumping attacks.
-* **Ephemeral Session Isolation X25519:** Session Keys are generated and sealed strictly within the encrypted enclave, establishing Perfect Forward Secrecy (PFS) without the private key ever touching plain-text RAM.
+* **Build-Time Cryptographic DNA:** A unique 32-byte deterministic polymorphic seed (`CHAOS_SEED`) is injected by the compilation pipeline into the native C engine. This ensures no two compiled binaries share the same internal memory layout or key derivation logic.
+* **Hybrid JIT Key Forging:** Upon initialization, compile-time logic is fused with live, hardware-level OS entropy to forge a unique ChaCha20 key. This key encrypts the `PanoptesVault`—the engine’s secure memory enclave.
+* **Polymorphic Memory Shield & Decoys:** The engine spawns multiple isolated memory structs (several decoys and one true state), constantly applying ChaCha20 keystreams to mitigate RAM-scraping attacks.
+* **Continuous Telemetry & The Deadman Switch:** Background Guardian threads continuously monitor CPU cycle drift (`sabueso_rdtsc`), inline hooks, and attached debuggers. Any anomaly instantly flips a mathematical `v.poison` bit, irrevocably corrupting the Vault's cryptographic outputs.
 
 ### Phase 1: Distributed Entropy & The Hand Commitment
 <img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/491afd04-ae89-42d3-af4d-fc782fa04c6d" />
 
-The game begins by ensuring no single entity—not even the host—can dictate or predict the deck's order.
+TThe hand begins by ensuring no single entity—not even the server—can dictate, predict, or manipulate the deck's order.
 
-* **Collaborative Multi-Party Entropy:** Entropy contributions from all players and the Host are fused into a global pool. This ensures that no single entity can control or predict the final deck order.
-* **Internal Entropy Blinding:** The engine performs a final "blinding" operation by mixing external seeds with OS hardware noise and the Polymorphic Root Seed. This prevents the Host from "mining" favorable decks even if they control the OS.
-* **Immutable Hand Commitment:** The resulting deck state is digested via Mix Sponge (ChaCha20-based) and signed with Poly1305. Once the "Hand Commitment MAC" is generated, the future of the hand is mathematically set in stone.
-* **Hand State Blockchain Genesis:** The commitment is ingested as the Hand Genesis Block. This anchors the initial deal as the immutable root of a private, ephemeral blockchain that tracks every subsequent action in the hand.
-* **Zero-Knowledge Distribution:** Sensitive data is sealed in X25519-encrypted envelopes. Each player can only decrypt their own pocket cards and their unique shards (Splits) of the street keys (Flop, Turn, River).
-* **Decentralized Key Sharding:** Street keys are broken into fragments using XOR-based secret sharing. Revelation of board cards requires a decentralized consensus, as no single player or Host holds a complete street key.
+* **Collaborative Multi-Party Entropy:** Entropy seeds from all active peers and the host are fused via XOR into a global pool. This mathematically guarantees that no single node can bias the final deck configuration.
+* **In-Enclave Fisher-Yates Shuffle:** The combined entropy seeds a ChaCha20 keystream, which drives a deterministic Fisher-Yates shuffle strictly inside the encrypted Vault.
+* **Zero-Knowledge KEM Envelopes:** Sensitive data is sealed using an X25519 Key Encapsulation Mechanism (KEM). Each player receives an envelope containing their pocket cards and their unique cryptographic shards of the community street keys.
+* **The Escrow Ciphertext:** The community cards (Flop, Turn, and River) are encrypted with ChaCha20 and placed in a public "Escrow." No individual holds the complete key to unlock them.
+* **Genesis of the Action Blockchain:** The entire initial state (public keys, escrow, encrypted envelopes) is digested via a Sponge Construction to create the `HAND_STATE_BLOCKCHAIN`. This hash anchors the initial deal as the immutable root of a private, ephemeral blockchain.
+  
+### Phase 2: The Cryptographic Betting Loop (Action Blockchain)
 
-### Phase 2: Token Consensus
-When a betting round concludes and community cards must be revealed, the host cannot unilaterally query the engine for the cards.
+During the active betting rounds, gameplay actions are continuously verified and sealed into the local blockchain, preventing reordering, injection, or dropping of bets.
 
-* **Fractional Keys (Tokens):** Inside their original Megapacket envelope, every player received cryptographic "Street Tokens" (for the Flop, Turn, and River).
-* **Consensus Aggregation:** The host requests the specific street token from all active clients. The native engine aggregates these tokens via XOR operations. Only when all required tokens are combined can the engine reconstruct the ephemeral key needed to unlock that specific street in the Escrow.
-* **Scorched Earth Defense:** The moment a street is decrypted and broadcasted, the underlying ephemeral keys are permanently wiped from the Vault. If an attacker attempts to extract the master shuffle key prematurely, Panoptes proactively burns the street tokens, locking the game state forever.
-* **The Exit Testament:** If a player legitimately disconnects mid-hand, the engine performs a permanent wipe of their session keys and generates a cryptographic "Testament". This signature allows the remaining peers to verify the exit and close the state audit without failing the final validation.
+* **Sponge-Based State Absorption:** Every gameplay action (Bet, Fold, Call) includes the exact amount, the current street, and a microsecond-precision hardware timestamp. This payload is absorbed into the running `HAND_STATE_BLOCKCHAIN` via a cryptographic Sponge function.
+* **Context-Aware Signatures:** Actions are broadcasted with a Poly1305 Message Authentication Code (MAC). The key for this MAC is dynamically derived from the *current* state of the blockchain. If the host attempts to drop a previous bet, the state hashes will desynchronize, and all subsequent signatures will mathematically fail.
+* **Zero-Trust Bot Delegation:** Server-side bots operate under the exact same zero-trust strictures as human clients. Bot actions are signed via their delegated X25519 private keys, explicitly preventing the host from forging or silently overriding bot behavior.
 
-### Phase 3: The Action Blockchain (Betting Integrity)
-Betting sequences are protected against reordering, injection, or modification.
+### Phase 3: Token Consensus & Escrow Revelation
 
-* **Sponge Construction:** Every action (Bet, Fold, Call) is signed with a Poly1305 MAC and absorbed into the running cryptographic Sponge hash (`HAND_STATE_BLOCKCHAIN`).
-* **Zero-Trust Bot Delegation:** Server-side bots operate under the exact same zero-trust rules as human players. Bot actions are deterministically signed via their delegated private keys, ensuring the host cannot forge or silently alter bot behavior.
-* **Atomic Chain:** If the host attempts to drop a player's bet, inject a fake action, or manipulate the betting phase, the state hash will instantly desynchronize, invalidating the hand across the network.
+When a betting round concludes and community cards must be revealed, the protocol enforces a distributed cryptographic consensus. The server is powerless to query the upcoming cards unilaterally.
 
-### Phase 4: Showdown & The Stateless Audit
-When the hand reaches the end, the system must definitively prove that the host did not manipulate the envelopes, the community cards, or the original shuffle.
+* **Fractional Keys (XOR Shards):** During Phase 1, every player received fragmented "Street Tokens." To reveal the Flop, Turn, or River, the host must request the specific token from all active clients.
+* **Consensus Aggregation:** The native engine aggregates these tokens via branchless XOR operations. Only when all active tokens are combined can the engine reconstruct the ephemeral ChaCha20 key required to decrypt that specific street from the Escrow.
+* **Scorched Earth Defense:** The moment a street is decrypted, the underlying ephemeral tokens are permanently wiped from the Vault. If a malicious host attempts to extract tokens out-of-phase or brute-force the Escrow prematurely, Panoptes proactively burns the state, triggering the `v.poison` mechanism.
+* **The Exit Testament:** If a player legitimately disconnects mid-hand, the engine performs a permanent wipe of their session keys and generates an "Exit Testament." This signature allows the remaining P2P swarm to verify the exit and securely bypass their token requirement without failing the final audit.
 
-* **Master Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their original digital envelopes.
-* **Stateless Client Verification:** Every client runs a localized, stateless audit. The client inputs the original Megapacket, the reconstructed Master Seed, and the final community cards into their own Panoptes engine.
-* **Active Telemetry Assessment:** Concurrently, Panoptes evaluates the deep-system integrity checks performed during the hand (detecting virtualization, unauthorized memory access, or network spoofing), acting as a final gatekeeper for the host's legitimacy.
-* **The Avalanche Effect:** The client engine re-simulates the entire hand. If the host manipulated a single bit during the game, the cryptographic hashes will avalanche, producing a massive mismatch. The client will instantly flag the host as compromised and mathematically prove the cheating attempt to the rest of the P2P swarm.
+### Phase 4: Showdown & The Stateless Forensic Audit
+
+Upon hand completion, the system executes a deterministic, localized proof to guarantee no manipulation occurred during the hand's lifecycle.
+
+* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SLICE` that was hidden inside their Phase 1 envelopes.
+* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the Hand Commitment, the newly reconstructed Shuffle Key, and the final community cards.
+* **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive mismatch.
 
 ## 🛑 PART II: THE ANTI-TAMPER & ANTI-CHEAT ENGINE
 While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine (PACE) is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.

@@ -74,8 +74,8 @@ Before a hand begins, Panoptes establishes a secure, forward-secret communicatio
 * **Polymorphic Memory Shield:** The engine spawns several isolated and encrypted memory structs (all decoys, 1 true state), constantly mutating and shifting to mitigate memory-dumping attacks.
 * **Ephemeral Session Isolation X25519:** Session Keys are generated and sealed strictly within the encrypted enclave, establishing Perfect Forward Secrecy (PFS) without the private key ever touching plain-text RAM.
 
-### Phase 1: Distributed Entropy & The Megapacket
-<img width="1340" height="976" alt="imagen" src="https://github.com/user-attachments/assets/723b57bc-af32-4f29-8431-2fa2c3caba0c" />
+### Phase 1: Distributed Entropy & The Hand Commitment
+<img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/9d5c810e-01b8-4696-9270-21a73da914d7" />
 
 The game begins by ensuring no single entity—not even the host—can dictate or predict the deck's order.
 

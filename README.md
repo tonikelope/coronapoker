@@ -86,9 +86,8 @@ The hand begins by ensuring no single entity—not even the server—can dictate
 
 During the active betting rounds, gameplay actions are continuously verified and sealed into the local blockchain, preventing reordering, injection, or dropping of bets.
 
-* **Sponge-Based State Absorption:** Every gameplay action (Bet, Fold, Call) includes the exact amount, the current street, and a microsecond-precision hardware timestamp. This payload is absorbed into the running `HAND_STATE_BLOCKCHAIN` via a cryptographic Sponge function.
+* **Sponge-Based State Absorption:** Every gameplay action (Bet, Fold, Call) includes the exact amount and the current street. This payload is absorbed into the running `HAND_STATE_BLOCKCHAIN` via a cryptographic Sponge function.
 * **Context-Aware Signatures:** Actions are broadcasted with a Poly1305 Message Authentication Code (MAC). The key for this MAC is dynamically derived from the *current* state of the blockchain. If the host attempts to drop a previous bet, the state hashes will desynchronize, and all subsequent signatures will mathematically fail.
-* **Zero-Trust Bot Delegation:** Server-side bots operate under the exact same zero-trust strictures as human clients. Bot actions are signed via their delegated X25519 private keys, explicitly preventing the host from forging or silently overriding bot behavior.
 
 ### Phase 3: Token Consensus & Escrow Revelation
 
@@ -103,11 +102,11 @@ When a betting round concludes and community cards must be revealed, the protoco
 
 Upon hand completion, the system executes a deterministic, localized proof to guarantee no manipulation occurred during the hand's lifecycle, followed by a mandatory peer-to-peer cross-validation.
 
-* **Master Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 envelopes.
+* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 envelopes.
 * **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the original Genesis Megapacket, the newly reconstructed Master Seed, and the final community cards.
 * **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive internal mismatch.
 * **Cross-Verification Receipts:** Upon a successful local audit, each client generates a Poly1305-signed "Receipt" of their final state hash and broadcasts it to the table. Every player must verify the receipts of all other players. This mathematically proves that the host did not split the game state (e.g., sending divergent hand histories to different players).
-* **Terminal Poisoning (Quarantine):** If the local audit fails, or if a peer's receipt does not match the consensus, the engine triggers a terminal poisoning of the state (`v.poison |= final_fail`). The client instantly generates invalid MACs for all future network traffic, mathematically isolating the compromised host and proving the cheating attempt to the rest of the P2P mesh.
+* **Terminal Poisoning (Quarantine):** If the local audit fails, or if a peer's receipt does not match the consensus, the engine triggers a terminal poisoning of the state. The client instantly generates invalid MACs for all future network traffic, mathematically isolating the compromised host and proving the cheating attempt to the rest of the P2P mesh.
 
 ## 🛑 PART II: ANTI-CHEAT ENGINE
 While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.

@@ -76,7 +76,7 @@ Before any gameplay occurs, Panoptes establishes a secure execution context, loc
 ### Phase 1: Distributed Entropy & The Hand Commitment
 <img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/491afd04-ae89-42d3-af4d-fc782fa04c6d" />
 
-TThe hand begins by ensuring no single entity—not even the server—can dictate, predict, or manipulate the deck's order.
+The hand begins by ensuring no single entity—not even the server—can dictate, predict, or manipulate the deck's order.
 
 * **Collaborative Multi-Party Entropy:** Entropy seeds from all active peers and the host are fused via XOR into a global pool. This mathematically guarantees that no single node can bias the final deck configuration.
 * **In-Enclave Fisher-Yates Shuffle:** The combined entropy seeds a ChaCha20 keystream, which drives a deterministic Fisher-Yates shuffle strictly inside the encrypted Vault.

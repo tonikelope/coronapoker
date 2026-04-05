@@ -138,11 +138,7 @@ public class NewGameDialog extends JDialog {
         url_panel.setVisible(false);
         nick_pass_panel.setVisible(false);
         config_partida_panel.setVisible(true);
-        this.random_panel.setVisible(false);
-        this.random_combobox.setVisible(false);
-        this.random_label.setVisible(false);
-        this.randomorg_apikey.setVisible(false);
-        this.randomorg_label.setVisible(false);
+
         this.recover_panel.setVisible(false);
         this.vamos.setText(Translator.translate("ui.guardar"));
 
@@ -333,9 +329,6 @@ public class NewGameDialog extends JDialog {
         JLabel random_label3 = new JLabel(Translator.translate("shuffle.modo_normal_csprng"));
         random_combobox_model.addElement(random_label3);
         random_label3.setIcon(new ImageIcon(getClass().getResource("/images/4stars.png")));
-        random_combobox.setModel(random_combobox_model);
-
-        random_combobox.setRenderer(new ComboBoxIconRenderer());
 
         game_combo.setEnabled(false);
 
@@ -392,8 +385,6 @@ public class NewGameDialog extends JDialog {
         server_port_textfield.getDocument().addDocumentListener(new VamosButtonListener());
         ((AbstractDocument) server_port_textfield.getDocument()).setDocumentFilter(new Helpers.numericFilter(server_port_textfield, MAX_PORT_LENGTH));
 
-        JTextFieldRegularPopupMenu.addTo(randomorg_apikey);
-
         JTextFieldRegularPopupMenu.addTo(nick);
         nick.getDocument().addDocumentListener(new VamosButtonListener());
         ((AbstractDocument) nick.getDocument()).setDocumentFilter(new Helpers.maxLenghtFilter(nick, MAX_NICK_LENGTH));
@@ -434,8 +425,6 @@ public class NewGameDialog extends JDialog {
             server_ip_textfield.setEnabled(false);
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
 
-            random_combobox.setSelectedIndex(Integer.parseInt(Helpers.PROPERTIES.getProperty("random_generator", String.valueOf(Helpers.TRNG_CSPRNG))) - 1);
-            randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);
             ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
@@ -560,12 +549,6 @@ public class NewGameDialog extends JDialog {
         manos_checkbox = new javax.swing.JCheckBox();
         limite_manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
-        random_panel = new javax.swing.JPanel();
-        randomorg_label = new javax.swing.JLabel();
-        random_label = new javax.swing.JLabel();
-        randomorg_apikey = new javax.swing.JTextField();
-        random_combobox = new javax.swing.JComboBox<>();
-        info_shuffle_icon = new javax.swing.JLabel();
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
@@ -601,12 +584,14 @@ public class NewGameDialog extends JDialog {
         jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0), 2));
 
         scroll_panel.setBorder(null);
+        scroll_panel.setDoubleBuffered(true);
 
         vamos.setBackground(new java.awt.Color(0, 130, 0));
         vamos.setFont(new java.awt.Font("Dialog", 1, 36)); // NOI18N
         vamos.setForeground(new java.awt.Color(255, 255, 255));
         vamos.setText("¡VAMOS!");
         vamos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        vamos.setDoubleBuffered(true);
         vamos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 vamosActionPerformed(evt);
@@ -615,8 +600,10 @@ public class NewGameDialog extends JDialog {
 
         server_port_puntos.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         server_port_puntos.setText(":");
+        server_port_puntos.setDoubleBuffered(true);
 
         server_port_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        server_port_textfield.setDoubleBuffered(true);
         server_port_textfield.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 server_port_textfieldActionPerformed(evt);
@@ -626,10 +613,12 @@ public class NewGameDialog extends JDialog {
         upnp_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         upnp_checkbox.setText("UPnP");
         upnp_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        upnp_checkbox.setDoubleBuffered(true);
 
         server_ip_textfield.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         server_ip_textfield.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
         server_ip_textfield.setText("localhost");
+        server_ip_textfield.setDoubleBuffered(true);
         server_ip_textfield.setPreferredSize(new java.awt.Dimension(500, 31));
         server_ip_textfield.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -645,6 +634,7 @@ public class NewGameDialog extends JDialog {
         server_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         server_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/780.png"))); // NOI18N
         server_label.setText("Servidor:");
+        server_label.setDoubleBuffered(true);
 
         javax.swing.GroupLayout url_panelLayout = new javax.swing.GroupLayout(url_panel);
         url_panel.setLayout(url_panelLayout);
@@ -685,19 +675,23 @@ public class NewGameDialog extends JDialog {
         ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         ciegas_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png"))); // NOI18N
         ciegas_label.setText("Ciegas iniciales:");
+        ciegas_label.setDoubleBuffered(true);
 
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
         buyin_label.setText("Compra inicial (10 a 100 CGs):");
         buyin_label.setToolTipText("[10-100] ciegas grandes");
+        buyin_label.setDoubleBuffered(true);
 
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy_checkbox.setDoubleBuffered(true);
 
         buyin_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         buyin_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 5, null, 1));
         buyin_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buyin_spinner.setDoubleBuffered(true);
         buyin_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
                 buyin_spinnerStateChanged(evt);
@@ -707,6 +701,7 @@ public class NewGameDialog extends JDialog {
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,10 / 0,20":"0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,20 / 0,40":"0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,30 / 0,60":"0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es")?"0,50 / 1":"0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000" }));
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ciegas_combobox.setDoubleBuffered(true);
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ciegas_comboboxActionPerformed(evt);
@@ -717,6 +712,7 @@ public class NewGameDialog extends JDialog {
         recomprar_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png"))); // NOI18N
         recomprar_label.setText("Recomprar");
         recomprar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        recomprar_label.setDoubleBuffered(true);
         recomprar_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 recomprar_labelMouseClicked(evt);
@@ -728,6 +724,7 @@ public class NewGameDialog extends JDialog {
         doblar_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         doblar_checkbox.setText("Aumentar ciegas");
         doblar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        doblar_checkbox.setDoubleBuffered(true);
         doblar_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 doblar_checkboxActionPerformed(evt);
@@ -737,10 +734,12 @@ public class NewGameDialog extends JDialog {
         doblar_ciegas_spinner_minutos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         doblar_ciegas_spinner_minutos.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         doblar_ciegas_spinner_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        doblar_ciegas_spinner_minutos.setDoubleBuffered(true);
 
         double_blinds_radio_minutos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         double_blinds_radio_minutos.setText("Minutos:");
         double_blinds_radio_minutos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        double_blinds_radio_minutos.setDoubleBuffered(true);
         double_blinds_radio_minutos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 double_blinds_radio_minutosActionPerformed(evt);
@@ -750,6 +749,7 @@ public class NewGameDialog extends JDialog {
         double_blinds_radio_manos.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         double_blinds_radio_manos.setText("Manos:");
         double_blinds_radio_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        double_blinds_radio_manos.setDoubleBuffered(true);
         double_blinds_radio_manos.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 double_blinds_radio_manosActionPerformed(evt);
@@ -759,6 +759,7 @@ public class NewGameDialog extends JDialog {
         doblar_ciegas_spinner_manos.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         doblar_ciegas_spinner_manos.setModel(new javax.swing.SpinnerNumberModel(30, 1, null, 1));
         doblar_ciegas_spinner_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        doblar_ciegas_spinner_manos.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -776,7 +777,7 @@ public class NewGameDialog extends JDialog {
                             .addComponent(double_blinds_radio_manos))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(doblar_ciegas_spinner_manos)
+                            .addComponent(doblar_ciegas_spinner_manos, javax.swing.GroupLayout.DEFAULT_SIZE, 177, Short.MAX_VALUE)
                             .addComponent(doblar_ciegas_spinner_minutos))))
                 .addContainerGap())
         );
@@ -802,6 +803,7 @@ public class NewGameDialog extends JDialog {
 
         manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         manos_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        manos_checkbox.setDoubleBuffered(true);
         manos_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 manos_checkboxActionPerformed(evt);
@@ -812,6 +814,7 @@ public class NewGameDialog extends JDialog {
         limite_manos_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png"))); // NOI18N
         limite_manos_label.setText("Límite de manos:");
         limite_manos_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        limite_manos_label.setDoubleBuffered(true);
         limite_manos_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 limite_manos_labelMouseClicked(evt);
@@ -882,88 +885,13 @@ public class NewGameDialog extends JDialog {
         recomprar_label.putClientProperty("i18n.key", "rebuy.recomprar_2");
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
 
-        random_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153), 2));
-
-        randomorg_label.setFont(new java.awt.Font("Dialog", 3, 12)); // NOI18N
-        randomorg_label.setText("RANDOM.ORG API KEY (opcional):");
-        randomorg_label.setToolTipText("Random.org API KEY");
-
-        random_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        random_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1058.png"))); // NOI18N
-        random_label.setText("ALGORITMO para barajar:");
-        random_label.setToolTipText("Click para más info");
-        random_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        random_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                random_labelMouseClicked(evt);
-            }
-        });
-
-        randomorg_apikey.setFont(new java.awt.Font("Dialog", 0, 12)); // NOI18N
-
-        random_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        random_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        random_combobox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                random_comboboxActionPerformed(evt);
-            }
-        });
-
-        info_shuffle_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/info.png"))); // NOI18N
-        info_shuffle_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        info_shuffle_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                info_shuffle_iconMouseClicked(evt);
-            }
-        });
-
-        javax.swing.GroupLayout random_panelLayout = new javax.swing.GroupLayout(random_panel);
-        random_panel.setLayout(random_panelLayout);
-        random_panelLayout.setHorizontalGroup(
-            random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(random_panelLayout.createSequentialGroup()
-                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(random_panelLayout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(info_shuffle_icon)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(random_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(random_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(random_panelLayout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(randomorg_label)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(randomorg_apikey, javax.swing.GroupLayout.PREFERRED_SIZE, 436, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap())
-        );
-        random_panelLayout.setVerticalGroup(
-            random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(random_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(random_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(random_label)
-                    .addComponent(info_shuffle_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(random_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(randomorg_label)
-                    .addComponent(randomorg_apikey, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
-        );
-
-        randomorg_label.putClientProperty("i18n.key", "shuffle.randomorg_api_key_opcional");
-        random_label.putClientProperty("i18n.key", "shuffle.algoritmo_para_barajar");
-
         javax.swing.GroupLayout config_partida_panelLayout = new javax.swing.GroupLayout(config_partida_panel);
         config_partida_panel.setLayout(config_partida_panelLayout);
         config_partida_panelLayout.setHorizontalGroup(
             config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addGroup(config_partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(random_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
         config_partida_panelLayout.setVerticalGroup(
@@ -971,12 +899,11 @@ public class NewGameDialog extends JDialog {
             .addGroup(config_partida_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, Short.MAX_VALUE)
-                .addComponent(random_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                .addContainerGap())
         );
 
         nick.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        nick.setDoubleBuffered(true);
         nick.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 nickActionPerformed(evt);
@@ -987,6 +914,7 @@ public class NewGameDialog extends JDialog {
         nick_label.setText("Nick:");
         nick_label.setToolTipText("Haz click para cambiar el avatar");
         nick_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        nick_label.setDoubleBuffered(true);
         nick_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 nick_labelMouseClicked(evt);
@@ -997,6 +925,7 @@ public class NewGameDialog extends JDialog {
         password.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
         password.setText("Password:");
         password.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        password.setDoubleBuffered(true);
 
         pass_text.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         pass_text.addActionListener(new java.awt.event.ActionListener() {
@@ -1006,6 +935,7 @@ public class NewGameDialog extends JDialog {
         });
 
         avatar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        avatar_label.setDoubleBuffered(true);
         avatar_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 avatar_labelMouseClicked(evt);
@@ -1048,6 +978,7 @@ public class NewGameDialog extends JDialog {
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
         recover_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 recover_checkboxActionPerformed(evt);
@@ -1058,6 +989,7 @@ public class NewGameDialog extends JDialog {
         recover_checkbox_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
         recover_checkbox_label.setText("CONTINUAR TIMBA ANTERIOR:");
         recover_checkbox_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        recover_checkbox_label.setDoubleBuffered(true);
         recover_checkbox_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 recover_checkbox_labelMouseClicked(evt);
@@ -1122,6 +1054,7 @@ public class NewGameDialog extends JDialog {
         cancel_button.setForeground(new java.awt.Color(255, 255, 255));
         cancel_button.setText("CANCELAR");
         cancel_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        cancel_button.setDoubleBuffered(true);
         cancel_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 cancel_buttonActionPerformed(evt);
@@ -1187,6 +1120,7 @@ public class NewGameDialog extends JDialog {
         titulo_ventana.setForeground(new java.awt.Color(255, 255, 255));
         titulo_ventana.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         titulo_ventana.setText("CREAR TIMBA");
+        titulo_ventana.setDoubleBuffered(true);
         titulo_ventana.setOpaque(true);
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
@@ -1299,15 +1233,6 @@ public class NewGameDialog extends JDialog {
 
                 Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
 
-                if (this.config_partida_panel.isVisible()) {
-
-                    Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
-                    Helpers.RANDOM_ORG_APIKEY = this.randomorg_apikey.getText().trim();
-
-                    Helpers.PROPERTIES.setProperty("random_generator", String.valueOf(Helpers.DECK_RANDOM_GENERATOR));
-                    Helpers.PROPERTIES.setProperty("randomorg_api", this.randomorg_apikey.getText().trim());
-                }
-
                 if (this.avatar != null) {
                     Helpers.PROPERTIES.setProperty("avatar", this.avatar.getAbsolutePath());
                 } else {
@@ -1374,24 +1299,6 @@ public class NewGameDialog extends JDialog {
         }
 
     }//GEN-LAST:event_vamosActionPerformed
-
-    private void random_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_random_comboboxActionPerformed
-        // TODO add your handling code here:
-
-        if (!update) {
-            Helpers.DECK_RANDOM_GENERATOR = this.random_combobox.getSelectedIndex() + 1;
-
-            this.randomorg_label.setEnabled(Helpers.DECK_RANDOM_GENERATOR <= Helpers.TRNG);
-            this.randomorg_apikey.setEnabled(Helpers.DECK_RANDOM_GENERATOR <= Helpers.TRNG);
-
-            if (Helpers.DECK_RANDOM_GENERATOR <= Helpers.TRNG) {
-                this.randomorg_apikey.setText(Helpers.PROPERTIES.getProperty("randomorg_api", ""));
-                Helpers.RANDOM_ORG_APIKEY = Helpers.PROPERTIES.getProperty("randomorg_api", "");
-            }
-
-            pack();
-        }
-    }//GEN-LAST:event_random_comboboxActionPerformed
 
     private void doblar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_doblar_checkboxActionPerformed
         // TODO add your handling code here:
@@ -1700,11 +1607,6 @@ public class NewGameDialog extends JDialog {
         this.nick_labelMouseClicked(evt);
     }//GEN-LAST:event_avatar_labelMouseClicked
 
-    private void random_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_random_labelMouseClicked
-        // TODO add your handling code here:
-        Helpers.mostrarMensajeInformativo(this, Translator.translate("ui.shuffle_info_title") + "\n\n" + Translator.translate("ui.shuffle_info_msg"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/dados.png")));
-    }//GEN-LAST:event_random_labelMouseClicked
-
     private void radar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_radar_labelMouseClicked
         // TODO add your handling code here:
         radar_checkbox.doClick();
@@ -1727,11 +1629,6 @@ public class NewGameDialog extends JDialog {
         // TODO add your handling code here:
         dispose();
     }//GEN-LAST:event_cancel_buttonActionPerformed
-
-    private void info_shuffle_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_info_shuffle_iconMouseClicked
-        // TODO add your handling code here:
-        random_labelMouseClicked(evt);
-    }//GEN-LAST:event_info_shuffle_iconMouseClicked
 
     private void game_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_game_comboItemStateChanged
         // TODO add your handling code here:
@@ -1782,7 +1679,6 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
     private javax.swing.JComboBox<String> game_combo;
-    private javax.swing.JLabel info_shuffle_icon;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
@@ -1797,11 +1693,6 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JLabel password;
     private javax.swing.JCheckBox radar_checkbox;
     private javax.swing.JLabel radar_label;
-    private javax.swing.JComboBox<JLabel> random_combobox;
-    private javax.swing.JLabel random_label;
-    private javax.swing.JPanel random_panel;
-    private javax.swing.JTextField randomorg_apikey;
-    private javax.swing.JLabel randomorg_label;
     private javax.swing.JCheckBox rebuy_checkbox;
     private javax.swing.JLabel recomprar_label;
     private javax.swing.JCheckBox recover_checkbox;

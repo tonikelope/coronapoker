@@ -99,16 +99,17 @@ When a betting round concludes and community cards must be revealed, the protoco
 * **Fractional Keys (XOR Shards):** During Phase 1, every player received fragmented "Street Tokens." To reveal the Flop, Turn, or River, the host must request the specific token from all active clients.
 * **Consensus Aggregation:** The native engine aggregates these tokens via branchless XOR operations. Only when all active tokens are combined can the engine reconstruct the ephemeral ChaCha20 key required to decrypt that specific street from the Escrow.
 * **Scorched Earth Defense:** The moment a street is decrypted, the underlying ephemeral tokens are permanently wiped from the Vault. If a malicious host attempts to extract tokens out-of-phase or brute-force the Escrow prematurely, Panoptes proactively burns the state, triggering the `v.poison` mechanism.
-* **The Exit Testament:** If a player legitimately disconnects mid-hand, the engine performs a permanent wipe of their session keys and generates an "Exit Testament." This signature allows the remaining P2P swarm to verify the exit and securely bypass their token requirement without failing the final audit.
+* **The Exit Testament & Vault Lobotomy:** If a player legitimately disconnects mid-hand, the engine performs a "Vault Lobotomy"—a permanent, physical zeroing of their session keys in RAM, combined with an intentional poisoning of the state. Before dying, it generates a cryptographic "Testament." This allows the remaining P2P swarm to verify the legitimate exit, ensuring the server cannot hijack the lobotomized session (Zombie Peer) while allowing the remaining players to bypass the missing token requirement.
 
 ### Phase 4: Showdown & The Stateless Forensic Audit
 
 Upon hand completion, the system executes a deterministic, localized proof to guarantee no manipulation occurred during the hand's lifecycle, followed by a mandatory peer-to-peer cross-validation.
 
-* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 envelopes.
-* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the Hand Commitment, the newly reconstructed Master Shuffle Key, and the final community cards.
+* **Master Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 envelopes.
+* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the original Genesis Megapacket, the newly reconstructed Master Seed, and the final community cards.
 * **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive internal mismatch.
 * **Cross-Verification Receipts:** Upon a successful local audit, each client generates a Poly1305-signed "Receipt" of their final state hash and broadcasts it to the table. Every player must verify the receipts of all other players. This mathematically proves that the host did not split the game state (e.g., sending divergent hand histories to different players).
+* **Terminal Poisoning (Quarantine):** If the local audit fails, or if a peer's receipt does not match the consensus, the engine triggers a terminal poisoning of the state (`v.poison |= final_fail`). The client instantly generates invalid MACs for all future network traffic, mathematically isolating the compromised host and proving the cheating attempt to the rest of the P2P mesh.
 
 ## 🛑 PART II: THE ANTI-TAMPER & ANTI-CHEAT ENGINE
 While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.

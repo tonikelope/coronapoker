@@ -110,9 +110,7 @@ Upon hand completion, the system executes a deterministic, localized proof to gu
 * **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive mismatch.
 
 ## 🛑 PART II: THE ANTI-TAMPER & ANTI-CHEAT ENGINE
-While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine (PACE) is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.
-
-*(Note: The exact operational vectors of PACE are deliberately abstracted to maintain operational security).*
+While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 

@@ -49,17 +49,17 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 <p align="center"><img src="https://raw.githubusercontent.com/tonikelope/coronapoker/master/src/main/resources/images/panoptes_logo.jpg" height="400" alt="Panoptes Zero-Trust Engine Logo"></p>
 
 ## 📌 Executive Summary
-Panoptes is a cryptographic engine written in C designed to enforce absolute mathematical fairness in decentralized Peer-to-Peer (P2P) card games.
+Panoptes is a cryptographic engine written in C, designed to enforce absolute mathematical fairness in decentralized Peer-to-Peer (P2P) card games.
 
 In traditional client-server topologies, players implicitly trust a central authoritative server. In a purely decentralized P2P model like CoronaPoker, one of the players must act as the host. This introduces the *malicious host vulnerability*: the host has physical access to the RAM where the deck is shuffled and the game state is maintained, allowing them to theoretically peek at hidden cards, alter the deck, or manipulate betting outcomes.
 
-Panoptes was engineered to eradicate this vulnerability entirely. It achieves this by enveloping a rigidly transparent **Zero-Trust Cryptographic Protocol** higly defended with a custom **anti-cheat**. **The default policy under which Panoptes operates is that all players, including the host, are treated as compromised nodes at Java level**, either because they are acting maliciously or because they are controlled by an external attacker. Therefore, all players are mathematically blind to the game state until the network achieves mutual consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
+Panoptes was engineered to eradicate this vulnerability entirely. It achieves this by enveloping the game logic in a rigidly transparent **Zero-Trust Cryptographic Protocol**, shielded by a custom **Ring-3 Anti-Cheat**. **The default policy under which Panoptes operates is that all players, including the host, are treated as compromised nodes at the Java level**—either acting maliciously themselves or compromised by an external attacker. Therefore, all players remain mathematically blind to the game state until the network achieves mutual consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
 
 ---
 
 ## 🛡️ PART I: THE ZERO-TRUST CRYPTOGRAPHIC PROTOCOL
 
-The core achievement of Panoptes is its state machine. A standard game progresses through distinct cryptographic phases, protecting the integrity of the deck, the community cards, and the sequence of bets without relying on a trusted third party.
+The core achievement of Panoptes is its deterministic state machine. A standard game progresses through distinct cryptographic phases, protecting the integrity of the deck, the community cards, and the sequence of bets without ever relying on a trusted third party.
 
 ### Phase 0: Environment Integrity & Secure Enclaves
 <img width="1404" height="870" alt="imagen" src="https://github.com/user-attachments/assets/2a1f20b0-2678-4e6b-9858-45b0138b5321" />
@@ -67,9 +67,9 @@ The core achievement of Panoptes is its state machine. A standard game progresse
 Before any gameplay occurs, Panoptes establishes a secure execution context, locking its own memory to prevent host interference, memory-dumping, or runtime instrumentation.
 
 * **Build-Time Cryptographic DNA:** A unique 32-byte deterministic polymorphic seed (`CHAOS_SEED`) is injected by the compilation pipeline into the native C engine. This ensures no two compiled binaries share the same internal memory layout or key derivation logic.
-* **Hybrid JIT Key Forging:** Upon initialization, compile-time logic is fused with live, hardware-level OS entropy to forge a unique ChaCha20 key. This key encrypts the `PanoptesVault`—the engine’s secure memory enclave.
-* **Polymorphic Memory Shield & Decoys:** The engine spawns multiple isolated memory structs (several decoys and one true state), constantly applying ChaCha20 keystreams to mitigate RAM-scraping attacks.
-* **Continuous Telemetry & The Deadman Switch:** Background Guardian threads continuously monitor CPU cycle drift (`sabueso_rdtsc`), inline hooks, and attached debuggers. Any anomaly instantly flips a mathematical `v.poison` bit, irrevocably corrupting the Vault's cryptographic outputs.
+* **Hybrid JIT Key Forging:** Upon initialization, compile-time logic is fused with live, hardware-level OS entropy to forge a unique ChaCha20 key. This key is used to strictly encrypt the `PanoptesVault`—the engine’s secure memory enclave.
+* **Polymorphic RAM Shielding:** The engine spawns multiple isolated memory structs (several decoys and one true state), constantly applying ChaCha20 keystreams to scramble data and mitigate RAM-scraping attacks.
+* **Continuous Telemetry & The Dead Man's Switch:** Background Guardian threads continuously monitor CPU cycle drift, inline hooks, and attached debuggers. Any anomaly instantly flips a mathematical `v.poison` bit, irrevocably corrupting the Vault's cryptographic outputs.
 
 ### Phase 1: Distributed Entropy & The Hand Commitment
 <img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/491afd04-ae89-42d3-af4d-fc782fa04c6d" />
@@ -84,10 +84,11 @@ The hand begins by ensuring no single entity—not even the server—can dictate
   
 ### Phase 2: The Cryptographic Betting Loop (Action Blockchain)
 
-During the active betting rounds, gameplay actions are continuously verified and sealed into the local blockchain, preventing reordering, injection, or dropping of bets.
+During the active betting rounds, gameplay actions are continuously verified and sealed into the local blockchain, preventing the reordering, injection, or dropping of bets.
 
-* **Sponge-Based State Absorption:** Every gameplay action (Bet, Fold, Call) includes the exact amount and the current street. This payload is absorbed into the running `HAND_STATE_BLOCKCHAIN` via a cryptographic Sponge function.
-* **Context-Aware Signatures:** Actions are broadcasted with a Poly1305 Message Authentication Code (MAC). The key for this MAC is dynamically derived from the *current* state of the blockchain. If the host attempts to drop a previous bet, the state hashes will desynchronize, and all subsequent signatures will mathematically fail.
+* **Sponge-Based State Absorption:** Every gameplay action (Bet, Fold, Call) includes the exact amount and the current street. This payload is immediately absorbed into the running `HAND_STATE_BLOCKCHAIN` via a cryptographic Sponge function.
+* **Context-Aware Signatures:** Every broadcast is sealed with a state-dependent Poly1305 Message Authentication Code (MAC). Because the MAC key is dynamically derived from the *current* state of the blockchain, if the host attempts to drop a previous bet, the state hashes will desynchronize, causing all subsequent signatures to mathematically fail.
+* **Zero-Trust Bot Delegation:** Server-side bots operate under the exact same zero-trust strictures as human clients. Their actions are deterministically signed via their delegated X25519 private keys, explicitly preventing the host from forging or silently overriding bot behavior.
 
 ### Phase 3: Token Consensus & Escrow Revelation
 
@@ -95,20 +96,20 @@ When a betting round concludes and community cards must be revealed, the protoco
 
 * **Fractional Keys (XOR Shards):** During Phase 1, every player received fragmented "Street Tokens." To reveal the Flop, Turn, or River, the host must request the specific token from all active clients.
 * **Consensus Aggregation:** The native engine aggregates these tokens via branchless XOR operations. Only when all active tokens are combined can the engine reconstruct the ephemeral ChaCha20 key required to decrypt that specific street from the Escrow.
-* **Strict Chronology Enforcement (Anti-Vacuum):** If a compromised client attempts to request future tokens out of order (e.g., querying the River token during the Pre-Flop), the engine uses branchless bitwise mathematics to automatically corrupt the output. Instead of throwing an error, it returns cryptographic garbage, mathematically trapping the attacker in the current timeline.
-* **Scorched Earth Defense:** The moment a street is legitimately decrypted—or if a hostile node prematurely extracts its master shuffle key share—all future unrevealed tokens are permanently wiped from the Vault's RAM with physical zeros. Attempting to peek into the future irrevocably blinds the attacker, destroying their ability to decode the rest of the hand.
+* **Strict Chronology Enforcement (Anti-Vacuum):** If a compromised client attempts a "vacuum attack" by requesting future tokens out of order (e.g., querying the River token during the Pre-Flop), the engine uses branchless bitwise mathematics to automatically corrupt the output. Instead of throwing a catchable error, it returns cryptographic garbage, mathematically trapping the attacker in the current timeline.
+* **Scorched Earth Defense:** The moment a street is legitimately decrypted—or if a hostile node prematurely extracts its master shuffle key share—all future unrevealed tokens are permanently wiped from the Vault's RAM with physical zeros. Attempting to peek into the future irrevocably blinds the attacker, shredding their ability to decode the rest of the hand.
 * **The Exit Testament & Vault Lobotomy:** If a player legitimately disconnects mid-hand, the engine performs a "Vault Lobotomy"—a permanent, physical zeroing of their session keys in RAM, combined with an intentional poisoning of the state. Before dying, it generates a cryptographic "Testament." This allows the remaining P2P swarm to verify the legitimate exit, ensuring the server cannot hijack the lobotomized session (Zombie Peer) while allowing the remaining players to bypass the missing token requirement.
-
+  
 ### Phase 4: Showdown & The Stateless Forensic Audit
 
 Upon hand completion, the system executes a deterministic, localized proof to guarantee no manipulation occurred during the hand's lifecycle, followed by a mandatory peer-to-peer cross-validation.
 
-* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 envelopes.
-* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the original Genesis Megapacket, the newly reconstructed Master Seed, and the final community cards.
-* **Cryptographic Avalanche:** The client engine re-simulates the entire hand from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive internal mismatch.
+* **Shuffle Key Revelation:** At showdown, players reveal the `SHUFFLE_KEY_SHARE` that was hidden inside their Phase 1 KEM envelopes.
+* **Stateless Client Verification:** Every client runs a localized forensic audit. The engine inputs the original Genesis Megapacket, the newly reconstructed Master Seed, and the final community cards to deterministically replay the hand.
+* **Cryptographic Avalanche:** The client engine re-simulates the entire timeline from genesis to showdown. It independently derives the deck, the escrow, and the blockchain hashes. If the host or a colluding peer manipulated a single bit during the game, the hashes will avalanche, producing a massive internal mismatch.
 * **Cross-Verification Receipts:** Upon a successful local audit, each client generates a Poly1305-signed "Receipt" of their final state hash and broadcasts it to the table. Every player must verify the receipts of all other players. This mathematically proves that the host did not split the game state (e.g., sending divergent hand histories to different players).
-* **Terminal Poisoning (Quarantine):** If the local audit fails, or if a peer's receipt does not match the consensus, the engine triggers a terminal poisoning of the state. The client instantly generates invalid MACs for all future network traffic, mathematically isolating the compromised host and proving the cheating attempt to the rest of the P2P mesh.
-
+* **Terminal Poisoning (Quarantine):** If the local audit fails, or if a peer's receipt does not match the consensus, the engine triggers a terminal poisoning of the state. The client severs its own cryptographic vocal cords, instantly generating invalid MACs for all future network traffic. This mathematically isolates the compromised host and conclusively proves the cheating attempt to the rest of the P2P mesh.
+  
 ## 🛑 PART II: ANTI-CHEAT ENGINE
 While the Cryptographic Protocol ensures that a host cannot mathematically cheat within the rules of the protocol, the Panoptes Anti-Cheat Engine is a robust Ring-3 defense system written in C designed to prevent the host from reverse-engineering the engine, dumping RAM, or hooking the process to steal keys.
 

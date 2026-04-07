@@ -20,14 +20,13 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 ## Some features:
 - Cross platform.
-- Secure by design: Zero-Trust Architecture + a modest (but pain-in-the-ass) Ring-3 anticheat.
-- No central servers nor third parties logging things (just you and your friends).
+- Secure by design: Zero-Trust Architecture (PANOPTES)
+- P2P: No central servers nor third parties logging things (just you and your friends).
 - Point-to-point encryption (DH + AES 128).
 - Password protected games.
 - Up to 10 simultaneous human/bot players.
 - Intuitive interface (with comfortable key shortcuts).
 - Global in-game zoom (UHD resolution supported).
-- TRUE RANDOM shuffle (<a href="https://github.com/tonikelope/coronapoker/raw/master/shuffle.pdf">MORE INFO</a>).
 - Cool sounds, decks, mats, cinematics and 3D card effects.
 - ALL-IN side pots fully supported.
 - "Dead button" rule for BB/SB/DE positions.
@@ -41,7 +40,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - Very high tolerance to network/power failures (games can be resumed from exact stop point).
 - It is possible to pause the game at any time and add new players.
 - Game log and statistics.
-- i18n support (english and spanish).
+- i18n support.
 - Customizable: create and share your MODs with custom font, decks, sounds and cinematics.
 
 # 👁️ PANOPTES ZERO-TRUST POKER ENGINE

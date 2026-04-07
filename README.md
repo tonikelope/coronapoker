@@ -65,10 +65,10 @@ The core achievement of Panoptes is its deterministic state machine. A standard 
 
 Before any gameplay occurs, Panoptes establishes a secure execution context, locking its own memory to prevent host interference, memory-dumping, or runtime instrumentation.
 
-* **Build-Time Cryptographic DNA:** A unique 32-byte deterministic polymorphic seed (`CHAOS_SEED`) is injected by the compilation pipeline into the native C engine. This ensures no two compiled binaries share the same internal memory layout or key derivation logic.
+* **Build-Time Cryptographic DNA:** A unique 32-byte deterministic polymorphic seed is injected by the compilation pipeline into the native C engine. This ensures no two compiled binaries share the same internal memory layout or key derivation logic.
 * **Hybrid JIT Key Forging:** Upon initialization, compile-time logic is fused with live, hardware-level OS entropy to forge a unique ChaCha20 key. This key is used to strictly encrypt the `PanoptesVault`—the engine’s secure memory enclave.
 * **Polymorphic RAM Shielding:** The engine spawns multiple isolated memory structs (several decoys and one true state), constantly applying ChaCha20 keystreams to scramble data and mitigate RAM-scraping attacks.
-* **Continuous Telemetry & The Dead Man's Switch:** Background Guardian threads continuously monitor CPU cycle drift, inline hooks, and attached debuggers. Any anomaly instantly flips a mathematical `v.poison` bit, irrevocably corrupting the Vault's cryptographic outputs.
+* **Continuous Telemetry & The Dead Man's Switch:** Background Guardian threads continuously monitor CPU cycle drift, inline hooks, and attached debuggers. Any anomaly instantly flips a mathematical `poison` bit, irrevocably corrupting the Vault's cryptographic outputs.
 
 ### Phase 1: Distributed Entropy & The Hand Commitment
 <img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/491afd04-ae89-42d3-af4d-fc782fa04c6d" />
@@ -95,7 +95,7 @@ When a betting round concludes and community cards must be revealed, the protoco
 
 * **Fractional Keys (XOR Shards):** During Phase 1, every player received fragmented "Street Tokens." To reveal the Flop, Turn, or River, the host must request the specific token from all active clients.
 * **Consensus Aggregation:** The native engine aggregates these tokens via branchless XOR operations. Only when all active tokens are combined can the engine reconstruct the ephemeral ChaCha20 key required to decrypt that specific street from the Escrow.
-* **Strict Chronology Enforcement (Anti-Vacuum):** If a compromised client attempts a "vacuum attack" by requesting future tokens out of order (e.g., querying the River token during the Pre-Flop), the engine uses branchless bitwise mathematics to automatically corrupt the output. Instead of throwing a catchable error, it returns cryptographic garbage, mathematically trapping the attacker in the current timeline.
+* **Strict Chronology Enforcement (Anti-Vacuum):** If a compromised client attempts to request future tokens out of order (e.g., querying the River token during the Pre-Flop), the engine uses branchless bitwise mathematics to automatically corrupt the output. Instead of throwing a catchable error, it returns cryptographic garbage, mathematically trapping the attacker in the current timeline.
 * **Scorched Earth Defense:** The moment a street is legitimately decrypted—or if a hostile node prematurely extracts its master shuffle key share—all future unrevealed tokens are permanently wiped from the Vault's RAM with physical zeros. Attempting to peek into the future irrevocably blinds the attacker, shredding their ability to decode the rest of the hand.
 * **The Exit Testament & Vault Lobotomy:** If a player legitimately disconnects mid-hand, the engine performs a "Vault Lobotomy"—a permanent, physical zeroing of their session keys in RAM, combined with an intentional poisoning of the state. Before dying, it generates a cryptographic "Testament." This allows the remaining P2P swarm to verify the legitimate exit, ensuring the server cannot hijack the lobotomized session (Zombie Peer) while allowing the remaining players to bypass the missing token requirement.
   
@@ -114,6 +114,6 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE** Although CoronaPoker is open-source (GPLv3), the source code for the `Panoptes` zero-trust and anti-cheat engine library remains closed-source. This is a deliberate, non-negotiable security measure (by obscurity, yes). Obfuscated pre-compiled binaries are provided for supported platforms.
+> ⚠️ **SECURITY NOTICE: CLOSED-SOURCE ENGINE** Although CoronaPoker is open-source (GPLv3), the source code for the `Panoptes` zero-trust and anti-cheat engine library remains closed-source. This is a deliberate, non-negotiable security measure (by obscurity, yes, i know). Obfuscated pre-compiled binaries are provided for supported platforms.
 
 </div>

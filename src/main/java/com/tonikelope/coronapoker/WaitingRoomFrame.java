@@ -916,8 +916,8 @@ public class WaitingRoomFrame extends JFrame {
                 avatar_src = local_avatar_chat_src;
 
                 image_align = "0.995";
-                
-                bg_color="#d9fdd3";
+
+                bg_color = "#d9fdd3";
 
             } else if (this.participantes.containsKey(nick)) {
 
@@ -926,16 +926,16 @@ public class WaitingRoomFrame extends JFrame {
                 avatar_src = this.participantes.get(nick).getAvatar_chat_src();
 
                 image_align = "0.005";
-                
-                bg_color="white";
+
+                bg_color = "white";
             } else {
                 align = "align='left' style='margin-left:8px;margin-top:7px;margin-bottom:7px;'";
 
                 avatar_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
 
                 image_align = "0.005";
-                
-                bg_color="white";
+
+                bg_color = "white";
             }
 
             msg = Helpers.escapeHTML(msg);
@@ -952,20 +952,20 @@ public class WaitingRoomFrame extends JFrame {
 
             // Use a table because Swing's HTML renderer handles tables as 'shrink-to-fit' containers.
             // This effectively mimics 'display: inline-block' which is not supported in Swing.
-            html += "<table " + align + " border='0' cellpadding='5' cellspacing='0' bgcolor='"+bg_color+"'>" +
-                        "<tr>" +
-                            "<td>" +
-                                // Header section with Avatar, Nickname and Time
-                                "<div>" +
-                                    "<img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />" +
-                                    "&nbsp;<b>" + nick + "</b> " +
-                                    "<span style='font-size:0.8em'>" + hora + "</span>" +
-                                "</div>" +
-                                // Body section with the message
-                                "<div>" + msg + "</div>" +
-                            "</td>" +
-                        "</tr>" +
-                    "</table>";
+            html += "<table " + align + " border='0' cellpadding='5' cellspacing='0' bgcolor='" + bg_color + "'>"
+                    + "<tr>"
+                    + "<td>"
+                    + // Header section with Avatar, Nickname and Time
+                    "<div>"
+                    + "<img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />"
+                    + "&nbsp;<b>" + nick + "</b> "
+                    + "<span style='font-size:0.8em'>" + hora + "</span>"
+                    + "</div>"
+                    + // Body section with the message
+                    "<div>" + msg + "</div>"
+                    + "</td>"
+                    + "</tr>"
+                    + "</table>";
         }
 
         return html;

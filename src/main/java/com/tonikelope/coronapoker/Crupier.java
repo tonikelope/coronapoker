@@ -653,6 +653,10 @@ public class Crupier implements Runnable {
                         // Execute the matrix evaluation natively
                         boolean matrixValid = Panoptes.getInstance().utilsVerifyHandConsensus(this.local_mega_packet, receiptsArray);
 
+                        if (!matrixValid) {
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit2_error"));
+                        }
+
                         // Hand is only legit if Phase 1 (already evaluated) AND Phase 2 are mathematically true
                         this.legitHand = this.legitHand && matrixValid;
                     } else {
@@ -691,7 +695,7 @@ public class Crupier implements Runnable {
 
     public boolean extractHandWithMasterKey(Player target) {
         if (this.local_mega_packet == null || this.valid_master_key == null || this.valid_master_key.length != 32) {
-            LOGGER.log(Level.WARNING, "⚠️ [ZERO-TRUST] Cannot reveal cards for " + target.getNickname() + ". Master Key is unavailable.");
+            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Cannot reveal cards for " + target.getNickname() + ". Master Key is unavailable.");
             return false;
         }
         try {
@@ -1909,7 +1913,7 @@ public class Crupier implements Runnable {
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (GameFrame.getInstance().isPartida_local()) {
                         // [CRITICAL FIX]: Auto-kick unresponsive players during Rebuy phase
-                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] REBUY TIMEOUT. Kicking unresponsive zombies...");
+                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] REBUY TIMEOUT. Kicking unresponsive zombies...");
                         for (String nick : pending) {
                             if (!nick2player.get(nick).isExit()) {
                                 this.remotePlayerQuit(nick);
@@ -2488,7 +2492,7 @@ public class Crupier implements Runnable {
                         Player p = nick2player.get(n);
                         if (p == null || !p.isActivo()) {
                             saltar_primera_mano = true;
-                            LOGGER.log(Level.WARNING, "⚠️ [ZERO-TRUST] Cannot recover hand. Player missing or inactive: {0}", n);
+                            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Cannot recover hand. Player missing or inactive: {0}", n);
                             break;
                         }
                     } catch (Exception e) {
@@ -2545,9 +2549,9 @@ public class Crupier implements Runnable {
                                 try {
                                     byte[] entropyBlob = java.nio.file.Files.readAllBytes(entropyFile.toPath());
                                     if (Panoptes.getInstance().stateImportLocalEntropy(entropyBlob)) {
-                                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Local entropy restored successfully before ingest.");
+                                        LOGGER.log(Level.INFO, "✔️ [ZERO-TRUST] Local entropy restored successfully before ingest.");
                                     } else {
-                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
+                                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
                                     }
                                 } catch (Exception e) {
                                     LOGGER.log(Level.SEVERE, "Failed to restore entropy", e);
@@ -2700,9 +2704,9 @@ public class Crupier implements Runnable {
                                 try {
                                     byte[] entropyBlob = java.nio.file.Files.readAllBytes(entropyFile.toPath());
                                     if (Panoptes.getInstance().stateImportLocalEntropy(entropyBlob)) {
-                                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Local entropy restored successfully before ingest.");
+                                        LOGGER.log(Level.INFO, "✔️ [ZERO-TRUST] Local entropy restored successfully before ingest.");
                                     } else {
-                                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
+                                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
                                     }
                                 } catch (Exception e) {
                                     LOGGER.log(Level.SEVERE, "Failed to restore entropy", e);
@@ -2936,7 +2940,7 @@ public class Crupier implements Runnable {
     }
 
     private void cancelarManoYDevolverApuestas(String motivo) {
-        LOGGER.log(Level.WARNING, "[ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
+        LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + Translator.translate(motivo));
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
 
@@ -3171,7 +3175,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            LOGGER.log(Level.SEVERE, "[ZERO-TRUST] {0} -> NEW HAND CONFIRMATION TIMEOUT! Player is a zombie. Kicking...", p.getNick());
+                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] {0} -> NEW HAND CONFIRMATION TIMEOUT! Player is a zombie. Kicking...", p.getNick());
                             // [CRITICAL FIX]: Auto-kick unresponsive player to break the infinite loop
                             this.remotePlayerQuit(p.getNick());
                         } else {
@@ -4726,6 +4730,7 @@ public class Crupier implements Runnable {
 
                                                     sendGAMECommandToServer(responseCmd, false);
                                                 } else {
+                                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit_error"));
                                                     this.legitHand = false;
                                                 }
                                             } else {
@@ -5192,7 +5197,7 @@ public class Crupier implements Runnable {
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                     // [CRITICAL FIX]: No UI blocking popups. Break the loop.
-                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] RECOVER DATA CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] RECOVER DATA CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
                     for (String nick : pendientes) {
                         if (!nick2player.get(nick).isExit()) {
                             this.remotePlayerQuit(nick);
@@ -5253,7 +5258,7 @@ public class Crupier implements Runnable {
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                     // [CRITICAL FIX]: No UI blocking popups. Break the loop.
-                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST] ACTION RECOVER CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ACTION RECOVER CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
                     for (String nick : pendientes) {
                         if (!nick2player.get(nick).isExit()) {
                             this.remotePlayerQuit(nick);
@@ -5538,7 +5543,7 @@ public class Crupier implements Runnable {
                         timeout = true;
 
                         // [CRITICAL FIX]: Actively purge the disconnected player from the game state
-                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] ACTION TIMEOUT. Kicking unresponsive zombie: {0}", jugador.getNickname());
+                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ACTION TIMEOUT. Kicking unresponsive zombie: {0}", jugador.getNickname());
                         this.remotePlayerQuit(jugador.getNickname());
 
                     } else {
@@ -6362,7 +6367,7 @@ public class Crupier implements Runnable {
                 }
 
             } catch (Exception e) {
-                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "[ZERO-TRUST] Rabbit Hunting Master Key decryption failed", e);
+                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "❌ [ZERO-TRUST] Rabbit Hunting Master Key decryption failed", e);
             }
         }
 
@@ -6688,7 +6693,7 @@ public class Crupier implements Runnable {
 
                     if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                         // [CRITICAL FIX]: Automate the kick. No UI blocking popups. Break the loop.
-                        LOGGER.log(Level.SEVERE, "[ZERO-TRUST] BROADCAST CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] BROADCAST CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
                         if (!nick2player.isEmpty()) {
                             for (String nick : pendientes) {
                                 if (!nick2player.get(nick).isExit()) {
@@ -8308,12 +8313,21 @@ public class Crupier implements Runnable {
 
         } else if (!this.legitHand) {
 
-            if (!GameFrame.getInstance().isPartida_local()) {
-                GameFrame.getInstance().getSala_espera().setUnsecure_server(true);
+            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Hand validation failed! Triggering P2P Swarm Fallback...");
+
+            // Trigger the P2P attestation swarm if we are the server
+            if (GameFrame.getInstance().isPartida_local()) {
+                WaitingRoomFrame.getInstance().p2pSwarmManager.startSwarm();
             }
 
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.zero_trust_alert"));
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.critical"));
+            // Put the Crupier thread to sleep, waiting for the P2P Swarm to finish its attestation
+            synchronized (WaitingRoomFrame.getInstance().p2pSwarmManager.swarmLock) {
+                try {
+                    WaitingRoomFrame.getInstance().p2pSwarmManager.swarmLock.wait();
+                } catch (InterruptedException ex) {
+                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] Crupier interrupted while waiting for P2P Swarm", ex);
+                }
+            }
 
         } else if (!this.legitHandSkip) {
 
@@ -8353,7 +8367,7 @@ public class Crupier implements Runnable {
                         sessionLoaded = true;
                         LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_restored", true));
                     } else {
-                        LOGGER.log(Level.WARNING, "Session file rejected by C engine. Generating fresh session...");
+                        LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Session file rejected by C engine. Generating fresh session...");
                     }
                 }
             }

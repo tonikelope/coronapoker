@@ -200,6 +200,23 @@ public class WaitingRoomFrame extends JFrame {
         private java.util.concurrent.CountDownLatch challengesLatch;
         private java.util.concurrent.CountDownLatch responsesLatch;
         private java.util.concurrent.CountDownLatch verifyDoneLatch;
+        private static final int SWARM_TIMEOUT = 30;
+
+        // Lock to pause the Crupier during mid-game attestations
+        public final Object swarmLock = new Object();
+
+        private volatile boolean swarmActive = false;
+
+        // Unified helper to update the UI depending on whether we are in the Lobby or Mid-Game
+        private void updateSwarmUI(String text) {
+            Helpers.GUIRun(() -> {
+                if (isPartida_empezada() && GameFrame.getInstance() != null) {
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+                } else {
+                    status.setText(text);
+                }
+            });
+        }
 
         private void sendP2PCommandToServer(String command) {
             if (isServer()) {
@@ -245,6 +262,14 @@ public class WaitingRoomFrame extends JFrame {
 
         // --- LOGIC: SERVER SIDE ---
         public void startSwarm() {
+
+            synchronized (swarmLock) {
+                if (swarmActive) {
+                    return; // Prevent multiple swarms at once
+                }
+                swarmActive = true;
+            }
+
             int humans = 0;
             int totalPlayers = 0;
             StringBuilder pubKeys = new StringBuilder();
@@ -283,7 +308,7 @@ public class WaitingRoomFrame extends JFrame {
                         } catch (Exception e) {
                         }
                     } else {
-                        LOGGER.log(Level.WARNING, "[ZERO-TRUST] WARNING: {0} lacks a valid Panoptes Public Key.", pNick);
+                        LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] WARNING: {0} lacks a valid Panoptes Public Key.", pNick);
                     }
                 }
             }
@@ -291,8 +316,8 @@ public class WaitingRoomFrame extends JFrame {
             LOGGER.log(Level.INFO, "[ZERO-TRUST] Network Summary: {0} Humans, {1} Bots.", new Object[]{humans, (totalPlayers - humans)});
 
             if (humans < 1) {
-                LOGGER.info("[ZERO-TRUST] Not enough humans to form a mesh. Skipping KEM verification...");
-                finishSwarmAndStartGame();
+                LOGGER.info("❌ [ZERO-TRUST] Not enough humans to form a mesh. Skipping KEM verification...");
+                finishSwarmAndResumeGame();
                 return;
             }
 
@@ -301,6 +326,37 @@ public class WaitingRoomFrame extends JFrame {
             verifyDoneLatch = new java.util.concurrent.CountDownLatch(humans);
             generatedChallenges.clear();
             solvedResponses.clear();
+
+            // Hilo Vigilante para evitar bloqueos
+            Helpers.threadRun(() -> {
+                try {
+
+                    boolean completado = responsesLatch.await(SWARM_TIMEOUT, java.util.concurrent.TimeUnit.SECONDS);
+
+                    if (!completado) {
+                        LOGGER.log(Level.WARNING, "[ZERO-TRUST] P2P Swarm Timeout! Some players did not respond.");
+
+                        // Identificamos quién no respondió y lo marcamos como Unsecure
+                        synchronized (participantes) {
+                            for (String pNick : participantes.keySet()) {
+                                Participant p = participantes.get(pNick);
+                                if (p != null && !p.isCpu() && !p.isExit()) {
+                                    // Si no tenemos sus respuestas o no terminó el verify
+                                    if (!solvedResponses.containsKey(pNick)) {
+                                        p.setUnsecure_player(true);
+                                        LOGGER.log(Level.SEVERE, "Player {0} marked as UNSECURE due to P2P Timeout", pNick);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Forzamos la finalización para despertar al Crupier
+                        finishSwarmAndResumeGame();
+                    }
+                } catch (InterruptedException e) {
+                    LOGGER.log(Level.SEVERE, "Swarm Watcher Interrupted", e);
+                }
+            });
 
             LOGGER.info("[ZERO-TRUST] Broadcasting P2P_START command to the network...");
             String cmdPayload = "P2P_START#" + pubKeys.toString();
@@ -456,15 +512,42 @@ public class WaitingRoomFrame extends JFrame {
             LOGGER.log(Level.INFO, "[ZERO-TRUST] Player [{0}] successfully completed local swarm verification.", nick);
             verifyDoneLatch.countDown();
             if (verifyDoneLatch.getCount() == 0) {
-                LOGGER.info("[ZERO-TRUST] >>> SWARM VERIFICATION SUCCESSFUL. STARTING GAME. <<<");
-                finishSwarmAndStartGame();
+                LOGGER.info("✔️ [ZERO-TRUST] >>> SWARM VERIFICATION SUCCESSFUL. RESUMING. <<<");
+                finishSwarmAndResumeGame();
             }
         }
 
-        private void finishSwarmAndStartGame() {
-            Helpers.GUIRunAndWait(() -> new GameFrame(THIS, local_nick, true));
-            partida_empezada = true;
-            GameFrame.getInstance().AJUGAR();
+        private void finishSwarmAndResumeGame() {
+            synchronized (swarmLock) {
+                if (!swarmActive) {
+                    return;
+                }
+                swarmActive = false;
+            }
+
+            if (!isPartida_empezada()) {
+                // Pre-Game Flow: Start the game
+                Helpers.GUIRunAndWait(() -> new GameFrame(WaitingRoomFrame.this, local_nick, true));
+                partida_empezada = true;
+                GameFrame.getInstance().AJUGAR();
+            } else {
+                // Mid-Game Flow: Finish the P2P audit, hide the indeterminate bar, and wake up Crupier
+                LOGGER.info("✔️  [ZERO-TRUST] Mid-Game P2P Swarm finished. Unlocking Crupier...");
+
+                if (isServer()) {
+                    broadcastP2PCommandFromServer("P2P_FINISHED", null);
+                }
+
+                Helpers.GUIRun(() -> {
+                    if (GameFrame.getInstance() != null) {
+                        GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
+                    }
+                });
+
+                synchronized (swarmLock) {
+                    swarmLock.notifyAll();
+                }
+            }
         }
 
         // --- LOGIC: CLIENT SIDE ---
@@ -472,7 +555,8 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.threadRun(() -> {
                 try {
                     LOGGER.info("[ZERO-TRUST CLIENT] Executing handleClientP2PStart...");
-                    Helpers.GUIRun(() -> status.setText(Translator.translate("zero_trust.generating_kem")));
+                    updateSwarmUI(Translator.translate("zero_trust.p2p_generating_challenges"));
+
                     if (partes.length > 1 && !partes[1].equals("*")) {
                         String[] chunks = partes[1].split("\\$");
                         for (String chunk : chunks) {
@@ -517,7 +601,8 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.threadRun(() -> {
                 try {
                     LOGGER.info("[ZERO-TRUST CLIENT] Executing handleClientP2PInbox (Solving incoming KEM challenges)...");
-                    Helpers.GUIRun(() -> status.setText(Translator.translate("zero_trust.auditing_memory")));
+                    updateSwarmUI(Translator.translate("zero_trust.p2p_auditing_memory"));
+
                     StringBuilder batch = new StringBuilder();
                     if (partes.length > 1 && !partes[1].equals("*")) {
                         String[] chunks = partes[1].split("\\$");
@@ -549,7 +634,7 @@ public class WaitingRoomFrame extends JFrame {
             Helpers.threadRun(() -> {
                 try {
                     LOGGER.info("[ZERO-TRUST CLIENT] Executing handleClientP2PVerify (Auditing memory attestations)...");
-                    Helpers.GUIRun(() -> status.setText(Translator.translate("zero_trust.verifying_swarm")));
+                    updateSwarmUI(Translator.translate("zero_trust.p2p_verifying_signatures"));
 
                     boolean allClean = true;
                     if (partes.length > 1 && !partes[1].equals("*")) {
@@ -569,7 +654,8 @@ public class WaitingRoomFrame extends JFrame {
                                     if (!ok) {
                                         allClean = false;
                                         if (p != null) {
-                                            p.setUnsecure_player(true); // Cambia el dato Y dispara el fondo rojo de la lista
+                                            // Automatically tag them red in the UI list
+                                            p.setUnsecure_player(true);
                                         }
                                     }
                                 }
@@ -579,41 +665,43 @@ public class WaitingRoomFrame extends JFrame {
 
                     if (allClean) {
                         sendP2PCommandToServer("P2P_VERIFY_DONE");
+                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.p2p_finished_resuming"));
                     } else {
-                        Helpers.GUIRun(() -> {
-                            int r = mostrarMensajeErrorSINO(THIS, Translator.translate("zero_trust.cheater_detected"));
+                        if (isPartida_empezada()) {
+                            // Mid-Game: Log the failure, mark the cheater, and proceed without blocking the UI
+                            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] P2P Integrity failed mid-game! Marking cheater and continuing.");
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.p2p_cheater_detected2"));
+                            sendP2PCommandToServer("P2P_VERIFY_DONE");
+                        } else {
+                            // Lobby (Pre-Game): Show the standard blocking popup
+                            Helpers.GUIRun(() -> {
+                                int r = mostrarMensajeErrorSINO(WaitingRoomFrame.this, Translator.translate("zero_trust.cheater_detected"));
 
-                            if (r == 0) {
-                                // User chose to continue anyway despite the warning
-                                sendP2PCommandToServer("P2P_VERIFY_DONE");
-                            } else {
-                                // User chose to abort the game start
-                                if (isServer()) {
-
-                                    // Restore UI controls that were disabled during startup
-                                    empezar_timba.setEnabled(true);
-                                    new_bot_button.setEnabled(participantes.size() < MAX_PARTICIPANTES);
-                                    new_bot_button.setVisible(true);
-                                    kick_user.setEnabled(true);
-                                    kick_user.setVisible(true);
-                                    sound_icon.setVisible(true);
-
-                                    // Restore tooltips
-                                    game_info_buyin.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                                    game_info_blinds.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                                    game_info_hands.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-
-                                    status.setText(Translator.translate("zero_trust.game_aborted"));
-                                    status.setIcon(null);
-                                    barra.setVisible(false);
-                                    partida_empezando = false;
+                                if (r == 0) {
+                                    sendP2PCommandToServer("P2P_VERIFY_DONE");
                                 } else {
-                                    setExit(true);
-                                    closeClientSocket();
-                                    System.exit(0);
+                                    if (isServer()) {
+                                        empezar_timba.setEnabled(true);
+                                        new_bot_button.setEnabled(participantes.size() < MAX_PARTICIPANTES);
+                                        new_bot_button.setVisible(true);
+                                        kick_user.setEnabled(true);
+                                        kick_user.setVisible(true);
+                                        sound_icon.setVisible(true);
+                                        game_info_buyin.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                                        game_info_blinds.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                                        game_info_hands.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
+                                        status.setText(Translator.translate("zero_trust.game_aborted"));
+                                        status.setIcon(null);
+                                        barra.setVisible(false);
+                                        partida_empezando = false;
+                                    } else {
+                                        setExit(true);
+                                        closeClientSocket();
+                                        System.exit(0);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
                 } catch (Exception e) {
                     LOGGER.log(Level.SEVERE, "[ZERO-TRUST CLIENT] Error in handleClientP2PVerify", e);
@@ -2511,6 +2599,9 @@ public class WaitingRoomFrame extends JFrame {
                                             break;
                                         case "P2P_VERIFY":
                                             p2pSwarmManager.handleClientP2PVerify(partes_comando);
+                                            break;
+                                        case "P2P_FINISHED":
+                                            p2pSwarmManager.finishSwarmAndResumeGame();
                                             break;
                                         // -----------------------------------------------------
 

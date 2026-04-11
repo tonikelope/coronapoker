@@ -3058,15 +3058,25 @@ public class WaitingRoomFrame extends JFrame {
                     int clientRemotePort = client_socket.getPort();
                     String tempSessionId = clientRemoteIp + ":" + clientRemotePort;
 
-                    // FIX FALSO POSITIVO: Pero al motor C le pasamos la IP y Puerto LOCALES del servidor.
-                    // Esto es vital porque es el destino que el cliente buscará en su netstat/tabla TCP.
-                    String serverLocalIp = client_socket.getLocalAddress().getHostAddress();
+                    // FIX NAT/WAN: El servidor debe retar al cliente usando la IP a la que el cliente CREE estar conectado.
+                    // Si el cliente viene de Internet, buscará en su tabla TCP nuestra IP Pública, no nuestra IP Privada.
+                    String serverIpToUse;
+                    if (clientRemoteIp.equals("localhost") || clientRemoteIp.equals("127.0.0.1")
+                            || clientRemoteIp.startsWith("192.168.") || clientRemoteIp.startsWith("10.")
+                            || clientRemoteIp.startsWith("172.16.")) {
+                        serverIpToUse = client_socket.getLocalAddress().getHostAddress(); // Red Local
+                    } else {
+                        serverIpToUse = Helpers.getMyPublicIP(); // Internet (NAT / WAN)
+                    }
+
                     int serverLocalPort = client_socket.getLocalPort();
 
                     Panoptes panoptes = Panoptes.getInstance();
+
                     byte[] serverChallengeToClient = null;
+
                     try {
-                        serverChallengeToClient = panoptes.generateChallenge(tempSessionId, serverLocalIp, serverLocalPort);
+                        serverChallengeToClient = panoptes.generateChallenge(tempSessionId, serverIpToUse, serverLocalPort);
                     } catch (Exception e) {
                         Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
                         LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);

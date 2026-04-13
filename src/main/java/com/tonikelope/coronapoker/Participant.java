@@ -260,7 +260,7 @@ public class Participant implements Runnable {
                 try {
                     String localIpString = this.socket.getLocalAddress().getHostAddress();
                     int serverLocalPort = this.socket.getLocalPort();
-                    byte[] challenge = panoptes.generateChallenge(ownerId, localIpString, serverLocalPort);
+                    byte[] challenge = panoptes.generateChallenge(ownerId, serverLocalPort);
                     String challengeBase64 = java.util.Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+", "");
                     writeCommandFromServer(Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
                 } catch (Exception e) {

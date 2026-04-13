@@ -35,7 +35,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetAddress;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
@@ -246,12 +245,10 @@ public class Panoptes {
      * Generates a network attestation challenge for a remote peer.
      *
      * @param sessionKey Exactly 32 bytes.
-     * @param ipType 4 for IPv4, 6 for IPv6.
-     * @param ip Exactly 16 bytes (padded with zeros if IPv4).
      * @param port Target network port.
      * @return A 75-byte encrypted challenge payload.
      */
-    public native byte[] attestationGenerateChallenge(byte[] sessionKey, byte ipType, byte[] ip, short port);
+    public native byte[] attestationGenerateChallenge(byte[] sessionKey, short port);
 
     /**
      * Solves an incoming attestation challenge, executing Ring-0 system
@@ -570,28 +567,20 @@ public class Panoptes {
      *
      * @param ownerID The unique identifier for the target peer (e.g.,
      * "PARTICIPANT_1234").
-     * @param ipString The raw string representation of the target IP address.
      * @param port The target network port.
      * @return A 75-byte encrypted challenge payload ready for network
      * transmission.
      * @throws Exception If IP parsing or underlying JNI cryptographic
      * generation fails.
      */
-    public byte[] generateChallenge(String ownerID, String ipString, int port) throws Exception {
+    public byte[] generateChallenge(String ownerID, int port) throws Exception {
         byte[] sessionKey = new byte[32];
         new SecureRandom().nextBytes(sessionKey);
 
         // Map the ephemeral session key to the connection owner
         activeSessionKeys.put(ownerID, sessionKey);
 
-        InetAddress addr = InetAddress.getByName(ipString);
-        byte[] rawIp = addr.getAddress();
-
-        // Zero-padding up to 16 bytes for strict native C array constraints
-        byte[] paddedIp = new byte[16];
-        System.arraycopy(rawIp, 0, paddedIp, 0, rawIp.length);
-
-        return attestationGenerateChallenge(sessionKey, (byte) (rawIp.length == 4 ? 4 : 6), paddedIp, (short) port);
+        return attestationGenerateChallenge(sessionKey, (short) port);
     }
 
     /**
@@ -604,7 +593,7 @@ public class Panoptes {
      * malformed.
      */
     public byte[] signChallenge(byte[] encryptedChallenge) {
-        if (encryptedChallenge == null || encryptedChallenge.length != 75) {
+        if (encryptedChallenge == null || encryptedChallenge.length != 58) {
             return null;
         }
         return attestationSolveChallenge(encryptedChallenge);

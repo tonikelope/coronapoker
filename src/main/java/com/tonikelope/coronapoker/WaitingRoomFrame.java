@@ -2190,8 +2190,8 @@ public class WaitingRoomFrame extends JFrame {
                     int myLocalPort = local_client_socket.getLocalPort();
 
                     /* Generate the challenge using a static ownerID for the server */
-                    byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT",
-                            miIpToUse, 0);
+                    byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT", myLocalPort);
+
                     String challengeB64 = java.util.Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
 
                     writeCommandToServer(Helpers.encryptCommand("SECPING#" + challengeB64,
@@ -2385,7 +2385,7 @@ public class WaitingRoomFrame extends JFrame {
                         }
 
                         int myLocalPort = local_client_socket.getLocalPort();
-                        byte[] challengeBytes = panoptes.generateChallenge("LOCAL", miIpToUse, 0);
+                        byte[] challengeBytes = panoptes.generateChallenge("LOCAL", myLocalPort);
                         challengeBase64 = Base64.getEncoder().encodeToString(challengeBytes);
                     } catch (Exception e) {
                         Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
@@ -3076,7 +3076,7 @@ public class WaitingRoomFrame extends JFrame {
                     byte[] serverChallengeToClient = null;
 
                     try {
-                        serverChallengeToClient = panoptes.generateChallenge(tempSessionId, serverIpToUse, 0);
+                        serverChallengeToClient = panoptes.generateChallenge(tempSessionId, serverLocalPort);
                     } catch (Exception e) {
                         Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
                         LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);

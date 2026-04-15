@@ -19,8 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # AÑADIMOS macos-13 (Intel x86_64) junto a macos-latest (ARM64)
-        os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout Repository
@@ -31,15 +30,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-
-      # PASO DIAGNÓSTICO: Para que veas en los logs que GitHub no te miente
-      - name: Check Architecture
-        shell: bash
-        run: |
-          echo "RUNNER ARCH: $(uname -m)"
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            sysctl -n machdep.cpu.brand_string
-          fi
 
       - name: Verify Integrity (Checksums)
         shell: bash
@@ -72,19 +62,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: payload-${{ matrix.os }}
-          path: panoptes/payload_${{ matrix.os.bin }}
+          path: panoptes/payload_${{ matrix.os }}.bin
           retention-days: 1
 
   cross_validation:
     name: Cross-Platform MAC Verification (${{ matrix.os }})
-    needs: audit_and_generate
+    needs: audit_and_generate # Espera a que las 3 máquinas hayan generado sus payloads
     if: github.event_name == 'workflow_dispatch' && inputs.run_cross_tests == true
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # TAMBIÉN ACTUALIZAMOS AQUÍ LA MATRIZ
-        os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout Repository
@@ -99,7 +88,7 @@ jobs:
       - name: Download All Payloads
         uses: actions/download-artifact@v4
         with:
-          path: panoptes/payloads/
+          path: panoptes/payloads/ # Se descargarán en carpetas separadas
 
       - name: Execute Triple Cross-Platform Verification
         shell: bash
@@ -109,11 +98,15 @@ jobs:
           echo "[*] EXECUTING TRIPLE CROSS-PLATFORM BOMBARDMENT ON: ${{ matrix.os }}"
           echo "=========================================================="
           
+          # Buscamos todos los payloads descargados
           for payload in $(find payloads/ -type f -name "*.bin"); do
             FILENAME=$(basename "$payload")
+            
+            # Extraemos el OS de origen del nombre del archivo (ej. payload_ubuntu-latest.bin -> ubuntu-latest)
             ORIGIN_OS=${FILENAME#payload_}
             ORIGIN_OS=${ORIGIN_OS%.bin}
             
+            # Si el payload es el nuestro, lo saltamos (ya se probó en la fase 1)
             if [ "$ORIGIN_OS" == "${{ matrix.os }}" ]; then
               echo -e "\n[-] Skipping own payload ($ORIGIN_OS)..."
               continue
@@ -123,4 +116,4 @@ jobs:
             java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -cp CoronaPokerGithub.jar PublicTestSuite verify "$payload"
           done
           
-          echo -e "\n[+] ALL CROSS-PLATFORM MACS VALIDATED SUCCESSFULLY."
+          echo -e "\n[+] ALL TRIPLE CROSS-PLATFORM MACS VALIDATED SUCCESSFULLY."

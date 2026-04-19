@@ -113,6 +113,6 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-Although CoronaPoker is open-source, the source code for the `Panoptes` zero-trust and anti-cheat engine library remains closed-source. This is a deliberate, non-negotiable security measure (by obscurity, yes, i know). Obfuscated pre-compiled binaries are provided for supported platforms.
+Although CoronaPoker is open-source, the source code for the `Panoptes` zero-trust and anti-cheat engine library remains closed-source. This is a deliberate, non-negotiable extra security measure (by obscurity, yes, i know). Obfuscated pre-compiled binaries are provided for supported platforms.
 
 </div>

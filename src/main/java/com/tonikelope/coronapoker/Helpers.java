@@ -229,6 +229,7 @@ import javax.swing.JSpinner;
 import javax.swing.plaf.synth.SynthFormattedTextFieldUI;
 import javax.swing.text.JTextComponent;
 import static com.tonikelope.coronapoker.Init.CHAT_IMAGE_CACHE;
+import static java.beans.Beans.isDesignTime;
 import java.util.Base64;
 
 /**
@@ -269,7 +270,7 @@ public class Helpers {
     public volatile static int DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
     public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
-    public volatile static Properties PROPERTIES = loadPropertiesFile();
+    public volatile static Properties PROPERTIES = isDesignTime() ? new Properties() : loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
     public volatile static boolean RANDOMORG_ERROR_MSG = false;
     public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
@@ -278,26 +279,27 @@ public class Helpers {
     public volatile static String WINDOWS_ORIG_DPI = null;
 
     static {
+        if (!isDesignTime()) {
 
-        Helpers.CREATE_THREAD_POOL();
+            Helpers.CREATE_THREAD_POOL();
 
-        try {
+            try {
 
-            POKER_QUOTES_ES = (ArrayList<String>) getResourceTextFileAsList("quotes_ES.txt");
-            POKER_QUOTES_EN = (ArrayList<String>) getResourceTextFileAsList("quotes_EN.txt");
+                POKER_QUOTES_ES = (ArrayList<String>) getResourceTextFileAsList("quotes_ES.txt");
+                POKER_QUOTES_EN = (ArrayList<String>) getResourceTextFileAsList("quotes_EN.txt");
 
-            if (POKER_QUOTES_ES != null && POKER_QUOTES_ES.size() != POKER_QUOTES_EN.size()) {
-                LOGGER.log(Level.WARNING, "QUOTES FILES LENGTH DO NOT MATCH. TRUNCATING...");
+                if (POKER_QUOTES_ES != null && POKER_QUOTES_ES.size() != POKER_QUOTES_EN.size()) {
+                    LOGGER.log(Level.WARNING, "QUOTES FILES LENGTH DO NOT MATCH. TRUNCATING...");
 
-                final int size = Math.min(POKER_QUOTES_ES.size(), POKER_QUOTES_EN.size());
-                POKER_QUOTES_ES = (ArrayList<String>) POKER_QUOTES_ES.subList(0, size);
-                POKER_QUOTES_EN = (ArrayList<String>) POKER_QUOTES_EN.subList(0, size);
+                    final int size = Math.min(POKER_QUOTES_ES.size(), POKER_QUOTES_EN.size());
+                    POKER_QUOTES_ES = (ArrayList<String>) POKER_QUOTES_ES.subList(0, size);
+                    POKER_QUOTES_EN = (ArrayList<String>) POKER_QUOTES_EN.subList(0, size);
+                }
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
             }
-
-        } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
         }
-
     }
 
     public static class LeftClickMenuItem extends JMenuItem {

@@ -683,6 +683,8 @@ public class Panoptes {
         return telemetryCaptureScreenContext(mode);
     }
 
+    public native int utilsAreHashesReady();
+
     // =========================================================================
     // HASHING UTILS
     // =========================================================================

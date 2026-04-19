@@ -279,6 +279,8 @@ public class Init extends JFrame {
         translateGlobalLabels();
 
         setTitle(Init.WINDOW_TITLE);
+        
+        panoptes_hash_ready.setVisible(false);
 
         quote = new JTextPane();
 
@@ -1342,6 +1344,7 @@ public class Init extends JFrame {
         Helpers.threadRun(() -> {
 
             Helpers.GUIRun(() -> {
+                VENTANA_INICIO.panoptes_hash_ready.setVisible(true);
                 VENTANA_INICIO.panoptes_hash_ready.setIndeterminate(true);
             });
 

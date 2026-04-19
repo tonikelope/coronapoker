@@ -71,7 +71,7 @@ Before any gameplay occurs, Panoptes establishes a secure execution context, loc
 * **Continuous Telemetry & The Dead Man's Switch:** Background Guardian threads continuously monitor CPU cycle drift, inline hooks, and attached debuggers. Any anomaly instantly flips a mathematical `poison` bit, irrevocably corrupting the Vault's cryptographic outputs.
 
 ### Phase 1: Distributed Entropy & The Hand Commitment
-<img width="5640" height="4108" alt="imagen" src="https://github.com/user-attachments/assets/491afd04-ae89-42d3-af4d-fc782fa04c6d" />
+<img width="1404" height="950" alt="imagen" src="https://github.com/user-attachments/assets/dde282b8-d83b-4bbf-aa11-4fe55f04fc03" />
 
 The hand begins by ensuring no single entity—not even the server—can dictate, predict, or manipulate the deck's order.
 

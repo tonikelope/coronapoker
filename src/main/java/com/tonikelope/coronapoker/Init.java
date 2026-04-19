@@ -39,6 +39,7 @@ import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
+import static java.beans.Beans.isDesignTime;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -130,36 +131,37 @@ public class Init extends JFrame {
     private volatile JTextPane quote = null;
 
     static {
-        LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
+        if (!isDesignTime()) {
+            LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
 
-        loadGlobalZoomFactor();
+            loadGlobalZoomFactor();
 
-        System.setProperty("sun.java2d.uiScale", GLOBAL_ZOOM_VALUES[GLOBAL_ZOOM_INDEX]);
+            System.setProperty("sun.java2d.uiScale", GLOBAL_ZOOM_VALUES[GLOBAL_ZOOM_INDEX]);
 
-        if (Helpers.OSValidator.isUnix()) {
-            System.setProperty("sun.java2d.opengl", "true");
-            System.setProperty("sun.java2d.d3d", "false");
-        }
-
-        try {
-
-            M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
-
-            M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
+            if (Helpers.OSValidator.isUnix()) {
+                System.setProperty("sun.java2d.opengl", "true");
+                System.setProperty("sun.java2d.d3d", "false");
+            }
 
             try {
 
-                I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
+                M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
+
+                M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
+
+                try {
+
+                    I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
+
+                } catch (Exception ex) {
+
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
 
             } catch (Exception ex) {
-
-                LOGGER.log(Level.SEVERE, null, ex);
+                LOGGER.log(Level.WARNING, "Huevos is not present!");
             }
-
-        } catch (Exception ex) {
-            LOGGER.log(Level.WARNING, "Huevos is not present!");
         }
-
     }
 
     private static void loadGlobalZoomFactor() {
@@ -601,6 +603,7 @@ public class Init extends JFrame {
         exit_button = new javax.swing.JButton();
         language_combobox = new javax.swing.JComboBox<>();
         global_zoom_combobox = new javax.swing.JComboBox<>();
+        panoptes_hash_ready = new javax.swing.JProgressBar();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
@@ -637,6 +640,7 @@ public class Init extends JFrame {
         update_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         update_button.setText("ACTUALIZAR");
         update_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        update_button.setDoubleBuffered(true);
         update_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 update_buttonActionPerformed(evt);
@@ -651,6 +655,7 @@ public class Init extends JFrame {
         join_button.setText("UNIRME A TIMBA");
         join_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         join_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        join_button.setDoubleBuffered(true);
         join_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 join_buttonMouseEntered(evt);
@@ -670,6 +675,7 @@ public class Init extends JFrame {
         stats_button.setForeground(new java.awt.Color(255, 255, 255));
         stats_button.setText("ESTADÍSTICAS");
         stats_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        stats_button.setDoubleBuffered(true);
         stats_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 stats_buttonActionPerformed(evt);
@@ -682,6 +688,7 @@ public class Init extends JFrame {
         create_button.setText("CREAR TIMBA");
         create_button.setBorder(new javax.swing.border.LineBorder(new java.awt.Color(255, 102, 0), 8, true));
         create_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        create_button.setDoubleBuffered(true);
         create_button.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 create_buttonMouseEntered(evt);
@@ -704,10 +711,10 @@ public class Init extends JFrame {
                 .addGap(0, 0, 0)
                 .addGroup(action_buttons_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(action_buttons_panelLayout.createSequentialGroup()
-                        .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 350, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(join_button, javax.swing.GroupLayout.DEFAULT_SIZE, 350, Short.MAX_VALUE))
-                    .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE))
+                        .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, 453, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, 463, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
         action_buttons_panelLayout.setVerticalGroup(
@@ -739,6 +746,7 @@ public class Init extends JFrame {
         exit_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/exit2.png"))); // NOI18N
         exit_button.setText("SALIR");
         exit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        exit_button.setDoubleBuffered(true);
         exit_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 exit_buttonActionPerformed(evt);
@@ -767,36 +775,42 @@ public class Init extends JFrame {
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGap(0, 0, 0)
+                        .addComponent(panoptes_hash_ready, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addGap(0, 0, 0)
+                        .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(0, 0, 0))
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
-                    .addComponent(exit_button)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE))
-                .addGap(0, 0, Short.MAX_VALUE))
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(global_zoom_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 46, Short.MAX_VALUE)
-                .addGap(0, 0, 0))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                        .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
+                        .addComponent(exit_button)
+                        .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(panoptes_hash_ready, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
         corona_init_panel.setLayout(corona_init_panelLayout);
         corona_init_panelLayout.setHorizontalGroup(
             corona_init_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(update_button, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-            .addComponent(update_label, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+            .addComponent(update_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(update_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(action_buttons_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
@@ -809,23 +823,24 @@ public class Init extends JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(update_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
         );
 
         javax.swing.GroupLayout botones_panelLayout = new javax.swing.GroupLayout(botones_panel);
         botones_panel.setLayout(botones_panelLayout);
         botones_panelLayout.setHorizontalGroup(
             botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
+            .addGap(0, 944, Short.MAX_VALUE)
             .addGroup(botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(botones_panelLayout.createSequentialGroup()
-                    .addGap(10, 10, 10)
+                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(corona_init_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGap(10, 10, 10)))
+                    .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
         );
         botones_panelLayout.setVerticalGroup(
             botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 0, Short.MAX_VALUE)
+            .addGap(0, 318, Short.MAX_VALUE)
             .addGroup(botones_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(botones_panelLayout.createSequentialGroup()
                     .addGap(10, 10, 10)
@@ -838,6 +853,7 @@ public class Init extends JFrame {
 
         baraja_fondo.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         baraja_fondo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        baraja_fondo.setDoubleBuffered(true);
         baraja_fondo.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 baraja_fondoMouseClicked(evt);
@@ -850,7 +866,7 @@ public class Init extends JFrame {
             baraja_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, baraja_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(baraja_fondo, javax.swing.GroupLayout.DEFAULT_SIZE, 2878, Short.MAX_VALUE)
+                .addComponent(baraja_fondo, javax.swing.GroupLayout.DEFAULT_SIZE, 2986, Short.MAX_VALUE)
                 .addContainerGap())
         );
         baraja_panelLayout.setVerticalGroup(
@@ -867,19 +883,19 @@ public class Init extends JFrame {
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(baraja_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(tapeteLayout.createSequentialGroup()
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
                     .addContainerGap(996, Short.MAX_VALUE)
-                    .addComponent(botones_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(996, Short.MAX_VALUE)))
+                    .addComponent(botones_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addContainerGap(1028, Short.MAX_VALUE)))
         );
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(baraja_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(tapeteLayout.createSequentialGroup()
-                    .addContainerGap(788, Short.MAX_VALUE)
-                    .addComponent(botones_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(788, Short.MAX_VALUE)))
+                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
+                    .addContainerGap(830, Short.MAX_VALUE)
+                    .addComponent(botones_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addContainerGap(831, Short.MAX_VALUE)))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -1320,12 +1336,25 @@ public class Init extends JFrame {
         Init.hidePanoptesSplash();
 
         LOGGER.log(Level.INFO, "Checking for updates...");
+
         UPDATE();
 
         Helpers.threadRun(() -> {
 
+            Helpers.GUIRun(() -> {
+                VENTANA_INICIO.panoptes_hash_ready.setIndeterminate(true);
+            });
+
             Panoptes.WAKEUP_PANOPTES();
 
+            while (Panoptes.getInstance().utilsAreHashesReady() == 0) {
+                Helpers.pausar(500);
+            }
+
+            Helpers.GUIRun(() -> {
+                VENTANA_INICIO.panoptes_hash_ready.setIndeterminate(false);
+                VENTANA_INICIO.panoptes_hash_ready.setVisible(false);
+            });
         });
 
         if (!Helpers.OSValidator.isMac()) {
@@ -1426,6 +1455,7 @@ public class Init extends JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;
+    private javax.swing.JProgressBar panoptes_hash_ready;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;

@@ -34,6 +34,7 @@ import java.awt.Image;
 import java.awt.TexturePaint;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import static java.beans.Beans.isDesignTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -56,23 +57,25 @@ public class InitPanel extends javax.swing.JLayeredPane {
         // 1. Inicialización rápida de componentes UI
         Helpers.GUIRunAndWait(this::initComponents);
 
-        // 2. Carga asíncrona de la textura
-        // No bloqueamos el constructor, dejamos que el tapete aparezca cuando esté listo
-        if (CACHED_TAPETE != null && !GameFrame.COLOR_TAPETE.endsWith("*")) {
-            this.tp = CACHED_TAPETE;
-        } else {
-            updateTexture(); // El método que creamos antes, que usa un hilo separado
-        }
-
-        // 3. Listener de redimensionado (se mantiene igual, es eficiente)
-        addComponentListener(new ComponentResizeEndListener() {
-            @Override
-            public void resizeTimedOut() {
-                if (GameFrame.COLOR_TAPETE.endsWith("*")) {
-                    refresh();
-                }
+        // Prevent backend loading in NetBeans visual editor
+        if (!isDesignTime()) {
+            // 2. Carga asíncrona de la textura
+            if (CACHED_TAPETE != null && !GameFrame.COLOR_TAPETE.endsWith("*")) {
+                this.tp = CACHED_TAPETE;
+            } else {
+                updateTexture();
             }
-        });
+
+            // 3. Listener de redimensionado
+            addComponentListener(new ComponentResizeEndListener() {
+                @Override
+                public void resizeTimedOut() {
+                    if (GameFrame.COLOR_TAPETE.endsWith("*")) {
+                        refresh();
+                    }
+                }
+            });
+        }
     }
 
     public void refresh() {

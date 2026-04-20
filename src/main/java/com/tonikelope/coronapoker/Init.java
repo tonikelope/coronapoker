@@ -89,9 +89,9 @@ import javax.swing.JWindow;
  * @author tonikelope
  */
 public class Init extends JFrame {
-    
+
     private static final Logger LOGGER = Logger.getLogger(Init.class.getName());
-    
+
     public static final boolean DEV_MODE = false;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
@@ -129,62 +129,62 @@ public class Init extends JFrame {
     private volatile Timer quote_timer = null;
     private volatile int conta_quote = 0;
     private volatile JTextPane quote = null;
-    
+
     static {
         if (!isDesignTime()) {
             LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
-            
+
             loadGlobalZoomFactor();
-            
+
             System.setProperty("sun.java2d.uiScale", GLOBAL_ZOOM_VALUES[GLOBAL_ZOOM_INDEX]);
-            
+
             if (Helpers.OSValidator.isUnix()) {
                 System.setProperty("sun.java2d.opengl", "true");
                 System.setProperty("sun.java2d.d3d", "false");
             }
-            
+
             try {
-                
+
                 M1 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M1", new Class<?>[]{JDialog.class, String.class});
-                
+
                 M2 = Class.forName("com.tonikelope.coronapoker.Huevos").getMethod("M2", new Class<?>[]{String.class});
-                
+
                 try {
-                    
+
                     I1 = ImageIO.read(new ByteArrayInputStream((byte[]) M2.invoke(null, "d")));
-                    
+
                 } catch (Exception ex) {
-                    
+
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
-                
+
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Huevos is not present!");
             }
         }
     }
-    
+
     private static void loadGlobalZoomFactor() {
-        
+
         String i = Helpers.PROPERTIES.getProperty("global_scale", "2");
-        
+
         GLOBAL_ZOOM_INDEX = Integer.parseInt(i);
-        
+
         if (GLOBAL_ZOOM_INDEX < 0 || GLOBAL_ZOOM_INDEX > GLOBAL_ZOOM_VALUES.length - 1) {
             GLOBAL_ZOOM_INDEX = 2;
         }
     }
-    
+
     private static JWindow panoptes_splash;
-    
+
     public JLabel getBaraja_fondo() {
         return baraja_fondo;
     }
-    
+
     public JLabel getUpdate_label() {
         return update_label;
     }
-    
+
     public static void setupConsoleLogger() {
         try {
             // Define the path for the debug log file (append mode = true)
@@ -227,12 +227,12 @@ public class Init extends JFrame {
 
             // Print a header to mark a new session in the log file
             LOGGER.log(Level.INFO, "{0}=== NEW CORONAPOKER SESSION STARTED: {1} ==={2}", new Object[]{"\n============================================================================\n", java.time.LocalDateTime.now(), "\n============================================================================\n"});
-            
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Could not initialize file logger!", e);
         }
     }
-    
+
     private void printQuote() {
         Helpers.threadRun(() -> {
             if (conta_quote % Helpers.POKER_QUOTES_ES.size() == 0) {
@@ -250,7 +250,7 @@ public class Init extends JFrame {
             });
         });
     }
-    
+
     private void initTranslations() {
 
         // Asignamos las "etiquetas" (keys) de traducción a cada componente.
@@ -264,123 +264,123 @@ public class Init extends JFrame {
 
         // También los Tooltips
         sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
-        
+
     }
 
     /**
      * Creates new form Inicio
      */
     public Init() {
-        
+
         initComponents();
-        
+
         initTranslations();
-        
+
         translateGlobalLabels();
-        
+
         setTitle(Init.WINDOW_TITLE);
-        
+
         panoptes.setVisible(false);
-          
+
         panoptes_label.setText(Translator.translate("zero_trust.verifying_integrity"));
-        
+
         panoptes_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/shield.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)));
-        
+
         quote = new JTextPane();
-        
+
         StyledDocument doc = quote.getStyledDocument();
-        
+
         SimpleAttributeSet center = new SimpleAttributeSet();
-        
+
         StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
-        
+
         doc.setParagraphAttributes(0, doc.getLength(), center, false);
-        
+
         quote.setEditable(false);
-        
+
         quote.setOpaque(false);
-        
+
         quote.setBackground(new Color(0, 0, 0, 0));
-        
+
         quote.setForeground(Color.white);
-        
+
         Font font = new Font("Dialog", Font.ITALIC, 18);
-        
+
         quote.setFont(font);
-        
+
         quote.setVisible(false);
-        
+
         tapete.add(quote, JLayeredPane.POPUP_LAYER);
-        
+
         addComponentListener(new ComponentResizeEndListener() {
             @Override
             public void resizeTimedOut() {
-                
+
                 if (Init.VENTANA_INICIO.isVisible()) {
                     if (Init.VENTANA_INICIO.getWidth() <= 1920 || Init.VENTANA_INICIO.getHeight() <= 1080 - 150) {
-                        
+
                         int new_w = Init.VENTANA_INICIO.getWidth();
-                        
+
                         int new_h = Math.round(1080 * new_w / 1920);
-                        
+
                         if (new_h > Init.VENTANA_INICIO.getHeight() - 150) {
                             new_h = Init.VENTANA_INICIO.getHeight() - 150;
-                            
+
                             new_w = Math.round(1920 * new_h / 1080);
                         }
-                        
+
                         Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(new_w * 0.9f), Math.round(new_h * 0.9f));
                     } else {
                         Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
                     }
-                    
+
                     quote.setSize((int) getWidth(), 150);
                     quote.setLocation(0, Init.VENTANA_INICIO.getHeight() - 125);
                     quote.setVisible(true);
-                    
+
                     quote.revalidate();
                     quote.repaint();
                 }
             }
         });
-        
+
         if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
             language_combobox.setSelectedIndex(0);
         } else {
             language_combobox.setSelectedIndex(1);
         }
-        
+
         global_zoom_combobox.setSelectedIndex(GLOBAL_ZOOM_INDEX);
-        
+
         create_button.setBackground(Color.WHITE);
-        
+
         join_button.setBackground(Color.WHITE);
-        
+
         update_label.setVisible(false);
-        
+
         update_button.setVisible(false);
-        
+
         update_button.setIcon(new ImageIcon(getClass().getResource("/images/update.png")));
-        
+
         update_label.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
-        
+
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
-        
+
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("SCREENSHOT") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                
+
                 if (Helpers.OSValidator.isWindows()) {
-                    
+
                     if (GameFrame.getInstance() != null) {
-                        
+
                         Helpers.threadRun(() -> {
-                            
+
                             boolean ok = Helpers.screenshotWindows();
-                            
+
                             if (ok) {
                                 Audio.playWavResource("misc/screenshot.wav");
-                                
+
                                 Helpers.GUIRun(() -> {
                                     InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "SCREENSHOT", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 1000);
                                     dialog.setLocation(dialog.getParent().getLocation());
@@ -392,11 +392,11 @@ public class Init extends JFrame {
                 }
             }
         });
-        
+
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND-SWITCH") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                
+
                 if (GameFrame.getInstance() != null) {
                     GameFrame.getInstance().getSonidos_menu().doClick();
                 } else if (VENTANA_INICIO.isVisible()) {
@@ -406,19 +406,19 @@ public class Init extends JFrame {
                 }
             }
         });
-        
+
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-DOWN") {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (Audio.MASTER_VOLUME > 0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
-                    
+
                     if (Audio.VOLUME_TIMER.isRunning()) {
                         Audio.VOLUME_TIMER.restart();
                     } else {
                         Audio.VOLUME_TIMER.start();
                     }
-                    
+
                     if (!GameFrame.SONIDOS) {
                         if (GameFrame.getInstance() != null) {
                             GameFrame.getInstance().getSonidos_menu().doClick();
@@ -429,15 +429,15 @@ public class Init extends JFrame {
                         }
                     }
                 }
-                
+
                 if (VOLUME_DIALOG != null) {
                     VOLUME_DIALOG.refresh();
                 } else {
-                    
+
                     if (!CURRENT_MODAL_DIALOG.isEmpty()) {
                         VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG.peekLast(), false, Math.round(0.5f * (GameFrame.getInstance() != null ? GameFrame.getInstance().getWidth() : VENTANA_INICIO.getWidth())));
                     } else {
-                        
+
                         VOLUME_DIALOG = new VolumeControlDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()), false, Math.round(0.5f * (GameFrame.getInstance() != null ? GameFrame.getInstance().getWidth() : VENTANA_INICIO.getWidth())));
                     }
                     VOLUME_DIALOG.setLocationRelativeTo(GameFrame.getInstance() != null ? GameFrame.getInstance() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()));
@@ -445,11 +445,11 @@ public class Init extends JFrame {
                 }
             }
         });
-        
+
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, KeyEvent.SHIFT_DOWN_MASK), new AbstractAction("VOLUME-UP") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                
+
                 if (!GameFrame.SONIDOS) {
                     if (GameFrame.getInstance() != null) {
                         GameFrame.getInstance().getSonidos_menu().doClick();
@@ -459,54 +459,54 @@ public class Init extends JFrame {
                         WaitingRoomFrame.getInstance().soundIconClick();
                     }
                 }
-                
+
                 if (Audio.MASTER_VOLUME < 1.0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
-                    
+
                     if (Audio.VOLUME_TIMER.isRunning()) {
                         Audio.VOLUME_TIMER.restart();
                     } else {
                         Audio.VOLUME_TIMER.start();
                     }
                 }
-                
+
                 if (VOLUME_DIALOG != null) {
                     VOLUME_DIALOG.refresh();
                 } else {
-                    
+
                     if (!CURRENT_MODAL_DIALOG.isEmpty()) {
                         VOLUME_DIALOG = new VolumeControlDialog(CURRENT_MODAL_DIALOG.peekLast(), false, Math.round(0.5f * (GameFrame.getInstance() != null ? GameFrame.getInstance().getWidth() : VENTANA_INICIO.getWidth())));
                     } else {
-                        
+
                         VOLUME_DIALOG = new VolumeControlDialog(GameFrame.getInstance() != null ? GameFrame.getInstance() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()), false, Math.round(0.5f * (GameFrame.getInstance() != null ? GameFrame.getInstance().getWidth() : VENTANA_INICIO.getWidth())));
                     }
                     VOLUME_DIALOG.setLocationRelativeTo(GameFrame.getInstance() != null ? GameFrame.getInstance() : (VENTANA_INICIO.isVisible() ? VENTANA_INICIO : WaitingRoomFrame.getInstance()));
                     VOLUME_DIALOG.refresh();
                 }
-                
+
             }
         });
-        
+
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK), new AbstractAction("FORCE_EXIT") {
             @Override
             public void actionPerformed(ActionEvent e) {
-                
+
                 if (!FORCE_CLOSE_DIALOG) {
-                    
+
                     FORCE_CLOSE_DIALOG = true;
-                    
+
                     if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
-                        
+
                         System.exit(1);
                     }
-                    
+
                     FORCE_CLOSE_DIALOG = false;
                 }
             }
         });
-        
+
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
-        
+
         kfm.addKeyEventDispatcher((KeyEvent e) -> {
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             if (actionMap.containsKey(keyStroke)) {
@@ -519,64 +519,64 @@ public class Init extends JFrame {
             }
             return false;
         });
-        
+
         quote_timer = new Timer(QUOTE_DELAY, (ActionEvent ae) -> {
             printQuote();
         });
-        
+
         quote_timer.setInitialDelay(0);
-        
+
         Helpers.setScaledIconLabel(baraja_fondo, CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
-        
+
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
-        
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-        
+
         Helpers.translateComponents(this, false);
-        
+
         Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
-        
+
         revalidate();
-        
+
         repaint();
-        
+
     }
-    
+
     public InitPanel getTapete() {
         return tapete;
     }
-    
+
     public void translateGlobalLabels() {
         LocalPlayer.ACTIONS_LABELS = LocalPlayer.getActionsLabels();
         LocalPlayer.POSITIONS_LABELS = LocalPlayer.getPositionsLabels();
         RemotePlayer.ACTIONS_LABELS = RemotePlayer.getActionsLabels();
         RemotePlayer.POSITIONS_LABELS = RemotePlayer.getPositionsLabels();
         Hand.NOMBRES_JUGADAS = Hand.getNombreJugadas();
-        
+
     }
-    
+
     public void continueLastGame(boolean local) {
-        
+
         NewGameDialog dialog = new NewGameDialog(this, true, local);
-        
+
         if (GameFrame.PASSWORD_RECOVER != null) {
             dialog.setPass(GameFrame.PASSWORD_RECOVER);
         }
-        
+
         dialog.setForce_recover(true);
-        
+
         if (local) {
             dialog.getRecover_checkbox().doClick();
         }
-        
+
         dialog.setLocationRelativeTo(dialog.getParent());
-        
+
         dialog.setEnabled(false);
-        
+
         dialog.setVisible(true);
-        
+
         setEnabled(true);
-        
+
         if (!dialog.isDialog_ok()) {
             setVisible(true);
             GameFrame.IWTSTH_RULE_RECOVER = null;
@@ -941,44 +941,44 @@ public class Init extends JFrame {
         // TODO add your handling code here:
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
-        
+
         Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");
-        
+
         Helpers.savePropertiesFile();
-        
+
         Helpers.GUIRun(() -> {
             Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
         });
-        
+
         if (!GameFrame.SONIDOS) {
-            
+
             Audio.muteAll();
-            
+
         } else {
-            
+
             Audio.unmuteAll();
-            
+
         }
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void language_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_language_comboboxActionPerformed
         // TODO add your handling code here:
         if (VENTANA_INICIO != null) {
-            
+
             GameFrame.LANGUAGE = language_combobox.getSelectedIndex() == 0 ? "es" : "en";
-            
+
             Helpers.PROPERTIES.setProperty("lenguaje", GameFrame.LANGUAGE);
-            
+
             Helpers.savePropertiesFile();
-            
+
             Helpers.translateComponents(this, false);
-            
+
             translateGlobalLabels();
-            
+
             Crupier.loadMODSounds();
-            
+
             Helpers.setCoronaLocale();
-            
+
             printQuote();
         }
     }//GEN-LAST:event_language_comboboxActionPerformed
@@ -1020,7 +1020,7 @@ public class Init extends JFrame {
         // TODO add your handling code here:
 
         if (!botones_panel.getBounds().contains(evt.getX(), evt.getY())) {
-            
+
             AboutDialog dialog = new AboutDialog(this, true);
             dialog.setLocationRelativeTo(this);
             dialog.setVisible(true);
@@ -1037,11 +1037,11 @@ public class Init extends JFrame {
         // TODO add your handling code here:
 
         NewGameDialog dialog = new NewGameDialog(this, true, true);
-        
+
         dialog.setLocationRelativeTo(dialog.getParent());
-        
+
         dialog.setVisible(true);
-        
+
         if (!dialog.isDialog_ok()) {
             setVisible(true);
         } else {
@@ -1064,9 +1064,9 @@ public class Init extends JFrame {
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
         StatsDialog dialog = new StatsDialog(this, true);
-        
+
         dialog.setLocationRelativeTo(this);
-        
+
         dialog.setVisible(true);
     }//GEN-LAST:event_stats_buttonActionPerformed
 
@@ -1074,11 +1074,11 @@ public class Init extends JFrame {
         // TODO add your handling code here:
 
         NewGameDialog dialog = new NewGameDialog(this, true, false);
-        
+
         dialog.setLocationRelativeTo(dialog.getParent());
-        
+
         dialog.setVisible(true);
-        
+
         if (!dialog.isDialog_ok()) {
             setVisible(true);
         } else {
@@ -1101,33 +1101,33 @@ public class Init extends JFrame {
     private void global_zoom_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_global_zoom_comboboxActionPerformed
         // TODO add your handling code here:
         if (VENTANA_INICIO != null) {
-            
+
             int old = GLOBAL_ZOOM_INDEX;
-            
+
             if (old != global_zoom_combobox.getSelectedIndex() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("ui.zoom_global_restart")) == 0) {
-                
+
                 GLOBAL_ZOOM_INDEX = global_zoom_combobox.getSelectedIndex();
-                
+
                 Helpers.PROPERTIES.setProperty("global_scale", String.valueOf(global_zoom_combobox.getSelectedIndex()));
-                
+
                 Helpers.savePropertiesFile();
-                
+
                 Helpers.restartCoronaPoker();
-                
+
             } else {
                 global_zoom_combobox.setSelectedIndex(old);
             }
         }
 
     }//GEN-LAST:event_global_zoom_comboboxActionPerformed
-    
+
     public static void ensureRequiredJvmParameters(String[] args, Class<?> mainClass) {
         List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
 
         // 1. Check standard JVM flags safely by iterating
         boolean hasNativeAccess = false;
         boolean hasDisableAttach = false;
-        
+
         for (String arg : jvmArgs) {
             if (arg.contains("--enable-native-access=ALL-UNNAMED")) {
                 hasNativeAccess = true;
@@ -1149,14 +1149,14 @@ public class Init extends JFrame {
         if (hasNativeAccess && hasLibraryPath && hasDisableAttach && hasIPv4Forced) {
             return;
         }
-        
+
         LOGGER.log(Level.INFO, "Missing required JVM security, library, or network parameters. Restarting automatically...");
-        
+
         try {
             // 4. Build the restart command
             String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
             String classpath = System.getProperty("java.class.path");
-            
+
             List<String> command = new ArrayList<>();
             command.add(javaBin);
 
@@ -1191,16 +1191,16 @@ public class Init extends JFrame {
 
             // 8. Terminate the current flawed instance
             System.exit(0);
-            
+
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error while restarting JVM", e);
             System.exit(1);
         }
     }
-    
+
     private static void showPanoptesSplash() {
         panoptes_splash = new javax.swing.JWindow();
-        
+
         Helpers.GUIRun(() -> {
             java.net.URL logoUrl = Init.class.getResource("/images/panoptes_logo.jpg");
             if (logoUrl != null) {
@@ -1212,22 +1212,22 @@ public class Init extends JFrame {
             panoptes_splash.setVisible(true);
         });
     }
-    
+
     private static void hidePanoptesSplash() {
         Helpers.GUIRun(() -> {
             panoptes_splash.setVisible(false);
             panoptes_splash.dispose();
         });
     }
-    
+
     public static void main(String args[]) {
-        
+
         showPanoptesSplash();
-        
+
         ensureRequiredJvmParameters(args, Init.class);
-        
+
         setupConsoleLogger();
-        
+
         Helpers.threadRun(() -> {
             // Deadlock detection
             while (true) {
@@ -1235,11 +1235,11 @@ public class Init extends JFrame {
                 Helpers.pausar(DEADLOCK_DETECT_WAIT);
             }
         });
-        
+
         if (GameFrame.TEST_MODE) {
             GameFrame.CINEMATICAS = false;
         }
-        
+
         if (!Init.DEV_MODE) {
             SQL_FILE = CORONA_DIR + "/coronapoker.db";
         } else {
@@ -1253,7 +1253,7 @@ public class Init extends JFrame {
                 }
             }
         }
-        
+
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -1264,13 +1264,13 @@ public class Init extends JFrame {
         } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             Logger.getLogger(Init.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        
+
         EmojiPanel.initClass();
         Helpers.setCoronaLocale();
-        
+
         LOGGER.log(Level.INFO, "Loading SQLITE DB...");
         Helpers.initSQLITE();
-        
+
         try {
             LOGGER.log(Level.INFO, "Trying to load CSPRNG HASH DRBG SHA-512...");
             Security.setProperty("securerandom.drbg.config", "Hash_DRBG,SHA-512,256,reseed_only");
@@ -1280,16 +1280,16 @@ public class Init extends JFrame {
             Helpers.CSPRNG_GENERATOR = new SecureRandom();
             LOGGER.log(Level.WARNING, "Fallback CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
         }
-        
+
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
         Helpers.updateCoronaDialogsFont();
-        
+
         Init.MOD = Helpers.loadMOD();
-        
+
         if (Init.MOD != null) {
             WINDOW_TITLE += " @ " + MOD.get("name") + " " + MOD.get("version");
             PEGI18_MOD = (MOD.containsKey("adults") && (boolean) MOD.get("adults"));
-            
+
             if ((boolean) MOD.get("init_background")) {
                 try {
                     CORONA_INIT_MOD_IMAGE = new File(Helpers.getCurrentJarParentPath() + "/mod/init.png").toURI().toURL();
@@ -1297,22 +1297,22 @@ public class Init extends JFrame {
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
             }
-            
+
             for (Map.Entry<String, HashMap> entry : ((HashMap<String, HashMap>) Init.MOD.get("decks")).entrySet()) {
                 HashMap<String, Object> baraja = entry.getValue();
                 Card.BARAJAS.put((String) baraja.get("name"), new Object[]{baraja.get("aspect"), true, baraja.containsKey("sound") ? baraja.get("sound") : null});
             }
-            
+
             if (Init.MOD.containsKey("fusion_sounds")) {
                 Crupier.FUSION_MOD_SOUNDS = (boolean) Init.MOD.get("fusion_sounds");
             }
             if (Init.MOD.containsKey("fusion_cinematics")) {
                 Crupier.FUSION_MOD_CINEMATICS = (boolean) Init.MOD.get("fusion_cinematics");
             }
-            
+
             Crupier.loadMODSounds();
             Crupier.loadMODCinematicsAllin();
-            
+
             if (Init.MOD.containsKey("font") && Files.exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")))) {
                 try {
                     Helpers.GUI_FONT = Helpers.createAndRegisterFont(new FileInputStream(Helpers.getCurrentJarParentPath() + "/mod/fonts/" + Init.MOD.get("font")));
@@ -1321,31 +1321,31 @@ public class Init extends JFrame {
                 }
             }
         }
-        
+
         if (!Card.BARAJAS.containsKey(GameFrame.BARAJA)) {
             GameFrame.BARAJA = GameFrame.BARAJA_DEFAULT;
         }
-        
+
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
         Audio.MASTER_VOLUME = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
-        
+
         if (!GameFrame.SONIDOS) {
             Audio.muteAll();
         } else {
             Audio.unmuteAll();
         }
-        
+
         Audio.playWavResource("misc/init.wav");
         Audio.playLoopMp3Resource("misc/background_music.mp3");
-        
+
         LOGGER.log(Level.INFO, "Loading GUI Window...");
-        
+
         Helpers.GUIRun(() -> {
             VENTANA_INICIO = new Init();
             VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
             VENTANA_INICIO.setVisible(true);
         });
-        
+
         if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {
             if (Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("mod.el_mod_cargado_contiene_material"), new ImageIcon(Init.class.getResource("/images/pegi18.png"))) == 0) {
                 try {
@@ -1357,34 +1357,39 @@ public class Init extends JFrame {
                 System.exit(0);
             }
         }
-        
+
         Init.hidePanoptesSplash();
-        
+
         LOGGER.log(Level.INFO, "Checking for updates...");
-        
+
         UPDATE();
-        
+
         Helpers.threadRun(() -> {
-            
+
             Helpers.GUIRun(() -> {
                 VENTANA_INICIO.panoptes.setVisible(true);
                 VENTANA_INICIO.panoptes_hash_ready.setValue(0);
             });
-            
+
             Panoptes.WAKEUP_PANOPTES();
-            
-            int progress;
-            
+
+            int progress = 0, last = 0;
+
             while ((progress = Panoptes.getInstance().utilsAreHashesReady()) < 100 && progress >= 0) {
-                
-                final int p = progress;
-                
-                Helpers.GUIRun(() -> {
-                    VENTANA_INICIO.panoptes_hash_ready.setValue(p);
-                });
-                
-                Helpers.pausar(250);
+
+                if (progress != last) {
+                    last = progress;
+
+                    final int p = progress;
+
+                    Helpers.GUIRun(() -> {
+                        VENTANA_INICIO.panoptes_hash_ready.setValue(p);
+                    });
+                }
+
+                Helpers.pausar(50);
             }
+
             if (progress == 100) {
                 Helpers.GUIRun(() -> {
                     VENTANA_INICIO.panoptes_hash_ready.setValue(100);
@@ -1397,14 +1402,14 @@ public class Init extends JFrame {
                 });
             }
         });
-        
+
         if (!Helpers.OSValidator.isMac()) {
             antiScreensaver();
         }
-        
+
         LOGGER.log(Level.INFO, "Initialization complete. Ready.");
     }
-    
+
     private static void UPDATE() {
         Helpers.threadRun(() -> {
             Helpers.GUIRun(() -> {
@@ -1423,7 +1428,7 @@ public class Init extends JFrame {
                             String current_jar_path = Helpers.getCurrentJarPath();
                             String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
                             String updater_jar = Helpers.downloadUpdater();
-                            
+
                             if (updater_jar != null) {
                                 Helpers.cleanCacheDIR();
                                 if (GameFrame.LANGUAGE.equals("es")) {
@@ -1444,12 +1449,12 @@ public class Init extends JFrame {
                     }
                 }
             } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_comprobar")) == 0);
-            
+
             if (Init.MOD != null) {
                 LOGGER.log(Level.INFO, "Checking MOD updates...");
                 Helpers.checkMODVersion(VENTANA_INICIO);
             }
-            
+
             Helpers.GUIRun(() -> {
                 VENTANA_INICIO.update_label.setVisible(false);
                 if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
@@ -1459,28 +1464,28 @@ public class Init extends JFrame {
             });
         });
     }
-    
+
     private static void antiScreensaver() {
-        
+
         java.util.Timer screensaver = new java.util.Timer();
-        
+
         screensaver.schedule(new TimerTask() {
             @Override
             public void run() {
                 if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
-                    
+
                     try {
-                        
+
                         Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
                         Robot rob = new Robot();
                         rob.mouseMove(mouseLoc.x, mouseLoc.y);
-                        
+
                     } catch (AWTException ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
             }
-            
+
         }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);
     }
 

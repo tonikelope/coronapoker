@@ -113,6 +113,6 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-Although CoronaPoker is open-source, the source code for the `Panoptes` zero-trust and anti-cheat engine library remains closed-source. This is a deliberate, non-negotiable extra security measure (by obscurity, yes, i know, but in the real world almost nothing is black or white). Obfuscated pre-compiled binaries are provided for supported platforms.
+Although CoronaPoker's game logic is open-source, the native source code for the Panoptes C library remains strictly closed-source. In endpoint security, Security by Obscurity is a necessary and non-negotiable layer of Defense in Depth. Obfuscated, pre-compiled binaries are provided for supported OS architectures to prevent attackers from analyzing the security boundaries.
 
 </div>

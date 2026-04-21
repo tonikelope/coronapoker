@@ -337,7 +337,7 @@ public class Panoptes {
      * Performs a deterministic Fisher-Yates shuffle on a standard 52-card deck.
      *
      * @param seed Exactly 32 bytes (Master Seed).
-     * @return Exactly 52 bytes representing the shuffled deck (values 0-51).
+     * @return Exactly 84 bytes representing the shuffled deck (values 0-51).
      */
     public native byte[] utilsShuffleDeck(byte[] seed);
 
@@ -468,7 +468,7 @@ public class Panoptes {
      *
      * @param type Action type identifier (e.g., Fold, Call, Raise).
      * @param amount The betting amount involved.
-     * @return Exactly 52 bytes containing the signed action packet.
+     * @return Exactly 84 bytes containing the signed action packet.
      */
     public native byte[] chainCommitLocalAction(int type, float amount);
 
@@ -478,14 +478,14 @@ public class Panoptes {
      * @param type Action type identifier.
      * @param amount The betting amount involved.
      * @param botPrivKey Exactly 32 bytes (Bot's private key).
-     * @return Exactly 52 bytes containing the signed action packet.
+     * @return Exactly 84 bytes containing the signed action packet.
      */
     public native byte[] chainCommitBotAction(int type, float amount, byte[] botPrivKey);
 
     /**
      * Verifies and absorbs a remote action packet into the local Sponge state.
      *
-     * @param actionPacket Exactly 52 bytes.
+     * @param actionPacket Exactly 84 bytes.
      * @return true if signature and sequence are valid; false on
      * desynchronization or tampering.
      */

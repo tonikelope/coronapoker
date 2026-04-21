@@ -244,6 +244,23 @@ public class Crupier implements Runnable {
     // velocidad/precisión
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
 
+    public static volatile boolean SECURITY_LOCKDOWN = false;
+
+    private void triggerSecurityLockdown(String reason) {
+        if (!Crupier.SECURITY_LOCKDOWN) {
+            Crupier.SECURITY_LOCKDOWN = true;
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + reason);
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
+
+            Helpers.threadRun(() -> {
+                Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                        Translator.translate("zero_trust.critical_alert_header")
+                        + reason + "\n\n"
+                        + Translator.translate("zero_trust.critical_alert_body"));
+            });
+        }
+    }
+
     // VARIABLES CRIPTOGRÁFICAS DE ESTADO
     private volatile byte[] local_hand_seed = null;
     public volatile byte[] local_mega_packet = null;
@@ -4673,6 +4690,13 @@ public class Crupier implements Runnable {
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "SHOWDOWN_REQ":
+
+                                /* [!] SECURITY LOCKDOWN: BOYCOTT MALICIOUS SERVER */
+                                if (Crupier.SECURITY_LOCKDOWN) {
+                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.rejecting_master_key"));
+                                    break;
+                                }
+
                                 try {
                                     this.local_mk_share = Panoptes.getInstance().stateGetShuffleKeyShare();
                                     if (this.local_mk_share != null) {
@@ -4697,7 +4721,6 @@ public class Crupier implements Runnable {
                                 } else {
                                     this.valid_master_key = Base64.getDecoder().decode(partes[3]);
 
-                                    // Extract real cards for humans before evaluating
                                     if (!GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getLocalPlayer().isCalentando()) {
                                         for (Player jugador : inShowdown) {
                                             if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
@@ -4707,7 +4730,6 @@ public class Crupier implements Runnable {
                                         }
                                     }
 
-                                    // V76: CLIENT PHASE 1
                                     Helpers.threadRun(() -> {
                                         try {
                                             int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
@@ -4734,7 +4756,6 @@ public class Crupier implements Runnable {
                                                     this.legitHand = false;
                                                 }
                                             } else {
-
                                                 this.legitHand = true;
                                             }
                                         } catch (Exception ex) {
@@ -4746,7 +4767,6 @@ public class Crupier implements Runnable {
                                 break;
 
                             case "FINAL_CONSENSUS":
-                                // V76: CLIENT PHASE 2
                                 Helpers.threadRun(() -> {
                                     GameFrame.getInstance().getCrupier().verificarManoLocal(this.valid_master_key, partes);
                                 });
@@ -5486,7 +5506,8 @@ public class Crupier implements Runnable {
     public Object[] readActionFromRemotePlayer(Player jugador) {
         long start = System.currentTimeMillis();
         boolean ok = false, timeout = false;
-        Object[] action = new Object[3]; // [0] decision, [1] bet (or cinematic on ALLIN), [2] packetB64
+        Object[] action = new Object[3];
+        /* [0] decision, [1] bet (or cinematic on ALLIN), [2] packetB64 */
 
         do {
             ok = false;
@@ -5501,22 +5522,77 @@ public class Crupier implements Runnable {
 
                         if (!jugador.isExit()) {
                             try {
-                                // FORMATO UNIFICADO: GAME#ID#ACTION#NICK_B64#DECISION#[BET]#PACKET#[CINEMATICA]
+                                /* UNIFIED FORMAT: GAME#ID#ACTION#NICK_B64#DECISION#[BET]#PACKET#[CINEMATICA] */
                                 if (partes.length >= 5 && partes[2].equals("ACTION")) {
                                     String senderNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
 
                                     if (senderNick.equals(jugador.getNickname())) {
+
+                                        int parsedDecision = Integer.valueOf(partes[4]);
+                                        String packetB64 = null;
+
+                                        if (parsedDecision == Player.BET && partes.length > 6 && !partes[6].isEmpty()) {
+                                            packetB64 = partes[6];
+                                        } else if (parsedDecision != Player.BET && partes.length > 5 && !partes[5].isEmpty()) {
+                                            packetB64 = partes[5];
+                                        }
+
+                                        /* =========================================================
+                                         * ZERO-TRUST IDENTITY ENFORCEMENT (ANTI-SPOOFING)
+                                         * ========================================================= */
+                                        boolean spoofing = false;
+                                        byte[] cryptoPacket = null;
+                                        /* [!] FIX: Declared in the correct scope */
+
+                                        if (packetB64 != null && !packetB64.equals("*")) {
+                                            cryptoPacket = Base64.getDecoder().decode(packetB64);
+
+                                            /* Ensure the packet is exactly 84 bytes (Action Packet Size) */
+                                            if (cryptoPacket != null && cryptoPacket.length == 84) {
+                                                /* Extract the 32-byte Public Key embedded by the C engine (bytes 16 to 47) */
+                                                byte[] packetPubKey = java.util.Arrays.copyOfRange(cryptoPacket, 16, 48);
+                                                Participant pTarget = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                                                byte[] expectedPubKey = (pTarget != null) ? pTarget.getPanoptes_public_key() : null;
+
+                                                /* Strict cryptographic identity verification */
+                                                if (expectedPubKey == null || !java.util.Arrays.equals(packetPubKey, expectedPubKey)) {
+                                                    spoofing = true;
+                                                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] IDENTITY SPOOFING DETECTED! Action forged for: {0}", jugador.getNickname());
+
+                                                    /* VISUAL PANIC BUTTON FOR THE CLIENT */
+                                                    if (!GameFrame.getInstance().isPartida_local()) {
+                                                        triggerSecurityLockdown(Translator.translate("zero_trust.forged_identity_action") + " " + jugador.getNickname());
+                                                    }
+                                                }
+                                            } else {
+                                                /* Malformed packet length (Not 84 bytes) */
+                                                spoofing = true;
+                                            }
+                                        }
+
+                                        if (spoofing) {
+                                            if (GameFrame.getInstance().isPartida_local()) {
+                                                /* Server: Ignore silently and wait for real packet */
+                                                continue;
+                                            } else {
+                                                /* Client: Neutralize to protect C Engine and freeze */
+                                                packetB64 = "*";
+                                                cryptoPacket = null;
+                                                /* Now safely in scope */
+                                            }
+                                        }
+                                        /* ========================================================= */
+
                                         ok = true;
-                                        action[0] = Integer.valueOf(partes[4]); // Decision
+                                        action[0] = parsedDecision;
 
                                         if ((Integer) action[0] == Player.BET) {
-                                            action[1] = Float.valueOf(partes[5]); // Cantidad
-                                            action[2] = (partes.length > 6 && !partes[6].isEmpty()) ? partes[6] : null; // Packet
+                                            action[1] = Float.valueOf(partes[5]);
+                                            action[2] = packetB64;
                                         } else {
                                             action[1] = 0f;
-                                            action[2] = (partes.length > 5 && !partes[5].isEmpty()) ? partes[5] : null; // Packet
-
-                                            // Cinemática en ALLIN
+                                            action[2] = packetB64;
+                                            /* Cinematic on ALLIN */
                                             if ((Integer) action[0] == Player.ALLIN && partes.length > 6 && !partes[6].isEmpty()) {
                                                 action[1] = partes[6];
                                             }
@@ -5541,8 +5617,7 @@ public class Crupier implements Runnable {
                         start = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                         timeout = true;
-
-                        // [CRITICAL FIX]: Actively purge the disconnected player from the game state
+                        /* Actively purge the disconnected player from the game state */
                         LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ACTION TIMEOUT. Kicking unresponsive zombie: {0}", jugador.getNickname());
                         this.remotePlayerQuit(jugador.getNickname());
 
@@ -5559,7 +5634,7 @@ public class Crupier implements Runnable {
         } while (!ok && !jugador.isExit() && !timeout);
 
         if (jugador.isExit() || timeout) {
-            // [CRITICAL FIX]: Return a clean FOLD instead of a crash-inducing -1
+            /* Return a clean FOLD instead of a crash-inducing -1 */
             action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;
@@ -5698,7 +5773,12 @@ public class Crupier implements Runnable {
 
                     try {
                         if (partes.length >= 4 && partes[2].equals("REQ_TOKEN")) {
-                            if (myPos != -1) {
+
+                            /* [!] SECURITY LOCKDOWN: BOYCOTT MALICIOUS SERVER */
+                            if (Crupier.SECURITY_LOCKDOWN) {
+                                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.rejecting_street_token"));
+                                /* Client does not respond. Server will hang. */
+                            } else if (myPos != -1) {
                                 int reqStreet = Integer.parseInt(partes[3]);
                                 byte[] token = null;
 
@@ -5726,12 +5806,11 @@ public class Crupier implements Runnable {
                                     GameFrame.getInstance().getFlop1().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
                                     GameFrame.getInstance().getFlop2().actualizarConValorNumerico((ramCards[1] & 0xFF) + 1);
                                     GameFrame.getInstance().getFlop3().actualizarConValorNumerico((ramCards[2] & 0xFF) + 1);
-
                                     ok = true;
                                 } else {
                                     rejected.add(comando);
                                 }
-                            } else if (partes.length >= 7) { // Espectador "Calentando" (Texto Plano)
+                            } else if (partes.length >= 7) {
                                 GameFrame.getInstance().getFlop1().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
                                 GameFrame.getInstance().getFlop2().actualizarConValorNumerico(Integer.parseInt(partes[5]) + 1);
                                 GameFrame.getInstance().getFlop3().actualizarConValorNumerico(Integer.parseInt(partes[6]) + 1);
@@ -5744,7 +5823,6 @@ public class Crupier implements Runnable {
 
                                 if (ramCards != null && ramCards.length >= 1) {
                                     GameFrame.getInstance().getTurn().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-
                                     ok = true;
                                 } else {
                                     rejected.add(comando);
@@ -5760,7 +5838,6 @@ public class Crupier implements Runnable {
 
                                 if (ramCards != null && ramCards.length >= 1) {
                                     GameFrame.getInstance().getRiver().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-
                                     ok = true;
                                 } else {
                                     rejected.add(comando);
@@ -5784,6 +5861,7 @@ public class Crupier implements Runnable {
                     this.getReceived_commands().addAll(rejected);
                 }
             }
+
             if (!ok) {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
@@ -5798,7 +5876,7 @@ public class Crupier implements Runnable {
                     }
                 }
             }
-        } while (!ok && !timeout);
+        } while (!ok && !isFin_de_la_transmision());
 
         if (timeout) {
             cancelarManoYDevolverApuestas("TIMEOUT WAITING FOR COMMUNITY CARDS");
@@ -5830,11 +5908,11 @@ public class Crupier implements Runnable {
 
         if (street > PREFLOP) {
 
-            // Create a scheduler to delay the UI loading state
+            /* Create a scheduler to delay the UI loading state */
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
             // =================================================================
-            // [LATENCY MASKING] - Visual feedback for network wait (Delayed 1s)
+            // [LATENCY MASKING] - Visual feedback for network wait (Delayed 0.5s)
             // =================================================================
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
                 Helpers.GUIRunAndWait(() -> {
@@ -5848,20 +5926,20 @@ public class Crupier implements Runnable {
             boolean success = false;
 
             try {
-                // Perform network operations
+                /* Perform network operations */
                 if (GameFrame.getInstance().isPartida_local()) {
                     success = enviarCartasComunitarias(resisten);
                 } else {
                     success = recibirCartasComunitarias();
                 }
             } finally {
-                // Cancel the delayed UI update immediately. 
-                // If 1 second hasn't passed, the loading message will never appear.
+                /* Cancel the delayed UI update immediately. 
+                 * If 500ms hasn't passed, the loading message will never appear. */
                 loadingTask.cancel(false);
                 scheduler.shutdown();
 
-                // Always restore original UI state, regardless of success or failure.
-                // This is safe to run even if the loading state was never triggered.
+                /* Always restore original UI state, regardless of success or failure.
+                 * This is safe to run even if the loading state was never triggered. */
                 Helpers.GUIRunAndWait(() -> {
                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
                             GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground()
@@ -5870,10 +5948,11 @@ public class Crupier implements Runnable {
                 });
             }
 
-            // Handle MISDEAL logic after UI has been safely restored
+            /* Handle MISDEAL logic after UI has been safely restored */
             if (!success) {
                 resisten.clear();
-                return resisten; // MISDEAL TRIGGERED
+                return resisten;
+                /* MISDEAL TRIGGERED */
             }
 
             actualizarContadoresTapete();
@@ -5929,10 +6008,10 @@ public class Crupier implements Runnable {
 
                 Player current_player = GameFrame.getInstance().getJugadores().get(conta_pos);
 
-                // [CRITICAL FIX V76]: Skip Spectators ("Calentando"), previously Folded players,
-                // and All-In players. If they are not in 'resisten', they are not in this hand.
-                // If they are ALLIN, they have no actions left.
-                // This prevents ghost actions from consuming the Crypto Replay Queue.
+                /* Skip Spectators ("Calentando"), previously Folded players,
+                 * and All-In players. If they are not in 'resisten', they are not in this hand.
+                 * If they are ALLIN, they have no actions left.
+                 * This prevents ghost actions from consuming the Crypto Replay Queue. */
                 if (!resisten.contains(current_player)
                         || current_player.getDecision() == Player.ALLIN
                         || current_player.getDecision() == Player.FOLD) {
@@ -6122,8 +6201,6 @@ public class Crupier implements Runnable {
                             LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (spectator mode)");
                         }
                         actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
-
-                        // [CRITICAL FIX]: Assign the recovered packet to cryptoPacket so it gets saved to the binary log
                         cryptoPacket = pastPacket;
                     }
                 } else {
@@ -6147,13 +6224,22 @@ public class Crupier implements Runnable {
                         cryptoPacket = Panoptes.getInstance().chainCommitBotAction(decision, (float) action[1], botPriv);
                         actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
                     } else {
+                        /* Packet already verified for identity within readActionFromRemotePlayer */
                         if (actionPacketB64 != null && !actionPacketB64.equals("*")) {
                             cryptoPacket = Base64.getDecoder().decode(actionPacketB64);
+
                             if (this.local_mega_packet != null) {
                                 boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
                                 if (!validSignature) {
                                     LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
-                                    // Let the game register the error but continue execution to avoid GUI deadlocks
+
+                                    if (!GameFrame.getInstance().isPartida_local()) {
+                                        triggerSecurityLockdown(Translator.translate("zero_trust.corrupted_mac_action") + " " + current_player.getNickname());
+                                    }
+
+                                    /* Neutralize the packet to ignore it in the UI and prevent phantom state advances */
+                                    cryptoPacket = null;
+                                    actionPacketB64 = "*";
                                 }
                             }
                         }
@@ -6207,7 +6293,7 @@ public class Crupier implements Runnable {
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
 
                 if (this.street == Crupier.PREFLOP) {
-                    // VPIP: Only count if player voluntarily puts money in. BB checking their option is NOT VPIP.
+                    /* VPIP: Only count if player voluntarily puts money in. BB checking their option is NOT VPIP. */
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
                             && decision == Player.CHECK
                             && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0;
@@ -6303,7 +6389,8 @@ public class Crupier implements Runnable {
                 nick2player.get(this.utg_nick).disableUTG();
             }
 
-        } // Cierra el if(puedenApostar > 0)
+        }
+        /* Closes if(puedenApostar > 0) */
 
         if (isFin_de_la_transmision()) {
             synchronized (getLock_apuestas()) {
@@ -7416,12 +7503,12 @@ public class Crupier implements Runnable {
     private void recuperarAccionesLocales() {
         try {
             String datos;
-            String cryptoLogB64 = "*"; // Marcador de log vacío
+            String cryptoLogB64 = "*"; // Empty log marker
 
             if (GameFrame.getInstance().isPartida_local()) {
                 datos = sqlRecoverHandActions();
 
-                // [V58] EL SERVIDOR LEE EL LOG BINARIO (LA VERDAD ABSOLUTA)
+                /* [V58] THE SERVER READS THE BINARY LOG (THE ABSOLUTE TRUTH) */
                 String suffix = "";
 
                 if (Init.DEV_MODE) {
@@ -7446,7 +7533,7 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                // Enviamos SQL + BINARIO unidos por |||
+                /* We send SQL + BINARY merged by ||| */
                 enviarAccionesRecuperadas(pendientes, datos + "|||" + cryptoLogB64);
 
             } else {
@@ -7462,16 +7549,16 @@ public class Crupier implements Runnable {
                 }
             }
 
-            // [V58] SINCRONIZAR LA COLA DE REPLAY EN CLIENTES Y SERVER
+            /* [V58/V84] SYNCHRONIZE REPLAY QUEUE ACROSS CLIENTS AND SERVER */
             if (!"*".equals(cryptoLogB64)) {
                 byte[] remoteLog = Base64.getDecoder().decode(cryptoLogB64);
                 crypto_replay_queue.clear();
-                // FIX: Iteramos en bloques de 52 bytes (Eran 48)
-                for (int i = 0; i < remoteLog.length; i += 52) {
-                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 52);
+                /* Iterate in exact 84-byte blocks due to the new Public Key injection */
+                for (int i = 0; i < remoteLog.length; i += 84) {
+                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 84);
                     crypto_replay_queue.add(signature);
                 }
-                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 52));
+                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 84));
             } else if (GameFrame.getInstance().isPartida_local()) {
                 loadCryptoActionsToQueue();
             }
@@ -9554,7 +9641,8 @@ public class Crupier implements Runnable {
     }
 
     private void saveCryptoActionToBin(byte[] packet) {
-        if (packet == null || packet.length != 52) {
+        /* Updated check from 52 to 84 bytes to allow Identity-Signed packets */
+        if (packet == null || packet.length != 84) {
             return;
         }
 
@@ -9605,13 +9693,14 @@ public class Crupier implements Runnable {
             int count = 0;
             while (true) {
                 try {
-                    // V57: Leemos bloques exactos de 52 bytes a la cola en RAM
-                    byte[] buffer = new byte[52];
+                    /* Read exact 84-byte blocks into the RAM queue */
+                    byte[] buffer = new byte[84];
                     dis.readFully(buffer);
                     crypto_replay_queue.add(buffer);
                     count++;
                 } catch (java.io.EOFException eof) {
-                    break; // Fin del archivo alcanzado de forma segura
+                    break;
+                    /* Safe end-of-file reached */
                 }
             }
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.binary_log_loaded", count));

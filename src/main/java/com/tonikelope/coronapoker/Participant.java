@@ -927,12 +927,13 @@ public class Participant implements Runnable {
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                            if (testament.length == 96) {
+                                                            /* [!] FIX: Testament base is now 80 bytes. N-MAC signatures are appended at the end */
+                                                            if (testament.length >= 80) {
                                                                 p.setChain_receipt(testament);
-                                                                p.setMk_share(Arrays.copyOfRange(testament, 16, 48));
-                                                                p.setToken_flop(Arrays.copyOfRange(testament, 48, 64));
-                                                                p.setToken_turn(Arrays.copyOfRange(testament, 64, 80));
-                                                                p.setToken_river(Arrays.copyOfRange(testament, 80, 96));
+                                                                p.setMk_share(Arrays.copyOfRange(testament, 0, 32));
+                                                                p.setToken_flop(Arrays.copyOfRange(testament, 32, 48));
+                                                                p.setToken_turn(Arrays.copyOfRange(testament, 48, 64));
+                                                                p.setToken_river(Arrays.copyOfRange(testament, 64, 80));
                                                             }
                                                         } catch (Exception e) {
                                                         }

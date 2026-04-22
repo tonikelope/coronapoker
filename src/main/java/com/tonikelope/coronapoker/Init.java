@@ -632,7 +632,7 @@ public class Init extends JFrame {
             }
         });
 
-        botones_panel.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.orange, 15));
+        botones_panel.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.orange, 5));
         botones_panel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         botones_panel.setOpaque(false);
 

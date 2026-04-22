@@ -45,8 +45,9 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the v81 Hybrid Semantic Architecture (Layer 1 TCP + Layer 2 P2P
- * Mesh). WARNING: Native methods strictly expect exact byte array sizes.
+ * Implements the v132 Hybrid Semantic Architecture (Layer 1 TCP + Layer 2 P2P Mesh)
+ * with Dynamic N-MAC Swarm Signatures.
+ * * WARNING: Native methods strictly expect exact byte array sizes.
  * Passing incorrectly sized arrays will result in JVM crashes (SIGSEGV).
  */
 public class Panoptes {
@@ -194,7 +195,7 @@ public class Panoptes {
     }
 
     // =========================================================================
-    // NATIVE JNI METHODS (V81 HYBRID)
+    // NATIVE JNI METHODS (V132 HYBRID)
     // =========================================================================
     // --- SESSION & VAULT DOMAIN ---
     /**
@@ -218,8 +219,8 @@ public class Panoptes {
      * Executes a secure "Lobotomy" on the Vault, wiping session keys and
      * generating an exit proof.
      *
-     * @return A 96-byte Cryptographic Testament to be distributed to peers upon
-     * legitimate exit.
+     * @return A variable-length Cryptographic Testament (80 + N*16 bytes) to be
+     * distributed to peers upon legitimate exit. Includes the N-MAC swarm.
      */
     public native byte[] sessionGenerateExitTestament();
 
@@ -246,7 +247,7 @@ public class Panoptes {
      *
      * @param sessionKey Exactly 32 bytes.
      * @param port Target network port.
-     * @return A 75-byte encrypted challenge payload.
+     * @return A 58-byte encrypted challenge payload.
      */
     public native byte[] attestationGenerateChallenge(byte[] sessionKey, short port);
 
@@ -254,7 +255,7 @@ public class Panoptes {
      * Solves an incoming attestation challenge, executing Ring-0 system
      * telemetry and verifying JAR hashes.
      *
-     * @param encryptedChallenge Exactly 75 bytes.
+     * @param encryptedChallenge Exactly 58 bytes.
      * @return A 73-byte encrypted response containing the system audit MAC.
      */
     public native byte[] attestationSolveChallenge(byte[] encryptedChallenge);
@@ -337,7 +338,7 @@ public class Panoptes {
      * Performs a deterministic Fisher-Yates shuffle on a standard 52-card deck.
      *
      * @param seed Exactly 32 bytes (Master Seed).
-     * @return Exactly 84 bytes representing the shuffled deck (values 0-51).
+     * @return Exactly 52 bytes representing the shuffled deck (values 0-51).
      */
     public native byte[] utilsShuffleDeck(byte[] seed);
 
@@ -348,8 +349,8 @@ public class Panoptes {
      * @param dealPacket The original Megapacket byte array.
      * @param masterKey Exactly 32 bytes (The reconstructed Master Shuffle Key).
      * @param myPos The executing player's physical seat index.
-     * @return A 49-byte array: [0-47: AEAD Receipt] + [48: Boolean 1=OK,
-     * 0=FAILED].
+     * @return A variable length array: [0-X: Dynamic Swarm AEAD Receipt] + 
+     * [Last Byte: Boolean 1=OK, 0=FAILED].
      */
     public native byte[] utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos);
 
@@ -359,8 +360,8 @@ public class Panoptes {
      *
      * @param dealPacket The original Megapacket byte array (needed to extract
      * static keys for testaments).
-     * @param allReceipts Array containing 48-byte receipts or 96-byte
-     * testaments from all peers.
+     * @param allReceipts Array containing dynamic receipts (64 + N*16) or
+     * testaments (80 + N*16) from all peers.
      * @return true if consensus is mathematically sound; false if
      * spoofing/desync detected.
      */
@@ -468,7 +469,7 @@ public class Panoptes {
      *
      * @param type Action type identifier (e.g., Fold, Call, Raise).
      * @param amount The betting amount involved.
-     * @return Exactly 84 bytes containing the signed action packet.
+     * @return Variable length (68 + N*16 bytes) containing the signed action packet.
      */
     public native byte[] chainCommitLocalAction(int type, float amount);
 
@@ -478,14 +479,14 @@ public class Panoptes {
      * @param type Action type identifier.
      * @param amount The betting amount involved.
      * @param botPrivKey Exactly 32 bytes (Bot's private key).
-     * @return Exactly 84 bytes containing the signed action packet.
+     * @return Variable length (68 + N*16 bytes) containing the signed action packet.
      */
     public native byte[] chainCommitBotAction(int type, float amount, byte[] botPrivKey);
 
     /**
      * Verifies and absorbs a remote action packet into the local Sponge state.
      *
-     * @param actionPacket Exactly 84 bytes.
+     * @param actionPacket Variable length packet (68 + N*16 bytes).
      * @return true if signature and sequence are valid; false on
      * desynchronization or tampering.
      */
@@ -495,7 +496,7 @@ public class Panoptes {
      * Closes the state machine and returns the final AEAD receipt for P2P
      * comparison.
      *
-     * @return Exactly 48 bytes (Final State AEAD Receipt).
+     * @return Variable length (64 + N*16 bytes) Final State AEAD Receipt.
      */
     public native byte[] chainCloseStateAndGetReceipt();
 
@@ -504,7 +505,7 @@ public class Panoptes {
      * a bot.
      *
      * @param botPrivKey Exactly 32 bytes (Bot's private key).
-     * @return Exactly 48 bytes (Final State AEAD Receipt).
+     * @return Variable length (64 + N*16 bytes) Final State AEAD Receipt.
      */
     public native byte[] chainCloseBotStateAndGetReceipt(byte[] botPrivKey);
 
@@ -568,7 +569,7 @@ public class Panoptes {
      * @param ownerID The unique identifier for the target peer (e.g.,
      * "PARTICIPANT_1234").
      * @param port The target network port.
-     * @return A 75-byte encrypted challenge payload ready for network
+     * @return A 58-byte encrypted challenge payload ready for network
      * transmission.
      * @throws Exception If IP parsing or underlying JNI cryptographic
      * generation fails.
@@ -588,7 +589,7 @@ public class Panoptes {
      * native C engine. Generates a cryptographic response authenticating the
      * JVM's clean state.
      *
-     * @param encryptedChallenge The raw 75-byte challenge payload.
+     * @param encryptedChallenge The raw 58-byte challenge payload.
      * @return A 73-byte encrypted response payload, or null if the input is
      * malformed.
      */

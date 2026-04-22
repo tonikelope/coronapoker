@@ -699,9 +699,9 @@ public class Crupier implements Runnable {
 
     public String getTestamentoCriptografico() {
         try {
-            // V61: Extracts the 96-byte testament and triggers native vault lobotomy
+            // Extracts the dynamic testament and triggers native vault lobotomy
             byte[] testament = Panoptes.getInstance().sessionGenerateExitTestament();
-            if (testament != null && testament.length == 96) {
+            if (testament != null && testament.length >= 96) {
                 return Base64.getEncoder().encodeToString(testament);
             }
         } catch (Exception e) {
@@ -4736,14 +4736,15 @@ public class Crupier implements Runnable {
 
                                             if (myPos != -1) {
                                                 byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
+                                                int expectedReceiptLen = getReceiptPacketSize();
 
-                                                if (localAuditData != null && localAuditData.length == 49) {
+                                                if (localAuditData != null && localAuditData.length == expectedReceiptLen + 1) {
 
                                                     GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
                                                     GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
 
-                                                    byte[] myReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, 48);
-                                                    this.legitHand = (localAuditData[48] & 0xFF) == 1; // Stage 1 Verification
+                                                    byte[] myReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, expectedReceiptLen);
+                                                    this.legitHand = (localAuditData[expectedReceiptLen] & 0xFF) == 1; // Stage 1 Verification
 
                                                     String receiptBase64 = Base64.getEncoder().encodeToString(myReceipt);
                                                     String responseCmd = "RECEIPT_REVEAL#"
@@ -4947,19 +4948,20 @@ public class Crupier implements Runnable {
                 // STEP 1: Broadcast the Master Key so clients can run Phase 1
                 broadcastGAMECommandFromServer("HANDVERIFY#" + mkBase64, null, false);
 
-                // STEP 2: Server runs Phase 1 locally to get its own 48-byte receipt
+                // STEP 2: Server runs Phase 1 locally to get its own dynamic receipt
                 int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
                 byte[] myLocalReceipt = null;
 
                 if (myPos != -1) {
                     byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
+                    int expectedReceiptLen = getReceiptPacketSize();
 
-                    if (localAuditData != null && localAuditData.length == 49) {
+                    if (localAuditData != null && localAuditData.length == expectedReceiptLen + 1) {
                         GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
                         GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
 
-                        myLocalReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, 48);
-                        this.legitHand = (localAuditData[48] & 0xFF) == 1;
+                        myLocalReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, expectedReceiptLen);
+                        this.legitHand = (localAuditData[expectedReceiptLen] & 0xFF) == 1;
                     } else {
                         this.legitHand = false;
                     }
@@ -5542,13 +5544,13 @@ public class Crupier implements Runnable {
                                          * ========================================================= */
                                         boolean spoofing = false;
                                         byte[] cryptoPacket = null;
-                                        /* [!] FIX: Declared in the correct scope */
 
                                         if (packetB64 != null && !packetB64.equals("*")) {
                                             cryptoPacket = Base64.getDecoder().decode(packetB64);
+                                            int expectedSize = getActionPacketSize();
 
-                                            /* Ensure the packet is exactly 84 bytes (Action Packet Size) */
-                                            if (cryptoPacket != null && cryptoPacket.length == 84) {
+                                            /* Ensure the packet is exactly dynamic N-MAC bytes */
+                                            if (cryptoPacket != null && cryptoPacket.length == expectedSize) {
                                                 /* Extract the 32-byte Public Key embedded by the C engine (bytes 16 to 47) */
                                                 byte[] packetPubKey = java.util.Arrays.copyOfRange(cryptoPacket, 16, 48);
                                                 Participant pTarget = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
@@ -5565,7 +5567,7 @@ public class Crupier implements Runnable {
                                                     }
                                                 }
                                             } else {
-                                                /* Malformed packet length (Not 84 bytes) */
+                                                /* Malformed packet length */
                                                 spoofing = true;
                                             }
                                         }
@@ -5578,7 +5580,6 @@ public class Crupier implements Runnable {
                                                 /* Client: Neutralize to protect C Engine and freeze */
                                                 packetB64 = "*";
                                                 cryptoPacket = null;
-                                                /* Now safely in scope */
                                             }
                                         }
                                         /* ========================================================= */
@@ -7517,7 +7518,6 @@ public class Crupier implements Runnable {
                 }
 
                 String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
-
                 File logFile = new File(Init.CORONA_DIR + fileName);
 
                 if (logFile.exists()) {
@@ -7553,12 +7553,16 @@ public class Crupier implements Runnable {
             if (!"*".equals(cryptoLogB64)) {
                 byte[] remoteLog = Base64.getDecoder().decode(cryptoLogB64);
                 crypto_replay_queue.clear();
-                /* Iterate in exact 84-byte blocks due to the new Public Key injection */
-                for (int i = 0; i < remoteLog.length; i += 84) {
-                    byte[] signature = Arrays.copyOfRange(remoteLog, i, i + 84);
-                    crypto_replay_queue.add(signature);
+                int expectedSize = getActionPacketSize();
+
+                /* Iterate in exact dynamic blocks due to the new Public Key injection */
+                for (int i = 0; i < remoteLog.length; i += expectedSize) {
+                    if (i + expectedSize <= remoteLog.length) {
+                        byte[] signature = Arrays.copyOfRange(remoteLog, i, i + expectedSize);
+                        crypto_replay_queue.add(signature);
+                    }
                 }
-                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / 84));
+                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / expectedSize));
             } else if (GameFrame.getInstance().isPartida_local()) {
                 loadCryptoActionsToQueue();
             }
@@ -9640,31 +9644,42 @@ public class Crupier implements Runnable {
 
     }
 
+    // --- NEW DYNAMIC SIZE HELPERS ---
+    private int getActionPacketSize() {
+        int numPlayers = (this.active_crypto_ring != null) ? this.active_crypto_ring.length : getAnilloCriptografico().size();
+        if (numPlayers > 10) {
+            numPlayers = 10;
+        }
+        return 68 + (numPlayers * 16);
+    }
+
+    private int getReceiptPacketSize() {
+        int numPlayers = (this.active_crypto_ring != null) ? this.active_crypto_ring.length : getAnilloCriptografico().size();
+        if (numPlayers > 10) {
+            numPlayers = 10;
+        }
+        return 64 + (numPlayers * 16);
+    }
+
     private void saveCryptoActionToBin(byte[] packet) {
-        /* Updated check from 52 to 84 bytes to allow Identity-Signed packets */
-        if (packet == null || packet.length != 84) {
+        int expectedSize = getActionPacketSize();
+        if (packet == null || packet.length != expectedSize) {
             return;
         }
 
         try {
-
             String suffix = "";
-
             if (Init.DEV_MODE) {
                 String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
                 suffix = "_" + sanitizedNick;
             }
-
             String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
-
             java.io.File logFile = new java.io.File(Init.CORONA_DIR + fileName);
-
             try (java.io.FileOutputStream fos = new java.io.FileOutputStream(logFile, true)) {
                 fos.write(packet);
                 fos.flush();
                 fos.getFD().sync();
             }
-
         } catch (Exception e) {
             java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, Translator.translate("zero_trust.write_binary_log_failure"), e);
         }
@@ -9672,16 +9687,12 @@ public class Crupier implements Runnable {
 
     private void loadCryptoActionsToQueue() {
         crypto_replay_queue.clear();
-
         String suffix = "";
-
         if (Init.DEV_MODE) {
             String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
             suffix = "_" + sanitizedNick;
         }
-
         String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
-
         java.io.File logFile = new java.io.File(Init.CORONA_DIR + fileName);
 
         if (!logFile.exists()) {
@@ -9689,18 +9700,18 @@ public class Crupier implements Runnable {
             return;
         }
 
+        int expectedSize = getActionPacketSize();
         try (java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.FileInputStream(logFile))) {
             int count = 0;
             while (true) {
                 try {
-                    /* Read exact 84-byte blocks into the RAM queue */
-                    byte[] buffer = new byte[84];
+                    /* Read exact dynamic blocks into the RAM queue */
+                    byte[] buffer = new byte[expectedSize];
                     dis.readFully(buffer);
                     crypto_replay_queue.add(buffer);
                     count++;
                 } catch (java.io.EOFException eof) {
                     break;
-                    /* Safe end-of-file reached */
                 }
             }
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.binary_log_loaded", count));

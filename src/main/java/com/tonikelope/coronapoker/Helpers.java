@@ -3749,7 +3749,7 @@ public class Helpers {
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
 
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
+             Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
             txtField.setComponentPopupMenu(popup);
         }
 
@@ -3817,7 +3817,7 @@ public class Helpers {
             JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
+             Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
             txtArea.setComponentPopupMenu(popup);
         }
 
@@ -3885,7 +3885,7 @@ public class Helpers {
             JMenuItem selectAll = new LeftClickMenuItem(selectAllAction);
             selectAll.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/select_all.png")));
             popup.add(selectAll);
-            Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
+             Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
             txtArea.setComponentPopupMenu(popup);
         }
 
@@ -4449,7 +4449,7 @@ public class Helpers {
                 exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
                 popup.add(exit_menu);
 
-                Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
                 Helpers.translateComponents(popup, false);
 
             }

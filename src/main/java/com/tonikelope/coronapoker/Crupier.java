@@ -414,9 +414,20 @@ public class Crupier implements Runnable {
 
         this.active_crypto_ring = currentRing;
 
+        // [V134 ZERO-DAY FIX] Calculate and register commitments (Hashes) BEFORE dealing
+        byte[] hashesFlat = new byte[numPlayers * 32];
+        for (int i = 0; i < numPlayers; i++) {
+            byte[] hash = Panoptes.getInstance().utilsGenerateCommitment(playerSeeds[i]);
+            if (hash != null) {
+                System.arraycopy(hash, 0, hashesFlat, i * 32, 32);
+            }
+        }
+        Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
+
         // V71 FIX: Removed the call to stateInitializeHand() that wiped the entropy generated in readyForNextHand()
         this.local_mega_packet = Panoptes.getInstance().easyFlatDeal(playerSeeds, playerPubKeys);
         String megaPacketB64 = java.util.Base64.getEncoder().encodeToString(this.local_mega_packet);
+        String hashesB64 = java.util.Base64.getEncoder().encodeToString(hashesFlat);
 
         String orderB64 = "";
         try {
@@ -426,12 +437,14 @@ public class Crupier implements Runnable {
 
         try {
             String panoptesFossilName = Init.DEV_MODE ? "/panoptes_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_hand_commit.bin";
-            String fullData = "ORDER@" + orderBuilder.toString() + "#FULLMEGAPACKET@" + megaPacketB64;
+            // Guardamos también los hashes en el fósil para poder recuperar la mano tras un cierre forzoso
+            String fullData = "ORDER@" + orderBuilder.toString() + "#FULLMEGAPACKET@" + megaPacketB64 + "#HASHES@" + hashesB64;
             Files.writeString(Paths.get(Init.CORONA_DIR + panoptesFossilName), fullData);
         } catch (Exception e) {
         }
 
-        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64, null, true);
+        // [V134 ZERO-DAY FIX] Enviamos los Hashes al final del paquete de red
+        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + hashesB64, null, true);
 
         for (int i = 0; i < numPlayers; i++) {
             Player j = ringCriptografico.get(i);
@@ -493,6 +506,13 @@ public class Crupier implements Runnable {
                         String orderB64 = partes[3];
                         this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
 
+                        // [V134 ZERO-DAY FIX] Parse and register commitments before ingestion
+                        byte[] hashesFlat = null;
+                        if (partes.length >= 6) {
+                            hashesFlat = java.util.Base64.getDecoder().decode(partes[5]);
+                            Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
+                        }
+
                         String orderStr = "";
                         try {
                             orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
@@ -515,7 +535,8 @@ public class Crupier implements Runnable {
                                 String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
                                 panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
                             }
-                            String fullData = "ORDER@" + orderStr + "#FULLMEGAPACKET@" + partes[4];
+                            // [V134 ZERO-DAY FIX] Añadimos los hashes al fósil local
+                            String fullData = "ORDER@" + orderStr + "#FULLMEGAPACKET@" + partes[4] + (partes.length >= 6 ? "#HASHES@" + partes[5] : "");
                             java.nio.file.Files.writeString(java.nio.file.Paths.get(Init.CORONA_DIR + panoptesFossilName), fullData);
                         } catch (Exception e) {
                         }
@@ -2457,9 +2478,6 @@ public class Crupier implements Runnable {
         LOGGER.log(Level.INFO, "[ZERO-TRUST DEBUG] Starting recuperarDatosClavePartida...");
 
         // FIX VITAL: Create ghost Participants for recovered bots.
-        // In a normal game they always have one, but during DB recovery, 
-        // bankrupt bots lack this network object, causing NullPointerExceptions 
-        // in the UI (isUnsecure_player) and the broom truck (isCpu).
         for (Player j : GameFrame.getInstance().getJugadores()) {
             if (j.getNickname().startsWith("CoronaBot$") && !GameFrame.getInstance().getParticipantes().containsKey(j.getNickname())) {
                 Participant dummy = new Participant(GameFrame.getInstance().getSala_espera(), j.getNickname(), null, null, null, null, true);
@@ -2534,12 +2552,15 @@ public class Crupier implements Runnable {
                         String orderMap = null;
                         String[] panoptesFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
+                        byte[] hashesFlat = null; // [V134 ZERO-DAY FIX]
 
                         for (String part : panoptesFossilParts) {
                             if (part.startsWith("ORDER@")) {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                            } else if (part.startsWith("HASHES@")) {
+                                hashesFlat = Base64.getDecoder().decode(part.substring("HASHES@".length()));
                             }
                         }
 
@@ -2558,6 +2579,11 @@ public class Crupier implements Runnable {
 
                             // 1. Initialize hand (clears C vault memory)
                             this.activeHandId = Panoptes.getInstance().stateInitializeHand();
+
+                            // [V134 ZERO-DAY FIX] Register hashes BEFORE entropy injection and ingestion
+                            if (hashesFlat != null) {
+                                Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
+                            }
 
                             // 2. INJECT ENTROPY HERE (Survives initialization)
                             String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
@@ -2688,6 +2714,7 @@ public class Crupier implements Runnable {
                         String orderMap = null;
                         String[] panoptesFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
+                        byte[] hashesFlat = null; // [V134 ZERO-DAY FIX]
 
                         // Extract order and megapacket data
                         for (String part : panoptesFossilParts) {
@@ -2695,6 +2722,8 @@ public class Crupier implements Runnable {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                            } else if (part.startsWith("HASHES@")) {
+                                hashesFlat = Base64.getDecoder().decode(part.substring("HASHES@".length()));
                             }
                         }
 
@@ -2713,6 +2742,11 @@ public class Crupier implements Runnable {
 
                             // 1. Initialize hand (clears C vault memory)
                             this.activeHandId = Panoptes.getInstance().stateInitializeHand();
+
+                            // [V134 ZERO-DAY FIX] Register hashes BEFORE entropy injection and ingestion
+                            if (hashesFlat != null) {
+                                Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
+                            }
 
                             // 2. INJECT ENTROPY HERE (Survives initialization)
                             String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";

@@ -45,10 +45,10 @@ import java.util.logging.Level;
 
 /**
  * Core JNI interface mapping for the Panoptes Zero-Trust Cryptographic Engine.
- * Implements the v132 Hybrid Semantic Architecture (Layer 1 TCP + Layer 2 P2P Mesh)
- * with Dynamic N-MAC Swarm Signatures.
- * * WARNING: Native methods strictly expect exact byte array sizes.
- * Passing incorrectly sized arrays will result in JVM crashes (SIGSEGV).
+ * Implements the v134 Hybrid Semantic Architecture (Layer 1 TCP + Layer 2 P2P
+ * Mesh) with Dynamic N-MAC Swarm Signatures. * WARNING: Native methods strictly
+ * expect exact byte array sizes. Passing incorrectly sized arrays will result
+ * in JVM crashes (SIGSEGV).
  */
 public class Panoptes {
 
@@ -195,7 +195,7 @@ public class Panoptes {
     }
 
     // =========================================================================
-    // NATIVE JNI METHODS (V132 HYBRID)
+    // NATIVE JNI METHODS (V134 HYBRID)
     // =========================================================================
     // --- SESSION & VAULT DOMAIN ---
     /**
@@ -349,7 +349,7 @@ public class Panoptes {
      * @param dealPacket The original Megapacket byte array.
      * @param masterKey Exactly 32 bytes (The reconstructed Master Shuffle Key).
      * @param myPos The executing player's physical seat index.
-     * @return A variable length array: [0-X: Dynamic Swarm AEAD Receipt] + 
+     * @return A variable length array: [0-X: Dynamic Swarm AEAD Receipt] +
      * [Last Byte: Boolean 1=OK, 0=FAILED].
      */
     public native byte[] utilsVerifyHandHistory(byte[] dealPacket, byte[] masterKey, int myPos);
@@ -386,7 +386,24 @@ public class Panoptes {
      */
     public native byte[] utilsDecryptBotEnvelope(byte[] priv, byte[] epub, byte[] enc);
 
+    /**
+     * [V134 ZERO-DAY FIX] Generates a Sponge hash commitment for a given seed.
+     *
+     * @param seed Exactly 32 bytes.
+     * @return Exactly 32 bytes representing the commitment hash.
+     */
+    public native byte[] utilsGenerateCommitment(byte[] seed);
+
     // --- CONSENSUS & GAME STATE DOMAIN ---
+    /**
+     * [V134 ZERO-DAY FIX] Registers peer commitments into the Vault before
+     * Megapacket processing.
+     *
+     * @param hashesFlat Flattened array of all player commitments (numPlayers *
+     * 32 bytes).
+     */
+    public native void stateRegisterCommitments(byte[] hashesFlat);
+
     /**
      * Initializes a new hand, generating a random 16-byte HAND_ID.
      *
@@ -469,7 +486,8 @@ public class Panoptes {
      *
      * @param type Action type identifier (e.g., Fold, Call, Raise).
      * @param amount The betting amount involved.
-     * @return Variable length (68 + N*16 bytes) containing the signed action packet.
+     * @return Variable length (68 + N*16 bytes) containing the signed action
+     * packet.
      */
     public native byte[] chainCommitLocalAction(int type, float amount);
 
@@ -479,7 +497,8 @@ public class Panoptes {
      * @param type Action type identifier.
      * @param amount The betting amount involved.
      * @param botPrivKey Exactly 32 bytes (Bot's private key).
-     * @return Variable length (68 + N*16 bytes) containing the signed action packet.
+     * @return Variable length (68 + N*16 bytes) containing the signed action
+     * packet.
      */
     public native byte[] chainCommitBotAction(int type, float amount, byte[] botPrivKey);
 

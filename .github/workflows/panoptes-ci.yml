@@ -75,10 +75,9 @@ jobs:
       - name: Run FreeBSD VM (Audit & Generate)
         uses: vmactions/freebsd-vm@v1
         with:
+          release: "14.2"
           usesh: true
           prepare: |
-            sed -i '' 's/quarterly/latest/g' /etc/pkg/FreeBSD.conf
-            env ASSUME_ALWAYS_YES=yes pkg bootstrap -f
             pkg update -f
             pkg install -y openjdk21
           run: |
@@ -166,10 +165,9 @@ jobs:
       - name: Run FreeBSD VM (Cross-Validation)
         uses: vmactions/freebsd-vm@v1
         with:
+          release: "14.2"
           usesh: true
           prepare: |
-            sed -i '' 's/quarterly/latest/g' /etc/pkg/FreeBSD.conf
-            env ASSUME_ALWAYS_YES=yes pkg bootstrap -f
             pkg update -f
             pkg install -y openjdk21 bash
           run: |

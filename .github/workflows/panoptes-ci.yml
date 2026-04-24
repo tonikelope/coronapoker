@@ -77,6 +77,7 @@ jobs:
         with:
           usesh: true
           prepare: |
+            pkg update -f
             pkg install -y openjdk21
           run: |
             cd panoptes
@@ -135,11 +136,11 @@ jobs:
           for payload in $(find payloads/ -type f -name "*.bin"); do
             FILENAME=$(basename "$payload")
             
-            # Extract origin OS from filename (e.g., payload_ubuntu-latest.bin -> ubuntu-latest)
+            # Extract origin OS from filename
             ORIGIN_OS=${FILENAME#payload_}
             ORIGIN_OS=${ORIGIN_OS%.bin}
             
-            # Skip if it is our own payload (already tested in phase 1)
+            # Skip if it is our own payload
             if [ "$ORIGIN_OS" == "${{ matrix.os }}" ]; then
               echo -e "\n[-] Skipping own payload ($ORIGIN_OS)..."
               continue
@@ -168,6 +169,7 @@ jobs:
         with:
           usesh: true
           prepare: |
+            pkg update -f
             pkg install -y openjdk21 bash
           run: |
             cd panoptes

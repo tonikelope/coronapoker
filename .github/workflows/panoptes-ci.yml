@@ -77,6 +77,8 @@ jobs:
         with:
           usesh: true
           prepare: |
+            sed -i '' 's/quarterly/latest/g' /etc/pkg/FreeBSD.conf
+            env ASSUME_ALWAYS_YES=yes pkg bootstrap -f
             pkg update -f
             pkg install -y openjdk21
           run: |
@@ -101,7 +103,7 @@ jobs:
 
   cross_validation:
     name: Cross-Platform MAC Verification (${{ matrix.os }})
-    needs: [audit_and_generate, audit_and_generate_freebsd] # Wait for all 4 machines to generate payloads
+    needs: [audit_and_generate, audit_and_generate_freebsd]
     if: github.event_name == 'workflow_dispatch' && inputs.run_cross_tests == true
     runs-on: ${{ matrix.os }}
     strategy:
@@ -122,7 +124,7 @@ jobs:
       - name: Download All Payloads
         uses: actions/download-artifact@v4
         with:
-          path: panoptes/payloads/ # Payloads will be downloaded in separate folders
+          path: panoptes/payloads/
 
       - name: Execute Triple Cross-Platform Verification
         shell: bash
@@ -132,15 +134,12 @@ jobs:
           echo "[*] EXECUTING TRIPLE CROSS-PLATFORM BOMBARDMENT ON: ${{ matrix.os }}"
           echo "=========================================================="
           
-          # Find all downloaded payloads
           for payload in $(find payloads/ -type f -name "*.bin"); do
             FILENAME=$(basename "$payload")
             
-            # Extract origin OS from filename
             ORIGIN_OS=${FILENAME#payload_}
             ORIGIN_OS=${ORIGIN_OS%.bin}
             
-            # Skip if it is our own payload
             if [ "$ORIGIN_OS" == "${{ matrix.os }}" ]; then
               echo -e "\n[-] Skipping own payload ($ORIGIN_OS)..."
               continue
@@ -152,7 +151,7 @@ jobs:
 
   cross_validation_freebsd:
     name: Cross-Platform MAC Verification (freebsd)
-    needs: [audit_and_generate, audit_and_generate_freebsd] # Wait for all payloads
+    needs: [audit_and_generate, audit_and_generate_freebsd]
     if: github.event_name == 'workflow_dispatch' && inputs.run_cross_tests == true
     runs-on: ubuntu-latest
     steps:
@@ -169,6 +168,8 @@ jobs:
         with:
           usesh: true
           prepare: |
+            sed -i '' 's/quarterly/latest/g' /etc/pkg/FreeBSD.conf
+            env ASSUME_ALWAYS_YES=yes pkg bootstrap -f
             pkg update -f
             pkg install -y openjdk21 bash
           run: |
@@ -177,7 +178,6 @@ jobs:
             echo "[*] EXECUTING CROSS-PLATFORM BOMBARDMENT ON: FreeBSD"
             echo "=========================================================="
             
-            # Standard shell loop to iterate through payloads
             for payload in $(find payloads/ -type f -name "*.bin"); do
               FILENAME=$(basename "$payload")
               

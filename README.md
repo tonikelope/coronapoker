@@ -113,6 +113,12 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-Although CoronaPoker's game logic is open-source, the native source code for the Panoptes C library remains strictly closed-source. In endpoint security, Security by Obscurity is a necessary and non-negotiable layer of Defense in Depth. Obfuscated, pre-compiled binaries are provided for supported OS (Windows, Linux and Mac) architectures to prevent attackers from analyzing the security boundaries.
+## License & Anti-Cheat Architecture
+
+The core of **CoronaPoker** is completely open-source and licensed under the **GPL-3.0**. We believe in transparent, verifiable matchmaking and cryptographic shuffling.
+
+However, to ensure competitive integrity and prevent client manipulation (memory injection, wallhacks, or botting), CoronaPoker relies on **Panoptes**, a proprietary ring-3 native security engine. 
+
+To comply with the open-source nature of this project, i have included a **Linking Exception** to our GPL license (similar to the GNU Classpath Exception). This allows the open-source Java client to legally link against the closed-source Panoptes binaries (`.dll`, `.so`, `.dylib`) at runtime. You can read the full exception in the `LICENSE` file.
 
 </div>

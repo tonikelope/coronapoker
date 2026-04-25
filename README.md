@@ -115,7 +115,7 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 ## License & Anti-Cheat Architecture
 
-The core of **CoronaPoker** is completely open-source and licensed under the **GPL-3.0**. We believe in transparent, verifiable matchmaking and cryptographic shuffling.
+The core of **CoronaPoker** is completely open-source and licensed under the **GPL-3.0**.
 
 However, to ensure competitive integrity and prevent client manipulation (memory injection, wallhacks, or botting), CoronaPoker relies on **Panoptes**, a proprietary ring-3 native security engine. 
 

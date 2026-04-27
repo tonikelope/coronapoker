@@ -117,8 +117,8 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 **CoronaPoker** is open-source and licensed under the **GPL-3.0**.
 
-However, to ensure competitive integrity and prevent client manipulation (memory injection, wallhacks, or botting), CoronaPoker relies on **Panoptes**, a proprietary ring-3 native security engine. 
+However, to ensure integrity and prevent client manipulation, CoronaPoker relies on **Panoptes**, a proprietary ring-3 native security engine. 
 
-To comply with the open-source nature of this project, i have included a **Linking Exception** to the GPL license (similar to the GNU Classpath Exception). This allows the open-source Java client to legally link against the closed-source Panoptes binaries (`.dll`, `.so`, `.dylib`) at runtime. You can read the full exception in the `LICENSE` file.
+To comply with the open-source nature of this project, i have included a **Linking Exception** to the GPL license (similar to the GNU Classpath Exception). This allows the open-source Java client to link against the closed-source Panoptes binaries (`.dll`, `.so`, `.dylib`) at runtime. You can read the full exception in the `LICENSE` file.
 
 </div>

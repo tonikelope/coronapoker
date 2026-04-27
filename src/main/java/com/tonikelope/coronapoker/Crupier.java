@@ -3203,19 +3203,16 @@ public class Crupier implements Runnable {
             }
         }
 
+        // [ZERO-TRUST: COMMIT-REVEAL] Calculamos nuestro compromiso (Hash)
+        byte[] my_commitment = Panoptes.getInstance().utilsGenerateCommitment(this.local_hand_seed);
+        String commitB64 = Base64.getEncoder().encodeToString(my_commitment);
+
         if (GameFrame.getInstance().isPartida_local()) {
+            // ====================================================
+            // LÓGICA DEL SERVIDOR (HOST)
+            // ====================================================
 
-            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                Participant p = entry.getValue();
-                if (p != null && p.isCpu()) {
-                    byte[] botSeed = new byte[32];
-                    if (Helpers.CSPRNG_GENERATOR != null) {
-                        Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
-                    }
-                    p.setPanoptes_hand_seed(botSeed);
-                }
-            }
-
+            // --- FASE 1: ESPERAR LOS COMPROMISOS (HASHES) DE LOS CLIENTES ---
             boolean ready;
             int timeout = 0;
 
@@ -3226,8 +3223,7 @@ public class Crupier implements Runnable {
                     if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] {0} -> NEW HAND CONFIRMATION TIMEOUT! Player is a zombie. Kicking...", p.getNick());
-                            // [CRITICAL FIX]: Auto-kick unresponsive player to break the infinite loop
+                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] {0} -> COMMITMENT CONFIRMATION TIMEOUT! Kicking...", p.getNick());
                             this.remotePlayerQuit(p.getNick());
                         } else {
                             break;
@@ -3246,15 +3242,122 @@ public class Crupier implements Runnable {
                             }
                         }
                     } else {
-                        // Reset timeout ONLY if we processed a kick, so the loop checks the updated roster and continues
                         timeout = 0;
                     }
                 }
             } while (!ready);
 
+            // --- FASE 2: EL SERVIDOR DIFUNDE SU PROPIO COMPROMISO ---
+            // Nadie enviará su semilla real hasta recibir este mensaje
+            broadcastGAMECommandFromServer("SERVER_COMMIT#" + commitB64, null, false);
+
+            // Generamos las semillas y compromisos de los Bots
+            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+                Participant p = entry.getValue();
+                if (p != null && p.isCpu()) {
+                    byte[] botSeed = new byte[32];
+                    if (Helpers.CSPRNG_GENERATOR != null) {
+                        Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
+                    }
+                    p.setPanoptes_hand_seed(botSeed);
+                    p.setPanoptes_hand_commitment(Panoptes.getInstance().utilsGenerateCommitment(botSeed));
+                }
+            }
+
+            // --- FASE 3: ESPERAR LAS SEMILLAS REALES DE LOS CLIENTES (REVEAL) ---
+            timeout = 0;
+            do {
+                ready = true;
+                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+                    Participant p = entry.getValue();
+                    if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_seed_ready() <= this.conta_mano) {
+                        ready = false;
+                        if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
+                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] {0} -> SEED REVEAL TIMEOUT! Kicking...", p.getNick());
+                            this.remotePlayerQuit(p.getNick());
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                if (!ready) {
+                    timeout += NEW_HAND_READY_WAIT;
+                    if (timeout <= NEW_HAND_READY_WAIT_TIMEOUT) {
+                        synchronized (lock_nueva_mano) {
+                            try {
+                                lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
+                            } catch (InterruptedException ex) {
+                                LOGGER.log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    } else {
+                        timeout = 0;
+                    }
+                }
+            } while (!ready);
+
+            // --- FASE 4: VERIFICACIÓN CRIPTOGRÁFICA DE HONESTIDAD ---
+            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+                Participant p = entry.getValue();
+                if (p != null && !p.isExit() && !p.isCpu()) {
+                    byte[] expectedHash = p.getPanoptes_hand_commitment();
+                    byte[] actualHash = Panoptes.getInstance().utilsGenerateCommitment(p.getPanoptes_hand_seed());
+                    if (!Arrays.equals(expectedHash, actualHash)) {
+                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] COMMITMENT BREACH! Player {0} tried to change their seed after committing!", p.getNick());
+                        this.remotePlayerQuit(p.getNick());
+                    }
+                }
+            }
+
         } else {
+            // ====================================================
+            // LÓGICA DEL CLIENTE
+            // ====================================================
+
+            // 1. Enviamos nuestro Compromiso (El Hash, NUNCA la semilla real todavía)
+            this.sendGAMECommandToServer("HAND_COMMIT#" + String.valueOf(this.conta_mano + 1) + "#" + commitB64);
+
+            // 2. Esperamos a que el Servidor se comprometa (Bloquea el "Last Look" del servidor)
+            boolean serverCommitted = false;
+            long start_time = System.currentTimeMillis();
+            do {
+                synchronized (this.getReceived_commands()) {
+                    java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                    while (!serverCommitted && !this.getReceived_commands().isEmpty()) {
+                        String comando = this.received_commands.poll();
+                        String[] partes = comando.split("#");
+
+                        if (partes.length >= 3 && partes[2].equals("SERVER_COMMIT")) {
+                            serverCommitted = true;
+                        } else {
+                            rejected.add(comando);
+                        }
+                    }
+                    if (!rejected.isEmpty()) {
+                        this.getReceived_commands().addAll(rejected);
+                    }
+                }
+
+                if (!serverCommitted) {
+                    if (GameFrame.getInstance().checkPause()) {
+                        start_time = System.currentTimeMillis();
+                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                        break; // Timeout
+                    } else {
+                        synchronized (this.getReceived_commands()) {
+                            try {
+                                this.getReceived_commands().wait(WAIT_QUEUES);
+                            } catch (InterruptedException ex) {
+                            }
+                        }
+                    }
+                }
+            } while (!serverCommitted && !isFin_de_la_transmision());
+
+            // 3. Solo cuando el servidor ha mandado su Hash, revelamos la semilla real
             String seedB64 = Base64.getEncoder().encodeToString(this.local_hand_seed);
-            this.sendGAMECommandToServer("NEWHANDREADY#" + String.valueOf(this.conta_mano + 1) + "#" + seedB64);
+            this.sendGAMECommandToServer("HAND_SEED#" + String.valueOf(this.conta_mano + 1) + "#" + seedB64);
         }
     }
 

@@ -87,6 +87,24 @@ public class Participant implements Runnable {
     private byte[] mk_share = null;
     private byte[] ephemeral_pub_key = null;
     private byte[] encrypted_cards = null;
+    private byte[] panoptes_hand_commitment = null;
+    private volatile int new_hand_seed_ready = 0;
+
+    public byte[] getPanoptes_hand_commitment() {
+        return panoptes_hand_commitment;
+    }
+
+    public void setPanoptes_hand_commitment(byte[] panoptes_hand_commitment) {
+        this.panoptes_hand_commitment = panoptes_hand_commitment;
+    }
+
+    public int getNew_hand_seed_ready() {
+        return new_hand_seed_ready;
+    }
+
+    public void setNew_hand_seed_ready(int new_hand_seed_ready) {
+        this.new_hand_seed_ready = new_hand_seed_ready;
+    }
 
     public byte[] getChain_receipt() {
         return chain_receipt;
@@ -895,9 +913,22 @@ public class Participant implements Runnable {
                                                 GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
                                             });
                                             break;
-                                        case "NEWHANDREADY":
+                                        case "HAND_COMMIT":
                                             try {
                                                 this.new_hand_ready = Integer.parseInt(partes_comando[3]);
+                                                if (partes_comando.length > 4) {
+                                                    byte[] clientCommit = Base64.getDecoder().decode(partes_comando[4]);
+                                                    this.setPanoptes_hand_commitment(clientCommit);
+                                                }
+                                            } catch (Exception e) {
+                                            }
+                                            synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
+                                                GameFrame.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
+                                            }
+                                            break;
+                                        case "HAND_SEED":
+                                            try {
+                                                this.new_hand_seed_ready = Integer.parseInt(partes_comando[3]);
                                                 if (partes_comando.length > 4) {
                                                     byte[] clientSeed = Base64.getDecoder().decode(partes_comando[4]);
                                                     this.setPanoptes_hand_seed(clientSeed);

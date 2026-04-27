@@ -121,4 +121,6 @@ However, to ensure integrity and prevent client manipulation, CoronaPoker relies
 
 To comply with the open-source nature of this project, i have included a **Linking Exception** to the GPL license (similar to the GNU Classpath Exception). This allows the open-source Java client to link against the closed-source Panoptes binaries (`.dll`, `.so`, `.dylib`) at runtime. You can read the full exception in the `LICENSE` file.
 
+Note for Developers: Of course you are free to fork the project and revert to the specific commit where Panoptes was first introduced into the game logic. This allows you to branch off and continue development from a version of the code that does not include the proprietary security engine.
+
 </div>

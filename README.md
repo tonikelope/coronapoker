@@ -19,7 +19,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 
 ## Some features:
-- Secure by design: Zero-Trust Architecture + AntiCheat (PANOPTES).
+- Secure by design: Zero-Trust Architecture + AntiCheat (PANOPTES [Panoptes-9.pdf](https://github.com/tonikelope/coronapoker/blob/e7ae78bf5514a698ff5b0a59205b7dc23e49787c/Panoptes-9.pdf)).
 - P2P: No central servers nor third parties logging things (just you and your friends).
 - Cross platform.
 - Point-to-point encryption (DH + AES 128).

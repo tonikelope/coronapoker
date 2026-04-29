@@ -19,7 +19,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 
 ## Some features:
-- Secure by design: Zero-Trust Architecture + AntiCheat (PANOPTES [Panoptes-9.pdf](https://github.com/tonikelope/coronapoker/blob/e7ae78bf5514a698ff5b0a59205b7dc23e49787c/Panoptes-9.pdf)).
+- Secure by design: Zero-Trust Architecture + AntiCheat (PANOPTES).
 - P2P: No central servers nor third parties logging things (just you and your friends).
 - Cross platform.
 - Point-to-point encryption (DH + AES 128).
@@ -53,6 +53,8 @@ Panoptes is a cryptographic engine written in C, designed to enforce absolute ma
 In traditional client-server topologies, players implicitly trust a central authoritative server. In a purely decentralized P2P model like CoronaPoker, one of the players must act as the host. This introduces the *malicious host vulnerability*: the host has physical access to the RAM where the deck is shuffled and the game state is maintained, allowing them to theoretically peek at hidden cards, alter the deck, or manipulate betting outcomes.
 
 Panoptes was engineered to eradicate this vulnerability entirely. It achieves this by enveloping the game logic in a rigidly transparent **Zero-Trust Cryptographic Protocol**, shielded by a custom **Ring-3 Anti-Cheat**. **The default policy under which Panoptes operates is that all players, including the host, are treated as compromised nodes at the Java level**—either acting maliciously themselves or compromised by an external attacker. Therefore, all players remain mathematically blind to the game state until the network achieves mutual consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
+
+**More details:** [Panoptes Paper](https://github.com/tonikelope/coronapoker/blob/e7ae78bf5514a698ff5b0a59205b7dc23e49787c/Panoptes-9.pdf)
 
 ---
 

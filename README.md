@@ -113,7 +113,7 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-**More details:** [Panoptes](https://github.com/tonikelope/coronapoker/blob/f7c8375d82efc9d852ab546fb1f9cbf2257d5a03/PanoptesV2.pdf)
+**More details:** [Panoptes](https://github.com/tonikelope/coronapoker/blob/0efebbffa384dfbdec186f67f73f5b1c414f0653/Panoptes_v3-2.pdf)
 
 ## License & Anti-Cheat Architecture
 

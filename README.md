@@ -54,7 +54,7 @@ In traditional client-server topologies, players implicitly trust a central auth
 
 Panoptes was engineered to eradicate this vulnerability entirely. It achieves this by enveloping the game logic in a rigidly transparent **Zero-Trust Cryptographic Protocol**, shielded by a custom **Ring-3 Anti-Cheat**. **The default policy under which Panoptes operates is that all players, including the host, are treated as compromised nodes at the Java level**—either acting maliciously themselves or compromised by an external attacker. Therefore, all players remain mathematically blind to the game state until the network achieves mutual consensus. Every action is sealed, every state transition requires cryptographic consent, and every finished hand is statelessly audited by all peers.
 
-**More details:** [Panoptes paper](https://github.com/tonikelope/coronapoker/blob/1bd26772f91b0a34ba3a218f97d12c311fef6e1d/Panoptes-10.pdf)
+**More details:** [Panoptes](https://github.com/tonikelope/coronapoker/blob/f7c8375d82efc9d852ab546fb1f9cbf2257d5a03/PanoptesV2.pdf)
 
 ---
 

@@ -113,8 +113,7 @@ While the Cryptographic Protocol ensures that a host cannot mathematically cheat
 
 <p align="center"><img src="panoptes.png" height="500"></p>
 
-**More details:** https://doi.org/10.5281/zenodo.19923148
-
+**More details:** [Panoptes paper](https://zenodo.org/records/19957525)
 ## License & Anti-Cheat Architecture
 
 **CoronaPoker** is open-source and licensed under the **GPL-3.0**.

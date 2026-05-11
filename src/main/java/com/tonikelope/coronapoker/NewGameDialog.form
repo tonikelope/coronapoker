@@ -784,15 +784,12 @@
                     <DimensionLayout dim="0">
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" attributes="0">
-                              <Component id="radar_checkbox" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="radar_label" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                              <EmptySpace min="-2" pref="85" max="-2" attributes="0"/>
                               <Component id="recover_checkbox" min="-2" max="-2" attributes="0"/>
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                               <Component id="recover_checkbox_label" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="-2" attributes="0"/>
-                              <Component id="game_combo" max="32767" attributes="0"/>
+                              <Component id="game_combo" pref="428" max="32767" attributes="0"/>
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                           </Group>
                       </Group>
@@ -801,9 +798,7 @@
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" alignment="0" attributes="0">
                               <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                  <Component id="radar_label" max="32767" attributes="0"/>
                                   <Component id="recover_checkbox" alignment="1" max="32767" attributes="0"/>
-                                  <Component id="radar_checkbox" alignment="1" max="32767" attributes="0"/>
                                   <Component id="recover_checkbox_label" alignment="1" max="32767" attributes="0"/>
                                   <Component id="game_combo" alignment="1" max="32767" attributes="0"/>
                               </Group>
@@ -864,33 +859,6 @@
                       <AuxValues>
                         <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
                       </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="radar_label">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="16" style="1"/>
-                        </Property>
-                        <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                          <Connection code="new ImageIcon(new ImageIcon(getClass().getResource(&quot;/images/shield.png&quot;)).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH))" type="code"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="RADAR"/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="radar_labelMouseClicked"/>
-                      </Events>
-                    </Component>
-                    <Component class="javax.swing.JCheckBox" name="radar_checkbox">
-                      <Properties>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="radar_checkboxActionPerformed"/>
-                      </Events>
                     </Component>
                   </SubComponents>
                 </Container>

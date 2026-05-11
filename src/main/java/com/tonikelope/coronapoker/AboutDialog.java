@@ -175,7 +175,6 @@ public class AboutDialog extends JDialog {
         jPanel3 = new javax.swing.JPanel();
         mod_label = new javax.swing.JLabel();
         corona_icon_label = new javax.swing.JLabel();
-        panoptes_icon_label = new javax.swing.JLabel();
         mod_bar = new javax.swing.JProgressBar();
         jPanel4 = new javax.swing.JPanel();
         jLabel12 = new javax.swing.JLabel();
@@ -184,7 +183,7 @@ public class AboutDialog extends JDialog {
         threads = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
-        setTitle(Translator.translate("about.titulo"));
+        setTitle("¿De dónde ha salido esto?");
         setBackground(new java.awt.Color(255, 255, 255));
         setModal(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
@@ -206,20 +205,24 @@ public class AboutDialog extends JDialog {
         });
 
         main_scroll_panel.setBorder(null);
+        main_scroll_panel.setDoubleBuffered(true);
 
         jPanel2.setBackground(new java.awt.Color(255, 255, 255));
 
         jLabel2.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText(Translator.translate("about.gracias_1"));
+        jLabel2.setText("Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el \"hilo fino\",");
+        jLabel2.setDoubleBuffered(true);
 
         dedicado.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         dedicado.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         dedicado.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/luto.png"))); // NOI18N
-        dedicado.setText(Translator.translate("about.dedicado"));
+        dedicado.setText("En memoria de todas las víctimas de la COVID-19");
+        dedicado.setDoubleBuffered(true);
 
         jvm.setText(Helpers.getSystemInfo());
         jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        jvm.setDoubleBuffered(true);
         jvm.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 jvmMouseClicked(evt);
@@ -227,38 +230,47 @@ public class AboutDialog extends JDialog {
         });
 
         jLabel3.setText("Jn 8:32");
+        jLabel3.setDoubleBuffered(true);
 
         jLabel4.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel4.setText(Translator.translate("about.centimos"));
+        jLabel4.setText("(Todos los céntimos desaparecidos en las betas fueron para una buena causa).");
+        jLabel4.setDoubleBuffered(true);
 
         merecemos.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         merecemos.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        merecemos.setText(Translator.translate("about.merecemos"));
+        merecemos.setText("El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?");
+        merecemos.setDoubleBuffered(true);
 
         jLabel6.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel6.setText(Translator.translate("about.copyright"));
+        jLabel6.setText("Nota: si posees el copyright de esta música (o cualquier otro elemento) y no permites su utilización, escríbeme a -> tonikelope@gmail.com");
+        jLabel6.setDoubleBuffered(true);
 
         jLabel5.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel5.setText(Translator.translate("about.gracias_2"));
+        jLabel5.setText("a Pepillo por ese talento para cazar los bugs más raros, a Lato por las pruebas en su Mac y a mi madre... por todo lo demás.");
+        jLabel5.setDoubleBuffered(true);
 
         jLabel7.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel7.setText(Translator.translate("about.musica_juego"));
+        jLabel7.setText("El hilo musical que suena durante el juego fue compuesto por David Luong.");
+        jLabel7.setDoubleBuffered(true);
 
         jLabel8.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel8.setText(Translator.translate("about.musica_stats"));
+        jLabel8.setText("La canción que suena en el visor de estadísticas es el tema principal de la mítica película EL GOLPE.");
+        jLabel8.setDoubleBuffered(true);
 
         jLabel10.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel10.setText(Translator.translate("about.musica_about"));
+        jLabel10.setText("La canción que suena aquí es \"La Sala del Trono\" compuesta por John Williams para Star Wars.");
+        jLabel10.setDoubleBuffered(true);
 
         jLabel11.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel11.setText(Translator.translate("about.musica_espera"));
+        jLabel11.setText("La canción que suena en la sala de espera es \"The Dream\" compuesta por Jerry Goldsmith para la película Total Recall.");
+        jLabel11.setDoubleBuffered(true);
 
         jPanel1.setOpaque(false);
 
@@ -268,6 +280,7 @@ public class AboutDialog extends JDialog {
         mod_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         mod_label.setText("MOD");
         mod_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        mod_label.setDoubleBuffered(true);
         mod_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 mod_labelMouseClicked(evt);
@@ -277,18 +290,10 @@ public class AboutDialog extends JDialog {
         corona_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         corona_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/corona_logo.gif"))); // NOI18N
         corona_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        corona_icon_label.setDoubleBuffered(true);
         corona_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 corona_icon_labelMouseClicked(evt);
-            }
-        });
-
-        panoptes_icon_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        panoptes_icon_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/panoptes_logo_about.jpg"))); // NOI18N
-        panoptes_icon_label.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        panoptes_icon_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                panoptes_icon_labelMouseClicked(evt);
             }
         });
 
@@ -297,26 +302,18 @@ public class AboutDialog extends JDialog {
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addComponent(corona_icon_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(panoptes_icon_label)
-                .addGap(0, 0, Short.MAX_VALUE))
-            .addGroup(jPanel3Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(mod_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(mod_bar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(mod_bar, javax.swing.GroupLayout.DEFAULT_SIZE, 433, Short.MAX_VALUE))
                 .addContainerGap())
+            .addComponent(corona_icon_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(corona_icon_label)
-                    .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(panoptes_icon_label)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(corona_icon_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 42, Short.MAX_VALUE)
                 .addComponent(mod_bar, javax.swing.GroupLayout.PREFERRED_SIZE, 19, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(mod_label)
@@ -343,8 +340,9 @@ public class AboutDialog extends JDialog {
 
         jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel12.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/open-book.png"))); // NOI18N
-        jLabel12.putClientProperty("i18n.tooltip_key", "tooltip.robert_rules");
+        jLabel12.setToolTipText("Reglas de Robert");
         jLabel12.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        jLabel12.setDoubleBuffered(true);
         jLabel12.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 jLabel12MouseClicked(evt);
@@ -354,8 +352,8 @@ public class AboutDialog extends JDialog {
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/cruz.png"))); // NOI18N
-        jLabel9.setText(Translator.translate("about.hecho_a_mano"));
-        jLabel9.putClientProperty("i18n.tooltip_key", "tooltip.plvs_vltra");
+        jLabel9.setText("Hecho a mano en España y con amor por tonikelope (c) 2020");
+        jLabel9.setToolTipText("PLVS VLTRA");
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);
@@ -374,7 +372,9 @@ public class AboutDialog extends JDialog {
         );
 
         memory_usage.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        memory_usage.setDoubleBuffered(true);
 
+        threads.setDoubleBuffered(true);
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -562,10 +562,6 @@ public class AboutDialog extends JDialog {
         }
     }//GEN-LAST:event_mod_labelMouseClicked
 
-    private void panoptes_icon_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_panoptes_icon_labelMouseClicked
-        // TODO add your handling code here:
-    }//GEN-LAST:event_panoptes_icon_labelMouseClicked
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel corona_icon_label;
     private javax.swing.JLabel dedicado;
@@ -590,7 +586,6 @@ public class AboutDialog extends JDialog {
     private javax.swing.JLabel merecemos;
     private javax.swing.JProgressBar mod_bar;
     private javax.swing.JLabel mod_label;
-    private javax.swing.JLabel panoptes_icon_label;
     private javax.swing.JLabel threads;
     // End of variables declaration//GEN-END:variables
 }

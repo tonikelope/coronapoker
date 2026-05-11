@@ -48,7 +48,6 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CyclicBarrier;
@@ -131,7 +130,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean reraise;
     private volatile boolean muestra = false;
     private volatile int conta_win = 0;
-    private volatile RadarLogDialog radar_dialog = null;
+    
     private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
     private volatile float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
@@ -204,13 +203,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.radar_checking = radar_checking;
     }
 
-    public RadarLogDialog getRadar_dialog() {
-        return radar_dialog;
-    }
-
-    public void setRadar_dialog(RadarLogDialog radar_dialog) {
-        this.radar_dialog = radar_dialog;
-    }
 
     public void refreshNotifyChatLabel() {
 
@@ -1238,7 +1230,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name = new javax.swing.JLabel();
         utg_icon = new javax.swing.JLabel();
         hands_win = new javax.swing.JLabel();
-        shield = new javax.swing.JLabel();
         danger = new javax.swing.JLabel();
         player_action_panel = new RoundedPanel(20);
         player_action = new javax.swing.JLabel();
@@ -1248,6 +1239,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         setFocusable(false);
         setOpaque(false);
 
+        panel_cartas.setDoubleBuffered(true);
 
         panel_cartas.setLayer(holeCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
         panel_cartas.setLayer(holeCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
@@ -1281,6 +1273,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
         avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
         avatar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1293,6 +1286,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_pot.setForeground(new java.awt.Color(255, 255, 255));
         player_pot.setText("----");
         player_pot.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_pot.setDoubleBuffered(true);
         player_pot.setFocusable(false);
 
         javax.swing.GroupLayout player_pot_panelLayout = new javax.swing.GroupLayout(player_pot_panel);
@@ -1317,9 +1311,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
+        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_stack.setDoubleBuffered(true);
         player_stack.setFocusable(false);
         player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1372,6 +1367,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setText("12345678901");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1381,26 +1377,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         utg_icon.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         utg_icon.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        utg_icon.setDoubleBuffered(true);
         utg_icon.setFocusable(false);
 
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
-        Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
-
-        shield.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        shield.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                shieldMouseClicked(evt);
-            }
-        });
+        hands_win.setToolTipText("MANOS GANADAS");
+        hands_win.setDoubleBuffered(true);
 
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
         nick_panel.setLayout(nick_panelLayout);
         nick_panelLayout.setHorizontalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(nick_panelLayout.createSequentialGroup()
-                .addComponent(shield)
                 .addGap(0, 0, 0)
                 .addComponent(player_name)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1414,8 +1404,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(player_name)
                     .addComponent(utg_icon)
-                    .addComponent(hands_win)
-                    .addComponent(shield, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(hands_win))
                 .addGap(0, 0, 0))
         );
 
@@ -1444,16 +1433,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         danger.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         danger.setForeground(new java.awt.Color(255, 255, 255));
         danger.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        danger.setText("");
+        danger.setText("POSIBLE TRAMPOS@");
         danger.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
         danger.setFocusable(false);
         danger.setOpaque(true);
 
         player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_action.setText("");
+        player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_action.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+        player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -1481,7 +1471,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         latency_label.setBackground(new java.awt.Color(0, 0, 255));
         latency_label.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         latency_label.setForeground(new java.awt.Color(255, 255, 255));
-        latency_label.setText("");
+        latency_label.setText("Latencia: * ms | * ms");
         latency_label.setOpaque(true);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
@@ -1582,53 +1572,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 GameFrame.getInstance().getCrupier().remotePlayerQuit(this.nickname);
             }
 
-        } else if (GameFrame.RADAR_AVAILABLE) {
-
-            if (this.radar_dialog != null) {
-
-                this.radar_dialog.setLocationRelativeTo(GameFrame.getInstance());
-                this.radar_dialog.setVisible(true);
-
-            } else if (!this.nickname.contains("$") && !isRadar_checking() && !isExit() && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("radar.informe_anticheat_aviso_solo"), new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0) {
-
-                radar_checking = true;
-
-                try {
-                    // Retrieve the local player's public key to append it to the KEM request
-                    byte[] myPubKey = GameFrame.getInstance().getSala_espera().getLocal_player_public_key();
-
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        // Server requesting a radar from a client: Append Local Nickname + Server PubKey
-                        GameFrame.getInstance().getParticipantes().get(this.nickname).writeGAMECommandFromServer(
-                                "RADAR#" + Base64.getEncoder().encodeToString(GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
-                                + "#" + Base64.getEncoder().encodeToString(myPubKey)
-                        );
-
-                    } else {
-                        // Client requesting a radar from another client via Server: Append Target Nickname + Client PubKey
-                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer(
-                                "RADAR#" + Base64.getEncoder().encodeToString(this.nickname.getBytes("UTF-8"))
-                                + "#" + Base64.getEncoder().encodeToString(myPubKey)
-                        );
-                    }
-
-                } catch (Exception ex) {
-                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                    radar_checking = false; // Reset the flag if the request fails
-                }
-
-            } else if (!this.nickname.contains("$") && isRadar_checking() && !isExit()) {
-                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("ui.espera_solicitud_en_curso"));
-            }
-
         }
 
     }//GEN-LAST:event_player_nameMouseClicked
-
-    private void shieldMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_shieldMouseClicked
-        // TODO add your handling code here:
-        player_nameMouseClicked(evt);
-    }//GEN-LAST:event_shieldMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
@@ -1648,7 +1594,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JPanel player_pot_panel;
     private javax.swing.JLabel player_stack;
     private javax.swing.JPanel player_stack_panel;
-    private javax.swing.JLabel shield;
     private javax.swing.JLabel utg_icon;
     // End of variables declaration//GEN-END:variables
 
@@ -2351,10 +2296,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             getAvatar().setVisible(true);
         });
-
-        Helpers.setScaledIconLabel(shield, getClass().getResource("/images/shield.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
-        shield.setEnabled(GameFrame.RADAR_AVAILABLE && !nickname.contains("$"));
-        shield.setToolTipText(shield.isEnabled() ? Translator.translate("radar.informes_antitrampas_activados") : Translator.translate("radar.informes_antitrampas_desactivados"));
     }
 
     @Override

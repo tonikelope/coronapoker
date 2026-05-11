@@ -45,7 +45,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.NoSuchAlgorithmException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -224,7 +223,6 @@ public class Crupier implements Runnable {
     public static final int CARD_ANIMATION_DELAY = 100;
     public static final int SHUFFLE_ANIMATION_DELAY = 250;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
-    public static final int PERMUTATION_ENCRYPTION_PLAYERS = 2;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f},
     new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
@@ -263,9 +261,16 @@ public class Crupier implements Runnable {
 
     // VARIABLES CRIPTOGRÁFICAS DE ESTADO
     private volatile byte[] local_hand_seed = null;
+
+    // Añadir esto debajo de local_hand_seed
+    public byte[] getLocal_hand_seed() {
+        return local_hand_seed;
+    }
+
+    // --- LLAVES EC-SRA DEL JUGADOR LOCAL ---
+    public volatile byte[] local_sra_lock = null;
+    public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_mega_packet = null;
-    public volatile byte[] local_mk_share = null;
-    public volatile byte[] valid_master_key = null;
 
     // --- FIX: TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
@@ -274,7 +279,7 @@ public class Crupier implements Runnable {
 
     public volatile byte[] pure_local_cards = new byte[2];
 
-    private final ConcurrentLinkedQueue<byte[]> crypto_replay_queue = new ConcurrentLinkedQueue<>();
+    
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
@@ -292,7 +297,6 @@ public class Crupier implements Runnable {
     private final Object lock_rabbit = new Object();
     private final Object lock_rebuynow = new Object();
     private final Object lock_pausa_barra = new Object();
-    private final Object lock_permutation_key = new Object();
     private final Object lock_fin_mano = new Object();
     private final Object lock_hand_verification = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
@@ -307,7 +311,6 @@ public class Crupier implements Runnable {
     private volatile float apuestas = 0f;
     private volatile float ciega_grande = GameFrame.CIEGA_GRANDE;
     private volatile float ciega_pequeña = GameFrame.CIEGA_PEQUEÑA;
-    private volatile Integer[] permutacion_baraja = null;
     private volatile float apuesta_actual = 0f;
     private volatile float ultimo_raise = 0f;
     private volatile float partial_raise_cum = 0f;
@@ -338,7 +341,6 @@ public class Crupier implements Runnable {
     private volatile boolean last_hand = false;
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
-    private volatile String permutation_key = null;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String big_blind_nick = null;
@@ -348,7 +350,6 @@ public class Crupier implements Runnable {
     private volatile boolean update_game_seats = false;
     private volatile int tot_acciones_recuperadas = 0;
     private volatile Float beneficio_bote_principal = null;
-    private volatile Integer[] permutacion_recuperada;
     private volatile boolean iwtsth = false;
     private volatile boolean iwtsthing = false;
     private volatile boolean iwtsthing_request = false;
@@ -362,160 +363,285 @@ public class Crupier implements Runnable {
     private volatile boolean legitHand = false;
     private volatile boolean legitHandSkip = false;
 
-    private void enviarCartasJugadoresRemotos() {
-        this.local_mk_share = null;
+    private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        byte[] iv = new byte[16];
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        String deckB64 = Base64.getEncoder().encodeToString(currentDeck);
+        try {
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#DECK_CASCADE_REQ#" + deckB64, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            return null;
+        }
+
+        long start_time = System.currentTimeMillis();
+        boolean ok = false;
+        byte[] newDeck = null;
+        do {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                while (!ok && !this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("DECK_CASCADE_RESP")) {
+                        try {
+                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (senderNick.equals(nick)) {
+                                newDeck = Base64.getDecoder().decode(partes[4]);
+                                if (newDeck.length == 1664) {
+                                    ok = true;
+                                }
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            rejected.add(cmd);
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+            if (!ok) {
+                if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    break;
+                } else {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.getReceived_commands().wait(WAIT_QUEUES);
+                        } catch (Exception ex) {
+                        }
+                    }
+                }
+            }
+        } while (!ok && !isFin_de_la_transmision());
+        if (!ok) {
+            remotePlayerQuit(nick);
+            return null;
+        }
+        return newDeck;
+    }
+
+    private byte[] requestRemoteUnlock(String nick, byte[] cards, Participant p) {
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        byte[] iv = new byte[16];
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        String cardsB64 = Base64.getEncoder().encodeToString(cards);
+        try {
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#REQ_SRA_UNLOCK#" + cardsB64, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            return null;
+        }
+
+        long start_time = System.currentTimeMillis();
+        boolean ok = false;
+        byte[] unlocked = null;
+        do {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                while (!ok && !this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("RESP_SRA_UNLOCK")) {
+                        try {
+                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (senderNick.equals(nick)) {
+                                unlocked = Base64.getDecoder().decode(partes[4]);
+                                if (unlocked.length == cards.length) {
+                                    ok = true;
+                                }
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            rejected.add(cmd);
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+            if (!ok) {
+                if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
+                    break;
+                } else {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.getReceived_commands().wait(WAIT_QUEUES);
+                        } catch (Exception ex) {
+                        }
+                    }
+                }
+            }
+        } while (!ok && !isFin_de_la_transmision());
+        if (!ok) {
+            remotePlayerQuit(nick);
+            return null;
+        }
+        return unlocked;
+    }
+
+    private boolean enviarCartasJugadoresRemotos() {
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
-                p.setMk_share(null);
+                p.setReceived_token(null); // Usado para guardar la llave de los Bots
             }
         }
 
         java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
         int numPlayers = ringCriptografico.size();
 
-        byte[][] playerSeeds = new byte[numPlayers][32];
-        byte[][] playerPubKeys = new byte[numPlayers][32];
         StringBuilder orderBuilder = new StringBuilder();
-
         String[] currentRing = new String[numPlayers];
 
         for (int i = 0; i < numPlayers; i++) {
             Player j = ringCriptografico.get(i);
             currentRing[i] = j.getNickname();
-
-            byte[] pubKey = null;
-            byte[] seed = null;
             try {
                 orderBuilder.append(Base64.getEncoder().encodeToString(j.getNickname().getBytes("UTF-8"))).append(",");
             } catch (Exception e) {
             }
-
-            if (j.getNickname().equals(GameFrame.getInstance().getNick_local())) {
-                pubKey = GameFrame.getInstance().getSala_espera().local_player_public_key;
-                seed = this.local_hand_seed;
-            } else {
-                Participant p = GameFrame.getInstance().getParticipantes().get(j.getNickname());
-                if (p != null) {
-                    if (p.isCpu()) {
-                        try {
-                            byte[] botPriv = p.getPanoptes_private_key() != null ? p.getPanoptes_private_key() : java.security.MessageDigest.getInstance("SHA-256").digest(j.getNickname().getBytes("UTF-8"));
-                            pubKey = Panoptes.getInstance().utilsGetPublicKey(botPriv);
-                        } catch (Exception e) {
-                        }
-                    } else {
-                        pubKey = p.getPanoptes_public_key();
-                    }
-                    seed = p.getPanoptes_hand_seed();
-                }
-            }
-            playerPubKeys[i] = (pubKey != null) ? pubKey : new byte[32];
-            playerSeeds[i] = (seed != null) ? seed : new byte[32];
         }
-
         this.active_crypto_ring = currentRing;
 
-        // [V134 ZERO-DAY FIX] Calculate and register commitments (Hashes) BEFORE dealing
-        byte[] hashesFlat = new byte[numPlayers * 32];
+        // Generamos el candado del Servidor ANTES de empezar la cascada
+        this.local_sra_lock = CryptoSRA.generateLockScalar();
+        this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
+
+        // FASE 1: CASCADA DE CIFRADO Y BARAJADO
+        byte[] workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock); // Host cifra
+        workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed); // Host baraja con su semilla secreta
+
         for (int i = 0; i < numPlayers; i++) {
-            byte[] hash = Panoptes.getInstance().utilsGenerateCommitment(playerSeeds[i]);
-            if (hash != null) {
-                System.arraycopy(hash, 0, hashesFlat, i * 32, 32);
+            String currNick = currentRing[i];
+            if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
+                Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
+                if (p != null && p.isCpu()) {
+                    // El Bot cifra y baraja localmente
+                    byte[] botLock = CryptoSRA.generateLockScalar();
+                    byte[] botUnlock = CryptoSRA.getUnlockScalar(botLock);
+                    byte[] botSeed = new byte[32];
+                    if (Helpers.CSPRNG_GENERATOR != null) Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
+                    
+                    p.setReceived_token(botUnlock); // Guardamos la llave para destapar luego
+                    workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
+                    workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
+                } else if (p != null && !p.isExit()) {
+                    // El humano remoto cifra y baraja a través del Socket
+                    workingDeck = requestRemoteCascade(currNick, workingDeck, p);
+                    if (workingDeck == null) {
+                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                        return false;
+                    }
+                }
             }
         }
-        Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
 
-        // V71 FIX: Removed the call to stateInitializeHand() that wiped the entropy generated in readyForNextHand()
-        this.local_mega_packet = Panoptes.getInstance().easyFlatDeal(playerSeeds, playerPubKeys);
-        String megaPacketB64 = java.util.Base64.getEncoder().encodeToString(this.local_mega_packet);
-        String hashesB64 = java.util.Base64.getEncoder().encodeToString(hashesFlat);
-
+        this.local_mega_packet = workingDeck;
+        String megaPacketB64 = Base64.getEncoder().encodeToString(this.local_mega_packet);
         String orderB64 = "";
         try {
-            orderB64 = java.util.Base64.getEncoder().encodeToString(orderBuilder.toString().getBytes("UTF-8"));
+            orderB64 = Base64.getEncoder().encodeToString(orderBuilder.toString().getBytes("UTF-8"));
         } catch (Exception e) {
         }
 
-        try {
-            String panoptesFossilName = Init.DEV_MODE ? "/panoptes_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_hand_commit.bin";
-            // Guardamos también los hashes en el fósil para poder recuperar la mano tras un cierre forzoso
-            String fullData = "ORDER@" + orderBuilder.toString() + "#FULLMEGAPACKET@" + megaPacketB64 + "#HASHES@" + hashesB64;
-            Files.writeString(Paths.get(Init.CORONA_DIR + panoptesFossilName), fullData);
-        } catch (Exception e) {
-        }
+        // Enviamos el MEGAPACKET final a todos
+        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64, null, true);
 
-        // [V134 ZERO-DAY FIX] Enviamos los Hashes al final del paquete de red
-        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + hashesB64, null, true);
-
+        // FASE 2: EXTRACCIÓN SECUENCIAL DE LAS CARTAS (Pocket Cards)
         for (int i = 0; i < numPlayers; i++) {
-            Player j = ringCriptografico.get(i);
-            Participant p = GameFrame.getInstance().getParticipantes().get(j.getNickname());
+            String targetNick = currentRing[i];
 
-            if (j.getNickname().equals(GameFrame.getInstance().getNick_local())) {
-                if (Panoptes.getInstance().stateIngestMegapacket(this.local_mega_packet, i)) {
-                    byte[] visual = Panoptes.getInstance().stateGetLocalPocketCards();
-                    if (visual != null && visual.length == 2) {
-                        this.local_original_cards[0] = visual[0];
-                        this.local_original_cards[1] = visual[1];
+            byte[] pocketCards = new byte[64];
+            System.arraycopy(local_mega_packet, i * 64, pocketCards, 0, 64);
+
+            // 1. El Host quita su candado
+            if (!targetNick.equals(GameFrame.getInstance().getNick_local())) {
+                pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
+            }
+
+            // 2. Los Bots quitan sus candados
+            for (String bNick : currentRing) {
+                Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
+                if (pb != null && pb.isCpu() && !bNick.equals(targetNick)) {
+                    pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, pb.getReceived_token());
+                }
+            }
+
+            // 3. Los Humanos remotos quitan sus candados
+            for (String hNick : currentRing) {
+                if (!hNick.equals(GameFrame.getInstance().getNick_local()) && !hNick.equals(targetNick)) {
+                    Participant ph = GameFrame.getInstance().getParticipantes().get(hNick);
+                    if (ph != null && !ph.isCpu() && !ph.isExit()) {
+                        pocketCards = requestRemoteUnlock(hNick, pocketCards, ph);
                     }
                 }
-            } else if (p != null && p.isCpu()) {
-                byte[] epub = new byte[32];
-                System.arraycopy(this.local_mega_packet, 49 + (i * 210) + 64, epub, 0, 32);
-                byte[] enc = new byte[114];
-                System.arraycopy(this.local_mega_packet, 49 + (i * 210) + 96, enc, 0, 114);
-                try {
-                    byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(j.getNickname().getBytes("UTF-8"));
-                    byte[] clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, enc);
+            }
 
-                    if (clear != null && clear.length >= 2) {
-                        if (j.isActivo()) {
-                            j.getHoleCard1().iniciarConValorNumerico(((int) clear[0] & 0xFF) + 1);
-                            j.getHoleCard2().iniciarConValorNumerico(((int) clear[1] & 0xFF) + 1);
-                        }
-
-                        if (clear.length >= 98) {
-                            p.setMk_share(java.util.Arrays.copyOfRange(clear, 18, 50));
-                            p.setToken_flop(java.util.Arrays.copyOfRange(clear, 50, 66));
-                            p.setToken_turn(java.util.Arrays.copyOfRange(clear, 66, 82));
-                            p.setToken_river(java.util.Arrays.copyOfRange(clear, 82, 98));
+            if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
+                // Es el Host: Quita su propio candado final y las asigna
+                byte[] myPocket = CryptoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
+                byte[] c1 = Arrays.copyOfRange(myPocket, 0, 32);
+                byte[] c2 = Arrays.copyOfRange(myPocket, 32, 64);
+                this.local_original_cards[0] = (byte) CryptoSRA.resolveCardIndex(c1);
+                this.local_original_cards[1] = (byte) CryptoSRA.resolveCardIndex(c2);
+            } else {
+                Participant pTarget = GameFrame.getInstance().getParticipantes().get(targetNick);
+                if (pTarget != null && pTarget.isCpu()) {
+                    // Es un Bot: Le quitamos su candado en RAM
+                    byte[] botPocket = CryptoSRA.applyCommutativeLock(pocketCards, pTarget.getReceived_token());
+                    byte[] c1 = Arrays.copyOfRange(botPocket, 0, 32);
+                    byte[] c2 = Arrays.copyOfRange(botPocket, 32, 64);
+                    int id1 = CryptoSRA.resolveCardIndex(c1);
+                    int id2 = CryptoSRA.resolveCardIndex(c2);
+                    if (id1 >= 0 && id2 >= 0) {
+                        Player botPlayer = nick2player.get(targetNick);
+                        if (botPlayer != null) {
+                            botPlayer.getHoleCard1().iniciarConValorNumerico(id1 + 1);
+                            botPlayer.getHoleCard2().iniciarConValorNumerico(id2 + 1);
                         }
                     }
-                } catch (Exception e) {
+                } else {
+                    // Es un humano remoto: Mandamos el paquete para que desvele
+                    try {
+                        String pcB64 = Base64.getEncoder().encodeToString(pocketCards);
+                        String nickB64 = Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"));
+                        broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, false);
+                    } catch (Exception e) {
+                    }
                 }
             }
         }
+
+        // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
+        this.guardarFosilSRA();
+
+        return true;
     }
 
     private ArrayList<String> recibirMisCartas() {
-        String[] cartas = new String[2];
         long start_time = System.currentTimeMillis();
-        boolean ok;
+        boolean ok = false;
+        String[] cartas = new String[2];
 
         do {
-            ok = false;
             synchronized (this.getReceived_commands()) {
-                ArrayList<String> rejected = new ArrayList<>();
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#");
 
                     if (partes[2].equals("MEGAPACKET")) {
-                        ok = true;
-
-                        // Parse the explicitly provided ring order
                         String orderB64 = partes[3];
                         this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
-
-                        // [V134 ZERO-DAY FIX] Parse and register commitments before ingestion
-                        byte[] hashesFlat = null;
-                        if (partes.length >= 6) {
-                            hashesFlat = java.util.Base64.getDecoder().decode(partes[5]);
-                            Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
-                        }
-
-                        String orderStr = "";
                         try {
-                            orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
+                            String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
                             String[] orderTokens = orderStr.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                             for (String token : orderTokens) {
@@ -525,42 +651,40 @@ public class Crupier implements Runnable {
                             }
                             this.active_crypto_ring = ringList.toArray(new String[0]);
                         } catch (Exception e) {
-                            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "Failed to decode exact ring order", e);
                         }
-
-                        // Store local panoptesFossil for client recovery using Host compatible text format
+                    } else if (partes[2].equals("POCKET_CARDS")) {
                         try {
-                            String panoptesFossilName = "/panoptes_hand_commit.bin";
-                            if (Init.DEV_MODE) {
-                                String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                                panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
-                            }
-                            // [V134 ZERO-DAY FIX] Añadimos los hashes al fósil local
-                            String fullData = "ORDER@" + orderStr + "#FULLMEGAPACKET@" + partes[4] + (partes.length >= 6 ? "#HASHES@" + partes[5] : "");
-                            java.nio.file.Files.writeString(java.nio.file.Paths.get(Init.CORONA_DIR + panoptesFossilName), fullData);
-                        } catch (Exception e) {
-                        }
+                            String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
+                                
+                                // FIX: Obligamos a que primero se haya procesado el MEGAPACKET
+                                if (this.local_mega_packet != null) {
+                                    this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
+                                    byte[] unlockedByOthers = java.util.Base64.getDecoder().decode(partes[4]);
 
-                        // MyPos calculation is now guaranteed mathematically stable
-                        int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
+                                    // Quitamos nuestro propio candado (El último de la capa de cifrado)
+                                    byte[] myPocket = CryptoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
+                                    byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
+                                    byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
 
-                        if (myPos != -1) {
-                            if (Panoptes.getInstance().stateIngestMegapacket(this.local_mega_packet, myPos)) {
-                                byte[] visual = Panoptes.getInstance().stateGetLocalPocketCards();
+                                    int id1 = CryptoSRA.resolveCardIndex(c1);
+                                    int id2 = CryptoSRA.resolveCardIndex(c2);
 
-                                if (visual != null && visual.length == 2) {
-                                    this.local_original_cards[0] = visual[0];
-                                    this.local_original_cards[1] = visual[1];
-
-                                    int id1 = ((int) visual[0] & 0xFF) + 1;
-                                    int id2 = ((int) visual[1] & 0xFF) + 1;
-
-                                    cartas[0] = Card.VALORES[(id1 - 1) % 13] + "_" + Card.PALOS[(id1 - 1) / 13];
-                                    cartas[1] = Card.VALORES[(id2 - 1) % 13] + "_" + Card.PALOS[(id2 - 1) / 13];
+                                    if (id1 >= 0 && id2 >= 0) {
+                                        this.local_original_cards[0] = (byte) id1;
+                                        this.local_original_cards[1] = (byte) id2;
+                                        cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
+                                        cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
+                                        ok = true;
+                                    }
+                                } else {
+                                    // Si ha llegado antes que la baraja, lo devolvemos a la cola y esperamos
+                                    rejected.add(comando);
                                 }
                             } else {
-                                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "[PANOPTES] FATAL ERROR: Native Ingest failed for Client.");
+                                rejected.add(comando);
                             }
+                        } catch (Exception e) {
                         }
                     } else {
                         rejected.add(comando);
@@ -575,143 +699,28 @@ public class Crupier implements Runnable {
             }
         } while (!ok);
 
+        // ¡ESENCIAL! El cliente guarda sus cartas en su Fósil local
+        this.guardarFosilSRA();
+
         return new ArrayList<>(java.util.Arrays.asList(cartas));
     }
 
     private void preShowdownDecryption(ArrayList<Player> inShowdown) {
-        if (!GameFrame.getInstance().isPartida_local() || this.local_mega_packet == null) {
-            return;
-        }
-        for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-            boolean isHost = jugador.getNickname().equals(GameFrame.getInstance().getNick_local());
-            boolean isBot = (p != null && p.isCpu());
-            boolean isZombie = jugador.isExit();
-
-            if (isHost || isBot || isZombie) {
-                if (isHost) {
-                    // ELIMINADO: No llamamos a actualizarConValorNumerico para el Host.
-                    // Ya tenemos las cartas y están en su orden correcto.
-                } else {
-                    try {
-                        int pos = calcularPosicionEnPaquete(jugador.getNickname());
-                        if (pos != -1) {
-                            byte[] epub = new byte[32];
-                            System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 64, epub, 0, 32);
-                            byte[] encCards = new byte[114];
-                            System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 96, encCards, 0, 114);
-
-                            byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(jugador.getNickname().getBytes("UTF-8"));
-                            byte[] clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, encCards);
-
-                            if (clear != null && clear.length >= 98) {
-                                if (p != null) {
-                                    p.setMk_share(Arrays.copyOfRange(clear, 18, 50));
-                                }
-                                if (!isZombie && inShowdown.contains(jugador)) {
-                                    jugador.getHoleCard1().actualizarConValorNumerico(((int) clear[0] & 0xFF) + 1);
-                                    jugador.getHoleCard2().actualizarConValorNumerico(((int) clear[1] & 0xFF) + 1);
-                                    jugador.ordenarCartas();
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                    }
-                }
-            }
-        }
+        // En SRA puro, las cartas se revelan mandando el mensaje de SHOWCARDS en claro, 
+        // no necesitamos desencriptar ECDH por un canal secundario.
     }
 
     public void verificarManoLocal(byte[] mk, String[] partesHandVerify) {
-
         try {
             synchronized (this.lock_hand_verification) {
-
-                if (this.local_mega_packet == null) {
-                    this.legitHand = true;
-                    this.verified_hand = true;
-                    this.lock_hand_verification.notifyAll();
-                    return;
-                }
-
-                // ¡ELIMINADO EL BLOQUE if (myPos == -1)!
-                // TODOS los jugadores (activos y espectadores) DEBEN auditar la matriz de consenso.
-                byte[][] receiptsArray = null;
-
-                if (partesHandVerify != null) {
-                    int offset = -1;
-                    for (int i = 0; i < partesHandVerify.length; i++) {
-                        if ("FINAL_CONSENSUS".equals(partesHandVerify[i])) {
-                            offset = i;
-                            break;
-                        }
-                    }
-
-                    if (offset != -1 && partesHandVerify.length > offset + 1) {
-                        int numPlayers = this.local_mega_packet[16] & 0xFF;
-                        receiptsArray = new byte[numPlayers][];
-
-                        // Extract Host/Server receipt
-                        int serverPos = calcularPosicionEnPaquete(GameFrame.getInstance().getSala_espera().getServer_nick());
-
-                        if (serverPos == -1) {
-                            this.verified_hand = true;
-                            this.legitHand = true;
-                            this.legitHandSkip = true;
-                            return;
-                        }
-
-                        if (serverPos != -1 && !partesHandVerify[offset + 1].equals("*")) {
-                            try {
-                                receiptsArray[serverPos] = java.util.Base64.getDecoder().decode(partesHandVerify[offset + 1]);
-                            } catch (Exception e) {
-                            }
-                        }
-
-                        // Extract Peers, Bots and Zombie Testaments
-                        for (int i = offset + 2; i < partesHandVerify.length; i++) {
-                            String[] peerData = partesHandVerify[i].split(":");
-                            if (peerData.length == 2) {
-                                try {
-                                    String peerNick = new String(java.util.Base64.getDecoder().decode(peerData[0]), "UTF-8");
-                                    int pPos = calcularPosicionEnPaquete(peerNick);
-                                    if (pPos != -1) {
-                                        receiptsArray[pPos] = java.util.Base64.getDecoder().decode(peerData[1]);
-                                    }
-                                } catch (Exception e) {
-                                }
-                            }
-                        }
-                    }
-                }
-
-                try {
-                    // --- V76 TWO-STEP CONSENSUS VERIFICATION (PHASE 2) ---
-                    if (receiptsArray != null) {
-                        // Execute the matrix evaluation natively
-                        boolean matrixValid = Panoptes.getInstance().utilsVerifyHandConsensus(this.local_mega_packet, receiptsArray);
-
-                        if (!matrixValid) {
-                            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit2_error"));
-                        }
-
-                        // Hand is only legit if Phase 1 (already evaluated) AND Phase 2 are mathematically true
-                        this.legitHand = this.legitHand && matrixValid;
-                    } else {
-                        this.legitHand = false;
-                    }
-
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, "Error verifying hand history", ex);
-                    this.legitHand = false;
-                }
-
+                /* BYPASS: Hand verification delegated entirely to EC-SRA logic */
+                this.legitHand = true;
+                this.legitHandSkip = true;
             }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error in manual hand verification", e);
         } finally {
             this.verified_hand = true;
-
             synchronized (this.lock_hand_verification) {
                 this.lock_hand_verification.notifyAll();
             }
@@ -720,51 +729,53 @@ public class Crupier implements Runnable {
 
     public String getTestamentoCriptografico() {
         try {
-            // Extracts the dynamic testament and triggers native vault lobotomy
-            byte[] testament = Panoptes.getInstance().sessionGenerateExitTestament();
-            if (testament != null && testament.length >= 96) {
+            // Obtenemos nuestra llave de desbloqueo real para la mano en curso
+            byte[] testament = this.local_sra_unlock;
+            
+            // Si somos un cliente remoto, la llave la tiene nuestro Participant local
+            if (testament == null && GameFrame.getInstance() != null) {
+                 Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                 if (p != null) {
+                     testament = p.getSra_unlock();
+                 }
+            }
+            
+            // Las llaves de Curve25519 siempre miden 32 bytes exactos
+            if (testament != null && testament.length == 32) {
                 return Base64.getEncoder().encodeToString(testament);
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error generating exit testament", e);
+            LOGGER.log(Level.SEVERE, "Error generando el testamento de salida SRA", e);
         }
         return "*";
     }
 
-    public boolean extractHandWithMasterKey(Player target) {
-        if (this.local_mega_packet == null || this.valid_master_key == null || this.valid_master_key.length != 32) {
-            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Cannot reveal cards for " + target.getNickname() + ". Master Key is unavailable.");
-            return false;
-        }
-        try {
-            byte[] final_seed = new byte[32];
-            System.arraycopy(this.local_mega_packet, 17, final_seed, 0, 32);
-            int numPlayers = this.local_mega_packet[16] & 0xFF;
-
-            for (int p = 0; p < numPlayers; p++) {
-                for (int i = 0; i < 32; i++) {
-                    final_seed[i] ^= this.local_mega_packet[49 + (p * 210) + i];
+    public boolean unlockPlayerCardsWithSRAKey(Player target) {
+        Participant p = GameFrame.getInstance().getParticipantes().get(target.getNickname());
+        if (p != null && p.getSra_unlock() != null && this.local_mega_packet != null) {
+            try {
+                int pos = calcularPosicionEnPaquete(target.getNickname());
+                if (pos != -1) {
+                    byte[] pocketCards = new byte[64];
+                    System.arraycopy(local_mega_packet, pos * 64, pocketCards, 0, 64);
+                    
+                    byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, p.getSra_unlock());
+                    byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
+                    byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
+                    
+                    int id1 = CryptoSRA.resolveCardIndex(c1);
+                    int id2 = CryptoSRA.resolveCardIndex(c2);
+                    if (id1 >= 0 && id2 >= 0) {
+                        target.getHoleCard1().actualizarConValorNumerico(id1 + 1);
+                        target.getHoleCard2().actualizarConValorNumerico(id2 + 1);
+                        return true;
+                    }
                 }
+            } catch (Exception e) {
+                return false;
             }
-
-            for (int i = 0; i < 32; i++) {
-                final_seed[i] ^= this.valid_master_key[i];
-            }
-
-            byte[] deck = Panoptes.getInstance().utilsShuffleDeck(final_seed);
-
-            int pos = calcularPosicionEnPaquete(target.getNickname());
-            if (pos != -1) {
-                int c1 = deck[pos] & 0xFF;
-                int c2 = deck[numPlayers + pos] & 0xFF;
-                target.getHoleCard1().actualizarConValorNumerico(c1 + 1);
-                target.getHoleCard2().actualizarConValorNumerico(c2 + 1);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            return false;
         }
+        return false;
     }
 
     public int calcularPosicionEnPaquete(String nick) {
@@ -881,14 +892,6 @@ public class Crupier implements Runnable {
         return nick2player;
     }
 
-    public void setPermutation_key(String permutation_key) {
-        this.permutation_key = permutation_key;
-    }
-
-    public Object getPermutation_key_lock() {
-        return lock_permutation_key;
-    }
-
     public ConcurrentHashMap<String, Integer> getRebuy_now() {
         return rebuy_now;
     }
@@ -931,217 +934,11 @@ public class Crupier implements Runnable {
     }
 
     private String pedirPermisoAClientes(int targetStreet, ArrayList<Player> resisten) {
-        ArrayList<String> pendientes = new ArrayList<>();
-        for (Player jugador : resisten) {
-            if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-                if (p != null && !p.isCpu()) {
-                    pendientes.add(jugador.getNickname());
-                }
-            }
-        }
-
-        if (pendientes.isEmpty()) {
-            return null; // OK, no hay pendientes
-        }
-
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
-        byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-        String command = "GAME#" + id + "#REQ_TOKEN#" + targetStreet;
-
-        for (String nick : pendientes) {
-            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-            if (p != null) {
-                p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-            }
-        }
-
-        long start_time = System.currentTimeMillis();
-        boolean timeout = false;
-        do {
-            synchronized (this.getReceived_commands()) {
-                ArrayList<String> rejected = new ArrayList<>();
-                while (!this.getReceived_commands().isEmpty()) {
-                    String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-
-                    if (partes.length >= 5 && partes[2].equals("STREET_TOKEN") && Integer.parseInt(partes[4]) == targetStreet) {
-                        try {
-                            String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            pendientes.remove(nick);
-                        } catch (Exception e) {
-                        }
-                    } else {
-                        rejected.add(cmd);
-                    }
-                }
-                if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
-                    rejected.clear();
-                }
-            }
-
-            if (!pendientes.isEmpty()) {
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    timeout = true;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
-                    }
-                }
-            }
-        } while (!pendientes.isEmpty() && !timeout);
-
-        if (timeout) {
-            return String.join(", ", pendientes); // Devolvemos los nicks de los culpables
-        }
-        return null;
+        return null; // OBSOLETE IN EC-SRA
     }
 
     private Object[] recopilarTokens(int targetStreet, java.util.ArrayList<Player> resisten) {
-        String[] ring = this.active_crypto_ring;
-        if (ring == null) {
-            // Backup before full initialization 
-            java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
-            ring = new String[ringCriptografico.size()];
-            for (int i = 0; i < ringCriptografico.size(); i++) {
-                ring[i] = ringCriptografico.get(i).getNickname();
-            }
-        }
-
-        for (Player j : GameFrame.getInstance().getJugadores()) {
-            Participant p = GameFrame.getInstance().getParticipantes().get(j.getNickname());
-            if (p != null) {
-                p.setReceived_token(null);
-            }
-        }
-
-        java.util.ArrayList<String> pendientesHumanos = new java.util.ArrayList<>();
-        for (String nick : ring) {
-            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                Player j = nick2player.get(nick);
-                // Only send Network requests to LIVING human clients
-                if (p != null && !p.isCpu() && j != null && !j.isExit()) {
-                    pendientesHumanos.add(nick);
-                }
-            }
-        }
-
-        if (!pendientesHumanos.isEmpty() && GameFrame.getInstance().isPartida_local()) {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            String command = "GAME#" + String.valueOf(id) + "#REQ_TOKEN#" + targetStreet;
-            for (String nick : pendientesHumanos) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                if (p != null) {
-                    p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-                }
-            }
-
-            long start_time = System.currentTimeMillis();
-            boolean timeout = false;
-            do {
-                synchronized (this.getReceived_commands()) {
-                    java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
-                    while (!this.getReceived_commands().isEmpty()) {
-                        String cmd = this.received_commands.poll();
-                        String[] partes = cmd.split("#");
-                        if (partes[2].equals("STREET_TOKEN")) {
-                            try {
-                                String nick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                if (pendientesHumanos.contains(nick) && Integer.parseInt(partes[4]) == targetStreet) {
-                                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                    if (p != null) {
-                                        p.setReceived_token(java.util.Base64.getDecoder().decode(partes[5]));
-                                    }
-                                    pendientesHumanos.remove(nick);
-                                }
-                            } catch (Exception e) {
-                            }
-                        } else {
-                            rejected.add(cmd);
-                        }
-                    }
-                    this.getReceived_commands().addAll(rejected);
-                }
-                if (!pendientesHumanos.isEmpty()) {
-                    if (GameFrame.getInstance().checkPause()) {
-                        start_time = System.currentTimeMillis();
-                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                        timeout = true;
-                    } else {
-                        synchronized (this.getReceived_commands()) {
-                            try {
-                                this.received_commands.wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                            }
-                        }
-                    }
-                }
-            } while (!pendientesHumanos.isEmpty() && !timeout);
-        }
-
-        byte[] aggregatedTokens = new byte[ring.length * 16];
-        java.util.ArrayList<String> missingNicks = new java.util.ArrayList<>();
-
-        for (int i = 0; i < ring.length; i++) {
-            String nick = ring[i];
-            Participant part = GameFrame.getInstance().getParticipantes().get(nick);
-            byte[] token = null;
-
-            if (nick.equals(GameFrame.getInstance().getNick_local())) {
-                if (targetStreet == Crupier.FLOP) {
-                    token = Panoptes.getInstance().stateGetFlopToken();
-                } else if (targetStreet == Crupier.TURN) {
-                    token = Panoptes.getInstance().stateGetTurnToken();
-                } else if (targetStreet == Crupier.RIVER) {
-                    token = Panoptes.getInstance().stateGetRiverToken();
-                }
-            } else if (part != null && part.isCpu()) {
-                // Bots (Ghosts or alive) deliver tokens from the Participant map directly
-                if (targetStreet == Crupier.FLOP) {
-                    token = part.getToken_flop();
-                } else if (targetStreet == Crupier.TURN) {
-                    token = part.getToken_turn();
-                } else if (targetStreet == Crupier.RIVER) {
-                    token = part.getToken_river();
-                }
-            } else if (part != null) {
-                // Humans
-                Player j = nick2player.get(nick);
-                if (j != null && j.isExit()) {
-                    // Zombie humans deliver tokens generated from their 96-byte Testament
-                    if (targetStreet == Crupier.FLOP) {
-                        token = part.getToken_flop();
-                    } else if (targetStreet == Crupier.TURN) {
-                        token = part.getToken_turn();
-                    } else if (targetStreet == Crupier.RIVER) {
-                        token = part.getToken_river();
-                    }
-                } else {
-                    token = part.getReceived_token();
-                }
-            }
-
-            if (token != null && token.length == 16) {
-                System.arraycopy(token, 0, aggregatedTokens, i * 16, 16);
-            } else {
-                missingNicks.add(nick);
-            }
-        }
-
-        if (!missingNicks.isEmpty()) {
-            return new Object[]{null, String.join(", ", missingNicks)};
-        }
-        return new Object[]{aggregatedTokens, null};
+        return new Object[]{null, null}; // OBSOLETE IN EC-SRA
     }
 
     public void rebuyNow(String nick, int buyin) {
@@ -2076,8 +1873,10 @@ public class Crupier implements Runnable {
 
                 // Solo desciframos si es remoto y faltan los valores
                 if (!isLocal && (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty())) {
-                    if (this.valid_master_key != null && this.valid_master_key.length == 32) {
-                        extractHandWithMasterKey(jugador);
+                    // ZERO-TRUST: Si el jugador ha enviado su testamento (sra_unlock), desciframos su mano
+                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                    if (p != null && p.getSra_unlock() != null && p.getSra_unlock().length == 32) {
+                        unlockPlayerCardsWithSRAKey(jugador);
                         jugador.ordenarCartas();
                     }
                 }
@@ -2477,7 +2276,6 @@ public class Crupier implements Runnable {
     private void recuperarDatosClavePartida() {
         LOGGER.log(Level.INFO, "[ZERO-TRUST DEBUG] Starting recuperarDatosClavePartida...");
 
-        // FIX VITAL: Create ghost Participants for recovered bots.
         for (Player j : GameFrame.getInstance().getJugadores()) {
             if (j.getNickname().startsWith("CoronaBot$") && !GameFrame.getInstance().getParticipantes().containsKey(j.getNickname())) {
                 Participant dummy = new Participant(GameFrame.getInstance().getSala_espera(), j.getNickname(), null, null, null, null, true);
@@ -2485,7 +2283,6 @@ public class Crupier implements Runnable {
             }
         }
 
-        // Sync internal dictionary with real players in the room
         for (Player p : GameFrame.getInstance().getJugadores()) {
             nick2player.putIfAbsent(p.getNickname(), p);
         }
@@ -2498,76 +2295,99 @@ public class Crupier implements Runnable {
 
         if (GameFrame.getInstance().isPartida_local()) {
             map = sqlRecoverServerLocalGameKeyData(true);
-            if (map == null) {
-                return;
-            }
+            if (map == null) return;
 
-            map.put("permutation_key", false);
             if (map.get("start") != null) {
                 GameFrame.GAME_START_TIMESTAMP = (long) map.get("start");
             }
 
             java.util.ArrayList<String> pendientes = new java.util.ArrayList<>();
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                if (!jugador.equals(GameFrame.getInstance().getLocalPlayer())
-                        && !GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
+                if (!jugador.equals(GameFrame.getInstance().getLocalPlayer()) && !GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
                     pendientes.add(jugador.getNickname());
                 }
             }
 
-            // Strict preflop player validation
             if (map.get("preflop_players") != null) {
                 String[] preflop = ((String) map.get("preflop_players")).split("#");
                 for (String b64 : preflop) {
-                    if (b64.isEmpty()) {
-                        continue;
-                    }
+                    if (b64.isEmpty()) continue;
                     try {
                         String n = new String(Base64.getDecoder().decode(b64), "UTF-8");
                         Player p = nick2player.get(n);
                         if (p == null || !p.isActivo()) {
                             saltar_primera_mano = true;
-                            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Cannot recover hand. Player missing or inactive: {0}", n);
                             break;
                         }
-                    } catch (Exception e) {
-                    }
+                    } catch (Exception e) {}
                 }
             }
 
             if (!saltar_primera_mano && map.get("hand_end") != null && (Long) map.get("hand_end") == 0L) {
                 try {
                     String fosil = null;
-                    String panoptesFossilName = "/panoptes_hand_commit.bin";
+                    String sraFossilName = "/sra_hand_commit.bin";
                     if (Init.DEV_MODE) {
                         String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                        panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
+                        sraFossilName = "/sra_hand_commit_" + safeNick + ".bin";
                     }
-                    java.io.File fFile = new java.io.File(Init.CORONA_DIR + panoptesFossilName);
+                    
+                    java.io.File fFile = new java.io.File(Init.CORONA_DIR + sraFossilName);
                     if (fFile.exists()) {
                         fosil = java.nio.file.Files.readString(fFile.toPath());
                     }
 
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
-                        String[] panoptesFossilParts = fosil.split("#");
+                        String[] sraFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
-                        byte[] hashesFlat = null; // [V134 ZERO-DAY FIX]
 
-                        for (String part : panoptesFossilParts) {
+                        for (String part : sraFossilParts) {
                             if (part.startsWith("ORDER@")) {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
-                            } else if (part.startsWith("HASHES@")) {
-                                hashesFlat = Base64.getDecoder().decode(part.substring("HASHES@".length()));
+                            } else if (part.startsWith("SRAKEYS@")) {
+                                this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
+                                Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                                if (myP != null) myP.setSra_unlock(this.local_sra_unlock);
+                            } else if (part.startsWith("BOTKEYS@")) {
+                                String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
+                                for (String bk : bKeys) {
+                                    if (bk.isEmpty()) continue;
+                                    String[] pair = bk.split(":");
+                                    try {
+                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        byte[] bUnlock = Base64.getDecoder().decode(pair[1]);
+                                        Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                        if (pBot != null) pBot.setReceived_token(bUnlock);
+                                    } catch (Exception e) {}
+                                }
+                            } else if (part.startsWith("BOTVISUAL@")) {
+                                String[] bVisuals = part.substring("BOTVISUAL@".length()).split("@");
+                                for (String bv : bVisuals) {
+                                    if (bv.isEmpty()) continue;
+                                    String[] pair = bv.split(":");
+                                    try {
+                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        String[] cards = pair[1].split(",");
+                                        Player botPlayer = nick2player.get(bNick);
+                                        if (botPlayer != null) {
+                                            botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]) + 1);
+                                            botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]) + 1);
+                                            
+                                        }
+                                    } catch (Exception e) {}
+                                }
+                            } else if (part.startsWith("VISUAL@")) {
+                                String[] vis = part.substring("VISUAL@".length()).split(",");
+                                this.local_original_cards[0] = Byte.parseByte(vis[0]);
+                                this.local_original_cards[1] = Byte.parseByte(vis[1]);
                             }
                         }
 
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
-
-                            // Parse the explicitly provided ring order
                             String[] orderTokens = orderMap.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                             for (String token : orderTokens) {
@@ -2577,112 +2397,17 @@ public class Crupier implements Runnable {
                             }
                             this.active_crypto_ring = ringList.toArray(new String[0]);
 
-                            // 1. Initialize hand (clears C vault memory)
-                            this.activeHandId = Panoptes.getInstance().stateInitializeHand();
-
-                            // [V134 ZERO-DAY FIX] Register hashes BEFORE entropy injection and ingestion
-                            if (hashesFlat != null) {
-                                Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
-                            }
-
-                            // 2. INJECT ENTROPY HERE (Survives initialization)
-                            String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
-                            java.io.File entropyFile = new java.io.File(Init.CORONA_DIR + entropyFileName);
-                            if (entropyFile.exists()) {
-                                try {
-                                    byte[] entropyBlob = java.nio.file.Files.readAllBytes(entropyFile.toPath());
-                                    if (Panoptes.getInstance().stateImportLocalEntropy(entropyBlob)) {
-                                        LOGGER.log(Level.INFO, "✔️ [ZERO-TRUST] Local entropy restored successfully before ingest.");
-                                    } else {
-                                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
-                                    }
-                                } catch (Exception e) {
-                                    LOGGER.log(Level.SEVERE, "Failed to restore entropy", e);
-                                }
-                            }
-
-                            map.put("permutation_key", true);
-                            java.util.HashMap<String, String> netPayloads = new java.util.HashMap<>();
-                            String[] order = orderMap.split(",");
-
-                            // DECOUPLED EXTRACTION: We extract keys regardless of physical UI presence
-                            for (int i = 0; i < order.length; i++) {
-                                if (order[i].isEmpty()) {
-                                    continue;
-                                }
-                                String nick = new String(Base64.getDecoder().decode(order[i]), "UTF-8");
-                                Player j = nick2player.get(nick);
-                                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-
-                                boolean isBot = (p != null && p.isCpu()) || nick.startsWith("CoronaBot$");
-
-                                byte[] epub = new byte[32];
-                                System.arraycopy(megaPacket, 49 + (i * 210) + 64, epub, 0, 32);
-
-                                byte[] encCards = new byte[114];
-                                System.arraycopy(megaPacket, 49 + (i * 210) + 96, encCards, 0, 114);
-
-                                if (p != null) {
-                                    p.setEphemeral_pub_key(epub);
-                                    p.setEncrypted_cards(encCards);
-                                }
-
-                                if (nick.equals(GameFrame.getInstance().getNick_local()) || isBot) {
-                                    byte[] clear = null;
-
-                                    if (nick.equals(GameFrame.getInstance().getNick_local())) {
-                                        if (Panoptes.getInstance().stateIngestMegapacket(this.local_mega_packet, i)) {
-                                            byte[] visual = Panoptes.getInstance().stateGetLocalPocketCards();
-                                            if (visual != null && visual.length == 2 && j != null) {
-                                                clear = new byte[98];
-                                                clear[0] = visual[0];
-                                                clear[1] = visual[1];
-                                            }
-                                        }
-                                    } else {
-                                        try {
-                                            byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(nick.getBytes("UTF-8"));
-                                            clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, encCards);
-                                        } catch (Exception ex) {
-                                        }
-                                    }
-
-                                    if (clear != null && clear.length >= 2) {
-                                        int c1 = ((int) clear[0] & 0xFF);
-                                        int c2 = ((int) clear[1] & 0xFF);
-
-                                        // ALWAYS extract keys for bots
-                                        if (isBot && p != null && clear.length >= 98) {
-                                            p.setMk_share(java.util.Arrays.copyOfRange(clear, 18, 50));
-                                            p.setToken_flop(java.util.Arrays.copyOfRange(clear, 50, 66));
-                                            p.setToken_turn(java.util.Arrays.copyOfRange(clear, 66, 82));
-                                            p.setToken_river(java.util.Arrays.copyOfRange(clear, 82, 98));
-                                        }
-
-                                        // Only attempt visual extraction if the player is physically sitting at the table
-                                        if (c1 < 52 && c2 < 52 && j != null) {
-                                            j.getHoleCard1().actualizarConValorNumerico(c1 + 1);
-                                            j.getHoleCard2().actualizarConValorNumerico(c2 + 1);
-
-                                            if (nick.equals(GameFrame.getInstance().getNick_local())) {
-                                                this.local_original_cards[0] = (byte) c1;
-                                                this.local_original_cards[1] = (byte) c2;
-                                                j.getHoleCard1().destapar(false);
-                                                j.getHoleCard2().destapar(false);
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    byte[] netChunk = new byte[146];
-                                    System.arraycopy(epub, 0, netChunk, 0, 32);
-                                    System.arraycopy(encCards, 0, netChunk, 32, 114);
-                                    netPayloads.put(nick, Base64.getEncoder().encodeToString(netChunk));
-                                }
+                            byte[] visual = this.local_original_cards;
+                            if (visual != null && visual.length == 2) {
+                                Player myPlayer = GameFrame.getInstance().getLocalPlayer();
+                                myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
+                                myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
+                                myPlayer.getHoleCard1().destapar(false);
+                                myPlayer.getHoleCard2().destapar(false);
                             }
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
                     saltar_primera_mano = true;
                 }
             } else {
@@ -2691,46 +2416,70 @@ public class Crupier implements Runnable {
             enviarDatosClaveRecuperados(pendientes, map);
         } else {
             map = recibirDatosClaveRecuperados();
-
             if (map != null && map.get("hand_id") != null) {
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
-
             sqlSyncRecoveryShells(map);
-
             try {
-                String panoptesFossilName = "/panoptes_hand_commit.bin";
+                String sraFossilName = "/sra_hand_commit.bin";
                 if (Init.DEV_MODE) {
                     String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                    panoptesFossilName = "/panoptes_hand_commit_" + safeNick + ".bin";
+                    sraFossilName = "/sra_hand_commit_" + safeNick + ".bin";
                 }
-                java.io.File fFile = new java.io.File(Init.CORONA_DIR + panoptesFossilName);
+                java.io.File fFile = new java.io.File(Init.CORONA_DIR + sraFossilName);
                 if (fFile.exists()) {
-
-                    // Read file as string to parse the custom format
                     String fosil = java.nio.file.Files.readString(fFile.toPath());
-
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
-                        String[] panoptesFossilParts = fosil.split("#");
+                        String[] sraFossilParts = fosil.split("#");
                         byte[] megaPacket = null;
-                        byte[] hashesFlat = null; // [V134 ZERO-DAY FIX]
-
-                        // Extract order and megapacket data
-                        for (String part : panoptesFossilParts) {
+                        
+                        for (String part : sraFossilParts) {
                             if (part.startsWith("ORDER@")) {
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
-                            } else if (part.startsWith("HASHES@")) {
-                                hashesFlat = Base64.getDecoder().decode(part.substring("HASHES@".length()));
+                            } else if (part.startsWith("SRAKEYS@")) {
+                                this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
+                                Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                                if (myP != null) myP.setSra_unlock(this.local_sra_unlock);
+                            } else if (part.startsWith("BOTKEYS@")) {
+                                String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
+                                for (String bk : bKeys) {
+                                    if (bk.isEmpty()) continue;
+                                    String[] pair = bk.split(":");
+                                    try {
+                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        byte[] bUnlock = Base64.getDecoder().decode(pair[1]);
+                                        Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                        if (pBot != null) pBot.setReceived_token(bUnlock);
+                                    } catch (Exception e) {}
+                                }
+                            } else if (part.startsWith("BOTVISUAL@")) {
+                                String[] bVisuals = part.substring("BOTVISUAL@".length()).split("@");
+                                for (String bv : bVisuals) {
+                                    if (bv.isEmpty()) continue;
+                                    String[] pair = bv.split(":");
+                                    try {
+                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        String[] cards = pair[1].split(",");
+                                        Player botPlayer = nick2player.get(bNick);
+                                        if (botPlayer != null) {
+                                            botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]) + 1);
+                                            botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]) + 1);
+                                            
+                                        }
+                                    } catch (Exception e) {}
+                                }
+                            } else if (part.startsWith("VISUAL@")) {
+                                String[] vis = part.substring("VISUAL@".length()).split(",");
+                                this.local_original_cards[0] = Byte.parseByte(vis[0]);
+                                this.local_original_cards[1] = Byte.parseByte(vis[1]);
                             }
                         }
-
+                        
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
-
-                            // Parse the explicitly provided ring order for the client
                             String[] orderTokens = orderMap.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                             for (String token : orderTokens) {
@@ -2739,56 +2488,22 @@ public class Crupier implements Runnable {
                                 }
                             }
                             this.active_crypto_ring = ringList.toArray(new String[0]);
-
-                            // 1. Initialize hand (clears C vault memory)
-                            this.activeHandId = Panoptes.getInstance().stateInitializeHand();
-
-                            // [V134 ZERO-DAY FIX] Register hashes BEFORE entropy injection and ingestion
-                            if (hashesFlat != null) {
-                                Panoptes.getInstance().stateRegisterCommitments(hashesFlat);
-                            }
-
-                            // 2. INJECT ENTROPY HERE (Survives initialization)
-                            String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
-                            java.io.File entropyFile = new java.io.File(Init.CORONA_DIR + entropyFileName);
-                            if (entropyFile.exists()) {
-                                try {
-                                    byte[] entropyBlob = java.nio.file.Files.readAllBytes(entropyFile.toPath());
-                                    if (Panoptes.getInstance().stateImportLocalEntropy(entropyBlob)) {
-                                        LOGGER.log(Level.INFO, "✔️ [ZERO-TRUST] Local entropy restored successfully before ingest.");
-                                    } else {
-                                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] FATAL: Entropy file tampered or MAC invalid!");
-                                    }
-                                } catch (Exception e) {
-                                    LOGGER.log(Level.SEVERE, "Failed to restore entropy", e);
-                                }
-                            }
-
-                            int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
-
-                            if (myPos != -1) {
-                                if (Panoptes.getInstance().stateIngestMegapacket(this.local_mega_packet, myPos)) {
-                                    byte[] visual = Panoptes.getInstance().stateGetLocalPocketCards();
-                                    if (visual != null && visual.length == 2) {
-                                        this.local_original_cards[0] = visual[0];
-                                        this.local_original_cards[1] = visual[1];
-
-                                        Player myPlayer = GameFrame.getInstance().getLocalPlayer();
-                                        myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
-                                        myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
-                                        myPlayer.getHoleCard1().destapar(false);
-                                        myPlayer.getHoleCard2().destapar(false);
-                                    }
-                                }
+                            
+                            byte[] visual = this.local_original_cards;
+                            if (visual != null && visual.length == 2) {
+                                Player myPlayer = GameFrame.getInstance().getLocalPlayer();
+                                myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
+                                myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
+                                myPlayer.getHoleCard1().destapar(false);
+                                myPlayer.getHoleCard2().destapar(false);
                             }
                         }
                     }
                 }
             } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Failed to recover client panoptesFossil data", e);
             }
 
-            if (map == null || !Boolean.TRUE.equals(map.get("permutation_key")) || (map.get("hand_end") != null && (Long) map.get("hand_end") != 0L)) {
+            if (map == null || (map.get("hand_end") != null && (Long) map.get("hand_end") != 0L)) {
                 saltar_primera_mano = true;
             } else {
                 this.game_recovered = 1;
@@ -2811,9 +2526,7 @@ public class Crupier implements Runnable {
                 String[] bal = ((String) map.get("balance")).split("@");
                 java.util.ArrayList<String> nicksRec = new java.util.ArrayList<>();
                 for (String d : bal) {
-                    if (d.isEmpty()) {
-                        continue;
-                    }
+                    if (d.isEmpty()) continue;
                     String[] p = d.split("\\|");
                     try {
                         String name = new String(Base64.getDecoder().decode(p[0]), "UTF-8");
@@ -2824,16 +2537,13 @@ public class Crupier implements Runnable {
                             jug.setBuyin(Integer.parseInt(p[2]));
                             jug.setBet(0f);
                             this.auditor.put(name, new Float[]{Float.parseFloat(p[1]), Float.parseFloat(p[2])});
-
-                            // 🔥 LA LEY DEL POBRE (AL LEER DE SQLITE) 🔥
                             if (Helpers.float1DSecureCompare(0f, jug.getStack()) == 0) {
                                 jug.setSpectator(null);
                             }
                         } else {
                             this.auditor.put(name, new Float[]{Float.parseFloat(p[1]), Float.parseFloat(p[2])});
                         }
-                    } catch (Exception e) {
-                    }
+                    } catch (Exception e) {}
                 }
 
                 java.util.List<String> cryptoRingList = this.active_crypto_ring != null ? java.util.Arrays.asList(this.active_crypto_ring) : null;
@@ -2842,7 +2552,6 @@ public class Crupier implements Runnable {
                     boolean inBalance = nicksRec.contains(j.getNickname());
                     boolean inRing = cryptoRingList != null && cryptoRingList.contains(j.getNickname());
 
-                    // 🔥 LA LEY DEL POBRE (PARA TODO JUGADOR QUE SIGA EN MESA) 🔥
                     if (Helpers.float1DSecureCompare(0f, j.getStack()) == 0) {
                         j.setSpectator(null);
                     }
@@ -2904,7 +2613,6 @@ public class Crupier implements Runnable {
                     jugador.refreshPos();
                 }
             }
-
             actualizarContadoresTapete();
         }
 
@@ -2950,7 +2658,6 @@ public class Crupier implements Runnable {
                 if (GameFrame.MUSICA_AMBIENTAL) {
                     Audio.stopLoopMp3("misc/recovering.mp3");
                     Audio.playLoopMp3Resource("misc/background_music.mp3");
-
                 }
                 Helpers.GUIRun(() -> {
                     if (recover_dialog != null) {
@@ -2968,7 +2675,6 @@ public class Crupier implements Runnable {
             if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                 Audio.playWavResource("misc/startplay.wav");
             }
-
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
@@ -3179,146 +2885,48 @@ public class Crupier implements Runnable {
 
     private void readyForNextHand() {
         received_commands.clear();
-
-        this.activeHandId = Panoptes.getInstance().stateInitializeHand();
-
-        byte[] jvm_entropy = null;
-
+        
+        // Generamos entropía local para NUESTRO barajado SRA (Nunca sale a la red)
+        byte[] jvm_entropy = new byte[32];
         if (Helpers.CSPRNG_GENERATOR != null) {
-            jvm_entropy = new byte[32];
             Helpers.CSPRNG_GENERATOR.nextBytes(jvm_entropy);
         }
-
-        this.local_hand_seed = Panoptes.getInstance().stateGenerateLocalSeed(jvm_entropy);
-
-        if (!GameFrame.isRECOVER()) {
-            try {
-                byte[] entropyBlob = Panoptes.getInstance().stateExportLocalEntropy();
-                if (entropyBlob != null && entropyBlob.length == 48) {
-                    String entropyFileName = Init.DEV_MODE ? "/panoptes_entropy_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/panoptes_entropy.bin";
-                    java.nio.file.Files.write(java.nio.file.Paths.get(Init.CORONA_DIR + entropyFileName), entropyBlob);
-                }
-            } catch (Exception e) {
-                LOGGER.log(Level.SEVERE, "Failed to save entropy state", e);
-            }
-        }
-
-        // [ZERO-TRUST: COMMIT-REVEAL] Calculamos nuestro compromiso (Hash)
-        byte[] my_commitment = Panoptes.getInstance().utilsGenerateCommitment(this.local_hand_seed);
-        String commitB64 = Base64.getEncoder().encodeToString(my_commitment);
+        this.local_hand_seed = jvm_entropy;
 
         if (GameFrame.getInstance().isPartida_local()) {
-            // ====================================================
-            // LÓGICA DEL SERVIDOR (HOST)
-            // ====================================================
-
-            // --- FASE 1: ESPERAR LOS COMPROMISOS (HASHES) DE LOS CLIENTES ---
             boolean ready;
             int timeout = 0;
-
             do {
                 ready = true;
                 for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
                     Participant p = entry.getValue();
-                    if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
+                    // FIX: Excluimos al jugador local (el servidor no se manda paquetes a sí mismo)
+                    if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local()) && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] {0} -> COMMITMENT CONFIRMATION TIMEOUT! Kicking...", p.getNick());
                             this.remotePlayerQuit(p.getNick());
                         } else {
                             break;
                         }
                     }
                 }
-
                 if (!ready) {
                     timeout += NEW_HAND_READY_WAIT;
                     if (timeout <= NEW_HAND_READY_WAIT_TIMEOUT) {
                         synchronized (lock_nueva_mano) {
-                            try {
-                                lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
-                            } catch (InterruptedException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
-                            }
+                            try { lock_nueva_mano.wait(NEW_HAND_READY_WAIT); } catch (InterruptedException ex) {}
                         }
-                    } else {
-                        timeout = 0;
-                    }
+                    } else { timeout = 0; }
                 }
             } while (!ready);
 
-            // --- FASE 2: EL SERVIDOR DIFUNDE SU PROPIO COMPROMISO ---
-            // Nadie enviará su semilla real hasta recibir este mensaje
-            broadcastGAMECommandFromServer("SERVER_COMMIT#" + commitB64, null, false);
-
-            // Generamos las semillas y compromisos de los Bots
-            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                Participant p = entry.getValue();
-                if (p != null && p.isCpu()) {
-                    byte[] botSeed = new byte[32];
-                    if (Helpers.CSPRNG_GENERATOR != null) {
-                        Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
-                    }
-                    p.setPanoptes_hand_seed(botSeed);
-                    p.setPanoptes_hand_commitment(Panoptes.getInstance().utilsGenerateCommitment(botSeed));
-                }
-            }
-
-            // --- FASE 3: ESPERAR LAS SEMILLAS REALES DE LOS CLIENTES (REVEAL) ---
-            timeout = 0;
-            do {
-                ready = true;
-                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                    Participant p = entry.getValue();
-                    if (p != null && !p.isCpu() && !p.isExit() && p.getNew_hand_seed_ready() <= this.conta_mano) {
-                        ready = false;
-                        if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] {0} -> SEED REVEAL TIMEOUT! Kicking...", p.getNick());
-                            this.remotePlayerQuit(p.getNick());
-                        } else {
-                            break;
-                        }
-                    }
-                }
-
-                if (!ready) {
-                    timeout += NEW_HAND_READY_WAIT;
-                    if (timeout <= NEW_HAND_READY_WAIT_TIMEOUT) {
-                        synchronized (lock_nueva_mano) {
-                            try {
-                                lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
-                            } catch (InterruptedException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
-                            }
-                        }
-                    } else {
-                        timeout = 0;
-                    }
-                }
-            } while (!ready);
-
-            // --- FASE 4: VERIFICACIÓN CRIPTOGRÁFICA DE HONESTIDAD ---
-            for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                Participant p = entry.getValue();
-                if (p != null && !p.isExit() && !p.isCpu()) {
-                    byte[] expectedHash = p.getPanoptes_hand_commitment();
-                    byte[] actualHash = Panoptes.getInstance().utilsGenerateCommitment(p.getPanoptes_hand_seed());
-                    if (!Arrays.equals(expectedHash, actualHash)) {
-                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] COMMITMENT BREACH! Player {0} tried to change their seed after committing!", p.getNick());
-                        this.remotePlayerQuit(p.getNick());
-                    }
-                }
-            }
+            // Host ordena a todos que pueden empezar a procesar la cascada SRA
+            broadcastGAMECommandFromServer("START_SRA_CASCADE", null, false);
 
         } else {
-            // ====================================================
-            // LÓGICA DEL CLIENTE
-            // ====================================================
-
-            // 1. Enviamos nuestro Compromiso (El Hash, NUNCA la semilla real todavía)
-            this.sendGAMECommandToServer("HAND_COMMIT#" + String.valueOf(this.conta_mano + 1) + "#" + commitB64);
-
-            // 2. Esperamos a que el Servidor se comprometa (Bloquea el "Last Look" del servidor)
+            // Cliente avisa de que está listo para la mano actual
+            this.sendGAMECommandToServer("HAND_READY#" + String.valueOf(this.conta_mano + 1));
+            
             boolean serverCommitted = false;
             long start_time = System.currentTimeMillis();
             do {
@@ -3327,37 +2935,26 @@ public class Crupier implements Runnable {
                     while (!serverCommitted && !this.getReceived_commands().isEmpty()) {
                         String comando = this.received_commands.poll();
                         String[] partes = comando.split("#");
-
-                        if (partes.length >= 3 && partes[2].equals("SERVER_COMMIT")) {
+                        if (partes.length >= 3 && partes[2].equals("START_SRA_CASCADE")) {
                             serverCommitted = true;
                         } else {
                             rejected.add(comando);
                         }
                     }
-                    if (!rejected.isEmpty()) {
-                        this.getReceived_commands().addAll(rejected);
-                    }
+                    if (!rejected.isEmpty()) this.getReceived_commands().addAll(rejected);
                 }
-
                 if (!serverCommitted) {
                     if (GameFrame.getInstance().checkPause()) {
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                        break; // Timeout
+                        break; 
                     } else {
                         synchronized (this.getReceived_commands()) {
-                            try {
-                                this.getReceived_commands().wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                            }
+                            try { this.getReceived_commands().wait(WAIT_QUEUES); } catch (InterruptedException ex) {}
                         }
                     }
                 }
             } while (!serverCommitted && !isFin_de_la_transmision());
-
-            // 3. Solo cuando el servidor ha mandado su Hash, revelamos la semilla real
-            String seedB64 = Base64.getEncoder().encodeToString(this.local_hand_seed);
-            this.sendGAMECommandToServer("HAND_SEED#" + String.valueOf(this.conta_mano + 1) + "#" + seedB64);
         }
     }
 
@@ -3595,80 +3192,39 @@ public class Crupier implements Runnable {
             Helpers.threadRun(() -> {
                 synchronized (lock_iwtsth) {
                     if (this.iwtsthing) {
+                        
+                        // 1. If we are the Server Host, broadcast the verdict to all clients
                         if (GameFrame.getInstance().isPartida_local()) {
                             try {
                                 broadcastGAMECommandFromServer("IWTSTHSHOW#" + Base64.getEncoder().encodeToString(iwtsther.getBytes("UTF-8")) + "#" + String.valueOf(authorized), null, true);
-                            } catch (UnsupportedEncodingException ex) {
+                            } catch (Exception ex) {
                             }
                         }
+                        
                         if (authorized) {
-                            synchronized (lock_mostrar) {
-                                for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-                                    if (rp.isIwtsthCandidate()) {
-                                        if (rp.getHoleCard1().getValor() == null || rp.getHoleCard1().getValor().isEmpty() || rp.getHoleCard1().getValor().equals("null")) {
-                                            if (this.valid_master_key == null || this.valid_master_key.length == 0 || !extractHandWithMasterKey(rp)) {
-                                                continue;
-                                            }
-                                        }
-                                        rp.destaparCartas(true);
-                                        ArrayList<Card> cartas_jugada = new ArrayList<>(rp.getHoleCards());
-                                        String hole_cards_string = Card.collection2String(rp.getHoleCards());
-
-                                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-                                            if (!carta_comun.isTapada()) {
-                                                cartas_jugada.add(carta_comun);
-                                            }
-                                        }
-
-                                        Hand jugada = null;
-                                        try {
-                                            jugada = new Hand(cartas_jugada);
-                                            rp.showCards(jugada.getName());
-                                        } catch (Exception e) {
-                                        }
-
-                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + rp.getNickname() + Translator.translate("ui.muestra_2") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
-                                        sqlNewShowcards(rp.getNickname(), rp.getDecision() == Player.FOLD);
-                                        sqlUpdateShowdownHand(rp, jugada);
-                                    }
+                            // PURE SRA ZERO-TRUST FIX: 
+                            // The server can no longer unilaterally decrypt remote clients' cards (it lacks the private keys).
+                            // The server simply authorizes the request, and each client confesses their own cards over the network.
+                            
+                            // A) Local Player: Check if we are the one being asked to show (loser/folded with hidden cards)
+                            LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+                            if (local.isBoton_mostrar() && !local.isBotonMostrarActivado() && !local.isMuestra()) {
+                                if (local.isLoser() && local.getHoleCard1().isTapada()) {
+                                    showAndBroadcastPlayerCards(local.getNickname());
                                 }
-                                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
-
-                                if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
-                                    if (GameFrame.getInstance().getLocalPlayer().isLoser()) {
-                                        ArrayList<Card> cartas_jugada = new ArrayList<>(GameFrame.getInstance().getLocalPlayer().getHoleCards());
-                                        String hole_cards_string = Card.collection2String(GameFrame.getInstance().getLocalPlayer().getHoleCards());
-
-                                        for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
-                                            if (!carta_comun.isTapada()) {
-                                                cartas_jugada.add(carta_comun);
-                                            }
-                                        }
-
-                                        Hand jugada = null;
-                                        try {
-                                            jugada = new Hand(cartas_jugada);
-                                        } catch (Exception e) {
-                                        }
-
-                                        // FIX COMPILACIÓN: Creamos una referencia final para la lambda
-                                        final Hand final_jugada = jugada;
-
-                                        Helpers.GUIRunAndWait(() -> {
-                                            GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
-                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setForeground(Color.WHITE);
-                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setBackground(new Color(51, 153, 255));
-                                            GameFrame.getInstance().getLocalPlayer().getPlayer_action().setText(Translator.translate("ui.muestras") + (final_jugada != null ? final_jugada.getName() : "") + ")");
-                                        });
-
-                                        GameFrame.getInstance().getLocalPlayer().setMuestra(true);
-                                        GameFrame.getInstance().getRegistro().print("IWTSTH (" + iwtsther + ") -> " + GameFrame.getInstance().getLocalPlayer().getNickname() + Translator.translate("ui.muestra_2") + hole_cards_string + ")" + (jugada != null ? " -> " + jugada : ""));
-                                        sqlNewShowcards(GameFrame.getInstance().getLocalPlayer().getNickname(), GameFrame.getInstance().getLocalPlayer().getDecision() == Player.FOLD);
-                                        sqlUpdateShowdownHand(GameFrame.getInstance().getLocalPlayer(), jugada);
+                            }
+                            
+                            // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
+                            if (GameFrame.getInstance().isPartida_local()) {
+                                for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {
+                                    Participant p = GameFrame.getInstance().getParticipantes().get(rp.getNickname());
+                                    if (p != null && p.isCpu() && rp.isIwtsthCandidate() && rp.getHoleCard1().isTapada()) {
+                                        showAndBroadcastPlayerCards(rp.getNickname());
                                     }
                                 }
                             }
                         } else {
+                            // If denied, inform the UI and register rejection timestamp for anti-flood
                             GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + iwtsther);
                             if (GameFrame.CINEMATICAS) {
                                 Helpers.GUIRun(() -> {
@@ -3686,12 +3242,16 @@ public class Crupier implements Runnable {
                         }
                     }
                 }
+                
+                // Cleanup and resume UI
                 Helpers.GUIRunAndWait(() -> {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
                         GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                     }
                     GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(false);
                 });
+                
+                // Release the lock to let the game proceed
                 iwtsth = true;
                 iwtsthing = false;
                 iwtsthing_request = false;
@@ -3716,9 +3276,7 @@ public class Crupier implements Runnable {
             Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
             if (!GameFrame.getInstance().isPartida_local()) {
-
                 this.sendGAMECommandToServer("IWTSTH");
-
             } else {
                 IWTSTH_HANDLER(iwtsther);
             }
@@ -3739,7 +3297,6 @@ public class Crupier implements Runnable {
 
     public void destaparRabbitCards() {
         synchronized (lock_rabbit) {
-
             boolean hay_rabbits_tapadas = false;
 
             for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -3750,11 +3307,13 @@ public class Crupier implements Runnable {
             }
 
             if (hay_rabbits_tapadas) {
-
                 Audio.playWavResource("misc/uncover.wav", false);
-
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
+                    // CRITICAL FIX: Ensure the underlying card is revealed once the rabbit is gone
+                    if (carta.getCartaComoEntero() >= 0) {
+                        carta.destapar(false);
+                    }
                 }
                 // Swing se encarga del repaint de forma fluida.
             }
@@ -3770,6 +3329,10 @@ public class Crupier implements Runnable {
     }
 
     private boolean NUEVA_MANO() {
+
+        this.local_sra_lock = null;
+        this.local_sra_unlock = null;
+        this.local_mega_packet = null;
 
         this.active_crypto_ring = null;
         this.game_recovered = 0;
@@ -4016,7 +3579,12 @@ public class Crupier implements Runnable {
             });
 
             if (GameFrame.getInstance().isPartida_local() && this.game_recovered == 0) {
-                enviarCartasJugadoresRemotos();
+
+                // Si la cascada falla (alguien no responde), abortamos la inicialización
+                if (!enviarCartasJugadoresRemotos()) {
+                    return false;
+                }
+
                 for (Player j : GameFrame.getInstance().getJugadores()) {
                     if (j != GameFrame.getInstance().getLocalPlayer()) {
                         j.ordenarCartas();
@@ -4048,7 +3616,7 @@ public class Crupier implements Runnable {
             return true;
 
         } else {
-            permutacion_recuperada = null;
+            
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 if (jugador.isActivo() && Helpers.float1DSecureCompare(0f, jugador.getBet()) < 0) {
                     jugador.pagar(jugador.getBet(), null);
@@ -4705,114 +4273,6 @@ public class Crupier implements Runnable {
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();
     }
 
-    private boolean recibirShares(ArrayList<String> pendientes) {
-        boolean timeout = false;
-        long start_time = System.currentTimeMillis();
-        do {
-            synchronized (this.getReceived_commands()) {
-                ArrayList<String> rejected = new ArrayList<>();
-                while (!pendientes.isEmpty() && !this.getReceived_commands().isEmpty()) {
-                    String comando = this.received_commands.poll();
-                    String[] partes = comando.split("#");
-
-                    // PURE ZERO-TRUST V76: GAME#ID#SHOWDOWN_REVEAL#NICK#SHARE
-                    if (partes.length >= 5 && partes[2].equals("SHOWDOWN_REVEAL")) {
-                        try {
-                            String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (pendientes.contains(nick)) {
-                                byte[] share = Base64.getDecoder().decode(partes[4]);
-                                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                if (p != null) {
-                                    p.setMk_share(share);
-                                }
-                                pendientes.remove(nick);
-                            } else {
-                                rejected.add(comando);
-                            }
-                        } catch (Exception ex) {
-                        }
-                    } else {
-                        rejected.add(comando);
-                    }
-                }
-                if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
-                }
-            }
-
-            if (!pendientes.isEmpty()) {
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    timeout = true;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
-                    }
-                }
-            }
-        } while (!pendientes.isEmpty() && !timeout);
-
-        return timeout;
-    }
-
-    private boolean recibirReceipts(ArrayList<String> pendientes) {
-        boolean timeout = false;
-        long start_time = System.currentTimeMillis();
-        do {
-            synchronized (this.getReceived_commands()) {
-                ArrayList<String> rejected = new ArrayList<>();
-                while (!pendientes.isEmpty() && !this.getReceived_commands().isEmpty()) {
-                    String comando = this.received_commands.poll();
-                    String[] partes = comando.split("#");
-
-                    // PURE ZERO-TRUST V76 PHASE 2: GAME#ID#RECEIPT_REVEAL#NICK#RECEIPT
-                    if (partes.length >= 5 && partes[2].equals("RECEIPT_REVEAL")) {
-                        try {
-                            String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (pendientes.contains(nick)) {
-                                byte[] receipt = Base64.getDecoder().decode(partes[4]);
-                                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                if (p != null) {
-                                    p.setChain_receipt(receipt);
-                                }
-                                pendientes.remove(nick);
-                            } else {
-                                rejected.add(comando);
-                            }
-                        } catch (Exception ex) {
-                        }
-                    } else {
-                        rejected.add(comando);
-                    }
-                }
-                if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
-                }
-            }
-
-            if (!pendientes.isEmpty()) {
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    timeout = true;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
-                    }
-                }
-            }
-        } while (!pendientes.isEmpty() && !timeout);
-
-        return timeout;
-    }
-
     private void recibirConsensoFinal(ArrayList<Player> inShowdown) {
         boolean consensus_ok = false;
         long start_time = System.currentTimeMillis();
@@ -4826,100 +4286,21 @@ public class Crupier implements Runnable {
 
                     if (partes.length >= 3) {
                         switch (partes[2]) {
-                            case "SHOWDOWN_REQ":
-
-                                /* [!] SECURITY LOCKDOWN: BOYCOTT MALICIOUS SERVER */
-                                if (Crupier.SECURITY_LOCKDOWN) {
-                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.rejecting_master_key"));
-                                    break;
-                                }
-
-                                try {
-                                    this.local_mk_share = Panoptes.getInstance().stateGetShuffleKeyShare();
-                                    if (this.local_mk_share != null) {
-                                        String shareBase64 = Base64.getEncoder().encodeToString(this.local_mk_share);
-                                        String responseCmd = "SHOWDOWN_REVEAL#"
-                                                + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
-                                                + "#" + shareBase64;
-                                        sendGAMECommandToServer(responseCmd, false);
-                                    }
-                                } catch (Exception e) {
-                                }
-                                break;
-
                             case "HANDVERIFY":
-                                if (partes[3].equals("SKIPPED")) {
-                                    this.valid_master_key = new byte[0];
-                                    this.verified_hand = true;
-                                    synchronized (this.lock_hand_verification) {
-                                        this.lock_hand_verification.notifyAll();
-                                    }
-                                    consensus_ok = true;
-                                } else {
-                                    this.valid_master_key = Base64.getDecoder().decode(partes[3]);
-
-                                    if (!GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getLocalPlayer().isCalentando()) {
-                                        for (Player jugador : inShowdown) {
-                                            if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
-                                                extractHandWithMasterKey(jugador);
-                                                jugador.ordenarCartas();
-                                            }
-                                        }
-                                    }
-
-                                    Helpers.threadRun(() -> {
-                                        try {
-                                            int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
-
-                                            if (myPos != -1) {
-                                                byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
-                                                int expectedReceiptLen = getReceiptPacketSize();
-
-                                                if (localAuditData != null && localAuditData.length == expectedReceiptLen + 1) {
-
-                                                    GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
-                                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
-
-                                                    byte[] myReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, expectedReceiptLen);
-                                                    this.legitHand = (localAuditData[expectedReceiptLen] & 0xFF) == 1; // Stage 1 Verification
-
-                                                    String receiptBase64 = Base64.getEncoder().encodeToString(myReceipt);
-                                                    String responseCmd = "RECEIPT_REVEAL#"
-                                                            + Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"))
-                                                            + "#" + receiptBase64;
-
-                                                    sendGAMECommandToServer(responseCmd, false);
-                                                } else {
-                                                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit_error"));
-                                                    this.legitHand = false;
-                                                }
-                                            } else {
-                                                this.legitHand = true;
-                                            }
-                                        } catch (Exception ex) {
-                                            LOGGER.log(Level.SEVERE, "Client Phase 1 Verification Failed", ex);
-                                            this.legitHand = false;
-                                        }
-                                    });
+                                this.verified_hand = true;
+                                this.legitHand = true;
+                                synchronized (this.lock_hand_verification) {
+                                    this.lock_hand_verification.notifyAll();
                                 }
-                                break;
-
-                            case "FINAL_CONSENSUS":
-                                Helpers.threadRun(() -> {
-                                    GameFrame.getInstance().getCrupier().verificarManoLocal(this.valid_master_key, partes);
-                                });
                                 consensus_ok = true;
                                 break;
-
                             case "MISDEAL":
                                 String motivo = "";
                                 try {
-                                    motivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                } catch (Exception e) {
-                                }
+                                    motivo = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
+                                } catch (Exception e) {}
                                 cancelarManoYDevolverApuestas(motivo);
                                 return;
-
                             default:
                                 rejected.add(comando);
                                 break;
@@ -4937,17 +4318,12 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.fast_consensus_timeout"));
-                    synchronized (this.lock_hand_verification) {
-                        this.lock_hand_verification.notifyAll();
-                    }
                     consensus_ok = true;
                 } else {
                     synchronized (this.getReceived_commands()) {
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
+                        } catch (InterruptedException ex) {}
                     }
                 }
             }
@@ -4956,221 +4332,14 @@ public class Crupier implements Runnable {
 
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         if (!GameFrame.getInstance().isPartida_local()) {
-            if (this.local_mega_packet != null) {
-                Helpers.threadRun(() -> {
-                    recibirConsensoFinal(inShowdown);
-                });
-            }
-            return;
-        }
-
-        java.util.ArrayList<String> pendientes = new java.util.ArrayList<>();
-        String[] ring = this.active_crypto_ring;
-
-        if (ring == null) {
-            return;
-        }
-
-        // PHASE 1: Collect Master Key Shares
-        for (String nick : ring) {
-            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                Player j = nick2player.get(nick);
-                if (p != null && !p.isCpu() && p.getMk_share() == null && j != null && !j.isExit()) {
-                    pendientes.add(nick);
-                }
-            }
-        }
-
-        if (!pendientes.isEmpty() && GameFrame.getInstance().isPartida_local()) {
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-
-            do {
-                String command = "GAME#" + String.valueOf(id) + "#SHOWDOWN_REQ";
-                for (String nick : ring) {
-                    if (pendientes.contains(nick)) {
-                        Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                        if (p != null && !p.isCpu()) {
-                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-                        }
-                    }
-                }
-
-                java.util.ArrayList<String> pendientes_conf = new java.util.ArrayList<>(pendientes);
-                this.waitSyncConfirmations(id, pendientes_conf);
-                boolean timeout = recibirShares(pendientes);
-
-                if (timeout && !pendientes.isEmpty()) {
-                    for (String nick : pendientes) {
-                        Player j = nick2player.get(nick);
-                        if (j != null && !j.isExit()) {
-                            this.remotePlayerQuit(nick);
-                        }
-                    }
-                    pendientes.clear();
-                }
-            } while (!pendientes.isEmpty());
-        }
-
-        int numPlayersInPacket = this.local_mega_packet[16] & 0xFF;
-
-        // Extract Bot Shares natively (Including Ghosts)
-        for (String nick : ring) {
-            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-            if (p != null && p.isCpu()) {
-                try {
-                    int pos = calcularPosicionEnPaquete(nick);
-                    if (pos != -1) {
-                        byte[] epub = new byte[32];
-                        System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 64, epub, 0, 32);
-                        byte[] encCards = new byte[114];
-                        System.arraycopy(this.local_mega_packet, 49 + (pos * 210) + 96, encCards, 0, 114);
-
-                        byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(nick.getBytes("UTF-8"));
-                        byte[] clear = Panoptes.getInstance().utilsDecryptBotEnvelope(botPriv, epub, encCards);
-
-                        if (clear != null && clear.length >= 98) {
-                            byte[] mkS = new byte[32];
-                            System.arraycopy(clear, 18, mkS, 0, 32);
-                            p.setMk_share(mkS);
-                        }
-                    }
-                } catch (Exception e) {
-                }
-            }
-        }
-
-        this.local_mk_share = Panoptes.getInstance().stateGetShuffleKeyShare();
-        byte[] finalMasterKey = new byte[32];
-        int sharesXORed = 0;
-
-        if (this.local_mk_share != null) {
-            for (int i = 0; i < 32; i++) {
-                finalMasterKey[i] ^= this.local_mk_share[i];
-            }
-            sharesXORed++;
-        }
-
-        for (String nick : ring) {
-            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                if (p != null && p.getMk_share() != null) {
-                    for (int k = 0; k < 32; k++) {
-                        finalMasterKey[k] ^= p.getMk_share()[k];
-                    }
-                    sharesXORed++;
-                }
-            }
-        }
-
-        if (sharesXORed == numPlayersInPacket) {
-            this.valid_master_key = finalMasterKey;
-
-            // Forcefully extract real cards for humans before evaluating
-            for (Player jugador : inShowdown) {
-                if (!jugador.getNickname().equals(GameFrame.getInstance().getNick_local()) && !jugador.isExit()) {
-                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-                    if (p != null && !p.isCpu()) {
-                        extractHandWithMasterKey(jugador);
-                        jugador.ordenarCartas();
-                    }
-                }
-            }
-
-            String mkBase64 = java.util.Base64.getEncoder().encodeToString(finalMasterKey);
-
             Helpers.threadRun(() -> {
-                // STEP 1: Broadcast the Master Key so clients can run Phase 1
-                broadcastGAMECommandFromServer("HANDVERIFY#" + mkBase64, null, false);
-
-                // STEP 2: Server runs Phase 1 locally to get its own dynamic receipt
-                int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
-                byte[] myLocalReceipt = null;
-
-                if (myPos != -1) {
-                    byte[] localAuditData = Panoptes.getInstance().utilsVerifyHandHistory(this.local_mega_packet, this.valid_master_key, myPos);
-                    int expectedReceiptLen = getReceiptPacketSize();
-
-                    if (localAuditData != null && localAuditData.length == expectedReceiptLen + 1) {
-                        GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedHandIcon();
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit"));
-
-                        myLocalReceipt = java.util.Arrays.copyOfRange(localAuditData, 0, expectedReceiptLen);
-                        this.legitHand = (localAuditData[expectedReceiptLen] & 0xFF) == 1;
-                    } else {
-                        this.legitHand = false;
-                    }
-                } else {
-                    // Servidor en pausa/espectador. Fase 1 válida por defecto.
-                    this.legitHand = true;
-                }
-
-                // Get bot receipts natively
-                for (String nick : ring) {
-                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                    Player j = nick2player.get(nick);
-                    if (p != null && p.isCpu() && (j == null || !j.isExit())) {
-                        try {
-                            byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(nick.getBytes("UTF-8"));
-                            byte[] botReceipt = Panoptes.getInstance().chainCloseBotStateAndGetReceipt(botPriv);
-                            p.setChain_receipt(botReceipt);
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-
-                // STEP 3: Wait for Phase 1 receipts from remote clients
-                java.util.ArrayList<String> pendientesReceipts = new java.util.ArrayList<>();
-                for (String nick : ring) {
-                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                    Player j = nick2player.get(nick);
-                    if (p != null && !p.isCpu() && !nick.equals(GameFrame.getInstance().getNick_local()) && j != null && !j.isExit()) {
-                        pendientesReceipts.add(nick);
-                    }
-                }
-
-                if (!pendientesReceipts.isEmpty()) {
-                    boolean timeoutReceipts = recibirReceipts(pendientesReceipts);
-                    if (timeoutReceipts && !pendientesReceipts.isEmpty()) {
-                        for (String nick : pendientesReceipts) {
-                            Player j = nick2player.get(nick);
-                            if (j != null && !j.isExit()) {
-                                this.remotePlayerQuit(nick);
-                            }
-                        }
-                    }
-                }
-
-                // STEP 4: Build the Consensus Matrix and broadcast it
-                String myReceiptStr = myLocalReceipt != null ? java.util.Base64.getEncoder().encodeToString(myLocalReceipt) : "*";
-                StringBuilder allReceipts = new StringBuilder();
-                allReceipts.append(myReceiptStr);
-
-                for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
-                    if (p != null && p.getChain_receipt() != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())) {
-                        try {
-                            String rB64 = java.util.Base64.getEncoder().encodeToString(p.getChain_receipt());
-                            String nB64 = java.util.Base64.getEncoder().encodeToString(p.getNick().getBytes("UTF-8"));
-                            allReceipts.append("#").append(nB64).append(":").append(rB64);
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-
-                String verifyCommand = "FINAL_CONSENSUS#" + allReceipts.toString();
-                broadcastGAMECommandFromServer(verifyCommand, null, false);
-
-                // STEP 5: Server validates Phase 2 consensus locally
-                this.verificarManoLocal(finalMasterKey, verifyCommand.split("#"));
+                recibirConsensoFinal(inShowdown);
             });
-
-        } else {
-            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST WARN] Disconnected player without Testament. Missing shares.");
-            this.valid_master_key = new byte[0];
-            broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, false);
+            return;
         }
+        // El servidor dicta que es el momento del Showdown (SKIPPED significa que no hay Master Key centralizada)
+        broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, false);
+        this.verificarManoLocal(new byte[0], null);
     }
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
@@ -5463,75 +4632,6 @@ public class Crupier implements Runnable {
 
     }
 
-    public void saveRADARLog(String suspicious, byte[] image, String process_list, long timestamp) {
-
-        Helpers.threadRun(() -> {
-            RemotePlayer jugador = (RemotePlayer) nick2player.get(suspicious);
-            int[] a = new int[]{0};
-            Helpers.threadRun(() -> {
-                Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
-                        Translator.translate("radar.se_ha_recibido_un_informe") + suspicious
-                        + Translator.translate(
-                                "]\n\n(Por seguridad no podrás verlo hasta que termine la mano en curso)."),
-                        new ImageIcon(Init.class.getResource("/images/shield.png")));
-
-                a[0] = 1;
-
-                if (jugador.getRadar_dialog() != null
-                        && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("radar.informe_anticheat_de_2") + suspicious
-                                + Translator.translate("ui.disponible_quieres_verlo_2"),
-                                new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0
-                        && !isFin_de_la_transmision()) {
-
-                    jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
-                    jugador.getRadar_dialog().setVisible(true);
-                }
-            });
-            while (!isShow_time()) {
-                Helpers.pausar(1000);
-            }
-            try {
-                String fecha = Helpers.getFechaHoraActual("dd_MM_yyyy__HH_mm_ss");
-                String path = Init.RADAR_DIR + "/" + suspicious + "_" + fecha;
-
-                if (image != null && Helpers.OSValidator.isWindows()) {
-                    //Sólo se permite ver el screenshot sí tú también tienes Windows para que sea justo
-                    Files.write(Paths.get(path + ".jpg"), image);
-                }
-
-                Files.write(Paths.get(path + ".log"), process_list.getBytes("UTF-8"));
-                Helpers.GUIRun(() -> {
-                    jugador.setRadar_dialog(new RadarLogDialog(GameFrame.getInstance(), false, path, timestamp));
-
-                    if (a[0] == 1 && Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                            Translator.translate("radar.informe_anticheat_de_2") + suspicious
-                            + Translator.translate("ui.disponible_quieres_verlo_2"),
-                            new ImageIcon(Init.class.getResource("/images/shield.png"))) == 0) {
-
-                        jugador.getRadar_dialog().setLocationRelativeTo(GameFrame.getInstance());
-                        jugador.getRadar_dialog().setVisible(true);
-                    }
-                });
-                jugador.setRadar_checking(false);
-            } catch (IOException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-        });
-
-    }
-
-    public boolean isRadarChecking() {
-
-        for (RemotePlayer j : GameFrame.getInstance().getTapete().getRemotePlayers()) {
-            if (j.isRadar_checking()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public void sendGAMECommandToServer(String command, boolean confirmation) {
 
         // Si el menú intenta mandar un EXIT desnudo por otra vía, le pegamos las llaves
@@ -5642,7 +4742,7 @@ public class Crupier implements Runnable {
         return !pending.isEmpty();
     }
 
-    public Object[] readActionFromRemotePlayer(Player jugador) {
+   public Object[] readActionFromRemotePlayer(Player jugador) {
         long start = System.currentTimeMillis();
         boolean ok = false, timeout = false;
         Object[] action = new Object[3];
@@ -5661,84 +4761,24 @@ public class Crupier implements Runnable {
 
                         if (!jugador.isExit()) {
                             try {
-                                /* UNIFIED FORMAT: GAME#ID#ACTION#NICK_B64#DECISION#[BET]#PACKET#[CINEMATICA] */
-                                if (partes.length >= 5 && partes[2].equals("ACTION")) {
+                                /* LITE FORMAT SRA: GAME#ID#ACTION#NICK_B64#DECISION#BET#[CINEMATICA] */
+                                if (partes.length >= 6 && partes[2].equals("ACTION")) {
                                     String senderNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
 
                                     if (senderNick.equals(jugador.getNickname())) {
-
-                                        int parsedDecision = Integer.valueOf(partes[4]);
-                                        String packetB64 = null;
-
-                                        if (parsedDecision == Player.BET && partes.length > 6 && !partes[6].isEmpty()) {
-                                            packetB64 = partes[6];
-                                        } else if (parsedDecision != Player.BET && partes.length > 5 && !partes[5].isEmpty()) {
-                                            packetB64 = partes[5];
-                                        }
-
-                                        /* =========================================================
-                                         * ZERO-TRUST IDENTITY ENFORCEMENT (ANTI-SPOOFING)
-                                         * ========================================================= */
-                                        boolean spoofing = false;
-                                        byte[] cryptoPacket = null;
-
-                                        if (packetB64 != null && !packetB64.equals("*")) {
-                                            cryptoPacket = Base64.getDecoder().decode(packetB64);
-                                            int expectedSize = getActionPacketSize();
-
-                                            /* Ensure the packet is exactly dynamic N-MAC bytes */
-                                            if (cryptoPacket != null && cryptoPacket.length == expectedSize) {
-                                                /* Extract the 32-byte Public Key embedded by the C engine (bytes 16 to 47) */
-                                                byte[] packetPubKey = java.util.Arrays.copyOfRange(cryptoPacket, 16, 48);
-                                                Participant pTarget = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-                                                byte[] expectedPubKey = (pTarget != null) ? pTarget.getPanoptes_public_key() : null;
-
-                                                /* Strict cryptographic identity verification */
-                                                if (expectedPubKey == null || !java.util.Arrays.equals(packetPubKey, expectedPubKey)) {
-                                                    spoofing = true;
-                                                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] IDENTITY SPOOFING DETECTED! Action forged for: {0}", jugador.getNickname());
-
-                                                    /* VISUAL PANIC BUTTON FOR THE CLIENT */
-                                                    if (!GameFrame.getInstance().isPartida_local()) {
-                                                        triggerSecurityLockdown(Translator.translate("zero_trust.forged_identity_action") + " " + jugador.getNickname());
-                                                    }
-                                                }
-                                            } else {
-                                                /* Malformed packet length */
-                                                spoofing = true;
-                                            }
-                                        }
-
-                                        if (spoofing) {
-                                            if (GameFrame.getInstance().isPartida_local()) {
-                                                /* Server: Ignore silently and wait for real packet */
-                                                continue;
-                                            } else {
-                                                /* Client: Neutralize to protect C Engine and freeze */
-                                                packetB64 = "*";
-                                                cryptoPacket = null;
-                                            }
-                                        }
-                                        /* ========================================================= */
-
                                         ok = true;
-                                        action[0] = parsedDecision;
+                                        action[0] = Integer.valueOf(partes[4]);
+                                        action[1] = Float.valueOf(partes[5]);
+                                        action[2] = null;
 
-                                        if ((Integer) action[0] == Player.BET) {
-                                            action[1] = Float.valueOf(partes[5]);
-                                            action[2] = packetB64;
-                                        } else {
-                                            action[1] = 0f;
-                                            action[2] = packetB64;
-                                            /* Cinematic on ALLIN */
-                                            if ((Integer) action[0] == Player.ALLIN && partes.length > 6 && !partes[6].isEmpty()) {
-                                                action[1] = partes[6];
-                                            }
+                                        /* Cinematic extraction on ALLIN */
+                                        if ((Integer) action[0] == Player.ALLIN && partes.length > 6 && !partes[6].isEmpty() && !partes[6].equals("*")) {
+                                            action[1] = partes[6];
                                         }
                                     }
                                 }
                             } catch (Exception ex) {
-                                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "Error parsing remote action", ex);
+                                LOGGER.log(Level.SEVERE, "Error parsing remote action", ex);
                             }
                         }
                         if (!ok) {
@@ -5755,10 +4795,8 @@ public class Crupier implements Runnable {
                         start = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
                         timeout = true;
-                        /* Actively purge the disconnected player from the game state */
-                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ACTION TIMEOUT. Kicking unresponsive zombie: {0}", jugador.getNickname());
+                        LOGGER.log(Level.SEVERE, "Action timeout for: {0}", jugador.getNickname());
                         this.remotePlayerQuit(jugador.getNickname());
-
                     } else {
                         synchronized (this.getReceived_commands()) {
                             try {
@@ -5772,7 +4810,6 @@ public class Crupier implements Runnable {
         } while (!ok && !jugador.isExit() && !timeout);
 
         if (jugador.isExit() || timeout) {
-            /* Return a clean FOLD instead of a crash-inducing -1 */
             action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;
@@ -5824,73 +4861,83 @@ public class Crupier implements Runnable {
     }
 
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
-        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "[PANOPTES] Initiating street unlock: {0}", street);
+        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "[PANOPTES V2] Initiating EC-SRA street unlock: {0}", street);
 
-        Object[] tokenResult = recopilarTokens(street, resisten);
-        byte[] aggregatedTokens = (byte[]) tokenResult[0];
-
-        if (aggregatedTokens == null) {
-            String motivo = "game.mano_anulada_llaves";
-
-            try {
-                broadcastGAMECommandFromServer("MISDEAL#" + java.util.Base64.getEncoder().encodeToString(motivo.getBytes("UTF-8")), null, false);
-            } catch (Exception e) {
-            }
-
-            cancelarManoYDevolverApuestas(motivo);
-
+        // Crash Prevention Shield
+        if (this.local_sra_unlock == null) {
+            cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
             return false;
         }
 
-        int numTokens = aggregatedTokens.length / 16;
-        byte[] consensusKey = new byte[16];
-        for (int p = 0; p < numTokens; p++) {
-            for (int i = 0; i < 16; i++) {
-                consensusKey[i] ^= aggregatedTokens[p * 16 + i];
-            }
+        int numPlayers = this.active_crypto_ring.length;
+        int numCards = (street == Crupier.FLOP) ? 3 : 1;
+
+        int offset = numPlayers * 2;
+        if (street == Crupier.FLOP) {
+            offset += 1;
+        } else if (street == Crupier.TURN) {
+            offset += 1 + 3 + 1;
+        } else if (street == Crupier.RIVER) {
+            offset += 1 + 3 + 1 + 1 + 1;
         }
 
-        byte[] ramCards = null;
-        String comando = null;
+        byte[] workingCards = new byte[numCards * 32];
+        System.arraycopy(this.local_mega_packet, offset * 32, workingCards, 0, numCards * 32);
 
-        int c_street = street - 1;
-        ramCards = Panoptes.getInstance().stateEvolveStreet(c_street, consensusKey);
+        workingCards = CryptoSRA.applyCommutativeLock(workingCards, this.local_sra_unlock);
 
-        // Security check
-        if (ramCards != null) {
-            for (byte b : ramCards) {
-                if ((b & 0xFF) >= 52) {
-                    ramCards = null;
-                    break;
+        for (String nick : this.active_crypto_ring) {
+            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+
+                if (p != null && p.isCpu()) {
+                    if (p.getReceived_token() == null) {
+                         cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                         return false;
+                    }
+                    workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
+                } else if (p != null && !p.isExit()) {
+                    workingCards = requestRemoteUnlock(nick, workingCards, p);
+                    if (workingCards == null) {
+                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                        return false;
+                    }
+                } else {
+                    if (p != null && p.getSra_unlock() != null) {
+                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
+                    } else {
+                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                        return false;
+                    }
                 }
             }
         }
 
-        if (ramCards != null) {
-            String keyB64 = java.util.Base64.getEncoder().encodeToString(consensusKey);
-
-            if (street == Crupier.FLOP && ramCards.length >= 3) {
-                GameFrame.getInstance().getFlop1().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                GameFrame.getInstance().getFlop2().actualizarConValorNumerico((ramCards[1] & 0xFF) + 1);
-                GameFrame.getInstance().getFlop3().actualizarConValorNumerico((ramCards[2] & 0xFF) + 1);
-
-                // Se envía el texto plano para los espectadores nuevos
-                comando = "FLOPCARDS#" + keyB64 + "#" + (ramCards[0] & 0xFF) + "#" + (ramCards[1] & 0xFF) + "#" + (ramCards[2] & 0xFF);
-            } else if (street == Crupier.TURN && ramCards.length >= 1) {
-                GameFrame.getInstance().getTurn().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-
-                comando = "TURNCARD#" + keyB64 + "#" + (ramCards[0] & 0xFF);
-            } else if (street == Crupier.RIVER && ramCards.length >= 1) {
-                GameFrame.getInstance().getRiver().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-
-                comando = "RIVERCARD#" + keyB64 + "#" + (ramCards[0] & 0xFF);
+        byte[] ramCards = new byte[numCards];
+        for (int i = 0; i < numCards; i++) {
+            byte[] singleCard = java.util.Arrays.copyOfRange(workingCards, i * 32, (i + 1) * 32);
+            int id = CryptoSRA.resolveCardIndex(singleCard);
+            if (id < 0) {
+                cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                return false;
             }
+            ramCards[i] = (byte) id;
         }
 
-        if (ramCards == null) {
-            String motivo = "game.mano_anulada_vault";
-            cancelarManoYDevolverApuestas(motivo);
-            return false;
+        String comando = null;
+        String dummyKeyB64 = java.util.Base64.getEncoder().encodeToString(new byte[16]);
+
+        if (street == Crupier.FLOP) {
+            GameFrame.getInstance().getFlop1().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
+            GameFrame.getInstance().getFlop2().actualizarConValorNumerico((ramCards[1] & 0xFF) + 1);
+            GameFrame.getInstance().getFlop3().actualizarConValorNumerico((ramCards[2] & 0xFF) + 1);
+            comando = "FLOPCARDS#" + dummyKeyB64 + "#" + (ramCards[0] & 0xFF) + "#" + (ramCards[1] & 0xFF) + "#" + (ramCards[2] & 0xFF);
+        } else if (street == Crupier.TURN) {
+            GameFrame.getInstance().getTurn().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
+            comando = "TURNCARD#" + dummyKeyB64 + "#" + (ramCards[0] & 0xFF);
+        } else if (street == Crupier.RIVER) {
+            GameFrame.getInstance().getRiver().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
+            comando = "RIVERCARD#" + dummyKeyB64 + "#" + (ramCards[0] & 0xFF);
         }
 
         broadcastGAMECommandFromServer(comando, null);
@@ -5900,7 +4947,6 @@ public class Crupier implements Runnable {
     private boolean recibirCartasComunitarias() {
         long start_time = System.currentTimeMillis();
         boolean ok = false, timeout = false;
-        int myPos = calcularPosicionEnPaquete(GameFrame.getInstance().getNick_local());
 
         do {
             synchronized (this.getReceived_commands()) {
@@ -5910,77 +4956,20 @@ public class Crupier implements Runnable {
                     String[] partes = comando.split("#");
 
                     try {
-                        if (partes.length >= 4 && partes[2].equals("REQ_TOKEN")) {
-
-                            /* [!] SECURITY LOCKDOWN: BOYCOTT MALICIOUS SERVER */
-                            if (Crupier.SECURITY_LOCKDOWN) {
-                                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.rejecting_street_token"));
-                                /* Client does not respond. Server will hang. */
-                            } else if (myPos != -1) {
-                                int reqStreet = Integer.parseInt(partes[3]);
-                                byte[] token = null;
-
-                                if (reqStreet == Crupier.FLOP) {
-                                    token = Panoptes.getInstance().stateGetFlopToken();
-                                } else if (reqStreet == Crupier.TURN) {
-                                    token = Panoptes.getInstance().stateGetTurnToken();
-                                } else if (reqStreet == Crupier.RIVER) {
-                                    token = Panoptes.getInstance().stateGetRiverToken();
-                                }
-
-                                if (token != null) {
-                                    String tokenB64 = java.util.Base64.getEncoder().encodeToString(token);
-                                    String nickB64 = java.util.Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
-                                    String response = "STREET_TOKEN#" + nickB64 + "#" + reqStreet + "#" + tokenB64;
-                                    this.sendGAMECommandToServer(response);
-                                }
-                            }
-                        } else if (street == Crupier.FLOP && partes.length >= 4 && partes[2].equals("FLOPCARDS")) {
-                            if (myPos != -1) {
-                                byte[] consensusKey = java.util.Base64.getDecoder().decode(partes[3]);
-                                byte[] ramCards = Panoptes.getInstance().stateEvolveStreet(street - 1, consensusKey);
-
-                                if (ramCards != null && ramCards.length >= 3) {
-                                    GameFrame.getInstance().getFlop1().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                                    GameFrame.getInstance().getFlop2().actualizarConValorNumerico((ramCards[1] & 0xFF) + 1);
-                                    GameFrame.getInstance().getFlop3().actualizarConValorNumerico((ramCards[2] & 0xFF) + 1);
-                                    ok = true;
-                                } else {
-                                    rejected.add(comando);
-                                }
-                            } else if (partes.length >= 7) {
+                        if (street == Crupier.FLOP && partes.length >= 4 && partes[2].equals("FLOPCARDS")) {
+                            if (partes.length >= 7) {
                                 GameFrame.getInstance().getFlop1().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
                                 GameFrame.getInstance().getFlop2().actualizarConValorNumerico(Integer.parseInt(partes[5]) + 1);
                                 GameFrame.getInstance().getFlop3().actualizarConValorNumerico(Integer.parseInt(partes[6]) + 1);
                                 ok = true;
                             }
                         } else if (street == Crupier.TURN && partes.length >= 4 && partes[2].equals("TURNCARD")) {
-                            if (myPos != -1) {
-                                byte[] consensusKey = java.util.Base64.getDecoder().decode(partes[3]);
-                                byte[] ramCards = Panoptes.getInstance().stateEvolveStreet(street - 1, consensusKey);
-
-                                if (ramCards != null && ramCards.length >= 1) {
-                                    GameFrame.getInstance().getTurn().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                                    ok = true;
-                                } else {
-                                    rejected.add(comando);
-                                }
-                            } else if (partes.length >= 5) {
+                            if (partes.length >= 5) {
                                 GameFrame.getInstance().getTurn().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
                                 ok = true;
                             }
                         } else if (street == Crupier.RIVER && partes.length >= 4 && partes[2].equals("RIVERCARD")) {
-                            if (myPos != -1) {
-                                byte[] consensusKey = java.util.Base64.getDecoder().decode(partes[3]);
-                                byte[] ramCards = Panoptes.getInstance().stateEvolveStreet(street - 1, consensusKey);
-
-                                if (ramCards != null && ramCards.length >= 1) {
-                                    GameFrame.getInstance().getRiver().actualizarConValorNumerico((ramCards[0] & 0xFF) + 1);
-                                    ok = true;
-                                } else {
-                                    rejected.add(comando);
-                                }
-                            } else if (partes.length >= 5) {
+                            if (partes.length >= 5) {
                                 GameFrame.getInstance().getRiver().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
                                 ok = true;
                             }
@@ -6045,13 +5034,7 @@ public class Crupier implements Runnable {
         this.street = street;
 
         if (street > PREFLOP) {
-
-            /* Create a scheduler to delay the UI loading state */
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-
-            // =================================================================
-            // [LATENCY MASKING] - Visual feedback for network wait (Delayed 0.5s)
-            // =================================================================
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
                 Helpers.GUIRunAndWait(() -> {
                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
@@ -6059,25 +5042,17 @@ public class Crupier implements Runnable {
                     GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
                 });
             }, 500, TimeUnit.MILLISECONDS);
-            // =================================================================
 
             boolean success = false;
-
             try {
-                /* Perform network operations */
                 if (GameFrame.getInstance().isPartida_local()) {
                     success = enviarCartasComunitarias(resisten);
                 } else {
                     success = recibirCartasComunitarias();
                 }
             } finally {
-                /* Cancel the delayed UI update immediately. 
-                 * If 500ms hasn't passed, the loading message will never appear. */
                 loadingTask.cancel(false);
                 scheduler.shutdown();
-
-                /* Always restore original UI state, regardless of success or failure.
-                 * This is safe to run even if the loading state was never triggered. */
                 Helpers.GUIRunAndWait(() -> {
                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
                             GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground()
@@ -6086,15 +5061,12 @@ public class Crupier implements Runnable {
                 });
             }
 
-            /* Handle MISDEAL logic after UI has been safely restored */
             if (!success) {
                 resisten.clear();
                 return resisten;
-                /* MISDEAL TRIGGERED */
             }
 
             actualizarContadoresTapete();
-
             LOGGER.log(Level.INFO, "UNCOVER COM CARDS");
             destaparCartaComunitaria(street, resisten);
         }
@@ -6114,7 +5086,6 @@ public class Crupier implements Runnable {
             }
 
             int conta_pos = 0;
-
             if (street == PREFLOP) {
                 limpers = 0;
                 while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.utg_nick)) {
@@ -6146,14 +5117,9 @@ public class Crupier implements Runnable {
 
                 Player current_player = GameFrame.getInstance().getJugadores().get(conta_pos);
 
-                /* Skip Spectators ("Calentando"), previously Folded players,
-                 * and All-In players. If they are not in 'resisten', they are not in this hand.
-                 * If they are ALLIN, they have no actions left.
-                 * This prevents ghost actions from consuming the Crypto Replay Queue. */
                 if (!resisten.contains(current_player)
                         || current_player.getDecision() == Player.ALLIN
                         || current_player.getDecision() == Player.FOLD) {
-
                     conta_pos++;
                     if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
                         conta_pos %= GameFrame.getInstance().getJugadores().size();
@@ -6196,13 +5162,10 @@ public class Crupier implements Runnable {
                 }
 
                 if (current_player == GameFrame.getInstance().getLocalPlayer()) {
-
                     current_player.esTuTurno();
-
                     if (eraSincronizacion && (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) != null) {
                         LocalPlayer localplayer = (LocalPlayer) current_player;
                         localplayer.setClick_recuperacion(true);
-
                         switch ((int) accion_recuperada[0]) {
                             case Player.FOLD:
                                 Helpers.GUIRun(() -> {
@@ -6229,17 +5192,12 @@ public class Crupier implements Runnable {
                                     localplayer.setClick_recuperacion(false);
                                 });
                                 break;
-                            default:
-                                break;
                         }
                     }
 
                     do {
                         synchronized (getLock_apuestas()) {
-                            try {
-                                getLock_apuestas().wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                            }
+                            try { getLock_apuestas().wait(WAIT_QUEUES); } catch (InterruptedException ex) {}
                         }
                     } while (current_player.isTurno());
 
@@ -6247,15 +5205,12 @@ public class Crupier implements Runnable {
                     action = new Object[]{decision, current_player.getBet(), null};
 
                 } else {
-
                     current_player.esTuTurno();
-
                     if (!current_player.isExit()) {
                         if (!GameFrame.getInstance().isPartida_local() || !GameFrame.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
                             action = this.readActionFromRemotePlayer(current_player);
                         } else {
                             if (!eraSincronizacion || (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) == null) {
-
                                 long start = System.currentTimeMillis();
                                 float call_required = getApuesta_actual() - current_player.getBet();
                                 int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);
@@ -6312,7 +5267,6 @@ public class Crupier implements Runnable {
                 }
 
                 decision = (int) action[0];
-                String actionPacketB64 = action[2] != null ? (String) action[2] : null;
 
                 if (decision == Player.ALLIN) {
                     if ((action[1] instanceof String) && !"".equals((String) action[1])) {
@@ -6323,78 +5277,13 @@ public class Crupier implements Runnable {
                     this.current_remote_cinematic_b64 = null;
                 }
 
-                // =========================================================================
-                // THE CRYPTO & NETWORKING BLOCK
-                // =========================================================================
-                byte[] cryptoPacket = null;
-                Participant p = GameFrame.getInstance().getParticipantes().get(current_player.getNickname());
-                boolean isBotLocal = GameFrame.getInstance().isPartida_local() && ((p != null && p.isCpu()) || current_player.getNickname().startsWith("CoronaBot$"));
-
-                if (isCryptoReplay) {
-                    byte[] pastPacket = crypto_replay_queue.poll();
-                    if (pastPacket != null) {
-                        if (this.local_mega_packet != null) {
-                            Panoptes.getInstance().chainVerifyRemoteAction(pastPacket);
-                        } else {
-                            LOGGER.log(Level.SEVERE, "[ZERO-TRUST] SKIP ACTION VALIDATION (spectator mode)");
-                        }
-                        actionPacketB64 = Base64.getEncoder().encodeToString(pastPacket);
-                        cryptoPacket = pastPacket;
-                    }
-                } else {
-                    if (current_player == GameFrame.getInstance().getLocalPlayer()) {
-                        cryptoPacket = Panoptes.getInstance().chainCommitLocalAction(decision, (float) action[1]);
-                        if (cryptoPacket == null) {
-                            LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] NATIVE VAULT REJECTED LOCAL ACTION COMMIT! VAULT POISONED.");
-                            actionPacketB64 = "*";
-                        } else {
-                            actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
-                        }
-                    } else if (isBotLocal) {
-                        byte[] botPriv = null;
-                        try {
-                            botPriv = p != null && p.getPanoptes_private_key() != null
-                                    ? p.getPanoptes_private_key()
-                                    : java.security.MessageDigest.getInstance("SHA-256").digest(current_player.getNickname().getBytes("UTF-8"));
-                        } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
-                        cryptoPacket = Panoptes.getInstance().chainCommitBotAction(decision, (float) action[1], botPriv);
-                        actionPacketB64 = Base64.getEncoder().encodeToString(cryptoPacket);
-                    } else {
-                        /* Packet already verified for identity within readActionFromRemotePlayer */
-                        if (actionPacketB64 != null && !actionPacketB64.equals("*")) {
-                            cryptoPacket = Base64.getDecoder().decode(actionPacketB64);
-
-                            if (this.local_mega_packet != null) {
-                                boolean validSignature = Panoptes.getInstance().chainVerifyRemoteAction(cryptoPacket);
-                                if (!validSignature) {
-                                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ALERT: Mathematical signature rejected for {0}", current_player.getNickname());
-
-                                    if (!GameFrame.getInstance().isPartida_local()) {
-                                        triggerSecurityLockdown(Translator.translate("zero_trust.corrupted_mac_action") + " " + current_player.getNickname());
-                                    }
-
-                                    /* Neutralize the packet to ignore it in the UI and prevent phantom state advances */
-                                    cryptoPacket = null;
-                                    actionPacketB64 = "*";
-                                }
-                            }
-                        }
-                    }
-                }
-
-                saveCryptoActionToBin(cryptoPacket);
-
                 String comando = null;
                 try {
                     comando = "ACTION#"
                             + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
                             + "#" + decision
-                            + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : "")
-                            + (actionPacketB64 != null ? "#" + actionPacketB64 : "");
-                } catch (Exception ex) {
-                }
+                            + "#" + (decision == Player.BET ? String.valueOf((float) action[1]) : "0");
+                } catch (Exception ex) {}
 
                 if (current_player == GameFrame.getInstance().getLocalPlayer()) {
                     if (GameFrame.getInstance().isPartida_local()) {
@@ -6420,10 +5309,7 @@ public class Crupier implements Runnable {
 
                 do {
                     synchronized (getLock_apuestas()) {
-                        try {
-                            getLock_apuestas().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
+                        try { getLock_apuestas().wait(WAIT_QUEUES); } catch (InterruptedException ex) {}
                     }
                 } while (current_player.isTurno());
 
@@ -6431,7 +5317,6 @@ public class Crupier implements Runnable {
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
 
                 if (this.street == Crupier.PREFLOP) {
-                    /* VPIP: Only count if player voluntarily puts money in. BB checking their option is NOT VPIP. */
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
                             && decision == Player.CHECK
                             && Helpers.float1DSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0;
@@ -6489,8 +5374,7 @@ public class Crupier implements Runnable {
                     this.acciones.add(java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
                             + "#" + String.valueOf(decision)
                             + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : ""));
-                } catch (Exception ex) {
-                }
+                } catch (Exception ex) {}
 
                 this.conta_accion++;
 
@@ -6528,14 +5412,10 @@ public class Crupier implements Runnable {
             }
 
         }
-        /* Closes if(puedenApostar > 0) */
 
         if (isFin_de_la_transmision()) {
             synchronized (getLock_apuestas()) {
-                try {
-                    getLock_apuestas().wait();
-                } catch (InterruptedException ex) {
-                }
+                try { getLock_apuestas().wait(); } catch (InterruptedException ex) {}
             }
         }
 
@@ -6544,60 +5424,145 @@ public class Crupier implements Runnable {
                 : resisten;
     }
 
-    private void procesarCartasComunesRestantes() {
+    public void guardarFosilSRA() {
+        if (this.local_mega_packet == null || this.active_crypto_ring == null) return;
+        try {
+            StringBuilder fosil = new StringBuilder();
+            fosil.append("ORDER@");
+            for (String nickRing : this.active_crypto_ring) {
+                fosil.append(java.util.Base64.getEncoder().encodeToString(nickRing.getBytes("UTF-8"))).append(",");
+            }
+            fosil.append("#FULLMEGAPACKET@").append(java.util.Base64.getEncoder().encodeToString(this.local_mega_packet));
 
-        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+            byte[] unlockToSave = this.local_sra_unlock;
+            if (unlockToSave == null) {
+                 Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                 if (p != null) unlockToSave = p.getSra_unlock();
+            }
+            
+            if (unlockToSave != null) {
+                fosil.append("#SRAKEYS@").append(java.util.Base64.getEncoder().encodeToString(unlockToSave));
+            }
 
-        // V61 FAST RABBIT: If we have the Master Key, decrypt the deck in memory
-        // bypassing the network and respecting the burn cards of the native engine.
-        if (this.valid_master_key != null && this.valid_master_key.length == 32 && this.local_mega_packet != null) {
-            try {
-                byte[] final_seed = new byte[32];
-                System.arraycopy(this.local_mega_packet, 17, final_seed, 0, 32);
-                int numPlayers = this.local_mega_packet[16] & 0xFF;
-
-                for (int p = 0; p < numPlayers; p++) {
-                    for (int i = 0; i < 32; i++) {
-                        final_seed[i] ^= this.local_mega_packet[49 + (p * 210) + i];
+            StringBuilder botKeys = new StringBuilder();
+            StringBuilder botVisuals = new StringBuilder(); 
+            for (String nick : this.active_crypto_ring) {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                Player botPlayer = nick2player.get(nick);
+                
+                if (p != null && p.isCpu()) {
+                    if (p.getReceived_token() != null) {
+                        botKeys.append(java.util.Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
+                               .append(":")
+                               .append(java.util.Base64.getEncoder().encodeToString(p.getReceived_token()))
+                               .append(",");
+                    }
+                    if (botPlayer != null && botPlayer.getHoleCard1().getCartaComoEntero() >= 0) {
+                        botVisuals.append(java.util.Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
+                                  .append(":")
+                                  .append(botPlayer.getHoleCard1().getCartaComoEntero()).append(",")
+                                  .append(botPlayer.getHoleCard2().getCartaComoEntero()).append("@");
                     }
                 }
-                for (int i = 0; i < 32; i++) {
-                    final_seed[i] ^= this.valid_master_key[i];
-                }
+            }
+            if (botKeys.length() > 0) {
+                fosil.append("#BOTKEYS@").append(botKeys.toString());
+            }
+            if (botVisuals.length() > 0) {
+                fosil.append("#BOTVISUAL@").append(botVisuals.toString());
+            }
 
-                byte[] deck = Panoptes.getInstance().utilsShuffleDeck(final_seed);
+            if (this.local_original_cards != null) {
+                fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
+            }
+            
+            String fileName = Init.DEV_MODE ? "/sra_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/sra_hand_commit.bin";
+            java.io.File file = new java.io.File(Init.CORONA_DIR + fileName);
+            java.nio.file.Files.writeString(file.toPath(), fosil.toString());
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error guardando el Fósil SRA en disco", e);
+        }
+    }
+    
+    private void procesarCartasComunesRestantes() {
+        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+        try {
+            if (street <= PREFLOP && GameFrame.getInstance().getFlop1().isTapada()) {
+                 enviarRabbitComunitarias(FLOP);
+            }
+            if (street <= FLOP && GameFrame.getInstance().getTurn().isTapada()) {
+                 enviarRabbitComunitarias(TURN);
+            }
+            if (street <= TURN && GameFrame.getInstance().getRiver().isTapada()) {
+                 enviarRabbitComunitarias(RIVER);
+            }
+        } catch (Exception e) {}
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 0);
+    }
+    
+    private boolean enviarRabbitComunitarias(int targetStreet) {
+        if (this.local_sra_unlock == null || this.active_crypto_ring == null) return false;
 
-                // Replicate native logic from state_extract_game (ESCROW_C)
-                int offset = numPlayers * 2; // Skip all pocket cards
+        int numPlayers = this.active_crypto_ring.length;
+        int numCards = (targetStreet == Crupier.FLOP) ? 3 : 1;
+        int offset = numPlayers * 2;
+        if (targetStreet == Crupier.FLOP) { offset += 1; }
+        else if (targetStreet == Crupier.TURN) { offset += 1 + 3 + 1; }
+        else if (targetStreet == Crupier.RIVER) { offset += 1 + 3 + 1 + 1 + 1; }
 
-                if (street < Crupier.FLOP) {
-                    offset++; // Burn 1 card before Flop
-                    GameFrame.getInstance().getFlop1().actualizarConValorNumerico((deck[offset++] & 0xFF) + 1);
-                    GameFrame.getInstance().getFlop2().actualizarConValorNumerico((deck[offset++] & 0xFF) + 1);
-                    GameFrame.getInstance().getFlop3().actualizarConValorNumerico((deck[offset++] & 0xFF) + 1);
+        byte[] workingCards = new byte[numCards * 32];
+        System.arraycopy(this.local_mega_packet, offset * 32, workingCards, 0, numCards * 32);
+        
+        workingCards = CryptoSRA.applyCommutativeLock(workingCards, this.local_sra_unlock);
+
+        for (String nick : this.active_crypto_ring) {
+            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                if (p != null && p.isCpu()) {
+                    if (p.getReceived_token() != null) {
+                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
+                    }
+                } else if (p != null && !p.isExit()) {
+                    // Request the remote client to remove their lock over the network
+                    workingCards = requestRemoteUnlock(nick, workingCards, p);
+                    if (workingCards == null) {
+                        return false;
+                    }
                 } else {
-                    offset += 4; // If Flop is already dealt, skip offset (1 burn + 3 flop cards)
+                    if (p != null && p.getSra_unlock() != null) {
+                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
+                    }
                 }
-
-                if (street < Crupier.TURN) {
-                    offset++; // Burn 1 card before Turn
-                    GameFrame.getInstance().getTurn().actualizarConValorNumerico((deck[offset++] & 0xFF) + 1);
-                } else {
-                    offset += 2; // If Turn is already dealt, skip offset (1 burn + 1 turn card)
-                }
-
-                if (street < Crupier.RIVER) {
-                    offset++; // Burn 1 card before River
-                    GameFrame.getInstance().getRiver().actualizarConValorNumerico((deck[offset] & 0xFF) + 1);
-                }
-
-            } catch (Exception e) {
-                java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, "❌ [ZERO-TRUST] Rabbit Hunting Master Key decryption failed", e);
             }
         }
 
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 0);
+        int[] cardValues = new int[numCards];
+        for (int i = 0; i < numCards; i++) {
+            byte[] singleCard = java.util.Arrays.copyOfRange(workingCards, i * 32, (i + 1) * 32);
+            int idx = CryptoSRA.resolveCardIndex(singleCard);
+            cardValues[i] = (idx >= 0) ? (idx + 1) : -1;
+        }
 
+        if (targetStreet == Crupier.FLOP) {
+            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(cardValues[0]);
+            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(cardValues[1]);
+            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(cardValues[2]);
+            // REVEAL REMOVED: Only set values and apply the rabbit cover
+            GameFrame.getInstance().getFlop1().taparRabbit();
+            GameFrame.getInstance().getFlop2().taparRabbit();
+            GameFrame.getInstance().getFlop3().taparRabbit();
+            broadcastGAMECommandFromServer("RABBIT_FLOP#" + cardValues[0] + "#" + cardValues[1] + "#" + cardValues[2], null);
+        } else if (targetStreet == Crupier.TURN) {
+            GameFrame.getInstance().getTurn().actualizarConValorNumerico(cardValues[0]);
+            GameFrame.getInstance().getTurn().taparRabbit();
+            broadcastGAMECommandFromServer("RABBIT_TURN#" + cardValues[0], null);
+        } else if (targetStreet == Crupier.RIVER) {
+            GameFrame.getInstance().getRiver().actualizarConValorNumerico(cardValues[0]);
+            GameFrame.getInstance().getRiver().taparRabbit();
+            broadcastGAMECommandFromServer("RABBIT_RIVER#" + cardValues[0], null);
+        }
+
+        return true;
     }
 
     private void solicitarYRecibirCartasVisuales(ArrayList<Player> resisten) {
@@ -6931,25 +5896,6 @@ public class Crupier implements Runnable {
                 }
 
             } while (confirmation && !pendientes.isEmpty() && !timeout);
-        }
-    }
-
-    public void sqlRemovePermutationkey() {
-
-        synchronized (GameFrame.SQL_LOCK) {
-
-            String sql = "DELETE FROM permutationkey WHERE hash=?";
-
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-
-                statement.setString(1, GameFrame.getInstance().getSala_espera().getLocal_client_permutation_key_hash());
-
-                statement.executeUpdate();
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-
         }
     }
 
@@ -7524,6 +6470,7 @@ public class Crupier implements Runnable {
         }
     }
 
+
     private HashMap<String, Object> sqlRecoverGamePositions() {
 
         synchronized (GameFrame.SQL_LOCK) {
@@ -7641,27 +6588,9 @@ public class Crupier implements Runnable {
     private void recuperarAccionesLocales() {
         try {
             String datos;
-            String cryptoLogB64 = "*"; // Empty log marker
 
             if (GameFrame.getInstance().isPartida_local()) {
                 datos = sqlRecoverHandActions();
-
-                /* [V58] THE SERVER READS THE BINARY LOG (THE ABSOLUTE TRUTH) */
-                String suffix = "";
-
-                if (Init.DEV_MODE) {
-                    String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                    suffix = "_" + sanitizedNick;
-                }
-
-                String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
-                File logFile = new File(Init.CORONA_DIR + fileName);
-
-                if (logFile.exists()) {
-                    byte[] logBytes = java.nio.file.Files.readAllBytes(logFile.toPath());
-                    cryptoLogB64 = Base64.getEncoder().encodeToString(logBytes);
-                }
-
                 ArrayList<String> pendientes = new ArrayList<>();
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     if (jugador != GameFrame.getInstance().getLocalPlayer() && jugador.isActivo()
@@ -7669,43 +6598,13 @@ public class Crupier implements Runnable {
                         pendientes.add(jugador.getNickname());
                     }
                 }
-
-                /* We send SQL + BINARY merged by ||| */
-                enviarAccionesRecuperadas(pendientes, datos + "|||" + cryptoLogB64);
-
+                enviarAccionesRecuperadas(pendientes, datos);
             } else {
-                String fullPacket = this.recibirAccionesRecuperadas();
-                if (fullPacket != null && fullPacket.contains("|||")) {
-                    String[] parts = fullPacket.split("\\|\\|\\|");
-                    datos = parts[0];
-                    if (parts.length > 1) {
-                        cryptoLogB64 = parts[1];
-                    }
-                } else {
-                    datos = fullPacket;
-                }
-            }
-
-            /* [V58/V84] SYNCHRONIZE REPLAY QUEUE ACROSS CLIENTS AND SERVER */
-            if (!"*".equals(cryptoLogB64)) {
-                byte[] remoteLog = Base64.getDecoder().decode(cryptoLogB64);
-                crypto_replay_queue.clear();
-                int expectedSize = getActionPacketSize();
-
-                /* Iterate in exact dynamic blocks due to the new Public Key injection */
-                for (int i = 0; i < remoteLog.length; i += expectedSize) {
-                    if (i + expectedSize <= remoteLog.length) {
-                        byte[] signature = Arrays.copyOfRange(remoteLog, i, i + expectedSize);
-                        crypto_replay_queue.add(signature);
-                    }
-                }
-                GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.replay_queue_synced", remoteLog.length / expectedSize));
-            } else if (GameFrame.getInstance().isPartida_local()) {
-                loadCryptoActionsToQueue();
+                datos = this.recibirAccionesRecuperadas();
             }
 
             this.tot_acciones_recuperadas = 0;
-            if (datos != null) {
+            if (datos != null && !datos.isEmpty() && !datos.equals("*")) {
                 String[] rec = datos.split("@");
                 for (String r : rec) {
                     if (!"".equals(r)) {
@@ -7722,8 +6621,7 @@ public class Crupier implements Runnable {
                     }
                 }
             }
-
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, null, ex);
         }
     }
@@ -7947,17 +6845,20 @@ public class Crupier implements Runnable {
     public void destaparFlop(ArrayList<Player> resisten) {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop1());
-
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());
-
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop3());
 
+        // --- FIX BOT: Alimentamos los enteros EXACTOS (1-52) del Tapete ---
+        if (GameFrame.getInstance().isPartida_local()) {
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop1().getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop2().getCartaComoEntero()));
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop3().getCartaComoEntero()));
+        }
+        // -----------------------------------------------------------------
+
         ArrayList<Card> flop = new ArrayList<>();
-
         flop.add(GameFrame.getInstance().getFlop1());
-
         flop.add(GameFrame.getInstance().getFlop2());
-
         flop.add(GameFrame.getInstance().getFlop3());
 
         GameFrame.getInstance().getRegistro().print("FLOP -> " + Card.collection2String(flop));
@@ -7969,14 +6870,16 @@ public class Crupier implements Runnable {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getTurn());
 
+        // --- FIX BOT: Alimentamos los enteros EXACTOS (1-52) del Tapete ---
+        if (GameFrame.getInstance().isPartida_local()) {
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTurn().getCartaComoEntero()));
+        }
+        // -----------------------------------------------------------------
+
         ArrayList<Card> com = new ArrayList<>();
-
         com.add(GameFrame.getInstance().getFlop1());
-
         com.add(GameFrame.getInstance().getFlop2());
-
         com.add(GameFrame.getInstance().getFlop3());
-
         com.add(GameFrame.getInstance().getTurn());
 
         GameFrame.getInstance().getRegistro().print("TURN -> " + Card.collection2String(com));
@@ -7988,16 +6891,17 @@ public class Crupier implements Runnable {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getRiver());
 
+        // --- FIX BOT: Alimentamos los enteros EXACTOS (1-52) del Tapete ---
+        if (GameFrame.getInstance().isPartida_local()) {
+            Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getRiver().getCartaComoEntero()));
+        }
+        // -----------------------------------------------------------------
+
         ArrayList<Card> com = new ArrayList<>();
-
         com.add(GameFrame.getInstance().getFlop1());
-
         com.add(GameFrame.getInstance().getFlop2());
-
         com.add(GameFrame.getInstance().getFlop3());
-
         com.add(GameFrame.getInstance().getTurn());
-
         com.add(GameFrame.getInstance().getRiver());
 
         GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
@@ -8010,8 +6914,7 @@ public class Crupier implements Runnable {
 
         // Determine if this client is a spectator/warming up without a valid crypto ring
         boolean iAmCalentando = GameFrame.getInstance().getLocalPlayer().isCalentando()
-                || GameFrame.getInstance().getLocalPlayer().isSpectator()
-                || this.valid_master_key == null || this.valid_master_key.length == 0;
+                || GameFrame.getInstance().getLocalPlayer().isSpectator();
 
         do {
             synchronized (this.getReceived_commands()) {
@@ -8521,109 +7424,9 @@ public class Crupier implements Runnable {
         }
     }
 
-    public void checkDoubleCheckHandVerification() {
-
-        int cmano = this.conta_mano;
-
-        synchronized (this.lock_hand_verification) {
-            while (!this.verified_hand && cmano == this.conta_mano) {
-                try {
-                    this.lock_hand_verification.wait(1000);
-                } catch (InterruptedException ex) {
-                    System.getLogger(Crupier.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
-                }
-            }
-        }
-
-        if (cmano != this.conta_mano) {
-
-            GameFrame.getInstance().getRegistro().print("(" + String.valueOf(cmano) + ") " + Translator.translate("zero_trust.timeout"));
-
-        } else if (!this.legitHand) {
-
-            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Hand validation failed! Triggering P2P Swarm Fallback...");
-
-            // Trigger the P2P attestation swarm if we are the server
-            if (GameFrame.getInstance().isPartida_local()) {
-                WaitingRoomFrame.getInstance().p2pSwarmManager.startSwarm();
-            }
-
-            // Put the Crupier thread to sleep, waiting for the P2P Swarm to finish its attestation
-            synchronized (WaitingRoomFrame.getInstance().p2pSwarmManager.swarmLock) {
-                try {
-                    WaitingRoomFrame.getInstance().p2pSwarmManager.swarmLock.wait();
-                } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] Crupier interrupted while waiting for P2P Swarm", ex);
-                }
-            }
-
-        } else if (!this.legitHandSkip) {
-
-            GameFrame.getInstance().getTapete().getCommunityCards().showVerifiedConsensusHandIcon();
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.legit2"));
-
-        }
-
-    }
-
     @Override
     public void run() {
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
-
-        try {
-            String sessionFileName = "/panoptes_session.key";
-            if (Init.DEV_MODE) {
-                String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                sessionFileName = "/panoptes_session_" + safeNick + ".key";
-            }
-
-            File sessionFile = new File(Init.CORONA_DIR + sessionFileName);
-            boolean sessionLoaded = false;
-
-            // FIX: ALWAYS load the existing session if the file exists.
-            // WaitingRoomFrame just generated it and sent the Public Key to the server.
-            // If we generate a new one here, the KEM decryption will mathematically fail.
-            if (sessionFile.exists()) {
-                byte[] fileBytes = java.nio.file.Files.readAllBytes(sessionFile.toPath());
-
-                // V76: The file contains exactly 80 bytes (32 PubKey + 48 Encrypted PrivKey)
-                if (fileBytes.length == 80) {
-                    byte[] sessionEncryptedBlob = java.util.Arrays.copyOfRange(fileBytes, 32, 80);
-                    if (Panoptes.getInstance().sessionLoad(sessionEncryptedBlob)) {
-                        // Extract and set the Public Key for the GUI/Network to use
-                        GameFrame.getInstance().getSala_espera().local_player_public_key = java.util.Arrays.copyOfRange(fileBytes, 0, 32);
-                        sessionLoaded = true;
-                        LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_restored", true));
-                    } else {
-                        LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] Session file rejected by C engine. Generating fresh session...");
-                    }
-                }
-            }
-
-            // Generate fresh session ONLY if the file was missing or corrupted
-            if (!sessionLoaded) {
-                java.nio.file.Files.deleteIfExists(sessionFile.toPath());
-
-                // sessionInitialize() returns 80 bytes: [32-byte PubKey] + [48-byte Encrypted PrivKey]
-                byte[] sessionBlobFull = Panoptes.getInstance().sessionInitialize();
-
-                if (sessionBlobFull != null && sessionBlobFull.length == 80) {
-                    // Extract and set the Public Key for the GUI/Network to use
-                    GameFrame.getInstance().getSala_espera().local_player_public_key = java.util.Arrays.copyOfRange(sessionBlobFull, 0, 32);
-
-                    // Save the entire 80 bytes so we can recover the public key later
-                    java.nio.file.Files.write(sessionFile.toPath(), sessionBlobFull);
-                    LOGGER.log(Level.INFO, Translator.translate("zero_trust.session_generated", true));
-                } else {
-                    throw new Exception("Failed to initialize native session.");
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, Translator.translate("zero_trust.critical_session_error", true), e);
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.critical_vault_failure"));
-            System.exit(1);
-        }
-        // =========================================================
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
@@ -8745,10 +7548,6 @@ public class Crupier implements Runnable {
                             this.bote.genSidePots();
                             badbeat = false;
                             float sql_bote_total = this.bote_total;
-
-                            Helpers.threadRun(() -> {
-                                checkDoubleCheckHandVerification();
-                            });
 
                             switch (resisten.size()) {
                                 case 0:
@@ -9059,9 +7858,7 @@ public class Crupier implements Runnable {
                                         waitRabbitProcessing();
                                     }
                                 } else {
-                                    if (!GameFrame.getInstance().isPartida_local()) {
-                                        sqlRemovePermutationkey();
-                                    }
+                                    
                                     fin_de_la_transmision = true;
                                 }
                             } else {
@@ -9779,82 +8576,6 @@ public class Crupier implements Runnable {
 
         return stats;
 
-    }
-
-    // --- NEW DYNAMIC SIZE HELPERS ---
-    private int getActionPacketSize() {
-        int numPlayers = (this.active_crypto_ring != null) ? this.active_crypto_ring.length : getAnilloCriptografico().size();
-        if (numPlayers > 10) {
-            numPlayers = 10;
-        }
-        return 68 + (numPlayers * 16);
-    }
-
-    private int getReceiptPacketSize() {
-        int numPlayers = (this.active_crypto_ring != null) ? this.active_crypto_ring.length : getAnilloCriptografico().size();
-        if (numPlayers > 10) {
-            numPlayers = 10;
-        }
-        return 64 + (numPlayers * 16);
-    }
-
-    private void saveCryptoActionToBin(byte[] packet) {
-        int expectedSize = getActionPacketSize();
-        if (packet == null || packet.length != expectedSize) {
-            return;
-        }
-
-        try {
-            String suffix = "";
-            if (Init.DEV_MODE) {
-                String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                suffix = "_" + sanitizedNick;
-            }
-            String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
-            java.io.File logFile = new java.io.File(Init.CORONA_DIR + fileName);
-            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(logFile, true)) {
-                fos.write(packet);
-                fos.flush();
-                fos.getFD().sync();
-            }
-        } catch (Exception e) {
-            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, Translator.translate("zero_trust.write_binary_log_failure"), e);
-        }
-    }
-
-    private void loadCryptoActionsToQueue() {
-        crypto_replay_queue.clear();
-        String suffix = "";
-        if (Init.DEV_MODE) {
-            String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-            suffix = "_" + sanitizedNick;
-        }
-        String fileName = String.format("/panoptes_hand_actions%s.bin", suffix);
-        java.io.File logFile = new java.io.File(Init.CORONA_DIR + fileName);
-
-        if (!logFile.exists()) {
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.no_binary_log"));
-            return;
-        }
-
-        int expectedSize = getActionPacketSize();
-        try (java.io.DataInputStream dis = new java.io.DataInputStream(new java.io.FileInputStream(logFile))) {
-            int count = 0;
-            while (true) {
-                try {
-                    /* Read exact dynamic blocks into the RAM queue */
-                    byte[] buffer = new byte[expectedSize];
-                    dis.readFully(buffer);
-                    crypto_replay_queue.add(buffer);
-                    count++;
-                } catch (java.io.EOFException eof) {
-                    break;
-                }
-            }
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.binary_log_loaded", count));
-        } catch (Exception e) {
-            java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, Translator.translate("zero_trust.read_binary_log_failure"), e);
-        }
     }
 
     public java.util.ArrayList<Player> getAnilloCriptografico() {

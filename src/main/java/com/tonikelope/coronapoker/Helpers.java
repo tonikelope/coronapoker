@@ -37,7 +37,6 @@ import org.dosse.upnp.UPnP;
 import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
-import static com.tonikelope.coronapoker.Init.PANOPTES_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
 import static com.tonikelope.coronapoker.Init.GIFSICLE_DIR;
 import static com.tonikelope.coronapoker.Init.LOGS_DIR;
@@ -208,7 +207,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-import static com.tonikelope.coronapoker.Init.RADAR_DIR;
 import static com.tonikelope.coronapoker.Init.SETDPI_DIR;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -406,48 +404,36 @@ public class Helpers {
     }
 
     public static void cleanAllOldTempCrupierFiles() {
-
-        // Determine the file suffix once based on DEV_MODE
         String suffix = "";
         if (Init.DEV_MODE) {
             String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
             suffix = "_" + sanitizedNick;
         }
 
-        // Array of file templates using %s as a placeholder for the suffix
         String[] fileTemplates = {
             "/balance_backup%s.txt",
-            "/panoptes_session%s.key",
-            "/panoptes_entropy%s.bin",
-            "/panoptes_hand_commit%s.bin",
-            "/panoptes_hand_actions%s.bin"
+            "/sra_hand_commit%s.bin",
+            "/sra_hand_actions%s.bin"
         };
 
-        // Iterate and delete all temporary files
         for (String template : fileTemplates) {
             String fileName = String.format(template, suffix);
             try {
                 java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
-            } catch (IOException e) {
-                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "Failed to delete temporary file: " + fileName, e);
-            }
+            } catch (IOException e) {}
         }
     }
 
     public static void cleanHandCrupierTempFiles() {
         String suffix = Init.DEV_MODE ? "_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") : "";
-        // ¡OJO! Solo borramos los logs binarios de la mano que acaba de terminar
         String[] fileTemplates = {
-            "/panoptes_entropy%s.bin",
-            "/panoptes_hand_commit%s.bin",
-            "/panoptes_hand_actions%s.bin"
+            "/sra_hand_commit%s.bin",
+            "/sra_hand_actions%s.bin"
         };
-
         for (String template : fileTemplates) {
             try {
                 java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + String.format(template, suffix)));
-            } catch (IOException e) {
-            }
+            } catch (IOException e) {}
         }
     }
 
@@ -1740,38 +1726,9 @@ public class Helpers {
         }
     }
 
-    public static boolean screenshotWindows() {
-        try {
-            /* Call the native layer to capture the window bypassing the protection (Mode 1) */
-            byte[] imageBytes = Panoptes.getInstance().takeTacticalScreenshot(1);
-
-            if (imageBytes != null && imageBytes.length > 0) {
-                /* The byte array is already JPEG encoded by the C layer, write it directly */
-                File destFile = new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + System.currentTimeMillis() + ".jpg");
-
-                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(destFile)) {
-                    fos.write(imageBytes);
-                    fos.flush();
-                }
-
-                LOGGER.log(Level.INFO, "Tactical screenshot saved: {0}", destFile.getName());
-
-                return true;
-
-            } else {
-                LOGGER.log(Level.WARNING, "Tactical screenshot failed. (Window minimized/hidden or 5-second cooldown active)");
-            }
-
-        } catch (Exception ex) {
-            java.util.logging.Logger.getLogger(Helpers.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-
-        return false;
-    }
-
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, PANOPTES_DIR, SCREENSHOTS_DIR, CACHE_DIR, RADAR_DIR, CHAT_IMAGE_CACHE}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, CHAT_IMAGE_CACHE}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {
@@ -3257,6 +3214,83 @@ public class Helpers {
 
         }
     }
+    
+   /* public static void ensureRequiredJvmParameters(String[] args, Class<?> mainClass) {
+        List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
+
+        // 1. Check standard JVM flags safely by iterating
+        boolean hasNativeAccess = false;
+        boolean hasDisableAttach = false;
+
+        for (String arg : jvmArgs) {
+            if (arg.contains("--enable-native-access=ALL-UNNAMED")) {
+                hasNativeAccess = true;
+            }
+            if (arg.contains("-XX:+DisableAttachMechanism")) {
+                hasDisableAttach = true;
+            }
+        }
+
+        // 2. Check properties directly from the System
+        String currentLibPath = System.getProperty("java.library.path");
+        boolean hasLibraryPath = currentLibPath != null && currentLibPath.contains(DIR);
+
+        // Check if IPv4 stack is explicitly preferred
+        String preferIPv4 = System.getProperty("java.net.preferIPv4Stack");
+        boolean hasIPv4Forced = "true".equals(preferIPv4);
+
+        // 3. If all parameters are present, continue normal execution
+        if (hasNativeAccess && hasLibraryPath && hasDisableAttach && hasIPv4Forced) {
+            return;
+        }
+
+        LOGGER.log(Level.INFO, "Missing required JVM security, library, or network parameters. Restarting automatically...");
+
+        try {
+            // 4. Build the restart command
+            String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
+            String classpath = System.getProperty("java.class.path");
+
+            List<String> command = new ArrayList<>();
+            command.add(javaBin);
+
+            // Inject the required parameters
+            command.add("--enable-native-access=ALL-UNNAMED");
+            command.add("-Djava.library.path=" + DIR);
+            command.add("-Djava.net.preferIPv4Stack=true");
+            command.add("-XX:+DisableAttachMechanism");
+
+            // Add classpath and main class
+            command.add("-cp");
+            command.add(classpath);
+            command.add(mainClass.getName());
+
+            // Pass along the original application arguments
+            if (args != null) {
+                command.addAll(Arrays.asList(args));
+            }
+
+            // 5. Configure the new process
+            ProcessBuilder builder = new ProcessBuilder(command);
+
+            // 6. Sanitize the environment variables to prevent silent agent injection
+            Map<String, String> env = builder.environment();
+            env.remove("JAVA_TOOL_OPTIONS");
+            env.remove("_JAVA_OPTIONS");
+            env.remove("JDK_JAVA_OPTIONS");
+
+            // 7. Launch the new process
+            builder.inheritIO();
+            builder.start();
+
+            // 8. Terminate the current flawed instance
+            System.exit(0);
+
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error while restarting JVM", e);
+            System.exit(1);
+        }
+    }*/
 
     public static void zoomFonts(final Component component, final float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 

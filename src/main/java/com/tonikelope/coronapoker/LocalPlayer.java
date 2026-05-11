@@ -54,7 +54,6 @@ import java.math.RoundingMode;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -250,10 +249,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    public boolean isRADAR_ckecking() {
-        return radar_ckecking;
-    }
-
     public void setRabbitJugada(String jugada) {
         Helpers.GUIRun(() -> {
             setPlayerActionIcon("action/rabbit_action.png");
@@ -297,66 +292,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.pausar(50); //Hay que esperar un extra para asegurarnos que la imagen nueva es estable y evitar capturar las cartas en una transición (con algo de transparencia) (RARO)
 
         return (System.currentTimeMillis() >= time_limit);
-    }
-
-    public void RADAR(String requester, byte[] requesterPubKey) {
-        Helpers.threadRun(() -> {
-            synchronized (radar_lock) {
-                try {
-                    radar_ckecking = true;
-
-                    // 1. SCREEN CAPTURE
-                    byte[] imageInByte = null;
-                    boolean screenshotError = false;
-                    long timestamp = System.currentTimeMillis();
-
-                    if (Helpers.OSValidator.isWindows()) {
-                        // FIX: Updated to match JNI Panoptes stub
-                        imageInByte = Panoptes.getInstance().telemetryCaptureScreenContext(2);
-                        screenshotError = (imageInByte == null);
-                    }
-
-                    // 2. PANOPTES KEM ENCRYPTION
-                    // FIX: Updated to match JNI Panoptes stub.
-                    // Java passes the requester's public key; Panoptes C-engine handles the private key internally.
-                    byte[] encryptedRadarPayload = Panoptes.getInstance().telemetryGetSystemRadar(requesterPubKey);
-
-                    // Fallback to asterisk if the scanner fails (e.g. memory extraction issues)
-                    String b64RadarData = (encryptedRadarPayload != null)
-                            ? Base64.getEncoder().encodeToString(encryptedRadarPayload)
-                            : "*";
-
-                    radar_ckecking = false;
-                    Audio.playWavResource("misc/radar.wav");
-
-                    // 3. SMART RESPONSE ROUTING
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        // --- SERVER BEHAVIOR ---
-                        // Broadcasting own radar to clients. Tagged with local nickname.
-                        String packetPayload = "RADAR#" + Base64.getEncoder().encodeToString(this.nickname.getBytes("UTF-8"))
-                                + "#" + (imageInByte != null ? Base64.getEncoder().encodeToString(imageInByte) : "*")
-                                + "#" + b64RadarData
-                                + "#" + String.valueOf(timestamp);
-
-                        GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer(packetPayload);
-
-                    } else {
-                        // --- CLIENT BEHAVIOR ---
-                        // Sending radar upstream. Tagged with the REQUESTER so the server can route it.
-                        String packetPayload = "RADAR#" + Base64.getEncoder().encodeToString(requester.getBytes("UTF-8"))
-                                + "#" + (imageInByte != null ? Base64.getEncoder().encodeToString(imageInByte) : "*")
-                                + "#" + b64RadarData
-                                + "#" + String.valueOf(timestamp);
-
-                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer(packetPayload);
-                    }
-
-                } catch (Exception ex) {
-                    Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
-                    radar_ckecking = false;
-                }
-            }
-        });
     }
 
     public void refreshNotifyChatLabel() {
@@ -1328,7 +1263,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         @Override
                         public void actionPerformed(ActionEvent ae) {
 
-                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
                                 response_counter--;
 
@@ -1342,7 +1277,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         }
                                         Color orig_color = border_color;
                                         hurryup_timer = new Timer(1000, (ActionEvent ae1) -> {
-                                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && !isRADAR_ckecking() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
+                                            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().isTimba_pausada() && hurryup_timer.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
                                                 if (border_color != Color.GRAY) {
                                                     setPlayerBorder(Color.GRAY);
                                                     setActionBackground(Color.GRAY);
@@ -2507,12 +2442,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         synchronized (GameFrame.getInstance().getCrupier().getLock_mostrar()) {
                             if (GameFrame.getInstance().getCrupier().isShow_time()) {
                                 Helpers.threadRun(() -> {
-                                    if (GameFrame.getInstance().isPartida_local()) {
-                                        GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
-                                    } else {
-                                        GameFrame.getInstance().getCrupier().sendGAMECommandToServer("SHOWMYCARDS");
-                                        GameFrame.getInstance().getCrupier().setTiempo_pausa(Crupier.PAUSA_ENTRE_MANOS);
-                                    }
+                                    GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nickname);
                                 });
                                 ArrayList<Card> cartas_jugada = new ArrayList<>(getHoleCards());
                                 String hole_cards_string = Card.collection2String(getHoleCards());

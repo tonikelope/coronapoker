@@ -1,33 +1,20 @@
 /*
- * Copyright (C) 2020 tonikelope
- _              _ _        _                 
-| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
-| __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
-| || (_) | | | | |   <  __/ | (_) | |_) |  __/
- \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- ____    ___  ____    ___  
-|___ \  / _ \|___ \  / _ \ 
-  __) || | | | __) || | | |
- / __/ | |_| |/ __/ | |_| |
-|_____| \___/|_____| \___/ 
-
-https://github.com/tonikelope/coronapoker
+ * Copyright (C) 2026 tonikelope
+ *
+ * Panoptes V2: Zero-Trust Pure Java EC-SRA Cryptographic Engine.
  */
 package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.POISON_PILL;
-import static com.tonikelope.coronapoker.WaitingRoomFrame.SEC_PING_INTERVAL_MS;
 import java.awt.Image;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
-import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -39,6 +26,7 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
 public class Participant implements Runnable {
+    private static final Logger LOGGER = Logger.getLogger(Participant.class.getName());
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
     public static final int RECIBIDO_TIMEOUT = 5000;
@@ -51,8 +39,6 @@ public class Participant implements Runnable {
     private final WaitingRoomFrame sala_espera;
     private final String nick;
     private final File avatar;
-    private byte[] panoptes_public_key = null;
-    private byte[] panoptes_private_key = null; // Bots only
 
     private volatile Socket socket = null;
     private volatile Socket recon_socket = null;
@@ -65,9 +51,6 @@ public class Participant implements Runnable {
     private volatile SecretKeySpec aes_key = null;
     private volatile SecretKeySpec hmac_key = null;
     private volatile SecretKeySpec hmac_key_orig = null;
-    private volatile SecretKeySpec permutation_key = null;
-    private volatile String permutation_key_hash = null;
-    private volatile int new_hand_ready = 0;
     private volatile boolean unsecure_player = false;
     private volatile boolean reset_socket = false;
     private volatile String avatar_chat_src;
@@ -77,65 +60,26 @@ public class Participant implements Runnable {
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
     private volatile int pong2_timeout_counter = 0;
-
-    private byte[] token_flop = null;
-    private byte[] token_turn = null;
-    private byte[] token_river = null;
     private volatile byte[] received_token = null;
-    private volatile byte[] chain_receipt = null;
-    private byte[] panoptes_hand_seed = null;
-    private byte[] mk_share = null;
-    private byte[] ephemeral_pub_key = null;
-    private byte[] encrypted_cards = null;
-    private byte[] panoptes_hand_commitment = null;
-    private volatile int new_hand_seed_ready = 0;
-
-    public byte[] getPanoptes_hand_commitment() {
-        return panoptes_hand_commitment;
+    private volatile int new_hand_ready = 0;
+    
+    // --- SRA ZERO-TRUST VARIABLES ---
+    private volatile byte[] sra_unlock = null; // Master key to remove player lock
+    
+    public byte[] getSra_unlock() {
+        return sra_unlock;
     }
 
-    public void setPanoptes_hand_commitment(byte[] panoptes_hand_commitment) {
-        this.panoptes_hand_commitment = panoptes_hand_commitment;
+    public void setSra_unlock(byte[] sra_unlock) {
+        this.sra_unlock = sra_unlock;
     }
 
-    public int getNew_hand_seed_ready() {
-        return new_hand_seed_ready;
+    public int getNew_hand_ready() {
+        return new_hand_ready;
     }
 
-    public void setNew_hand_seed_ready(int new_hand_seed_ready) {
-        this.new_hand_seed_ready = new_hand_seed_ready;
-    }
-
-    public byte[] getChain_receipt() {
-        return chain_receipt;
-    }
-
-    public void setChain_receipt(byte[] chain_receipt) {
-        this.chain_receipt = chain_receipt;
-    }
-
-    public byte[] getToken_flop() {
-        return token_flop;
-    }
-
-    public void setToken_flop(byte[] token_flop) {
-        this.token_flop = token_flop;
-    }
-
-    public byte[] getToken_turn() {
-        return token_turn;
-    }
-
-    public void setToken_turn(byte[] token_turn) {
-        this.token_turn = token_turn;
-    }
-
-    public byte[] getToken_river() {
-        return token_river;
-    }
-
-    public void setToken_river(byte[] token_river) {
-        this.token_river = token_river;
+    public void setNew_hand_ready(int new_hand_ready) {
+        this.new_hand_ready = new_hand_ready;
     }
 
     public byte[] getReceived_token() {
@@ -144,54 +88,6 @@ public class Participant implements Runnable {
 
     public void setReceived_token(byte[] received_token) {
         this.received_token = received_token;
-    }
-
-    public byte[] getPanoptes_hand_seed() {
-        return panoptes_hand_seed;
-    }
-
-    public void setPanoptes_hand_seed(byte[] panoptes_hand_seed) {
-        this.panoptes_hand_seed = panoptes_hand_seed;
-    }
-
-    public byte[] getMk_share() {
-        return mk_share;
-    }
-
-    public void setMk_share(byte[] mk_share) {
-        this.mk_share = mk_share;
-    }
-
-    public byte[] getEphemeral_pub_key() {
-        return ephemeral_pub_key;
-    }
-
-    public void setEphemeral_pub_key(byte[] ephemeral_pub_key) {
-        this.ephemeral_pub_key = ephemeral_pub_key;
-    }
-
-    public byte[] getEncrypted_cards() {
-        return encrypted_cards;
-    }
-
-    public void setEncrypted_cards(byte[] encrypted_cards) {
-        this.encrypted_cards = encrypted_cards;
-    }
-
-    public byte[] getPanoptes_public_key() {
-        return panoptes_public_key;
-    }
-
-    public void setPanoptes_public_key(byte[] pk) {
-        this.panoptes_public_key = pk;
-    }
-
-    public byte[] getPanoptes_private_key() {
-        return panoptes_private_key;
-    }
-
-    public void setPanoptes_private_key(byte[] pk) {
-        this.panoptes_private_key = pk;
     }
 
     public int getLatency2() {
@@ -211,21 +107,6 @@ public class Participant implements Runnable {
         this.aes_key = aes_k;
         this.hmac_key = hmac_k;
         this.hmac_key_orig = hmac_k;
-
-        if (this.aes_key != null) {
-            try {
-                MessageDigest md = MessageDigest.getInstance("MD5");
-                md.update(this.nick.getBytes("UTF-8"));
-                md.update(this.sala_espera.getServer_nick().getBytes("UTF-8"));
-                md.update(this.aes_key.getEncoded());
-                md.update(this.hmac_key.getEncoded());
-                this.permutation_key = new SecretKeySpec(md.digest(), "AES");
-                md = MessageDigest.getInstance("MD5");
-                this.permutation_key_hash = Base64.getEncoder().encodeToString(md.digest(this.permutation_key.getEncoded()));
-            } catch (Exception ex) {
-                Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
 
         if (avatar != null) {
             try {
@@ -267,26 +148,6 @@ public class Participant implements Runnable {
 
     public String getAvatar_chat_src() {
         return avatar_chat_src;
-    }
-
-    private void runSecPingPongThread() {
-        Helpers.threadRun(() -> {
-            Panoptes panoptes = Panoptes.getInstance();
-            java.security.SecureRandom rng = new java.security.SecureRandom();
-            while (!this.exit && !this.isCpu()) {
-                String ownerId = "PARTICIPANT_" + this.hashCode();
-                try {
-                    String localIpString = this.socket.getLocalAddress().getHostAddress();
-                    int serverLocalPort = this.socket.getLocalPort();
-                    byte[] challenge = panoptes.generateChallenge(ownerId, serverLocalPort);
-                    String challengeBase64 = java.util.Base64.getEncoder().encodeToString(challenge).replaceAll("\\s+", "");
-                    writeCommandFromServer(Helpers.encryptCommand("SECPING#" + challengeBase64, this.aes_key, this.hmac_key));
-                } catch (Exception e) {
-                }
-                int jitter = rng.nextInt((int) SEC_PING_INTERVAL_MS);
-                Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
-            }
-        });
     }
 
     private void runPingPongThread() {
@@ -393,45 +254,6 @@ public class Participant implements Runnable {
                                     ping_pong_lock.notifyAll();
                                 }
                                 break;
-                            case "SECPONG":
-                                final String[] partes_final_secpong = partes_comando;
-                                Helpers.threadRun(() -> {
-                                    try {
-                                        byte[] signatureBytes = Base64.getDecoder().decode(partes_final_secpong[1]);
-                                        String ownerId = "PARTICIPANT_" + this.hashCode();
-                                        int isLegit = Panoptes.getInstance().verifyResponse(ownerId, signatureBytes);
-
-                                        switch (isLegit) {
-                                            case Panoptes.STATUS_FAILED:
-                                                if (!this.unsecure_player) {
-                                                    this.setUnsecure_player(true);
-                                                }
-                                                break;
-                                        }
-                                    } catch (Exception e) {
-                                    }
-                                });
-                                break;
-                            case "SECPING":
-                                try {
-                                    byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                                    byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                                    String signatureBase64 = signatureBytes != null ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "") : "";
-                                    writeCommandFromServer(Helpers.encryptCommand("SECPONG#" + signatureBase64, this.aes_key, this.hmac_key));
-                                } catch (Exception e) {
-                                }
-                                break;
-                            // --- V81 P2P SERVER-SIDE ROUTING (ROOT COMMANDS) ---
-                            case "P2P_CHALLENGES":
-                                WaitingRoomFrame.getInstance().p2pSwarmManager.receiveChallenges(this.nick, partes_comando.length > 1 ? partes_comando[1] : "*");
-                                break;
-                            case "P2P_RESPONSES":
-                                WaitingRoomFrame.getInstance().p2pSwarmManager.receiveResponses(this.nick, partes_comando.length > 1 ? partes_comando[1] : "*");
-                                break;
-                            case "P2P_VERIFY_DONE":
-                                WaitingRoomFrame.getInstance().p2pSwarmManager.receiveVerifyDone(this.nick);
-                                break;
-                            // ---------------------------------------------------
                             default:
                                 try {
                                     socket_reader_queue.put(mensaje_recibido);
@@ -523,7 +345,6 @@ public class Participant implements Runnable {
 
     public void setUnsecure_player(boolean val) {
         if (!this.unsecure_player && val) {
-
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeInformativo(WaitingRoomFrame.getInstance(), "[" + nick + "] " + Translator.translate("radar.cuidado_el_ejecutable_del_juego"), new ImageIcon(Init.class.getResource("/images/shield.png")));
             });
@@ -533,18 +354,6 @@ public class Participant implements Runnable {
             }
         }
         this.unsecure_player = val;
-    }
-
-    public String getPermutation_key_hash() {
-        return permutation_key_hash;
-    }
-
-    public SecretKeySpec getPermutation_key() {
-        return permutation_key;
-    }
-
-    public int getNew_hand_ready() {
-        return new_hand_ready;
     }
 
     public Object getParticipant_socket_lock() {
@@ -821,69 +630,20 @@ public class Participant implements Runnable {
                             case "GAME":
                                 String subcomando = partes_comando[2];
                                 int command_id = Integer.parseInt(partes_comando[1]);
-                                this.writeCommandFromServer(("CONF#" + String.valueOf(command_id + 1) + "#OK"));
+                                
+                                /* FIX: Encrypt the confirmation packet to prevent client-side decryption failures and deadlocks */
+                                try {
+                                    String confMsg = "CONF#" + String.valueOf(command_id + 1) + "#OK";
+                                    this.writeCommandFromServer(Helpers.encryptCommand(confMsg, this.aes_key, this.hmac_key));
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.SEVERE, "Failed to encrypt CONF message", e);
+                                }
+                                
                                 if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
                                     last_received.put(subcomando, command_id);
 
                                     switch (subcomando) {
-                                        case "RADAR":
-                                            final String[] partes_final_radar = partes_comando;
-                                            Helpers.threadRun(() -> {
-                                                try {
-                                                    if (partes_final_radar.length == 5) {
-                                                        String suspicious = new String(Base64.getDecoder().decode(partes_final_radar[3]), "UTF-8");
-                                                        byte[] requesterPubKey = Base64.getDecoder().decode(partes_final_radar[4]);
-                                                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(suspicious)) {
-                                                            GameFrame.getInstance().getLocalPlayer().RADAR(nick, requesterPubKey);
-                                                        } else if (!GameFrame.getInstance().getParticipantes().get(suspicious).isCpu()) {
-                                                            GameFrame.getInstance().getParticipantes().get(suspicious).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_final_radar[4]);
-                                                        }
-                                                    } else if (partes_final_radar.length == 7) {
-                                                        String requester = new String(Base64.getDecoder().decode(partes_final_radar[3]), "UTF-8");
-                                                        if (GameFrame.getInstance().getLocalPlayer().getNickname().equals(requester)) {
-                                                            byte[] imageBytes = partes_final_radar[4].equals("*") ? null : Base64.getDecoder().decode(partes_final_radar[4]);
-                                                            byte[] encryptedRadarData = partes_final_radar[5].equals("*") ? null : Base64.getDecoder().decode(partes_final_radar[5]);
-                                                            long timestamp = Long.parseLong(partes_final_radar[6]);
-                                                            StringBuilder sb = new StringBuilder();
-                                                            sb.append("  ____                            ____       _                ____     _    ____    _    ____  \n"
-                                                                    + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
-                                                                    + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
-                                                                    + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
-                                                                    + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
-                                                                    + "                                                                                               \n\n");
-                                                            sb.append("CoronaPoker Radar -> [").append(nick).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
-                                                            if (encryptedRadarData != null) {
-                                                                byte[] decryptedRadarBytes = Panoptes.getInstance().telemetryDecryptRadarData(encryptedRadarData);
-                                                                if (decryptedRadarBytes != null) {
-                                                                    String rawIntel = new String(decryptedRadarBytes, "UTF-8");
-                                                                    sb.append(rawIntel);
-                                                                } else {
-                                                                    sb.append("************************************************************************\n");
-                                                                    sb.append("[!] CRITICAL SECURITY ERROR: INTEGRITY CHECK FAILED (MAC POLY1305)\n");
-                                                                    sb.append("Packet was altered in transit or Chaos/KEM signature is invalid.\n");
-                                                                    sb.append("************************************************************************\n");
-                                                                }
-                                                            } else {
-                                                                sb.append("[!] No encrypted process data received.\n");
-                                                            }
-                                                            GameFrame.getInstance().getCrupier().saveRADARLog(nick, imageBytes, sb.toString(), timestamp);
-                                                        } else {
-                                                            GameFrame.getInstance().getParticipantes().get(requester).writeGAMECommandFromServer("RADAR#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + partes_final_radar[4] + "#" + partes_final_radar[5] + "#" + partes_final_radar[6]);
-                                                        }
-                                                    }
-                                                } catch (Exception ex) {
-                                                }
-                                            });
-                                            break;
-                                        case "PERMUTATIONKEY":
-                                            final String[] partes_final_permutationkey = partes_comando;
-                                            Helpers.threadRun(() -> {
-                                                synchronized (GameFrame.getInstance().getCrupier().getPermutation_key_lock()) {
-                                                    GameFrame.getInstance().getCrupier().setPermutation_key(partes_final_permutationkey[3]);
-                                                    GameFrame.getInstance().getCrupier().getPermutation_key_lock().notifyAll();
-                                                }
-                                            });
-                                            break;
+                                        
                                         case "PAUSE":
                                             final String[] partes_final_pause = partes_comando;
                                             Helpers.threadRun(() -> {
@@ -908,33 +668,32 @@ public class Participant implements Runnable {
                                         case "REBUYNOW":
                                             GameFrame.getInstance().getCrupier().rebuyNow(nick, Integer.parseInt(partes_comando[3]));
                                             break;
-                                        case "SHOWMYCARDS":
+                                        case "SHOWCARDS":
                                             Helpers.threadRun(() -> {
-                                                GameFrame.getInstance().getCrupier().showAndBroadcastPlayerCards(nick);
+                                                try {
+                                                    String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                    String c1 = partes_comando[4];
+                                                    String c2 = partes_comando[5];
+                                                    
+                                                    // 1. El servidor pinta las cartas en su propia mesa
+                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, c1, c2);
+                                                    
+                                                    // 2. Efecto Espejo: Si somos el Host, rebotamos las cartas al resto de la red
+                                                    if (GameFrame.getInstance().isPartida_local()) {
+                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + c1 + "#" + c2;
+                                                        // Le pasamos 'shNick' al final para excluir al jugador que originalmente envió el comando
+                                                        GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
+                                                    }
+                                                } catch(Exception e) {
+                                                    LOGGER.log(Level.SEVERE, "Error procesando/rebotando SHOWCARDS en servidor", e);
+                                                }
                                             });
                                             break;
-                                        case "HAND_COMMIT":
+                                        case "HAND_READY": // SRA LIGHTWEIGHT START COMMAND
                                             try {
                                                 this.new_hand_ready = Integer.parseInt(partes_comando[3]);
-                                                if (partes_comando.length > 4) {
-                                                    byte[] clientCommit = Base64.getDecoder().decode(partes_comando[4]);
-                                                    this.setPanoptes_hand_commitment(clientCommit);
-                                                }
-                                            } catch (Exception e) {
-                                            }
-                                            synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
-                                                GameFrame.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
-                                            }
-                                            break;
-                                        case "HAND_SEED":
-                                            try {
-                                                this.new_hand_seed_ready = Integer.parseInt(partes_comando[3]);
-                                                if (partes_comando.length > 4) {
-                                                    byte[] clientSeed = Base64.getDecoder().decode(partes_comando[4]);
-                                                    this.setPanoptes_hand_seed(clientSeed);
-                                                }
-                                            } catch (Exception e) {
-                                            }
+                                            } catch (Exception e) {}
+                                            
                                             synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
                                                 GameFrame.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
                                             }
@@ -958,27 +717,18 @@ public class Participant implements Runnable {
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                            /* [!] FIX: Testament base is now 80 bytes. N-MAC signatures are appended at the end */
-                                                            if (testament.length >= 80) {
-                                                                p.setChain_receipt(testament);
-                                                                p.setMk_share(Arrays.copyOfRange(testament, 0, 32));
-                                                                p.setToken_flop(Arrays.copyOfRange(testament, 32, 48));
-                                                                p.setToken_turn(Arrays.copyOfRange(testament, 48, 64));
-                                                                p.setToken_river(Arrays.copyOfRange(testament, 64, 80));
+                                                            // PURE SRA FIX: The testament is literally just the 32-byte SRA Unlock key.
+                                                            if (testament.length == 32) {
+                                                                p.setSra_unlock(testament);
                                                             }
                                                         } catch (Exception e) {
                                                         }
                                                     }
-                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
-                                                } else {
-                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                 }
+                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
                                             } else {
-                                                if (sala_espera != null) {
-                                                    sala_espera.borrarParticipante(exitingNick);
-                                                }
+                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                             }
-
                                             if (this.nick.equals(exitingNick)) {
                                                 exit = true;
                                             }

@@ -31,7 +31,6 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.io.File;
@@ -161,12 +160,6 @@ public class NewGameDialog extends JDialog {
             bots_label.setVisible(false);
             bots_combobox.setVisible(false);
         }
-
-        radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
-
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
-
-        radar_checkbox.setToolTipText(radar_label.getToolTipText());
 
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
 
@@ -342,21 +335,11 @@ public class NewGameDialog extends JDialog {
 
         doblar_ciegas_spinner_minutos.setEnabled(false);
 
-        radar_checkbox.setSelected(GameFrame.RADAR_AVAILABLE);
-
-        radar_label.setEnabled(GameFrame.RADAR_AVAILABLE);
-
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
-        radar_label.putClientProperty("i18n.tooltip_key", radar_checkbox.isSelected() ? "radar.active" : "radar.inactive");
-
-        radar_checkbox.setToolTipText(radar_label.getToolTipText());
-        radar_checkbox.putClientProperty("i18n.tooltip_key", radar_label.getClientProperty("i18n.tooltip_key"));
 
         if (partida_local) {
             upnp_checkbox.setSelected(Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("upnp", "true")));
         } else {
             upnp_checkbox.setVisible(false);
-            radar_checkbox.setVisible(false);
             recover_panel.setVisible(false);
         }
 
@@ -559,8 +542,6 @@ public class NewGameDialog extends JDialog {
         recover_checkbox = new javax.swing.JCheckBox();
         recover_checkbox_label = new javax.swing.JLabel();
         game_combo = new javax.swing.JComboBox<>();
-        radar_label = new javax.swing.JLabel();
-        radar_checkbox = new javax.swing.JCheckBox();
         cancel_button = new javax.swing.JButton();
         cancel_button.putClientProperty("i18n.key", "ui.cancelar");
         bots_combobox = new javax.swing.JComboBox<>();
@@ -1004,46 +985,24 @@ public class NewGameDialog extends JDialog {
             }
         });
 
-        radar_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        radar_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/shield.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)));
-        radar_label.setText("RADAR");
-        radar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        radar_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                radar_labelMouseClicked(evt);
-            }
-        });
-
-        radar_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        radar_checkbox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                radar_checkboxActionPerformed(evt);
-            }
-        });
-
         javax.swing.GroupLayout recover_panelLayout = new javax.swing.GroupLayout(recover_panel);
         recover_panel.setLayout(recover_panelLayout);
         recover_panelLayout.setHorizontalGroup(
             recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(recover_panelLayout.createSequentialGroup()
-                .addComponent(radar_checkbox)
-                .addGap(0, 0, 0)
-                .addComponent(radar_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(85, 85, 85)
                 .addComponent(recover_checkbox)
                 .addGap(0, 0, 0)
                 .addComponent(recover_checkbox_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_combo, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(game_combo, 0, 428, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
         recover_panelLayout.setVerticalGroup(
             recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(recover_panelLayout.createSequentialGroup()
                 .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(radar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(recover_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(radar_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(recover_checkbox_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(game_combo))
                 .addGap(0, 0, Short.MAX_VALUE))
@@ -1240,8 +1199,6 @@ public class NewGameDialog extends JDialog {
                 }
 
                 Helpers.savePropertiesFile();
-
-                GameFrame.RADAR_AVAILABLE = radar_checkbox.isSelected();
 
                 GameFrame.setRECOVER(this.recover_checkbox.isSelected());
 
@@ -1607,24 +1564,6 @@ public class NewGameDialog extends JDialog {
         this.nick_labelMouseClicked(evt);
     }//GEN-LAST:event_avatar_labelMouseClicked
 
-    private void radar_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_radar_labelMouseClicked
-        // TODO add your handling code here:
-        radar_checkbox.doClick();
-    }//GEN-LAST:event_radar_labelMouseClicked
-
-    private void radar_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_radar_checkboxActionPerformed
-        // TODO add your handling code here:
-
-        if (radar_checkbox.isSelected()) {
-            Helpers.mostrarMensajeInformativo(this, Translator.translate("ui.radar_info_msg"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(getClass().getResource("/images/radar.png")));
-        }
-
-        radar_label.setToolTipText(Translator.translate(radar_checkbox.isSelected() ? "radar.active" : "radar.inactive"));
-        radar_label.setEnabled(radar_checkbox.isSelected());
-        radar_checkbox.setToolTipText(radar_label.getToolTipText());
-
-    }//GEN-LAST:event_radar_checkboxActionPerformed
-
     private void cancel_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancel_buttonActionPerformed
         // TODO add your handling code here:
         dispose();
@@ -1691,8 +1630,6 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel nick_pass_panel;
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
-    private javax.swing.JCheckBox radar_checkbox;
-    private javax.swing.JLabel radar_label;
     private javax.swing.JCheckBox rebuy_checkbox;
     private javax.swing.JLabel recomprar_label;
     private javax.swing.JCheckBox recover_checkbox;

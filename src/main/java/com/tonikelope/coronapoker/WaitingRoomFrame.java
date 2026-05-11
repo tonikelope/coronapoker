@@ -42,7 +42,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
@@ -92,7 +91,6 @@ import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
 import static com.tonikelope.coronapoker.Init.DEV_MODE;
-import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,7 +126,6 @@ public class WaitingRoomFrame extends JFrame {
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Map<String, byte[]> localP2POriginalNonces = new ConcurrentHashMap<>();
-    public final P2PSwarmManager p2pSwarmManager = new P2PSwarmManager();
     private final Object local_client_socket_lock = new Object();
     private final Object ping_pong_lock = new Object();
     private final Object lock_new_client = new Object();
@@ -146,9 +143,6 @@ public class WaitingRoomFrame extends JFrame {
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
     private volatile SecretKeySpec local_client_hmac_key_orig = null;
-    private volatile SecretKeySpec local_client_permutation_key = null;
-    public volatile byte[] local_player_public_key = null;
-    private volatile String local_client_permutation_key_hash = null;
     private volatile Socket local_client_socket = null;
     private volatile BufferedReader local_client_buffer_read_is = null;
     private volatile String server_ip_port;
@@ -193,527 +187,6 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-    public class P2PSwarmManager {
-
-        private final Map<String, Map<String, String>> generatedChallenges = new ConcurrentHashMap<>();
-        private final Map<String, Map<String, String>> solvedResponses = new ConcurrentHashMap<>();
-        private java.util.concurrent.CountDownLatch challengesLatch;
-        private java.util.concurrent.CountDownLatch responsesLatch;
-        private java.util.concurrent.CountDownLatch verifyDoneLatch;
-        private static final int SWARM_TIMEOUT = 30;
-
-        // Lock to pause the Crupier during mid-game attestations
-        public final Object swarmLock = new Object();
-
-        private volatile boolean swarmActive = false;
-
-        // Unified helper to update the UI depending on whether we are in the Lobby or Mid-Game
-        private void updateSwarmUI(String text) {
-            Helpers.GUIRun(() -> {
-                if (isPartida_empezada() && GameFrame.getInstance() != null) {
-                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
-                } else {
-                    status.setText(text);
-                }
-            });
-        }
-
-        private void sendP2PCommandToServer(String command) {
-            if (isServer()) {
-                String[] partes = command.split("#");
-                if (partes[0].equals("P2P_CHALLENGES")) {
-                    receiveChallenges(local_nick, partes.length > 1 ? partes[1] : "*");
-                } else if (partes[0].equals("P2P_RESPONSES")) {
-                    receiveResponses(local_nick, partes.length > 1 ? partes[1] : "*");
-                } else if (partes[0].equals("P2P_VERIFY_DONE")) {
-                    receiveVerifyDone(local_nick);
-                }
-            } else {
-                try {
-                    writeCommandToServer(Helpers.encryptCommand(command, local_client_aes_key, local_client_hmac_key));
-                } catch (Exception e) {
-                }
-            }
-        }
-
-        private void broadcastP2PCommandFromServer(String command, Participant skip) {
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            synchronized (participantes) {
-                for (Participant p : participantes.values()) {
-                    if (p != null && !p.isCpu() && !p.isExit() && p != skip) {
-                        try {
-                            p.writeCommandFromServer(Helpers.encryptCommand(command, p.getAes_key(), iv, p.getHmac_key()));
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-        }
-
-        private void sendP2PCommandToClient(String command, Participant target) {
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            try {
-                target.writeCommandFromServer(Helpers.encryptCommand(command, target.getAes_key(), iv, target.getHmac_key()));
-            } catch (Exception e) {
-            }
-        }
-
-        // --- LOGIC: SERVER SIDE ---
-        public void startSwarm() {
-
-            synchronized (swarmLock) {
-                if (swarmActive) {
-                    return; // Prevent multiple swarms at once
-                }
-                swarmActive = true;
-            }
-
-            int humans = 0;
-            int totalPlayers = 0;
-            StringBuilder pubKeys = new StringBuilder();
-
-            LOGGER.info("[ZERO-TRUST] >>> INITIATING P2P KEM SWARM <<<");
-
-            synchronized (participantes) {
-                for (String pNick : participantes.keySet()) {
-                    Participant p = participantes.get(pNick);
-                    totalPlayers++;
-
-                    byte[] pk = null;
-                    boolean isCpu = false;
-
-                    if (pNick.equals(local_nick)) {
-                        pk = local_player_public_key;
-                        humans++;
-                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Player [{0}] is HOST (HUMAN).", pNick);
-                    } else if (p != null) {
-                        pk = p.getPanoptes_public_key();
-                        isCpu = p.isCpu();
-                        if (!isCpu) {
-                            humans++;
-                            LOGGER.log(Level.INFO, "[ZERO-TRUST] Player [{0}] is HUMAN.", pNick);
-                        } else {
-                            LOGGER.log(Level.INFO, "[ZERO-TRUST] Player [{0}] is CPU (BOT).", pNick);
-                        }
-                    }
-
-                    if (pk != null && pk.length == 32) {
-                        try {
-                            pubKeys.append(java.util.Base64.getEncoder().encodeToString(pNick.getBytes("UTF-8")))
-                                    .append(":")
-                                    .append(java.util.Base64.getEncoder().encodeToString(pk))
-                                    .append("$");
-                        } catch (Exception e) {
-                        }
-                    } else {
-                        LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] WARNING: {0} lacks a valid Panoptes Public Key.", pNick);
-                    }
-                }
-            }
-
-            LOGGER.log(Level.INFO, "[ZERO-TRUST] Network Summary: {0} Humans, {1} Bots.", new Object[]{humans, (totalPlayers - humans)});
-
-            if (humans < 1) {
-                LOGGER.info("❌ [ZERO-TRUST] Not enough humans to form a mesh. Skipping KEM verification...");
-                finishSwarmAndResumeGame();
-                return;
-            }
-
-            challengesLatch = new java.util.concurrent.CountDownLatch(humans);
-            responsesLatch = new java.util.concurrent.CountDownLatch(totalPlayers);
-            verifyDoneLatch = new java.util.concurrent.CountDownLatch(humans);
-            generatedChallenges.clear();
-            solvedResponses.clear();
-
-            // Hilo Vigilante para evitar bloqueos
-            Helpers.threadRun(() -> {
-                try {
-
-                    boolean completado = responsesLatch.await(SWARM_TIMEOUT, java.util.concurrent.TimeUnit.SECONDS);
-
-                    if (!completado) {
-                        LOGGER.log(Level.WARNING, "[ZERO-TRUST] P2P Swarm Timeout! Some players did not respond.");
-
-                        // Identificamos quién no respondió y lo marcamos como Unsecure
-                        synchronized (participantes) {
-                            for (String pNick : participantes.keySet()) {
-                                Participant p = participantes.get(pNick);
-                                if (p != null && !p.isCpu() && !p.isExit()) {
-                                    // Si no tenemos sus respuestas o no terminó el verify
-                                    if (!solvedResponses.containsKey(pNick)) {
-                                        p.setUnsecure_player(true);
-                                        LOGGER.log(Level.SEVERE, "Player {0} marked as UNSECURE due to P2P Timeout", pNick);
-                                    }
-                                }
-                            }
-                        }
-
-                        // Forzamos la finalización para despertar al Crupier
-                        finishSwarmAndResumeGame();
-                    }
-                } catch (InterruptedException e) {
-                    LOGGER.log(Level.SEVERE, "Swarm Watcher Interrupted", e);
-                }
-            });
-
-            LOGGER.info("[ZERO-TRUST] Broadcasting P2P_START command to the network...");
-            String cmdPayload = "P2P_START#" + pubKeys.toString();
-            broadcastP2PCommandFromServer(cmdPayload, participantes.get(local_nick));
-            handleClientP2PStart(cmdPayload.split("#"));
-        }
-
-        public void receiveChallenges(String senderNick, String payload) {
-            LOGGER.log(Level.INFO, "[ZERO-TRUST] Server received challenges from [{0}]", senderNick);
-            Map<String, String> cmap = new HashMap<>();
-            if (!payload.isEmpty() && !payload.equals("*")) {
-                String[] chunks = payload.split("\\$");
-                for (String chunk : chunks) {
-                    String[] kv = chunk.split(":");
-                    if (kv.length == 2) {
-                        try {
-                            cmap.put(new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8"), kv[1]);
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-            generatedChallenges.put(senderNick, cmap);
-            challengesLatch.countDown();
-            if (challengesLatch.getCount() == 0) {
-                routeInboxes();
-            }
-        }
-
-        private void routeInboxes() {
-            LOGGER.info("[ZERO-TRUST] All challenges received. Routing Inboxes...");
-            synchronized (participantes) {
-                for (String targetNick : participantes.keySet()) {
-                    Participant targetP = participantes.get(targetNick);
-                    if (!targetNick.equals(local_nick) && (targetP == null || targetP.isExit())) {
-                        continue;
-                    }
-
-                    StringBuilder inbox = new StringBuilder();
-                    for (String senderNick : generatedChallenges.keySet()) {
-                        if (senderNick.equals(targetNick)) {
-                            continue;
-                        }
-                        Map<String, String> senderMap = generatedChallenges.get(senderNick);
-                        if (senderMap != null && senderMap.containsKey(targetNick)) {
-                            try {
-                                inbox.append(java.util.Base64.getEncoder().encodeToString(senderNick.getBytes("UTF-8"))).append(":").append(senderMap.get(targetNick)).append("$");
-                            } catch (Exception e) {
-                            }
-                        }
-                    }
-                    String cmdPayload = "P2P_INBOX#" + (inbox.length() > 0 ? inbox.toString() : "*");
-
-                    if (targetP != null && targetP.isCpu()) {
-                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Server resolving KEM challenges internally for Bot [{0}]...", targetNick);
-                        Helpers.threadRun(() -> {
-                            Map<String, String> botResponses = new HashMap<>();
-                            String[] chunks = inbox.toString().split("\\$");
-                            for (String chunk : chunks) {
-                                String[] kv = chunk.split(":");
-                                if (kv.length == 2) {
-                                    try {
-                                        String sender = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                        byte[] encChal = java.util.Base64.getDecoder().decode(kv[1]);
-                                        Participant senderP = participantes.get(sender);
-                                        byte[] senderPk = sender.equals(local_nick) ? local_player_public_key : (senderP != null ? senderP.getPanoptes_public_key() : null);
-
-                                        if (senderPk != null && senderPk.length == 32 && targetP.getPanoptes_private_key() != null) {
-                                            byte[] resp = Panoptes.getInstance().p2pSolveBotChallenge(encChal, senderPk, targetP.getPanoptes_private_key());
-                                            if (resp != null) {
-                                                botResponses.put(sender, java.util.Base64.getEncoder().encodeToString(resp));
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                    }
-                                }
-                            }
-                            solvedResponses.put(targetNick, botResponses);
-                            responsesLatch.countDown();
-                            if (responsesLatch.getCount() == 0) {
-                                routeVerifications();
-                            }
-                        });
-                    } else if (targetNick.equals(local_nick)) {
-                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Host (Server) [{0}] resolving its own incoming KEM challenges...", targetNick);
-                        handleClientP2PInbox(cmdPayload.split("#"));
-                    } else {
-                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Dispatching KEM Inbox to remote human [{0}]", targetNick);
-                        sendP2PCommandToClient(cmdPayload, targetP);
-                    }
-                }
-            }
-        }
-
-        public void receiveResponses(String solverNick, String payload) {
-            LOGGER.log(Level.INFO, "[ZERO-TRUST] Server received KEM responses from [{0}]", solverNick);
-            Map<String, String> rmap = new HashMap<>();
-            if (!payload.isEmpty() && !payload.equals("*")) {
-                String[] chunks = payload.split("\\$");
-                for (String chunk : chunks) {
-                    String[] kv = chunk.split(":");
-                    if (kv.length == 2) {
-                        try {
-                            rmap.put(new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8"), kv[1]);
-                        } catch (Exception e) {
-                        }
-                    }
-                }
-            }
-            solvedResponses.put(solverNick, rmap);
-            responsesLatch.countDown();
-            if (responsesLatch.getCount() == 0) {
-                routeVerifications();
-            }
-        }
-
-        private void routeVerifications() {
-            LOGGER.info("[ZERO-TRUST] All responses received. Initiating CROSS-VERIFICATION phase...");
-            synchronized (participantes) {
-                for (String challengerNick : participantes.keySet()) {
-                    Participant challengerP = participantes.get(challengerNick);
-                    if (!challengerNick.equals(local_nick) && (challengerP == null || challengerP.isCpu() || challengerP.isExit())) {
-                        continue;
-                    }
-
-                    StringBuilder verifications = new StringBuilder();
-                    for (String solverNick : solvedResponses.keySet()) {
-                        if (solverNick.equals(challengerNick)) {
-                            continue;
-                        }
-                        Map<String, String> solverMap = solvedResponses.get(solverNick);
-                        if (solverMap != null && solverMap.containsKey(challengerNick)) {
-                            try {
-                                verifications.append(java.util.Base64.getEncoder().encodeToString(solverNick.getBytes("UTF-8"))).append(":").append(solverMap.get(challengerNick)).append("$");
-                            } catch (Exception e) {
-                            }
-                        }
-                    }
-                    String cmdPayload = "P2P_VERIFY#" + (verifications.length() > 0 ? verifications.toString() : "*");
-
-                    if (challengerNick.equals(local_nick)) {
-                        LOGGER.info("[ZERO-TRUST] Host (Server) auditing KEM memory attestations...");
-                        handleClientP2PVerify(cmdPayload.split("#"));
-                    } else {
-                        LOGGER.log(Level.INFO, "[ZERO-TRUST] Dispatching VERIFY command to remote human [{0}]", challengerNick);
-                        sendP2PCommandToClient(cmdPayload, challengerP);
-                    }
-                }
-            }
-        }
-
-        public void receiveVerifyDone(String nick) {
-            LOGGER.log(Level.INFO, "[ZERO-TRUST] Player [{0}] successfully completed local swarm verification.", nick);
-            verifyDoneLatch.countDown();
-            if (verifyDoneLatch.getCount() == 0) {
-                LOGGER.info("✔️ [ZERO-TRUST] >>> SWARM VERIFICATION SUCCESSFUL. RESUMING. <<<");
-                finishSwarmAndResumeGame();
-            }
-        }
-
-        private void finishSwarmAndResumeGame() {
-            synchronized (swarmLock) {
-                if (!swarmActive) {
-                    return;
-                }
-                swarmActive = false;
-            }
-
-            if (!isPartida_empezada()) {
-                // Pre-Game Flow: Start the game
-                Helpers.GUIRunAndWait(() -> new GameFrame(WaitingRoomFrame.this, local_nick, true));
-                partida_empezada = true;
-                GameFrame.getInstance().AJUGAR();
-            } else {
-                // Mid-Game Flow: Finish the P2P audit, hide the indeterminate bar, and wake up Crupier
-                LOGGER.info("✔️  [ZERO-TRUST] Mid-Game P2P Swarm finished. Unlocking Crupier...");
-
-                if (isServer()) {
-                    broadcastP2PCommandFromServer("P2P_FINISHED", null);
-                }
-
-                Helpers.GUIRun(() -> {
-                    if (GameFrame.getInstance() != null) {
-                        GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
-                    }
-                });
-
-                synchronized (swarmLock) {
-                    swarmLock.notifyAll();
-                }
-            }
-        }
-
-        // --- LOGIC: CLIENT SIDE ---
-        public void handleClientP2PStart(String[] partes) {
-            Helpers.threadRun(() -> {
-                try {
-                    LOGGER.info("[ZERO-TRUST CLIENT] Executing handleClientP2PStart...");
-                    updateSwarmUI(Translator.translate("zero_trust.p2p_generating_challenges"));
-
-                    if (partes.length > 1 && !partes[1].equals("*")) {
-                        String[] chunks = partes[1].split("\\$");
-                        for (String chunk : chunks) {
-                            String[] kv = chunk.split(":");
-                            if (kv.length == 2) {
-                                String n = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                byte[] pk = java.util.Base64.getDecoder().decode(kv[1]);
-                                Participant p = participantes.get(n);
-                                if (p != null) {
-                                    p.setPanoptes_public_key(pk);
-                                }
-                            }
-                        }
-                    }
-                    StringBuilder batch = new StringBuilder();
-                    synchronized (participantes) {
-                        for (String targetNick : participantes.keySet()) {
-                            if (targetNick.equals(local_nick)) {
-                                continue;
-                            }
-
-                            Participant p = participantes.get(targetNick);
-                            byte[] pk = (p != null) ? p.getPanoptes_public_key() : (targetNick.equals(server_nick) ? local_player_public_key : null);
-
-                            if (pk != null && pk.length == 32) {
-                                LOGGER.log(Level.INFO, "[ZERO-TRUST CLIENT] Generating KEM Challenge for [{0}]", targetNick);
-                                byte[] chal = Panoptes.getInstance().p2pGenerateChallenge(pk);
-                                if (chal != null && chal.length == 80) {
-                                    localP2POriginalNonces.put(targetNick, java.util.Arrays.copyOfRange(chal, 0, 32));
-                                    batch.append(java.util.Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"))).append(":").append(java.util.Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(chal, 32, 80))).append("$");
-                                }
-                            }
-                        }
-                    }
-                    sendP2PCommandToServer("P2P_CHALLENGES#" + (batch.length() > 0 ? batch.toString() : "*"));
-                } catch (Exception e) {
-                }
-            });
-        }
-
-        public void handleClientP2PInbox(String[] partes) {
-            Helpers.threadRun(() -> {
-                try {
-                    LOGGER.info("[ZERO-TRUST CLIENT] Executing handleClientP2PInbox (Solving incoming KEM challenges)...");
-                    updateSwarmUI(Translator.translate("zero_trust.p2p_auditing_memory"));
-
-                    StringBuilder batch = new StringBuilder();
-                    if (partes.length > 1 && !partes[1].equals("*")) {
-                        String[] chunks = partes[1].split("\\$");
-                        for (String chunk : chunks) {
-                            String[] kv = chunk.split(":");
-                            if (kv.length == 2) {
-                                String sender = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                byte[] encChal = java.util.Base64.getDecoder().decode(kv[1]);
-                                Participant p = participantes.get(sender);
-                                byte[] pk = (p != null) ? p.getPanoptes_public_key() : (sender.equals(server_nick) ? local_player_public_key : null);
-
-                                if (pk != null && pk.length == 32 && encChal.length == 48) {
-                                    LOGGER.log(Level.INFO, "[ZERO-TRUST CLIENT] Solving KEM challenge from [{0}]", sender);
-                                    byte[] resp = Panoptes.getInstance().p2pSolveChallenge(encChal, pk);
-                                    if (resp != null) {
-                                        batch.append(kv[0]).append(":").append(java.util.Base64.getEncoder().encodeToString(resp)).append("$");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    sendP2PCommandToServer("P2P_RESPONSES#" + (batch.length() > 0 ? batch.toString() : "*"));
-                } catch (Exception e) {
-                }
-            });
-        }
-
-        public void handleClientP2PVerify(String[] partes) {
-            Helpers.threadRun(() -> {
-                try {
-                    LOGGER.info("[ZERO-TRUST CLIENT] Executing handleClientP2PVerify (Auditing memory attestations)...");
-                    updateSwarmUI(Translator.translate("zero_trust.p2p_verifying_signatures"));
-
-                    boolean allClean = true;
-                    if (partes.length > 1 && !partes[1].equals("*")) {
-                        String[] chunks = partes[1].split("\\$");
-                        for (String chunk : chunks) {
-                            String[] kv = chunk.split(":");
-                            if (kv.length == 2) {
-                                String target = new String(java.util.Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                byte[] resp = java.util.Base64.getDecoder().decode(kv[1]);
-                                Participant p = participantes.get(target);
-                                byte[] pk = (p != null) ? p.getPanoptes_public_key() : (target.equals(server_nick) ? local_player_public_key : null);
-                                byte[] origNonce = localP2POriginalNonces.get(target);
-
-                                if (pk != null && pk.length == 32 && origNonce != null && origNonce.length == 32 && resp.length == 17) {
-                                    boolean ok = Panoptes.getInstance().p2pVerifyResponse(pk, origNonce, resp);
-                                    LOGGER.log(Level.INFO, "[ZERO-TRUST CLIENT] Verification result for [{0}]: {1}", new Object[]{target, (ok ? "CLEAN" : "CHEAT DETECTED")});
-                                    if (!ok) {
-                                        allClean = false;
-                                        if (p != null) {
-                                            // Automatically tag them red in the UI list
-                                            p.setUnsecure_player(true);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (allClean) {
-                        sendP2PCommandToServer("P2P_VERIFY_DONE");
-                        GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.p2p_finished_resuming"));
-                    } else {
-                        if (isPartida_empezada()) {
-                            // Mid-Game: Log the failure, mark the cheater, and proceed without blocking the UI
-                            LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] P2P Integrity failed mid-game! Marking cheater and continuing.");
-                            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.p2p_cheater_detected2"));
-                            sendP2PCommandToServer("P2P_VERIFY_DONE");
-                        } else {
-                            // Lobby (Pre-Game): Show the standard blocking popup
-                            Helpers.GUIRun(() -> {
-                                int r = mostrarMensajeErrorSINO(WaitingRoomFrame.this, Translator.translate("zero_trust.cheater_detected"));
-
-                                if (r == 0) {
-                                    sendP2PCommandToServer("P2P_VERIFY_DONE");
-                                } else {
-                                    if (isServer()) {
-                                        empezar_timba.setEnabled(true);
-                                        new_bot_button.setEnabled(participantes.size() < MAX_PARTICIPANTES);
-                                        new_bot_button.setVisible(true);
-                                        kick_user.setEnabled(true);
-                                        kick_user.setVisible(true);
-                                        sound_icon.setVisible(true);
-                                        game_info_buyin.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                                        game_info_blinds.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                                        game_info_hands.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                                        status.setText(Translator.translate("zero_trust.game_aborted"));
-                                        status.setIcon(null);
-                                        barra.setVisible(false);
-                                        partida_empezando = false;
-                                    } else {
-                                        setExit(true);
-                                        closeClientSocket();
-                                        System.exit(0);
-                                    }
-                                }
-                            });
-                        }
-                    }
-                } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "[ZERO-TRUST CLIENT] Error in handleClientP2PVerify", e);
-                }
-            });
-        }
-    }
-
-    public byte[] getLocal_player_public_key() {
-        return local_player_public_key;
-    }
-
     public int getServer_latency2() {
         return remote_server_latency2;
     }
@@ -728,10 +201,6 @@ public class WaitingRoomFrame extends JFrame {
 
     public Object getLock_client_pre_game_commands_wait() {
         return lock_client_pre_game_commands_wait;
-    }
-
-    public String getLocal_client_permutation_key_hash() {
-        return local_client_permutation_key_hash;
     }
 
     public String getBackground_chat_src() {
@@ -1211,11 +680,6 @@ public class WaitingRoomFrame extends JFrame {
 
         latency_label.setVisible(false);
 
-        radar.setEnabled(GameFrame.RADAR_AVAILABLE);
-
-        radar.setToolTipText(Translator.translate(
-                GameFrame.RADAR_AVAILABLE ? "radar.active" : "radar.inactive"));
-
         chat_box.getDocument().addDocumentListener(new SendButtonListener());
 
         emoji_button.setEnabled(false);
@@ -1474,81 +938,8 @@ public class WaitingRoomFrame extends JFrame {
         repaint();
     }
 
-    private synchronized void gen_priv_session_key() {
-        try {
-            String fileName = "/panoptes_session.key";
-            if (Init.DEV_MODE) {
-                String safeNick = local_nick != null ? local_nick.replaceAll("[^a-zA-Z0-9.-]", "_") : "default";
-                fileName = "/panoptes_session_" + safeNick + ".key";
-            }
-            java.io.File sessionFile = new java.io.File(Init.CORONA_DIR + fileName);
-
-            boolean sessionLoaded = false;
-
-            // FIX: ALWAYS attempt to load existing session to preserve Cryptographic Identity.
-            // Do not check GameFrame.RECOVER here, as the client doesn't know the server state yet.
-            // If we delete the file, the KEM decryption will mathematically fail during a recovery.
-            if (sessionFile.exists()) {
-                byte[] fileBytes = java.nio.file.Files.readAllBytes(sessionFile.toPath());
-
-                // V76: The file contains exactly 80 bytes (32 PubKey + 48 Encrypted PrivKey)
-                if (fileBytes.length == 80) {
-                    byte[] sessionEncryptedBlob = java.util.Arrays.copyOfRange(fileBytes, 32, 80);
-                    if (Panoptes.getInstance().sessionLoad(sessionEncryptedBlob)) {
-                        local_player_public_key = java.util.Arrays.copyOfRange(fileBytes, 0, 32);
-                        sessionLoaded = true;
-                        LOGGER.log(Level.INFO, "Session restored successfully from file.");
-                    } else {
-                        LOGGER.log(Level.WARNING, "Session file rejected by C engine. Generating fresh session...");
-                    }
-                }
-            }
-
-            // Generate fresh session ONLY if it's the first time playing or the file was corrupted
-            if (!sessionLoaded) {
-                java.nio.file.Files.deleteIfExists(sessionFile.toPath());
-
-                // sessionInitialize() returns 80 bytes: [32-byte PubKey] + [48-byte Encrypted PrivKey]
-                byte[] sessionBlobFull = Panoptes.getInstance().sessionInitialize();
-
-                if (sessionBlobFull != null && sessionBlobFull.length == 80) {
-                    local_player_public_key = java.util.Arrays.copyOfRange(sessionBlobFull, 0, 32);
-
-                    // Save the entire 80 bytes so we can recover the public key later
-                    java.nio.file.Files.write(sessionFile.toPath(), sessionBlobFull);
-                    LOGGER.log(Level.INFO, "Fresh ephemeral session generated and saved to disk.");
-                } else {
-                    throw new Exception("Failed to initialize native session.");
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Critical failure during session key generation", e);
-        }
-    }
-
     public JScrollPane getEmoji_scroll_panel() {
         return emoji_scroll_panel;
-    }
-
-    private void sqlSavePermutationkey() {
-        synchronized (GameFrame.SQL_LOCK) {
-
-            String sql = "INSERT INTO permutationkey(hash, key) VALUES (?, ?)";
-
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-
-                statement.setString(1, this.local_client_permutation_key_hash);
-
-                statement.setString(2, Base64.getEncoder().encodeToString(this.local_client_permutation_key.getEncoded()));
-
-                statement.executeUpdate();
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-
-        }
-
     }
 
     public void writeCommandToServer(String command) {
@@ -2095,23 +1486,7 @@ public class WaitingRoomFrame extends JFrame {
                                             .log(System.Logger.Level.ERROR, (String) null, ex);
                                 }
                                 break;
-                            case "SECPING":
-                                // --- PANOPTES: CLIENT SIGNS SERVER HEARTBEAT ---
-                                try {
-                                    byte[] challengeBytes = Base64.getDecoder().decode(partes_comando[1]);
-                                    byte[] signatureBytes = Panoptes.getInstance().signChallenge(challengeBytes);
-                                    String signatureBase64 = signatureBytes != null
-                                            ? Base64.getEncoder().encodeToString(signatureBytes).replaceAll("\\s+", "")
-                                            : "";
 
-                                    writeCommandToServer(
-                                            Helpers.encryptCommand("SECPONG#" + signatureBase64,
-                                                    local_client_aes_key, local_client_hmac_key));
-                                } catch (Exception e) {
-                                    LOGGER.log(Level.SEVERE,
-                                            "Failed to sign Panoptes heartbeat", e);
-                                }
-                                break;
                             case "PONG":
                                 remote_server_pong = Integer.valueOf(partes_comando[1]);
                                 synchronized (ping_pong_lock) {
@@ -2162,50 +1537,6 @@ public class WaitingRoomFrame extends JFrame {
                 }
             }
 
-        });
-    }
-
-    private void runSecPingPongThreadCliente() {
-
-        //Not really required for Panoptes
-        Helpers.threadRun(() -> {
-
-            Panoptes panoptes_instance = Panoptes.getInstance();
-            java.security.SecureRandom rng = new java.security.SecureRandom();
-
-            while (!exit && WaitingRoomFrame.getInstance() != null) {
-                try {
-                    String[] direccion_server = server_ip_port.split(":");
-                    String serverIp = direccion_server[0];
-
-                    String miIpToUse;
-                    if (serverIp.equals("localhost") || serverIp.equals("127.0.0.1")
-                            || serverIp.startsWith("192.168.") || serverIp.startsWith("10.")
-                            || serverIp.startsWith("172.16.")) {
-                        miIpToUse = local_client_socket.getLocalAddress().getHostAddress();
-                    } else {
-                        miIpToUse = Helpers.getMyPublicIP();
-                    }
-
-                    int myLocalPort = local_client_socket.getLocalPort();
-
-                    /* Generate the challenge using a static ownerID for the server */
-                    byte[] heartbeatChallenge = panoptes_instance.generateChallenge("SERVER_HEARTBEAT", myLocalPort);
-
-                    String challengeB64 = java.util.Base64.getEncoder().encodeToString(heartbeatChallenge).replaceAll("\\s+", "");
-
-                    writeCommandToServer(Helpers.encryptCommand("SECPING#" + challengeB64,
-                            local_client_aes_key, local_client_hmac_key));
-
-                } catch (Exception e) {
-                    LOGGER.log(java.util.logging.Level.SEVERE,
-                            "Error dispatching SECPING to server", e);
-                }
-
-                /* Jitter: Randomized sleep between base interval and 2x base interval */
-                int jitter = rng.nextInt((int) SEC_PING_INTERVAL_MS);
-                Helpers.pausar(SEC_PING_INTERVAL_MS + jitter);
-            }
         });
     }
 
@@ -2295,9 +1626,9 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-    private void cliente() {
+   private void cliente() {
         Helpers.threadRun(() -> {
-            gen_priv_session_key();
+            
             do {
                 Helpers.GUIRun(() -> {
                     status.setForeground(new Color(51, 153, 0));
@@ -2321,6 +1652,7 @@ public class WaitingRoomFrame extends JFrame {
                         status.setText(Translator.translate("status.intercambio_claves"));
                     });
 
+                    /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
                     KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
                     clientKpairGen.initialize(EC_KEY_LENGTH);
                     KeyPair clientKpair = clientKpairGen.generateKeyPair();
@@ -2330,26 +1662,11 @@ public class WaitingRoomFrame extends JFrame {
                     DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
                     dOut.writeInt(clientPubKeyEnc.length);
                     dOut.write(clientPubKeyEnc);
+                    
                     DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
                     int length = dIn.readInt();
                     byte[] serverPubKeyEnc = new byte[length];
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
-
-                    Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("status.firmando_desafio"));
-                    });
-
-                    int chalLen = dIn.readInt();
-                    byte[] serverChallengeBytes = new byte[chalLen];
-                    dIn.readFully(serverChallengeBytes, 0, chalLen);
-
-                    Panoptes panoptes = Panoptes.getInstance();
-                    byte[] miFirmaBytes = null;
-                    try {
-                        miFirmaBytes = panoptes.signChallenge(serverChallengeBytes);
-                    } catch (Exception e) {
-                    }
-                    String miFirmaBase64 = miFirmaBytes != null ? Base64.getEncoder().encodeToString(miFirmaBytes) : "";
 
                     KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
                     X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
@@ -2360,6 +1677,7 @@ public class WaitingRoomFrame extends JFrame {
                     local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
                     local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
                     local_client_hmac_key_orig = local_client_hmac_key;
+                    /* FIN INTERCAMBIO DE CLAVES */
 
                     byte[] avatar_bytes = null;
                     if (local_avatar != null && local_avatar.length() > 0) {
@@ -2368,35 +1686,8 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
 
-                    Helpers.GUIRun(() -> {
-                        status.setText(Translator.translate("status.generando_desafio_cliente"));
-                    });
-
-                    String challengeBase64 = "";
-                    try {
-                        String serverIp = direccion[0];
-                        String miIpToUse;
-                        if (serverIp.equals("localhost") || serverIp.equals("127.0.0.1")
-                                || serverIp.startsWith("192.168.") || serverIp.startsWith("10.")
-                                || serverIp.startsWith("172.16.")) {
-                            miIpToUse = local_client_socket.getLocalAddress().getHostAddress();
-                        } else {
-                            miIpToUse = Helpers.getMyPublicIP();
-                        }
-
-                        int myLocalPort = local_client_socket.getLocalPort();
-                        byte[] challengeBytes = panoptes.generateChallenge("LOCAL", myLocalPort);
-                        challengeBase64 = Base64.getEncoder().encodeToString(challengeBytes);
-                    } catch (Exception e) {
-                        Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
-                        System.exit(1);
-                    }
-
-                    String myPublicKeyBase64 = Base64.getEncoder().encodeToString(local_player_public_key).replaceAll("\\s+", "");
-                    String securityPayload = challengeBase64 + "$" + miFirmaBase64 + "$" + myPublicKeyBase64;
-
                     writeCommandToServer(Helpers.encryptCommand(Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
-                            + "#" + AboutDialog.VERSION + "@" + securityPayload
+                            + "#" + AboutDialog.VERSION
                             + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*")
                             + (password != null ? "#" + Base64.getEncoder().encodeToString(password.getBytes("UTF-8")) : "#*"),
                             local_client_aes_key, local_client_hmac_key));
@@ -2427,15 +1718,14 @@ public class WaitingRoomFrame extends JFrame {
                             mostrarMensajeError(THIS, Translator.translate("conn.bad_pass"));
                             break;
                         case "NICKOK":
-                            byte[] serverSignature = Base64.getDecoder().decode(partes[2].replaceAll("[^A-Za-z0-9+/=]", ""));
-
                             if ("0".equals(partes[1])) {
                                 Helpers.GUIRun(() -> {
                                     pass_icon.setVisible(false);
                                 });
                             }
 
-                            gameinfo_original = new String(Base64.getDecoder().decode(partes[3].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
+                            // PURGADO: Aquí hemos quitado partes[3] (la firma fantasma de 72 bytes) y leemos partes[2]
+                            gameinfo_original = new String(Base64.getDecoder().decode(partes[2].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
 
                             Helpers.GUIRun(() -> {
                                 status.setText(Translator.translate("status.recibiendo_info_servidor"));
@@ -2458,37 +1748,8 @@ public class WaitingRoomFrame extends JFrame {
                             });
 
                             recibido = readCommandFromServer();
-                            while (recibido != null && recibido.startsWith("PING#")) {
-                                String[] ping_parts = recibido.split("#");
-                                writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(ping_parts[1]) + 1));
-                                recibido = readCommandFromServer();
-                            }
-
                             partes = recibido.split("#");
                             server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8").trim();
-
-                            int authStatus = Panoptes.getInstance().verifyResponse("LOCAL", serverSignature);
-
-                            if (authStatus == Panoptes.STATUS_FAILED) {
-                                THIS.setUnsecure_server(true);
-                            } else if (authStatus == Panoptes.STATUS_VM_DETECTED) {
-                                Helpers.threadRun(() -> {
-                                    mostrarMensajeInformativo(THIS, Translator.translate("ui.error.vm_detected_waiting_room") + " [" + server_nick + "]");
-                                });
-                            }
-
-                            try {
-                                MessageDigest md = MessageDigest.getInstance("MD5");
-                                md.update(local_nick.getBytes("UTF-8"));
-                                md.update(server_nick.getBytes("UTF-8"));
-                                md.update(local_client_aes_key.getEncoded());
-                                md.update(local_client_hmac_key.getEncoded());
-                                local_client_permutation_key = new SecretKeySpec(md.digest(), "AES");
-                                md = MessageDigest.getInstance("MD5");
-                                local_client_permutation_key_hash = Base64.getEncoder().encodeToString(md.digest(local_client_permutation_key.getEncoded()));
-                                sqlSavePermutationkey();
-                            } catch (Exception ex) {
-                            }
 
                             String server_avatar_base64 = partes.length > 1 ? partes[1].replaceAll("[^A-Za-z0-9+/=]", "") : "";
                             File server_avatar = null;
@@ -2505,37 +1766,15 @@ public class WaitingRoomFrame extends JFrame {
                             }
 
                             recibido = readCommandFromServer();
-                            while (recibido != null && recibido.startsWith("PING#")) {
-                                String[] ping_parts = recibido.split("#");
-                                writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(ping_parts[1]) + 1));
-                                recibido = readCommandFromServer();
-                            }
-
+                            
                             if (!"*".equals(recibido)) {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
 
                             recibido = readCommandFromServer();
-                            while (recibido != null && recibido.startsWith("PING#")) {
-                                String[] ping_parts = recibido.split("#");
-                                writeCommandToServer("PONG#" + String.valueOf(Integer.parseInt(ping_parts[1]) + 1));
-                                recibido = readCommandFromServer();
-                            }
-
-                            GameFrame.RADAR_AVAILABLE = Boolean.parseBoolean(recibido);
-
-                            if (GameFrame.RADAR_AVAILABLE) {
-                                Helpers.threadRun(() -> {
-                                    Helpers.mostrarMensajeInformativo(this, Translator.translate("radar.el_servidor_ha_activado_el"), "justify", (int) Math.round(getWidth() * 0.8f), new ImageIcon(Init.class.getResource("/images/shield.png")));
-                                });
-                            }
-
+                            
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
-
-                            if (participantes.get(local_nick) != null) {
-                                participantes.get(local_nick).setPanoptes_public_key(local_player_public_key);
-                            }
 
                             Helpers.GUIRunAndWait(() -> {
                                 status.setText(Translator.translate("status.conectado"));
@@ -2545,8 +1784,7 @@ public class WaitingRoomFrame extends JFrame {
                                 emoji_button.setEnabled(true);
                                 image_button.setEnabled(true);
                                 max_min_label.setEnabled(true);
-                                radar.setEnabled(GameFrame.RADAR_AVAILABLE);
-                                radar.setToolTipText(Translator.translate(radar.isEnabled() ? "radar.active" : "radar.inactive"));
+                                
                             });
 
                             refreshChatPanel();
@@ -2564,18 +1802,7 @@ public class WaitingRoomFrame extends JFrame {
                                         case "PING":
                                             writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
                                             break;
-                                        case "SECPONG":
-                                            try {
-                                                byte[] signature = Base64.getDecoder().decode(partes_comando[1]);
-                                                int isLegit = Panoptes.getInstance().verifyResponse("SERVER_HEARTBEAT", signature);
-                                                if (isLegit == Panoptes.STATUS_FAILED) {
-                                                    if (!THIS.isUnsecure_server()) {
-                                                        THIS.setUnsecure_server(true);
-                                                    }
-                                                }
-                                            } catch (Exception e) {
-                                            }
-                                            break;
+                                        
                                         case "CHAT":
                                             String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
                                             recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
@@ -2590,33 +1817,65 @@ public class WaitingRoomFrame extends JFrame {
                                             mostrarMensajeInformativo(THIS, Translator.translate("ui.error.kicked_out"));
                                             break;
 
-                                        // --- V81 P2P CLIENT-SIDE EXECUTION (ROOT COMMANDS) ---
-                                        case "P2P_START":
-                                            p2pSwarmManager.handleClientP2PStart(partes_comando);
-                                            break;
-                                        case "P2P_INBOX":
-                                            p2pSwarmManager.handleClientP2PInbox(partes_comando);
-                                            break;
-                                        case "P2P_VERIFY":
-                                            p2pSwarmManager.handleClientP2PVerify(partes_comando);
-                                            break;
-                                        case "P2P_FINISHED":
-                                            p2pSwarmManager.finishSwarmAndResumeGame();
-                                            break;
-                                        // -----------------------------------------------------
-
                                         case "GAME":
                                             String subcomando = partes_comando[2];
                                             int id = Integer.parseInt(partes_comando[1]);
-                                            writeCommandToServer("CONF#" + String.valueOf(id + 1) + "#OK");
+                                            
+                                            try {
+                                                String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
+                                                this.writeCommandToServer(Helpers.encryptCommand(confMsg, this.local_client_aes_key, this.local_client_hmac_key));
+                                            } catch (Exception e) {}
+                                            
                                             if (!cliente_last_received.containsKey(subcomando) || cliente_last_received.get(subcomando) != id) {
                                                 cliente_last_received.put(subcomando, id);
                                                 if (isPartida_empezada()) {
                                                     switch (subcomando) {
+                                                        case "DECK_CASCADE_REQ":
+                                                            final String[] partes_cascade = partes_comando;
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
+                                                                    Crupier c = GameFrame.getInstance().getCrupier();
+
+                                                                    byte[] lockScalar = CryptoSRA.generateLockScalar();
+                                                                    byte[] unlockScalar = CryptoSRA.getUnlockScalar(lockScalar);
+                                                                    this.participantes.get(local_nick).setSra_unlock(unlockScalar);
+
+                                                                    byte[] locked = CryptoSRA.applyCommutativeLock(incomingDeck, lockScalar);
+                                                                    byte[] mySeed = c.getLocal_hand_seed();
+                                                                    byte[] shuffled = CryptoSRA.shuffleDeck(locked, mySeed);
+
+                                                                    String b64Deck = Base64.getEncoder().encodeToString(shuffled);
+                                                                    String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+
+                                                                    int respId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, local_client_aes_key, local_client_hmac_key));
+                                                                } catch (Exception e) {}
+                                                            });
+                                                            break;
+
+                                                        case "REQ_SRA_UNLOCK":
+                                                            final String[] partes_unlock = partes_comando;
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    byte[] cards = Base64.getDecoder().decode(partes_unlock[3]);
+                                                                    byte[] unlocked = cards;
+                                                                    try {
+                                                                        unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
+                                                                    } catch (Exception x) {}
+
+                                                                    String uB64 = Base64.getEncoder().encodeToString(unlocked);
+                                                                    String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+
+                                                                    int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId2 + "#RESP_SRA_UNLOCK#" + myNickB64 + "#" + uB64, local_client_aes_key, local_client_hmac_key));
+                                                                } catch (Exception e) {}
+                                                            });
+                                                            break;
                                                         case "YOUARELATE":
-                                                            String client_nick2 = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                            String ipCliente = partes_comando[4];
                                                             try {
+                                                                String client_nick2 = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                String ipCliente = partes_comando[4];
                                                                 if (!late_clients_warning.contains(ipCliente)) {
                                                                     Audio.playWavResource("misc/new_user.wav");
                                                                     late_clients_warning.add(ipCliente);
@@ -2626,160 +1885,90 @@ public class WaitingRoomFrame extends JFrame {
                                                                     dialog.setLocation(dialog.getParent().getLocation());
                                                                     dialog.setVisible(true);
                                                                 });
-                                                            } catch (Exception e) {
-                                                            }
-                                                            break;
-                                                        case "RADAR":
-                                                            if (partes_comando.length == 5) {
-                                                                String requester = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                GameFrame.getInstance().getLocalPlayer().RADAR(requester, Base64.getDecoder().decode(partes_comando[4]));
-                                                            } else if (partes_comando.length == 7) {
-                                                                try {
-                                                                    String suspicious = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    byte[] imageBytes = partes_comando[4].equals("*") ? null : Base64.getDecoder().decode(partes_comando[4]);
-                                                                    byte[] encryptedRadarData = partes_comando[5].equals("*") ? null : Base64.getDecoder().decode(partes_comando[5]);
-                                                                    long timestamp = Long.parseLong(partes_comando[6]);
-                                                                    StringBuilder sb = new StringBuilder();
-                                                                    sb.append("  ____                            ____       _                ____     _    ____    _    ____  \n"
-                                                                            + " / ___|___  _ __ ___  _ __   __ _|  _ \\ ___ | | _____ _ __  |  _ \\    / \\  |  _ \\  / \\  |  _ \\ \n"
-                                                                            + "| |   / _ \\| '__/ _ \\| '_ \\ / _` | |_) / _ \\| |/ / _ \\ '__| | |_) |  / _ \\ | | | |/ _ \\ | |_) |\n"
-                                                                            + "| |__| (_) | | | (_) | | | | (_| |  __/ (_) |   <  __/ |    |  _ <  / ___ \\| |_| / ___ \\|  _ < \n"
-                                                                            + " \\____\\___/|_|  \\___/|_| |_|\\__,_|_|   \\___/|_|\\_\\___|_|    |_| \\_\\/_/   \\_\\____/_/   \\_\\_| \\_\\\n"
-                                                                            + "                                                                                               \n\n");
-                                                                    sb.append("CoronaPoker Radar -> [").append(suspicious).append("] ").append(Helpers.getFechaHoraActual()).append("\n\n");
-                                                                    if (encryptedRadarData != null) {
-                                                                        try {
-                                                                            String rawIntel = Panoptes.getInstance().parseRadarReport(encryptedRadarData);
-                                                                            if (rawIntel != null) {
-                                                                                sb.append(rawIntel);
-                                                                            } else {
-                                                                                sb.append("************************************************************************\n[!] CRITICAL SECURITY ERROR: INTEGRITY CHECK FAILED (MAC POLY1305)\nPacket was altered in transit or Chaos/KEM signature is invalid.\n************************************************************************\n");
-                                                                            }
-                                                                        } catch (Exception ex) {
-                                                                            sb.append("[!] Exception decrypting data: ").append(ex.getMessage()).append("\n");
-                                                                        }
-                                                                    } else {
-                                                                        sb.append("[!] No encrypted process data received.\n");
-                                                                    }
-                                                                    GameFrame.getInstance().getCrupier().saveRADARLog(suspicious, imageBytes, sb.toString(), timestamp);
-                                                                } catch (Exception ex) {
-                                                                }
-                                                            }
+                                                            } catch (Exception e) {}
                                                             break;
                                                         case "IWTSTH":
-                                                            if (GameFrame.getInstance().getCrupier().isShow_time()) {
-                                                                GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
+                                                            if (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isIwtsthing()) {
+                                                                try {
+                                                                    String authNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(authNick);
+                                                                } catch(Exception e){}
                                                             }
                                                             break;
                                                         case "IWTSTHSHOW":
-                                                            GameFrame.getInstance().getCrupier().IWTSTH_SHOW(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"), Boolean.parseBoolean(partes_comando[4]));
+                                                            try {
+                                                                String showNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                GameFrame.getInstance().getCrupier().IWTSTH_SHOW(showNick, Boolean.parseBoolean(partes_comando[4]));
+                                                            } catch(Exception e){}
                                                             break;
                                                         case "IWTSTHRULE":
-                                                            final String[] partes_final_iwtsthrule = partes_comando;
                                                             Helpers.threadRun(() -> {
-                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_final_iwtsthrule[3]);
+                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
                                                                     GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
                                                                     Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.IWTSTH_RULE ? Translator.translate("iwtsth.regla_iwtsth_activada") : Translator.translate("iwtsth.regla_iwtsth_desactivada"), GameFrame.IWTSTH_RULE ? new Color(0, 130, 0) : Color.RED, Color.WHITE, getClass().getResource("/images/menu/eyes.png"), NOTIFICATION_TIMEOUT);
-                                                                    dialog.setLocation(dialog.getParent().getLocation());
-                                                                    dialog.setVisible(true);
                                                                 });
                                                             });
                                                             break;
                                                         case "RABBITRULE":
-                                                            final String[] partes_final_rabbitrule = partes_comando;
                                                             Helpers.threadRun(() -> {
-                                                                GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_final_rabbitrule[3]);
+                                                                GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
-                                                                    GameFrame.getInstance().getMenu_rabbit_off().setSelected(false);
-                                                                    GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
-                                                                    GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
-                                                                    GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
-                                                                    String notification = "";
-                                                                    switch (GameFrame.RABBIT_HUNTING) {
-                                                                        case 0:
-                                                                            GameFrame.getInstance().getMenu_rabbit_off().setSelected(true);
-                                                                            notification = Translator.translate("rabbit.rabbit_hunting_desactivado");
-                                                                            break;
-                                                                        case 1:
-                                                                            GameFrame.getInstance().getMenu_rabbit_free().setSelected(true);
-                                                                            notification = Translator.translate("rabbit.rabbit_hunting_activado_free");
-                                                                            break;
-                                                                        case 2:
-                                                                            GameFrame.getInstance().getMenu_rabbit_sb().setSelected(true);
-                                                                            notification = Translator.translate("rabbit.rabbit_hunting_activado_free_sb");
-                                                                            break;
-                                                                        case 3:
-                                                                            GameFrame.getInstance().getMenu_rabbit_bb().setSelected(true);
-                                                                            notification = Translator.translate("rabbit.rabbit_hunting_activado_free_sb_2");
-                                                                            break;
-                                                                    }
-                                                                    Helpers.TapetePopupMenu.RABBIT_OFF.setSelected(GameFrame.getInstance().getMenu_rabbit_off().isSelected());
-                                                                    Helpers.TapetePopupMenu.RABBIT_FREE.setSelected(GameFrame.getInstance().getMenu_rabbit_free().isSelected());
-                                                                    Helpers.TapetePopupMenu.RABBIT_SB.setSelected(GameFrame.getInstance().getMenu_rabbit_sb().isSelected());
-                                                                    Helpers.TapetePopupMenu.RABBIT_BB.setSelected(GameFrame.getInstance().getMenu_rabbit_bb().isSelected());
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, notification, GameFrame.RABBIT_HUNTING != 0 ? Color.BLUE : Color.RED, Color.WHITE, getClass().getResource("/images/action/rabbit_action.png"), NOTIFICATION_TIMEOUT);
-                                                                    dialog.setLocation(dialog.getParent().getLocation());
-                                                                    dialog.setVisible(true);
+                                                                    GameFrame.getInstance().getMenu_rabbit_off().setSelected(GameFrame.RABBIT_HUNTING == 0);
+                                                                    GameFrame.getInstance().getMenu_rabbit_free().setSelected(GameFrame.RABBIT_HUNTING == 1);
+                                                                    GameFrame.getInstance().getMenu_rabbit_sb().setSelected(GameFrame.RABBIT_HUNTING == 2);
+                                                                    GameFrame.getInstance().getMenu_rabbit_bb().setSelected(GameFrame.RABBIT_HUNTING == 3);
                                                                 });
                                                             });
                                                             break;
                                                         case "RABBIT":
                                                             if (GameFrame.getInstance().getCrupier().isShow_time()) {
-                                                                GameFrame.getInstance().getCrupier().RABBIT_HANDLER(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
-                                                            }
-                                                            break;
-                                                        case "TIMEOUT":
-                                                            Player jugador = GameFrame.getInstance().getCrupier().getNick2player().get(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
-                                                            if (jugador != null) {
-                                                                jugador.setTimeout(true);
-                                                            }
-                                                            break;
-                                                        case "TTS":
-                                                            GameFrame.TTS_SERVER = partes_comando[3].equals("1");
-                                                            Helpers.GUIRun(() -> {
-                                                                GameFrame.getInstance().getTts_menu().setEnabled(GameFrame.TTS_SERVER);
-                                                                Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.TTS_SERVER);
-                                                                InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, GameFrame.TTS_SERVER ? Translator.translate("sound.tts_activado_por_el_servidor") : Translator.translate("sound.tts_desactivado_por_el_servidor"), GameFrame.TTS_SERVER ? new Color(0, 130, 0) : Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
-                                                                dialog.setLocation(dialog.getParent().getLocation());
-                                                                dialog.setVisible(true);
-                                                            });
-                                                            break;
-                                                        case "PAUSE":
-                                                            final String[] partes_final_pause = partes_comando;
-                                                            Helpers.threadRun(() -> {
-                                                                synchronized (GameFrame.getInstance().getLock_pause()) {
-                                                                    if (("0".equals(partes_final_pause[3]) && GameFrame.getInstance().isTimba_pausada()) || ("1".equals(partes_final_pause[3]) && !GameFrame.getInstance().isTimba_pausada())) {
-                                                                        GameFrame.getInstance().pauseTimba(null);
-                                                                    }
-                                                                }
-                                                            });
-                                                            break;
-                                                        case "PERMUTATIONKEY":
-                                                            final String[] partes_final_permutationkey = partes_comando;
-                                                            Helpers.threadRun(() -> {
                                                                 try {
-                                                                    byte[] masterKey = Panoptes.getInstance().stateGetShuffleKeyShare();
-                                                                    String mkBase64 = (masterKey != null) ? org.apache.commons.codec.binary.Base64.encodeBase64String(masterKey) : "*";
-                                                                    String response = "GAME#" + String.valueOf(Helpers.CSPRNG_GENERATOR.nextInt()) + "#PERMUTATIONKEY#" + mkBase64;
-                                                                    writeCommandToServer(Helpers.encryptCommand(response, local_client_aes_key, local_client_hmac_key));
-                                                                } catch (Exception e) {
-                                                                    try {
-                                                                        writeCommandToServer(Helpers.encryptCommand("GAME#" + String.valueOf(Helpers.CSPRNG_GENERATOR.nextInt()) + "#PERMUTATIONKEY#*", local_client_aes_key, local_client_hmac_key));
-                                                                    } catch (Exception ex) {
-                                                                    }
-                                                                }
-                                                            });
-                                                            break;
-                                                        case "SHOWCARDS":
-                                                            GameFrame.getInstance().getCrupier().showPlayerCards(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"), partes_comando[4], partes_comando[5]);
+                                                                    String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    GameFrame.getInstance().getCrupier().RABBIT_HANDLER(rNick, Integer.parseInt(partes_comando[4]));
+                                                                } catch(Exception e){}
+                                                            }
                                                             break;
                                                         case "REBUYNOW":
-                                                            GameFrame.getInstance().getCrupier().rebuyNow(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"), Integer.parseInt(partes_comando[4]));
+                                                            try {
+                                                                String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                GameFrame.getInstance().getCrupier().rebuyNow(rbNick, Integer.parseInt(partes_comando[4]));
+                                                            } catch(Exception e){}
                                                             break;
-                                                        case "EXIT":
-                                                            GameFrame.getInstance().getCrupier().remotePlayerQuit(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
+                                                        case "SHOWCARDS":
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    String c1 = partes_comando[4];
+                                                                    String c2 = partes_comando[5];
+                                                                    // El cliente simplemente pinta las cartas que le han llegado
+                                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, c1, c2);
+                                                                } catch(Exception e) {
+                                                                    LOGGER.log(Level.SEVERE, "Error procesando SHOWCARDS en cliente", e);
+                                                                }
+                                                            });
+                                                            break;
+                                                        case "RABBIT_FLOP":
+                                                            Helpers.GUIRun(() -> {
+                                                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(Integer.parseInt(partes_comando[3]));
+                                                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(Integer.parseInt(partes_comando[4]));
+                                                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(Integer.parseInt(partes_comando[5]));
+                                                                GameFrame.getInstance().getFlop1().taparRabbit();
+                                                                GameFrame.getInstance().getFlop2().taparRabbit();
+                                                                GameFrame.getInstance().getFlop3().taparRabbit();
+                                                            });
+                                                            break;
+                                                        case "RABBIT_TURN":
+                                                            Helpers.GUIRun(() -> {
+                                                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(Integer.parseInt(partes_comando[3]));
+                                                                GameFrame.getInstance().getTurn().taparRabbit();
+                                                            });
+                                                            break;
+                                                        case "RABBIT_RIVER":
+                                                            Helpers.GUIRun(() -> {
+                                                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(Integer.parseInt(partes_comando[3]));
+                                                                GameFrame.getInstance().getRiver().taparRabbit();
+                                                            });
                                                             break;
                                                         case "LASTHAND":
                                                             if (partes_comando[3].equals("0")) {
@@ -2789,7 +1978,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 if (partes_comando[3].equals("2")) {
                                                                     GameFrame.getInstance().getCrupier().setForce_recover(true);
                                                                     if (partes_comando.length > 4) {
-                                                                        password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8");
+                                                                        try { password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8"); } catch(Exception e){}
                                                                     }
                                                                 }
                                                                 GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
@@ -2809,7 +1998,30 @@ public class WaitingRoomFrame extends JFrame {
                                                             exit = true;
                                                             GameFrame.getInstance().getCrupier().setForce_recover(true);
                                                             if (partes_comando.length > 3) {
-                                                                password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                try { password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"); } catch(Exception e){}
+                                                            }
+                                                            break;
+                                                        case "EXIT":
+                                                            String exitingNick = local_nick; 
+                                                            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                                                                int offset = 3;
+                                                                if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
+                                                                    try { exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"); } catch (Exception e) {}
+                                                                    offset = 4;
+                                                                }
+
+                                                                if (partes_comando.length > offset) {
+                                                                    Participant p = GameFrame.getInstance().getParticipantes().get(exitingNick);
+                                                                    if (p != null && !partes_comando[offset].equals("*")) {
+                                                                        try {
+                                                                            byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
+                                                                            if (testament.length == 32) p.setSra_unlock(testament);
+                                                                        } catch (Exception e) {}
+                                                                    }
+                                                                }
+                                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
+                                                            } else {
+                                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                             }
                                                             break;
                                                         default:
@@ -2842,45 +2054,50 @@ public class WaitingRoomFrame extends JFrame {
                                                             });
                                                             break;
                                                         case "DELUSER":
-                                                            borrarParticipante(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
+                                                            try{
+                                                                borrarParticipante(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
+                                                            } catch(Exception e){}
                                                             break;
                                                         case "NEWUSER":
                                                             Audio.playWavResource("misc/laser.wav");
-                                                            String nick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                            File avatar = null;
-                                                            int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                            if (file_id < 0) {
-                                                                file_id *= -1;
-                                                            }
-                                                            if (partes_comando.length == 6) {
-                                                                avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
-                                                                try (FileOutputStream os = new FileOutputStream(avatar)) {
-                                                                    os.write(Base64.getDecoder().decode(partes_comando[5]));
+                                                            try {
+                                                                String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                File avatarNew = null;
+                                                                int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                if (file_id < 0) file_id *= -1;
+                                                                if (partes_comando.length == 6 && !partes_comando[5].equals("*")) {
+                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nickNew + "_avatar" + String.valueOf(file_id));
+                                                                    try (FileOutputStream os = new FileOutputStream(avatarNew)) {
+                                                                        os.write(Base64.getDecoder().decode(partes_comando[5]));
+                                                                    } catch(Exception e){}
                                                                 }
-                                                            }
-                                                            if (!participantes.containsKey(nick)) {
-                                                                nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(partes_comando[4]));
-                                                            }
+                                                                if (!participantes.containsKey(nickNew)) {
+                                                                    boolean isBot = nickNew.startsWith("CoronaBot$");
+                                                                    nuevoParticipante(nickNew, avatarNew, null, null, null, isBot, "1".equals(partes_comando[4]));
+                                                                }
+                                                            } catch (Exception e){}
                                                             break;
                                                         case "USERSLIST":
                                                             String[] current_users_parts = partes_comando[3].split("@");
                                                             for (String user : current_users_parts) {
+                                                                if (user.isEmpty()) continue;
                                                                 String[] user_parts = user.split("\\|");
-                                                                nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
-                                                                avatar = null;
-                                                                if (user_parts.length == 3) {
-                                                                    file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    if (file_id < 0) {
-                                                                        file_id *= -1;
+                                                                try {
+                                                                    String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
+                                                                    File list_avatar = null;
+                                                                    if (user_parts.length == 3 && !user_parts[2].equals("*")) {
+                                                                        int fid = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        if (fid < 0) fid *= -1;
+                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + list_nick + "_avatar" + String.valueOf(fid));
+                                                                        try (FileOutputStream os = new FileOutputStream(list_avatar)) {
+                                                                            os.write(Base64.getDecoder().decode(user_parts[2]));
+                                                                        } catch(Exception e){}
                                                                     }
-                                                                    avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nick + "_avatar" + String.valueOf(file_id));
-                                                                    try (FileOutputStream os = new FileOutputStream(avatar)) {
-                                                                        os.write(Base64.getDecoder().decode(user_parts[2]));
+                                                                    if (!participantes.containsKey(list_nick)) {
+                                                                        boolean isListBot = list_nick.startsWith("CoronaBot$");
+                                                                        nuevoParticipante(list_nick, list_avatar, null, null, null, isListBot, "1".equals(user_parts[1]));
                                                                     }
-                                                                }
-                                                                if (!participantes.containsKey(nick)) {
-                                                                    nuevoParticipante(nick, avatar, null, null, null, false, "1".equals(user_parts[1]));
-                                                                }
+                                                                } catch(Exception e){}
                                                             }
                                                             break;
                                                         case "INIT":
@@ -2987,10 +2204,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     private void enviarListaUsuariosActualesAlNuevoUsuario(Participant par) {
-
         StringBuilder commandBuilder = new StringBuilder("USERSLIST#");
-
-        // Lock the map while iterating to prevent crashes if someone disconnects
         synchronized (participantes) {
             for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
                 Participant p = entry.getValue();
@@ -3001,21 +2215,33 @@ public class WaitingRoomFrame extends JFrame {
                                 .append(p.isUnsecure_player() ? "1" : "0");
 
                         if (p.getAvatar() != null || p.isCpu()) {
-                            byte[] avatar_b;
-                            try (InputStream is = !p.isCpu() ? new FileInputStream(p.getAvatar())
-                                    : WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
-                                avatar_b = is.readAllBytes();
+                            byte[] avatar_b = null;
+                            try {
+                                if (!p.isCpu() && p.getAvatar() != null) {
+                                    try (java.io.InputStream is = new FileInputStream(p.getAvatar())) {
+                                        avatar_b = is.readAllBytes();
+                                    }
+                                } else if (p.isCpu()) {
+                                    java.io.InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png");
+                                    if (is != null) {
+                                        avatar_b = is.readAllBytes();
+                                        is.close();
+                                    }
+                                }
+                            } catch (Exception e) {}
+                            
+                            if (avatar_b != null) {
+                                commandBuilder.append("|").append(Base64.getEncoder().encodeToString(avatar_b));
+                            } else {
+                                commandBuilder.append("|*");
                             }
-                            commandBuilder.append("|").append(Base64.getEncoder().encodeToString(avatar_b));
                         }
                         commandBuilder.append("@");
                     }
-                } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                } catch (Exception ex) {
                 }
             }
         }
-
         this.sendASYNCGAMECommandFromServer(commandBuilder.toString(), par);
     }
 
@@ -3033,7 +2259,7 @@ public class WaitingRoomFrame extends JFrame {
                 client_socket.getInputStream().read(magic);
                 if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
-                    /* INICIO INTERCAMBIO DE CLAVES */
+                    /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
                     DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
                     int length = dIn.readInt();
                     byte[] clientPubKeyEnc = new byte[length];
@@ -3052,43 +2278,6 @@ public class WaitingRoomFrame extends JFrame {
                     dOut.write(serverPubKeyEnc);
                     dOut.flush();
 
-                    // --- PANOPTES: SERVER CHALLENGES CLIENT ---
-                    // FIX RACE CONDITION: Usamos la IP/Puerto REMOTOS del cliente SÓLO para aislar la sesión en RAM
-                    String clientRemoteIp = client_socket.getInetAddress().getHostAddress();
-                    int clientRemotePort = client_socket.getPort();
-                    String tempSessionId = clientRemoteIp + ":" + clientRemotePort;
-
-                    // FIX NAT/WAN: El servidor debe retar al cliente usando la IP a la que el cliente CREE estar conectado.
-                    // Si el cliente viene de Internet, buscará en su tabla TCP nuestra IP Pública, no nuestra IP Privada.
-                    String serverIpToUse;
-                    if (clientRemoteIp.equals("localhost") || clientRemoteIp.equals("127.0.0.1")
-                            || clientRemoteIp.startsWith("192.168.") || clientRemoteIp.startsWith("10.")
-                            || clientRemoteIp.startsWith("172.16.")) {
-                        serverIpToUse = client_socket.getLocalAddress().getHostAddress(); // Red Local
-                    } else {
-                        serverIpToUse = Helpers.getMyPublicIP(); // Internet (NAT / WAN)
-                    }
-
-                    int serverLocalPort = client_socket.getLocalPort();
-
-                    Panoptes panoptes = Panoptes.getInstance();
-
-                    byte[] serverChallengeToClient = null;
-
-                    try {
-                        serverChallengeToClient = panoptes.generateChallenge(tempSessionId, serverLocalPort);
-                    } catch (Exception e) {
-                        Helpers.mostrarMensajeError(THIS, Translator.translate("error.fatal_panoptes_challenge"));
-                        LOGGER.log(Level.SEVERE, "FATAL ERROR: Failed to generate Panoptes challenge", e);
-                        System.exit(1);
-                    }
-
-                    if (serverChallengeToClient != null) {
-                        dOut.writeInt(serverChallengeToClient.length);
-                        dOut.write(serverChallengeToClient);
-                        dOut.flush();
-                    }
-
                     serverKeyAgree.doPhase(clientPubKey, true);
                     byte[] serverSharedSecret = serverKeyAgree.generateSecret();
                     byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
@@ -3096,21 +2285,11 @@ public class WaitingRoomFrame extends JFrame {
                     SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
                     /* FIN INTERCAMBIO DE CLAVES */
 
-                    // A partir de aquí sigue igual, leyendo el comando del cliente...
                     recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
                     partes = recibido.split("#");
                     String client_nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
 
-                    // ... (resto de tu código serverSocketHandler)
-                    String[] versionAndPayload = partes[1].split("@");
-                    String client_version = versionAndPayload[0];
-                    String securityPayload = versionAndPayload.length > 1 ? versionAndPayload[1] : "";
-
-                    String[] tokensSeguridad = securityPayload.split("\\$");
-                    String clientChallengeBase64 = tokensSeguridad.length > 0 ? tokensSeguridad[0] : "";
-                    String clientSignatureBase64 = tokensSeguridad.length > 1 ? tokensSeguridad[1] : "";
-                    String clientPubKeyBase64 = tokensSeguridad.length > 2 ? tokensSeguridad[2] : "";
-
+                    String client_version = partes[1];
                     File client_avatar = null;
 
                     if (partes.length == 5) {
@@ -3242,7 +2421,6 @@ public class WaitingRoomFrame extends JFrame {
                     } else if (participantes.containsKey(client_nick)) {
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
                     } else {
-                        // Procesamos su avatar
                         String client_avatar_base64 = partes[2];
                         try {
                             if (!"*".equals(client_avatar_base64)) {
@@ -3261,24 +2439,9 @@ public class WaitingRoomFrame extends JFrame {
                             client_avatar = null;
                         }
 
-                        // --- PANOPTES PHASE 1: SIGN CLIENT'S CHALLENGE ---
-                        String serverSignatureBase64 = "";
-                        try {
-                            byte[] challengeBytes = Base64.getDecoder().decode(clientChallengeBase64);
-                            byte[] signatureBytes = panoptes.signChallenge(challengeBytes);
-                            if (signatureBytes != null) {
-                                serverSignatureBase64 = Base64.getEncoder().encodeToString(signatureBytes);
-                            } else {
-                                serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]);
-                            }
-                        } catch (Exception e) {
-                            LOGGER.log(Level.SEVERE,
-                                    "Failed to sign Panoptes challenge", e);
-                            serverSignatureBase64 = Base64.getEncoder().encodeToString(new byte[72]);
-                        }
-
+                        // PURGADO: Borramos la firma fantasma y le pasamos los datos del juego directamente
                         writeCommandFromServer(Helpers.encryptCommand(
-                                "NICKOK#" + (password == null ? "0" : "1") + "#" + serverSignatureBase64 + "#"
+                                "NICKOK#" + (password == null ? "0" : "1") + "#"
                                 + Base64.getEncoder().encodeToString(
                                         (game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
                                                 + game_info_hands.getText()).getBytes("UTF-8")),
@@ -3302,10 +2465,6 @@ public class WaitingRoomFrame extends JFrame {
                                 : Base64.getEncoder().encodeToString(chat_text.toString().getBytes("UTF-8")),
                                 aes_key, hmac_key), client_socket);
 
-                        writeCommandFromServer(
-                                Helpers.encryptCommand(String.valueOf(GameFrame.RADAR_AVAILABLE), aes_key, hmac_key),
-                                client_socket);
-
                         synchronized (lock_new_client) {
                             try {
                                 Helpers.GUIRunAndWait(() -> {
@@ -3322,25 +2481,6 @@ public class WaitingRoomFrame extends JFrame {
                                     nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
                                     Audio.playWavResource("misc/laser.wav");
-
-                                    // --- PANOPTES: GUARDAMOS LA CLAVE PÚBLICA DEL CLIENTE ---
-                                    if (!clientPubKeyBase64.isEmpty()) {
-                                        participantes.get(client_nick).setPanoptes_public_key(Base64.getDecoder().decode(clientPubKeyBase64));
-                                    }
-                                    // --------------------------------------------------------
-
-                                    // --- PANOPTES: SERVER VERIFIES CLIENT ---
-                                    int isClientLegit = panoptes.verifyResponse(tempSessionId, Base64.getDecoder().decode(clientSignatureBase64));
-
-                                    if (isClientLegit == Panoptes.STATUS_FAILED) {
-                                        participantes.get(client_nick).setUnsecure_player(true);
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).warning(client_nick + " GAME BINARY IS MODIFIED OR GUARDIAN TRIGGERED (cheating?)");
-                                    } else if (isClientLegit == Panoptes.STATUS_VM_DETECTED) {
-                                        Helpers.threadRun(() -> {
-                                            mostrarMensajeInformativo(THIS, Translator.translate("ui.error.vm_detected_client") + " [" + client_nick + "]");
-                                        });
-                                        Logger.getLogger(WaitingRoomFrame.class.getName()).warning(client_nick + " is running on a Virtual Machine.");
-                                    }
 
                                     if (participantes.size() > 2) {
                                         enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
@@ -3398,16 +2538,8 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    private void servidor() {
-
+   private void servidor() {
         server_nick = local_nick;
-
-        gen_priv_session_key();
-
-        if (participantes.get(local_nick) != null) {
-            participantes.get(local_nick).setPanoptes_public_key(local_player_public_key);
-        }
-
         Helpers.threadRun(() -> {
             while (!exit) {
                 booting = true;
@@ -3441,20 +2573,14 @@ public class WaitingRoomFrame extends JFrame {
                     server_socket.setReuseAddress(true);
                     server_socket.bind(new InetSocketAddress(server_port));
                     while (!server_socket.isClosed()) {
-
                         serverSocketHandler(server_socket.accept());
-
                     }
                 } catch (IOException ex) {
-
                     if (server_socket == null) {
-
                         exit = true;
-
                         mostrarMensajeError(THIS,
                                 "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
                     }
-
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
@@ -3465,7 +2591,6 @@ public class WaitingRoomFrame extends JFrame {
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 Helpers.GUIRun(() -> {
                     Init.VENTANA_INICIO.setVisible(true);
-
                     dispose();
                 });
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
@@ -3729,7 +2854,7 @@ public class WaitingRoomFrame extends JFrame {
      */
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">                          
     private void initComponents() {
 
         main_scroll_panel = new javax.swing.JScrollPane();
@@ -3753,7 +2878,6 @@ public class WaitingRoomFrame extends JFrame {
         pass_icon = new javax.swing.JLabel();
         tot_conectados = new javax.swing.JLabel();
         server_address_label = new javax.swing.JLabel();
-        radar = new javax.swing.JLabel();
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
@@ -3963,16 +3087,11 @@ public class WaitingRoomFrame extends JFrame {
             }
         });
 
-        radar.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/shield.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)));
-        radar.setDoubleBuffered(true);
-
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(radar)
                 .addGap(0, 0, 0)
                 .addComponent(pass_icon)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -3986,9 +3105,7 @@ public class WaitingRoomFrame extends JFrame {
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(server_address_label, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(radar))
+                    .addComponent(server_address_label, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(tot_conectados)
                     .addComponent(pass_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
@@ -4296,7 +3413,7 @@ public class WaitingRoomFrame extends JFrame {
         );
 
         pack();
-    }// </editor-fold>//GEN-END:initComponents
+    }// </editor-fold>                        
 
     private void kick_userActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_kick_userActionPerformed
 
@@ -4452,7 +3569,13 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         } while (ocupados);
 
-                        p2pSwarmManager.startSwarm();
+                        // --- FIX: AHORA SÍ ARRANCAMOS LA PARTIDA PARA EL HOST ---
+                        Helpers.GUIRunAndWait(() -> {
+                            new GameFrame(WaitingRoomFrame.this, local_nick, true);
+                        });
+                        partida_empezada = true;
+                        GameFrame.getInstance().AJUGAR();
+                        // --------------------------------------------------------
                     }
                 });
             }
@@ -4573,7 +3696,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_logoMouseClicked
 
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_new_bot_buttonActionPerformed
-
         if (participantes.size() < MAX_PARTICIPANTES) {
             new_bot_button.setEnabled(false);
             Audio.playWavResource("misc/laser.wav");
@@ -4589,22 +3711,19 @@ public class WaitingRoomFrame extends JFrame {
 
                     String comando = "NEWUSER#" + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
                     byte[] avatar_b = null;
-                    try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
-                        avatar_b = is.readAllBytes();
-                    } catch (IOException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
+                    try {
+                        java.io.InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png");
+                        if (is != null) {
+                            avatar_b = is.readAllBytes();
+                            is.close();
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.SEVERE, "Fallo al cargar avatar del bot", ex);
                     }
-                    comando += "#" + Base64.getEncoder().encodeToString(avatar_b);
+                    comando += "#" + (avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
 
                     synchronized (lock_new_client) {
                         nuevoParticipante(bot_nick, null, null, null, null, true, false);
-
-                        /* PANOPTES: ZERO-TRUST DETERMINISTIC BOT KEYS */
-                        byte[] botPriv = java.security.MessageDigest.getInstance("SHA-256").digest(bot_nick.getBytes("UTF-8"));
-                        participantes.get(bot_nick).setPanoptes_private_key(botPriv);
-                        participantes.get(bot_nick).setPanoptes_public_key(Panoptes.getInstance().utilsGetPublicKey(botPriv));
-                        /* ------------------------------------------- */
-
                         broadcastASYNCGAMECommandFromServer(comando, participantes.get(bot_nick));
                         Helpers.GUIRun(() -> {
                             empezar_timba.setEnabled(true);
@@ -4617,11 +3736,10 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 } catch (UnsupportedEncodingException ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
-                } catch (NoSuchAlgorithmException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
                 }
             });
         }
+
     }// GEN-LAST:event_new_bot_buttonActionPerformed
 
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_pass_iconMouseClicked
@@ -4952,7 +4070,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }// GEN-LAST:event_chatCaretUpdate
 
-    // Variables declaration - do not modify//GEN-BEGIN:variables
+    // Variables declaration - do not modify                     
     private javax.swing.JLabel avatar_label;
     private javax.swing.JProgressBar barra;
     private javax.swing.JEditorPane chat;
@@ -4984,12 +4102,11 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JPanel panel_con;
     private javax.swing.JScrollPane panel_conectados;
     private javax.swing.JLabel pass_icon;
-    private javax.swing.JLabel radar;
     private javax.swing.JLabel send_label;
     private javax.swing.JLabel server_address_label;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel tot_conectados;
     private javax.swing.JLabel tts_warning;
-    // End of variables declaration//GEN-END:variables
+    // End of variables declaration                   
 }

@@ -78,10 +78,6 @@ import javax.swing.Timer;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
-import java.lang.management.ManagementFactory;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import javax.swing.JWindow;
 
 /**
@@ -92,12 +88,10 @@ public class Init extends JFrame {
 
     private static final Logger LOGGER = Logger.getLogger(Init.class.getName());
 
-    public static final boolean DEV_MODE = false;
+    public static final boolean DEV_MODE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
-    public static final String RADAR_DIR = CORONA_DIR + "/RADAR";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
-    public static final String PANOPTES_DIR = CORONA_DIR + "/Panoptes";
     public static final String GIFSICLE_DIR = CORONA_DIR + "/gifsicle";
     public static final String SETDPI_DIR = CORONA_DIR + "/setdpi";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
@@ -280,12 +274,6 @@ public class Init extends JFrame {
 
         setTitle(Init.WINDOW_TITLE);
 
-        panoptes.setVisible(false);
-
-        panoptes_label.setText(Translator.translate("zero_trust.verifying_integrity"));
-
-        panoptes_label.setIcon(new ImageIcon(new ImageIcon(getClass().getResource("/images/shield.png")).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)));
-
         quote = new JTextPane();
 
         StyledDocument doc = quote.getStyledDocument();
@@ -365,33 +353,6 @@ public class Init extends JFrame {
         update_label.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
 
         HashMap<KeyStroke, Action> actionMap = new HashMap<>();
-
-        actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, KeyEvent.CTRL_DOWN_MASK), new AbstractAction("SCREENSHOT") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-
-                if (Helpers.OSValidator.isWindows()) {
-
-                    if (GameFrame.getInstance() != null) {
-
-                        Helpers.threadRun(() -> {
-
-                            boolean ok = Helpers.screenshotWindows();
-
-                            if (ok) {
-                                Audio.playWavResource("misc/screenshot.wav");
-
-                                Helpers.GUIRun(() -> {
-                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "SCREENSHOT", Color.WHITE, Color.BLACK, getClass().getResource("/images/screenshot.png"), 1000);
-                                    dialog.setLocation(dialog.getParent().getLocation());
-                                    dialog.setVisible(true);
-                                });
-                            }
-                        });
-                    }
-                }
-            }
-        });
 
         actionMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK), new AbstractAction("SOUND-SWITCH") {
             @Override
@@ -609,9 +570,6 @@ public class Init extends JFrame {
         exit_button = new javax.swing.JButton();
         language_combobox = new javax.swing.JComboBox<>();
         global_zoom_combobox = new javax.swing.JComboBox<>();
-        panoptes = new javax.swing.JPanel();
-        panoptes_label = new javax.swing.JLabel();
-        panoptes_hash_ready = new javax.swing.JProgressBar();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
@@ -779,46 +737,18 @@ public class Init extends JFrame {
             }
         });
 
-        panoptes.setBackground(new java.awt.Color(0, 102, 153));
-
-        panoptes_label.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        panoptes_label.setForeground(new java.awt.Color(255, 255, 255));
-        panoptes_label.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-
-        javax.swing.GroupLayout panoptesLayout = new javax.swing.GroupLayout(panoptes);
-        panoptes.setLayout(panoptesLayout);
-        panoptesLayout.setHorizontalGroup(
-            panoptesLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panoptesLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(panoptesLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(panoptes_hash_ready, javax.swing.GroupLayout.DEFAULT_SIZE, 916, Short.MAX_VALUE)
-                    .addComponent(panoptes_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
-        );
-        panoptesLayout.setVerticalGroup(
-            panoptesLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, panoptesLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(panoptes_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(panoptes_hash_ready, javax.swing.GroupLayout.PREFERRED_SIZE, 25, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
-        );
-
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 605, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-            .addComponent(panoptes, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -829,9 +759,7 @@ public class Init extends JFrame {
                         .addComponent(exit_button)
                         .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(panoptes, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGap(0, 0, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout corona_init_panelLayout = new javax.swing.GroupLayout(corona_init_panel);
@@ -1121,110 +1049,9 @@ public class Init extends JFrame {
 
     }//GEN-LAST:event_global_zoom_comboboxActionPerformed
 
-    public static void ensureRequiredJvmParameters(String[] args, Class<?> mainClass) {
-        List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
-
-        // 1. Check standard JVM flags safely by iterating
-        boolean hasNativeAccess = false;
-        boolean hasDisableAttach = false;
-
-        for (String arg : jvmArgs) {
-            if (arg.contains("--enable-native-access=ALL-UNNAMED")) {
-                hasNativeAccess = true;
-            }
-            if (arg.contains("-XX:+DisableAttachMechanism")) {
-                hasDisableAttach = true;
-            }
-        }
-
-        // 2. Check properties directly from the System
-        String currentLibPath = System.getProperty("java.library.path");
-        boolean hasLibraryPath = currentLibPath != null && currentLibPath.contains(PANOPTES_DIR);
-
-        // Check if IPv4 stack is explicitly preferred
-        String preferIPv4 = System.getProperty("java.net.preferIPv4Stack");
-        boolean hasIPv4Forced = "true".equals(preferIPv4);
-
-        // 3. If all parameters are present, continue normal execution
-        if (hasNativeAccess && hasLibraryPath && hasDisableAttach && hasIPv4Forced) {
-            return;
-        }
-
-        LOGGER.log(Level.INFO, "Missing required JVM security, library, or network parameters. Restarting automatically...");
-
-        try {
-            // 4. Build the restart command
-            String javaBin = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
-            String classpath = System.getProperty("java.class.path");
-
-            List<String> command = new ArrayList<>();
-            command.add(javaBin);
-
-            // Inject the required parameters
-            command.add("--enable-native-access=ALL-UNNAMED");
-            command.add("-Djava.library.path=" + PANOPTES_DIR);
-            command.add("-Djava.net.preferIPv4Stack=true");
-            command.add("-XX:+DisableAttachMechanism");
-
-            // Add classpath and main class
-            command.add("-cp");
-            command.add(classpath);
-            command.add(mainClass.getName());
-
-            // Pass along the original application arguments
-            if (args != null) {
-                command.addAll(Arrays.asList(args));
-            }
-
-            // 5. Configure the new process
-            ProcessBuilder builder = new ProcessBuilder(command);
-
-            // 6. Sanitize the environment variables to prevent silent agent injection
-            Map<String, String> env = builder.environment();
-            env.remove("JAVA_TOOL_OPTIONS");
-            env.remove("_JAVA_OPTIONS");
-            env.remove("JDK_JAVA_OPTIONS");
-
-            // 7. Launch the new process
-            builder.inheritIO();
-            builder.start();
-
-            // 8. Terminate the current flawed instance
-            System.exit(0);
-
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error while restarting JVM", e);
-            System.exit(1);
-        }
-    }
-
-    private static void showPanoptesSplash() {
-        panoptes_splash = new javax.swing.JWindow();
-
-        Helpers.GUIRun(() -> {
-            java.net.URL logoUrl = Init.class.getResource("/images/panoptes_logo.jpg");
-            if (logoUrl != null) {
-                panoptes_splash.getContentPane().add(new javax.swing.JLabel(new javax.swing.ImageIcon(logoUrl)));
-            }
-            panoptes_splash.pack();
-            panoptes_splash.setLocationRelativeTo(null);
-            panoptes_splash.setAlwaysOnTop(true);
-            panoptes_splash.setVisible(true);
-        });
-    }
-
-    private static void hidePanoptesSplash() {
-        Helpers.GUIRun(() -> {
-            panoptes_splash.setVisible(false);
-            panoptes_splash.dispose();
-        });
-    }
-
     public static void main(String args[]) {
 
-        showPanoptesSplash();
-
-        ensureRequiredJvmParameters(args, Init.class);
+        //ensureRequiredJvmParameters(args, Init.class);
 
         setupConsoleLogger();
 
@@ -1357,51 +1184,10 @@ public class Init extends JFrame {
                 System.exit(0);
             }
         }
-
-        Init.hidePanoptesSplash();
-
+        
         LOGGER.log(Level.INFO, "Checking for updates...");
 
         UPDATE();
-
-        Helpers.threadRun(() -> {
-
-            Helpers.GUIRun(() -> {
-                VENTANA_INICIO.panoptes.setVisible(true);
-                VENTANA_INICIO.panoptes_hash_ready.setValue(0);
-            });
-
-            Panoptes.WAKEUP_PANOPTES();
-
-            int progress = 0, last = 0;
-
-            while ((progress = Panoptes.getInstance().utilsAreHashesReady()) < 100 && progress >= 0) {
-
-                if (progress != last) {
-                    last = progress;
-
-                    final int p = progress;
-
-                    Helpers.GUIRun(() -> {
-                        VENTANA_INICIO.panoptes_hash_ready.setValue(p);
-                    });
-                }
-
-                Helpers.pausar(50);
-            }
-
-            if (progress == 100) {
-                Helpers.GUIRun(() -> {
-                    VENTANA_INICIO.panoptes_hash_ready.setValue(100);
-                    VENTANA_INICIO.panoptes.setVisible(false);
-                });
-            } else {
-                Helpers.GUIRun(() -> {
-                    VENTANA_INICIO.panoptes_hash_ready.setVisible(false);
-                    VENTANA_INICIO.panoptes_label.setText(Translator.translate("zero_trust.verifying_integrity_error"));
-                });
-            }
-        });
 
         if (!Helpers.OSValidator.isMac()) {
             antiScreensaver();
@@ -1501,9 +1287,6 @@ public class Init extends JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;
-    private javax.swing.JPanel panoptes;
-    private javax.swing.JProgressBar panoptes_hash_ready;
-    private javax.swing.JLabel panoptes_label;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;

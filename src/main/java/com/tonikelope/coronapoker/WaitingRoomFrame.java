@@ -61,7 +61,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -91,7 +90,6 @@ import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
 import static com.tonikelope.coronapoker.Init.DEV_MODE;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -3337,7 +3335,6 @@ public class WaitingRoomFrame extends JFrame {
 
         int selectedIndex = conectados.getSelectedIndex();
 
-        // TODO add your handling code here:
         if (selectedIndex != -1) {
 
             DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados
@@ -3487,13 +3484,11 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         } while (ocupados);
 
-                        // --- FIX: AHORA SÍ ARRANCAMOS LA PARTIDA PARA EL HOST ---
                         Helpers.GUIRunAndWait(() -> {
                             new GameFrame(WaitingRoomFrame.this, local_nick, true);
                         });
                         partida_empezada = true;
                         GameFrame.getInstance().AJUGAR();
-                        // --------------------------------------------------------
                     }
                 });
             }
@@ -3579,7 +3574,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_formWindowClosing
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_sound_iconMouseClicked
-        // TODO add your handling code here:
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
@@ -3602,7 +3596,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_sound_iconMouseClicked
 
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_logoMouseClicked
-        // TODO add your handling code here:
 
         boolean auto_f = protect_focus;
 
@@ -3665,7 +3658,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_new_bot_buttonActionPerformed
 
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_pass_iconMouseClicked
-        // TODO add your handling code here:
 
         if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
             if (mostrarMensajeInformativoSINO(this, Translator.translate("auth.generar_contrasena_nueva")) == 0) {
@@ -3682,7 +3674,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_pass_iconMouseClicked
 
     private void tts_warningMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_tts_warningMouseClicked
-        // TODO add your handling code here:
 
         mostrarMensajeInformativo(this,
                 Translator.translate("ui.tts_warning_detail"),
@@ -3701,7 +3692,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_server_address_labelMouseClicked
 
     private void game_info_buyinMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_game_info_buyinMouseClicked
-        // TODO add your handling code here:
 
         if (server && !GameFrame.isRECOVER() && !isPartida_empezada() && !isPartida_empezando()
                 && game_info_buyin.isEnabled()) {
@@ -3764,7 +3754,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_game_info_buyinMouseClicked
 
     private void chat_notificationsActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_chat_notificationsActionPerformed
-        // TODO add your handling code here:
 
         CHAT_GAME_NOTIFICATIONS = chat_notifications.isSelected();
 
@@ -3774,7 +3763,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_chat_notificationsActionPerformed
 
     private void emoji_buttonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_emoji_buttonActionPerformed
-        // TODO add your handling code here:
 
         emoji_scroll_panel.getHorizontalScrollBar().setValue(0);
 
@@ -3795,7 +3783,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_emoji_buttonActionPerformed
 
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_chat_boxActionPerformed
-        // TODO add your handling code here:
 
         String mensaje = chat_box.getText().trim();
 
@@ -3829,7 +3816,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_chat_boxActionPerformed
 
     private void image_buttonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_image_buttonActionPerformed
-        // TODO add your handling code here:
         boolean auto_f = protect_focus;
 
         protect_focus = false;
@@ -3842,7 +3828,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_image_buttonActionPerformed
 
     private void chatFocusLost(java.awt.event.FocusEvent evt) {// GEN-FIRST:event_chatFocusLost
-        // TODO add your handling code here:
         this.chat_scroll.getVerticalScrollBar().setValue(this.chat_scroll.getVerticalScrollBar().getMaximum());
         this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
         this.chat_scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
@@ -3852,22 +3837,18 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_chatFocusLost
 
     private void emoji_scroll_panelComponentHidden(java.awt.event.ComponentEvent evt) {// GEN-FIRST:event_emoji_scroll_panelComponentHidden
-        // TODO add your handling code here:
         emoji_panel.refreshEmojiHistory();
     }// GEN-LAST:event_emoji_scroll_panelComponentHidden
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowOpened
-        // TODO add your handling code here:
         chat_box.requestFocus();
     }// GEN-LAST:event_formWindowOpened
 
     private void send_labelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_send_labelMouseClicked
-        // TODO add your handling code here:
         chat_boxActionPerformed(null);
     }// GEN-LAST:event_send_labelMouseClicked
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {// GEN-FIRST:event_formComponentShown
-        // TODO add your handling code here:
 
         if (isPartida_empezada() && panel_arriba.isVisible()) {
 
@@ -3901,7 +3882,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_max_min_labelMouseClicked
-        // TODO add your handling code here:
         if (max_min_label.isEnabled()) {
             panel_arriba.setVisible(!panel_arriba.isVisible());
             Helpers.setScaledIconLabel(max_min_label,
@@ -3919,7 +3899,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_max_min_labelMouseClicked
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {// GEN-FIRST:event_formComponentHidden
-        // TODO add your handling code here:
 
         if (!protect_focus) {
             chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
@@ -3932,7 +3911,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_formComponentHidden
 
     private void formWindowStateChanged(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowStateChanged
-        // TODO add your handling code here:
 
         if ((evt.getNewState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH) {
             avatar_label.setText(this.local_nick);
@@ -3942,7 +3920,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_formWindowStateChanged
 
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_chatMouseClicked
-        // TODO add your handling code here:
 
         if (!chat.isFocusable()) {
             this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
@@ -3955,7 +3932,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_chatMouseClicked
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
         if (protect_focus) {
 
             setVisible(false);
@@ -3969,7 +3945,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_formWindowDeactivated
 
     private void formWindowDeiconified(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowDeiconified
-        // TODO add your handling code here:
         if (protect_focus) {
             protect_focus = false;
             setVisible(false);
@@ -3977,17 +3952,14 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_formWindowDeiconified
 
     private void game_info_blindsMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_game_info_blindsMouseClicked
-        // TODO add your handling code here:
         game_info_buyinMouseClicked(evt);
     }// GEN-LAST:event_game_info_blindsMouseClicked
 
     private void game_info_handsMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_game_info_handsMouseClicked
-        // TODO add your handling code here:
         game_info_buyinMouseClicked(evt);
     }// GEN-LAST:event_game_info_handsMouseClicked
 
     private void chatCaretUpdate(javax.swing.event.CaretEvent evt) {// GEN-FIRST:event_chatCaretUpdate
-        // TODO add your handling code here:
 
     }// GEN-LAST:event_chatCaretUpdate
 

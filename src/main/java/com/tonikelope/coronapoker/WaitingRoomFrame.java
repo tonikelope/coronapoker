@@ -938,77 +938,21 @@ public class WaitingRoomFrame extends JFrame {
         return emoji_scroll_panel;
     }
 
+    // Delegadores a NetClient/NetServer (Fase 3). El cuerpo vive en las clases de red.
     public void writeCommandToServer(String command) {
-
-        while (net_client != null && net_client.isReconnecting()) {
-            synchronized (getLocalClientSocketLock()) {
-                try {
-                    getLocalClientSocketLock().wait(1000);
-                } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-
-        try {
-            Socket s = net_client.getLocal_client_socket();
-            synchronized (s.getOutputStream()) {
-                s.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-                s.getOutputStream().flush();
-            }
-        } catch (IOException ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
-        }
+        net_client.writeCommandToServer(command);
     }
 
     public void writeCommandFromServer(String command, Socket socket) {
-        try {
-            synchronized (socket.getOutputStream()) {
-                socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-                socket.getOutputStream().flush();
-            }
-        } catch (IOException ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
-        }
+        net_server.writeCommandFromServer(command, socket);
     }
 
     public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
-
-        try {
-            synchronized (socket.getInputStream()) {
-
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-                return Helpers.decryptCommand(in.readLine(), key, hmac_key);
-            }
-        } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
-        }
-        return null;
+        return net_server.readCommandFromClient(socket, key, hmac_key);
     }
 
     public String readCommandFromServer() {
-
-        while (net_client != null && net_client.isReconnecting()) {
-            synchronized (getLocalClientSocketLock()) {
-                try {
-                    getLocalClientSocketLock().wait(1000);
-                } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-
-        synchronized (getLocal_client_buffer_read_is()) {
-            try {
-                return Helpers.decryptCommand(getLocal_client_buffer_read_is().readLine(), getLocal_client_aes_key(),
-                        getLocal_client_hmac_key());
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-        }
-
-        return null;
+        return net_client.readCommandFromServer();
     }
 
     // Función AUTO-RECONNECT

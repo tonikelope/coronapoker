@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -215,5 +216,53 @@ public class NetClient {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
         }
+    }
+
+    // --- Transporte: lectura/escritura cifrada al servidor ---
+    public void writeCommandToServer(String command) {
+        // Si estamos reconectando, esperamos a que termine antes de escribir.
+        while (reconnecting) {
+            synchronized (local_client_socket_lock) {
+                try {
+                    local_client_socket_lock.wait(1000);
+                } catch (InterruptedException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        try {
+            Socket s = local_client_socket;
+            synchronized (s.getOutputStream()) {
+                s.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                s.getOutputStream().flush();
+            }
+        } catch (IOException ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public String readCommandFromServer() {
+        // Si estamos reconectando, esperamos.
+        while (reconnecting) {
+            synchronized (local_client_socket_lock) {
+                try {
+                    local_client_socket_lock.wait(1000);
+                } catch (InterruptedException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        synchronized (local_client_buffer_read_is) {
+            try {
+                return Helpers.decryptCommand(local_client_buffer_read_is.readLine(),
+                        local_client_aes_key, local_client_hmac_key);
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return null;
     }
 }

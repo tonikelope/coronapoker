@@ -2362,17 +2362,7 @@ public class Crupier implements Runnable {
                     stH.executeUpdate();
                 }
 
-                // 3. Ensure all involved players exist in the 'player' table
-                if (map.get("balance") != null) {
-                    String[] bal = ((String) map.get("balance")).split("@");
-                    for (String d : bal) {
-                        if (!d.isEmpty()) {
-                            String name = new String(java.util.Base64.getDecoder().decode(d.split("\\|")[0]), "UTF-8");
-                            ensurePlayerExists(name);
-                        }
-                    }
-                }
-                LOGGER.log(Level.INFO, "[SQL-RECOVERY] Local database shells synchronized with server IDs.");
+                LOGGER.log(Level.INFO, "Local database shells synchronized with server IDs.");
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "Failed to sync local SQL shell records", ex);
             }
@@ -3879,9 +3869,6 @@ public class Crupier implements Runnable {
 
     private void sqlNewAction(Player current_player) {
         synchronized (GameFrame.SQL_LOCK) {
-            // El jugador tiene que existir en la tabla antes de poder insertar su acción.
-            ensurePlayerExists(current_player.getNickname());
-
             String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
@@ -8215,22 +8202,6 @@ public class Crupier implements Runnable {
         }
 
         GameFrame.getInstance().finTransmision(fin_de_la_transmision);
-    }
-
-    // --- NEW HELPER TO PREVENT FOREIGN KEY CASCADE ---
-    private void ensurePlayerExists(String nick) {
-        if (nick == null || nick.trim().isEmpty()) {
-            return;
-        }
-        synchronized (GameFrame.SQL_LOCK) {
-            String sql = "INSERT OR IGNORE INTO player(nick) VALUES (?)";
-            try (PreparedStatement stmt = Helpers.getSQLITE().prepareStatement(sql)) {
-                stmt.setString(1, nick);
-                stmt.executeUpdate();
-            } catch (Exception e) {
-                // Ignore silent constraints
-            }
-        }
     }
 
     public void checkRebuyTime() {

@@ -685,7 +685,7 @@ public class Participant implements Runnable {
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
                                                     }
                                                 } catch (Exception e) {
-                                                    LOGGER.log(Level.SEVERE, "Error procesando/rebotando SHOWCARDS en servidor", e);
+                                                    LOGGER.log(Level.SEVERE, "Error processing/forwarding SHOWCARDS on server", e);
                                                 }
                                             });
                                             break;

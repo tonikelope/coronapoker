@@ -420,7 +420,8 @@ public class Helpers {
             String fileName = String.format(template, suffix);
             try {
                 java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
-            } catch (IOException e) {}
+            } catch (IOException e) {
+            }
         }
     }
 
@@ -433,7 +434,8 @@ public class Helpers {
         for (String template : fileTemplates) {
             try {
                 java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + String.format(template, suffix)));
-            } catch (IOException e) {}
+            } catch (IOException e) {
+            }
         }
     }
 
@@ -3214,8 +3216,8 @@ public class Helpers {
 
         }
     }
-    
-   /* public static void ensureRequiredJvmParameters(String[] args, Class<?> mainClass) {
+
+    /* public static void ensureRequiredJvmParameters(String[] args, Class<?> mainClass) {
         List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
 
         // 1. Check standard JVM flags safely by iterating
@@ -3291,7 +3293,6 @@ public class Helpers {
             System.exit(1);
         }
     }*/
-
     public static void zoomFonts(final Component component, final float zoom_factor, final ConcurrentLinkedQueue<Long> notifier) {
 
         if (component != null) {

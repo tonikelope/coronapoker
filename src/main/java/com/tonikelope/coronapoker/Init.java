@@ -78,7 +78,6 @@ import javax.swing.Timer;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
-import javax.swing.JWindow;
 
 /**
  *
@@ -1050,7 +1049,6 @@ public class Init extends JFrame {
     public static void main(String args[]) {
 
         //ensureRequiredJvmParameters(args, Init.class);
-
         setupConsoleLogger();
 
         Helpers.threadRun(() -> {
@@ -1182,7 +1180,7 @@ public class Init extends JFrame {
                 System.exit(0);
             }
         }
-        
+
         LOGGER.log(Level.INFO, "Checking for updates...");
 
         UPDATE();

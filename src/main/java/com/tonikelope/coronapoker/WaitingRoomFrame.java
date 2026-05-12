@@ -1626,9 +1626,9 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-   private void cliente() {
+    private void cliente() {
         Helpers.threadRun(() -> {
-            
+
             do {
                 Helpers.GUIRun(() -> {
                     status.setForeground(new Color(51, 153, 0));
@@ -1662,7 +1662,7 @@ public class WaitingRoomFrame extends JFrame {
                     DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
                     dOut.writeInt(clientPubKeyEnc.length);
                     dOut.write(clientPubKeyEnc);
-                    
+
                     DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
                     int length = dIn.readInt();
                     byte[] serverPubKeyEnc = new byte[length];
@@ -1766,13 +1766,13 @@ public class WaitingRoomFrame extends JFrame {
                             }
 
                             recibido = readCommandFromServer();
-                            
+
                             if (!"*".equals(recibido)) {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
 
                             recibido = readCommandFromServer();
-                            
+
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
 
@@ -1784,7 +1784,7 @@ public class WaitingRoomFrame extends JFrame {
                                 emoji_button.setEnabled(true);
                                 image_button.setEnabled(true);
                                 max_min_label.setEnabled(true);
-                                
+
                             });
 
                             refreshChatPanel();
@@ -1802,7 +1802,7 @@ public class WaitingRoomFrame extends JFrame {
                                         case "PING":
                                             writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
                                             break;
-                                        
+
                                         case "CHAT":
                                             String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
                                             recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
@@ -1820,12 +1820,13 @@ public class WaitingRoomFrame extends JFrame {
                                         case "GAME":
                                             String subcomando = partes_comando[2];
                                             int id = Integer.parseInt(partes_comando[1]);
-                                            
+
                                             try {
                                                 String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
                                                 this.writeCommandToServer(Helpers.encryptCommand(confMsg, this.local_client_aes_key, this.local_client_hmac_key));
-                                            } catch (Exception e) {}
-                                            
+                                            } catch (Exception e) {
+                                            }
+
                                             if (!cliente_last_received.containsKey(subcomando) || cliente_last_received.get(subcomando) != id) {
                                                 cliente_last_received.put(subcomando, id);
                                                 if (isPartida_empezada()) {
@@ -1850,7 +1851,8 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     int respId = Helpers.CSPRNG_GENERATOR.nextInt();
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, local_client_aes_key, local_client_hmac_key));
-                                                                } catch (Exception e) {}
+                                                                } catch (Exception e) {
+                                                                }
                                                             });
                                                             break;
 
@@ -1862,15 +1864,34 @@ public class WaitingRoomFrame extends JFrame {
                                                                     byte[] unlocked = cards;
                                                                     try {
                                                                         unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
-                                                                    } catch (Exception x) {}
+                                                                    } catch (Exception x) {
+                                                                    }
 
                                                                     String uB64 = Base64.getEncoder().encodeToString(unlocked);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
                                                                     int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respId2 + "#RESP_SRA_UNLOCK#" + myNickB64 + "#" + uB64, local_client_aes_key, local_client_hmac_key));
-                                                                } catch (Exception e) {}
+                                                                } catch (Exception e) {
+                                                                }
                                                             });
+                                                            break;
+                                                        case "TIMEOUT":
+                                                            // Process the timeout command directly in the client UI thread
+                                                            try {
+                                                                String timeoutNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                Helpers.GUIRun(() -> {
+                                                                    if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                                                                        Player p = GameFrame.getInstance().getCrupier().getNick2player().get(timeoutNick);
+                                                                        if (p != null) {
+                                                                            // Triggers the visual change (red/purple border and timeout icon)
+                                                                            p.setTimeout(true);
+                                                                        }
+                                                                    }
+                                                                });
+                                                            } catch (Exception e) {
+                                                                // Ignore decoding errors to prevent socket thread crash
+                                                            }
                                                             break;
                                                         case "YOUARELATE":
                                                             try {
@@ -1885,21 +1906,24 @@ public class WaitingRoomFrame extends JFrame {
                                                                     dialog.setLocation(dialog.getParent().getLocation());
                                                                     dialog.setVisible(true);
                                                                 });
-                                                            } catch (Exception e) {}
+                                                            } catch (Exception e) {
+                                                            }
                                                             break;
                                                         case "IWTSTH":
                                                             if (GameFrame.getInstance().getCrupier().isShow_time() && !GameFrame.getInstance().getCrupier().isIwtsthing()) {
                                                                 try {
                                                                     String authNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     GameFrame.getInstance().getCrupier().IWTSTH_HANDLER(authNick);
-                                                                } catch(Exception e){}
+                                                                } catch (Exception e) {
+                                                                }
                                                             }
                                                             break;
                                                         case "IWTSTHSHOW":
                                                             try {
                                                                 String showNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 GameFrame.getInstance().getCrupier().IWTSTH_SHOW(showNick, Boolean.parseBoolean(partes_comando[4]));
-                                                            } catch(Exception e){}
+                                                            } catch (Exception e) {
+                                                            }
                                                             break;
                                                         case "IWTSTHRULE":
                                                             Helpers.threadRun(() -> {
@@ -1926,14 +1950,33 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     String rNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     GameFrame.getInstance().getCrupier().RABBIT_HANDLER(rNick, Integer.parseInt(partes_comando[4]));
-                                                                } catch(Exception e){}
+                                                                } catch (Exception e) {
+                                                                }
+                                                            }
+                                                            break;
+                                                        case "POCKET_CARDS":
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    String targetNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    byte[] unlockedByOthers = Base64.getDecoder().decode(partes_comando[4]);
+                                                                    if (unlockedByOthers != null) {
+                                                                        GameFrame.getInstance().getCrupier().single_locked_pocket_cards.put(targetNick, unlockedByOthers);
+                                                                    }
+                                                                } catch (Exception e) {
+                                                                }
+                                                            });
+                                                            // Reenviamos a la cola para que el Crupier pueda continuar su flujo local normal
+                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
                                                             }
                                                             break;
                                                         case "REBUYNOW":
                                                             try {
                                                                 String rbNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 GameFrame.getInstance().getCrupier().rebuyNow(rbNick, Integer.parseInt(partes_comando[4]));
-                                                            } catch(Exception e){}
+                                                            } catch (Exception e) {
+                                                            }
                                                             break;
                                                         case "SHOWCARDS":
                                                             Helpers.threadRun(() -> {
@@ -1942,7 +1985,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String sraKeyB64 = partes_comando[4];
                                                                     // El cliente descifra las cartas localmente con la SRA key recibida
                                                                     GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
-                                                                } catch(Exception e) {
+                                                                } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Error procesando SHOWCARDS en cliente", e);
                                                                 }
                                                             });
@@ -1977,7 +2020,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                 if (partes_comando[3].equals("2")) {
                                                                     GameFrame.getInstance().getCrupier().setForce_recover(true);
                                                                     if (partes_comando.length > 4) {
-                                                                        try { password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8"); } catch(Exception e){}
+                                                                        try {
+                                                                            password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8");
+                                                                        } catch (Exception e) {
+                                                                        }
                                                                     }
                                                                 }
                                                                 GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
@@ -1997,15 +2043,21 @@ public class WaitingRoomFrame extends JFrame {
                                                             exit = true;
                                                             GameFrame.getInstance().getCrupier().setForce_recover(true);
                                                             if (partes_comando.length > 3) {
-                                                                try { password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"); } catch(Exception e){}
+                                                                try {
+                                                                    password = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                } catch (Exception e) {
+                                                                }
                                                             }
                                                             break;
                                                         case "EXIT":
-                                                            String exitingNick = local_nick; 
+                                                            String exitingNick = local_nick;
                                                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                                                                 int offset = 3;
                                                                 if (!GameFrame.getInstance().isPartida_local() && partes_comando.length >= 4) {
-                                                                    try { exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"); } catch (Exception e) {}
+                                                                    try {
+                                                                        exitingNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    } catch (Exception e) {
+                                                                    }
                                                                     offset = 4;
                                                                 }
 
@@ -2014,8 +2066,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                                         try {
                                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                                            if (testament.length == 32) p.setSra_unlock(testament);
-                                                                        } catch (Exception e) {}
+                                                                            if (testament.length == 32) {
+                                                                                p.setSra_unlock(testament);
+                                                                            }
+                                                                        } catch (Exception e) {
+                                                                        }
                                                                     }
                                                                     GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
                                                                 } else {
@@ -2053,9 +2108,10 @@ public class WaitingRoomFrame extends JFrame {
                                                             });
                                                             break;
                                                         case "DELUSER":
-                                                            try{
+                                                            try {
                                                                 borrarParticipante(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
-                                                            } catch(Exception e){}
+                                                            } catch (Exception e) {
+                                                            }
                                                             break;
                                                         case "NEWUSER":
                                                             Audio.playWavResource("misc/laser.wav");
@@ -2063,40 +2119,50 @@ public class WaitingRoomFrame extends JFrame {
                                                                 String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 File avatarNew = null;
                                                                 int file_id = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                if (file_id < 0) file_id *= -1;
+                                                                if (file_id < 0) {
+                                                                    file_id *= -1;
+                                                                }
                                                                 if (partes_comando.length == 6 && !partes_comando[5].equals("*")) {
                                                                     avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nickNew + "_avatar" + String.valueOf(file_id));
                                                                     try (FileOutputStream os = new FileOutputStream(avatarNew)) {
                                                                         os.write(Base64.getDecoder().decode(partes_comando[5]));
-                                                                    } catch(Exception e){}
+                                                                    } catch (Exception e) {
+                                                                    }
                                                                 }
                                                                 if (!participantes.containsKey(nickNew)) {
                                                                     boolean isBot = nickNew.startsWith("CoronaBot$");
                                                                     nuevoParticipante(nickNew, avatarNew, null, null, null, isBot, "1".equals(partes_comando[4]));
                                                                 }
-                                                            } catch (Exception e){}
+                                                            } catch (Exception e) {
+                                                            }
                                                             break;
                                                         case "USERSLIST":
                                                             String[] current_users_parts = partes_comando[3].split("@");
                                                             for (String user : current_users_parts) {
-                                                                if (user.isEmpty()) continue;
+                                                                if (user.isEmpty()) {
+                                                                    continue;
+                                                                }
                                                                 String[] user_parts = user.split("\\|");
                                                                 try {
                                                                     String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
                                                                     File list_avatar = null;
                                                                     if (user_parts.length == 3 && !user_parts[2].equals("*")) {
                                                                         int fid = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                        if (fid < 0) fid *= -1;
+                                                                        if (fid < 0) {
+                                                                            fid *= -1;
+                                                                        }
                                                                         list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + list_nick + "_avatar" + String.valueOf(fid));
                                                                         try (FileOutputStream os = new FileOutputStream(list_avatar)) {
                                                                             os.write(Base64.getDecoder().decode(user_parts[2]));
-                                                                        } catch(Exception e){}
+                                                                        } catch (Exception e) {
+                                                                        }
                                                                     }
                                                                     if (!participantes.containsKey(list_nick)) {
                                                                         boolean isListBot = list_nick.startsWith("CoronaBot$");
                                                                         nuevoParticipante(list_nick, list_avatar, null, null, null, isListBot, "1".equals(user_parts[1]));
                                                                     }
-                                                                } catch(Exception e){}
+                                                                } catch (Exception e) {
+                                                                }
                                                             }
                                                             break;
                                                         case "INIT":
@@ -2227,8 +2293,9 @@ public class WaitingRoomFrame extends JFrame {
                                         is.close();
                                     }
                                 }
-                            } catch (Exception e) {}
-                            
+                            } catch (Exception e) {
+                            }
+
                             if (avatar_b != null) {
                                 commandBuilder.append("|").append(Base64.getEncoder().encodeToString(avatar_b));
                             } else {
@@ -2537,7 +2604,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-   private void servidor() {
+    private void servidor() {
         server_nick = local_nick;
         Helpers.threadRun(() -> {
             while (!exit) {
@@ -2901,6 +2968,7 @@ public class WaitingRoomFrame extends JFrame {
             public void componentHidden(java.awt.event.ComponentEvent evt) {
                 formComponentHidden(evt);
             }
+
             public void componentShown(java.awt.event.ComponentEvent evt) {
                 formComponentShown(evt);
             }
@@ -2914,12 +2982,15 @@ public class WaitingRoomFrame extends JFrame {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
             }
+
             public void windowDeactivated(java.awt.event.WindowEvent evt) {
                 formWindowDeactivated(evt);
             }
+
             public void windowDeiconified(java.awt.event.WindowEvent evt) {
                 formWindowDeiconified(evt);
             }
+
             public void windowOpened(java.awt.event.WindowEvent evt) {
                 formWindowOpened(evt);
             }
@@ -2979,20 +3050,20 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout panel_conLayout = new javax.swing.GroupLayout(panel_con);
         panel_con.setLayout(panel_conLayout);
         panel_conLayout.setHorizontalGroup(
-            panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_conLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)))
+                panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(panel_conLayout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(kick_user, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(panel_conectados, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)))
         );
         panel_conLayout.setVerticalGroup(
-            panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_conLayout.createSequentialGroup()
-                .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 328, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(kick_user)
-                .addGap(0, 0, 0))
+                panel_conLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(panel_conLayout.createSequentialGroup()
+                                .addComponent(panel_conectados, javax.swing.GroupLayout.PREFERRED_SIZE, 328, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(kick_user)
+                                .addGap(0, 0, 0))
         );
 
         kick_user.putClientProperty("i18n.key", "ui.expulsar_jugador");
@@ -3089,58 +3160,58 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(pass_icon)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(server_address_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(tot_conectados)
-                .addGap(0, 0, 0))
+                jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel3Layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(pass_icon)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(server_address_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(tot_conectados)
+                                .addGap(0, 0, 0))
         );
         jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(server_address_label, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(tot_conectados)
-                    .addComponent(pass_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel3Layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(server_address_label, javax.swing.GroupLayout.PREFERRED_SIZE, 39, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(tot_conectados)
+                                        .addComponent(pass_icon, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addComponent(game_info_buyin)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(game_info_blinds)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(game_info_hands))))
+                jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                                .addComponent(game_info_buyin)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                                .addComponent(game_info_blinds)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                .addComponent(game_info_hands))))
         );
         jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(logo)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(game_info_blinds)
-                    .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(game_info_buyin))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(logo)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(game_info_blinds)
+                                        .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(game_info_buyin))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(0, 0, 0))
         );
 
         new_bot_button.putClientProperty("i18n.key", "ui.anadir_bot");
@@ -3148,34 +3219,34 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout panel_arribaLayout = new javax.swing.GroupLayout(panel_arriba);
         panel_arriba.setLayout(panel_arribaLayout);
         panel_arribaLayout.setHorizontalGroup(
-            panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_arribaLayout.createSequentialGroup()
-                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(panel_arribaLayout.createSequentialGroup()
-                .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(panel_arribaLayout.createSequentialGroup()
+                                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addComponent(empezar_timba, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(panel_arribaLayout.createSequentialGroup()
+                                .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         panel_arribaLayout.setVerticalGroup(
-            panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(panel_arribaLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(8, Short.MAX_VALUE))
+                panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(panel_arribaLayout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                        .addComponent(panel_con, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                        .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(empezar_timba, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(barra, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap(8, Short.MAX_VALUE))
         );
 
         empezar_timba.putClientProperty("i18n.key", "ui.a_jugar");
@@ -3281,31 +3352,31 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout chat_box_panelLayout = new javax.swing.GroupLayout(chat_box_panel);
         chat_box_panel.setLayout(chat_box_panelLayout);
         chat_box_panelLayout.setHorizontalGroup(
-            chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(chat_box_panelLayout.createSequentialGroup()
-                .addComponent(avatar_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(emoji_button)
-                .addGap(0, 0, 0)
-                .addComponent(image_button)
-                .addGap(0, 0, 0)
-                .addComponent(chat_box)
-                .addGap(0, 0, 0)
-                .addComponent(send_label)
-                .addGap(0, 0, 0)
-                .addComponent(max_min_label))
+                chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(chat_box_panelLayout.createSequentialGroup()
+                                .addComponent(avatar_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(emoji_button)
+                                .addGap(0, 0, 0)
+                                .addComponent(image_button)
+                                .addGap(0, 0, 0)
+                                .addComponent(chat_box)
+                                .addGap(0, 0, 0)
+                                .addComponent(send_label)
+                                .addGap(0, 0, 0)
+                                .addComponent(max_min_label))
         );
         chat_box_panelLayout.setVerticalGroup(
-            chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, 43, Short.MAX_VALUE)
-            .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(chat_box)
-            .addGroup(chat_box_panelLayout.createSequentialGroup()
-                .addGroup(chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(send_label)
-                    .addComponent(max_min_label))
-                .addGap(0, 0, Short.MAX_VALUE))
-            .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, 43, Short.MAX_VALUE)
+                        .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(chat_box)
+                        .addGroup(chat_box_panelLayout.createSequentialGroup()
+                                .addGroup(chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                        .addComponent(send_label)
+                                        .addComponent(max_min_label))
+                                .addGap(0, 0, Short.MAX_VALUE))
+                        .addComponent(avatar_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         emoji_scroll_panel.setBorder(null);
@@ -3334,24 +3405,24 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addComponent(tts_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(chat_box_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, 0))
+                jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel1Layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                                        .addComponent(tts_warning, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(chat_box_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addGap(0, 0, 0))
         );
         jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(chat_box_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(tts_warning))
+                jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel1Layout.createSequentialGroup()
+                                .addGap(0, 0, 0)
+                                .addComponent(chat_box_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(emoji_scroll_panel, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(tts_warning))
         );
 
         tts_warning.putClientProperty("i18n.key", "chat.aviso_la_privacidad_del_chat");
@@ -3364,34 +3435,34 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);
         main_panelLayout.setHorizontalGroup(
-            main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(main_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(panel_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, 688, Short.MAX_VALUE)
-                    .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(chat_scroll, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                    .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(danger_server, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(latency_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
+                main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(main_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(panel_arriba, javax.swing.GroupLayout.DEFAULT_SIZE, 688, Short.MAX_VALUE)
+                                        .addComponent(chat_notifications, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(chat_scroll, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+                                        .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(danger_server, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(latency_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addContainerGap())
         );
         main_panelLayout.setVerticalGroup(
-            main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(main_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(latency_label)
-                .addGap(1, 1, 1)
-                .addComponent(danger_server)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, 508, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(chat_notifications)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 0, 0))
+                main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(main_panelLayout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(latency_label)
+                                .addGap(1, 1, 1)
+                                .addComponent(danger_server)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, 508, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(chat_notifications)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(chat_scroll, javax.swing.GroupLayout.DEFAULT_SIZE, 22, Short.MAX_VALUE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(0, 0, 0))
         );
 
         chat_notifications.putClientProperty("i18n.key", "ui.notificaciones_del_chat_durante_el_juego");
@@ -3401,14 +3472,14 @@ public class WaitingRoomFrame extends JFrame {
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(main_scroll_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(main_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 784, Short.MAX_VALUE)
-                .addContainerGap())
+                layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                                .addComponent(main_scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 784, Short.MAX_VALUE)
+                                .addContainerGap())
         );
 
         pack();

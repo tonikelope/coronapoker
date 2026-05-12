@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2026 tonikelope
  *
- * Panoptes V2: Zero-Trust Pure Java EC-SRA Cryptographic Engine.
+ * Zero-Trust Pure Java EC-SRA Cryptographic Engine.
  */
 package com.tonikelope.coronapoker;
 
@@ -26,6 +26,7 @@ import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
 public class Participant implements Runnable {
+
     private static final Logger LOGGER = Logger.getLogger(Participant.class.getName());
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
@@ -62,10 +63,10 @@ public class Participant implements Runnable {
     private volatile int pong2_timeout_counter = 0;
     private volatile byte[] received_token = null;
     private volatile int new_hand_ready = 0;
-    
+
     // --- SRA ZERO-TRUST VARIABLES ---
     private volatile byte[] sra_unlock = null; // Master key to remove player lock
-    
+
     public byte[] getSra_unlock() {
         return sra_unlock;
     }
@@ -630,7 +631,7 @@ public class Participant implements Runnable {
                             case "GAME":
                                 String subcomando = partes_comando[2];
                                 int command_id = Integer.parseInt(partes_comando[1]);
-                                
+
                                 /* FIX: Encrypt the confirmation packet to prevent client-side decryption failures and deadlocks */
                                 try {
                                     String confMsg = "CONF#" + String.valueOf(command_id + 1) + "#OK";
@@ -638,12 +639,12 @@ public class Participant implements Runnable {
                                 } catch (Exception e) {
                                     LOGGER.log(Level.SEVERE, "Failed to encrypt CONF message", e);
                                 }
-                                
+
                                 if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
                                     last_received.put(subcomando, command_id);
 
                                     switch (subcomando) {
-                                        
+
                                         case "PAUSE":
                                             final String[] partes_final_pause = partes_comando;
                                             Helpers.threadRun(() -> {
@@ -673,17 +674,17 @@ public class Participant implements Runnable {
                                                 try {
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                     String sraKeyB64 = partes_comando[4];
-                                                    
+
                                                     // 1. El servidor descifra las cartas localmente con la SRA key recibida
                                                     GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
-                                                    
+
                                                     // 2. Efecto Espejo: Si somos el Host, rebotamos la clave al resto de la red
                                                     if (GameFrame.getInstance().isPartida_local()) {
                                                         String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64;
                                                         // Le pasamos 'shNick' al final para excluir al jugador que originalmente envió el comando
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
                                                     }
-                                                } catch(Exception e) {
+                                                } catch (Exception e) {
                                                     LOGGER.log(Level.SEVERE, "Error procesando/rebotando SHOWCARDS en servidor", e);
                                                 }
                                             });
@@ -691,8 +692,9 @@ public class Participant implements Runnable {
                                         case "HAND_READY": // SRA LIGHTWEIGHT START COMMAND
                                             try {
                                                 this.new_hand_ready = Integer.parseInt(partes_comando[3]);
-                                            } catch (Exception e) {}
-                                            
+                                            } catch (Exception e) {
+                                            }
+
                                             synchronized (GameFrame.getInstance().getCrupier().getLock_nueva_mano()) {
                                                 GameFrame.getInstance().getCrupier().getLock_nueva_mano().notifyAll();
                                             }

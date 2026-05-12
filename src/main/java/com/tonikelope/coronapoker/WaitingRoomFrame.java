@@ -1939,10 +1939,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             Helpers.threadRun(() -> {
                                                                 try {
                                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                                    String c1 = partes_comando[4];
-                                                                    String c2 = partes_comando[5];
-                                                                    // El cliente simplemente pinta las cartas que le han llegado
-                                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, c1, c2);
+                                                                    String sraKeyB64 = partes_comando[4];
+                                                                    // El cliente descifra las cartas localmente con la SRA key recibida
+                                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
                                                                 } catch(Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Error procesando SHOWCARDS en cliente", e);
                                                                 }
@@ -2018,10 +2017,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                             if (testament.length == 32) p.setSra_unlock(testament);
                                                                         } catch (Exception e) {}
                                                                     }
+                                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
+                                                                } else {
+                                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                                 }
-                                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
-                                                            } else {
-                                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                             }
                                                             break;
                                                         default:

@@ -672,15 +672,14 @@ public class Participant implements Runnable {
                                             Helpers.threadRun(() -> {
                                                 try {
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
-                                                    String c1 = partes_comando[4];
-                                                    String c2 = partes_comando[5];
+                                                    String sraKeyB64 = partes_comando[4];
                                                     
-                                                    // 1. El servidor pinta las cartas en su propia mesa
-                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, c1, c2);
+                                                    // 1. El servidor descifra las cartas localmente con la SRA key recibida
+                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
                                                     
-                                                    // 2. Efecto Espejo: Si somos el Host, rebotamos las cartas al resto de la red
+                                                    // 2. Efecto Espejo: Si somos el Host, rebotamos la clave al resto de la red
                                                     if (GameFrame.getInstance().isPartida_local()) {
-                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + c1 + "#" + c2;
+                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64;
                                                         // Le pasamos 'shNick' al final para excluir al jugador que originalmente envió el comando
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
                                                     }
@@ -724,10 +723,10 @@ public class Participant implements Runnable {
                                                         } catch (Exception e) {
                                                         }
                                                     }
+                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
+                                                } else {
+                                                    GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                                 }
-                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick, partes_comando[offset]);
-                                            } else {
-                                                GameFrame.getInstance().getCrupier().remotePlayerQuit(exitingNick);
                                             }
                                             if (this.nick.equals(exitingNick)) {
                                                 exit = true;

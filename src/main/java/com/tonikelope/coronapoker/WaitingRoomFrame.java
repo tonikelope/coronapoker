@@ -1935,6 +1935,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             }
                                                             break;
+                                                        case "TTS":
+                                                            // El host activa o desactiva el TTS para los clientes.
+                                                            GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
+                                                            break;
                                                         case "PAUSE":
                                                             // El host avisa al resto de clientes de que alguien pulsó pausa
                                                             // (o reanudó). Aplicamos el toggle local.

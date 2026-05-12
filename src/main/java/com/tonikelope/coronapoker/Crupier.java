@@ -708,6 +708,10 @@ public class Crupier implements Runnable {
                             } catch (Exception e) {
                                 LOGGER.log(Level.WARNING, "Error processing POCKET_CARDS", e);
                             }
+                        } else if (partes[2].equals("MISDEAL") && partes.length >= 4) {
+                            // El host aborta la mano: salimos del consumer sin las cartas.
+                            // El cancelar ya lo hace el case top-level en WaitingRoomFrame.
+                            return null;
                         } else {
                             rejected.add(comando);
                         }
@@ -2827,9 +2831,22 @@ public class Crupier implements Runnable {
     }
 
     private void cancelarManoYDevolverApuestas(String motivo) {
+        cancelarManoYDevolverApuestas(motivo, true);
+    }
+
+    public void cancelarManoYDevolverApuestas(String motivo, boolean broadcast) {
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + Translator.translate(motivo));
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
+
+        if (broadcast && GameFrame.getInstance().isPartida_local()) {
+            try {
+                String motivoB64 = Base64.getEncoder().encodeToString(motivo.getBytes("UTF-8"));
+                broadcastGAMECommandFromServer("MISDEAL#" + motivoB64, null, true);
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to broadcast MISDEAL to clients", ex);
+            }
+        }
 
         synchronized (getLock_contabilidad()) {
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -4474,7 +4491,7 @@ public class Crupier implements Runnable {
                                     motivo = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
                                 } catch (Exception e) {
                                 }
-                                cancelarManoYDevolverApuestas(motivo);
+                                cancelarManoYDevolverApuestas(motivo, false);
                                 return;
                             default:
                                 rejected.add(comando);
@@ -5162,7 +5179,7 @@ public class Crupier implements Runnable {
                             }
                         } else if (partes.length >= 4 && partes[2].equals("MISDEAL")) {
                             String motivo = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            cancelarManoYDevolverApuestas(motivo);
+                            cancelarManoYDevolverApuestas(motivo, false);
                             return false;
                         } else {
                             rejected.add(comando);
@@ -7215,7 +7232,7 @@ public class Crupier implements Runnable {
                                     motivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                                 } catch (Exception e) {
                                 }
-                                cancelarManoYDevolverApuestas(motivo);
+                                cancelarManoYDevolverApuestas(motivo, false);
                                 return;
 
                             default:

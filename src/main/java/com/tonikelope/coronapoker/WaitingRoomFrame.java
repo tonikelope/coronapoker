@@ -1935,6 +1935,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             }
                                                             break;
+                                                        case "MISDEAL":
+                                                            // El host aborta la mano. Cancelamos localmente y reenviamos
+                                                            // al queue para despertar a cualquier consumer (receiveMyCards,
+                                                            // recibirConsensoFinal, etc.) que esté esperando timeout.
+                                                            try {
+                                                                String motivoMisdeal = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                GameFrame.getInstance().getCrupier().cancelarManoYDevolverApuestas(motivoMisdeal, false);
+                                                            } catch (Exception ex) {
+                                                                LOGGER.log(Level.SEVERE, "Error processing MISDEAL", ex);
+                                                            }
+                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                            }
+                                                            break;
                                                         case "EXIT":
                                                             String exitingNick = local_nick;
                                                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {

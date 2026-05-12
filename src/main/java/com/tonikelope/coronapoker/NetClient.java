@@ -57,7 +57,6 @@ public class NetClient {
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
     private volatile SecretKeySpec local_client_hmac_key_orig = null;
-    private volatile String server_ip_port;
     private volatile Reconnect2ServerDialog reconnect_dialog = null;
     private volatile boolean reconnecting = false;
     private volatile boolean unsecure_server = false;
@@ -151,14 +150,6 @@ public class NetClient {
     }
 
     // --- Datos del servidor remoto ---
-    public String getServer_ip_port() {
-        return server_ip_port;
-    }
-
-    public void setServer_ip_port(String s) {
-        this.server_ip_port = s;
-    }
-
     public Reconnect2ServerDialog getReconnect_dialog() {
         return reconnect_dialog;
     }

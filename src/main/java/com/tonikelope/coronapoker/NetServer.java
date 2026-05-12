@@ -65,6 +65,7 @@ public class NetServer {
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
+    private final Object lock_client_pre_game_commands_wait = new Object();
     private volatile ServerSocket server_socket = null;
 
     public NetServer(WaitingRoomFrame waiting_room) {
@@ -85,6 +86,10 @@ public class NetServer {
 
     public ConcurrentLinkedQueue<String> getLate_clients_warning() {
         return late_clients_warning;
+    }
+
+    public Object getLock_client_pre_game_commands_wait() {
+        return lock_client_pre_game_commands_wait;
     }
 
     public ServerSocket getServer_socket() {

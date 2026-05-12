@@ -63,7 +63,6 @@ public class NetClient {
     private final Object local_client_socket_lock = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
-    private final Object lock_client_pre_game_commands_wait = new Object();
 
     private volatile Socket local_client_socket = null;
     private volatile BufferedReader local_client_buffer_read_is = null;
@@ -114,10 +113,6 @@ public class NetClient {
 
     public Object getLock_client_reconnect() {
         return lock_client_reconnect;
-    }
-
-    public Object getLock_client_pre_game_commands_wait() {
-        return lock_client_pre_game_commands_wait;
     }
 
     // --- Socket y streams ---

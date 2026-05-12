@@ -191,7 +191,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public Object getLock_client_pre_game_commands_wait() {
-        return net_client != null ? net_client.getLock_client_pre_game_commands_wait() : null;
+        return net_server != null ? net_server.getLock_client_pre_game_commands_wait() : null;
     }
 
     public String getBackground_chat_src() {
@@ -1674,8 +1674,6 @@ public class WaitingRoomFrame extends JFrame {
                             if (!"*".equals(recibido)) {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));
                             }
-
-                            recibido = readCommandFromServer();
 
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
@@ -3513,10 +3511,10 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             }
 
-                            if (ocupados && net_client != null) {
-                                synchronized (net_client.getLock_client_pre_game_commands_wait()) {
+                            if (ocupados && net_server != null) {
+                                synchronized (net_server.getLock_client_pre_game_commands_wait()) {
                                     try {
-                                        net_client.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
+                                        net_server.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
                                     } catch (InterruptedException ex) {
                                     }
                                 }

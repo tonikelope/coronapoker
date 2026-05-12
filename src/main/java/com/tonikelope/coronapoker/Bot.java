@@ -428,8 +428,8 @@ public class Bot {
         double npot = HANDPOTENTIAL.getLastNPot();
         double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
-        // --- RELATIVE STRENGTH FIXES ---
-        // 1. Pocket Pair vs Overcards (The "22 vs AKJ" fix)
+        // Ajustes de fuerza relativa:
+        // 1. Pocket Pair frente a overcards (caso "22 vs AKJ").
         if (holeCard1.getRank() == holeCard2.getRank()) {
             int overcards = 0;
             for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
@@ -469,14 +469,14 @@ public class Bot {
                 generateStreetPlan(effectiveStrength, ppot);
             }
 
-            // Dynamic Plan Adaptation
+            // Adaptación dinámica del plan.
             if (streetPlan != PLAN_NONE && street > Crupier.FLOP) {
-                // Fix: Multiway Panic Button
+                // Botón de pánico en multiway.
                 if (activePlayers > 2 && streetPlan == PLAN_BET_BET_BET && effectiveStrength < 0.50) {
                     logVerbose("Aborting PLAN_BET_BET_BET. Too many active players (Multiway panic).");
                     streetPlan = PLAN_NONE;
                 }
-                // Fix: Scare Card Degradation
+                // Degradación por scare card.
                 if (scareCardDetected && streetPlan == PLAN_BET_BET_BET) {
                     logVerbose("Downgrading PLAN_BET_BET_BET to pot control due to scare card.");
                     streetPlan = PLAN_BET_CHECK_BET;

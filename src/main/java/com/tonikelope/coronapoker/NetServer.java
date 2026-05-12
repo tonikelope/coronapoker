@@ -222,7 +222,7 @@ public class NetServer {
                                     }
                                 }
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error leyendo avatar para USERSLIST", e);
+                                LOGGER.log(Level.WARNING, "Error reading avatar for USERSLIST", e);
                             }
 
                             if (avatar_b != null) {
@@ -234,7 +234,7 @@ public class NetServer {
                         commandBuilder.append("@");
                     }
                 } catch (Exception ex) {
-                    LOGGER.log(Level.WARNING, "Error encolando entry en USERSLIST", ex);
+                    LOGGER.log(Level.WARNING, "Error enqueuing entry in USERSLIST", ex);
                 }
             }
         }

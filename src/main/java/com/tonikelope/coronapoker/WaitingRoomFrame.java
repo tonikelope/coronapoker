@@ -1890,7 +1890,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // El cliente descifra las cartas localmente con la SRA key recibida
                                                                     GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
                                                                 } catch (Exception e) {
-                                                                    LOGGER.log(Level.SEVERE, "Error procesando SHOWCARDS en cliente", e);
+                                                                    LOGGER.log(Level.SEVERE, "Error processing SHOWCARDS on client", e);
                                                                 }
                                                             });
                                                             break;
@@ -3633,7 +3633,7 @@ public class WaitingRoomFrame extends JFrame {
                             is.close();
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.SEVERE, "Fallo al cargar avatar del bot", ex);
+                        LOGGER.log(Level.SEVERE, "Failed to load bot avatar", ex);
                     }
                     comando += "#" + (avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
 

@@ -509,7 +509,7 @@ public class Crupier implements Runnable {
             try {
                 orderBuilder.append(Base64.getEncoder().encodeToString(j.getNickname().getBytes("UTF-8"))).append(",");
             } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Error encoding nick en orderBuilder", e);
+                LOGGER.log(Level.WARNING, "Error encoding nick in orderBuilder", e);
             }
         }
         this.active_crypto_ring = currentRing;
@@ -555,7 +555,7 @@ public class Crupier implements Runnable {
         try {
             orderB64 = Base64.getEncoder().encodeToString(orderBuilder.toString().getBytes("UTF-8"));
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error encoding orderB64 para MEGAPACKET", e);
+            LOGGER.log(Level.SEVERE, "Error encoding orderB64 for MEGAPACKET", e);
         }
 
         // Enviamos el MEGAPACKET final a todos
@@ -601,7 +601,7 @@ public class Crupier implements Runnable {
                     // CRÍTICO: cada cliente necesita su POCKET_CARDS para descifrar sus cartas. Esperamos ACK.
                     broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
                 } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS para " + targetNick, e);
+                    LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS for " + targetNick, e);
                 }
             }
 
@@ -651,7 +651,7 @@ public class Crupier implements Runnable {
                     try {
                         String[] partes = comando.split("#");
                         if (partes.length < 3) {
-                            LOGGER.log(Level.WARNING, "Comando malformado descartado (recibirMisCartas): {0}", comando);
+                            LOGGER.log(Level.WARNING, "Malformed command dropped (receiveMyCards): {0}", comando);
                             continue;
                         }
 
@@ -669,7 +669,7 @@ public class Crupier implements Runnable {
                                 }
                                 this.active_crypto_ring = ringList.toArray(new String[0]);
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error parseando ORDER de MEGAPACKET", e);
+                                LOGGER.log(Level.WARNING, "Error parsing ORDER of MEGAPACKET", e);
                             }
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length >= 5) {
                             try {
@@ -706,13 +706,13 @@ public class Crupier implements Runnable {
                                     }
                                 }
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Error procesando POCKET_CARDS", e);
+                                LOGGER.log(Level.WARNING, "Error processing POCKET_CARDS", e);
                             }
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirMisCartas: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in receiveMyCards: " + comando, ex);
                     }
                 }
                 if (!rejected.isEmpty()) {
@@ -791,7 +791,7 @@ public class Crupier implements Runnable {
                 return Base64.getEncoder().encodeToString(testament);
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error generando el testamento de salida SRA para " + nick, e);
+            LOGGER.log(Level.SEVERE, "Error generating the SRA exit testament for " + nick, e);
         }
         return "*";
     }
@@ -1745,7 +1745,7 @@ public class Crupier implements Runnable {
                     try {
                         String[] partes = comando.split("#");
                         if (partes.length < 3) {
-                            LOGGER.log(Level.WARNING, "Comando malformado descartado (REBUY wait): {0}", comando);
+                            LOGGER.log(Level.WARNING, "Malformed command dropped (REBUY wait): {0}", comando);
                             continue;
                         }
 
@@ -1754,13 +1754,13 @@ public class Crupier implements Runnable {
                             try {
                                 nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.WARNING, "Nick mal codificado en REBUY", ex);
+                                LOGGER.log(Level.WARNING, "Badly-encoded nick in REBUY", ex);
                                 continue;
                             }
                             pending.remove(nick);
                             Player jugador = nick2player.get(nick);
                             if (jugador == null) {
-                                LOGGER.log(Level.WARNING, "REBUY de nick desconocido: {0}", nick);
+                                LOGGER.log(Level.WARNING, "REBUY from unknown nick: {0}", nick);
                                 continue;
                             }
                             jugador.setTimeout(false);
@@ -1782,7 +1782,7 @@ public class Crupier implements Runnable {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en REBUY wait: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in REBUY wait: " + comando, ex);
                     }
                 }
                 if (!rejected.isEmpty()) {
@@ -1959,7 +1959,7 @@ public class Crupier implements Runnable {
                     sendGAMECommandToServer(comando, true);
                 }
             } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "Error enviando SHOWCARDS para " + nick, ex);
+                LOGGER.log(Level.WARNING, "Error sending SHOWCARDS for " + nick, ex);
             }
 
             if (jugador.getHoleCard1().isTapada()) {
@@ -1978,7 +1978,7 @@ public class Crupier implements Runnable {
                     Hand jugada = new Hand(evalList);
                     jugador.showCards(jugada.getName());
                 } catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Error evaluando Hand al mostrar cartas de " + nick, e);
+                    LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
                 }
 
                 setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
@@ -2027,7 +2027,7 @@ public class Crupier implements Runnable {
                                 decrypted = unlockPlayerCardsWithSRAKey(jugador);
                             }
                         } catch (Exception e) {
-                            LOGGER.log(Level.WARNING, "Error descifrando SRA SHOWCARDS para " + nick, e);
+                            LOGGER.log(Level.WARNING, "Error decrypting SRA SHOWCARDS for " + nick, e);
                         }
                     }
 
@@ -2102,12 +2102,12 @@ public class Crupier implements Runnable {
                             cartas[2] = partes[5];
 
                         } else if (partes.length >= 3 && partes[2].equals("FLOPCARDS")) {
-                            LOGGER.log(Level.WARNING, "FLOPCARDS malformado descartado: {0}", comando);
+                            LOGGER.log(Level.WARNING, "FLOPCARDS malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirFlop: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in receiveFlop: " + comando, ex);
                     }
 
                 }
@@ -2171,12 +2171,12 @@ public class Crupier implements Runnable {
 
                             carta = partes[3];
                         } else if (partes.length >= 3 && partes[2].equals("TURNCARD")) {
-                            LOGGER.log(Level.WARNING, "TURNCARD malformado descartado: {0}", comando);
+                            LOGGER.log(Level.WARNING, "TURNCARD malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirTurn: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in receiveTurn: " + comando, ex);
                     }
 
                 }
@@ -2242,12 +2242,12 @@ public class Crupier implements Runnable {
 
                             carta = partes[3];
                         } else if (partes.length >= 3 && partes[2].equals("RIVERCARD")) {
-                            LOGGER.log(Level.WARNING, "RIVERCARD malformado descartado: {0}", comando);
+                            LOGGER.log(Level.WARNING, "RIVERCARD malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirRiver: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in receiveRiver: " + comando, ex);
                     }
 
                 }
@@ -2905,12 +2905,12 @@ public class Crupier implements Runnable {
                             }
 
                         } else if (partes.length >= 3 && partes[2].equals("POSITIONS")) {
-                            LOGGER.log(Level.WARNING, "POSITIONS malformado descartado: {0}", comando);
+                            LOGGER.log(Level.WARNING, "POSITIONS malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirPositions: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in receivePositions: " + comando, ex);
                     }
 
                 }
@@ -4573,12 +4573,12 @@ public class Crupier implements Runnable {
                             }
 
                         } else if (partes.length >= 3 && partes[2].equals("RECOVERDATA")) {
-                            LOGGER.log(Level.WARNING, "RECOVERDATA malformado descartado: {0}", comando);
+                            LOGGER.log(Level.WARNING, "RECOVERDATA malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirDatosClaveRecuperados: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in receiveRecoveryKeyData: " + comando, ex);
                     }
 
                 }
@@ -4648,12 +4648,12 @@ public class Crupier implements Runnable {
                             }
 
                         } else if (partes.length >= 3 && partes[2].equals("ACTIONDATA")) {
-                            LOGGER.log(Level.WARNING, "ACTIONDATA malformado descartado: {0}", comando);
+                            LOGGER.log(Level.WARNING, "ACTIONDATA malformed dropped: {0}", comando);
                         } else {
                             rejected.add(comando);
                         }
                     } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Excepción procesando comando ACTIONDATA wait: " + comando, ex);
+                        LOGGER.log(Level.WARNING, "Exception while processing command in ACTIONDATA wait: " + comando, ex);
                     }
                 }
 
@@ -5692,7 +5692,7 @@ public class Crupier implements Runnable {
             java.io.File file = new java.io.File(Init.CORONA_DIR + fileName);
             java.nio.file.Files.writeString(file.toPath(), fosil.toString());
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error guardando el Fósil SRA en disco", e);
+            LOGGER.log(Level.SEVERE, "Error saving SRA fossil to disk", e);
         }
     }
 
@@ -5853,7 +5853,7 @@ public class Crupier implements Runnable {
                                 rejected.add(comando);
                             }
                         } catch (Exception e) {
-                            LOGGER.log(Level.WARNING, "Error procesando VISUAL_CARDS_RESP", e);
+                            LOGGER.log(Level.WARNING, "Error processing VISUAL_CARDS_RESP", e);
                         }
                     } else if (partes.length >= 6 && partes[2].equals("VISUAL_UPDATE")) {
                         // Receive visual cards from another client and update UI instantly
@@ -6908,7 +6908,7 @@ public class Crupier implements Runnable {
                                 int tot = Integer.valueOf(partes[3]);
 
                                 if (partes.length < 4 + tot) {
-                                    LOGGER.log(Level.WARNING, "SEATS malformado (tot={0} pero len={1}): {2}",
+                                    LOGGER.log(Level.WARNING, "SEATS malformed (tot={0} but len={1}): {2}",
                                             new Object[]{tot, partes.length, comando});
                                     continue;
                                 }
@@ -6925,12 +6925,12 @@ public class Crupier implements Runnable {
                                     }
                                 }
                             } else if (partes.length >= 3 && partes[2].equals("SEATS")) {
-                                LOGGER.log(Level.WARNING, "SEATS malformado descartado: {0}", comando);
+                                LOGGER.log(Level.WARNING, "SEATS malformed dropped: {0}", comando);
                             } else {
                                 rejected.add(comando);
                             }
                         } catch (Exception ex) {
-                            LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirSEATS: " + comando, ex);
+                            LOGGER.log(Level.WARNING, "Exception while processing command in receiveSEATS: " + comando, ex);
                         }
 
                     }

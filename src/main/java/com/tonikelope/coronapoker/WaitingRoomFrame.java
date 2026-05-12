@@ -2672,19 +2672,58 @@ public class WaitingRoomFrame extends JFrame {
     /**
      * Baja de un participante. Delega a NetServer (estado + broadcast DELUSER + UI callback).
      * Mantenido como facade para callers externos (Participant.java).
+     *
+     * NOTA: usado tanto por host (Participant.java al desconectarse un cliente)
+     * como por cliente (al recibir DELUSER del servidor). Por eso la lógica vive
+     * aquí y no en NetServer — el cliente no tiene net_server. El broadcast
+     * DELUSER que solo aplica al host está guardado por isServer().
      */
     public synchronized void borrarParticipante(String nick) {
-        if (net_server != null) {
-            net_server.removeParticipant(nick);
+        if (!participantes.containsKey(nick)) {
+            return;
+        }
+
+        Audio.playWavResource("misc/toilet.wav");
+
+        Participant pToDel = participantes.get(nick);
+        String avatar_src = pToDel.getAvatar_chat_src();
+
+        participantes.remove(nick);
+
+        onParticipantRemoved(nick, avatar_src);
+
+        if (isServer() && !isPartida_empezada() && !exit) {
+            try {
+                String comando = "DELUSER#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
+                net_server.broadcastASYNCGAMECommand(comando, pToDel);
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
         }
     }
 
     /**
-     * Alta de un participante. Delega a NetServer (estado + UI callback).
+     * Alta de un participante.
+     *
+     * NOTA: usado tanto por host (serverSocketHandler al aceptar un cliente
+     * nuevo, con socket no-null) como por cliente (registrar al servidor y a sí
+     * mismo en la lista local cuando el cliente recibe la info de la sala, con
+     * socket null). Por eso la lógica vive aquí y no en NetServer.
      */
     private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k,
             SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
-        net_server.addParticipant(nick, avatar, socket, aes_k, hmac_k, cpu, unsecure);
+
+        Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cpu);
+
+        participantes.put(nick, participante);
+        participante.setUnsecure_player(unsecure);
+
+        // Solo el host arranca el thread del Participant (socket no-null → conexión real)
+        if (socket != null) {
+            Helpers.threadRun(participante);
+        }
+
+        onParticipantAdded(nick, avatar, cpu);
     }
 
     /**

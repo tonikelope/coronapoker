@@ -1935,6 +1935,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             }
                                                             break;
+                                                        case "PAUSE":
+                                                            // El host avisa al resto de clientes de que alguien pulsó pausa
+                                                            // (o reanudó). Aplicamos el toggle local.
+                                                            try {
+                                                                String pauserNick = (partes_comando.length >= 5)
+                                                                        ? new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8")
+                                                                        : server_nick;
+                                                                if (("0".equals(partes_comando[3]) && GameFrame.getInstance().isTimba_pausada() && pauserNick.equals(GameFrame.getInstance().getNick_pause()))
+                                                                        || ("1".equals(partes_comando[3]) && !GameFrame.getInstance().isTimba_pausada())) {
+                                                                    GameFrame.getInstance().pauseTimba(pauserNick);
+                                                                }
+                                                            } catch (Exception ex) {
+                                                                LOGGER.log(Level.SEVERE, "Error processing PAUSE", ex);
+                                                            }
+                                                            break;
                                                         case "MISDEAL":
                                                             // El host aborta la mano. Cancelamos localmente y reenviamos
                                                             // al queue para despertar a cualquier consumer (receiveMyCards,

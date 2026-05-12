@@ -6043,11 +6043,16 @@ public class Crupier implements Runnable {
         long start = System.currentTimeMillis();
 
         ArrayList<String> pendientes = new ArrayList<>();
+        ArrayList<Participant> targets = new ArrayList<>();
 
-        for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-            Participant p = entry.getValue();
-            if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && !p.isExit()) {
-                pendientes.add(p.getNick());
+        Map<String, Participant> participantes_map = GameFrame.getInstance().getParticipantes();
+        synchronized (participantes_map) {
+            for (Map.Entry<String, Participant> entry : participantes_map.entrySet()) {
+                Participant p = entry.getValue();
+                if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && !p.isExit()) {
+                    pendientes.add(p.getNick());
+                    targets.add(p);
+                }
             }
         }
 
@@ -6061,9 +6066,8 @@ public class Crupier implements Runnable {
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
-                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                    Participant p = entry.getValue();
-                    if (p != null && !p.isCpu() && pendientes.contains(p.getNick())) {
+                for (Participant p : targets) {
+                    if (pendientes.contains(p.getNick())) {
                         p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
                     }
                 }
@@ -6071,9 +6075,8 @@ public class Crupier implements Runnable {
                 if (confirmation) {
                     this.waitSyncConfirmations(id, pendientes);
 
-                    for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                        Participant p = entry.getValue();
-                        if (p != null && !p.isCpu() && !p.getNick().equals(skip_nick) && p.isExit()) {
+                    for (Participant p : targets) {
+                        if (!p.getNick().equals(skip_nick) && p.isExit()) {
                             pendientes.remove(p.getNick());
                             if (nick2player.containsKey(p.getNick())) {
                                 nick2player.get(p.getNick()).setTimeout(false);

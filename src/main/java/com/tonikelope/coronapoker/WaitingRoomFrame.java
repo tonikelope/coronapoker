@@ -939,20 +939,22 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     // Delegadores a NetClient/NetServer (Fase 3). El cuerpo vive en las clases de red.
+    // Mantienen los nombres antiguos para no romper a los callers externos
+    // (Crupier, Participant); dentro de Net* los métodos se llaman writeCommand/readCommand.
     public void writeCommandToServer(String command) {
-        net_client.writeCommandToServer(command);
+        net_client.writeCommand(command);
     }
 
     public void writeCommandFromServer(String command, Socket socket) {
-        net_server.writeCommandFromServer(command, socket);
+        net_server.writeCommand(command, socket);
     }
 
     public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
-        return net_server.readCommandFromClient(socket, key, hmac_key);
+        return net_server.readCommand(socket, key, hmac_key);
     }
 
     public String readCommandFromServer() {
-        return net_client.readCommandFromServer();
+        return net_client.readCommand();
     }
 
     // Función AUTO-RECONNECT

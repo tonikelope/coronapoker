@@ -632,7 +632,8 @@ public class Participant implements Runnable {
                                 String subcomando = partes_comando[2];
                                 int command_id = Integer.parseInt(partes_comando[1]);
 
-                                /* FIX: Encrypt the confirmation packet to prevent client-side decryption failures and deadlocks */
+                                // El paquete CONF tiene que ir cifrado: el cliente espera siempre comandos cifrados
+                                // y un CONF en claro provoca fallo de descifrado y deadlock en su lectura.
                                 try {
                                     String confMsg = "CONF#" + String.valueOf(command_id + 1) + "#OK";
                                     this.writeCommandFromServer(Helpers.encryptCommand(confMsg, this.aes_key, this.hmac_key));
@@ -718,7 +719,7 @@ public class Participant implements Runnable {
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                            // PURE SRA FIX: The testament is literally just the 32-byte SRA Unlock key.
+                                                            // El testament es la clave SRA Unlock (32 bytes).
                                                             if (testament.length == 32) {
                                                                 p.setSra_unlock(testament);
                                                             }

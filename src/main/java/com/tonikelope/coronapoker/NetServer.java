@@ -49,11 +49,7 @@ import javax.crypto.spec.SecretKeySpec;
  * loop de conexiones entrantes, el alta/baja de Participants y los broadcasts
  * pre-game a todos los clientes conectados.
  *
- * Esta clase se instancia desde WaitingRoomFrame cuando server == true.
- *
- * REFACTOR EN CURSO (Fase 2): contiene ya el estado server-side. Los métodos
- * (servidor(), serverSocketHandler(), nuevoParticipante(), broadcasts, etc.)
- * migrarán aquí en fases sucesivas.
+ * Se instancia desde WaitingRoomFrame cuando server == true.
  */
 public class NetServer {
 
@@ -61,7 +57,6 @@ public class NetServer {
 
     private final WaitingRoomFrame waiting_room;
 
-    // ESTADO SERVER-SIDE (Fase 2 — migrado desde WaitingRoomFrame)
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();

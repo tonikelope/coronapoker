@@ -272,7 +272,7 @@ public class Crupier implements Runnable {
     public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_mega_packet = null;
 
-    // --- FIX: TOKENS DEL HOST ---
+    // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
     public volatile byte[] local_token_turn = null;
     public volatile byte[] local_token_river = null;
@@ -681,7 +681,7 @@ public class Crupier implements Runnable {
 
                                 if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
 
-                                    // FIX: Obligamos a que primero se haya procesado el MEGAPACKET
+                                    // El MEGAPACKET tiene que haberse procesado antes.
                                     if (this.local_mega_packet != null) {
                                         this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
 
@@ -1805,8 +1805,7 @@ public class Crupier implements Runnable {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (GameFrame.getInstance().isPartida_local()) {
-                        // [CRITICAL FIX]: Auto-kick unresponsive players during Rebuy phase
-                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] REBUY TIMEOUT. Kicking unresponsive zombies...");
+                        LOGGER.log(Level.SEVERE, "REBUY TIMEOUT. Kicking unresponsive players...");
                         for (String nick : pending) {
                             Player jpk = nick2player.get(nick);
                             if (jpk != null && !jpk.isExit()) {
@@ -2828,15 +2827,15 @@ public class Crupier implements Runnable {
     }
 
     private void cancelarManoYDevolverApuestas(String motivo) {
-        LOGGER.log(Level.WARNING, "❌ [ZERO-TRUST] MISDEAL ACTIVADO: {0}", motivo);
+        LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + Translator.translate(motivo));
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
 
         synchronized (getLock_contabilidad()) {
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
 
-                // [CRITICAL FINANCIAL FIX V76]: 'getBote()' contains the absolute total 
-                // invested by the player in the current hand across all streets.
+                // getBote() es el total invertido por el jugador en la mano actual,
+                // sumando todas las streets.
                 float refund = Helpers.floatClean(jugador.getBote());
 
                 if (Helpers.float1DSecureCompare(refund, 0f) > 0) {
@@ -3040,7 +3039,7 @@ public class Crupier implements Runnable {
                 ready = true;
                 for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
                     Participant p = entry.getValue();
-                    // FIX: Excluimos al jugador local (el servidor no se manda paquetes a sí mismo)
+                    // Excluimos al jugador local (el servidor no se manda paquetes a sí mismo).
                     if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local()) && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
                         if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
@@ -3353,9 +3352,8 @@ public class Crupier implements Runnable {
                         }
 
                         if (authorized) {
-                            // PURE SRA ZERO-TRUST FIX:
-                            // The server can no longer unilaterally decrypt remote clients' cards (it lacks the private keys).
-                            // The server simply authorizes the request, and each client confesses their own cards over the network.
+                            // El servidor no puede descifrar las cartas de los remotos (no tiene sus llaves SRA),
+                            // así que solo autoriza la petición y cada cliente confiesa sus propias cartas.
 
                             // A) Local Player: si soy candidato (perdedor que no ha mostrado en el showdown) confieso.
                             // NOTAS:
@@ -3485,12 +3483,11 @@ public class Crupier implements Runnable {
                 Audio.playWavResource("misc/uncover.wav", false);
                 for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                     carta.destaparRabbit();
-                    // CRITICAL FIX: Ensure the underlying card is revealed once the rabbit is gone
+                    // Hay que destapar la carta subyacente cuando el rabbit desaparece.
                     if (carta.getCartaComoEntero() >= 0) {
                         carta.destapar(false);
                     }
                 }
-                // Swing se encarga del repaint de forma fluida.
             }
         }
     }
@@ -3578,7 +3575,7 @@ public class Crupier implements Runnable {
             }
         }
 
-        // [CRITICAL FIX]: Ensure nicks_permutados accurately reflects the newly integrated players.
+        // nicks_permutados tiene que reflejar a los jugadores recién integrados.
         ArrayList<String> nicksList = new ArrayList<>(Arrays.asList(this.nicks_permutados));
         boolean nicksChanged = false;
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -3865,7 +3862,7 @@ public class Crupier implements Runnable {
 
     private void sqlNewAction(Player current_player) {
         synchronized (GameFrame.SQL_LOCK) {
-            // [CRITICAL FIX]: Ensure active player exists before writing their action
+            // El jugador tiene que existir en la tabla antes de poder insertar su acción.
             ensurePlayerExists(current_player.getNickname());
 
             String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -4374,7 +4371,7 @@ public class Crupier implements Runnable {
 
                 if (jugador == GameFrame.getInstance().getLocalPlayer()) {
 
-                    // V54 FIX: Las cartas ya se extrajeron de la bóveda C, las seteamos aquí
+                    // Las cartas ya se extrajeron de la bóveda C, las seteamos aquí.
                     jugador.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
                     jugador.getHoleCard1().destapar(false);
 
@@ -4716,8 +4713,7 @@ public class Crupier implements Runnable {
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    // [CRITICAL FIX]: No UI blocking popups. Break the loop.
-                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] RECOVER DATA CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                    LOGGER.log(Level.SEVERE, "RECOVER DATA CONFIRMATION TIMEOUT. Kicking unresponsive players...");
                     for (String nick : pendientes) {
                         if (!nick2player.get(nick).isExit()) {
                             this.remotePlayerQuit(nick);
@@ -4777,8 +4773,7 @@ public class Crupier implements Runnable {
                 this.waitSyncConfirmations(id, pendientes);
 
                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    // [CRITICAL FIX]: No UI blocking popups. Break the loop.
-                    LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] ACTION RECOVER CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                    LOGGER.log(Level.SEVERE, "ACTION RECOVER CONFIRMATION TIMEOUT. Kicking unresponsive players...");
                     for (String nick : pendientes) {
                         if (!nick2player.get(nick).isExit()) {
                             this.remotePlayerQuit(nick);
@@ -5861,7 +5856,7 @@ public class Crupier implements Runnable {
                             String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             Player p_ui = nick2player.get(nick);
                             if (p_ui != null && !p_ui.getNickname().equals(GameFrame.getInstance().getNick_local())) {
-                                // RACE CONDITION FIX: Update only if card is face down
+                                // Solo actualizamos si la carta sigue boca abajo (evita race con showdown).
                                 if (p_ui.getHoleCard1().isTapada()) {
                                     String[] c1 = partes[4].split("_");
                                     String[] c2 = partes[5].split("_");
@@ -6102,8 +6097,7 @@ public class Crupier implements Runnable {
                     }
 
                     if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                        // [CRITICAL FIX]: Automate the kick. No UI blocking popups. Break the loop.
-                        LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] BROADCAST CONFIRMATION TIMEOUT. Kicking unresponsive zombies...");
+                        LOGGER.log(Level.SEVERE, "BROADCAST CONFIRMATION TIMEOUT. Kicking unresponsive players...");
                         if (!nick2player.isEmpty()) {
                             for (String nick : pendientes) {
                                 if (!nick2player.get(nick).isExit()) {
@@ -7077,13 +7071,11 @@ public class Crupier implements Runnable {
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop3());
 
-        // --- FIX BOT: Alimentamos los enteros EXACTOS (1-52) del Tapete ---
         if (GameFrame.getInstance().isPartida_local()) {
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop1().getCartaComoEntero()));
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop2().getCartaComoEntero()));
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getFlop3().getCartaComoEntero()));
         }
-        // -----------------------------------------------------------------
 
         ArrayList<Card> flop = new ArrayList<>();
         flop.add(GameFrame.getInstance().getFlop1());
@@ -7099,11 +7091,9 @@ public class Crupier implements Runnable {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getTurn());
 
-        // --- FIX BOT: Alimentamos los enteros EXACTOS (1-52) del Tapete ---
         if (GameFrame.getInstance().isPartida_local()) {
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getTurn().getCartaComoEntero()));
         }
-        // -----------------------------------------------------------------
 
         ArrayList<Card> com = new ArrayList<>();
         com.add(GameFrame.getInstance().getFlop1());
@@ -7120,11 +7110,9 @@ public class Crupier implements Runnable {
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getRiver());
 
-        // --- FIX BOT: Alimentamos los enteros EXACTOS (1-52) del Tapete ---
         if (GameFrame.getInstance().isPartida_local()) {
             Bot.BOT_COMMUNITY_CARDS.addCard(Bot.coronaIntegerCard2LokiCard(GameFrame.getInstance().getRiver().getCartaComoEntero()));
         }
-        // -----------------------------------------------------------------
 
         ArrayList<Card> com = new ArrayList<>();
         com.add(GameFrame.getInstance().getFlop1());
@@ -8857,8 +8845,8 @@ public class Crupier implements Runnable {
     public java.util.ArrayList<Player> getAnilloCriptografico() {
         java.util.ArrayList<Player> ring = new java.util.ArrayList<>();
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
-            // Include everyone (active, normal spectators, server, zombies)
-            // STRICTLY EXCLUDE new players who are "warming up" (calentando) during a recovery.
+            // Incluimos a todos (activos, espectadores, server, desconectados).
+            // Excluimos solo a los que entran a la mesa en caliente (calentando) durante un recover.
             if (!jugador.isCalentando()) {
                 ring.add(jugador);
             }

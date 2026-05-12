@@ -128,9 +128,7 @@ public class WaitingRoomFrame extends JFrame {
     private final Object lock_new_client = new Object();
     private final boolean server;
     private final String local_nick;
-    // Estado client-side (locks, sockets, llaves, reconnect, ping/pong, latencia) migrado a NetClient (Fase 2b).
-    // Estado server-side (server_socket, client_threads, late_clients_warning, received_confirmations) migrado a NetServer/NetClient (Fase 2a).
-    private volatile String server_ip_port;  // ip:port — compartido: host (para parsear puerto local) y cliente (para conectar).
+    private volatile String server_ip_port;  // ip:port — host (para parsear puerto local) y cliente (para conectar).
     private volatile String server_nick;
     private volatile String gameinfo_original = null;
     private volatile boolean chat_enabled = true;
@@ -147,8 +145,7 @@ public class WaitingRoomFrame extends JFrame {
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
 
-    // REFACTOR EN CURSO: nuevos componentes de red. Uno u otro será no-null según el rol.
-    // La lógica de red irá migrando de WaitingRoomFrame a estas clases en fases sucesivas.
+    // Uno u otro será no-null según el rol (server flag).
     private final NetServer net_server;
     private final NetClient net_client;
 
@@ -237,7 +234,6 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public static void resetInstance() {
-        // late_clients_warning está ahora en NetServer o NetClient (Fase 2).
         if (THIS.net_server != null) {
             THIS.net_server.getLate_clients_warning().clear();
         }
@@ -308,7 +304,6 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
-        // Delegador a NetServer/NetClient (Fase 2). Sólo uno será no-null en cada momento.
         return server ? net_server.getReceived_confirmations() : net_client.getReceived_confirmations();
     }
 
@@ -644,8 +639,6 @@ public class WaitingRoomFrame extends JFrame {
         local_avatar = avatar;
         password = pass;
 
-        // REFACTOR EN CURSO: instanciamos el componente de red correspondiente al rol.
-        // El estado client-side está dentro de net_client; el server-side en net_server.
         this.net_server = server ? new NetServer(this) : null;
         this.net_client = server ? null : new NetClient(this);
 
@@ -936,9 +929,6 @@ public class WaitingRoomFrame extends JFrame {
         return emoji_scroll_panel;
     }
 
-    // Delegadores a NetClient/NetServer (Fase 3). El cuerpo vive en las clases de red.
-    // Mantienen los nombres antiguos para no romper a los callers externos
-    // (Crupier, Participant); dentro de Net* los métodos se llaman writeCommand/readCommand.
     public void writeCommandToServer(String command) {
         net_client.writeCommand(command);
     }
@@ -1207,9 +1197,6 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    // Delegadores a NetServer (Fase 4a). Mantienen los nombres antiguos para no
-    // romper callers externos; el cuerpo y el nombre limpio (broadcastASYNCGAMECommand)
-    // viven dentro de NetServer.
     public void broadcastASYNCGAMECommandFromServer(String command, Participant par) {
         net_server.broadcastASYNCGAMECommand(command, par);
     }
@@ -1628,7 +1615,6 @@ public class WaitingRoomFrame extends JFrame {
                                 });
                             }
 
-                            // PURGADO: Aquí hemos quitado partes[3] (la firma fantasma de 72 bytes) y leemos partes[2]
                             gameinfo_original = new String(Base64.getDecoder().decode(partes[2].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
 
                             Helpers.GUIRun(() -> {
@@ -2170,7 +2156,6 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-    /** Delegado a NetServer (Fase 4b). */
     private void enviarListaUsuariosActualesAlNuevoUsuario(Participant par) {
         net_server.enviarListaUsuariosToNewUser(par);
     }
@@ -2369,7 +2354,6 @@ public class WaitingRoomFrame extends JFrame {
                             client_avatar = null;
                         }
 
-                        // PURGADO: Borramos la firma fantasma y le pasamos los datos del juego directamente
                         writeCommandFromServer(Helpers.encryptCommand(
                                 "NICKOK#" + (password == null ? "0" : "1") + "#"
                                 + Base64.getEncoder().encodeToString(

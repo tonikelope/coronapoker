@@ -43,11 +43,7 @@ import javax.crypto.spec.SecretKeySpec;
  * el handshake ECDH/AES+HMAC, el bucle de comandos entrantes (CHAT, USERSLIST,
  * NEWUSER, DELUSER, GAME, CONF, etc.), el ping/pong y la reconexión automática.
  *
- * Esta clase se instancia desde WaitingRoomFrame cuando server == false.
- *
- * REFACTOR EN CURSO (Fase 2): contiene ya el estado client-side. Los métodos
- * (cliente(), runSocketReaderClientThread(), runPingPongThreadCliente(),
- * reconectarCliente()) migrarán aquí en fases sucesivas.
+ * Se instancia desde WaitingRoomFrame cuando server == false.
  */
 public class NetClient {
 
@@ -55,7 +51,6 @@ public class NetClient {
 
     private final WaitingRoomFrame waiting_room;
 
-    // ESTADO CLIENT-SIDE (Fase 2 — migrado desde WaitingRoomFrame)
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>();

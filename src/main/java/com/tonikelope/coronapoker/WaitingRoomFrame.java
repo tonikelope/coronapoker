@@ -135,11 +135,8 @@ public class WaitingRoomFrame extends JFrame {
     private final HashMap<String, Integer> cliente_last_received = new HashMap<>();
     private final boolean server;
     private final String local_nick;
-    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
+    // received_confirmations, client_threads, late_clients_warning, server_socket migrados a NetServer/NetClient (Fase 2).
     private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>();
-    private volatile ServerSocket server_socket = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
     private volatile SecretKeySpec local_client_hmac_key_orig = null;
@@ -247,15 +244,9 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public void closeServerSocket() {
-
-        if (server_socket != null) {
-            try {
-                server_socket.close();
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
+        if (net_server != null) {
+            net_server.closeServerSocket();
         }
-
     }
 
     public void closeClientSocket() {
@@ -270,7 +261,13 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public static void resetInstance() {
-        THIS.late_clients_warning.clear();
+        // late_clients_warning está ahora en NetServer o NetClient (Fase 2).
+        if (THIS.net_server != null) {
+            THIS.net_server.getLate_clients_warning().clear();
+        }
+        if (THIS.net_client != null) {
+            THIS.net_client.getLate_clients_warning().clear();
+        }
         THIS.protect_focus = false;
         THIS.setVisible(false);
         THIS.dispose();
@@ -333,7 +330,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
-        return received_confirmations;
+        // Delegador a NetServer/NetClient (Fase 2). Sólo uno será no-null en cada momento.
+        return server ? net_server.getReceived_confirmations() : net_client.getReceived_confirmations();
     }
 
     public SecretKeySpec getLocal_client_hmac_key() {
@@ -409,7 +407,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public ServerSocket getServer_socket() {
-        return server_socket;
+        return net_server != null ? net_server.getServer_socket() : null;
     }
 
     public String getServer_nick() {
@@ -1916,9 +1914,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             try {
                                                                 String client_nick2 = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                 String ipCliente = partes_comando[4];
-                                                                if (!late_clients_warning.contains(ipCliente)) {
+                                                                if (!net_client.getLate_clients_warning().contains(ipCliente)) {
                                                                     Audio.playWavResource("misc/new_user.wav");
-                                                                    late_clients_warning.add(ipCliente);
+                                                                    net_client.getLate_clients_warning().add(ipCliente);
                                                                 }
                                                                 Helpers.GUIRun(() -> {
                                                                     InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick2 + "] " + Translator.translate("WANTS TO ENTER THE GAME"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
@@ -2335,7 +2333,7 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.threadRun(() -> {
 
             LOGGER.log(Level.INFO, "A client is trying to connect...");
-            client_threads.add(Thread.currentThread().threadId());
+            net_server.getClient_threads().add(Thread.currentThread().threadId());
             String recibido;
             String[] partes;
             try {
@@ -2471,9 +2469,9 @@ public class WaitingRoomFrame extends JFrame {
                             String ipCliente = Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256")
                                     .digest(client_socket.getInetAddress().getHostAddress().getBytes()));
 
-                            if (!late_clients_warning.contains(ipCliente)) {
+                            if (!net_server.getLate_clients_warning().contains(ipCliente)) {
                                 Audio.playWavResource("misc/new_user.wav");
-                                late_clients_warning.add(ipCliente);
+                                net_server.getLate_clients_warning().add(ipCliente);
                             }
 
                             Helpers.GUIRun(() -> {
@@ -2618,7 +2616,7 @@ public class WaitingRoomFrame extends JFrame {
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
-            client_threads.remove(Thread.currentThread().threadId());
+            net_server.getClient_threads().remove(Thread.currentThread().threadId());
         });
 
     }
@@ -2654,14 +2652,15 @@ public class WaitingRoomFrame extends JFrame {
                     Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
                     Helpers.savePropertiesFile();
                     booting = false;
-                    server_socket = new ServerSocket();
-                    server_socket.setReuseAddress(true);
-                    server_socket.bind(new InetSocketAddress(server_port));
-                    while (!server_socket.isClosed()) {
-                        serverSocketHandler(server_socket.accept());
+                    ServerSocket ss = new ServerSocket();
+                    net_server.setServer_socket(ss);
+                    ss.setReuseAddress(true);
+                    ss.bind(new InetSocketAddress(server_port));
+                    while (!ss.isClosed()) {
+                        serverSocketHandler(ss.accept());
                     }
                 } catch (IOException ex) {
-                    if (server_socket == null) {
+                    if (net_server.getServer_socket() == null) {
                         exit = true;
                         mostrarMensajeError(THIS,
                                 "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
@@ -3681,7 +3680,9 @@ public class WaitingRoomFrame extends JFrame {
 
         if (!barra.isVisible() || !booting) {
 
-            if (!booting && client_threads.isEmpty() && !partida_empezando) {
+            // client_threads sólo existe en NetServer; en cliente no aplica (queda como "true" vacuo)
+            boolean clientThreadsEmpty = (net_server == null) || net_server.getClient_threads().isEmpty();
+            if (!booting && clientThreadsEmpty && !partida_empezando) {
 
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
@@ -3859,11 +3860,10 @@ public class WaitingRoomFrame extends JFrame {
     private void server_address_labelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_server_address_labelMouseClicked
 
         if (server) {
-            // TODO add your handling code here:
-
+            int port = net_server.getServer_socket().getLocalPort();
             Helpers.copyTextToClipboard("[CoronaPoker] INTERNET -> " + Helpers.getMyPublicIP() + ":"
-                    + String.valueOf(server_socket.getLocalPort()) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":"
-                    + String.valueOf(server_socket.getLocalPort()));
+                    + String.valueOf(port) + "\n\nLAN -> " + Helpers.getMyLocalIP() + ":"
+                    + String.valueOf(port));
             mostrarMensajeInformativo(this, Translator.translate("conn.datos_de_conexion_copiados_en"));
         }
     }// GEN-LAST:event_server_address_labelMouseClicked

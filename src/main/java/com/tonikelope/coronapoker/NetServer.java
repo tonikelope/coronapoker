@@ -16,6 +16,9 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.net.ServerSocket;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -25,8 +28,9 @@ import java.util.logging.Logger;
  *
  * Esta clase se instancia desde WaitingRoomFrame cuando server == true.
  *
- * REFACTOR EN CURSO: clase recién creada como esqueleto. Las responsabilidades
- * de red del host irán migrando aquí desde WaitingRoomFrame en fases sucesivas.
+ * REFACTOR EN CURSO (Fase 2): contiene ya el estado server-side. Los métodos
+ * (servidor(), serverSocketHandler(), nuevoParticipante(), broadcasts, etc.)
+ * migrarán aquí en fases sucesivas.
  */
 public class NetServer {
 
@@ -34,11 +38,47 @@ public class NetServer {
 
     private final WaitingRoomFrame waiting_room;
 
+    // ESTADO SERVER-SIDE (Fase 2 — migrado desde WaitingRoomFrame)
+    private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Long> client_threads = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
+    private volatile ServerSocket server_socket = null;
+
     public NetServer(WaitingRoomFrame waiting_room) {
         this.waiting_room = waiting_room;
     }
 
     public WaitingRoomFrame getWaiting_room() {
         return waiting_room;
+    }
+
+    public ConcurrentLinkedQueue<Object[]> getReceived_confirmations() {
+        return received_confirmations;
+    }
+
+    public ConcurrentLinkedQueue<Long> getClient_threads() {
+        return client_threads;
+    }
+
+    public ConcurrentLinkedQueue<String> getLate_clients_warning() {
+        return late_clients_warning;
+    }
+
+    public ServerSocket getServer_socket() {
+        return server_socket;
+    }
+
+    public void setServer_socket(ServerSocket server_socket) {
+        this.server_socket = server_socket;
+    }
+
+    public void closeServerSocket() {
+        if (server_socket != null) {
+            try {
+                server_socket.close();
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
     }
 }

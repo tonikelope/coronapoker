@@ -750,7 +750,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (isPartida_local()) {
 
-                getCrupier().broadcastGAMECommandFromServer("PAUSE#" + (this.timba_pausada ? "0" : "1"), user);
+                String userB64 = "";
+                try {
+                    userB64 = java.util.Base64.getEncoder().encodeToString((user != null ? user : getNick_local()).getBytes("UTF-8"));
+                } catch (java.io.UnsupportedEncodingException ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                getCrupier().broadcastGAMECommandFromServer("PAUSE#" + (this.timba_pausada ? "0" : "1") + "#" + userB64, user);
 
             } else if (getNick_local().equals(user)) {
 

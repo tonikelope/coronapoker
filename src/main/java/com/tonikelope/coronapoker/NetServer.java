@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -111,5 +113,63 @@ public class NetServer {
             LOGGER.log(Level.SEVERE, null, ex);
         }
         return null;
+    }
+
+    // --- Broadcasts pre-game a los Participants conectados ---
+    // Envía un comando GAME a todos los Participants excepto `except`. Si confirmation=true,
+    // el comando se encola en el writer queue del Participant (se procesa con ACK); si false,
+    // se escribe directamente al socket (fire-and-forget).
+    public void broadcastASYNCGAMECommand(String command, Participant except, boolean confirmation) {
+        ArrayList<Participant> targets = new ArrayList<>();
+        Map<String, Participant> participantes = waiting_room.getParticipantes();
+        // Safely lock the map to extract valid targets without CME
+        synchronized (participantes) {
+            for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
+                Participant p = entry.getValue();
+                if (p != null && !p.isCpu() && p != except && !p.isExit()) {
+                    targets.add(p);
+                }
+            }
+        }
+
+        if (!targets.isEmpty()) {
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+
+            for (Participant p : targets) {
+                if (!confirmation) {
+                    String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                    p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
+                } else {
+                    synchronized (p.getPre_game_socket_writer_queue()) {
+                        p.getPre_game_socket_writer_queue().add(command);
+                        p.getPre_game_socket_writer_queue().notifyAll();
+                    }
+                }
+            }
+        }
+    }
+
+    public void broadcastASYNCGAMECommand(String command, Participant except) {
+        broadcastASYNCGAMECommand(command, except, true);
+    }
+
+    // Envío puntual a un Participant. Misma semántica de confirmation.
+    public void sendASYNCGAMECommand(String command, Participant p, boolean confirmation) {
+        if (!confirmation) {
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+            p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
+        } else {
+            synchronized (p.getPre_game_socket_writer_queue()) {
+                p.getPre_game_socket_writer_queue().add(command);
+                p.getPre_game_socket_writer_queue().notifyAll();
+            }
+        }
+    }
+
+    public void sendASYNCGAMECommand(String command, Participant p) {
+        sendASYNCGAMECommand(command, p, true);
     }
 }

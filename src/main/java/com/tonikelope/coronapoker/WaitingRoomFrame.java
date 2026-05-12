@@ -1209,44 +1209,15 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
+    // Delegadores a NetServer (Fase 4a). Mantienen los nombres antiguos para no
+    // romper callers externos; el cuerpo y el nombre limpio (broadcastASYNCGAMECommand)
+    // viven dentro de NetServer.
     public void broadcastASYNCGAMECommandFromServer(String command, Participant par) {
-
-        broadcastASYNCGAMECommandFromServer(command, par, true);
-
+        net_server.broadcastASYNCGAMECommand(command, par);
     }
 
     public void broadcastASYNCGAMECommandFromServer(String command, Participant par, boolean confirmation) {
-
-        ArrayList<Participant> targets = new ArrayList<>();
-
-        // Safely lock the map to extract valid targets without CME
-        synchronized (participantes) {
-            for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                Participant p = entry.getValue();
-                if (p != null && !p.isCpu() && p != par && !p.isExit()) {
-                    targets.add(p);
-                }
-            }
-        }
-
-        if (!targets.isEmpty()) {
-
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-
-            for (Participant p : targets) {
-                if (!confirmation) {
-                    String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-                    p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), iv, p.getHmac_key()));
-                } else {
-                    synchronized (p.getPre_game_socket_writer_queue()) {
-                        p.getPre_game_socket_writer_queue().add(command);
-                        p.getPre_game_socket_writer_queue().notifyAll();
-                    }
-                }
-            }
-        }
+        net_server.broadcastASYNCGAMECommand(command, par, confirmation);
     }
 
     public JButton getImage_button() {
@@ -1254,29 +1225,11 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public void sendASYNCGAMECommandFromServer(String command, Participant p) {
-
-        sendASYNCGAMECommandFromServer(command, p, true);
+        net_server.sendASYNCGAMECommand(command, p);
     }
 
     public void sendASYNCGAMECommandFromServer(String command, Participant p, boolean confirmation) {
-
-        if (!confirmation) {
-
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
-
-            String full_command = "GAME#" + String.valueOf(id) + "#" + command;
-
-            p.writeCommandFromServer(Helpers.encryptCommand(full_command, p.getAes_key(), p.getHmac_key()));
-
-        } else {
-
-            synchronized (p.getPre_game_socket_writer_queue()) {
-                p.getPre_game_socket_writer_queue().add(command);
-                p.getPre_game_socket_writer_queue().notifyAll();
-            }
-
-        }
-
+        net_server.sendASYNCGAMECommand(command, p, confirmation);
     }
 
     public JProgressBar getBarra() {

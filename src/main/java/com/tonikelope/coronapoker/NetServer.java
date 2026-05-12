@@ -16,10 +16,15 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Lado servidor (host) de la sala de espera. Gestiona el ServerSocket, el accept
@@ -80,5 +85,29 @@ public class NetServer {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
         }
+    }
+
+    // --- Transporte: lectura/escritura cifrada por socket de cliente ---
+    public void writeCommandFromServer(String command, Socket socket) {
+        try {
+            synchronized (socket.getOutputStream()) {
+                socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                socket.getOutputStream().flush();
+            }
+        } catch (IOException ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
+        try {
+            synchronized (socket.getInputStream()) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                return Helpers.decryptCommand(in.readLine(), key, hmac_key);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+        }
+        return null;
     }
 }

@@ -169,6 +169,19 @@ public class WaitingRoomFrame extends JFrame {
     private volatile int remote_server_latency;
     private volatile int remote_server_latency2;
 
+    // REFACTOR EN CURSO: nuevos componentes de red. Uno u otro será no-null según el rol.
+    // La lógica de red irá migrando de WaitingRoomFrame a estas clases en fases sucesivas.
+    private final NetServer net_server;
+    private final NetClient net_client;
+
+    public NetServer getNet_server() {
+        return net_server;
+    }
+
+    public NetClient getNet_client() {
+        return net_client;
+    }
+
     public void markPlayerAsCheater(String nick) {
         Helpers.GUIRun(() -> {
 
@@ -654,6 +667,12 @@ public class WaitingRoomFrame extends JFrame {
         server_ip_port = servidor_ip_port;
         local_avatar = avatar;
         password = pass;
+
+        // REFACTOR EN CURSO: instanciamos el componente de red correspondiente al rol.
+        // De momento son esqueletos vacíos; las responsabilidades de red migrarán aquí
+        // desde WaitingRoomFrame en fases sucesivas.
+        this.net_server = server ? new NetServer(this) : null;
+        this.net_client = server ? null : new NetClient(this);
 
         initComponents();
 

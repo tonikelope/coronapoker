@@ -1894,59 +1894,61 @@ public class Crupier implements Runnable {
 
     public void showAndBroadcastPlayerCards(String nick) {
         synchronized (lock_mostrar) {
-            if (this.show_time) {
-                Player jugador = nick2player.get(nick);
-                if (jugador == null) {
-                    return;
+            // Nota: ya no gateamos con show_time. Si el comando proviene del flujo IWTSTH, la temporización
+            // del wait/pausaConBarra puede haber cerrado show_time antes de que llegue el SHOWCARDS de un
+            // candidato remoto. La función es idempotente (chequea isTapada() abajo) y los callers
+            // ya verifican show_time donde corresponde para el flujo voluntario (LocalPlayer.player_allin_buttonActionPerformed).
+            Player jugador = nick2player.get(nick);
+            if (jugador == null) {
+                return;
+            }
+            boolean isLocal = jugador.equals(GameFrame.getInstance().getLocalPlayer());
+
+            // Solo desciframos si es remoto y faltan los valores
+            if (!isLocal && (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty())) {
+                // ZERO-TRUST: Si el jugador ha enviado su testamento (sra_unlock), desciframos su mano
+                Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                if (p != null && p.getSra_unlock() != null && p.getSra_unlock().length == 32) {
+                    unlockPlayerCardsWithSRAKey(jugador);
+                    jugador.ordenarCartas();
                 }
-                boolean isLocal = jugador.equals(GameFrame.getInstance().getLocalPlayer());
+            }
 
-                // Solo desciframos si es remoto y faltan los valores
-                if (!isLocal && (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty())) {
-                    // ZERO-TRUST: Si el jugador ha enviado su testamento (sra_unlock), desciframos su mano
-                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
-                    if (p != null && p.getSra_unlock() != null && p.getSra_unlock().length == 32) {
-                        unlockPlayerCardsWithSRAKey(jugador);
-                        jugador.ordenarCartas();
-                    }
-                }
+            // ZERO-TRUST SRA: Enviamos la clave de desbloqueo en vez de las cartas en texto plano.
+            // Cada receptor descifra localmente desde su propia copia del mega_packet.
+            try {
+                String sraKeyB64 = getTestamentoCriptografico(nick);
 
-                // ZERO-TRUST SRA: Enviamos la clave de desbloqueo en vez de las cartas en texto plano.
-                // Cada receptor descifra localmente desde su propia copia del mega_packet.
-                try {
-                    String sraKeyB64 = getTestamentoCriptografico(nick);
-
-                    String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64;
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        broadcastGAMECommandFromServer(comando, nick);
-                    } else if (isLocal) {
-                        sendGAMECommandToServer(comando, false);
-                    }
-                } catch (Exception ex) {
-                }
-
-                if (jugador.getHoleCard1().isTapada()) {
-                    jugador.destaparCartas(true);
-
-                    // CLONACIÓN DEFENSIVA: Pasamos una copia a la clase Hand para que no desordene la UI
-                    ArrayList<Card> evalList = new ArrayList<>();
-                    evalList.addAll(jugador.getHoleCards());
-                    for (Card c : GameFrame.getInstance().getCartas_comunes()) {
-                        if (!c.isTapada()) {
-                            evalList.add(c);
-                        }
-                    }
-
-                    try {
-                        Hand jugada = new Hand(evalList);
-                        jugador.showCards(jugada.getName());
-                    } catch (Exception e) {
-                    }
-
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64;
+                if (GameFrame.getInstance().isPartida_local()) {
+                    broadcastGAMECommandFromServer(comando, nick);
                 } else if (isLocal) {
-                    setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+                    sendGAMECommandToServer(comando, false);
                 }
+            } catch (Exception ex) {
+            }
+
+            if (jugador.getHoleCard1().isTapada()) {
+                jugador.destaparCartas(true);
+
+                // CLONACIÓN DEFENSIVA: Pasamos una copia a la clase Hand para que no desordene la UI
+                ArrayList<Card> evalList = new ArrayList<>();
+                evalList.addAll(jugador.getHoleCards());
+                for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+                    if (!c.isTapada()) {
+                        evalList.add(c);
+                    }
+                }
+
+                try {
+                    Hand jugada = new Hand(evalList);
+                    jugador.showCards(jugada.getName());
+                } catch (Exception e) {
+                }
+
+                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+            } else if (isLocal) {
+                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
             }
         }
     }
@@ -1961,7 +1963,10 @@ public class Crupier implements Runnable {
 
     public void showPlayerCards(String nick, String sraKeyB64) {
         synchronized (lock_mostrar) {
-            if (this.show_time) {
+            // Nota: ya no gateamos con show_time. El SHOWCARDS puede llegar en la cola de drenaje
+            // del IWTSTH cuando show_time ya está cerrado por la temporización del showdown.
+            // La función es idempotente (chequea isTapada()) y no causa efectos negativos si llega tarde.
+            {
                 Player jugador = nick2player.get(nick);
                 if (jugador == null) {
                     return;
@@ -3274,10 +3279,13 @@ public class Crupier implements Runnable {
     }
 
     public void IWTSTH_SHOW(String iwtsther, boolean authorized) {
-        if (iwtsthing) {
-            Helpers.threadRun(() -> {
-                synchronized (lock_iwtsth) {
-                    if (this.iwtsthing) {
+        // NOTA: ya no gateamos con iwtsthing. El guard original silenciaba el flujo si iwtsthing era false
+        // (p.ej. cuando IWTSTH_HANDLER no llegó a correr en un candidato remoto por race con show_time/pausaConBarra).
+        // El caller (IWTSTH_HANDLER del host tras autorizar, o WaitingRoomFrame.case "IWTSTHSHOW" en clientes) ya
+        // ha decidido que esto debe ejecutarse — no debe depender de un flag que pudo no setearse por timing.
+        Helpers.threadRun(() -> {
+            synchronized (lock_iwtsth) {
+                {
 
                         // 1. If we are the Server Host, broadcast the verdict to all clients
                         if (GameFrame.getInstance().isPartida_local()) {
@@ -3288,16 +3296,31 @@ public class Crupier implements Runnable {
                         }
 
                         if (authorized) {
-                            // PURE SRA ZERO-TRUST FIX: 
+                            // PURE SRA ZERO-TRUST FIX:
                             // The server can no longer unilaterally decrypt remote clients' cards (it lacks the private keys).
                             // The server simply authorizes the request, and each client confesses their own cards over the network.
 
-                            // A) Local Player: Check if we are the one being asked to show (loser/folded with hidden cards)
+                            // A) Local Player: si soy candidato (perdedor que no ha mostrado en el showdown) confieso.
+                            // NOTAS:
+                            //   - NO chequeamos isBoton_mostrar / isBotonMostrarActivado: esos flags reflejan el
+                            //     estado del botón "Mostrar" voluntario y dependen de que IWTSTH_HANDLER haya
+                            //     deshabilitado el botón (race con timing).
+                            //   - NO chequeamos getHoleCard1().isTapada(): el LocalPlayer SIEMPRE ve sus propias
+                            //     cartas (destapar() se llama en el reparto, línea 4320, y Card.tapar() nunca se
+                            //     invoca en el código), así que isTapada() es false en el propio jugador desde el
+                            //     reparto. Ese check es la perspectiva externa (otros viendo al candidato), no la
+                            //     del propio jugador, y si lo dejamos aquí el SHOWCARDS NUNCA se envía.
+                            //   - isMuestra() distingue "auto-show en showdown" (true, no hay que confesar nada)
+                            //     vs "auto-muck/IWTSTH candidate" (false, hay que confesar).
                             LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
-                            if (local.isBoton_mostrar() && !local.isBotonMostrarActivado() && !local.isMuestra()) {
-                                if (local.isLoser() && local.getHoleCard1().isTapada()) {
-                                    showAndBroadcastPlayerCards(local.getNickname());
-                                }
+                            if (local.isLoser() && !local.isMuestra()) {
+                                showAndBroadcastPlayerCards(local.getNickname());
+                                // Marcamos al jugador como "ya mostrado" tras la confesión forzada del IWTSTH.
+                                // Sin esto, el cleanup de abajo vería isBoton_mostrar()=true && !isBotonMostrarActivado()
+                                // && !isMuestra() y re-habilitaría el botón "Mostrar" voluntario, lo cual no tiene
+                                // sentido — las cartas YA se mostraron forzosamente.
+                                local.setMuestra(true);
+                                local.desactivar_boton_mostrar();
                             }
 
                             // B) Bots: Since they live in the Host's memory, the Server Host forces them to show
@@ -3329,13 +3352,18 @@ public class Crupier implements Runnable {
                     }
                 }
 
-                // Cleanup and resume UI
+                // Cleanup UI:
+                // - Restauramos el botón de mostrar si procede
+                // - Restauramos la barra al estado correcto de pausaConBarra (no solo setIndeterminate(false),
+                //   que dejaría la barra con max=1/val=1 visualmente "al máximo, sin moverse").
                 Helpers.GUIRunAndWait(() -> {
                     if (GameFrame.getInstance().getLocalPlayer().isBoton_mostrar() && !GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado() && !GameFrame.getInstance().getLocalPlayer().isMuestra()) {
                         GameFrame.getInstance().getLocalPlayer().getPlayer_allin_button().setEnabled(true);
                     }
-                    GameFrame.getInstance().getTapete().getCommunityCards().getBarra_tiempo().setIndeterminate(false);
                 });
+                // Restaurar la barra al valor restante de pausaConBarra para que el bucle pueda
+                // seguir decrementando correctamente sin verse "atascada al máximo".
+                setTiempo_pausa(getTiempoPausa());
 
                 // Release the lock to let the game proceed
                 synchronized (lock_iwtsth) {
@@ -3344,8 +3372,12 @@ public class Crupier implements Runnable {
                     iwtsthing_request = false;
                     lock_iwtsth.notifyAll();
                 }
+                // Despertamos también al loop de pausaConBarra que está dormido en lock_pausa_barra.wait(1000)
+                // para que reanude su decremento sin tener que esperar el timeout.
+                synchronized (lock_pausa_barra) {
+                    lock_pausa_barra.notifyAll();
+                }
             });
-        }
     }
 
     public boolean isIwtsthing_request() {

@@ -2174,47 +2174,9 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
+    /** Delegado a NetServer (Fase 4b). */
     private void enviarListaUsuariosActualesAlNuevoUsuario(Participant par) {
-        StringBuilder commandBuilder = new StringBuilder("USERSLIST#");
-        synchronized (participantes) {
-            for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
-                Participant p = entry.getValue();
-                try {
-                    if (p != null && p != par) {
-                        commandBuilder.append(Base64.getEncoder().encodeToString(p.getNick().getBytes("UTF-8")))
-                                .append("|")
-                                .append(p.isUnsecure_player() ? "1" : "0");
-
-                        if (p.getAvatar() != null || p.isCpu()) {
-                            byte[] avatar_b = null;
-                            try {
-                                if (!p.isCpu() && p.getAvatar() != null) {
-                                    try (java.io.InputStream is = new FileInputStream(p.getAvatar())) {
-                                        avatar_b = is.readAllBytes();
-                                    }
-                                } else if (p.isCpu()) {
-                                    java.io.InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png");
-                                    if (is != null) {
-                                        avatar_b = is.readAllBytes();
-                                        is.close();
-                                    }
-                                }
-                            } catch (Exception e) {
-                            }
-
-                            if (avatar_b != null) {
-                                commandBuilder.append("|").append(Base64.getEncoder().encodeToString(avatar_b));
-                            } else {
-                                commandBuilder.append("|*");
-                            }
-                        }
-                        commandBuilder.append("@");
-                    }
-                } catch (Exception ex) {
-                }
-            }
-        }
-        this.sendASYNCGAMECommandFromServer(commandBuilder.toString(), par);
+        net_server.enviarListaUsuariosToNewUser(par);
     }
 
     private void serverSocketHandler(final Socket client_socket) {
@@ -2709,91 +2671,41 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
+    /**
+     * Baja de un participante. Delega a NetServer (estado + broadcast DELUSER + UI callback).
+     * Mantenido como facade para callers externos (Participant.java).
+     */
     public synchronized void borrarParticipante(String nick) {
-
-        if (this.participantes.containsKey(nick)) {
-
-            Audio.playWavResource("misc/toilet.wav");
-
-            // Get the reference BEFORE removing it from the map
-            Participant pToDel = participantes.get(nick);
-            String avatar_src = pToDel.getAvatar_chat_src();
-
-            participantes.remove(nick);
-
-            Helpers.GUIRun(() -> {
-                tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-                // Removed tot_conectados.revalidate/repaint
-
-                DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
-                ParticipantJListData toRemove = null;
-
-                for (int i = 0; i < model.getSize(); i++) {
-                    ParticipantJListData p = model.getElementAt(i);
-                    if (p.getNick().equals(nick)) {
-                        toRemove = p;
-                        break;
-                    }
-                }
-
-                if (toRemove != null) {
-                    model.removeElement(toRemove);
-                }
-
-                if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    if (participantes.size() < 2) {
-                        empezar_timba.setEnabled(false);
-                        kick_user.setEnabled(false);
-                    }
-                    new_bot_button.setEnabled(true);
-                }
-
-                chatHTMLAppendExitUser(nick, avatar_src);
-
-                // Removed global revalidate() and repaint()
-            });
-
-            if (this.isServer() && !WaitingRoomFrame.getInstance().isPartida_empezada() && !exit) {
-                try {
-                    String comando = "DELUSER#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                    // We safely pass the cached reference 'pToDel', preventing a NullPointerException
-                    this.broadcastASYNCGAMECommandFromServer(comando, pToDel);
-                } catch (UnsupportedEncodingException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            }
+        if (net_server != null) {
+            net_server.removeParticipant(nick);
         }
     }
 
+    /**
+     * Alta de un participante. Delega a NetServer (estado + UI callback).
+     */
     private synchronized void nuevoParticipante(String nick, File avatar, Socket socket, SecretKeySpec aes_k,
             SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
+        net_server.addParticipant(nick, avatar, socket, aes_k, hmac_k, cpu, unsecure);
+    }
 
-        Participant participante = new Participant(this, nick, avatar, socket, aes_k, hmac_k, cpu);
-
-        participantes.put(nick, participante);
-
-        participante.setUnsecure_player(unsecure);
-
-        if (socket != null) {
-
-            Helpers.threadRun(participante);
-
-        }
-
+    /**
+     * Callback de NetServer al añadir un Participant: actualiza la UI (lista de
+     * conectados, contador y notificación de chat).
+     */
+    public void onParticipantAdded(String nick, File avatar, boolean cpu) {
         Helpers.GUIRun(() -> {
             tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
-            // Removed manual revalidate/repaint
 
             ParticipantJListData participant_data = new ParticipantJListData(nick);
             ImageIcon participant_avatar = null;
 
             if (avatar != null) {
                 try {
-                    participant_avatar = Helpers.scaleIcon(avatar.getAbsolutePath(), NewGameDialog.DEFAULT_AVATAR_WIDTH,
-                            NewGameDialog.DEFAULT_AVATAR_WIDTH);
+                    participant_avatar = Helpers.scaleIcon(avatar.getAbsolutePath(),
+                            NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 } catch (MalformedURLException ex) {
-                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null,
-                            ex);
+                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                 }
             } else {
                 try {
@@ -2802,8 +2714,7 @@ public class WaitingRoomFrame extends JFrame {
                                     (server && cpu) ? "/images/avatar_bot.png" : "/images/avatar_default.png"),
                             NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH);
                 } catch (MalformedURLException ex) {
-                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null,
-                            ex);
+                    System.getLogger(WaitingRoomFrame.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
                 }
             }
 
@@ -2814,10 +2725,40 @@ public class WaitingRoomFrame extends JFrame {
             if (!nick.equals(server_nick) && !nick.equals(local_nick)) {
                 chatHTMLAppendNewUser(nick);
             }
-
-            // Removed global revalidate() and repaint()
         });
+    }
 
+    /**
+     * Callback de NetServer al eliminar un Participant: actualiza la UI (quita de
+     * la lista, ajusta contador y botones, anota salida en chat).
+     */
+    public void onParticipantRemoved(String nick, String avatar_chat_src) {
+        Helpers.GUIRun(() -> {
+            tot_conectados.setText(participantes.size() + "/" + WaitingRoomFrame.MAX_PARTICIPANTES);
+
+            DefaultListModel<ParticipantJListData> model = (DefaultListModel<ParticipantJListData>) conectados.getModel();
+            ParticipantJListData toRemove = null;
+            for (int i = 0; i < model.getSize(); i++) {
+                ParticipantJListData p = model.getElementAt(i);
+                if (p.getNick().equals(nick)) {
+                    toRemove = p;
+                    break;
+                }
+            }
+            if (toRemove != null) {
+                model.removeElement(toRemove);
+            }
+
+            if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                if (participantes.size() < 2) {
+                    empezar_timba.setEnabled(false);
+                    kick_user.setEnabled(false);
+                }
+                new_bot_button.setEnabled(true);
+            }
+
+            chatHTMLAppendExitUser(nick, avatar_chat_src);
+        });
     }
 
     /**

@@ -1740,6 +1740,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     int respId = Helpers.CSPRNG_GENERATOR.nextInt();
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
                                                                 }
                                                             });
                                                             break;
@@ -1749,11 +1750,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             Helpers.threadRun(() -> {
                                                                 try {
                                                                     byte[] cards = Base64.getDecoder().decode(partes_unlock[3]);
-                                                                    byte[] unlocked = cards;
-                                                                    try {
-                                                                        unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
-                                                                    } catch (Exception x) {
-                                                                    }
+                                                                    byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
 
                                                                     String uB64 = Base64.getEncoder().encodeToString(unlocked);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
@@ -1761,6 +1758,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respId2 + "#RESP_SRA_UNLOCK#" + myNickB64 + "#" + uB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK; host will time out and abort the hand", e);
                                                                 }
                                                             });
                                                             break;

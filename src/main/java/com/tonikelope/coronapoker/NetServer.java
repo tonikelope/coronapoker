@@ -17,11 +17,15 @@
 package com.tonikelope.coronapoker;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -171,5 +175,109 @@ public class NetServer {
 
     public void sendASYNCGAMECommand(String command, Participant p) {
         sendASYNCGAMECommand(command, p, true);
+    }
+
+    // --- Gestión de Participants ---
+
+    /**
+     * Le envía a un Participant recién conectado el USERSLIST con todos los demás
+     * Participants ya presentes (excluyendo al propio destinatario).
+     */
+    public void enviarListaUsuariosToNewUser(Participant par) {
+        StringBuilder commandBuilder = new StringBuilder("USERSLIST#");
+        Map<String, Participant> participantes = waiting_room.getParticipantes();
+        synchronized (participantes) {
+            for (Map.Entry<String, Participant> entry : participantes.entrySet()) {
+                Participant p = entry.getValue();
+                try {
+                    if (p != null && p != par) {
+                        commandBuilder.append(Base64.getEncoder().encodeToString(p.getNick().getBytes("UTF-8")))
+                                .append("|")
+                                .append(p.isUnsecure_player() ? "1" : "0");
+
+                        if (p.getAvatar() != null || p.isCpu()) {
+                            byte[] avatar_b = null;
+                            try {
+                                if (!p.isCpu() && p.getAvatar() != null) {
+                                    try (InputStream is = new FileInputStream(p.getAvatar())) {
+                                        avatar_b = is.readAllBytes();
+                                    }
+                                } else if (p.isCpu()) {
+                                    InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png");
+                                    if (is != null) {
+                                        avatar_b = is.readAllBytes();
+                                        is.close();
+                                    }
+                                }
+                            } catch (Exception e) {
+                                LOGGER.log(Level.WARNING, "Error leyendo avatar para USERSLIST", e);
+                            }
+
+                            if (avatar_b != null) {
+                                commandBuilder.append("|").append(Base64.getEncoder().encodeToString(avatar_b));
+                            } else {
+                                commandBuilder.append("|*");
+                            }
+                        }
+                        commandBuilder.append("@");
+                    }
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Error encolando entry en USERSLIST", ex);
+                }
+            }
+        }
+        sendASYNCGAMECommand(commandBuilder.toString(), par);
+    }
+
+    /**
+     * Alta de un nuevo Participant: lo añade al mapa, arranca su thread de socket
+     * (si no es CPU) y delega en WaitingRoomFrame la parte de actualización de UI.
+     */
+    public synchronized void addParticipant(String nick, java.io.File avatar, Socket socket,
+            SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu, boolean unsecure) {
+
+        Participant participante = new Participant(waiting_room, nick, avatar, socket, aes_k, hmac_k, cpu);
+
+        waiting_room.getParticipantes().put(nick, participante);
+        participante.setUnsecure_player(unsecure);
+
+        if (socket != null) {
+            Helpers.threadRun(participante);
+        }
+
+        // Callback a la UI
+        waiting_room.onParticipantAdded(nick, avatar, cpu);
+    }
+
+    /**
+     * Baja de un Participant: lo quita del mapa, broadcast DELUSER al resto y
+     * delega en WaitingRoomFrame la parte de actualización de UI.
+     */
+    public synchronized void removeParticipant(String nick) {
+        Map<String, Participant> participantes = waiting_room.getParticipantes();
+        if (!participantes.containsKey(nick)) {
+            return;
+        }
+
+        Audio.playWavResource("misc/toilet.wav");
+
+        // Guardamos la referencia ANTES de retirarlo
+        Participant pToDel = participantes.get(nick);
+        String avatar_src = pToDel.getAvatar_chat_src();
+
+        participantes.remove(nick);
+
+        // Callback a la UI (también desabilita botones, etc.)
+        waiting_room.onParticipantRemoved(nick, avatar_src);
+
+        if (!waiting_room.isPartida_empezada() && !waiting_room.isExit()) {
+            try {
+                String comando = "DELUSER#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
+                // Pasamos pToDel para excluirlo del broadcast aunque ya no esté en el map
+                broadcastASYNCGAMECommand(comando, pToDel);
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
     }
 }

@@ -169,8 +169,6 @@ public class Init extends JFrame {
         }
     }
 
-    private static JWindow panoptes_splash;
-
     public JLabel getBaraja_fondo() {
         return baraja_fondo;
     }

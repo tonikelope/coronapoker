@@ -1715,7 +1715,7 @@ public class WaitingRoomFrame extends JFrame {
                                             } catch (Exception e) {
                                             }
 
-                                            if (!net_client.getCliente_last_received().containsKey(subcomando) || net_client.getCliente_last_received().get(subcomando) != id) {
+                                            if (!net_client.getCliente_last_received().containsKey(subcomando) || !net_client.getCliente_last_received().get(subcomando).equals(id)) {
                                                 net_client.getCliente_last_received().put(subcomando, id);
                                                 if (isPartida_empezada()) {
                                                     switch (subcomando) {
@@ -3375,19 +3375,21 @@ public class WaitingRoomFrame extends JFrame {
                 kick_user.setEnabled(false);
 
                 Helpers.threadRun(() -> {
+                    Participant p_kicked = participantes.get(expulsado);
+                    if (p_kicked == null) {
+                        return;
+                    }
+                    boolean was_cpu = p_kicked.isCpu();
                     try {
+                        p_kicked.setExit(true);
 
-                        participantes.get(expulsado).setExit(true);
-
-                        if (!participantes.get(expulsado).isCpu()) {
-
+                        if (!was_cpu) {
                             String comando = "KICKED#" + Base64.getEncoder().encodeToString(expulsado.getBytes("UTF-8"));
-                            participantes.get(expulsado).writeCommandFromServer(
-                                    Helpers.encryptCommand(comando, participantes.get(expulsado).getAes_key(),
-                                            participantes.get(expulsado).getHmac_key()));
+                            p_kicked.writeCommandFromServer(
+                                    Helpers.encryptCommand(comando, p_kicked.getAes_key(), p_kicked.getHmac_key()));
                         }
 
-                        participantes.get(expulsado).exitAndCloseSocket();
+                        p_kicked.exitAndCloseSocket();
 
                         borrarParticipante(expulsado);
 
@@ -3406,7 +3408,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         chat_box.requestFocus();
                     });
-                    if (password != null && !participantes.get(expulsado).isCpu()) {
+                    if (password != null && !was_cpu) {
                         Helpers.copyTextToClipboard(password);
                         mostrarMensajeInformativo(THIS, Translator.translate("ui.error.password_copiada"));
                     }

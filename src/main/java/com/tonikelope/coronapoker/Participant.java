@@ -312,10 +312,12 @@ public class Participant implements Runnable {
                     ArrayList<String> pendientes = new ArrayList<>();
                     pendientes.add(getNick());
 
-                    do {
-                        int id = Helpers.CSPRNG_GENERATOR.nextInt();
-                        String full_command = "GAME#" + String.valueOf(id) + "#" + command;
+                    // El id se mantiene a lo largo de los reintentos para que el cliente pueda deduplicar
+                    // por (subcomando, id) si una retransmisión llega cuando ya procesó la primera copia.
+                    int id = Helpers.CSPRNG_GENERATOR.nextInt();
+                    String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
+                    do {
                         if (!writeCommandFromServer(Helpers.encryptCommand(full_command, getAes_key(), getHmac_key()))) {
                             waitPreGameCommandConfirmations(id, pendientes);
                         }
@@ -641,7 +643,7 @@ public class Participant implements Runnable {
                                     LOGGER.log(Level.SEVERE, "Failed to encrypt CONF message", e);
                                 }
 
-                                if (!last_received.containsKey(subcomando) || last_received.get(subcomando) != command_id) {
+                                if (!last_received.containsKey(subcomando) || !last_received.get(subcomando).equals(command_id)) {
                                     last_received.put(subcomando, command_id);
 
                                     switch (subcomando) {

@@ -413,7 +413,8 @@ public class Crupier implements Runnable {
                     synchronized (this.getReceived_commands()) {
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
-                        } catch (Exception ex) {
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
                         }
                     }
                 }
@@ -475,7 +476,8 @@ public class Crupier implements Runnable {
                     synchronized (this.getReceived_commands()) {
                         try {
                             this.getReceived_commands().wait(WAIT_QUEUES);
-                        } catch (Exception ex) {
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
                         }
                     }
                 }
@@ -507,6 +509,7 @@ public class Crupier implements Runnable {
             try {
                 orderBuilder.append(Base64.getEncoder().encodeToString(j.getNickname().getBytes("UTF-8"))).append(",");
             } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error encoding nick en orderBuilder", e);
             }
         }
         this.active_crypto_ring = currentRing;
@@ -552,6 +555,7 @@ public class Crupier implements Runnable {
         try {
             orderB64 = Base64.getEncoder().encodeToString(orderBuilder.toString().getBytes("UTF-8"));
         } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error encoding orderB64 para MEGAPACKET", e);
         }
 
         // Enviamos el MEGAPACKET final a todos
@@ -594,8 +598,10 @@ public class Crupier implements Runnable {
                 try {
                     String pcB64 = Base64.getEncoder().encodeToString(pocketCards);
                     String nickB64 = Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"));
-                    broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, false);
+                    // CRÍTICO: cada cliente necesita su POCKET_CARDS para descifrar sus cartas. Esperamos ACK.
+                    broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
                 } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS para " + targetNick, e);
                 }
             }
 
@@ -642,61 +648,71 @@ public class Crupier implements Runnable {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!ok && !this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    String[] partes = comando.split("#");
-
-                    if (partes[2].equals("MEGAPACKET")) {
-                        String orderB64 = partes[3];
-                        this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
-                        try {
-                            String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
-                            String[] orderTokens = orderStr.split(",");
-                            java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
-                            for (String token : orderTokens) {
-                                if (!token.isEmpty()) {
-                                    ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
-                                }
-                            }
-                            this.active_crypto_ring = ringList.toArray(new String[0]);
-                        } catch (Exception e) {
+                    try {
+                        String[] partes = comando.split("#");
+                        if (partes.length < 3) {
+                            LOGGER.log(Level.WARNING, "Comando malformado descartado (recibirMisCartas): {0}", comando);
+                            continue;
                         }
-                    } else if (partes[2].equals("POCKET_CARDS")) {
-                        try {
-                            String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            byte[] unlockedByOthers = java.util.Base64.getDecoder().decode(partes[4]);
-                            if (unlockedByOthers != null) {
-                                this.single_locked_pocket_cards.put(targetNick, unlockedByOthers);
-                            }
 
-                            if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
-
-                                // FIX: Obligamos a que primero se haya procesado el MEGAPACKET
-                                if (this.local_mega_packet != null) {
-                                    this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
-
-                                    // Quitamos nuestro propio candado (El último de la capa de cifrado)
-                                    byte[] myPocket = CryptoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
-                                    byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
-                                    byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
-
-                                    int id1 = CryptoSRA.resolveCardIndex(c1);
-                                    int id2 = CryptoSRA.resolveCardIndex(c2);
-
-                                    if (id1 >= 0 && id2 >= 0) {
-                                        this.local_original_cards[0] = (byte) id1;
-                                        this.local_original_cards[1] = (byte) id2;
-                                        cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
-                                        cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
-                                        ok = true;
+                        if (partes[2].equals("MEGAPACKET") && partes.length >= 5) {
+                            String orderB64 = partes[3];
+                            this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
+                            try {
+                                String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
+                                String[] orderTokens = orderStr.split(",");
+                                java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
+                                for (String token : orderTokens) {
+                                    if (!token.isEmpty()) {
+                                        ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
                                     }
-                                } else {
-                                    // Si ha llegado antes que la baraja, lo devolvemos a la cola y esperamos
-                                    rejected.add(comando);
                                 }
+                                this.active_crypto_ring = ringList.toArray(new String[0]);
+                            } catch (Exception e) {
+                                LOGGER.log(Level.WARNING, "Error parseando ORDER de MEGAPACKET", e);
                             }
-                        } catch (Exception e) {
+                        } else if (partes[2].equals("POCKET_CARDS") && partes.length >= 5) {
+                            try {
+                                String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
+                                byte[] unlockedByOthers = java.util.Base64.getDecoder().decode(partes[4]);
+                                if (unlockedByOthers != null) {
+                                    this.single_locked_pocket_cards.put(targetNick, unlockedByOthers);
+                                }
+
+                                if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
+
+                                    // FIX: Obligamos a que primero se haya procesado el MEGAPACKET
+                                    if (this.local_mega_packet != null) {
+                                        this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
+
+                                        // Quitamos nuestro propio candado (El último de la capa de cifrado)
+                                        byte[] myPocket = CryptoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
+                                        byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
+                                        byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
+
+                                        int id1 = CryptoSRA.resolveCardIndex(c1);
+                                        int id2 = CryptoSRA.resolveCardIndex(c2);
+
+                                        if (id1 >= 0 && id2 >= 0) {
+                                            this.local_original_cards[0] = (byte) id1;
+                                            this.local_original_cards[1] = (byte) id2;
+                                            cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
+                                            cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
+                                            ok = true;
+                                        }
+                                    } else {
+                                        // Si ha llegado antes que la baraja, lo devolvemos a la cola y esperamos
+                                        rejected.add(comando);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                LOGGER.log(Level.WARNING, "Error procesando POCKET_CARDS", e);
+                            }
+                        } else {
+                            rejected.add(comando);
                         }
-                    } else {
-                        rejected.add(comando);
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirMisCartas: " + comando, ex);
                     }
                 }
                 if (!rejected.isEmpty()) {
@@ -1726,33 +1742,47 @@ public class Crupier implements Runnable {
                 ArrayList<String> rejected = new ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
-                    String[] partes = comando.split("#");
-
-                    if (partes[2].equals("REBUY")) {
-                        String nick = null;
-                        try {
-                            nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                        } catch (UnsupportedEncodingException ex) {
-                        }
-                        pending.remove(nick);
-                        Player jugador = nick2player.get(nick);
-                        jugador.setTimeout(false);
-
-                        if (GameFrame.getInstance().isPartida_local()) {
-                            broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
+                    try {
+                        String[] partes = comando.split("#");
+                        if (partes.length < 3) {
+                            LOGGER.log(Level.WARNING, "Comando malformado descartado (REBUY wait): {0}", comando);
+                            continue;
                         }
 
-                        if (partes.length > 4) {
-                            if (partes[4].equals("0")) {
-                                jugador.setSpectator(null);
+                        if (partes[2].equals("REBUY") && partes.length >= 4) {
+                            String nick = null;
+                            try {
+                                nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            } catch (UnsupportedEncodingException ex) {
+                                LOGGER.log(Level.WARNING, "Nick mal codificado en REBUY", ex);
+                                continue;
+                            }
+                            pending.remove(nick);
+                            Player jugador = nick2player.get(nick);
+                            if (jugador == null) {
+                                LOGGER.log(Level.WARNING, "REBUY de nick desconocido: {0}", nick);
+                                continue;
+                            }
+                            jugador.setTimeout(false);
+
+                            if (GameFrame.getInstance().isPartida_local()) {
+                                broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
+                            }
+
+                            if (partes.length > 4) {
+                                if (partes[4].equals("0")) {
+                                    jugador.setSpectator(null);
+                                } else {
+                                    rebuy_now.put(nick, Integer.parseInt(partes[4]));
+                                }
                             } else {
-                                rebuy_now.put(nick, Integer.parseInt(partes[4]));
+                                rebuy_now.put(nick, GameFrame.BUYIN);
                             }
                         } else {
-                            rebuy_now.put(nick, GameFrame.BUYIN);
+                            rejected.add(comando);
                         }
-                    } else {
-                        rejected.add(comando);
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en REBUY wait: " + comando, ex);
                     }
                 }
                 if (!rejected.isEmpty()) {
@@ -1765,7 +1795,8 @@ public class Crupier implements Runnable {
                 Iterator<String> iterator = pending.iterator();
                 while (iterator.hasNext()) {
                     String nick = iterator.next();
-                    if (nick2player.get(nick).isExit()) {
+                    Player jp = nick2player.get(nick);
+                    if (jp != null && jp.isExit()) {
                         iterator.remove();
                     }
                 }
@@ -1777,7 +1808,8 @@ public class Crupier implements Runnable {
                         // [CRITICAL FIX]: Auto-kick unresponsive players during Rebuy phase
                         LOGGER.log(Level.SEVERE, "❌ [ZERO-TRUST] REBUY TIMEOUT. Kicking unresponsive zombies...");
                         for (String nick : pending) {
-                            if (!nick2player.get(nick).isExit()) {
+                            Player jpk = nick2player.get(nick);
+                            if (jpk != null && !jpk.isExit()) {
                                 this.remotePlayerQuit(nick);
                             }
                         }
@@ -1923,9 +1955,11 @@ public class Crupier implements Runnable {
                 if (GameFrame.getInstance().isPartida_local()) {
                     broadcastGAMECommandFromServer(comando, nick);
                 } else if (isLocal) {
-                    sendGAMECommandToServer(comando, false);
+                    // CRÍTICO: el host necesita la clave SRA para descifrar y mostrar las cartas. Esperamos ACK.
+                    sendGAMECommandToServer(comando, true);
                 }
             } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Error enviando SHOWCARDS para " + nick, ex);
             }
 
             if (jugador.getHoleCard1().isTapada()) {
@@ -1944,6 +1978,7 @@ public class Crupier implements Runnable {
                     Hand jugada = new Hand(evalList);
                     jugador.showCards(jugada.getName());
                 } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Error evaluando Hand al mostrar cartas de " + nick, e);
                 }
 
                 setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
@@ -2053,21 +2088,26 @@ public class Crupier implements Runnable {
                 while (!ok && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
 
-                    String[] partes = comando.split("#");
+                        if (partes.length >= 6 && partes[2].equals("FLOPCARDS")) {
 
-                    if (partes[2].equals("FLOPCARDS")) {
+                            ok = true;
 
-                        ok = true;
+                            cartas[0] = partes[3];
 
-                        cartas[0] = partes[3];
+                            cartas[1] = partes[4];
 
-                        cartas[1] = partes[4];
+                            cartas[2] = partes[5];
 
-                        cartas[2] = partes[5];
-
-                    } else {
-                        rejected.add(comando);
+                        } else if (partes.length >= 3 && partes[2].equals("FLOPCARDS")) {
+                            LOGGER.log(Level.WARNING, "FLOPCARDS malformado descartado: {0}", comando);
+                        } else {
+                            rejected.add(comando);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirFlop: " + comando, ex);
                     }
 
                 }
@@ -2122,16 +2162,21 @@ public class Crupier implements Runnable {
                 while (!ok && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
 
-                    String[] partes = comando.split("#");
+                        if (partes.length >= 4 && partes[2].equals("TURNCARD")) {
 
-                    if (partes[2].equals("TURNCARD")) {
+                            ok = true;
 
-                        ok = true;
-
-                        carta = partes[3];
-                    } else {
-                        rejected.add(comando);
+                            carta = partes[3];
+                        } else if (partes.length >= 3 && partes[2].equals("TURNCARD")) {
+                            LOGGER.log(Level.WARNING, "TURNCARD malformado descartado: {0}", comando);
+                        } else {
+                            rejected.add(comando);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirTurn: " + comando, ex);
                     }
 
                 }
@@ -2188,16 +2233,21 @@ public class Crupier implements Runnable {
                 while (!ok && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
 
-                    String[] partes = comando.split("#");
+                        if (partes.length >= 4 && partes[2].equals("RIVERCARD")) {
 
-                    if (partes[2].equals("RIVERCARD")) {
+                            ok = true;
 
-                        ok = true;
-
-                        carta = partes[3];
-                    } else {
-                        rejected.add(comando);
+                            carta = partes[3];
+                        } else if (partes.length >= 3 && partes[2].equals("RIVERCARD")) {
+                            LOGGER.log(Level.WARNING, "RIVERCARD malformado descartado: {0}", comando);
+                        } else {
+                            rejected.add(comando);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirRiver: " + comando, ex);
                     }
 
                 }
@@ -2827,35 +2877,40 @@ public class Crupier implements Runnable {
                 while (!ok && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
 
-                    String[] partes = comando.split("#");
+                        if (partes.length >= 9 && partes[2].equals("POSITIONS")) {
 
-                    if (partes[2].equals("POSITIONS")) {
+                            ok = true;
 
-                        ok = true;
+                            try {
+                                this.utg_nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
 
-                        try {
-                            this.utg_nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                                this.big_blind_nick = new String(Base64.getDecoder().decode(partes[4]), "UTF-8");
 
-                            this.big_blind_nick = new String(Base64.getDecoder().decode(partes[4]), "UTF-8");
+                                this.small_blind_nick = new String(Base64.getDecoder().decode(partes[5]), "UTF-8");
 
-                            this.small_blind_nick = new String(Base64.getDecoder().decode(partes[5]), "UTF-8");
+                                this.dealer_nick = new String(Base64.getDecoder().decode(partes[6]), "UTF-8");
 
-                            this.dealer_nick = new String(Base64.getDecoder().decode(partes[6]), "UTF-8");
+                            } catch (UnsupportedEncodingException ex) {
+                                LOGGER.log(Level.SEVERE, null, ex);
+                            }
 
-                        } catch (UnsupportedEncodingException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
+                            GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[7]));
+
+                            if (partes[8].equals("1")) {
+
+                                this.doblarCiegas();
+                            }
+
+                        } else if (partes.length >= 3 && partes[2].equals("POSITIONS")) {
+                            LOGGER.log(Level.WARNING, "POSITIONS malformado descartado: {0}", comando);
+                        } else {
+                            rejected.add(comando);
                         }
-
-                        GameFrame.getInstance().setConta_tiempo_juego(Long.parseLong(partes[7]));
-
-                        if (partes[8].equals("1")) {
-
-                            this.doblarCiegas();
-                        }
-
-                    } else {
-                        rejected.add(comando);
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirPositions: " + comando, ex);
                     }
 
                 }
@@ -3010,8 +3065,10 @@ public class Crupier implements Runnable {
                 }
             } while (!ready);
 
-            // Host ordena a todos que pueden empezar a procesar la cascada SRA
-            broadcastGAMECommandFromServer("START_SRA_CASCADE", null, false);
+            // Host ordena a todos que pueden empezar a procesar la cascada SRA.
+            // CRÍTICO: esperamos ACK porque el host iniciará requestRemoteCascade inmediatamente después
+            // y los clientes deben estar preparados para responder al primer DECK_CASCADE_REQ.
+            broadcastGAMECommandFromServer("START_SRA_CASCADE", null, true);
 
         } else {
             // Cliente avisa de que está listo para la mano actual
@@ -4459,8 +4516,9 @@ public class Crupier implements Runnable {
             });
             return;
         }
-        // El servidor dicta que es el momento del Showdown (SKIPPED significa que no hay Master Key centralizada)
-        broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, false);
+        // El servidor dicta que es el momento del Showdown (SKIPPED significa que no hay Master Key centralizada).
+        // Esperamos ACK para que todos los clientes lleguen sincronizados al cierre del showdown.
+        broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, true);
         this.verificarManoLocal(new byte[0], null);
     }
 
@@ -4483,37 +4541,44 @@ public class Crupier implements Runnable {
                 while (!ok && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
 
-                    String[] partes = comando.split("#");
+                        if (partes.length >= 4 && partes[2].equals("RECOVERDATA")) {
 
-                    if (partes[2].equals("RECOVERDATA")) {
-
-                        ObjectInputStream in = null;
-                        try {
-                            ok = true;
-                            ByteArrayInputStream byteIn = new ByteArrayInputStream(
-                                    Base64.getDecoder().decode(partes[3]));
-                            in = new ObjectInputStream(byteIn);
-                            map = (HashMap<String, Object>) in.readObject();
-
-                            Integer hand_id = this.getHandIdFromUGI(GameFrame.UGI);
-
-                            map.put("hand_id", hand_id != null ? hand_id : -1);
-
-                        } catch (IOException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        } catch (ClassNotFoundException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        } finally {
+                            ObjectInputStream in = null;
                             try {
-                                in.close();
+                                ok = true;
+                                ByteArrayInputStream byteIn = new ByteArrayInputStream(
+                                        Base64.getDecoder().decode(partes[3]));
+                                in = new ObjectInputStream(byteIn);
+                                map = (HashMap<String, Object>) in.readObject();
+
+                                Integer hand_id = this.getHandIdFromUGI(GameFrame.UGI);
+
+                                map.put("hand_id", hand_id != null ? hand_id : -1);
+
                             } catch (IOException ex) {
                                 LOGGER.log(Level.SEVERE, null, ex);
+                            } catch (ClassNotFoundException ex) {
+                                LOGGER.log(Level.SEVERE, null, ex);
+                            } finally {
+                                if (in != null) {
+                                    try {
+                                        in.close();
+                                    } catch (IOException ex) {
+                                        LOGGER.log(Level.SEVERE, null, ex);
+                                    }
+                                }
                             }
-                        }
 
-                    } else {
-                        rejected.add(comando);
+                        } else if (partes.length >= 3 && partes[2].equals("RECOVERDATA")) {
+                            LOGGER.log(Level.WARNING, "RECOVERDATA malformado descartado: {0}", comando);
+                        } else {
+                            rejected.add(comando);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirDatosClaveRecuperados: " + comando, ex);
                     }
 
                 }
@@ -4567,23 +4632,28 @@ public class Crupier implements Runnable {
                 while (!ok && !this.getReceived_commands().isEmpty()) {
 
                     String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
 
-                    String[] partes = comando.split("#");
+                        if (partes.length >= 4 && partes[2].equals("ACTIONDATA")) {
 
-                    if (partes[2].equals("ACTIONDATA")) {
+                            ok = true;
 
-                        ok = true;
+                            try {
+                                actions = !"*".equals(partes[3])
+                                        ? new String(Base64.getDecoder().decode(partes[3]), "UTF-8")
+                                        : "";
+                            } catch (UnsupportedEncodingException ex) {
+                                LOGGER.log(Level.SEVERE, null, ex);
+                            }
 
-                        try {
-                            actions = !"*".equals(partes[3])
-                                    ? new String(Base64.getDecoder().decode(partes[3]), "UTF-8")
-                                    : "";
-                        } catch (UnsupportedEncodingException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
+                        } else if (partes.length >= 3 && partes[2].equals("ACTIONDATA")) {
+                            LOGGER.log(Level.WARNING, "ACTIONDATA malformado descartado: {0}", comando);
+                        } else {
+                            rejected.add(comando);
                         }
-
-                    } else {
-                        rejected.add(comando);
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Excepción procesando comando ACTIONDATA wait: " + comando, ex);
                     }
                 }
 
@@ -5758,7 +5828,7 @@ public class Crupier implements Runnable {
                     String[] partes = comando.split("#");
 
                     // Wait for the visual confession
-                    if (partes.length >= 5 && partes[2].equals("VISUAL_CARDS_RESP")) {
+                    if (partes.length >= 6 && partes[2].equals("VISUAL_CARDS_RESP")) {
                         try {
                             String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (pendientes.contains(nick)) {
@@ -5783,6 +5853,7 @@ public class Crupier implements Runnable {
                                 rejected.add(comando);
                             }
                         } catch (Exception e) {
+                            LOGGER.log(Level.WARNING, "Error procesando VISUAL_CARDS_RESP", e);
                         }
                     } else if (partes.length >= 6 && partes[2].equals("VISUAL_UPDATE")) {
                         // Receive visual cards from another client and update UI instantly
@@ -6829,27 +6900,37 @@ public class Crupier implements Runnable {
                     while (!ok && !this.getReceived_commands().isEmpty()) {
 
                         String comando = this.received_commands.poll();
+                        try {
+                            String[] partes = comando.split("#");
 
-                        String[] partes = comando.split("#");
+                            if (partes.length >= 4 && partes[2].equals("SEATS")) {
 
-                        if (partes[2].equals("SEATS")) {
+                                int tot = Integer.valueOf(partes[3]);
 
-                            ok = true;
-
-                            int tot = Integer.valueOf(partes[3]);
-
-                            permutados = new String[tot];
-
-                            for (int i = 0; i < tot; i++) {
-
-                                try {
-                                    permutados[i] = new String(Base64.getDecoder().decode(partes[i + 4]), "UTF-8");
-                                } catch (UnsupportedEncodingException ex) {
-                                    LOGGER.log(Level.SEVERE, null, ex);
+                                if (partes.length < 4 + tot) {
+                                    LOGGER.log(Level.WARNING, "SEATS malformado (tot={0} pero len={1}): {2}",
+                                            new Object[]{tot, partes.length, comando});
+                                    continue;
                                 }
+
+                                ok = true;
+                                permutados = new String[tot];
+
+                                for (int i = 0; i < tot; i++) {
+
+                                    try {
+                                        permutados[i] = new String(Base64.getDecoder().decode(partes[i + 4]), "UTF-8");
+                                    } catch (UnsupportedEncodingException ex) {
+                                        LOGGER.log(Level.SEVERE, null, ex);
+                                    }
+                                }
+                            } else if (partes.length >= 3 && partes[2].equals("SEATS")) {
+                                LOGGER.log(Level.WARNING, "SEATS malformado descartado: {0}", comando);
+                            } else {
+                                rejected.add(comando);
                             }
-                        } else {
-                            rejected.add(comando);
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.WARNING, "Excepción procesando comando en recibirSEATS: " + comando, ex);
                         }
 
                     }

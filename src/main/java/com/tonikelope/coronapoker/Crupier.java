@@ -4981,7 +4981,7 @@ public class Crupier implements Runnable {
         } while (!ok && !isFin_de_la_transmision());
 
         if (timeout) {
-            cancelarManoYDevolverApuestas("TIMEOUT WAITING FOR COMMUNITY CARDS");
+            cancelarManoYDevolverApuestas("zero_trust.timeout_community_cards");
             return false;
         }
         return true;

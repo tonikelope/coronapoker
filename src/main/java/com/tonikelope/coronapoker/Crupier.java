@@ -7533,7 +7533,7 @@ public class Crupier implements Runnable {
                     } else {
                         // Ocultamos la información exacta de la mano del rival si hizo muck
                         if (jugador_actual.getHoleCard1().isTapada()) {
-                            jugador_actual.setLoser(Translator.translate("PIERDE"));
+                            jugador_actual.setLoser(Translator.translate("ui.pierde_3"));
                         } else {
                             jugador_actual.setLoser(jugada.getName());
                         }

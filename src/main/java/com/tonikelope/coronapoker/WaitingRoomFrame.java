@@ -1806,7 +1806,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     net_client.getLate_clients_warning().add(ipCliente);
                                                                 }
                                                                 Helpers.GUIRun(() -> {
-                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick2 + "] " + Translator.translate("WANTS TO ENTER THE GAME"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
+                                                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + client_nick2 + "] " + Translator.translate("game.quiere_entrar_en_la_timba"), Color.RED, Color.WHITE, getClass().getResource("/images/action/cry.png"), NOTIFICATION_TIMEOUT);
                                                                     dialog.setLocation(dialog.getParent().getLocation());
                                                                     dialog.setVisible(true);
                                                                 });

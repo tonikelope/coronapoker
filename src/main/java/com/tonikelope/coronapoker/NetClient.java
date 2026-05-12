@@ -219,7 +219,8 @@ public class NetClient {
     }
 
     // --- Transporte: lectura/escritura cifrada al servidor ---
-    public void writeCommandToServer(String command) {
+    // La clase representa el lado cliente, así que el destino/origen es siempre el servidor.
+    public void writeCommand(String command) {
         // Si estamos reconectando, esperamos a que termine antes de escribir.
         while (reconnecting) {
             synchronized (local_client_socket_lock) {
@@ -242,7 +243,7 @@ public class NetClient {
         }
     }
 
-    public String readCommandFromServer() {
+    public String readCommand() {
         // Si estamos reconectando, esperamos.
         while (reconnecting) {
             synchronized (local_client_socket_lock) {

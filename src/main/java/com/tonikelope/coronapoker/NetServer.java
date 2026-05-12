@@ -88,7 +88,9 @@ public class NetServer {
     }
 
     // --- Transporte: lectura/escritura cifrada por socket de cliente ---
-    public void writeCommandFromServer(String command, Socket socket) {
+    // La clase representa el lado servidor; el destino/origen es siempre un cliente
+    // identificado por el Socket que recibe la llamada.
+    public void writeCommand(String command, Socket socket) {
         try {
             synchronized (socket.getOutputStream()) {
                 socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
@@ -99,7 +101,7 @@ public class NetServer {
         }
     }
 
-    public String readCommandFromClient(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
+    public String readCommand(Socket socket, SecretKeySpec key, SecretKeySpec hmac_key) {
         try {
             synchronized (socket.getInputStream()) {
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));

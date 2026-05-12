@@ -126,29 +126,14 @@ public class WaitingRoomFrame extends JFrame {
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Map<String, byte[]> localP2POriginalNonces = new ConcurrentHashMap<>();
-    private final Object local_client_socket_lock = new Object();
     private final Object ping_pong_lock = new Object();
     private final Object lock_new_client = new Object();
-    private final Object lock_reconnect = new Object();
-    private final Object lock_client_reconnect = new Object();
-    private final Object lock_client_pre_game_commands_wait = new Object();
-    private final HashMap<String, Integer> cliente_last_received = new HashMap<>();
     private final boolean server;
     private final String local_nick;
-    // received_confirmations, client_threads, late_clients_warning, server_socket migrados a NetServer/NetClient (Fase 2).
-    private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>();
-    private volatile SecretKeySpec local_client_aes_key = null;
-    private volatile SecretKeySpec local_client_hmac_key = null;
-    private volatile SecretKeySpec local_client_hmac_key_orig = null;
-    private volatile Socket local_client_socket = null;
-    private volatile BufferedReader local_client_buffer_read_is = null;
-    private volatile String server_ip_port;
+    // Estado client-side (locks, sockets, llaves, reconnect, ping/pong, latencia) migrado a NetClient (Fase 2b).
+    // Estado server-side (server_socket, client_threads, late_clients_warning, received_confirmations) migrado a NetServer/NetClient (Fase 2a).
+    private volatile String server_ip_port;  // ip:port — compartido: host (para parsear puerto local) y cliente (para conectar).
     private volatile String server_nick;
-    private volatile Reconnect2ServerDialog reconnect_dialog = null;
-    private volatile boolean reconnecting = false;
-    private volatile boolean unsecure_server = false;
-    private volatile Integer remote_server_pong;
-    private volatile Integer remote_server_pong2;
     private volatile String gameinfo_original = null;
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
@@ -163,8 +148,6 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
     private volatile boolean protect_focus = false;
-    private volatile int remote_server_latency;
-    private volatile int remote_server_latency2;
 
     // REFACTOR EN CURSO: nuevos componentes de red. Uno u otro será no-null según el rol.
     // La lógica de red irá migrando de WaitingRoomFrame a estas clases en fases sucesivas.
@@ -198,11 +181,11 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public int getServer_latency2() {
-        return remote_server_latency2;
+        return net_client != null ? net_client.getRemote_server_latency2() : 0;
     }
 
     public int getServer_latency() {
-        return remote_server_latency;
+        return net_client != null ? net_client.getRemote_server_latency() : 0;
     }
 
     public String getPassword() {
@@ -210,7 +193,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public Object getLock_client_pre_game_commands_wait() {
-        return lock_client_pre_game_commands_wait;
+        return net_client != null ? net_client.getLock_client_pre_game_commands_wait() : null;
     }
 
     public String getBackground_chat_src() {
@@ -250,13 +233,8 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public void closeClientSocket() {
-
-        if (local_client_socket != null) {
-            try {
-                local_client_socket.close();
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
+        if (net_client != null) {
+            net_client.closeClientSocket();
         }
     }
 
@@ -303,7 +281,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public boolean isUnsecure_server() {
-        return unsecure_server;
+        return net_client != null && net_client.isUnsecure_server();
     }
 
     public int getServer_port() {
@@ -316,7 +294,7 @@ public class WaitingRoomFrame extends JFrame {
 
     public void setUnsecure_server(boolean val) {
 
-        if (!this.unsecure_server && val) {
+        if (net_client != null && !net_client.isUnsecure_server() && val) {
 
             Helpers.GUIRunAndWait(() -> {
                 danger_server.setVisible(val);
@@ -325,7 +303,9 @@ public class WaitingRoomFrame extends JFrame {
 
         }
 
-        this.unsecure_server = val;
+        if (net_client != null) {
+            net_client.setUnsecure_server(val);
+        }
 
     }
 
@@ -336,7 +316,7 @@ public class WaitingRoomFrame extends JFrame {
 
     public SecretKeySpec getLocal_client_hmac_key() {
 
-        while (this.reconnecting) {
+        while (net_client != null && net_client.isReconnecting()) {
             synchronized (getLocalClientSocketLock()) {
                 try {
                     getLocalClientSocketLock().wait(1000);
@@ -346,13 +326,13 @@ public class WaitingRoomFrame extends JFrame {
             }
         }
 
-        return local_client_hmac_key;
+        return net_client != null ? net_client.getLocal_client_hmac_key() : null;
 
     }
 
     public SecretKeySpec getLocal_client_aes_key() {
 
-        while (this.reconnecting) {
+        while (net_client != null && net_client.isReconnecting()) {
             synchronized (getLocalClientSocketLock()) {
                 try {
                     getLocalClientSocketLock().wait(1000);
@@ -362,12 +342,12 @@ public class WaitingRoomFrame extends JFrame {
             }
         }
 
-        return local_client_aes_key;
+        return net_client != null ? net_client.getLocal_client_aes_key() : null;
 
     }
 
     public BufferedReader getLocal_client_buffer_read_is() {
-        return local_client_buffer_read_is;
+        return net_client != null ? net_client.getLocal_client_buffer_read_is() : null;
     }
 
     public boolean isExit() {
@@ -391,11 +371,11 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public boolean isReconnecting() {
-        return reconnecting;
+        return net_client != null && net_client.isReconnecting();
     }
 
     public Object getLock_reconnect() {
-        return lock_reconnect;
+        return net_client != null ? net_client.getLock_reconnect() : null;
     }
 
     public File getAvatar() {
@@ -415,7 +395,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     public Object getLocalClientSocketLock() {
-        return local_client_socket_lock;
+        return net_client != null ? net_client.getLocal_client_socket_lock() : null;
     }
 
     private void HTMLEditorKitAppend(String text) {
@@ -667,8 +647,7 @@ public class WaitingRoomFrame extends JFrame {
         password = pass;
 
         // REFACTOR EN CURSO: instanciamos el componente de red correspondiente al rol.
-        // De momento son esqueletos vacíos; las responsabilidades de red migrarán aquí
-        // desde WaitingRoomFrame en fases sucesivas.
+        // El estado client-side está dentro de net_client; el server-side en net_server.
         this.net_server = server ? new NetServer(this) : null;
         this.net_client = server ? null : new NetClient(this);
 
@@ -961,7 +940,7 @@ public class WaitingRoomFrame extends JFrame {
 
     public void writeCommandToServer(String command) {
 
-        while (this.reconnecting) {
+        while (net_client != null && net_client.isReconnecting()) {
             synchronized (getLocalClientSocketLock()) {
                 try {
                     getLocalClientSocketLock().wait(1000);
@@ -972,11 +951,10 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         try {
-            synchronized (local_client_socket.getOutputStream()) {
-
-                local_client_socket.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-                local_client_socket.getOutputStream().flush();
-
+            Socket s = net_client.getLocal_client_socket();
+            synchronized (s.getOutputStream()) {
+                s.getOutputStream().write((command + "\n").getBytes("UTF-8"));
+                s.getOutputStream().flush();
             }
         } catch (IOException ex) {
             LOGGER.log(Level.SEVERE, null, ex);
@@ -1011,7 +989,7 @@ public class WaitingRoomFrame extends JFrame {
 
     public String readCommandFromServer() {
 
-        while (this.reconnecting) {
+        while (net_client != null && net_client.isReconnecting()) {
             synchronized (getLocalClientSocketLock()) {
                 try {
                     getLocalClientSocketLock().wait(1000);
@@ -1036,7 +1014,7 @@ public class WaitingRoomFrame extends JFrame {
     // Función AUTO-RECONNECT
     public boolean reconectarCliente() {
 
-        reconnecting = true;
+        net_client.setReconnecting(true);
 
         LOGGER.log(Level.WARNING, "Attempting to reconnect to server...");
 
@@ -1054,17 +1032,18 @@ public class WaitingRoomFrame extends JFrame {
 
                 boolean ok_rec;
 
-                if (!local_client_socket.isClosed()) {
+                Socket curSock = net_client.getLocal_client_socket();
+                if (curSock != null && !curSock.isClosed()) {
                     try {
-                        local_client_socket.shutdownInput();
-                        local_client_socket.shutdownOutput();
-                        local_client_socket.close();
+                        curSock.shutdownInput();
+                        curSock.shutdownOutput();
+                        curSock.close();
 
                     } catch (Exception ex) {
                     }
                 }
 
-                local_client_socket = null;
+                net_client.setLocal_client_socket(null);
 
                 long start = System.currentTimeMillis();
 
@@ -1072,7 +1051,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
 
-                orig_sha256_HMAC.init(local_client_hmac_key_orig);
+                orig_sha256_HMAC.init(net_client.getLocal_client_hmac_key_orig());
 
                 String b64_nick = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
@@ -1084,16 +1063,17 @@ public class WaitingRoomFrame extends JFrame {
 
                         String[] server_address = server_ip_port.split(":");
 
-                        local_client_socket = new Socket(server_address[0], Integer.parseInt(server_address[1]));
+                        Socket newSock = new Socket(server_address[0], Integer.parseInt(server_address[1]));
+                        net_client.setLocal_client_socket(newSock);
 
-                        local_client_socket.setTcpNoDelay(true);
+                        newSock.setTcpNoDelay(true);
 
                         LOGGER.log(Level.WARNING, "Connected to server! Exchanging keys...");
 
                         // Le mandamos los bytes "mágicos"
-                        local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
+                        newSock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
 
-                        local_client_socket.getOutputStream().flush();
+                        newSock.getOutputStream().flush();
 
                         /* INICIO INTERCAMBIO CLAVES */
                         KeyPairGenerator clientKpairGen = KeyPairGenerator.getInstance("EC");
@@ -1108,13 +1088,13 @@ public class WaitingRoomFrame extends JFrame {
 
                         byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
 
-                        DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
+                        DataOutputStream dOut = new DataOutputStream(newSock.getOutputStream());
 
                         dOut.writeInt(clientPubKeyEnc.length);
 
                         dOut.write(clientPubKeyEnc);
 
-                        DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
+                        DataInputStream dIn = new DataInputStream(newSock.getInputStream());
 
                         int length = dIn.readInt();
 
@@ -1134,22 +1114,22 @@ public class WaitingRoomFrame extends JFrame {
 
                         byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
 
-                        local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+                        net_client.setLocal_client_aes_key(new SecretKeySpec(secret_hash, 0, 16, "AES"));
 
-                        local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
+                        net_client.setLocal_client_hmac_key(new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256"));
 
                         /* FIN INTERCAMBIO CLAVES */
                         // Le mandamos nuestro nick al server autenticado con la clave HMAC antigua
                         LOGGER.log(Level.WARNING, "Sending reconnection data...");
 
-                        local_client_socket.getOutputStream().write(
+                        newSock.getOutputStream().write(
                                 (Helpers.encryptCommand(b64_nick + "#" + AboutDialog.VERSION + "#*#*#" + b64_hmac_nick,
-                                        local_client_aes_key, local_client_hmac_key) + "\n").getBytes("UTF-8"));
+                                        net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()) + "\n").getBytes("UTF-8"));
 
-                        local_client_socket.getOutputStream().flush();
+                        newSock.getOutputStream().flush();
 
-                        local_client_buffer_read_is = new BufferedReader(
-                                new InputStreamReader(local_client_socket.getInputStream()));
+                        net_client.setLocal_client_buffer_read_is(new BufferedReader(
+                                new InputStreamReader(newSock.getInputStream())));
 
                         LOGGER.log(Level.INFO, "RECONNECTED SUCCESSFULLY TO SERVER");
 
@@ -1176,16 +1156,17 @@ public class WaitingRoomFrame extends JFrame {
                                 });
                             }
 
-                            if (local_client_socket != null && !local_client_socket.isClosed()) {
+                            Socket failedSock = net_client.getLocal_client_socket();
+                            if (failedSock != null && !failedSock.isClosed()) {
 
                                 try {
 
-                                    local_client_socket.close();
+                                    failedSock.close();
 
                                 } catch (Exception ex) {
                                 }
 
-                                local_client_socket = null;
+                                net_client.setLocal_client_socket(null);
                             }
 
                             if (!exit && (!WaitingRoomFrame.getInstance().isPartida_empezada()
@@ -1194,30 +1175,32 @@ public class WaitingRoomFrame extends JFrame {
                                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT
                                         && WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                                    if (this.reconnect_dialog == null) {
+                                    if (net_client.getReconnect_dialog() == null) {
 
                                         Helpers.GUIRun(() -> {
-                                            reconnect_dialog = new Reconnect2ServerDialog(
+                                            Reconnect2ServerDialog rd = new Reconnect2ServerDialog(
                                                     GameFrame.getInstance() != null ? GameFrame.getInstance() : THIS,
                                                     true, server_ip_port);
-                                            reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
-                                            reconnect_dialog.setVisible(true);
+                                            net_client.setReconnect_dialog(rd);
+                                            rd.setLocationRelativeTo(rd.getParent());
+                                            rd.setVisible(true);
                                         });
 
                                     } else {
-                                        reconnect_dialog.setReconectar(false);
+                                        net_client.getReconnect_dialog().setReconectar(false);
 
                                         Helpers.GUIRun(() -> {
-                                            reconnect_dialog.reset();
-                                            reconnect_dialog.setLocationRelativeTo(reconnect_dialog.getParent());
-                                            reconnect_dialog.setVisible(true);
+                                            Reconnect2ServerDialog rd = net_client.getReconnect_dialog();
+                                            rd.reset();
+                                            rd.setLocationRelativeTo(rd.getParent());
+                                            rd.setVisible(true);
                                         });
                                     }
 
-                                    while (reconnect_dialog == null || !reconnect_dialog.isReconectar()) {
-                                        synchronized (this.lock_reconnect) {
+                                    while (net_client.getReconnect_dialog() == null || !net_client.getReconnect_dialog().isReconectar()) {
+                                        synchronized (net_client.getLock_reconnect()) {
                                             try {
-                                                this.lock_reconnect.wait(1000);
+                                                net_client.getLock_reconnect().wait(1000);
                                             } catch (InterruptedException ex) {
                                                 LOGGER.log(Level.SEVERE,
                                                         null, ex);
@@ -1226,7 +1209,7 @@ public class WaitingRoomFrame extends JFrame {
                                     }
 
                                     start = System.currentTimeMillis();
-                                    server_ip_port = reconnect_dialog.getIp_port().getText().trim();
+                                    server_ip_port = net_client.getReconnect_dialog().getIp_port().getText().trim();
 
                                 } else {
 
@@ -1241,11 +1224,11 @@ public class WaitingRoomFrame extends JFrame {
                 } while (!exit && !ok_rec && (!WaitingRoomFrame.getInstance().isPartida_empezada()
                         || !GameFrame.getInstance().getLocalPlayer().isExit()));
 
-                if (this.reconnect_dialog != null) {
+                if (net_client.getReconnect_dialog() != null) {
 
                     Helpers.GUIRunAndWait(() -> {
-                        reconnect_dialog.dispose();
-                        reconnect_dialog = null;
+                        net_client.getReconnect_dialog().dispose();
+                        net_client.setReconnect_dialog(null);
                     });
                 }
 
@@ -1264,7 +1247,7 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 }
 
-                this.reconnecting = false;
+                net_client.setReconnecting(false);
 
                 getLocalClientSocketLock().notifyAll();
 
@@ -1486,7 +1469,7 @@ public class WaitingRoomFrame extends JFrame {
                     if (null == partes_comando[0]) {
 
                         try {
-                            local_client_socket_reader_queue.put(mensaje_recibido);
+                            net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
                         } catch (Exception ex) {
                             LOGGER.log(Level.SEVERE,
                                     (String) null, ex);
@@ -1497,7 +1480,7 @@ public class WaitingRoomFrame extends JFrame {
                                 writeCommandToServer(
                                         "PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
                                 try {
-                                    local_client_socket_reader_queue.put(mensaje_recibido);
+                                    net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
                                 } catch (InterruptedException ex) {
                                     System.getLogger(Participant.class.getName())
                                             .log(System.Logger.Level.ERROR, (String) null, ex);
@@ -1505,20 +1488,20 @@ public class WaitingRoomFrame extends JFrame {
                                 break;
 
                             case "PONG":
-                                remote_server_pong = Integer.valueOf(partes_comando[1]);
+                                net_client.setRemote_server_pong(Integer.valueOf(partes_comando[1]));
                                 synchronized (ping_pong_lock) {
                                     ping_pong_lock.notifyAll();
                                 }
                                 break;
                             case "PONG2":
-                                remote_server_pong2 = Integer.valueOf(partes_comando[1]);
+                                net_client.setRemote_server_pong2(Integer.valueOf(partes_comando[1]));
                                 synchronized (ping_pong_lock) {
                                     ping_pong_lock.notifyAll();
                                 }
                                 break;
                             default:
                                 try {
-                                    local_client_socket_reader_queue.put(mensaje_recibido);
+                                    net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
                                 } catch (Exception ex) {
                                     LOGGER.log(Level.SEVERE,
                                             (String) null, ex);
@@ -1529,15 +1512,15 @@ public class WaitingRoomFrame extends JFrame {
 
                 } else {
                     try {
-                        if (!local_client_socket_reader_queue.contains(POISON_PILL)) {
-                            local_client_socket_reader_queue.put(POISON_PILL);
+                        if (!net_client.getLocal_client_socket_reader_queue().contains(POISON_PILL)) {
+                            net_client.getLocal_client_socket_reader_queue().put(POISON_PILL);
                         }
                     } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE,
                                 (String) null, ex);
                     }
 
-                    cliente_last_received.clear();
+                    net_client.getCliente_last_received().clear();
                 }
 
                 if (mensaje_recibido == null) {
@@ -1566,10 +1549,10 @@ public class WaitingRoomFrame extends JFrame {
 
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 
-                remote_server_pong = null;
-                remote_server_pong2 = null;
-                remote_server_latency = -1;
-                remote_server_latency2 = -1;
+                net_client.setRemote_server_pong(null);
+                net_client.setRemote_server_pong2(null);
+                net_client.setRemote_server_latency(-1);
+                net_client.setRemote_server_latency2(-1);
 
                 long pingStartNs = System.nanoTime();
 
@@ -1583,7 +1566,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 long end = System.currentTimeMillis() + WaitingRoomFrame.PING_PONG_TIMEOUT;
 
-                while (!exit && (remote_server_pong == null || remote_server_pong2 == null)
+                while (!exit && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
                         && System.currentTimeMillis() < end) {
                     synchronized (ping_pong_lock) {
                         try {
@@ -1592,48 +1575,52 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
 
-                    if (remote_server_latency == -1 && remote_server_pong != null
-                            && remote_server_pong == ping + 1) {
+                    Integer pong1 = net_client.getRemote_server_pong();
+                    if (net_client.getRemote_server_latency() == -1 && pong1 != null
+                            && pong1 == ping + 1) {
 
-                        remote_server_latency = Math
-                                .round((System.nanoTime() - pingStartNs) / 1_000_000);
+                        net_client.setRemote_server_latency(Math
+                                .round((System.nanoTime() - pingStartNs) / 1_000_000));
                     }
 
-                    if (remote_server_latency2 == -1 && remote_server_pong2 != null
-                            && remote_server_pong2 == ping + 2) {
+                    Integer pong2 = net_client.getRemote_server_pong2();
+                    if (net_client.getRemote_server_latency2() == -1 && pong2 != null
+                            && pong2 == ping + 2) {
 
-                        remote_server_latency2 = Math
-                                .round((System.nanoTime() - pingStartNs) / 1_000_000);
+                        net_client.setRemote_server_latency2(Math
+                                .round((System.nanoTime() - pingStartNs) / 1_000_000));
                     }
                 }
 
-                if (remote_server_latency != -1) {
+                if (net_client.getRemote_server_latency() != -1) {
 
                     Helpers.GUIRun(() -> {
                         this.latency_label.setVisible(true);
                         this.latency_label.setText(Translator.translate("ui.latencia_servidor")
-                                + " " + String.valueOf(remote_server_latency) + " ms");
+                                + " " + String.valueOf(net_client.getRemote_server_latency()) + " ms");
                     });
                 }
 
                 if (!exit && WaitingRoomFrame.getInstance() != null) {
 
-                    if (remote_server_pong == null) {
+                    Integer pong1 = net_client.getRemote_server_pong();
+                    Integer pong2 = net_client.getRemote_server_pong2();
+                    if (pong1 == null) {
                         LOGGER.log(Level.WARNING,
                                 "SERVER FAILED TO RESPOND TO PING");
-                    } else if (remote_server_pong != ping + 1) {
+                    } else if (pong1 != ping + 1) {
                         LOGGER.log(Level.WARNING,
                                 "INVALID PONG FROM SERVER");
-                    } else if (remote_server_pong2 == null) {
+                    } else if (pong2 == null) {
                         LOGGER.log(Level.WARNING,
                                 "SERVER FAILED TO RESPOND TO PING2");
-                    } else if (remote_server_pong2 != ping + 2) {
+                    } else if (pong2 != ping + 2) {
                         LOGGER.log(Level.WARNING,
                                 "INVALID PONG2 FROM SERVER");
                     } else if (DEV_MODE) {
                         LOGGER.log(Level.INFO,
                                 "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
-                                new Object[]{remote_server_latency, remote_server_latency2});
+                                new Object[]{net_client.getRemote_server_latency(), net_client.getRemote_server_latency2()});
                     }
 
                     Helpers.pausar(PING_INTERVAL_MS);
@@ -1659,11 +1646,12 @@ public class WaitingRoomFrame extends JFrame {
 
                 try {
                     String[] direccion = server_ip_port.split(":");
-                    local_client_socket = new Socket(direccion[0], Integer.parseInt(direccion[1]));
-                    local_client_socket.setTcpNoDelay(true);
+                    Socket sock = new Socket(direccion[0], Integer.parseInt(direccion[1]));
+                    net_client.setLocal_client_socket(sock);
+                    sock.setTcpNoDelay(true);
 
-                    local_client_socket.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
-                    local_client_socket.getOutputStream().flush();
+                    sock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
+                    sock.getOutputStream().flush();
 
                     Helpers.GUIRun(() -> {
                         status.setText(Translator.translate("status.intercambio_claves"));
@@ -1676,11 +1664,11 @@ public class WaitingRoomFrame extends JFrame {
                     KeyAgreement clientKeyAgree = KeyAgreement.getInstance("ECDH");
                     clientKeyAgree.init(clientKpair.getPrivate());
                     byte[] clientPubKeyEnc = clientKpair.getPublic().getEncoded();
-                    DataOutputStream dOut = new DataOutputStream(local_client_socket.getOutputStream());
+                    DataOutputStream dOut = new DataOutputStream(sock.getOutputStream());
                     dOut.writeInt(clientPubKeyEnc.length);
                     dOut.write(clientPubKeyEnc);
 
-                    DataInputStream dIn = new DataInputStream(local_client_socket.getInputStream());
+                    DataInputStream dIn = new DataInputStream(sock.getInputStream());
                     int length = dIn.readInt();
                     byte[] serverPubKeyEnc = new byte[length];
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
@@ -1691,9 +1679,11 @@ public class WaitingRoomFrame extends JFrame {
                     clientKeyAgree.doPhase(serverPubKey, true);
                     byte[] clientSharedSecret = clientKeyAgree.generateSecret();
                     byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
-                    local_client_aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
-                    local_client_hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
-                    local_client_hmac_key_orig = local_client_hmac_key;
+                    SecretKeySpec aesKey = new SecretKeySpec(secret_hash, 0, 16, "AES");
+                    SecretKeySpec hmacKey = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
+                    net_client.setLocal_client_aes_key(aesKey);
+                    net_client.setLocal_client_hmac_key(hmacKey);
+                    net_client.setLocal_client_hmac_key_orig(hmacKey);
                     /* FIN INTERCAMBIO DE CLAVES */
 
                     byte[] avatar_bytes = null;
@@ -1707,9 +1697,9 @@ public class WaitingRoomFrame extends JFrame {
                             + "#" + AboutDialog.VERSION
                             + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*")
                             + (password != null ? "#" + Base64.getEncoder().encodeToString(password.getBytes("UTF-8")) : "#*"),
-                            local_client_aes_key, local_client_hmac_key));
+                            aesKey, hmacKey));
 
-                    local_client_buffer_read_is = new BufferedReader(new InputStreamReader(local_client_socket.getInputStream()));
+                    net_client.setLocal_client_buffer_read_is(new BufferedReader(new InputStreamReader(sock.getInputStream())));
                     recibido = readCommandFromServer();
                     partes = recibido.split("#");
 
@@ -1811,7 +1801,7 @@ public class WaitingRoomFrame extends JFrame {
                             runPingPongThreadCliente();
 
                             do {
-                                recibido = local_client_socket_reader_queue.take();
+                                recibido = net_client.getLocal_client_socket_reader_queue().take();
 
                                 if (!POISON_PILL.equals(recibido)) {
                                     String[] partes_comando = recibido.split("#");
@@ -1840,12 +1830,12 @@ public class WaitingRoomFrame extends JFrame {
 
                                             try {
                                                 String confMsg = "CONF#" + String.valueOf(id + 1) + "#OK";
-                                                this.writeCommandToServer(Helpers.encryptCommand(confMsg, this.local_client_aes_key, this.local_client_hmac_key));
+                                                this.writeCommandToServer(Helpers.encryptCommand(confMsg, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                             } catch (Exception e) {
                                             }
 
-                                            if (!cliente_last_received.containsKey(subcomando) || cliente_last_received.get(subcomando) != id) {
-                                                cliente_last_received.put(subcomando, id);
+                                            if (!net_client.getCliente_last_received().containsKey(subcomando) || net_client.getCliente_last_received().get(subcomando) != id) {
+                                                net_client.getCliente_last_received().put(subcomando, id);
                                                 if (isPartida_empezada()) {
                                                     switch (subcomando) {
                                                         case "DECK_CASCADE_REQ":
@@ -1867,7 +1857,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
                                                                     int respId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, local_client_aes_key, local_client_hmac_key));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                 }
                                                             });
@@ -1888,7 +1878,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
                                                                     int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId2 + "#RESP_SRA_UNLOCK#" + myNickB64 + "#" + uB64, local_client_aes_key, local_client_hmac_key));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId2 + "#RESP_SRA_UNLOCK#" + myNickB64 + "#" + uB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                 }
                                                             });
@@ -2241,7 +2231,7 @@ public class WaitingRoomFrame extends JFrame {
                         && WaitingRoomFrame.getInstance().isPartida_empezada()) {
                     GameFrame.getInstance().finTransmision(exit);
                 } else if (!exit) {
-                    if (local_client_socket == null) {
+                    if (net_client.getLocal_client_socket() == null) {
                         booting = false;
                         Helpers.GUIRunAndWait(() -> {
                             status.setForeground(Color.red);
@@ -2255,9 +2245,9 @@ public class WaitingRoomFrame extends JFrame {
                                 barra.setValue(j);
                             });
                             if (!exit) {
-                                synchronized (lock_client_reconnect) {
+                                synchronized (net_client.getLock_client_reconnect()) {
                                     try {
-                                        lock_client_reconnect.wait(1000);
+                                        net_client.getLock_client_reconnect().wait(1000);
                                     } catch (InterruptedException ex) {
                                     }
                                 }
@@ -2267,7 +2257,7 @@ public class WaitingRoomFrame extends JFrame {
                         mostrarMensajeError(THIS, "SOMETHING FAILED. You have lost connection with the server.");
                     }
                 }
-            } while (!exit && local_client_socket == null);
+            } while (!exit && net_client.getLocal_client_socket() == null);
             exit = true;
             synchronized (ping_pong_lock) {
                 ping_pong_lock.notifyAll();
@@ -3647,10 +3637,10 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             }
 
-                            if (ocupados) {
-                                synchronized (lock_client_pre_game_commands_wait) {
+                            if (ocupados && net_client != null) {
+                                synchronized (net_client.getLock_client_pre_game_commands_wait()) {
                                     try {
-                                        lock_client_pre_game_commands_wait.wait(PRE_GAME_COMMANDS_LOCK);
+                                        net_client.getLock_client_pre_game_commands_wait().wait(PRE_GAME_COMMANDS_LOCK);
                                     } catch (InterruptedException ex) {
                                     }
                                 }
@@ -3686,7 +3676,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 if (!WaitingRoomFrame.getInstance().isPartida_empezada()) {
 
-                    if (exit || reconnecting) {
+                    if (exit || (net_client != null && net_client.isReconnecting())) {
                         if (mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
                             exit = true;
                             Helpers.savePropertiesFile();
@@ -3706,7 +3696,7 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                 }
                                 closeServerSocket();
-                            } else if (local_client_socket != null && !reconnecting) {
+                            } else if (net_client != null && net_client.getLocal_client_socket() != null && !net_client.isReconnecting()) {
                                 try {
                                     // We force the client to send the Testament
                                     String exitCmd = "EXIT";
@@ -3717,7 +3707,7 @@ public class WaitingRoomFrame extends JFrame {
                                         }
                                     }
                                     writeCommandToServer(Helpers.encryptCommand(exitCmd, getLocal_client_aes_key(), getLocal_client_hmac_key()));
-                                    local_client_socket.close();
+                                    net_client.getLocal_client_socket().close();
                                 } catch (Exception ex) {
                                     LOGGER.log(Level.SEVERE, null, ex);
                                 }
@@ -3735,8 +3725,10 @@ public class WaitingRoomFrame extends JFrame {
                 System.exit(1);
             }
 
-            synchronized (lock_client_reconnect) {
-                lock_client_reconnect.notifyAll();
+            if (net_client != null) {
+                synchronized (net_client.getLock_client_reconnect()) {
+                    net_client.getLock_client_reconnect().notifyAll();
+                }
             }
         } else if (booting && mostrarMensajeInformativoSINO(THIS, Translator.translate("ui.forzar_cierre"), new ImageIcon(Init.class.getResource("/images/exit.png"))) == 0) {
             exit = true;

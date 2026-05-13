@@ -593,57 +593,82 @@ public class StatsDialog extends JDialog {
 
         hand_combo.setVisible(false);
 
+        final String SQL_PER_GAME
+                = "SELECT t1.JUGADOR AS \"player.jugador\","
+                + " ROUND((JUGADAS / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"game.manos_3\""
+                + " FROM ("
+                + "   SELECT action.player AS JUGADOR, COALESCE(tb.JUGADAS, 0) AS JUGADAS"
+                + "   FROM action, hand"
+                + "   LEFT JOIN ("
+                + "     SELECT player, COUNT(DISTINCT id_hand) AS JUGADAS"
+                + "     FROM action, hand"
+                + "     WHERE action.id_hand = hand.id AND round = ? AND hand.id_game = ? AND action >= 3"
+                + "     GROUP BY player"
+                + "   ) AS tb ON action.player = tb.player"
+                + "   WHERE action.id_hand = hand.id AND hand.id_game = ?"
+                + "   GROUP BY action.player"
+                + " ) t1"
+                + " LEFT JOIN ("
+                + "   SELECT player AS JUGADOR, COUNT(DISTINCT id_hand) AS MANOS_TOTALES"
+                + "   FROM action, hand"
+                + "   WHERE action.id_hand = hand.id AND action >= 2 AND round = ? AND hand.id_game = ?"
+                + "   GROUP BY JUGADOR"
+                + " ) t2 ON t2.JUGADOR = t1.JUGADOR"
+                + " GROUP BY t1.JUGADOR"
+                + " ORDER BY \"game.manos_3\" DESC";
+
+        final String SQL_ALL_GAMES
+                = "SELECT t1.JUGADOR AS \"player.jugador\","
+                + " ROUND((JUGADAS / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"game.manos_3\""
+                + " FROM ("
+                + "   SELECT action.player AS JUGADOR, COALESCE(tb.JUGADAS, 0) AS JUGADAS"
+                + "   FROM action"
+                + "   LEFT JOIN ("
+                + "     SELECT player, COUNT(DISTINCT id_hand) AS JUGADAS"
+                + "     FROM action"
+                + "     WHERE round = ? AND action >= 3"
+                + "     GROUP BY player"
+                + "   ) AS tb ON action.player = tb.player"
+                + "   GROUP BY action.player"
+                + " ) t1"
+                + " LEFT JOIN ("
+                + "   SELECT player AS JUGADOR, COUNT(DISTINCT id_hand) AS MANOS_TOTALES"
+                + "   FROM action"
+                + "   WHERE action >= 2 AND round = ?"
+                + "   GROUP BY JUGADOR"
+                + " ) t2 ON t2.JUGADOR = t1.JUGADOR"
+                + " GROUP BY t1.JUGADOR"
+                + " ORDER BY \"game.manos_3\" DESC";
+
         Helpers.threadRun(() -> {
-            ResultSet rs = null;
-            PreparedStatement statement = null;
-            if (game_combo.getSelectedIndex() > 0) {
-                try {
-                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"game.manos_3\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and round=? and hand.id_game=? and action>=3 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and action>=2 and round=? and hand.id_game=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"game.manos_3\" DESC";
-                    statement = Helpers.getSQLITE().prepareStatement(sql);
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, ronda);
-                    statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(4, ronda);
-                    statement.setInt(5, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
-            } else {
-                try {
-                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"game.manos_3\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where round=? and action>=3 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action WHERE action>=2 and round=? group by JUGADOR) t2 on t2.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"game.manos_3\" DESC";
-                    statement = Helpers.getSQLITE().prepareStatement(sql);
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, ronda);
-                    statement.setInt(2, ronda);
-                    rs = statement.executeQuery();
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-
-            }
             try {
-                // Parse ResultSet into a DefaultTableModel directly to handle translations safely
                 DefaultTableModel tableModel = new DefaultTableModel();
-                if (rs != null) {
-                    ResultSetMetaData metaData = rs.getMetaData();
-                    int columnCount = metaData.getColumnCount();
-                    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                        tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
-                    }
-                    Object[] row = new Object[columnCount];
-                    while (rs.next()) {
-                        for (int i = 0; i < columnCount; i++) {
-                            row[i] = rs.getObject(i + 1);
+                if (game_combo.getSelectedIndex() > 0) {
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                        st.setQueryTimeout(30);
+                        int gameId = (int) game.get((String) game_combo.getSelectedItem()).get("id");
+                        st.setInt(1, ronda);
+                        st.setInt(2, gameId);
+                        st.setInt(3, gameId);
+                        st.setInt(4, ronda);
+                        st.setInt(5, gameId);
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateTableModel(tableModel, rs);
                         }
-                        tableModel.addRow(row);
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                }
-
-                if (statement != null) {
-                    statement.close();
+                } else {
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_ALL_GAMES)) {
+                        st.setQueryTimeout(30);
+                        st.setInt(1, ronda);
+                        st.setInt(2, ronda);
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateTableModel(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
 
                 Helpers.GUIRunAndWait(() -> {
@@ -673,17 +698,14 @@ public class StatsDialog extends JDialog {
                     table_panel.setVisible(true);
 
                     res_table_warning.setText(Translator.translate("stats.nota_lo_que_se_muestra"));
-
                     res_table_warning.setVisible(true);
                 });
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
             }
-
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
         });
 
     }
@@ -722,17 +744,62 @@ public class StatsDialog extends JDialog {
             hand_combo.setSelectedIndex(0);
         }
 
+        // CASE WHEN buyin > 0 (or SUM > 0) protects against div-by-zero so a 0-buyin
+        // record does not silently null-out the whole ROI column.
+        final String SQL_PER_HAND
+                = "SELECT player AS \"player.jugador\","
+                + " ROUND(stack, 1) AS \"stats.stack\","
+                + " buyin AS \"stats.buyin\","
+                + " ROUND(stack - buyin, 1) AS \"ui.beneficio\","
+                + " ROUND(CASE WHEN buyin > 0 THEN ((stack - buyin) * 1.0 / buyin) * 100 ELSE 0 END, 0) AS \"stats.roi\""
+                + " FROM balance"
+                + " WHERE id_hand = ?"
+                + " GROUP BY \"player.jugador\""
+                + " ORDER BY \"stats.roi\" DESC";
+
+        final String SQL_PER_GAME
+                = "SELECT player AS \"player.jugador\","
+                + " ROUND(stack, 1) AS \"stats.stack\","
+                + " buyin AS \"stats.buyin\","
+                + " ROUND(stack - buyin, 1) AS \"ui.beneficio\","
+                + " ROUND(CASE WHEN buyin > 0 THEN ((stack - buyin) * 1.0 / buyin) * 100 ELSE 0 END, 0) AS \"stats.roi\""
+                + " FROM balance, hand"
+                + " WHERE balance.id_hand = hand.id AND hand.id_game = ?"
+                + "   AND hand.id = ("
+                + "     SELECT MAX(hand.id) FROM hand, balance"
+                + "     WHERE hand.id = balance.id_hand AND hand.id_game = ?"
+                + "   )"
+                + " GROUP BY \"player.jugador\""
+                + " ORDER BY \"stats.roi\" DESC";
+
+        final String SQL_ALL_GAMES
+                = "SELECT player AS \"player.jugador\","
+                + " ROUND(SUM(stack), 1) AS \"stats.stack\","
+                + " SUM(buyin) AS \"stats.buyin\","
+                + " ROUND(SUM(stack - buyin), 1) AS \"ui.beneficio\","
+                + " ROUND(CASE WHEN SUM(buyin) > 0 THEN (SUM(stack - buyin) * 1.0 / SUM(buyin)) * 100 ELSE 0 END, 0) AS \"stats.roi\""
+                + " FROM balance"
+                + " WHERE id_hand IN ("
+                + "   SELECT MAX(hand.id) FROM hand, balance"
+                + "   WHERE hand.id = balance.id_hand"
+                + "   GROUP BY id_game"
+                + " )"
+                + " GROUP BY \"player.jugador\""
+                + " ORDER BY \"stats.roi\" DESC";
+
         Helpers.threadRun(() -> {
             try {
-                ResultSet rs;
-                Statement st = null;
+                DefaultTableModel tableModel = new DefaultTableModel();
                 if (hand_combo.getSelectedIndex() > 0) {
-                    String sql = "SELECT player as \"player.jugador\", ROUND(stack, 1) as \"stats.stack\", buyin as \"stats.buyin\", ROUND(stack-buyin,1) as \"ui.beneficio\", ROUND(((stack-buyin)/(buyin))*100,0) as \"stats.roi\" FROM balance WHERE id_hand=? GROUP BY \"player.jugador\" ORDER BY \"stats.roi\" DESC";
-                    st = Helpers.getSQLITE().prepareStatement(sql);
-                    PreparedStatement statement = (PreparedStatement) st;
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
+                        st.setQueryTimeout(30);
+                        st.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateBalanceTable(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                     if (hand_combo.isVisible() && hand_combo.getSelectedIndex() > 0) {
                         Helpers.GUIRunAndWait(() -> {
                             res_table_warning.setText(Translator.translate("game.nota_lo_que_se_muestra"));
@@ -740,89 +807,96 @@ public class StatsDialog extends JDialog {
                         });
                     }
                 } else if (game_combo.getSelectedIndex() > 0) {
-                    String sql = "SELECT player as \"player.jugador\", ROUND(stack,1) AS \"stats.stack\", buyin AS \"stats.buyin\", ROUND(stack-buyin,1) AS \"ui.beneficio\", ROUND(((stack-buyin)/(buyin))*100,0) as \"stats.roi\" FROM balance,hand WHERE balance.id_hand=hand.id AND hand.id_game=? AND hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY \"player.jugador\" ORDER BY \"stats.roi\" DESC";
-                    st = Helpers.getSQLITE().prepareStatement(sql);
-                    PreparedStatement statement = (PreparedStatement) st;
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                        st.setQueryTimeout(30);
+                        int gameId = (int) game.get((String) game_combo.getSelectedItem()).get("id");
+                        st.setInt(1, gameId);
+                        st.setInt(2, gameId);
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateBalanceTable(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 } else {
-                    String sql = "SELECT player AS \"player.jugador\", ROUND(SUM(stack),1) AS \"stats.stack\", SUM(buyin) AS \"stats.buyin\", ROUND(SUM(stack-buyin),1) AS \"ui.beneficio\", ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as \"stats.roi\" from balance WHERE id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY \"player.jugador\" ORDER BY \"stats.roi\" DESC";
-                    st = Helpers.getSQLITE().createStatement();
-                    st.setQueryTimeout(30);
-                    rs = st.executeQuery(sql);
+                    try (Statement st = Helpers.getSQLITE().createStatement()) {
+                        st.setQueryTimeout(30);
+                        try (ResultSet rs = st.executeQuery(SQL_ALL_GAMES)) {
+                            populateBalanceTable(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
-                try {
-                    DefaultTableModel tableModel = new DefaultTableModel();
-                    ResultSetMetaData metaData = rs.getMetaData();
-                    int columnCount = metaData.getColumnCount();
 
-                    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                        tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+                Helpers.GUIRunAndWait(() -> {
+                    res_table.setModel(tableModel);
+                    TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
+                    Helpers.disableSortAllColumns(res_table, tableRowSorter);
+
+                    int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
+                    int idxBuyin = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.buyin"));
+                    int idxStack = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.stack"));
+                    int idxProfit = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.beneficio"));
+                    int idxRoi = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.roi"));
+
+                    if (idxPlayer != -1) {
+                        tableRowSorter.setSortable(idxPlayer, true);
+                    }
+                    if (idxBuyin != -1) {
+                        tableRowSorter.setSortable(idxBuyin, true);
+                        tableRowSorter.setComparator(idxBuyin, (Comparator<Object>) (o1, o2) -> Double.compare(toDouble(o1), toDouble(o2)));
+                    }
+                    if (idxStack != -1) {
+                        tableRowSorter.setSortable(idxStack, true);
+                        tableRowSorter.setComparator(idxStack, (Comparator<Object>) (o1, o2) -> Double.compare(toDouble(o1), toDouble(o2)));
+                    }
+                    if (idxProfit != -1) {
+                        tableRowSorter.setSortable(idxProfit, true);
+                        tableRowSorter.setComparator(idxProfit, (Comparator<Object>) (o1, o2) -> Double.compare(toDouble(o1), toDouble(o2)));
+                    }
+                    if (idxRoi != -1) {
+                        tableRowSorter.setSortable(idxRoi, true);
+                        tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                     }
 
-                    Object[] row = new Object[columnCount];
-                    while (rs.next()) {
-                        for (int i = 0; i < columnCount; i++) {
-                            // Fetch object by index to avoid 'no such column' errors caused by aliases
-                            row[i] = rs.getObject(i + 1);
-
-                            // Add percentage sign to ROI if the column matches
-                            if (tableModel.getColumnName(i).equals(Translator.translate("stats.roi"))) {
-                                row[i] = String.valueOf(row[i]) + "%";
-                            }
-                        }
-                        tableModel.addRow(row);
-                    }
-
-                    Helpers.GUIRunAndWait(() -> {
-                        res_table.setModel(tableModel);
-                        TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
-                        Helpers.disableSortAllColumns(res_table, tableRowSorter);
-
-                        int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
-                        int idxBuyin = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.buyin"));
-                        int idxStack = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.stack"));
-                        int idxProfit = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.beneficio"));
-                        int idxRoi = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.roi"));
-
-                        // Safely apply sortability to prevent IndexOutOfBoundsExceptions
-                        if (idxPlayer != -1) {
-                            tableRowSorter.setSortable(idxPlayer, true);
-                        }
-                        if (idxBuyin != -1) {
-                            tableRowSorter.setSortable(idxBuyin, true);
-                        }
-                        if (idxStack != -1) {
-                            tableRowSorter.setSortable(idxStack, true);
-                            tableRowSorter.setComparator(idxStack, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-                        }
-                        if (idxProfit != -1) {
-                            tableRowSorter.setSortable(idxProfit, true);
-                            tableRowSorter.setComparator(idxProfit, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
-                        }
-                        if (idxRoi != -1) {
-                            tableRowSorter.setSortable(idxRoi, true);
-                            tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
-                        }
-
-                        res_table.setRowSorter(tableRowSorter);
-                        table_panel.setVisible(true);
-                    });
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                st.close();
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    res_table.setRowSorter(tableRowSorter);
+                    table_panel.setVisible(true);
+                });
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
             }
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
         });
 
+    }
+
+    /**
+     * Populates the table model with balance columns; ROI column is suffixed with "%"
+     * so the display matches the other ROI usages in the dialog.
+     */
+    private static void populateBalanceTable(DefaultTableModel tableModel, ResultSet rs) throws SQLException {
+        if (rs == null) {
+            return;
+        }
+        ResultSetMetaData metaData = rs.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+            tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+        }
+        Object[] row = new Object[columnCount];
+        String roiHeader = Translator.translate("stats.roi");
+        while (rs.next()) {
+            for (int i = 0; i < columnCount; i++) {
+                row[i] = rs.getObject(i + 1);
+                if (tableModel.getColumnName(i).equals(roiHeader)) {
+                    row[i] = String.valueOf(row[i]) + "%";
+                }
+            }
+            tableModel.addRow(row);
+        }
     }
 
     private void loadGameData(int id) {

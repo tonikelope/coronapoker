@@ -1712,6 +1712,28 @@ public class Helpers {
     }
 
     /**
+     * High-quality bicubic image scaling. Drop-in replacement for
+     * {@code img.getScaledInstance(w, h, Image.SCALE_SMOOTH)} on static raster images
+     * (PNG, JPG). Produces sharper results than bilinear, especially when downscaling.
+     *
+     * Do NOT use this for animated GIFs: the result is a single-frame BufferedImage
+     * which freezes the animation. For GIFs keep {@code Image.SCALE_DEFAULT}.
+     */
+    public static Image scaleHighQuality(Image src, int width, int height) {
+        if (src == null || width <= 0 || height <= 0) {
+            return src;
+        }
+        BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(src, 0, 0, width, height, null);
+        g.dispose();
+        return scaled;
+    }
+
+    /**
      * Derives a 64-byte channel secret from the raw ECDH shared secret. If a password is
      * provided, the secret is bound to it via HMAC-SHA512, blocking passive MITM attacks
      * for password-protected games.

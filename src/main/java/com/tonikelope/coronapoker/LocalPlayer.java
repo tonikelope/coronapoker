@@ -323,7 +323,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         int sound_icon_size_w = Math.round((596 * sound_icon_size_h) / 460);
 
-        ImageIcon image = new ImageIcon(Helpers.scaleHighQuality(new ImageIcon(getClass().getResource("/images/talk.png")).getImage(), sound_icon_size_w, sound_icon_size_h));
+        ImageIcon image = new ImageIcon(new ImageIcon(getClass().getResource("/images/talk.png")).getImage().getScaledInstance(sound_icon_size_w, sound_icon_size_h, Image.SCALE_SMOOTH));
 
         Helpers.GUIRun(() -> {
 
@@ -1822,7 +1822,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void utgIconZoom() {
 
-        ImageIcon icon = new ImageIcon(Helpers.scaleHighQuality(IMAGEN_UTG.getImage(), (int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight()));
+        ImageIcon icon = new ImageIcon(IMAGEN_UTG.getImage().getScaledInstance((int) Math.round(player_name.getHeight() * (480f / 360f)), player_name.getHeight(), Image.SCALE_SMOOTH));
 
         Helpers.GUIRun(() -> {
             utg_icon.setIcon(icon);
@@ -2989,10 +2989,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (GameFrame.getInstance().getSala_espera().getAvatar() != null) {
 
-            avatar = new ImageIcon(Helpers.makeImageRoundedCorner(Helpers.scaleHighQuality(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage(), h, h), 20));
+            avatar = new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(GameFrame.getInstance().getSala_espera().getAvatar().getAbsolutePath()).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH)).getImage(), 20));
         } else {
 
-            avatar = new ImageIcon(Helpers.makeImageRoundedCorner(Helpers.scaleHighQuality(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage(), h, h), 20));
+            avatar = new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH)).getImage(), 20));
         }
 
         Helpers.GUIRun(() -> {
@@ -3078,7 +3078,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             Helpers.GUIRun(() -> {
-                player_action.setIcon(icon != null ? new ImageIcon(Helpers.scaleHighQuality(new ImageIcon(getClass().getResource("/images/" + icon)).getImage(), Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()))) : null);
+                player_action.setIcon(icon != null ? new ImageIcon(new ImageIcon(getClass().getResource("/images/" + icon)).getImage().getScaledInstance(Math.round(0.7f * player_action.getHeight()), Math.round(0.7f * player_action.getHeight()), Image.SCALE_SMOOTH)) : null);
 
                 repaint();
             });

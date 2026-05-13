@@ -1128,8 +1128,8 @@ public class Helpers {
 
     public static boolean isImageGIF(URL url) {
 
-        try {
-            ImageInputStream iis = ImageIO.createImageInputStream(url.openStream());
+        try (InputStream stream = url.openStream();
+                ImageInputStream iis = ImageIO.createImageInputStream(stream)) {
 
             Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
 

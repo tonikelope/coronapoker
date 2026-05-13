@@ -3465,14 +3465,11 @@ public class Crupier implements Runnable {
 
         this.apuesta_actual = this.ciega_grande;
 
-        // --- TRACK NEW HAND FOR ALL PLAYERS ---
         for (Player p : GameFrame.getInstance().getJugadores()) {
             if (p.isActivo()) {
-                Bot.TRACKER_MEMORY.putIfAbsent(p.getNickname(), new Bot.OpponentTracker());
-                Bot.TRACKER_MEMORY.get(p.getNickname()).recordHandPlayed();
+                Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(), k -> new Bot.OpponentTracker()).recordHandPlayed();
             }
         }
-        // --------------------------------------
 
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             if (this.sqlite_id_hand == -1) {
@@ -5301,8 +5298,7 @@ public class Crupier implements Runnable {
                     }
                 } while (current_player.isTurno());
 
-                Bot.TRACKER_MEMORY.putIfAbsent(current_player.getNickname(), new Bot.OpponentTracker());
-                Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.get(current_player.getNickname());
+                Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
 
                 if (this.street == Crupier.PREFLOP) {
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)

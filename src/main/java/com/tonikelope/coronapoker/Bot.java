@@ -1121,14 +1121,39 @@ public class Bot {
     private Position determinePosition() {
         String myNick = cpuPlayer.getNickname();
         Crupier crupier = GameFrame.getInstance().getCrupier();
-        if (myNick.equals(crupier.getUtg_nick())) {
-            return Position.EARLY;
-        }
-        if (myNick.equals(crupier.getDealer_nick())) {
+        String dealerNick = crupier.getDealer_nick();
+        if (myNick.equals(dealerNick)) {
             return Position.LATE;
         }
         if (myNick.equals(crupier.getSb_nick()) || myNick.equals(crupier.getBb_nick())) {
             return Position.BLINDS;
+        }
+        if (myNick.equals(crupier.getUtg_nick())) {
+            return Position.EARLY;
+        }
+        // Cutoff: the active player immediately before the dealer in seating order
+        java.util.List<Player> jugadores = GameFrame.getInstance().getJugadores();
+        int activos = 0;
+        int dealerIdx = -1;
+        int myIdx = -1;
+        for (Player p : jugadores) {
+            if (!p.isActivo()) {
+                continue;
+            }
+            String nick = p.getNickname();
+            if (nick.equals(dealerNick)) {
+                dealerIdx = activos;
+            }
+            if (nick.equals(myNick)) {
+                myIdx = activos;
+            }
+            activos++;
+        }
+        if (dealerIdx >= 0 && myIdx >= 0 && activos >= 4) {
+            int coIdx = (dealerIdx - 1 + activos) % activos;
+            if (myIdx == coIdx) {
+                return Position.LATE;
+            }
         }
         return Position.MIDDLE;
     }
@@ -1146,10 +1171,10 @@ public class Bot {
 
     private OpponentTracker getPrimaryOpponentStats() {
         Player lastAggressor = GameFrame.getInstance().getCrupier().getLast_aggressor();
-        if (lastAggressor != null && TRACKER_MEMORY.containsKey(lastAggressor.getNickname())) {
-            return TRACKER_MEMORY.get(lastAggressor.getNickname());
+        if (lastAggressor == null || lastAggressor == cpuPlayer) {
+            return null;
         }
-        return null;
+        return TRACKER_MEMORY.get(lastAggressor.getNickname());
     }
 
     public static int coronaCardSuit2LokiCardSuit(Card carta) {

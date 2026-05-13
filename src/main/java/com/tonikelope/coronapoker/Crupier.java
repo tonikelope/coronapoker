@@ -7298,8 +7298,12 @@ public class Crupier implements Runnable {
                             GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(true);
                         }
                     } else {
-                        // Ocultamos la información exacta de la mano del rival si hizo muck
-                        if (jugador_actual.getHoleCard1().isTapada()) {
+                        // destaparCartas() above is async (Helpers.GUIRun), so we cannot
+                        // read getHoleCard1().isTapada() here to decide the label. Use the
+                        // mustShow flag that drove the uncover decision: a remote player
+                        // that did NOT show keeps the generic "PIERDE" label; otherwise
+                        // we expose the hand name.
+                        if (!mustShow) {
                             jugador_actual.setLoser(Translator.translate("ui.pierde_3"));
                         } else {
                             jugador_actual.setLoser(jugada.getName());

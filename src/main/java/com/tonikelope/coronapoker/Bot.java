@@ -172,6 +172,7 @@ public class Bot {
     private volatile double previousStrength = -1.0;
     private volatile int previousStreet = -1;
     private volatile boolean scareCardDetected = false;
+    private volatile double lastEffectiveStrength = 0.5;
 
     // Advanced state
     private volatile boolean planCheckRaise = false;
@@ -312,7 +313,6 @@ public class Bot {
             logVerbose("Decided to potentially slowplay this hand.");
         }
 
-        // NOTE: Dynamic Check-raise intent removed from preflop. Evaluated live now.
         planCheckRaise = false;
         floatPlay = false;
         cBetInitiative = false;
@@ -323,6 +323,7 @@ public class Bot {
         streetPlanStartStreet = -1;
         previousPpot = 0.0;
         aggressiveLine = false;
+        lastEffectiveStrength = 0.5;
 
         if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
             onTilt = Helpers.CSPRNG_GENERATOR.nextInt(100) < (30 + consecutiveLosses * 10);
@@ -343,11 +344,8 @@ public class Bot {
         }
     }
 
-    // Overloaded method to maintain backward compatibility with Crupier.java
     public float getBetSize() {
-        // If Crupier calls this blindly, fallback to the last known strength or 0.5 (average)
-        double fallbackStrength = (previousStrength != -1.0) ? previousStrength : 0.5;
-        return getBetSize(fallbackStrength);
+        return getBetSize(lastEffectiveStrength);
     }
 
     public float getBetSize(double effectiveStrength) {
@@ -412,7 +410,7 @@ public class Bot {
     public int calculateBotDecision(int opponentsCount) {
         Crupier dealer = GameFrame.getInstance().getCrupier();
         int street = dealer.getStreet();
-        int activePlayers = dealer.getJugadoresActivos();
+        int activePlayers = opponentsCount + 1;
         int betCount = dealer.getConta_bet();
 
         if (street == Crupier.PREFLOP) {
@@ -558,6 +556,7 @@ public class Bot {
         if (decision == Player.BET) {
             aggressiveLine = true;
         }
+        lastEffectiveStrength = effectiveStrength;
         return decision;
     }
 

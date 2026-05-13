@@ -5000,8 +5000,9 @@ public class Crupier implements Runnable {
             Player jugador = iterator.next();
             if (!jugador.isActivo()) {
                 iterator.remove();
+                continue;
             }
-            if (GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).getBot() != null) {
+            if (street == PREFLOP && GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).getBot() != null) {
                 ((RemotePlayer) jugador).getBot().resetBot();
             }
         }

@@ -908,69 +908,53 @@ public class StatsDialog extends JDialog {
         game_combo_blocked = true;
 
         Helpers.threadRun(() -> {
+            try {
+                String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, id);
+                    statement.setInt(2, id);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        Helpers.GUIRunAndWait(() -> {
+                            try {
+                                game_textarea_scrollpane.setVisible(false);
 
-            String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-                statement.setInt(1, id);
-                statement.setInt(2, id);
-                ResultSet rs = statement.executeQuery();
-                Helpers.GUIRunAndWait(() -> {
-                    try {
+                                String item = (String) game_combo.getSelectedItem();
+                                String[] parts = item.split("@");
+                                String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-                        game_textarea_scrollpane.setVisible(false);
+                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log")));
+                                chat_game_button.setEnabled((Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) > 0L));
+                                game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
 
-                        String item = (String) game_combo.getSelectedItem();
-
-                        String[] parts = item.split("@");
-
-                        String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
-
-                        log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log")));
-
-                        chat_game_button.setEnabled((Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) > 0L));
-
-                        game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
-
-                        String[] jugadores;
-
-                        jugadores = rs.getString("players").split("#");
-
-                        String players = "";
-
-                        for (String j : jugadores) {
-
-                            players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
-
-                        }
-
-                        game_players_val.setText(players.replaceAll("  \\|  $", ""));
-
-                        game_buyin_val.setText(String.valueOf(rs.getInt("buyin")));
-
-                        game_hand_val.setText(String.valueOf(rs.getInt("tot_hands")));
-
-                        game_blinds_val.setText(String.valueOf(rs.getFloat("sb")) + " / " + String.valueOf(rs.getFloat("sb") * 2));
-
-                        game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO");
-
-                        game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO");
-
-                    } catch (Exception ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                String[] jugadores = rs.getString("players").split("#");
+                                String players = "";
+                                for (String j : jugadores) {
+                                    players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
+                                }
+                                game_players_val.setText(players.replaceAll("  \\|  $", ""));
+                                game_buyin_val.setText(String.valueOf(rs.getInt("buyin")));
+                                game_hand_val.setText(String.valueOf(rs.getInt("tot_hands")));
+                                game_blinds_val.setText(String.valueOf(rs.getFloat("sb")) + " / " + String.valueOf(rs.getFloat("sb") * 2));
+                                game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO");
+                                game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO");
+                            } catch (Exception ex) {
+                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        });
                     }
+                } catch (SQLException ex) {
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                    game_data_panel.setVisible(true);
+                    game_combo_blocked = false;
+                    purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
                 });
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-                game_data_panel.setVisible(true);
-                game_combo_blocked = false;
-                purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
-            });
         });
 
     }
@@ -981,13 +965,13 @@ public class StatsDialog extends JDialog {
         setEnabled(false);
 
         Helpers.threadRun(() -> {
-
+          try {
             String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, id_game);
                 statement.setInt(2, id_hand);
-                ResultSet rs = statement.executeQuery();
+                try (ResultSet rs = statement.executeQuery()) {
                 Helpers.GUIRunAndWait(() -> {
                     try {
                         String[] jugadores;
@@ -1088,15 +1072,17 @@ public class StatsDialog extends JDialog {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 });
+                }
             } catch (SQLException ex) {
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-
+          } finally {
             Helpers.GUIRunAndWait(() -> {
                 cargando.setVisible(false);
                 setEnabled(true);
                 hand_data_panel.setVisible(true);
             });
+          }
         });
 
     }
@@ -1104,26 +1090,24 @@ public class StatsDialog extends JDialog {
     private void loadShowdownData(int id_hand) {
 
         Helpers.threadRun(() -> {
+            try {
+                String sql = "SELECT player AS \"player.jugador\", winner as \"ui.gana_3\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val AS \"ui.jugada\", ROUND(pay,1) as \"action.pagar\", ROUND(profit,1) as \"ui.beneficio\" FROM showdown WHERE id_hand=? order by \"ui.gana_3\" DESC,\"action.pagar\" DESC";
 
-            ResultSet rs;
-            String sql = "SELECT player AS \"player.jugador\", winner as \"ui.gana_3\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val AS \"ui.jugada\", ROUND(pay,1) as \"action.pagar\", ROUND(profit,1) as \"ui.beneficio\" FROM showdown WHERE id_hand=? order by \"ui.gana_3\" DESC,\"action.pagar\" DESC";
-
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-
-                statement.setInt(1, id_hand);
-
-                rs = statement.executeQuery();
-
-                showdownData(rs);
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, id_hand);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        showdownData(rs);
+                    }
+                } catch (SQLException ex) {
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
             }
-
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
         });
 
     }
@@ -1236,86 +1220,104 @@ public class StatsDialog extends JDialog {
             hand_combo.setSelectedIndex(0);
         }
 
+        final String SQL_PER_HAND = "SELECT player AS \"player.jugador\", ROUND(AVG(response_time), 1) AS \"ui.tiempo\""
+                + " FROM action WHERE id_hand = ? GROUP BY \"player.jugador\" ORDER BY \"ui.tiempo\" DESC";
+
+        final String SQL_PER_GAME = "SELECT player AS \"player.jugador\", ROUND(AVG(response_time), 1) AS \"ui.tiempo\""
+                + " FROM action, hand WHERE action.id_hand = hand.id AND hand.id_game = ?"
+                + " GROUP BY \"player.jugador\" ORDER BY \"ui.tiempo\" DESC";
+
+        final String SQL_ALL = "SELECT player AS \"player.jugador\", ROUND(AVG(response_time), 1) AS \"ui.tiempo\""
+                + " FROM action GROUP BY \"player.jugador\" ORDER BY \"ui.tiempo\" DESC";
+
         Helpers.threadRun(() -> {
             try {
-                ResultSet rs;
-                Statement st = null;
-                // Updated SQL queries to use valid translation keys as aliases
-                if (hand_combo.getSelectedIndex() > 0) {
-                    String sql = "SELECT player as \"player.jugador\", ROUND(AVG(response_time),1) as \"ui.tiempo\" from action WHERE id_hand=? GROUP BY \"player.jugador\" order by \"ui.tiempo\" DESC";
-                    st = Helpers.getSQLITE().prepareStatement(sql);
-                    PreparedStatement statement = (PreparedStatement) st;
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
-                } else if (game_combo.getSelectedIndex() > 0) {
-                    String sql = "SELECT player as \"player.jugador\", ROUND(AVG(response_time),1) as \"ui.tiempo\" from action,hand WHERE action.id_hand=hand.id AND hand.id_game=? GROUP BY \"player.jugador\" order by \"ui.tiempo\" DESC";
-                    st = Helpers.getSQLITE().prepareStatement(sql);
-                    PreparedStatement statement = (PreparedStatement) st;
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
-                } else {
-                    String sql = "SELECT player as \"player.jugador\", ROUND(AVG(response_time),1) as \"ui.tiempo\" from action GROUP BY \"player.jugador\" order by \"ui.tiempo\" DESC";
-                    st = Helpers.getSQLITE().createStatement();
-                    st.setQueryTimeout(30);
-                    rs = st.executeQuery(sql);
-                }
-
-                // Build the table model manually to apply translations
                 DefaultTableModel tableModel = new DefaultTableModel();
-                ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
-                for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                    String colLabel = metaData.getColumnLabel(columnIndex);
-                    if (colLabel.equals("ui.tiempo")) {
-                        // Append seconds text to time column header
-                        tableModel.addColumn(Translator.translate(colLabel) + " " + Translator.translate("ui.segundos"));
-                    } else {
-                        tableModel.addColumn(Translator.translate(colLabel));
+                if (hand_combo.getSelectedIndex() > 0) {
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
+                        st.setQueryTimeout(30);
+                        st.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateTiempoTable(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                }
-
-                Object[] row = new Object[columnCount];
-                while (rs.next()) {
-                    for (int i = 0; i < columnCount; i++) {
-                        row[i] = rs.getObject(i + 1);
+                } else if (game_combo.getSelectedIndex() > 0) {
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                        st.setQueryTimeout(30);
+                        st.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateTiempoTable(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    tableModel.addRow(row);
+                } else {
+                    try (Statement st = Helpers.getSQLITE().createStatement()) {
+                        st.setQueryTimeout(30);
+                        try (ResultSet rs = st.executeQuery(SQL_ALL)) {
+                            populateTiempoTable(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
 
                 Helpers.GUIRunAndWait(() -> {
                     res_table.setModel(tableModel);
                     TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
-
                     Helpers.disableSortAllColumns(res_table, tableRowSorter);
 
                     int idxPlayer = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("player.jugador"));
                     int idxTime = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("ui.tiempo") + " " + Translator.translate("ui.segundos"));
 
-                    // Verify column existence before setting sortable
                     if (idxPlayer != -1) {
                         tableRowSorter.setSortable(idxPlayer, true);
                     }
                     if (idxTime != -1) {
                         tableRowSorter.setSortable(idxTime, true);
-                        tableRowSorter.setComparator(idxTime, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                        tableRowSorter.setComparator(idxTime, (Comparator<Object>) (o1, o2) -> Double.compare(toDouble(o1), toDouble(o2)));
                     }
 
                     res_table.setRowSorter(tableRowSorter);
-
                     table_panel.setVisible(true);
                 });
-                st.close();
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                });
             }
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
         });
 
+    }
+
+    /**
+     * Populates the response-time table. The "ui.tiempo" header is suffixed with
+     * the "seconds" label to remind the user of the unit.
+     */
+    private static void populateTiempoTable(DefaultTableModel tableModel, ResultSet rs) throws SQLException {
+        if (rs == null) {
+            return;
+        }
+        ResultSetMetaData metaData = rs.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+            String colLabel = metaData.getColumnLabel(columnIndex);
+            if (colLabel.equals("ui.tiempo")) {
+                tableModel.addColumn(Translator.translate(colLabel) + " " + Translator.translate("ui.segundos"));
+            } else {
+                tableModel.addColumn(Translator.translate(colLabel));
+            }
+        }
+        Object[] row = new Object[columnCount];
+        while (rs.next()) {
+            for (int i = 0; i < columnCount; i++) {
+                row[i] = rs.getObject(i + 1);
+            }
+            tableModel.addRow(row);
+        }
     }
 
     private void loadHands(int id) {
@@ -1325,50 +1327,42 @@ public class StatsDialog extends JDialog {
         hand_combo_blocked = true;
 
         Helpers.threadRun(() -> {
-
-            String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-                statement.setInt(1, id);
-                ResultSet rs = statement.executeQuery();
-                Helpers.GUIRunAndWait(() -> {
-                    hand.clear();
-
-                    hand_combo.removeAllItems();
-
-                    hand_combo.addItem(Translator.translate("game.todas_las_manos"));
-
-                    try {
-
-                        while (rs.next()) {
-
+            try {
+                String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, id);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        Helpers.GUIRunAndWait(() -> {
+                            hand.clear();
+                            hand_combo.removeAllItems();
+                            hand_combo.addItem(Translator.translate("game.todas_las_manos"));
                             try {
-                                hand_combo.addItem(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")));
-
-                                HashMap<String, Object> map = new HashMap<>();
-
-                                map.put("id", rs.getInt("id"));
-
-                                hand.put(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")), map);
-
+                                while (rs.next()) {
+                                    try {
+                                        hand_combo.addItem(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")));
+                                        HashMap<String, Object> map = new HashMap<>();
+                                        map.put("id", rs.getInt("id"));
+                                        hand.put(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")), map);
+                                    } catch (Exception ex) {
+                                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                    }
+                                }
                             } catch (Exception ex) {
                                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                             }
-
-                        }
-                    } catch (Exception ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        });
                     }
+                } catch (SQLException ex) {
+                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
+                    cargando.setVisible(false);
+                    setEnabled(true);
+                    hand_combo_blocked = false;
                 });
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-                hand_combo_blocked = false;
-            });
         });
 
     }

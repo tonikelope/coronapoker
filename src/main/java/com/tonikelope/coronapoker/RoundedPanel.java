@@ -7,7 +7,6 @@ package com.tonikelope.coronapoker;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.awt.geom.RoundRectangle2D;
 import javax.swing.JPanel;
 
 /**
@@ -32,20 +31,20 @@ public class RoundedPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
 
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        // Dibujar el fondo redondeado si el componente tiene un color de fondo
         if (isOpaque()) {
-            g2d.setColor(getBackground());
-            g2d.fill(new RoundRectangle2D.Double(
-                    0, 0,
-                    getWidth(),
-                    getHeight(),
-                    arc * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP),
-                    arc * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)
-            ));
+            Graphics2D g2d = (Graphics2D) g.create();
+            try {
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(getBackground());
+                float effective_arc = arc * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), Math.round(effective_arc), Math.round(effective_arc));
+            } finally {
+                g2d.dispose();
+            }
+            // Skip super.paintComponent: the rounded fill above replaces the default
+            // rectangular background; calling super would draw a square fill behind it.
+        } else {
+            super.paintComponent(g);
         }
-
     }
 }

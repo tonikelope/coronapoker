@@ -157,6 +157,22 @@ public class StatsDialog extends JDialog {
         init = false;
     }
 
+    /**
+     * Parses a percentage-formatted string (e.g. "12.5%", "0%", "NULL%") into a float
+     * for sort comparisons. Returns {@link Float#NEGATIVE_INFINITY} for null/empty
+     * values or unparseable content, so malformed rows sort to the bottom.
+     */
+    private static float safeParsePercent(String value) {
+        if (value == null) {
+            return Float.NEGATIVE_INFINITY;
+        }
+        try {
+            return Float.parseFloat(value.replaceAll(" *%$", "").trim());
+        } catch (NumberFormatException ex) {
+            return Float.NEGATIVE_INFINITY;
+        }
+    }
+
     private void mejoresJugadas() {
 
         cargando.setVisible(true);
@@ -187,7 +203,7 @@ public class StatsDialog extends JDialog {
 
             } else {
 
-                String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", (game.server || '|' || game.start) as \"game.timba\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,\"ui.beneficio\" DESC; LIMIT 1000";
+                String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", (game.server || '|' || game.start) as \"game.timba\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,\"ui.beneficio\" DESC LIMIT 1000;";
                 try (Statement statement = Helpers.getSQLITE().createStatement()) {
                     statement.setQueryTimeout(30);
                     rs = statement.executeQuery(sql);
@@ -408,19 +424,19 @@ public class StatsDialog extends JDialog {
                     }
                     if (idxManosJ != -1) {
                         tableRowSorter.setSortable(idxManosJ, true);
-                        tableRowSorter.setComparator(idxManosJ, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        tableRowSorter.setComparator(idxManosJ, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                     }
                     if (idxManosG != -1) {
                         tableRowSorter.setSortable(idxManosG, true);
-                        tableRowSorter.setComparator(idxManosG, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        tableRowSorter.setComparator(idxManosG, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                     }
                     if (idxPrec != -1) {
                         tableRowSorter.setSortable(idxPrec, true);
-                        tableRowSorter.setComparator(idxPrec, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        tableRowSorter.setComparator(idxPrec, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                     }
                     if (idxRoi != -1) {
                         tableRowSorter.setSortable(idxRoi, true);
-                        tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                     }
 
                     res_table.setRowSorter(tableRowSorter);
@@ -515,7 +531,7 @@ public class StatsDialog extends JDialog {
                     }
                     if (idxHands != -1) {
                         tableRowSorter.setSortable(idxHands, true);
-                        tableRowSorter.setComparator(idxHands, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                        tableRowSorter.setComparator(idxHands, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                     }
 
                     res_table.setRowSorter(tableRowSorter);
@@ -659,7 +675,7 @@ public class StatsDialog extends JDialog {
                         }
                         if (idxRoi != -1) {
                             tableRowSorter.setSortable(idxRoi, true);
-                            tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(Float.parseFloat(o1.replaceAll(" *%$", "")), Float.parseFloat(o2.replaceAll(" *%$", ""))));
+                            tableRowSorter.setComparator(idxRoi, (Comparator<String>) (o1, o2) -> Float.compare(safeParsePercent(o1), safeParsePercent(o2)));
                         }
 
                         res_table.setRowSorter(tableRowSorter);

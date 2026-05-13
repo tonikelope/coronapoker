@@ -3513,12 +3513,13 @@ public class Crupier implements Runnable {
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
                     });
-                    // Audio-only fallback when no shuffle.gif is available for this deck.
+                    // Audio-only fallback when there is no shuffle.gif for this deck (or
+                    // when animations are disabled). playWavResourceAndWait blocks for the
+                    // natural duration of the clip, so the do-while replays it back-to-back
+                    // with no silence in between. Minimum 1 play guaranteed.
                     do {
-                        Audio.playWavResource("misc/shuffle.wav");
-                        Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
+                        Audio.playWavResourceAndWait("misc/shuffle.wav");
                     } while (barajando && !isFin_de_la_transmision());
-                    Audio.stopWavResource("misc/shuffle.wav");
                 }
                 synchronized (shuffle_lock) {
                     gif_thread_done[0] = true;

@@ -436,7 +436,7 @@ public class WaitingRoomFrame extends JFrame {
 
     public synchronized String txtChat2HTML(String chat) {
 
-        String html = "";
+        StringBuilder html = new StringBuilder();
 
         String[] lines = chat.split("\n");
 
@@ -494,25 +494,25 @@ public class WaitingRoomFrame extends JFrame {
             // Outer table is kept solely as a 'shrink-to-fit' container (HTMLEditorKit
             // does not support display:inline-block). The inner <div class='bubble-...'>
             // is rendered by RoundedBubbleView, which paints the rounded background.
-            html += "<table " + align + " border='0' cellpadding='0' cellspacing='0'>"
-                    + "<tr>"
-                    + "<td>"
-                    + "<div class='" + bubble_class + "' style='padding:5px;'>"
-                    + // Header section with Avatar, Nickname and Time
-                    "<div>"
-                    + "<img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />"
-                    + "&nbsp;<b>" + nick + "</b> "
-                    + "<span style='font-size:0.8em'>" + hora + "</span>"
-                    + "</div>"
-                    + // Body section with the message
-                    "<div>" + msg + "</div>"
-                    + "</div>"
-                    + "</td>"
-                    + "</tr>"
-                    + "</table>";
+            html.append("<table ").append(align).append(" border='0' cellpadding='0' cellspacing='0'>")
+                    .append("<tr>")
+                    .append("<td>")
+                    .append("<div class='").append(bubble_class).append("' style='padding:5px;'>")
+                    // Header section with Avatar, Nickname and Time
+                    .append("<div>")
+                    .append("<img id='avatar_").append(nick).append("' align='middle' src='").append(avatar_src).append("' />")
+                    .append("&nbsp;<b>").append(nick).append("</b> ")
+                    .append("<span style='font-size:0.8em'>").append(hora).append("</span>")
+                    .append("</div>")
+                    // Body section with the message
+                    .append("<div>").append(msg).append("</div>")
+                    .append("</div>")
+                    .append("</td>")
+                    .append("</tr>")
+                    .append("</table>");
         }
 
-        return html;
+        return html.toString();
 
     }
 

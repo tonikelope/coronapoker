@@ -38,6 +38,9 @@ public class BrightnessLayerUI extends LayerUI<JComponent> {
 
     public static final float LIGHTS_OFF_BRIGHTNESS = 0.40f;
     private float brightness = 0f;
+    // Cached overlay color rebuilt only when brightness changes.
+    private Color cached_color = null;
+    private float cached_brightness = -1f;
 
     public boolean isLightsON() {
         return (brightness == 0f);
@@ -65,10 +68,19 @@ public class BrightnessLayerUI extends LayerUI<JComponent> {
     public void paint(Graphics g, JComponent c) {
         super.paint(g, c);
 
-        if (getBrightness() > 0f) {
-            Graphics2D g2d = (Graphics2D) g;
-            g2d.setColor(new Color(0, 0, 0, getBrightness()));
-            g2d.fillRect(0, 0, c.getWidth(), c.getHeight());
+        float b = getBrightness();
+        if (b > 0f) {
+            if (cached_color == null || cached_brightness != b) {
+                cached_color = new Color(0f, 0f, 0f, b);
+                cached_brightness = b;
+            }
+            Graphics2D g2d = (Graphics2D) g.create();
+            try {
+                g2d.setColor(cached_color);
+                g2d.fillRect(0, 0, c.getWidth(), c.getHeight());
+            } finally {
+                g2d.dispose();
+            }
         }
     }
 

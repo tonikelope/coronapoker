@@ -107,8 +107,6 @@ public class Init extends JFrame {
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
     public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
-    public static final String[] GLOBAL_ZOOM_VALUES = new String[]{"0.5", "0.75", "1", "1.25", "1.5", "1.75", "2"};
-    public static volatile int GLOBAL_ZOOM_INDEX = 2;
     public static volatile Init VENTANA_INICIO = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
@@ -126,10 +124,6 @@ public class Init extends JFrame {
     static {
         if (!isDesignTime()) {
             LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
-
-            loadGlobalZoomFactor();
-
-            System.setProperty("sun.java2d.uiScale", GLOBAL_ZOOM_VALUES[GLOBAL_ZOOM_INDEX]);
 
             if (Helpers.OSValidator.isUnix()) {
                 System.setProperty("sun.java2d.opengl", "true");
@@ -154,17 +148,6 @@ public class Init extends JFrame {
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Huevos is not present!");
             }
-        }
-    }
-
-    private static void loadGlobalZoomFactor() {
-
-        String i = Helpers.PROPERTIES.getProperty("global_scale", "2");
-
-        GLOBAL_ZOOM_INDEX = Integer.parseInt(i);
-
-        if (GLOBAL_ZOOM_INDEX < 0 || GLOBAL_ZOOM_INDEX > GLOBAL_ZOOM_VALUES.length - 1) {
-            GLOBAL_ZOOM_INDEX = 2;
         }
     }
 
@@ -334,8 +317,6 @@ public class Init extends JFrame {
         } else {
             language_combobox.setSelectedIndex(1);
         }
-
-        global_zoom_combobox.setSelectedIndex(GLOBAL_ZOOM_INDEX);
 
         create_button.setBackground(Color.WHITE);
 
@@ -566,7 +547,6 @@ public class Init extends JFrame {
         sound_icon = new javax.swing.JLabel();
         exit_button = new javax.swing.JButton();
         language_combobox = new javax.swing.JComboBox<>();
-        global_zoom_combobox = new javax.swing.JComboBox<>();
         baraja_panel = new javax.swing.JPanel();
         baraja_fondo = new javax.swing.JLabel();
 
@@ -725,23 +705,12 @@ public class Init extends JFrame {
             }
         });
 
-        global_zoom_combobox.setFont(new java.awt.Font("Segoe UI", 0, 20)); // NOI18N
-        global_zoom_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "50%", "75%", "100%", "125%", "150%", "175%", "200%" }));
-        global_zoom_combobox.setSelectedIndex(2);
-        global_zoom_combobox.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                global_zoom_comboboxActionPerformed(evt);
-            }
-        });
-
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 605, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -750,12 +719,10 @@ public class Init extends JFrame {
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                        .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
-                        .addComponent(exit_button)
-                        .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addComponent(global_zoom_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 57, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
+                    .addComponent(exit_button)
+                    .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -1023,29 +990,6 @@ public class Init extends JFrame {
         join_button.setForeground(Color.WHITE);
     }//GEN-LAST:event_join_buttonMouseEntered
 
-    private void global_zoom_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_global_zoom_comboboxActionPerformed
-        // TODO add your handling code here:
-        if (VENTANA_INICIO != null) {
-
-            int old = GLOBAL_ZOOM_INDEX;
-
-            if (old != global_zoom_combobox.getSelectedIndex() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("ui.zoom_global_restart")) == 0) {
-
-                GLOBAL_ZOOM_INDEX = global_zoom_combobox.getSelectedIndex();
-
-                Helpers.PROPERTIES.setProperty("global_scale", String.valueOf(global_zoom_combobox.getSelectedIndex()));
-
-                Helpers.savePropertiesFile();
-
-                Helpers.restartCoronaPoker();
-
-            } else {
-                global_zoom_combobox.setSelectedIndex(old);
-            }
-        }
-
-    }//GEN-LAST:event_global_zoom_comboboxActionPerformed
-
     public static void main(String args[]) {
 
         //ensureRequiredJvmParameters(args, Init.class);
@@ -1279,7 +1223,6 @@ public class Init extends JFrame {
     private javax.swing.JPanel corona_init_panel;
     private javax.swing.JButton create_button;
     private javax.swing.JButton exit_button;
-    private javax.swing.JComboBox<String> global_zoom_combobox;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;

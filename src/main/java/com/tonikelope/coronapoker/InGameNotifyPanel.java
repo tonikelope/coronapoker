@@ -39,15 +39,31 @@ import javax.swing.JLabel;
  */
 public class InGameNotifyPanel extends javax.swing.JPanel {
 
+    // Cached overlay color rebuilt only when the brightness changes.
+    private Color cached_overlay = null;
+    private float cached_brightness = -1f;
+
+    // paint() is intentional here (not paintComponent): the overlay must be
+    // drawn after paintChildren so it sits on top of the JLabel.
     @Override
     public void paint(Graphics g) {
         super.paint(g);
 
-        if (GameFrame.getInstance() != null && GameFrame.getInstance().getCapa_brillo().getBrightness() > 0f) {
-            Graphics2D g2d = (Graphics2D) g;
-            g2d.setColor(new Color(0, 0, 0, GameFrame.getInstance().getCapa_brillo().getBrightness()));
-            g2d.fillRect(0, 0, getWidth(), getHeight());
-
+        if (GameFrame.getInstance() != null) {
+            float b = GameFrame.getInstance().getCapa_brillo().getBrightness();
+            if (b > 0f) {
+                if (cached_overlay == null || cached_brightness != b) {
+                    cached_overlay = new Color(0f, 0f, 0f, b);
+                    cached_brightness = b;
+                }
+                Graphics2D g2d = (Graphics2D) g.create();
+                try {
+                    g2d.setColor(cached_overlay);
+                    g2d.fillRect(0, 0, getWidth(), getHeight());
+                } finally {
+                    g2d.dispose();
+                }
+            }
         }
     }
 

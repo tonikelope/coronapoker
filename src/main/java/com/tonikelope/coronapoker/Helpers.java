@@ -1707,9 +1707,14 @@ public class Helpers {
     }
 
     /**
-     * High-quality bicubic image scaling. Drop-in replacement for
-     * {@code img.getScaledInstance(w, h, Image.SCALE_SMOOTH)} on static raster images
-     * (PNG, JPG). Produces sharper results than bilinear, especially when downscaling.
+     * High-quality progressive image scaling. Drop-in replacement for
+     * {@code img.getScaledInstance(w, h, Image.SCALE_SMOOTH)} on static raster images.
+     *
+     * For downscales beyond 2x, halves dimensions iteratively (Chris Campbell pattern):
+     * each pass uses bicubic interpolation. This approximates a Lanczos filter and
+     * avoids the ringing/aliasing that single-step bicubic produces on large reductions.
+     *
+     * For upscales and modest downscales, applies bicubic in one pass.
      *
      * Do NOT use this for animated GIFs: the result is a single-frame BufferedImage
      * which freezes the animation. For GIFs keep {@code Image.SCALE_DEFAULT}.
@@ -1718,6 +1723,35 @@ public class Helpers {
         if (src == null || width <= 0 || height <= 0) {
             return src;
         }
+
+        int srcW = src.getWidth(null);
+        int srcH = src.getHeight(null);
+
+        // Unknown source dimensions: fall back to single-step.
+        if (srcW <= 0 || srcH <= 0) {
+            return singleStepBicubic(src, width, height);
+        }
+
+        // Upscale or modest downscale (< 2x in both axes): single-step is enough.
+        if (width >= srcW / 2 && height >= srcH / 2) {
+            return singleStepBicubic(src, width, height);
+        }
+
+        // Progressive downscale: halve dimensions until we land on the target.
+        Image current = src;
+        int curW = srcW;
+        int curH = srcH;
+        while (curW > width || curH > height) {
+            int nextW = Math.max(width, curW / 2);
+            int nextH = Math.max(height, curH / 2);
+            current = singleStepBicubic(current, nextW, nextH);
+            curW = nextW;
+            curH = nextH;
+        }
+        return current;
+    }
+
+    private static BufferedImage singleStepBicubic(Image src, int width, int height) {
         BufferedImage scaled = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = scaled.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);

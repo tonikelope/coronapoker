@@ -1711,6 +1711,24 @@ public class Helpers {
         return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
     }
 
+    /**
+     * Derives a 64-byte channel secret from the raw ECDH shared secret. If a password is
+     * provided, the secret is bound to it via HMAC-SHA512, blocking passive MITM attacks
+     * for password-protected games.
+     */
+    public static byte[] deriveChannelSecret(byte[] sharedSecret, String password) {
+        try {
+            if (password != null && !password.isEmpty()) {
+                Mac mac = Mac.getInstance("HmacSHA512");
+                mac.init(new SecretKeySpec(password.getBytes("UTF-8"), "HmacSHA512"));
+                return mac.doFinal(sharedSecret);
+            }
+            return MessageDigest.getInstance("SHA-512").digest(sharedSecret);
+        } catch (Exception ex) {
+            throw new RuntimeException("Channel secret derivation failed", ex);
+        }
+    }
+
     public static void screenshot(Rectangle rectangle, Integer delay) {
         try {
             Robot robot = new Robot();

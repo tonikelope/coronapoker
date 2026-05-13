@@ -299,7 +299,6 @@ public class Crupier implements Runnable {
     private final Object lock_rebuynow = new Object();
     private final Object lock_pausa_barra = new Object();
     private final Object lock_fin_mano = new Object();
-    private final Object lock_hand_verification = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
@@ -307,7 +306,6 @@ public class Crupier implements Runnable {
     private byte[] activeHandId;
     private volatile int conta_mano = 0;
     private volatile int conta_accion = 0;
-    private volatile boolean verified_hand = false;
     private volatile float bote_total = 0f;
     private volatile float apuestas = 0f;
     private volatile float ciega_grande = GameFrame.CIEGA_GRANDE;
@@ -361,8 +359,6 @@ public class Crupier implements Runnable {
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
     public volatile String[] active_crypto_ring = null;
-    private volatile boolean legitHand = false;
-    private volatile boolean legitHandSkip = false;
 
     private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
@@ -530,7 +526,7 @@ public class Crupier implements Runnable {
                     // El Bot cifra y baraja localmente
                     byte[] botLock = CryptoSRA.generateLockScalar();
                     byte[] botUnlock = CryptoSRA.getUnlockScalar(botLock);
-                    byte[] botSeed = new byte[32];
+                    byte[] botSeed = new byte[48];
                     if (Helpers.CSPRNG_GENERATOR != null) {
                         Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
                     }
@@ -741,27 +737,6 @@ public class Crupier implements Runnable {
         return new ArrayList<>(java.util.Arrays.asList(cartas));
     }
 
-    private void preShowdownDecryption(ArrayList<Player> inShowdown) {
-        // En SRA puro, las cartas se revelan mandando el mensaje de SHOWCARDS en claro, 
-        // no necesitamos desencriptar ECDH por un canal secundario.
-    }
-
-    public void verificarManoLocal(byte[] mk, String[] partesHandVerify) {
-        try {
-            synchronized (this.lock_hand_verification) {
-                /* BYPASS: Hand verification delegated entirely to EC-SRA logic */
-                this.legitHand = true;
-                this.legitHandSkip = true;
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error in manual hand verification", e);
-        } finally {
-            this.verified_hand = true;
-            synchronized (this.lock_hand_verification) {
-                this.lock_hand_verification.notifyAll();
-            }
-        }
-    }
 
     public String getTestamentoCriptografico() {
         return getTestamentoCriptografico(GameFrame.getInstance().getNick_local());
@@ -2814,13 +2789,14 @@ public class Crupier implements Runnable {
         
         received_commands.clear();
 
-        // Generamos entropía local para NUESTRO barajado SRA (Nunca sale a la red)
-        byte[] jvm_entropy = new byte[32];
-        
+        // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
+        // first 32 feed the AES-256 key, last 16 feed the CTR IV.
+        byte[] jvm_entropy = new byte[48];
+
         if (Helpers.CSPRNG_GENERATOR != null) {
             Helpers.CSPRNG_GENERATOR.nextBytes(jvm_entropy);
         }
-        
+
         this.local_hand_seed = jvm_entropy;
 
         if (GameFrame.getInstance().isPartida_local()) {
@@ -3299,9 +3275,6 @@ public class Crupier implements Runnable {
 
         this.active_crypto_ring = null;
         this.game_recovered = 0;
-        this.legitHand = false;
-        this.legitHandSkip = false;
-        this.verified_hand = false;
 
         Helpers.GUIRun(() -> {
 
@@ -4246,11 +4219,6 @@ public class Crupier implements Runnable {
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "HANDVERIFY":
-                                this.verified_hand = true;
-                                this.legitHand = true;
-                                synchronized (this.lock_hand_verification) {
-                                    this.lock_hand_verification.notifyAll();
-                                }
                                 consensus_ok = true;
                                 break;
                             case "MISDEAL":
@@ -4298,10 +4266,8 @@ public class Crupier implements Runnable {
             });
             return;
         }
-        // El servidor dicta que es el momento del Showdown (SKIPPED significa que no hay Master Key centralizada).
-        // Esperamos ACK para que todos los clientes lleguen sincronizados al cierre del showdown.
-        broadcastGAMECommandFromServer("HANDVERIFY#SKIPPED", null, true);
-        this.verificarManoLocal(new byte[0], null);
+        // Synchronization signal: all clients ACK before the host closes the showdown.
+        broadcastGAMECommandFromServer("HANDVERIFY", null, true);
     }
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
@@ -7604,7 +7570,6 @@ public class Crupier implements Runnable {
                             switch (resisten.size()) {
                                 case 0:
                                     // Math yes, GUI no.
-                                    preShowdownDecryption(new ArrayList<Player>());
                                     requestShowdownKeys(new ArrayList<Player>());
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
@@ -7623,7 +7588,6 @@ public class Crupier implements Runnable {
                                     }
                                     break;
                                 case 1:
-                                    preShowdownDecryption(new ArrayList<Player>());
                                     requestShowdownKeys(new ArrayList<Player>());
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
@@ -7657,7 +7621,6 @@ public class Crupier implements Runnable {
                                     break;
                                 default:
                                     // Everyone shows their cards and GUI updates
-                                    preShowdownDecryption(resisten);
                                     requestShowdownKeys(resisten);
                                     procesarCartasResistencia(resisten, false);
                                     if (!this.destapar_resistencia) {
@@ -8180,9 +8143,8 @@ public class Crupier implements Runnable {
 
         for (Player jugador : jugadores) {
 
-            // Si el jugador llega al cálculo de ganadores con las cartas nulas,
-            // significa que se desconectó a lo bestia y la Master Key saltó a SKIPPED.
-            // Como es matemáticamente IMPOSIBLE saber sus cartas, su mano se declara MUERTA (Muck).
+            // If the player reaches winner calculation with null cards, it means
+            // they disconnected before reaching showdown. Their hand is mucked.
             if (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty() || jugador.getHoleCard1().getValor().equals("null")) {
                 LOGGER.log(Level.WARNING, "⚠️ [MUCK] {0} could not reveal cards due to disconnection. Pot lost.", jugador.getNickname());
                 continue; // Al no meterlo en el mapa 'jugadas', el motor lo ignora para el premio.

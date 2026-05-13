@@ -135,6 +135,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Font orig_action_font = null;
     private volatile float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
     private volatile float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+    // Cached BasicStroke for paintBorder; rebuilt only when border_size changes (zoom).
+    private float cached_stroke_size = -1f;
+    private BasicStroke cached_stroke = null;
 
     @Override
     public void stopActionTimer() {
@@ -159,40 +162,49 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     protected void paintComponent(Graphics g) {
 
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        // Dibujar el fondo redondeado si el componente tiene un color de fondo
         if (isOpaque()) {
-            g2d.setColor(getBackground());
-            g2d.fill(new RoundRectangle2D.Double(
-                    0, 0,
-                    getWidth(),
-                    getHeight(),
-                    arc,
-                    arc
-            ));
+            Graphics2D g2d = (Graphics2D) g.create();
+            try {
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(getBackground());
+                g2d.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), arc, arc));
+            } finally {
+                g2d.dispose();
+            }
+            // Bypass super.paintComponent on the opaque branch: the rounded fill above
+            // replaces the default rectangular background.
+        } else {
+            super.paintComponent(g);
         }
+    }
+
+    private BasicStroke borderStroke() {
+        if (cached_stroke == null || cached_stroke_size != border_size) {
+            cached_stroke = new BasicStroke(border_size);
+            cached_stroke_size = border_size;
+        }
+        return cached_stroke;
     }
 
     @Override
     protected void paintBorder(Graphics g) {
 
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        // Dibuja el borde redondeado
-        g2d.setColor(border_color); // Usa el color del borde
-        g2d.setStroke(new BasicStroke(border_size)); // Usa el grosor del borde
-        g2d.draw(new RoundRectangle2D.Double(
-                border_size / 2.0, // Ajusta la posición para que el borde no se corte
-                border_size / 2.0,
-                getWidth() - border_size,
-                getHeight() - border_size,
-                arc,
-                arc
-        ));
-
+        Graphics2D g2d = (Graphics2D) g.create();
+        try {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setColor(border_color);
+            g2d.setStroke(borderStroke());
+            g2d.draw(new RoundRectangle2D.Double(
+                    border_size / 2.0,
+                    border_size / 2.0,
+                    getWidth() - border_size,
+                    getHeight() - border_size,
+                    arc,
+                    arc
+            ));
+        } finally {
+            g2d.dispose();
+        }
     }
 
     public boolean isRadar_checking() {

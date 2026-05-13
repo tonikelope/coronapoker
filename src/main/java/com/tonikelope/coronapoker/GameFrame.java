@@ -1689,6 +1689,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         }
 
+        Bot.TRACKER_MEMORY.clear();
         crupier = new Crupier();
 
         initComponents();

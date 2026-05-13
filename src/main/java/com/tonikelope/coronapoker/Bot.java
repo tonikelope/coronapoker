@@ -66,11 +66,29 @@ public class Bot {
         RECREATIONAL, REGULAR, SHARK
     }
 
-    // --- Multi-street plan constants ---
     private static final int PLAN_NONE = 0;
-    private static final int PLAN_BET_BET_BET = 1;       // Value / Triple barrel bluff
-    private static final int PLAN_BET_CHECK_BET = 2;      // Pot control with medium hand
-    private static final int PLAN_CHECK_CALL = 3;         // Trapping / Calling down
+    private static final int PLAN_BET_BET_BET = 1;
+    private static final int PLAN_BET_CHECK_BET = 2;
+    private static final int PLAN_CHECK_CALL = 3;
+
+    private static final double STRENGTH_NUT_TRAP = 0.92;
+    private static final double STRENGTH_VALUE_RAISE = 0.85;
+    private static final double STRENGTH_RIVER_VALUE = 0.65;
+    private static final double STRENGTH_VALUE_BET = 0.55;
+    private static final double STRENGTH_VALUE_BET_DRAW = 0.50;
+    private static final double STRENGTH_CALLDOWN_TRAP = 0.40;
+
+    private static final double SCARE_CARD_DROP = 0.15;
+    private static final double FOLD_EQ_CAP = 0.65;
+    private static final double POT_COMMIT_LOW_SPR_EQ = 0.75;
+    private static final double POT_COMMIT_HIGH_SPR_EQ = 0.85;
+
+    private static final double WET_BOARD_OVERSIZE_EQ = 0.85;
+    private static final double WET_BOARD_VALUE_FRACTION = 0.70;
+    private static final double WET_BOARD_BLOCK_FRACTION = 0.40;
+    private static final double SEMIWET_BOARD_FRACTION = 0.55;
+    private static final double DRY_BOARD_FRACTION = 0.33;
+    private static final double RIVER_OVERBET_FRACTION = 1.25;
 
     // --- Board texture result ---
     private static class BoardTexture {
@@ -376,17 +394,16 @@ public class Bot {
             if (skillLevel == Skill.RECREATIONAL) {
                 targetBet = pot * (0.45f + (Helpers.CSPRNG_GENERATOR.nextFloat() * 0.20f));
             } else {
-                // Sizing vs Texture Logic Fix: Do not oversize on wet boards unless polarized/strong
                 if (texture.totalScore >= 4) {
-                    if (effectiveStrength > 0.85) {
-                        targetBet = pot * 0.70f; // Value protect
+                    if (effectiveStrength > WET_BOARD_OVERSIZE_EQ) {
+                        targetBet = pot * (float) WET_BOARD_VALUE_FRACTION;
                     } else {
-                        targetBet = pot * 0.40f; // Block or controlled bluff
+                        targetBet = pot * (float) WET_BOARD_BLOCK_FRACTION;
                     }
                 } else if (texture.totalScore >= 2) {
-                    targetBet = pot * 0.55f;
+                    targetBet = pot * (float) SEMIWET_BOARD_FRACTION;
                 } else {
-                    targetBet = pot * 0.33f; // Dry board
+                    targetBet = pot * (float) DRY_BOARD_FRACTION;
                 }
 
                 if (currentProfile == Profile.LAG) {
@@ -397,7 +414,7 @@ public class Bot {
             }
 
             if (skillLevel == Skill.SHARK && dealer.getStreet() == Crupier.RIVER && Helpers.CSPRNG_GENERATOR.nextInt(100) < 18) {
-                targetBet = pot * 1.25f; // Polarized overbet
+                targetBet = pot * (float) RIVER_OVERBET_FRACTION;
                 logVerbose("Applying polarized overbet sizing for River.");
             }
         }
@@ -440,8 +457,6 @@ public class Bot {
         }
         double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
-        // Ajustes de fuerza relativa:
-        // 1. Pocket Pair frente a overcards (caso "22 vs AKJ").
         if (holeCard1.getRank() == holeCard2.getRank()) {
             int overcards = 0;
             for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
@@ -455,19 +470,18 @@ public class Bot {
             }
         }
 
-        // 2. Weak Kicker Penalty (Top Pair with garbage kicker)
         if (strength > 0.50 && strength < 0.80 && holeCard1.getRank() != holeCard2.getRank()) {
             int lowCard = Math.min(holeCard1.getRank(), holeCard2.getRank());
-            if (lowCard < 6) { // Kicker lower than 8
+            if (lowCard < 6) {
                 effectiveStrength -= 0.12;
                 logVerbose("Weak Kicker Penalty applied.");
             }
         }
-        effectiveStrength = Math.max(0.10, effectiveStrength); // Sanity floor
+        effectiveStrength = Math.max(0.10, effectiveStrength);
 
         if (street != previousStreet) {
             if (previousStrength != -1.0) {
-                scareCardDetected = ((effectiveStrength - previousStrength) < -0.15);
+                scareCardDetected = ((effectiveStrength - previousStrength) < -SCARE_CARD_DROP);
             }
             previousPpot = ppot;
             previousStrength = effectiveStrength;
@@ -481,14 +495,11 @@ public class Bot {
                 generateStreetPlan(effectiveStrength, ppot);
             }
 
-            // Adaptación dinámica del plan.
             if (streetPlan != PLAN_NONE && street > Crupier.FLOP) {
-                // Botón de pánico en multiway.
-                if (activePlayers > 2 && streetPlan == PLAN_BET_BET_BET && effectiveStrength < 0.50) {
+                if (activePlayers > 2 && streetPlan == PLAN_BET_BET_BET && effectiveStrength < STRENGTH_VALUE_BET_DRAW) {
                     logVerbose("Aborting PLAN_BET_BET_BET. Too many active players (Multiway panic).");
                     streetPlan = PLAN_NONE;
                 }
-                // Degradación por scare card.
                 if (scareCardDetected && streetPlan == PLAN_BET_BET_BET) {
                     logVerbose("Downgrading PLAN_BET_BET_BET to pot control due to scare card.");
                     streetPlan = PLAN_BET_CHECK_BET;
@@ -504,7 +515,8 @@ public class Bot {
         boolean potCommitted = false;
         if (callCost > 0) {
             float commitAdjust = (skillLevel == Skill.RECREATIONAL) ? -0.05f : 0f;
-            if ((spr <= 2.0f && effectiveStrength >= (0.75 + commitAdjust)) || (spr <= 4.0f && effectiveStrength >= (0.85 + commitAdjust))) {
+            if ((spr <= 2.0f && effectiveStrength >= (POT_COMMIT_LOW_SPR_EQ + commitAdjust))
+                    || (spr <= 4.0f && effectiveStrength >= (POT_COMMIT_HIGH_SPR_EQ + commitAdjust))) {
                 potCommitted = true;
                 logVerbose("Bot considers itself POT COMMITTED.");
             }
@@ -556,7 +568,7 @@ public class Bot {
 
         double evCall = (callCost > 0) ? (winProb * (impliedPot + callCost)) - ((1.0 - winProb) * callCost) : 0;
         double foldEquity = calculateFoldEquity(targetStats, boardTexture, betCount, street);
-        double raiseAmount = getBetSize(effectiveStrength); // Updated to pass strength
+        double raiseAmount = getBetSize(effectiveStrength);
         double raiseCost = raiseAmount - cpuPlayer.getBet();
         double evRaise = (foldEquity * pot) + ((1.0 - foldEquity) * ((winProb * (pot + raiseCost)) - ((1.0 - winProb) * raiseCost)));
 
@@ -576,14 +588,13 @@ public class Bot {
 
     private int decisionWhenCheckedTo(double effectiveStrength, double evCall, double evRaise, double ppot, double npot, double foldEquity, int street, int activePlayers, BoardTexture boardTexture, int betCount) {
 
-        // Fix: Float Follow-Through
         if (floatPlay && street == Crupier.TURN) {
             logVerbose("Executing Float Bluff follow-through on Turn.");
             floatPlay = false;
             return Player.BET;
         }
 
-        if (slowPlay && effectiveStrength >= 0.90 && street < Crupier.RIVER) {
+        if (slowPlay && effectiveStrength >= STRENGTH_NUT_TRAP && street < Crupier.RIVER) {
             if (boardTexture.totalScore >= 3) {
                 logVerbose("Aborting slowplay due to wet board texture.");
                 slowPlay = false;
@@ -594,7 +605,7 @@ public class Bot {
         }
 
         if (street == Crupier.RIVER) {
-            if (effectiveStrength >= 0.65) {
+            if (effectiveStrength >= STRENGTH_RIVER_VALUE) {
                 logVerbose("River Value Bet.");
                 return Player.BET;
             }
@@ -611,11 +622,18 @@ public class Bot {
 
         if (cBetInitiative && street == Crupier.FLOP) {
             int cbetChance = (skillLevel == Skill.RECREATIONAL) ? 80 : (activePlayers <= 2 ? 70 : (activePlayers == 3 ? 48 : 28));
-            if (skillLevel != Skill.RECREATIONAL && boardTexture.totalScore >= 4) {
-                cbetChance -= 15;
-            }
-            if (skillLevel != Skill.RECREATIONAL && effectiveStrength > 0.65) {
-                cbetChance += 20;
+            if (skillLevel != Skill.RECREATIONAL) {
+                if (boardTexture.totalScore >= 4) {
+                    cbetChance -= 15;
+                } else if (boardTexture.totalScore == 0) {
+                    cbetChance += 12;
+                }
+                if (boardTexture.isPaired) {
+                    cbetChance -= 8;
+                }
+                if (effectiveStrength > 0.65) {
+                    cbetChance += 20;
+                }
             }
 
             cBetInitiative = false;
@@ -625,11 +643,19 @@ public class Bot {
             }
         }
 
+        if (street < Crupier.RIVER && skillLevel != Skill.RECREATIONAL && currentProfile != Profile.NIT
+                && ppot > 0.30 && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
+                && foldEquity > 0.18 && boardTexture.totalScore <= 3
+                && Helpers.CSPRNG_GENERATOR.nextInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)) {
+            logVerbose("Semi-bluff with strong draw.");
+            return Player.BET;
+        }
+
         if (streetPlan != PLAN_NONE && skillLevel != Skill.RECREATIONAL) {
             int streetsInPlan = street - streetPlanStartStreet;
             switch (streetPlan) {
                 case PLAN_BET_BET_BET:
-                    if (effectiveStrength > 0.50 || (foldEquity > 0.20 && effectiveStrength < 0.30)) {
+                    if (effectiveStrength > STRENGTH_VALUE_BET_DRAW || (foldEquity > 0.20 && effectiveStrength < 0.30)) {
                         logVerbose("Executing PLAN_BET_BET_BET.");
                         return Player.BET;
                     }
@@ -651,9 +677,8 @@ public class Bot {
             }
         }
 
-        // Value bet only if strength justifies it AND board isn't terrifying
-        boolean boardTooScary = boardTexture.totalScore >= 5 && effectiveStrength < 0.85;
-        if (evRaise > 0 && effectiveStrength > 0.55 && !boardTooScary) {
+        boolean boardTooScary = boardTexture.totalScore >= 5 && effectiveStrength < STRENGTH_VALUE_RAISE;
+        if (evRaise > 0 && effectiveStrength > STRENGTH_VALUE_BET && !boardTooScary) {
             logVerbose("Standard Value Bet based on EV.");
             return Player.BET;
         } else if (boardTooScary && evRaise > 0) {
@@ -676,14 +701,13 @@ public class Bot {
         }
         double betRatio = callCost / (pot > 0 ? pot : 1);
 
-        // Fix: Dynamic Check-Raise Execution instead of pre-flop flag
         if (skillLevel != Skill.RECREATIONAL && currentProfile != Profile.STATION && betCount == 1 && street < Crupier.RIVER) {
-            // Refined Check-Raise: Ensure no overcards are crushing our hand
             boolean hasOvercards = false;
             if (holeCard1.getRank() == holeCard2.getRank()) {
                 for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
                     if (BOT_COMMUNITY_CARDS.getCard(i).getRank() > holeCard1.getRank()) {
                         hasOvercards = true;
+                        break;
                     }
                 }
             }
@@ -722,7 +746,7 @@ public class Bot {
         }
 
         if (potCommitted) {
-            if (effectiveStrength >= 0.92 && evRaise > 0 && currentProfile != Profile.STATION) {
+            if (effectiveStrength >= STRENGTH_NUT_TRAP && evRaise > 0 && currentProfile != Profile.STATION) {
                 logVerbose("Pot committed and very strong. Shoving (Re-raising).");
                 return Player.BET;
             }
@@ -730,7 +754,7 @@ public class Bot {
             return Player.CHECK;
         }
 
-        if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > 0.85 && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
+        if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > STRENGTH_VALUE_RAISE && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
             logVerbose("Raising for value. High EV.");
             return Player.BET;
         }
@@ -740,7 +764,6 @@ public class Bot {
             return Player.BET;
         }
 
-        // Fix: Pain Threshold for Check/Call
         if (streetPlan == PLAN_CHECK_CALL) {
             boolean overbetThreshold = betRatio > 1.2;
             boolean nitThreshold = targetStats != null && targetStats.isNit() && betRatio > 0.6;
@@ -748,7 +771,7 @@ public class Bot {
             if (overbetThreshold || nitThreshold) {
                 logVerbose("Pain threshold exceeded (Overbet or strong bet from Nit). Aborting PLAN_CHECK_CALL.");
                 streetPlan = PLAN_NONE;
-            } else if (effectiveStrength > 0.40 && skillLevel != Skill.RECREATIONAL) {
+            } else if (effectiveStrength > STRENGTH_CALLDOWN_TRAP && skillLevel != Skill.RECREATIONAL) {
                 logVerbose("Executing trap call from PLAN_CHECK_CALL.");
                 return Player.CHECK;
             }
@@ -811,7 +834,7 @@ public class Bot {
             foldEquity *= 1.15;
         }
 
-        return Math.max(0.0, Math.min(0.65, foldEquity));
+        return Math.max(0.0, Math.min(FOLD_EQ_CAP, foldEquity));
     }
 
     private boolean canFloat(double effectiveStrength, int betCount, int street, BoardTexture boardTexture) {
@@ -1018,9 +1041,15 @@ public class Bot {
                 return suited ? 2 : 3;
             }
             if (suited) {
-                return low >= 6 ? 3 : 4;
+                if (low >= 6) {
+                    return 3;
+                }
+                if (low <= 3) {
+                    return 4;
+                }
+                return 4;
             }
-            return low >= 9 ? 3 : 4;
+            return 4;
         }
         if (high == 11) {
             if (low >= 10) {
@@ -1032,14 +1061,11 @@ public class Bot {
             if (suited && low >= 5) {
                 return 4;
             }
-            return low >= 10 ? 4 : 5;
+            return 5;
         }
         if (high == 10) {
-            if (low >= 9 && suited) {
-                return 3;
-            }
             if (low >= 9) {
-                return 4;
+                return suited ? 3 : 4;
             }
         }
         if (suited && gap <= 2 && high >= 6) {

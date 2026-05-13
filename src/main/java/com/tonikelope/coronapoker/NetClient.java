@@ -245,6 +245,12 @@ public class NetClient {
         }
     }
 
+    private volatile boolean last_read_hmac_failure = false;
+
+    public boolean wasLastReadHmacFailure() {
+        return last_read_hmac_failure;
+    }
+
     public String readCommand() {
         // Si estamos reconectando, esperamos.
         while (reconnecting) {
@@ -259,8 +265,12 @@ public class NetClient {
 
         synchronized (local_client_buffer_read_is) {
             try {
+                last_read_hmac_failure = false;
                 return Helpers.decryptCommand(local_client_buffer_read_is.readLine(),
                         local_client_aes_key, local_client_hmac_key);
+            } catch (java.security.KeyException ex) {
+                last_read_hmac_failure = true;
+                LOGGER.log(Level.SEVERE, "Channel HMAC verification failed (wrong password or MITM)", ex);
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }

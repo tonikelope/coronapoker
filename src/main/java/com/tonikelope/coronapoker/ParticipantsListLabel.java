@@ -81,26 +81,14 @@ public class ParticipantsListLabel extends JLabel implements ListCellRenderer<Pa
             background = Color.YELLOW;
             foreground = Color.BLACK;
         } else {
-            // Consulta tu mapa de participantes
             if (WaitingRoomFrame.getInstance() != null) {
-                Object stateObj = WaitingRoomFrame.getInstance().getParticipantes().get(participant.getNick());
-                if (stateObj != null) {
-                    // Aquí suponemos que tu objeto tiene los métodos isAsync_wait() / isUnsecure_player()
-                    boolean asyncWait = false;
-                    boolean unsecure = false;
-
-                    try {
-                        asyncWait = (boolean) stateObj.getClass().getMethod("isAsync_wait").invoke(stateObj);
-                        unsecure = (boolean) stateObj.getClass().getMethod("isUnsecure_player").invoke(stateObj);
-                    } catch (Exception e) {
-                        // ignora errores de reflexión
-                    }
-
-                    if (asyncWait) {
+                Participant state = WaitingRoomFrame.getInstance().getParticipantes().get(participant.getNick());
+                if (state != null) {
+                    if (state.isAsync_wait()) {
                         opaque = true;
                         background = Color.DARK_GRAY;
                         foreground = Color.WHITE;
-                    } else if (unsecure) {
+                    } else if (state.isUnsecure_player()) {
                         opaque = true;
                         background = Color.RED;
                         foreground = Color.WHITE;

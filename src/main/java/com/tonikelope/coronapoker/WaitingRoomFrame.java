@@ -1577,14 +1577,25 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
 
+                    // PSK-DH already authenticates the password: a wrong password produces a different
+                    // channel key and the server cannot decrypt this message. No need to send the password.
                     writeCommandToServer(Helpers.encryptCommand(Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
                             + "#" + AboutDialog.VERSION
-                            + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*")
-                            + (password != null ? "#" + Base64.getEncoder().encodeToString(password.getBytes("UTF-8")) : "#*"),
+                            + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*"),
                             aesKey, hmacKey));
 
                     net_client.setLocal_client_buffer_read_is(new BufferedReader(new InputStreamReader(sock.getInputStream())));
                     recibido = readCommandFromServer();
+
+                    if (recibido == null) {
+                        // The server closed the channel before answering. With PSK-DH this almost always
+                        // means a wrong password (the server could not decrypt the auth message) or, much
+                        // less likely, an active MITM on the network path.
+                        exit = true;
+                        mostrarMensajeError(THIS, Translator.translate("conn.secure_channel_failed"));
+                        throw new IOException("Secure channel not established");
+                    }
+
                     partes = recibido.split("#");
 
                     switch (partes[0]) {
@@ -1603,10 +1614,6 @@ public class WaitingRoomFrame extends JFrame {
                         case "NICKFAIL":
                             exit = true;
                             mostrarMensajeError(THIS, Translator.translate("conn.nick_taken"));
-                            break;
-                        case "BADPASSWORD":
-                            exit = true;
-                            mostrarMensajeError(THIS, Translator.translate("conn.bad_pass"));
                             break;
                         case "NICKOK":
                             if ("0".equals(partes[1])) {
@@ -2322,9 +2329,6 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(
                                 Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key),
                                 client_socket);
-                    } else if (password != null && ("*".equals(partes[3])
-                            || !password.equals(new String(Base64.getDecoder().decode(partes[3]), "UTF-8")))) {
-                        writeCommandFromServer(Helpers.encryptCommand("BADPASSWORD", aes_key, hmac_key), client_socket);
                     } else if (WaitingRoomFrame.getInstance().isPartida_empezando()
                             || WaitingRoomFrame.getInstance().isPartida_empezada()) {
                         writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);

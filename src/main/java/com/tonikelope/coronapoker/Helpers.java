@@ -3952,6 +3952,10 @@ public class Helpers {
         public static JMenu TAPETES_MENU = null;
         public static JMenu RABBIT_MENU = null;
         public static JMenu ZOOM_MENU = null;
+        public static JMenu VISTA_MENU = null;
+        public static JMenu SONIDO_MENU = null;
+        public static JMenu PERSONALIZACION_MENU = null;
+        public static JMenu AYUDA_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
         public static JMenuItem HALT_GAME_MENU;
         public static JCheckBoxMenuItem AUTO_FULLSCREEN_MENU;
@@ -4341,43 +4345,29 @@ public class Helpers {
                     }
                 };
 
-                JMenuItem shortcuts = new LeftClickMenuItem(shortcutsAction);
-                shortcuts.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/keyboard.png")));
-                popup.add(shortcuts);
-
-                JMenuItem chat = new LeftClickMenuItem(chatAction);
-                chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
-                popup.add(chat);
-                JMenuItem log = new LeftClickMenuItem(registroAction);
-                log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));
-                popup.add(log);
-                JMenuItem jugadas = new LeftClickMenuItem(jugadasAction);
-                jugadas.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/games.png")));
-                popup.add(jugadas);
-
-                popup.addSeparator();
-
-                AUTO_FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(autofullscreenAction);
-                AUTO_FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen_auto.png")));
-                AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
-                AUTO_FULLSCREEN_MENU.setEnabled(true);
-                popup.add(AUTO_FULLSCREEN_MENU);
+                // === VIEW submenu (display toggles + zoom + UI behavior preferences) ===
+                VISTA_MENU = new JMenu(Translator.translate("menu.vista"));
+                VISTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
 
                 FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(fullscreenAction);
                 FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen.png")));
                 FULLSCREEN_MENU.setSelected(GameFrame.getInstance().isFull_screen());
                 FULLSCREEN_MENU.setEnabled(true);
-                popup.add(FULLSCREEN_MENU);
+                VISTA_MENU.add(FULLSCREEN_MENU);
+
+                AUTO_FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(autofullscreenAction);
+                AUTO_FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen_auto.png")));
+                AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
+                AUTO_FULLSCREEN_MENU.setEnabled(true);
+                VISTA_MENU.add(AUTO_FULLSCREEN_MENU);
 
                 COMPACTA_MENU = new LeftClickCheckBoxMenuItem(compactAction);
                 COMPACTA_MENU.setSelected(GameFrame.VISTA_COMPACTA > 0);
                 COMPACTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
-
-                popup.add(COMPACTA_MENU);
+                VISTA_MENU.add(COMPACTA_MENU);
 
                 ZOOM_MENU = new JMenu("ZOOM");
                 ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom.png")));
-
                 JMenuItem zoom_in = new LeftClickMenuItem(zoominAction);
                 zoom_in.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_in.png")));
                 ZOOM_MENU.add(zoom_in);
@@ -4391,71 +4381,104 @@ public class Helpers {
                 AUTO_ZOOM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/zoom_auto.png")));
                 AUTO_ZOOM_MENU.setSelected(GameFrame.AUTO_ZOOM);
                 ZOOM_MENU.add(AUTO_ZOOM_MENU);
-
-                popup.add(ZOOM_MENU);
-
-                popup.addSeparator();
-
-                SONIDOS_MENU = new LeftClickCheckBoxMenuItem(soundAction);
-                SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
-                SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
-                popup.add(SONIDOS_MENU);
-                SONIDOS_COMENTARIOS_MENU = new LeftClickCheckBoxMenuItem(comentariosAction);
-                SONIDOS_COMENTARIOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/joke.png")));
-                SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
-                SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
-                popup.add(SONIDOS_COMENTARIOS_MENU);
-                SONIDOS_MUSICA_MENU = new LeftClickCheckBoxMenuItem(musicaAction);
-                SONIDOS_MUSICA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/music.png")));
-                SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
-                SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
-                popup.add(SONIDOS_MUSICA_MENU);
-                SONIDOS_TTS_MENU = new LeftClickCheckBoxMenuItem(TTSAction);
-                SONIDOS_TTS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
-                SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
-                SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
-                popup.add(SONIDOS_TTS_MENU);
-
-                popup.addSeparator();
-
-                CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);
-                CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
-                CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
-                popup.add(CONFIRM_MENU);
-                AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);
-                AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
-                AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
-                popup.add(AUTO_ACTION_MENU);
-
-                popup.addSeparator();
-
-                CINEMATICAS_MENU = new LeftClickCheckBoxMenuItem(cinematicasAction);
-                CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
-                CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
-                popup.add(CINEMATICAS_MENU);
-
-                ANIMACION_MENU = new LeftClickCheckBoxMenuItem(animacionAction);
-                ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
-                ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
-                popup.add(ANIMACION_MENU);
-
-                CHAT_IMAGE_MENU = new LeftClickCheckBoxMenuItem(chatimageAction);
-                CHAT_IMAGE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat_image.png")));
-                CHAT_IMAGE_MENU.setSelected(GameFrame.CHAT_IMAGES_INGAME);
-                popup.add(CHAT_IMAGE_MENU);
-
-                popup.addSeparator();
+                VISTA_MENU.add(ZOOM_MENU);
 
                 RELOJ_MENU = new LeftClickCheckBoxMenuItem(relojAction);
                 RELOJ_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/clock.png")));
                 RELOJ_MENU.setSelected(GameFrame.SHOW_CLOCK);
-                popup.add(RELOJ_MENU);
+                VISTA_MENU.add(RELOJ_MENU);
+
+                CINEMATICAS_MENU = new LeftClickCheckBoxMenuItem(cinematicasAction);
+                CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
+                CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
+                VISTA_MENU.add(CINEMATICAS_MENU);
+
+                ANIMACION_MENU = new LeftClickCheckBoxMenuItem(animacionAction);
+                ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
+                ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
+                VISTA_MENU.add(ANIMACION_MENU);
+
+                CHAT_IMAGE_MENU = new LeftClickCheckBoxMenuItem(chatimageAction);
+                CHAT_IMAGE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat_image.png")));
+                CHAT_IMAGE_MENU.setSelected(GameFrame.CHAT_IMAGES_INGAME);
+                VISTA_MENU.add(CHAT_IMAGE_MENU);
+
+                VISTA_MENU.addSeparator();
+
+                CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);
+                CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
+                CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
+                VISTA_MENU.add(CONFIRM_MENU);
+
+                AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);
+                AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
+                AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
+                VISTA_MENU.add(AUTO_ACTION_MENU);
+
+                // === SOUND submenu ===
+                SONIDO_MENU = new JMenu(Translator.translate("menu.audio"));
+                SONIDO_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/sound.png")));
+
+                SONIDOS_MENU = new LeftClickCheckBoxMenuItem(soundAction);
+                SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
+                SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
+                SONIDO_MENU.add(SONIDOS_MENU);
+
+                SONIDOS_COMENTARIOS_MENU = new LeftClickCheckBoxMenuItem(comentariosAction);
+                SONIDOS_COMENTARIOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/joke.png")));
+                SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
+                SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
+                SONIDO_MENU.add(SONIDOS_COMENTARIOS_MENU);
+
+                SONIDOS_MUSICA_MENU = new LeftClickCheckBoxMenuItem(musicaAction);
+                SONIDOS_MUSICA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/music.png")));
+                SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
+                SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
+                SONIDO_MENU.add(SONIDOS_MUSICA_MENU);
+
+                SONIDOS_TTS_MENU = new LeftClickCheckBoxMenuItem(TTSAction);
+                SONIDOS_TTS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
+                SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
+                SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
+                SONIDO_MENU.add(SONIDOS_TTS_MENU);
+
+                // === CUSTOMIZATION submenu (decks + mats) ===
+                PERSONALIZACION_MENU = new JMenu(Translator.translate("menu.personalizacion"));
+                PERSONALIZACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
+                PERSONALIZACION_MENU.add(BARAJAS_MENU);
+                PERSONALIZACION_MENU.add(TAPETES_MENU);
+
+                // === HELP submenu (shortcuts, rules, hand evaluator) ===
+                AYUDA_MENU = new JMenu(Translator.translate("menu.ayuda"));
+                AYUDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/info.png")));
+
+                JMenuItem shortcuts = new LeftClickMenuItem(shortcutsAction);
+                shortcuts.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/keyboard.png")));
+                AYUDA_MENU.add(shortcuts);
+
+                JMenuItem rules = new LeftClickMenuItem(rulesAction);
+                rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
+                AYUDA_MENU.add(rules);
+
+                JMenuItem jugadas = new LeftClickMenuItem(jugadasAction);
+                jugadas.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/games.png")));
+                AYUDA_MENU.add(jugadas);
+
+                // === ROOT popup ===
+                JMenuItem chat = new LeftClickMenuItem(chatAction);
+                chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
+                popup.add(chat);
+
+                JMenuItem log = new LeftClickMenuItem(registroAction);
+                log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));
+                popup.add(log);
 
                 popup.addSeparator();
 
-                popup.add(BARAJAS_MENU);
-
-                popup.add(TAPETES_MENU);
+                popup.add(VISTA_MENU);
+                popup.add(SONIDO_MENU);
+                popup.add(PERSONALIZACION_MENU);
+                popup.add(AYUDA_MENU);
 
                 popup.addSeparator();
 
@@ -4465,14 +4488,10 @@ public class Helpers {
                 REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(REBUY_NOW_MENU);
 
-                popup.addSeparator();
-
                 IWTSTH_RULE_MENU = new LeftClickCheckBoxMenuItem(iwtsthRuleAction);
                 IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
                 IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
                 popup.add(IWTSTH_RULE_MENU);
-
-                popup.addSeparator();
 
                 popup.add(RABBIT_MENU);
 
@@ -4480,29 +4499,26 @@ public class Helpers {
 
                 LAST_HAND_MENU = new LeftClickCheckBoxMenuItem(lastHandAction);
                 LAST_HAND_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/last_hand.png")));
-
                 LAST_HAND_MENU.setSelected(false);
                 popup.add(LAST_HAND_MENU);
+
                 MAX_HANDS_MENU = new LeftClickMenuItem(maxHandsAction);
                 MAX_HANDS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
                 popup.add(MAX_HANDS_MENU);
 
                 popup.addSeparator();
-                JMenuItem rules = new LeftClickMenuItem(rulesAction);
-                rules.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/book.png")));
-                popup.add(rules);
 
-                popup.addSeparator();
                 HALT_GAME_MENU = new LeftClickMenuItem(haltAction);
                 HALT_GAME_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/stop.png")));
                 popup.add(HALT_GAME_MENU);
 
                 popup.addSeparator();
+
                 JMenuItem exit_menu = new LeftClickMenuItem(exitAction);
                 exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));
                 popup.add(exit_menu);
 
-                Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")));
+                Helpers.updateFonts(popup, Helpers.GUI_FONT, Float.valueOf(Helpers.PROPERTIES.getProperty("zoom_menu", "1")) * 1.10f);
                 Helpers.translateComponents(popup, false);
 
             }

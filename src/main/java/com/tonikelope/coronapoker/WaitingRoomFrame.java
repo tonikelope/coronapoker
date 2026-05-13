@@ -1046,9 +1046,9 @@ public class WaitingRoomFrame extends JFrame {
 
                         byte[] clientSharedSecret = clientKeyAgree.generateSecret();
 
-                        byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
+                        byte[] secret_hash = Helpers.deriveChannelSecret(clientSharedSecret, password);
 
-                        net_client.setLocal_client_aes_key(new SecretKeySpec(secret_hash, 0, 16, "AES"));
+                        net_client.setLocal_client_aes_key(new SecretKeySpec(secret_hash, 0, 32, "AES"));
 
                         net_client.setLocal_client_hmac_key(new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256"));
 
@@ -1562,8 +1562,8 @@ public class WaitingRoomFrame extends JFrame {
                     PublicKey serverPubKey = clientKeyFac.generatePublic(x509KeySpec);
                     clientKeyAgree.doPhase(serverPubKey, true);
                     byte[] clientSharedSecret = clientKeyAgree.generateSecret();
-                    byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(clientSharedSecret);
-                    SecretKeySpec aesKey = new SecretKeySpec(secret_hash, 0, 16, "AES");
+                    byte[] secret_hash = Helpers.deriveChannelSecret(clientSharedSecret, password);
+                    SecretKeySpec aesKey = new SecretKeySpec(secret_hash, 0, 32, "AES");
                     SecretKeySpec hmacKey = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
                     net_client.setLocal_client_aes_key(aesKey);
                     net_client.setLocal_client_hmac_key(hmacKey);
@@ -2227,8 +2227,8 @@ public class WaitingRoomFrame extends JFrame {
 
                     serverKeyAgree.doPhase(clientPubKey, true);
                     byte[] serverSharedSecret = serverKeyAgree.generateSecret();
-                    byte[] secret_hash = MessageDigest.getInstance("SHA-512").digest(serverSharedSecret);
-                    SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 16, "AES");
+                    byte[] secret_hash = Helpers.deriveChannelSecret(serverSharedSecret, password);
+                    SecretKeySpec aes_key = new SecretKeySpec(secret_hash, 0, 32, "AES");
                     SecretKeySpec hmac_key = new SecretKeySpec(secret_hash, 32, 32, "HmacSHA256");
                     /* FIN INTERCAMBIO DE CLAVES */
 

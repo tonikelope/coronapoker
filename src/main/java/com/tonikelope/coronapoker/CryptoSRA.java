@@ -231,14 +231,18 @@ public class CryptoSRA {
         private int index = 0;
 
         public DeterministicStream(byte[] seed) throws Exception {
-            // Ensure strict 256-bit key requirement for AES-256
+            // First 32 bytes: AES-256 key. Bytes 32..48: IV. Falls back to a zero IV
+            // when the caller supplies a 32-byte legacy seed.
             byte[] key = new byte[32];
+            byte[] iv = new byte[16];
             System.arraycopy(seed, 0, key, 0, Math.min(seed.length, 32));
-            
+            if (seed.length >= 48) {
+                System.arraycopy(seed, 32, iv, 0, 16);
+            }
+
             SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-            // Static all-zero IV is mathematically safe because the AES Key (seed) is unique per run
-            IvParameterSpec ivSpec = new IvParameterSpec(new byte[16]); 
-            
+            IvParameterSpec ivSpec = new IvParameterSpec(iv);
+
             cipher = Cipher.getInstance("AES/CTR/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
         }
@@ -455,30 +459,4 @@ public class CryptoSRA {
         return result;
     }
 
-    public static byte[] generateCommitment(byte[] seed) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(seed);
-        } catch (Exception e) {
-            return new byte[32];
-        }
-    }
-
-    public static byte[] shuffleCardIndices(byte[] seed) {
-        byte[] deck52 = new byte[52];
-        for (int i = 0; i < 52; i++) {
-            deck52[i] = (byte) i;
-        }
-        try {
-            DeterministicStream stream = new DeterministicStream(seed);
-            for (int i = 51; i > 0; i--) {
-                int j = stream.getUnbiasedInt(i + 1);
-                byte temp = deck52[i];
-                deck52[i] = deck52[j];
-                deck52[j] = temp;
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Deterministic index shuffle failed", e);
-        }
-        return deck52;
-    }
 }

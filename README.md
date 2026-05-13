@@ -21,7 +21,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 ## Features
 
 ### Cryptographic security
-- Zero-Trust by design with a Mental Poker efficient native implemetation.
+- Zero-Trust by design with a Mental Poker efficient native implementation.
 - End-to-end encryption between players.
 - P2P: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
 - Password-protected games.

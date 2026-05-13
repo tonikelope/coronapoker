@@ -5390,10 +5390,20 @@ public class Crupier implements Runnable {
         }
 
         if (isFin_de_la_transmision()) {
+            // Game cancelled mid-round: park the crupier thread here so the
+            // recursive rondaApuestas(street + 1, ...) below is never reached
+            // once fin_de_la_transmision is set. Loop with a timeout to be
+            // resilient to spurious wakeups and to unrelated notifyAll() calls
+            // on lock_apuestas (incoming bets, queue drains). Exit only on
+            // thread interruption.
             synchronized (getLock_apuestas()) {
-                try {
-                    getLock_apuestas().wait();
-                } catch (InterruptedException ex) {
+                while (isFin_de_la_transmision()) {
+                    try {
+                        getLock_apuestas().wait(1000);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         }

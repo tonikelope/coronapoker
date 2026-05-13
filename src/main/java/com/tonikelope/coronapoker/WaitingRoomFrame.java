@@ -493,7 +493,7 @@ public class WaitingRoomFrame extends JFrame {
 
             // Use a table because Swing's HTML renderer handles tables as 'shrink-to-fit' containers.
             // This effectively mimics 'display: inline-block' which is not supported in Swing.
-            html += "<table " + align + " border='0' cellpadding='5' cellspacing='0' bgcolor='" + bg_color + "'>"
+            html += "<table class='bubble' data-bg='" + bg_color + "' " + align + " border='0' cellpadding='5' cellspacing='0' bgcolor='" + bg_color + "'>"
                     + "<tr>"
                     + "<td>"
                     + // Header section with Avatar, Nickname and Time

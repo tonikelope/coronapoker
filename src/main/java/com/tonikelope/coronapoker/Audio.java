@@ -730,7 +730,7 @@ public class Audio {
                             chat_notify_label.setVisible(true);
                         });
 
-                        CoronaMP3FilePlayer TTS_PLAYER = new CoronaMP3FilePlayer();
+                        TTS_PLAYER = new CoronaMP3FilePlayer();
 
                         float volume = (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
 

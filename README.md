@@ -21,10 +21,10 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 ## Features
 
 ### Cryptographic security
-- Zero-Trust by design with a Mental Poker efficient native implementation.
-- End-to-end encryption between players.
-- P2P: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
-- Password-protected games.
+- Zero-Trust deck protocol: every card is shuffled and locked by every player through Mental Poker EC-SRA over Curve25519. Nobody — not even the host — can see another player's pocket cards or peek at the community cards before they are revealed. Each hand is shuffled fresh by all participants, so card distribution is unbiasable.
+- End-to-end encryption between players (ECDH key exchange → AES-256-CBC + HMAC-SHA256).
+- Password-bound channel keys: when the game is password-protected, the symmetric channel keys are cryptographically tied to the password (HMAC-SHA512), so an attacker on the network path cannot mount a MITM even with full visibility of the wire.
+- Pure P2P: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
 
 ### Gameplay
 - Cross-platform: Windows, macOS, Linux.

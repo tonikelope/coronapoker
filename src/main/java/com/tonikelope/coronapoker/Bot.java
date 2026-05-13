@@ -174,6 +174,10 @@ public class Bot {
     private volatile boolean scareCardDetected = false;
     private volatile double lastEffectiveStrength = 0.5;
 
+    private volatile Position cachedPosition = Position.UNKNOWN;
+    private volatile BoardTexture cachedTexture = null;
+    private volatile int cachedTextureBoardSize = -1;
+
     // Advanced state
     private volatile boolean planCheckRaise = false;
     private volatile boolean floatPlay = false;
@@ -324,6 +328,9 @@ public class Bot {
         previousPpot = 0.0;
         aggressiveLine = false;
         lastEffectiveStrength = 0.5;
+        cachedPosition = Position.UNKNOWN;
+        cachedTexture = null;
+        cachedTextureBoardSize = -1;
 
         if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
             onTilt = Helpers.CSPRNG_GENERATOR.nextInt(100) < (30 + consecutiveLosses * 10);
@@ -422,8 +429,15 @@ public class Bot {
         }
 
         double strength = HANDEVALUATOR.handRank(holeCard1, holeCard2, BOT_COMMUNITY_CARDS, opponentsCount);
-        double ppot = HANDPOTENTIAL.ppot_raw(holeCard1, holeCard2, BOT_COMMUNITY_CARDS, true);
-        double npot = HANDPOTENTIAL.getLastNPot();
+        double ppot;
+        double npot;
+        if (street >= Crupier.RIVER) {
+            ppot = 0;
+            npot = 0;
+        } else {
+            ppot = HANDPOTENTIAL.ppot_raw(holeCard1, holeCard2, BOT_COMMUNITY_CARDS, street == Crupier.FLOP);
+            npot = HANDPOTENTIAL.getLastNPot();
+        }
         double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
         // Ajustes de fuerza relativa:
@@ -1041,12 +1055,21 @@ public class Bot {
     }
 
     private BoardTexture calculateFullBoardTexture() {
+        int numCards = BOT_COMMUNITY_CARDS.size();
+        if (cachedTexture != null && cachedTextureBoardSize == numCards) {
+            return cachedTexture;
+        }
+        BoardTexture tex = computeBoardTexture(numCards);
+        cachedTexture = tex;
+        cachedTextureBoardSize = numCards;
+        return tex;
+    }
+
+    private BoardTexture computeBoardTexture(int numCards) {
         BoardTexture tex = new BoardTexture();
-        if (BOT_COMMUNITY_CARDS.size() < 3) {
+        if (numCards < 3) {
             return tex;
         }
-
-        int numCards = BOT_COMMUNITY_CARDS.size();
         int[] suits = new int[4];
         int[] ranks = new int[15];
         int[] cardRanks = new int[numCards];
@@ -1119,6 +1142,14 @@ public class Bot {
     }
 
     private Position determinePosition() {
+        if (cachedPosition != Position.UNKNOWN) {
+            return cachedPosition;
+        }
+        cachedPosition = computePosition();
+        return cachedPosition;
+    }
+
+    private Position computePosition() {
         String myNick = cpuPlayer.getNickname();
         Crupier crupier = GameFrame.getInstance().getCrupier();
         String dealerNick = crupier.getDealer_nick();

@@ -72,21 +72,27 @@ public class CoronaMP3FilePlayer {
             line = (SourceDataLine) AudioSystem.getLine(info);
 
             if (line != null) {
-                line.open(outFormat);
-                setVolume(volume);
-                line.start();
-                playing = true;
+                try {
+                    line.open(outFormat);
+                    setVolume(volume);
+                    line.start();
+                    playing = true;
 
-                stream(getAudioInputStream(outFormat, in), line);
+                    stream(getAudioInputStream(outFormat, in), line);
 
-                if (playing) {
-                    playing = false;
-                    line.drain();
-                    line.stop();
+                    if (playing) {
+                        playing = false;
+                        line.drain();
+                        line.stop();
+                    }
+
+                    paused = false;
+                } finally {
+                    try {
+                        line.close();
+                    } catch (Exception ignored) {
+                    }
                 }
-
-                line.close();
-                paused = false;
             }
 
         } catch (LineUnavailableException | IllegalArgumentException ex) {

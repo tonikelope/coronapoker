@@ -3079,6 +3079,8 @@ public class Helpers {
             Thread.sleep(Math.max(pause, 0));
 
         } catch (InterruptedException ex) {
+            // Restore the interrupt flag so callers can observe cooperative cancellation.
+            Thread.currentThread().interrupt();
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, null, ex);
         }

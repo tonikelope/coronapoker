@@ -125,6 +125,11 @@ public class Init extends JFrame {
         if (!isDesignTime()) {
             LOGGER.log(Level.INFO, "OS: {0}", System.getProperty("os.name"));
 
+            // Force JVM HiDPI scaling to 1.0 so the OS display scale (Windows zoom,
+            // macOS Retina factor, etc.) never re-scales the UI. The in-game Ctrl+/Ctrl-
+            // zoom is the only mechanism that changes rendering size.
+            System.setProperty("sun.java2d.uiScale", "1");
+
             if (Helpers.OSValidator.isUnix()) {
                 System.setProperty("sun.java2d.opengl", "true");
                 System.setProperty("sun.java2d.d3d", "false");

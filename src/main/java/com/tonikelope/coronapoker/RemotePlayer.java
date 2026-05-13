@@ -353,7 +353,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 new_width = max_width;
                             }
 
-                            ImageIcon image = Helpers.scaleAwareIcon(orig.getImage(), new_width, new_height, isgif);
+                            ImageIcon image = new ImageIcon(orig.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
 
                             int pos_x = Math.round((panel_cartas.getWidth() - image.getIconWidth()) / 2);
 

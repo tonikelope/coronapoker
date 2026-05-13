@@ -2059,13 +2059,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                         String previous_chat_data = "";
 
+                        final String chat_html_head = "<head><style>table.bubble{border-radius:12px;}</style></head>";
+
                         if (Files.exists(Paths.get(chat_file))) {
 
-                            previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html><body.*?>(.*?)</body></html>", "$1");
-                            Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>", StandardOpenOption.TRUNCATE_EXISTING);
+                            previous_chat_data = Files.readString(Paths.get(chat_file)).replaceAll("<html>(?:<head>.*?</head>)?<body.*?>(.*?)</body></html>", "$1");
+                            Files.writeString(Paths.get(chat_file), "<html>" + chat_html_head + "<body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + previous_chat_data + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>", StandardOpenOption.TRUNCATE_EXISTING);
 
                         } else {
-                            Files.writeString(Paths.get(chat_file), "<html><body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
+                            Files.writeString(Paths.get(chat_file), "<html>" + chat_html_head + "<body style='background-image: url(" + this.sala_espera.getBackground_chat_src() + ")'>" + this.sala_espera.txtChat2HTML(this.sala_espera.getChat_text().toString()) + "</body></html>");
 
                         }
 

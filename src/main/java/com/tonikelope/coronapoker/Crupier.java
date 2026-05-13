@@ -3467,7 +3467,12 @@ public class Crupier implements Runnable {
             actualizarContadoresTapete();
 
             Object shuffle_lock = new Object();
+            // barajando here means "SRA cascade still running, keep looping the shuffle
+            // animation". The thread polls it after each complete GIF cycle (and after
+            // each audio-only cycle in the fallback path).
             barajando = true;
+
+            final boolean[] gif_thread_done = {false};
 
             Helpers.threadRun(() -> {
                 String baraja = GameFrame.BARAJA;
@@ -3492,8 +3497,13 @@ public class Crupier implements Runnable {
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
                     });
-                    GameFrame.getInstance().getTapete().showCentralImage(icon, 0, SHUFFLE_ANIMATION_DELAY, true,
-                            "misc/shuffle.wav", 1, 53);
+                    // Loop the shuffle GIF (with audio re-triggered each cycle) until the
+                    // SRA cascade finishes. Minimum 1 full cycle thanks to do-while.
+                    // delay_end=0 keeps the gap between cycles to the bare EDT round-trip.
+                    do {
+                        GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true,
+                                "misc/shuffle.wav", 1, 53);
+                    } while (barajando && !isFin_de_la_transmision());
                     if (!isFin_de_la_transmision()) {
                         Helpers.GUIRunAndWait(() -> {
                             GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
@@ -3503,12 +3513,15 @@ public class Crupier implements Runnable {
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
                     });
-                    Audio.playWavResource("misc/shuffle.wav");
-                    Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
+                    // Audio-only fallback when no shuffle.gif is available for this deck.
+                    do {
+                        Audio.playWavResource("misc/shuffle.wav");
+                        Helpers.pausar(GIF_SHUFFLE_ANIMATION_TIMEOUT);
+                    } while (barajando && !isFin_de_la_transmision());
                     Audio.stopWavResource("misc/shuffle.wav");
                 }
-                barajando = false;
                 synchronized (shuffle_lock) {
+                    gif_thread_done[0] = true;
                     shuffle_lock.notifyAll();
                 }
             });
@@ -3517,6 +3530,16 @@ public class Crupier implements Runnable {
 
                 // Si la cascada falla (alguien no responde), abortamos la inicialización
                 if (!enviarCartasJugadoresRemotos()) {
+                    barajando = false;
+                    synchronized (shuffle_lock) {
+                        while (!gif_thread_done[0]) {
+                            try {
+                                shuffle_lock.wait(1000);
+                            } catch (InterruptedException ex) {
+                                LOGGER.log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
                     return false;
                 }
 
@@ -3530,16 +3553,17 @@ public class Crupier implements Runnable {
                 cartas_locales_recibidas = recibirMisCartas();
             }
 
-            if (barajando) {
-                do {
-                    synchronized (shuffle_lock) {
-                        try {
-                            shuffle_lock.wait(1000);
-                        } catch (InterruptedException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
+            // Cascade done: signal the loop to exit at the next cycle boundary.
+            barajando = false;
+
+            synchronized (shuffle_lock) {
+                while (!gif_thread_done[0]) {
+                    try {
+                        shuffle_lock.wait(1000);
+                    } catch (InterruptedException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
-                } while (barajando);
+                }
             }
 
             repartir();

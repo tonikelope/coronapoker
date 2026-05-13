@@ -772,8 +772,8 @@ public class WaitingRoomFrame extends JFrame {
                     NewGameDialog.DEFAULT_AVATAR_WIDTH);
             try {
                 ImageIO.write(
-                        Helpers.toBufferedImage(Helpers.scaleHighQuality(
-                                new ImageIcon(local_avatar.getAbsolutePath()).getImage(), 32, 32)),
+                        Helpers.toBufferedImage(new ImageIcon(new ImageIcon(local_avatar.getAbsolutePath()).getImage()
+                                .getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()),
                         "png", new File(local_avatar.getAbsolutePath() + "_chat"));
                 local_avatar_chat_src = new File(local_avatar.getAbsolutePath() + "_chat").toURI().toURL()
                         .toExternalForm();

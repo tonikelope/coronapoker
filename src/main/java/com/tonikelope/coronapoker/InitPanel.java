@@ -92,7 +92,8 @@ public class InitPanel extends javax.swing.JLayeredPane {
                     int h = Math.max(getHeight(), 1);
 
                     if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
-                        tile = Helpers.toBufferedImage(Helpers.scaleHighQuality(Init.I1, w, h));
+                        Image scaled = Init.I1.getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                        tile = Helpers.toBufferedImage(scaled);
                     } else {
                         String resPath = "/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg";
                         tile = ImageIO.read(getClass().getResourceAsStream(resPath));

@@ -111,7 +111,7 @@ public class Participant implements Runnable {
 
         if (avatar != null) {
             try {
-                ImageIO.write(Helpers.toBufferedImage(Helpers.scaleHighQuality(new ImageIcon(avatar.getAbsolutePath()).getImage(), 32, 32)), "png", new File(avatar.getAbsolutePath() + "_chat"));
+                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(avatar.getAbsolutePath() + "_chat"));
                 avatar_chat_src = new File(avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
             } catch (IOException ex) {
                 avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();

@@ -221,7 +221,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                 break;
         }
 
-        return new ImageIcon(Helpers.scaleHighQuality(new ImageIcon(Card.class.getResource(image)).getImage(), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f)));
+        return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Image.SCALE_SMOOTH));
 
     }
 
@@ -242,7 +242,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
                 break;
         }
 
-        return new ImageIcon(Helpers.scaleHighQuality(new ImageIcon(Card.class.getResource(image)).getImage(), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f)));
+        return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Image.SCALE_SMOOTH));
 
     }
 
@@ -269,7 +269,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         }
 
-        return new ImageIcon(Helpers.makeImageRoundedCorner(Helpers.scaleHighQuality(img, CARD_WIDTH, CARD_HEIGHT), CARD_CORNER));
+        return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER));
 
     }
 
@@ -279,7 +279,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         img = new ImageIcon(Card.class.getResource(path)).getImage();
 
-        return new ImageIcon(Helpers.makeImageRoundedCorner(Helpers.scaleHighQuality(img, CARD_WIDTH, CARD_HEIGHT), CARD_CORNER));
+        return new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER));
 
     }
 
@@ -302,7 +302,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         }
 
-        return new ImageIcon(Helpers.desaturate(Helpers.makeImageRoundedCorner(Helpers.scaleHighQuality(img, CARD_WIDTH, CARD_HEIGHT), CARD_CORNER), DISABLED_CARD_OPACITY));
+        return new ImageIcon(Helpers.desaturate(Helpers.makeImageRoundedCorner(new ImageIcon(img.getScaledInstance(CARD_WIDTH, CARD_HEIGHT, Image.SCALE_SMOOTH)).getImage(), CARD_CORNER), DISABLED_CARD_OPACITY));
 
     }
 

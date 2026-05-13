@@ -137,19 +137,12 @@ public class EmojiPanel extends javax.swing.JPanel {
             label.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    try {
+                    WaitingRoomFrame.getInstance().getChat_box().insertEmoji(j, EMOJI_ICON.get(j - 1));
+                    WaitingRoomFrame.getInstance().getChat_box().requestFocus();
 
-                        WaitingRoomFrame.getInstance().getChat_box().getDocument().insertString(WaitingRoomFrame.getInstance().getChat_box().getCaretPosition(), " #" + j + "# ", null);
-                        WaitingRoomFrame.getInstance().getChat_box().requestFocus();
-
-                        Helpers.threadRun(() -> {
-                            updateHistorial(j);
-                        });
-
-                    } catch (BadLocationException ex) {
-                        Logger.getLogger(EmojiPanel.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
+                    Helpers.threadRun(() -> {
+                        updateHistorial(j);
+                    });
                 }
             });
 

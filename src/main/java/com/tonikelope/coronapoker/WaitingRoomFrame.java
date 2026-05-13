@@ -625,8 +625,8 @@ public class WaitingRoomFrame extends JFrame {
         return removeEmojiChat(removeLinksImagesChat(removeBBCODEChat(msg))).trim();
     }
 
-    public JTextField getChat_box() {
-        return chat_box;
+    public EmojiChatBox getChat_box() {
+        return (EmojiChatBox) chat_box;
     }
 
     /**
@@ -652,25 +652,39 @@ public class WaitingRoomFrame extends JFrame {
         class SendButtonListener implements DocumentListener {
 
             public void changedUpdate(DocumentEvent e) {
-
-                send_label.setVisible(!chat_box.getText().isBlank());
-                max_min_label.setVisible(chat_box.getText().isBlank());
+                refresh();
             }
 
             public void insertUpdate(DocumentEvent e) {
-                send_label.setVisible(!chat_box.getText().isBlank());
-                max_min_label.setVisible(chat_box.getText().isBlank());
+                refresh();
             }
 
             public void removeUpdate(DocumentEvent e) {
-                send_label.setVisible(!chat_box.getText().isBlank());
-                max_min_label.setVisible(chat_box.getText().isBlank());
+                refresh();
+            }
+
+            private void refresh() {
+                boolean blank = ((EmojiChatBox) chat_box).isRawBlank();
+                send_label.setVisible(!blank);
+                max_min_label.setVisible(blank);
             }
         }
 
         latency_label.setVisible(false);
 
         chat_box.getDocument().addDocumentListener(new SendButtonListener());
+
+        javax.swing.AbstractAction send_chat_action = new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                chat_boxActionPerformed(null);
+            }
+        };
+        chat_box.getInputMap(javax.swing.JComponent.WHEN_FOCUSED).put(
+                javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0), "send-chat");
+        chat_box.getInputMap(javax.swing.JComponent.WHEN_FOCUSED).put(
+                javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, java.awt.event.KeyEvent.SHIFT_DOWN_MASK), "send-chat");
+        chat_box.getActionMap().put("send-chat", send_chat_action);
 
         emoji_button.setEnabled(false);
 
@@ -2856,7 +2870,7 @@ public class WaitingRoomFrame extends JFrame {
         chat = new javax.swing.JEditorPane();
         jPanel1 = new javax.swing.JPanel();
         chat_box_panel = new javax.swing.JPanel();
-        chat_box = new javax.swing.JTextField();
+        chat_box = new com.tonikelope.coronapoker.EmojiChatBox();
         emoji_button = new javax.swing.JButton();
         image_button = new javax.swing.JButton();
         send_label = new javax.swing.JLabel();
@@ -3205,11 +3219,6 @@ public class WaitingRoomFrame extends JFrame {
 
         chat_box.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         chat_box.setDoubleBuffered(true);
-        chat_box.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                chat_boxActionPerformed(evt);
-            }
-        });
 
         emoji_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1.png"))); // NOI18N
         emoji_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -3846,7 +3855,7 @@ public class WaitingRoomFrame extends JFrame {
 
     private void chat_boxActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_chat_boxActionPerformed
 
-        String mensaje = chat_box.getText().trim();
+        String mensaje = ((EmojiChatBox) chat_box).getRawText().trim();
 
         if (chat_enabled && mensaje.length() > 0) {
 
@@ -4029,7 +4038,7 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JLabel avatar_label;
     private javax.swing.JProgressBar barra;
     private javax.swing.JEditorPane chat;
-    private javax.swing.JTextField chat_box;
+    private javax.swing.JTextPane chat_box;
     private javax.swing.JPanel chat_box_panel;
     private javax.swing.JCheckBox chat_notifications;
     private javax.swing.JScrollPane chat_scroll;

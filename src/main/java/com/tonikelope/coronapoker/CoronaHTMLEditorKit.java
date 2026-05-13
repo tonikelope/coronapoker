@@ -140,7 +140,11 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                         tracker.waitForAll();
                                         if (image.getImageLoadStatus() != MediaTracker.ERRORED) {
                                             if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
-                                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), (isgif || (isgif = Helpers.isImageGIF(new URL(url)))) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+                                                if (!isgif) {
+                                                    isgif = Helpers.isImageGIF(new URL(url));
+                                                }
+                                                int newH = (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth());
+                                                image = Helpers.scaleAwareIcon(image.getImage(), ChatImageDialog.MAX_IMAGE_WIDTH, newH, isgif);
                                             }
                                             ImageIcon final_image = image;
                                             Helpers.GUIRun(() -> {

@@ -18,27 +18,39 @@ This is the project of a perfectionist, who one day during the confinement of CO
 https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62-3567c593482d
 
 
-## Some features:
-- Secure by design: Zero-Trust Architecture (Mental Poker EC-SRA)
-- P2P: No central servers nor third parties logging things (just you and your friends).
-- Cross platform.
-- Point-to-point encryption (DH + AES 128).
-- Password protected games.
-- Up to 10 simultaneous human/bot players.
-- Intuitive interface (with comfortable key shortcuts).
-- Global in-game zoom (UHD resolution supported).
+## Features
+
+### Cryptographic security
+- **Zero-Trust by design**: cards are dealt through a Mental Poker protocol (EC-SRA). Even the host can't see or manipulate them — verified on every hand.
+- **End-to-end encryption** between players (DH key exchange + AES-128 + HMAC).
+- **Pure P2P**: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
+- Password-protected games.
+
+### Gameplay
+- Cross-platform: Windows, macOS, Linux.
+- 2 to 10 players: any mix of humans and bots.
+- **Bots** with 3 difficulty levels (Easy / Medium / Hard) and adaptive personalities (NIT, STATION, TAG, LAG) that c-bet, semi-bluff, slow-play traps, tilt, and adjust to each opponent's stats.
+- ALL-IN side pots, fully supported.
+- Dead-button rule (BB / SB / Button) for fair short-handed play.
+- **IWTSTH** ("I Want To See That Hand") and **Rabbit Hunting**, toggleable mid-game.
+- REBUY mid-game.
+- Blinds fully adjustable by the host during play (manual or scheduled doubling).
+- Pause anytime; add new players to a running session.
+
+### Reliability
+- **Crash-tolerant**: a game can be resumed from the exact stop point after network or power failure.
+- Hand history, game log and per-player statistics persisted on disk.
+
+### UX
+- Intuitive interface with comfortable keyboard shortcuts.
+- Global in-game zoom (UHD supported).
+- 3 view modes for any screen size (normal, compact, super-compact) + low-brightness mode.
 - Cool sounds, decks, mats, cinematics and 3D card effects.
-- ALL-IN side pots fully supported.
-- "Dead button" rule for BB/SB/DE positions.
-- IWTSTH rule available (can be enabled/disabled by the host during the game).
-- RABBIT HUNTING (can be enabled/disabled by the host during the game).
-- All blinds stuff adjustable by the host during the game.
-- REBUY available during games.
-- Waiting room chat with emojis, custom gifs and urls support.
-- Text to speech fast chat and sending of custom gifs during the game.
-- 3 view modes for different screen sizes (normal, compact, and super compact) and low brightness mode.
-- Very high tolerance to network/power failures (games can be resumed from exact stop point).
-- It is possible to pause the game at any time and add new players.
-- Game log and statistics.
-- i18n support.
-- Customizable: create and share your MODs with custom font, decks, sounds and cinematics.
+- Full i18n support (English / Spanish out of the box).
+
+### Communication
+- Waiting-room chat with emojis, custom GIFs and URL preview.
+- In-game fast chat with TTS (text-to-speech) and inline GIF sending.
+
+### Customization
+- Shareable **MODs**: custom fonts, decks, mats, sounds, cinematics.

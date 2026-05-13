@@ -137,3 +137,4 @@ $RECYCLE.BIN/
 
 *.db
 /src/main/java/com/tonikelope/coronapoker/Huevos.java
+.i18n_unused_review.txt

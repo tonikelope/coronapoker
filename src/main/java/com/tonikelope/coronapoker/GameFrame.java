@@ -2060,9 +2060,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         String previous_chat_data = "";
 
                         final String chat_html_head = "<head><style>"
-                                + "table.bubble{border-radius:12px;}"
-                                + "table.bubble-mine{background-color:#d9fdd3;}"
-                                + "table.bubble-other{background-color:white;}"
+                                + ".bubble-mine,.bubble-other{padding:5px;border-radius:12px;}"
+                                + ".bubble-mine{background-color:#d9fdd3;}"
+                                + ".bubble-other{background-color:white;}"
                                 + "</style></head>";
 
                         if (Files.exists(Paths.get(chat_file))) {

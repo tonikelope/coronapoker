@@ -99,6 +99,16 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
         public View create(Element element) {
             HTML.Tag kind = (HTML.Tag) (element.getAttributes().getAttribute(javax.swing.text.StyleConstants.NameAttribute));
 
+            if (kind == HTML.Tag.DIV) {
+                Object classAttr = element.getAttributes().getAttribute(HTML.Attribute.CLASS);
+                if (classAttr != null) {
+                    String cls = classAttr.toString();
+                    if (cls.contains("bubble-mine") || cls.contains("bubble-other")) {
+                        return new RoundedBubbleView(element);
+                    }
+                }
+            }
+
             if (kind instanceof HTML.UnknownTag && element.getName().equals("tonimg")) {
 
                 return new ComponentView(element) {

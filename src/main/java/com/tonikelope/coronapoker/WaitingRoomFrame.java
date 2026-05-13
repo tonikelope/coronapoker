@@ -491,11 +491,13 @@ public class WaitingRoomFrame extends JFrame {
 
             msg = parseBBCODEChat(msg);
 
-            // Use a table because Swing's HTML renderer handles tables as 'shrink-to-fit' containers.
-            // This effectively mimics 'display: inline-block' which is not supported in Swing.
-            html += "<table class='" + bubble_class + "' " + align + " border='0' cellpadding='5' cellspacing='0'>"
+            // Outer table is kept solely as a 'shrink-to-fit' container (HTMLEditorKit
+            // does not support display:inline-block). The inner <div class='bubble-...'>
+            // is rendered by RoundedBubbleView, which paints the rounded background.
+            html += "<table " + align + " border='0' cellpadding='0' cellspacing='0'>"
                     + "<tr>"
                     + "<td>"
+                    + "<div class='" + bubble_class + "' style='padding:5px;'>"
                     + // Header section with Avatar, Nickname and Time
                     "<div>"
                     + "<img id='avatar_" + nick + "' align='middle' src='" + avatar_src + "' />"
@@ -504,6 +506,7 @@ public class WaitingRoomFrame extends JFrame {
                     + "</div>"
                     + // Body section with the message
                     "<div>" + msg + "</div>"
+                    + "</div>"
                     + "</td>"
                     + "</tr>"
                     + "</table>";
@@ -2850,7 +2853,7 @@ public class WaitingRoomFrame extends JFrame {
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
-        chat = new com.tonikelope.coronapoker.RoundedChatPane();
+        chat = new javax.swing.JEditorPane();
         jPanel1 = new javax.swing.JPanel();
         chat_box_panel = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();

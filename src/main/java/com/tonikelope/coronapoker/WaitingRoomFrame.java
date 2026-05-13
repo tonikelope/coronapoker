@@ -110,6 +110,22 @@ public class WaitingRoomFrame extends JFrame {
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
+
+    // Pre-compiled patterns used per chat message in txtChat2HTML and its helpers.
+    // Hot path: avoid String.replaceAll which recompiles the regex on every call.
+    private static final Pattern CHAT_NICK_PATTERN = Pattern.compile("^([^:()]+:+).*$");
+    private static final Pattern CHAT_NICK_TRAIL_COLON = Pattern.compile(":$");
+    private static final Pattern CHAT_MSG_PATTERN = Pattern.compile("^[^:()]+:+[0-9:()]+ *(.*)$");
+    private static final Pattern CHAT_TIME_PATTERN = Pattern.compile("^[^:()]+:+([0-9:()]+) *.*$");
+    private static final Pattern CHAT_URL_PATTERN = Pattern.compile("https?://([^/]+)[^ \r\n]*");
+    private static final Pattern CHAT_EMAIL_PATTERN = Pattern.compile("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+");
+    private static final Pattern CHAT_BBCODE_I_PATTERN = Pattern.compile("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]");
+    private static final Pattern CHAT_BBCODE_B_PATTERN = Pattern.compile("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]");
+    private static final Pattern CHAT_BBCODE_C_PATTERN = Pattern.compile("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]");
+    private static final Pattern CHAT_IMG_PATTERN = Pattern.compile("img(s?)://([^ \r\n]+)");
+    private static final Pattern CHAT_LINK_OR_IMG_PATTERN = Pattern.compile("(?:http|img)s?://[^ \r\n]+");
+    private static final Pattern CHAT_EMOJI_PATTERN = Pattern.compile("#([0-9]+)#");
+
     public static final long PING_INTERVAL_MS = 5000;
     public static final long SEC_PING_INTERVAL_MS = 15000;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
@@ -442,11 +458,11 @@ public class WaitingRoomFrame extends JFrame {
 
         for (String line : lines) {
 
-            String nick = line.replaceAll("^([^:()]+:+).*$", "$1").replaceAll(":$", "");
+            String nick = CHAT_NICK_TRAIL_COLON.matcher(CHAT_NICK_PATTERN.matcher(line).replaceAll("$1")).replaceAll("");
 
-            String msg = line.replaceAll("^[^:()]+:+[0-9:()]+ *(.*)$", "$1");
+            String msg = CHAT_MSG_PATTERN.matcher(line).replaceAll("$1");
 
-            String hora = line.replaceAll("^[^:()]+:+([0-9:()]+) *.*$", "$1");
+            String hora = CHAT_TIME_PATTERN.matcher(line).replaceAll("$1");
 
             String avatar_src, align, image_align, bubble_class;
 
@@ -481,9 +497,9 @@ public class WaitingRoomFrame extends JFrame {
 
             msg = Helpers.escapeHTML(msg);
 
-            msg = msg.replaceAll("https?://([^/]+)[^ \r\n]*", "#171#<a href='$0'><b>$1</b></a>");
+            msg = CHAT_URL_PATTERN.matcher(msg).replaceAll("#171#<a href='$0'><b>$1</b></a>");
 
-            msg = msg.replaceAll("[^@ ]+@[^ @.]+(?:\\.[^.@ ]+)+", "#1215# <i>$0</i>");
+            msg = CHAT_EMAIL_PATTERN.matcher(msg).replaceAll("#1215# <i>$0</i>");
 
             msg = parseImagesChat(msg, image_align, nick.equals(this.local_nick));
 
@@ -518,26 +534,24 @@ public class WaitingRoomFrame extends JFrame {
 
     private String parseBBCODEChat(String message) {
 
-        return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "<i>$2</i>")
-                .replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "<b>$2</b>")
-                .replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]",
-                        "<span style='color:$2'>$3</span>");
+        String out = CHAT_BBCODE_I_PATTERN.matcher(message).replaceAll("<i>$2</i>");
+        out = CHAT_BBCODE_B_PATTERN.matcher(out).replaceAll("<b>$2</b>");
+        out = CHAT_BBCODE_C_PATTERN.matcher(out).replaceAll("<span style='color:$2'>$3</span>");
+        return out;
     }
 
     private String removeBBCODEChat(String message) {
-        return message.replaceAll("(?i)\\[ *([i]) *\\](.*?)\\[ */ *\\1 *\\]", "$2")
-                .replaceAll("(?i)\\[ *([b]) *\\](.*?)\\[ */ *\\1 *\\]", "$2")
-                .replaceAll("(?i)\\[ *([c](?:olor)?) *= *(.*?) *\\](.*?)\\[ */ *\\1 *\\]", "$3");
-
+        String out = CHAT_BBCODE_I_PATTERN.matcher(message).replaceAll("$2");
+        out = CHAT_BBCODE_B_PATTERN.matcher(out).replaceAll("$2");
+        out = CHAT_BBCODE_C_PATTERN.matcher(out).replaceAll("$3");
+        return out;
     }
 
     private String parseImagesChat(String message, String align, boolean send) {
 
         String msg = message;
 
-        Pattern pattern = Pattern.compile("img(s?)://([^ \r\n]+)");
-
-        Matcher matcher = pattern.matcher(message);
+        Matcher matcher = CHAT_IMG_PATTERN.matcher(message);
 
         ArrayList<String> lista = new ArrayList<>();
 
@@ -582,16 +596,14 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     private String removeLinksImagesChat(String message) {
-        return message.replaceAll("(?:http|img)s?://[^ \r\n]+", "");
+        return CHAT_LINK_OR_IMG_PATTERN.matcher(message).replaceAll("");
     }
 
     private String parseEmojiChat(String message) {
 
         String msg = message;
 
-        Pattern pattern = Pattern.compile("#([0-9]+)#");
-
-        Matcher matcher = pattern.matcher(message);
+        Matcher matcher = CHAT_EMOJI_PATTERN.matcher(message);
 
         ArrayList<Integer> lista = new ArrayList<>();
 

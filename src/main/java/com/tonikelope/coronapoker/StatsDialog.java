@@ -173,6 +173,47 @@ public class StatsDialog extends JDialog {
         }
     }
 
+    /**
+     * Coerces a numeric Object (Double/Float/Integer/BigDecimal/String) to double
+     * for sort comparators. Returns Double.NEGATIVE_INFINITY for null/unparseable
+     * so problematic rows sort to the bottom.
+     */
+    private static double toDouble(Object value) {
+        if (value == null) {
+            return Double.NEGATIVE_INFINITY;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        try {
+            return Double.parseDouble(value.toString().trim());
+        } catch (NumberFormatException ex) {
+            return Double.NEGATIVE_INFINITY;
+        }
+    }
+
+    /**
+     * Drains a ResultSet into a DefaultTableModel, translating column labels via i18n.
+     * Used by the stats methods that build the result table from a query.
+     */
+    private static void populateTableModel(DefaultTableModel tableModel, ResultSet rs) throws SQLException {
+        if (rs == null) {
+            return;
+        }
+        ResultSetMetaData metaData = rs.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+            tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+        }
+        Object[] row = new Object[columnCount];
+        while (rs.next()) {
+            for (int i = 0; i < columnCount; i++) {
+                row[i] = rs.getObject(i + 1);
+            }
+            tableModel.addRow(row);
+        }
+    }
+
     private void mejoresJugadas() {
 
         cargando.setVisible(true);
@@ -185,42 +226,45 @@ public class StatsDialog extends JDialog {
         hand_combo.setVisible(false);
 
         Helpers.threadRun(() -> {
-            ResultSet rs;
-            if (game_combo.getSelectedIndex() > 0) {
+            try {
+                ResultSet rs;
+                if (game_combo.getSelectedIndex() > 0) {
 
-                String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,\"ui.beneficio\" DESC;";
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
-                    mejoresJugadasResult(rs);
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,\"ui.beneficio\" DESC;";
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                        rs = statement.executeQuery();
+                        mejoresJugadasResult(rs);
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    Helpers.GUIRunAndWait(() -> {
+                        res_table_warning.setVisible(false);
+                    });
+
+                } else {
+
+                    String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", (game.server || '|' || game.start) as \"game.timba\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,\"ui.beneficio\" DESC LIMIT 1000;";
+                    try (Statement statement = Helpers.getSQLITE().createStatement()) {
+                        statement.setQueryTimeout(30);
+                        rs = statement.executeQuery(sql);
+                        mejoresJugadasResult(rs);
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    Helpers.GUIRunAndWait(() -> {
+                        res_table_warning.setText(Translator.translate("ui.nota_se_muestran_las_1000"));
+                        res_table_warning.setVisible(true);
+                    });
+
                 }
+            } finally {
                 Helpers.GUIRunAndWait(() -> {
-                    res_table_warning.setVisible(false);
+                    cargando.setVisible(false);
+                    setEnabled(true);
                 });
-
-            } else {
-
-                String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", (game.server || '|' || game.start) as \"game.timba\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 order by hand_val DESC,\"ui.beneficio\" DESC LIMIT 1000;";
-                try (Statement statement = Helpers.getSQLITE().createStatement()) {
-                    statement.setQueryTimeout(30);
-                    rs = statement.executeQuery(sql);
-                    mejoresJugadasResult(rs);
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                Helpers.GUIRunAndWait(() -> {
-                    res_table_warning.setText(Translator.translate("ui.nota_se_muestran_las_1000"));
-                    res_table_warning.setVisible(true);
-                });
-
             }
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-                setEnabled(true);
-            });
         });
 
     }
@@ -349,56 +393,141 @@ public class StatsDialog extends JDialog {
 
         hand_combo.setVisible(false);
 
+        // efectividad = ROI / SQRT(participation_rate). Symmetric around zero, continuous,
+        // rewards positive ROI with low participation and punishes negative ROI equally
+        // when participation was low (concentrated losses).
+        // SQRT/COALESCE protect against division by zero and NULL ROI from missing balance.
+        final String SQL_PER_GAME
+                = "SELECT t1.JUGADOR AS \"player.jugador\","
+                + " ROUND((JUGADAS / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"stats.manos_jugadas\","
+                + " ROUND((COALESCE(GANADAS, 0) / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"stats.manos_ganadas_2\","
+                + " CASE WHEN JUGADAS > 0"
+                + "      THEN ROUND((COALESCE(GANADAS, 0) / CAST(JUGADAS AS FLOAT)) * 100, 1) || '%'"
+                + "      ELSE '0.0%' END AS \"stats.precision\","
+                + " COALESCE(roi, 0) || '%' AS \"stats.roi\","
+                + " CASE WHEN COALESCE(JUGADAS, 0) > 0 AND COALESCE(MANOS_TOTALES, 0) > 0"
+                + "      THEN ROUND((COALESCE(roi, 0) / 100.0) / SQRT(JUGADAS * 1.0 / MANOS_TOTALES), 2)"
+                + "      ELSE 0.0 END AS \"stats.efectividad\""
+                + " FROM ("
+                + "   SELECT action.player AS JUGADOR, COALESCE(tb.JUGADAS, 0) AS JUGADAS"
+                + "   FROM action, hand"
+                + "   LEFT JOIN ("
+                + "     SELECT player, COUNT(DISTINCT id_hand) AS JUGADAS"
+                + "     FROM action, hand"
+                + "     WHERE action.id_hand = hand.id AND hand.id_game = ? AND action >= 2 AND round = 1"
+                + "     GROUP BY player"
+                + "   ) AS tb ON action.player = tb.player"
+                + "   WHERE action.id_hand = hand.id AND hand.id_game = ?"
+                + "   GROUP BY action.player"
+                + " ) t1"
+                + " LEFT JOIN ("
+                + "   SELECT showdown.player AS JUGADOR, COALESCE(tc.GANADAS, 0) AS GANADAS"
+                + "   FROM showdown, hand"
+                + "   LEFT JOIN ("
+                + "     SELECT player, COUNT(DISTINCT id_hand) AS GANADAS"
+                + "     FROM showdown, hand"
+                + "     WHERE showdown.id_hand = hand.id AND hand.id_game = ? AND winner = 1"
+                + "     GROUP BY player"
+                + "   ) AS tc ON showdown.player = tc.player"
+                + "   WHERE showdown.id_hand = hand.id AND hand.id_game = ?"
+                + "   GROUP BY showdown.player"
+                + " ) t2 ON t2.JUGADOR = t1.JUGADOR"
+                + " LEFT JOIN ("
+                + "   SELECT player AS JUGADOR, COUNT(DISTINCT id_hand) AS MANOS_TOTALES"
+                + "   FROM action, hand"
+                + "   WHERE action.id_hand = hand.id AND hand.id_game = ?"
+                + "   GROUP BY JUGADOR"
+                + " ) t3 ON t3.JUGADOR = t1.JUGADOR"
+                + " LEFT JOIN ("
+                + "   SELECT player AS JUGADOR,"
+                + "     ROUND(CASE WHEN SUM(buyin) > 0 THEN (SUM(stack - buyin) * 1.0 / SUM(buyin)) * 100 ELSE 0 END, 0) AS roi"
+                + "   FROM balance, hand"
+                + "   WHERE balance.id_hand = hand.id AND id_hand IN ("
+                + "     SELECT MAX(hand.id) FROM hand, balance"
+                + "     WHERE hand.id = balance.id_hand AND hand.id_game = ?"
+                + "   )"
+                + "   GROUP BY JUGADOR"
+                + " ) t4 ON t4.JUGADOR = t1.JUGADOR"
+                + " GROUP BY t1.JUGADOR"
+                + " ORDER BY \"stats.efectividad\" DESC";
+
+        final String SQL_ALL_GAMES
+                = "SELECT t1.JUGADOR AS \"player.jugador\","
+                + " ROUND((JUGADAS / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"stats.manos_jugadas\","
+                + " ROUND((COALESCE(GANADAS, 0) / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"stats.manos_ganadas_2\","
+                + " CASE WHEN JUGADAS > 0"
+                + "      THEN ROUND((COALESCE(GANADAS, 0) / CAST(JUGADAS AS FLOAT)) * 100, 1) || '%'"
+                + "      ELSE '0.0%' END AS \"stats.precision\","
+                + " COALESCE(roi, 0) || '%' AS \"stats.roi\","
+                + " CASE WHEN COALESCE(JUGADAS, 0) > 0 AND COALESCE(MANOS_TOTALES, 0) > 0"
+                + "      THEN ROUND((COALESCE(roi, 0) / 100.0) / SQRT(JUGADAS * 1.0 / MANOS_TOTALES), 2)"
+                + "      ELSE 0.0 END AS \"stats.efectividad\""
+                + " FROM ("
+                + "   SELECT action.player AS JUGADOR, COALESCE(tb.JUGADAS, 0) AS JUGADAS"
+                + "   FROM action"
+                + "   LEFT JOIN ("
+                + "     SELECT player, COUNT(DISTINCT id_hand) AS JUGADAS"
+                + "     FROM action"
+                + "     WHERE action >= 2 AND round = 1"
+                + "     GROUP BY player"
+                + "   ) AS tb ON action.player = tb.player"
+                + "   GROUP BY action.player"
+                + " ) t1"
+                + " LEFT JOIN ("
+                + "   SELECT showdown.player AS JUGADOR, COALESCE(tc.GANADAS, 0) AS GANADAS"
+                + "   FROM showdown"
+                + "   LEFT JOIN ("
+                + "     SELECT player, COUNT(DISTINCT id_hand) AS GANADAS"
+                + "     FROM showdown"
+                + "     WHERE winner = 1"
+                + "     GROUP BY player"
+                + "   ) AS tc ON showdown.player = tc.player"
+                + "   GROUP BY showdown.player"
+                + " ) t2 ON t2.JUGADOR = t1.JUGADOR"
+                + " LEFT JOIN ("
+                + "   SELECT player AS JUGADOR, COUNT(DISTINCT id_hand) AS MANOS_TOTALES"
+                + "   FROM action"
+                + "   GROUP BY JUGADOR"
+                + " ) t3 ON t3.JUGADOR = t1.JUGADOR"
+                + " LEFT JOIN ("
+                + "   SELECT player AS JUGADOR,"
+                + "     ROUND(CASE WHEN SUM(buyin) > 0 THEN (SUM(stack - buyin) * 1.0 / SUM(buyin)) * 100 ELSE 0 END, 0) AS roi"
+                + "   FROM balance, hand"
+                + "   WHERE balance.id_hand = hand.id AND id_hand IN ("
+                + "     SELECT MAX(hand.id) FROM hand, balance"
+                + "     WHERE hand.id = balance.id_hand"
+                + "     GROUP BY id_game"
+                + "   )"
+                + "   GROUP BY JUGADOR"
+                + " ) t4 ON t4.JUGADOR = t1.JUGADOR"
+                + " GROUP BY t1.JUGADOR"
+                + " ORDER BY \"stats.efectividad\" DESC";
+
         Helpers.threadRun(() -> {
-            ResultSet rs = null;
-            Statement st = null;
-            if (game_combo.getSelectedIndex() > 0) {
-                try {
-                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_jugadas\", ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_ganadas_2\", CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS \"stats.precision\", roi||'%' AS \"stats.roi\", case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as \"stats.efectividad\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action,hand left join (select player,count(distinct id_hand) as JUGADAS from action,hand where action.id_hand=hand.id and hand.id_game=? and action>=2 and round=1 group by player) as tb on action.player=tb.player where action.id_hand=hand.id and hand.id_game=? group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown,hand left join (select player,count(distinct id_hand) as GANADAS from showdown,hand where showdown.id_hand=hand.id and hand.id_game=? and winner=1 group by player) as tc on showdown.player=tc.player where showdown.id_hand=hand.id and hand.id_game=? group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action,hand where action.id_hand=hand.id and hand.id_game=? group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"stats.efectividad\" DESC";
-                    st = Helpers.getSQLITE().prepareStatement(sql);
-                    PreparedStatement statement = (PreparedStatement) st;
-                    statement.setQueryTimeout(30);
-                    statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(2, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(3, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(4, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(5, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    statement.setInt(6, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
-                    rs = statement.executeQuery();
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            } else {
-                try {
-                    String sql = "select t1.JUGADOR as \"player.jugador\", ROUND((JUGADAS/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_jugadas\", ROUND((COALESCE(GANADAS,0)/CAST(MANOS_TOTALES AS FLOAT))*100,1)||'%' AS \"stats.manos_ganadas_2\", CASE when JUGADAS>0 then ROUND((COALESCE(GANADAS,0)/CAST(JUGADAS AS FLOAT))*100,1)||'%' else '0.0%' end AS \"stats.precision\", roi||'%' AS \"stats.roi\", case when JUGADAS>0 then (case when roi>=0 then round(((roi/100) / (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) else round(((roi/100) * (JUGADAS/CAST(MANOS_TOTALES AS FLOAT))),2) end) else 0.0 end as \"stats.efectividad\" from (select action.player as JUGADOR, coalesce(tb.JUGADAS,0) as JUGADAS from action left join (select player,count(distinct id_hand) as JUGADAS from action where action>=2 and round=1 group by player) as tb on action.player=tb.player group by action.player) t1 left join (select showdown.player as JUGADOR, coalesce(tc.GANADAS,0) as GANADAS from showdown left join (select player,count(distinct id_hand) as GANADAS from showdown where winner=1 group by player) as tc on showdown.player=tc.player group by showdown.player) t2 on t2.JUGADOR=t1.JUGADOR left join (select player as JUGADOR, count(distinct id_hand) as MANOS_TOTALES from action group by JUGADOR) t3 on t3.JUGADOR=t1.JUGADOR left join (SELECT player AS JUGADOR, ROUND((SUM(stack-buyin)/SUM(buyin))*100,0) as roi from balance,hand WHERE balance.id_hand=hand.id and id_hand IN (SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand group by id_game) GROUP BY JUGADOR ) t4 on t4.JUGADOR=t1.JUGADOR group by t1.JUGADOR order by \"stats.efectividad\" DESC";
-                    st = Helpers.getSQLITE().createStatement();
-                    st.setQueryTimeout(30);
-                    rs = st.executeQuery(sql);
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
             try {
-                // Parse ResultSet explicitly to build safe translation mapping
                 DefaultTableModel tableModel = new DefaultTableModel();
-                if (rs != null) {
-                    ResultSetMetaData metaData = rs.getMetaData();
-                    int columnCount = metaData.getColumnCount();
-                    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                        tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
-                    }
-                    Object[] row = new Object[columnCount];
-                    while (rs.next()) {
-                        for (int i = 0; i < columnCount; i++) {
-                            row[i] = rs.getObject(i + 1);
+                if (game_combo.getSelectedIndex() > 0) {
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
+                        st.setQueryTimeout(30);
+                        int gameId = (int) game.get((String) game_combo.getSelectedItem()).get("id");
+                        for (int i = 1; i <= 6; i++) {
+                            st.setInt(i, gameId);
                         }
-                        tableModel.addRow(row);
+                        try (ResultSet rs = st.executeQuery()) {
+                            populateTableModel(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                }
-
-                if (st != null) {
-                    st.close();
+                } else {
+                    try (Statement st = Helpers.getSQLITE().createStatement()) {
+                        st.setQueryTimeout(30);
+                        try (ResultSet rs = st.executeQuery(SQL_ALL_GAMES)) {
+                            populateTableModel(tableModel, rs);
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
 
                 Helpers.GUIRunAndWait(() -> {
@@ -413,14 +542,13 @@ public class StatsDialog extends JDialog {
                     int idxPrec = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.precision"));
                     int idxRoi = Helpers.getTableColumnIndex(res_table.getModel(), Translator.translate("stats.roi"));
 
-                    // Avoid mapping against non-existing columns
                     if (idxPlayer != -1) {
                         tableRowSorter.setSortable(idxPlayer, true);
                     }
 
                     if (idxEfec != -1) {
                         tableRowSorter.setSortable(idxEfec, true);
-                        tableRowSorter.setComparator(idxEfec, (Comparator<Double>) (o1, o2) -> o1.compareTo(o2));
+                        tableRowSorter.setComparator(idxEfec, (Comparator<Object>) (o1, o2) -> Double.compare(toDouble(o1), toDouble(o2)));
                     }
                     if (idxManosJ != -1) {
                         tableRowSorter.setSortable(idxManosJ, true);
@@ -444,11 +572,12 @@ public class StatsDialog extends JDialog {
 
                     res_table_warning.setText(Translator.translate("stats.nota_efectividad_roi_manosjugadas_si"));
                     res_table_warning.setVisible(true);
+                });
+            } finally {
+                Helpers.GUIRunAndWait(() -> {
                     cargando.setVisible(false);
                     setEnabled(true);
                 });
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
     }

@@ -263,7 +263,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                             BufferedImage tile = null;
                             if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
                                 try {
-                                    tile = Helpers.toBufferedImage(Init.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
+                                    tile = Helpers.toBufferedImage(Helpers.scaleHighQuality(Init.I1, getWidth(), getHeight()));
                                 } catch (Exception ex) {
                                     Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                                 }

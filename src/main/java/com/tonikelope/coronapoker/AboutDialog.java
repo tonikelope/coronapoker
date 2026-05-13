@@ -139,7 +139,7 @@ public class AboutDialog extends JDialog {
 
                     int new_width = Math.round(((float) logo.getWidth(null) * MAX_MOD_LOGO_HEIGHT) / logo.getHeight(null));
 
-                    mod_label.setIcon(new ImageIcon(logo.getScaledInstance(new_width, new_height, Image.SCALE_SMOOTH)));
+                    mod_label.setIcon(new ImageIcon(Helpers.scaleHighQuality(logo, new_width, new_height)));
 
                 } else {
                     mod_label.setIcon(new ImageIcon(logo));

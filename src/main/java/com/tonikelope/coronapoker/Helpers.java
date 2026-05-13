@@ -2722,13 +2722,13 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+            JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(Helpers.scaleHighQuality(icon.getImage(), DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()))) : icon);
 
         } else {
             Helpers.GUIRunAndWait(new Runnable() {
                 @Override
                 public void run() {
-                    JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+                    JOptionPane.showMessageDialog(container, label, "Info", JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(Helpers.scaleHighQuality(icon.getImage(), DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()))) : icon);
 
                 }
             });
@@ -2756,7 +2756,7 @@ public class Helpers {
 
         if (SwingUtilities.isEventDispatchThread()) {
 
-            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+            return JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(Helpers.scaleHighQuality(icon.getImage(), DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()))) : icon);
 
         } else {
 
@@ -2766,7 +2766,7 @@ public class Helpers {
                 @Override
                 public void run() {
 
-                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(icon.getImage().getScaledInstance(DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()), Image.SCALE_SMOOTH)) : icon);
+                    res[0] = JOptionPane.showConfirmDialog(container, label, "Info", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, icon != null ? new ImageIcon(Helpers.scaleHighQuality(icon.getImage(), DIALOG_ICON_SIZE, Math.round((float) (icon.getIconHeight() * DIALOG_ICON_SIZE) / icon.getIconWidth()))) : icon);
                 }
             });
 

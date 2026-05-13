@@ -597,6 +597,9 @@
                     <EventHandler event="focusLost" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusLost"/>
                     <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
                   </Events>
+                  <AuxValues>
+                    <AuxValue name="JavaCodeGenerator_CustomCreationCode" type="java.lang.String" value="new com.tonikelope.coronapoker.RoundedChatPane()"/>
+                  </AuxValues>
                 </Component>
               </SubComponents>
             </Container>

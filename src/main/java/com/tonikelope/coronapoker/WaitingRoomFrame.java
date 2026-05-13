@@ -448,7 +448,7 @@ public class WaitingRoomFrame extends JFrame {
 
             String hora = line.replaceAll("^[^:()]+:+([0-9:()]+) *.*$", "$1");
 
-            String avatar_src, align, image_align, bg_color;
+            String avatar_src, align, image_align, bubble_class;
 
             if (nick.equals(this.local_nick)) {
 
@@ -458,7 +458,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 image_align = "0.995";
 
-                bg_color = "#d9fdd3";
+                bubble_class = "bubble bubble-mine";
 
             } else if (this.participantes.containsKey(nick)) {
 
@@ -468,7 +468,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 image_align = "0.005";
 
-                bg_color = "white";
+                bubble_class = "bubble bubble-other";
             } else {
                 align = "align='left' style='margin-left:8px;margin-top:7px;margin-bottom:7px;'";
 
@@ -476,7 +476,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 image_align = "0.005";
 
-                bg_color = "white";
+                bubble_class = "bubble bubble-other";
             }
 
             msg = Helpers.escapeHTML(msg);
@@ -493,7 +493,7 @@ public class WaitingRoomFrame extends JFrame {
 
             // Use a table because Swing's HTML renderer handles tables as 'shrink-to-fit' containers.
             // This effectively mimics 'display: inline-block' which is not supported in Swing.
-            html += "<table class='bubble' data-bg='" + bg_color + "' " + align + " border='0' cellpadding='5' cellspacing='0' bgcolor='" + bg_color + "'>"
+            html += "<table class='" + bubble_class + "' " + align + " border='0' cellpadding='5' cellspacing='0'>"
                     + "<tr>"
                     + "<td>"
                     + // Header section with Avatar, Nickname and Time
@@ -2850,7 +2850,7 @@ public class WaitingRoomFrame extends JFrame {
         danger_server = new javax.swing.JLabel();
         chat_notifications = new javax.swing.JCheckBox();
         chat_scroll = new javax.swing.JScrollPane();
-        chat = new javax.swing.JEditorPane();
+        chat = new com.tonikelope.coronapoker.RoundedChatPane();
         jPanel1 = new javax.swing.JPanel();
         chat_box_panel = new javax.swing.JPanel();
         chat_box = new javax.swing.JTextField();

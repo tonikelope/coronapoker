@@ -4410,11 +4410,6 @@ public class Helpers {
                 CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
                 VISTA_MENU.add(CONFIRM_MENU);
 
-                AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);
-                AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
-                AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
-                VISTA_MENU.add(AUTO_ACTION_MENU);
-
                 // === SOUND submenu ===
                 SONIDO_MENU = new JMenu(Translator.translate("menu.audio"));
                 SONIDO_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/sound.png")));
@@ -4481,6 +4476,11 @@ public class Helpers {
                 popup.add(AYUDA_MENU);
 
                 popup.addSeparator();
+
+                AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);
+                AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
+                AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
+                popup.add(AUTO_ACTION_MENU);
 
                 REBUY_NOW_MENU = new LeftClickCheckBoxMenuItem(rebuyNowAction);
                 REBUY_NOW_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rebuy.png")));

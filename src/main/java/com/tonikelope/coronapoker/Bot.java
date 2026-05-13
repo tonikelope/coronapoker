@@ -609,6 +609,12 @@ public class Bot {
                 logVerbose("River Value Bet.");
                 return Player.BET;
             }
+            if (skillLevel == Skill.SHARK && effectiveStrength >= STRENGTH_VALUE_BET
+                    && boardTexture.totalScore <= 2 && isInPositionPostflop()
+                    && activePlayers <= 2 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 55) {
+                logVerbose("River thin value bet (small).");
+                return Player.BET;
+            }
             if (skillLevel != Skill.RECREATIONAL && previousPpot > 0.18 && effectiveStrength < 0.30 && foldEquity > 0.15 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 30) {
                 logVerbose("River Bluff (Busted Draw).");
                 return Player.BET;
@@ -678,7 +684,8 @@ public class Bot {
         }
 
         boolean boardTooScary = boardTexture.totalScore >= 5 && effectiveStrength < STRENGTH_VALUE_RAISE;
-        if (evRaise > 0 && effectiveStrength > STRENGTH_VALUE_BET && !boardTooScary) {
+        double valueThreshold = activePlayers >= 4 ? STRENGTH_VALUE_BET + 0.10 : STRENGTH_VALUE_BET;
+        if (evRaise > 0 && effectiveStrength > valueThreshold && !boardTooScary) {
             logVerbose("Standard Value Bet based on EV.");
             return Player.BET;
         } else if (boardTooScary && evRaise > 0) {
@@ -924,24 +931,39 @@ public class Bot {
             return Player.CHECK;
         }
 
+        Crupier crupier = GameFrame.getInstance().getCrupier();
+        String myNick = cpuPlayer.getNickname();
+        boolean isSB = myNick.equals(crupier.getSb_nick());
+        boolean isBB = myNick.equals(crupier.getBb_nick());
+
         if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3 && DIFFICULTY != Difficulty.EASY) {
-            if (Helpers.CSPRNG_GENERATOR.nextInt(100) < 25) {
+            int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
+            if (Helpers.CSPRNG_GENERATOR.nextInt(100) < squeezeChance) {
                 logVerbose("Preflop Squeeze.");
                 return Player.BET;
             }
         }
 
-        if (betCount >= 2) {
-            if (handTier == 1) {
-                logVerbose("Preflop 4-Bet.");
+        if (betCount >= 3) {
+            if (handTier == 1 && low >= 10) {
+                logVerbose("Preflop 5-Bet (premium only).");
                 return Player.BET;
             }
-            if (handTier == 2 && skillLevel == Skill.RECREATIONAL) {
-                logVerbose("Preflop Fish call vs 3-Bet.");
+            logVerbose("Preflop Fold vs 4-Bet.");
+            return Player.FOLD;
+        }
+
+        if (betCount == 2) {
+            if (handTier == 1) {
+                logVerbose("Preflop 4-Bet for value.");
+                return Player.BET;
+            }
+            if (handTier == 2) {
+                logVerbose("Preflop Call vs 3-Bet (TT/JJ/AQ/KQs).");
                 return Player.CHECK;
             }
-            if (handTier == 2 && skillLevel == Skill.SHARK && Helpers.CSPRNG_GENERATOR.nextInt(100) < 35) {
-                logVerbose("Preflop Shark trap vs 3-Bet.");
+            if (handTier == 3 && skillLevel != Skill.RECREATIONAL && isPair && high <= 4) {
+                logVerbose("Preflop Set-mine call vs 3-Bet (small pair).");
                 return Player.CHECK;
             }
             logVerbose("Preflop Fold vs 3-Bet.");
@@ -950,11 +972,23 @@ public class Bot {
 
         if (betCount == 1) {
             if (handTier == 1) {
-                logVerbose("Preflop 3-Bet.");
+                logVerbose("Preflop 3-Bet for value.");
+                return Player.BET;
+            }
+            boolean threeBetBluffCandidate = (high == 12 && low <= 3 && suited)
+                    || (high == 11 && low == 10 && !suited);
+            if (skillLevel == Skill.SHARK && threeBetBluffCandidate
+                    && (pos == Position.LATE || pos == Position.BLINDS)
+                    && Helpers.CSPRNG_GENERATOR.nextInt(100) < 30) {
+                logVerbose("Preflop 3-Bet bluff (blocker).");
                 return Player.BET;
             }
             if (handTier <= 3) {
                 logVerbose("Preflop Standard Call.");
+                return Player.CHECK;
+            }
+            if (isBB && handTier == 4) {
+                logVerbose("Preflop BB defend vs steal.");
                 return Player.CHECK;
             }
             if (handTier == 4 && currentProfile == Profile.LAG && (pos == Position.LATE || pos == Position.BLINDS)) {
@@ -962,6 +996,25 @@ public class Bot {
                 return Player.CHECK;
             }
             logVerbose("Preflop Fold vs Raise.");
+            return Player.FOLD;
+        }
+
+        if (isSB && betCount == 0) {
+            if (handTier <= 4 && currentProfile != Profile.NIT) {
+                logVerbose("Preflop SB folded-to: open wide.");
+                return Player.BET;
+            }
+            if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
+                    && Helpers.CSPRNG_GENERATOR.nextInt(100) < 25) {
+                logVerbose("Preflop SB folded-to: trash steal.");
+                return Player.BET;
+            }
+            if (currentProfile == Profile.STATION && handTier == 5
+                    && Helpers.CSPRNG_GENERATOR.nextInt(100) < 40) {
+                logVerbose("Preflop SB limp-complete.");
+                return Player.CHECK;
+            }
+            logVerbose("Preflop SB fold.");
             return Player.FOLD;
         }
 
@@ -1006,14 +1059,14 @@ public class Bot {
                 return Player.FOLD;
             case BLINDS:
                 if (handTier <= 3 && currentProfile != Profile.NIT) {
-                    logVerbose("Preflop SB Complete/Raise.");
+                    logVerbose("Preflop BB iso-raise vs limpers.");
                     return Player.BET;
                 }
                 if (handTier == 4 && currentProfile == Profile.LAG) {
-                    logVerbose("Preflop SB LAG Raise.");
+                    logVerbose("Preflop BB LAG iso-raise.");
                     return Player.BET;
                 }
-                logVerbose("Preflop Blinds check/fold.");
+                logVerbose("Preflop BB check option.");
                 return Player.CHECK;
             default:
                 return Player.FOLD;

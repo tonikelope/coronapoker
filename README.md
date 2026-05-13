@@ -54,3 +54,19 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 ### Customization
 - Shareable MODs: custom fonts, decks, mats, sounds, cinematics.
+
+## Build from source
+
+Requirements: JDK 11 or newer, Apache Maven 3.x.
+
+```bash
+git clone https://github.com/tonikelope/coronapoker.git
+cd coronapoker
+mvn clean package
+```
+
+The runnable jar is generated at `target/CoronaPoker-<version>-jar-with-dependencies.jar`. Launch it with:
+
+```bash
+java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
+```

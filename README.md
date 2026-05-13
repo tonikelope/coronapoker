@@ -21,25 +21,25 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 ## Features
 
 ### Cryptographic security
-- **Zero-Trust by design**: cards are dealt through a Mental Poker protocol (EC-SRA). Even the host can't see or manipulate them — verified on every hand.
-- **End-to-end encryption** between players (DH key exchange + AES-128 + HMAC).
-- **Pure P2P**: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
+- Zero-Trust by design with a Mental Poker efficient native implemetation.
+- End-to-end encryption between players.
+- P2P: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
 - Password-protected games.
 
 ### Gameplay
 - Cross-platform: Windows, macOS, Linux.
 - 2 to 10 players: any mix of humans and bots.
-- **Bots** with 3 difficulty levels (Easy / Medium / Hard) and adaptive personalities (NIT, STATION, TAG, LAG) that c-bet, semi-bluff, slow-play traps, tilt, and adjust to each opponent's stats.
+- Bots with 3 difficulty levels (Easy / Medium / Hard) and adaptive personalities (NIT, STATION, TAG, LAG) that c-bet, semi-bluff, slow-play traps, tilt, and adjust to each opponent's stats.
 - ALL-IN side pots, fully supported.
 - Dead-button rule (BB / SB / Button) for fair short-handed play.
-- **IWTSTH** ("I Want To See That Hand") and **Rabbit Hunting**, toggleable mid-game.
+- IWTSTH ("I Want To See That Hand") and Rabbit Hunting, toggleable mid-game.
 - REBUY mid-game.
 - Blinds fully adjustable by the host during play (manual or scheduled doubling).
 - Pause anytime; add new players to a running session.
 
 ### Reliability
-- **Crash-tolerant**: a game can be resumed from the exact stop point after network or power failure.
-- Hand history, game log and per-player statistics persisted on disk.
+- Crash-tolerant: a game can be resumed from the exact stop point after network or power failure.
+- Hand history: game log and per-player statistics persisted on disk.
 
 ### UX
 - Intuitive interface with comfortable keyboard shortcuts.
@@ -53,4 +53,4 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 - In-game fast chat with TTS (text-to-speech) and inline GIF sending.
 
 ### Customization
-- Shareable **MODs**: custom fonts, decks, mats, sounds, cinematics.
+- Shareable MODs: custom fonts, decks, mats, sounds, cinematics.

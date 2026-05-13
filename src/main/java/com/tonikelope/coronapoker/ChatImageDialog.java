@@ -354,7 +354,7 @@ public class ChatImageDialog extends JDialog {
 
                             if (image.getIconWidth() > ChatImageDialog.MAX_IMAGE_WIDTH) {
                                 isgif = (isgif || Helpers.isImageGIF(new URL(url)));
-                                image = Helpers.scaleAwareIcon(image.getImage(), ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif);
+                                image = new ImageIcon(image.getImage().getScaledInstance(ChatImageDialog.MAX_IMAGE_WIDTH, (int) Math.round((image.getIconHeight() * ChatImageDialog.MAX_IMAGE_WIDTH) / image.getIconWidth()), isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
                             }
 
                             Helpers.GUIRun(() -> {

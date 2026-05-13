@@ -1225,28 +1225,33 @@ public class Helpers {
             @Override
             public void run() {
                 try {
-                    Image src = new ImageIcon(path).getImage();
-                    label.setIcon(Helpers.scaleAwareIcon(src, width, height, Helpers.isImageGIF(new File(path).toURL())));
+                    label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+
                 } catch (MalformedURLException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
     }
 
     public static ImageIcon scaleIcon(String path, int width, int height) throws MalformedURLException {
-        return Helpers.scaleAwareIcon(new ImageIcon(path).getImage(), width, height, Helpers.isImageGIF(new File(path).toURL()));
+
+        return new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+
     }
 
     public static ImageIcon scaleIcon(URL path, int width, int height) throws MalformedURLException {
-        return Helpers.scaleAwareIcon(new ImageIcon(path).getImage(), width, height, Helpers.isImageGIF(path));
+
+        return new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
+
     }
 
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
-                label.setIcon(Helpers.scaleAwareIcon(new ImageIcon(path).getImage(), width, height, Helpers.isImageGIF(path)));
+                label.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
             }
         });
     }
@@ -1256,11 +1261,11 @@ public class Helpers {
             @Override
             public void run() {
                 try {
-                    Image src = new ImageIcon(path).getImage();
-                    Image scaled = Helpers.scaleAwareIcon(src, width, height, Helpers.isImageGIF(new File(path).toURL())).getImage();
-                    label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(scaled, 20)));
+                    label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)).getImage(), 20)));
+
                 } catch (MalformedURLException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -1270,8 +1275,7 @@ public class Helpers {
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
-                Image scaled = Helpers.scaleAwareIcon(new ImageIcon(path).getImage(), width, height, Helpers.isImageGIF(path)).getImage();
-                label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(scaled, 20)));
+                label.setIcon(new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)).getImage(), 20)));
             }
         });
     }
@@ -1280,10 +1284,11 @@ public class Helpers {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 try {
-                    Image src = new ImageIcon(path).getImage();
-                    button.setIcon(Helpers.scaleAwareIcon(src, width, height, Helpers.isImageGIF(new File(path).toURL())));
+                    button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(new File(path).toURL()) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
+
                 } catch (MalformedURLException ex) {
-                    Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(Helpers.class
+                            .getName()).log(Level.SEVERE, null, ex);
                 }
             }
         });
@@ -1292,7 +1297,7 @@ public class Helpers {
     public static void setScaledIconButton(JButton button, URL path, int width, int height) {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
-                button.setIcon(Helpers.scaleAwareIcon(new ImageIcon(path).getImage(), width, height, Helpers.isImageGIF(path)));
+                button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));
             }
         });
     }
@@ -1726,18 +1731,6 @@ public class Helpers {
         g.drawImage(src, 0, 0, width, height, null);
         g.dispose();
         return scaled;
-    }
-
-    /**
-     * Format-aware scaling for content that may or may not be an animated GIF.
-     * Returns a bicubic-scaled BufferedImage for static raster, or a frame-preserving
-     * SCALE_DEFAULT-scaled Image for GIFs.
-     */
-    public static ImageIcon scaleAwareIcon(Image src, int width, int height, boolean isGif) {
-        if (isGif) {
-            return new ImageIcon(src.getScaledInstance(width, height, Image.SCALE_DEFAULT));
-        }
-        return new ImageIcon(scaleHighQuality(src, width, height));
     }
 
     /**

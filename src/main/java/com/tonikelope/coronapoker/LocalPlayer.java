@@ -389,7 +389,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             new_width = max_width;
                         }
 
-                        final ImageIcon image = Helpers.scaleAwareIcon(orig.getImage(), new_width, new_height, isgif);
+                        final ImageIcon image = new ImageIcon(orig.getImage().getScaledInstance(new_width, new_height, isgif ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH));
 
                         int pos_x = panel_cartas.getWidth() - image.getIconWidth();
 

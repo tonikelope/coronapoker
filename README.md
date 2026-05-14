@@ -18,42 +18,95 @@ This is the project of a perfectionist, who one day during the confinement of CO
 https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62-3567c593482d
 
 
-## Features
+--
 
-### Cryptographic security
-- Zero-Trust deck protocol: every card is shuffled and locked by every player through Mental Poker EC-SRA over Curve25519. Nobody — not even the host — can see another player's pocket cards or peek at the community cards before they are revealed. Each hand is shuffled fresh by all participants, so card distribution is unbiasable.
-- End-to-end encryption between players (ECDH key exchange → AES-256-CBC + HMAC-SHA256).
-- Password-bound channel keys: when the game is password-protected, the symmetric channel keys are cryptographically tied to the password (HMAC-SHA512), so an attacker on the network path cannot mount a MITM even with full visibility of the wire.
-- Pure P2P: no central servers, no telemetry, no third parties logging anything. Just you and your friends.
+## 🔐 Security
 
-### Gameplay
-- Cross-platform: Windows, macOS, Linux.
-- 2 to 10 players: any mix of humans and bots.
-- Bots with 3 difficulty levels (Easy / Medium / Hard) and adaptive personalities (NIT, STATION, TAG, LAG) that c-bet, semi-bluff, slow-play traps, tilt, and adjust to each opponent's stats.
-- ALL-IN side pots, fully supported.
-- Dead-button rule (BB / SB / Button) for fair short-handed play.
-- IWTSTH ("I Want To See That Hand") and Rabbit Hunting, toggleable mid-game.
-- REBUY mid-game.
-- Blinds fully adjustable by the host during play (manual or scheduled doubling).
-- Pause anytime; add new players to a running session.
+PokerNight was built with one non-negotiable principle: **nobody should ever be able to cheat, spy, or tamper — including the host.**
 
-### Reliability
-- Crash-tolerant: a game can be resumed from the exact stop point after network or power failure.
-- Hand history: game log and per-player statistics persisted on disk.
+### Zero-Trust deck protocol
+Every card is shuffled and locked by **every player** through the Mental Poker EC-SRA protocol over **Curve25519**. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are revealed. Each hand is re-shuffled collectively, making card distribution provably unbiasable.
 
-### UX
-- Intuitive interface with comfortable keyboard shortcuts.
-- Global in-game zoom (UHD supported).
-- 3 view modes for any screen size (normal, compact, super-compact) + low-brightness mode.
-- Cool sounds, decks, mats, cinematics and 3D card effects.
-- Full i18n support (English / Spanish out of the box).
+### End-to-end encryption
+All traffic between players is encrypted via **ECDH key exchange → AES-256-CBC + HMAC-SHA256**. Nobody on the network path can read game state, chat messages, or player actions.
 
-### Communication
-- Waiting-room chat with emojis, custom GIFs and URL preview.
-- In-game fast chat with TTS (text-to-speech) and inline GIF sending.
+### Password-bound channel keys
+In password-protected games, symmetric channel keys are cryptographically derived from the password using **HMAC-SHA512**. An attacker with full visibility of the wire cannot mount a MITM attack — the keys simply won't match without the password.
 
-### Customization
-- Shareable MODs: custom fonts, decks, mats, sounds, cinematics.
+### Fully decentralised
+Pure P2P. No central servers. No telemetry. No third parties logging anything. Your game exists only between the machines at the table.
+
+---
+
+## 🃏 Gameplay
+
+A complete, rules-correct Texas Hold'em implementation with everything you'd expect at a real table — and a few things you wouldn't.
+
+| Feature | Details |
+|---|---|
+| **Players** | 2 to 10 — any mix of humans and bots |
+| **ALL-IN & side pots** | Fully supported with correct pot splits |
+| **Dead-button rule** | BB / SB / Button handled correctly for short-handed play |
+| **IWTSTH** | "I Want To See That Hand" — toggleable mid-game |
+| **Rabbit Hunting** | See what would have come — toggleable mid-game |
+| **Rebuy** | Mid-game rebuy at any point |
+| **Blinds** | Fully adjustable by the host during play — manual or scheduled doubling |
+| **Pause & join** | Pause anytime; add new players to a running session |
+
+---
+
+## 🤖 Bots
+
+Not the fold-everything kind. PokerNight bots play like real opponents.
+
+- **3 difficulty levels** — Easy, Medium, Hard
+- **4 adaptive personalities:**
+  - 🗿 **NIT** — tight, conservative, rarely bluffs
+  - 📡 **STATION** — calls everything, impossible to read
+  - 🎯 **TAG** — tight-aggressive, the textbook grinder
+  - 💥 **LAG** — loose-aggressive, unpredictable and relentless
+- Bots **c-bet, semi-bluff, slow-play traps, and tilt** under pressure
+- They **track and adjust** to each opponent's tendencies over time
+
+---
+
+## 💬 Communication
+
+### Waiting room
+Full chat with emoji support, custom GIFs, and automatic URL previews while the game is being set up.
+
+### In-game fast chat
+Send quick messages mid-hand with **text-to-speech (TTS)** readout and inline GIF support — without ever leaving the action.
+
+---
+
+## 🎨 Customization & Modding
+
+Every visual and audio element is replaceable. Create and share **MOD packs** containing:
+
+- Custom card decks & table mats
+- Fonts, sounds, and cinematics
+- Shareable as a single distributable file — drop it in and play
+
+---
+
+## ⚙️ Reliability
+
+- **Crash-tolerant** — a game resumes from the exact stop point after any network or power failure
+- **Hand history** — full game log and per-player statistics persisted to disk after every hand
+
+---
+
+## 🖥️ UX
+
+- Intuitive interface with **keyboard shortcuts** for every common action
+- **Global in-game zoom** — UHD / 4K display support
+- **3 view modes** — Normal, Compact, Super-Compact — for any screen size
+- **Low-brightness mode** for late-night sessions
+- High-quality sounds, cinematic animations, and **3D card effects**
+- **Full i18n** — English and Spanish out of the box
+
+---
 
 ## Build from source
 

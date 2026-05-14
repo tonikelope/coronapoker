@@ -21,7 +21,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 
 ## 🔐 Security
 
-PokerNight was built with one non-negotiable principle: **nobody should ever be able to cheat, spy, or tamper — including the host.**
+CoronaPoker was built with one non-negotiable principle: **nobody should ever be able to cheat, spy, or tamper — including the host.**
 
 ### Zero-Trust deck protocol
 Every card is shuffled and locked by **every player** through the Mental Poker EC-SRA protocol over **Curve25519**. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are revealed. Each hand is re-shuffled collectively, making card distribution provably unbiasable.
@@ -56,7 +56,7 @@ A complete, rules-correct Texas Hold'em implementation with everything you'd exp
 
 ## 🤖 Bots
 
-Not the fold-everything kind. PokerNight bots play like real opponents.
+Not the fold-everything kind. CoronaPoker bots play like real opponents.
 
 - **3 difficulty levels** — Easy, Medium, Hard
 - **4 adaptive personalities:**

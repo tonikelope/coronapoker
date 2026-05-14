@@ -6,7 +6,7 @@
 /CORONA*
 .CORONA*
 .last_build
-.claude*
+.claude/
 nbactions.xml
 
 # Maven

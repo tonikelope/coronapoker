@@ -32,8 +32,14 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class BaselineQualityTest {
 
-    private static final int SESSIONS = 100;
-    private static final int HANDS_PER_SESSION = 15;
+    // 60 sessions × 50 hands = 3000 hands/matchup. Each "session" represents
+    // one CoronaPoker game: the bot's OpponentTracker accumulates throughout
+    // the session (mirroring Crupier behavior) and is reset between sessions
+    // because seat composition resets per game. 50 hands per session is well
+    // above the tracker's 10-hand threshold so the bot has enough data to
+    // identify station/nit/maniac archetypes for the majority of decisions.
+    private static final int SESSIONS = 60;
+    private static final int HANDS_PER_SESSION = 50;
     private static final long BASE_SEED = 0xBA5E11AAACADE000L;
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;

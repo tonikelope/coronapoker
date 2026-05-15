@@ -874,6 +874,23 @@ public class Bot {
             return Player.CHECK;
         }
 
+        // MDF (Minimum Defense Frequency) bluffcatch guard. Only HARD/EXPERT sharks defend
+        // against half-pot-or-smaller river bets when the raw call EV is positive but a
+        // profile-driven penalty (nit, scare card) flipped adjustedEvCall negative.
+        if (skillLevel == Skill.SHARK
+                && (DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)
+                && evCall > 0 && adjustedEvCall <= 0
+                && street == Crupier.RIVER
+                && betRatio <= 1.0
+                && effectiveStrength > 0.30
+                && currentProfile != Profile.NIT) {
+            double mdf = pot / (pot + callCost);
+            if (effectiveStrength > mdf * 0.45) {
+                logVerbose("MDF bluffcatch: raw call EV positive, defending despite profile adjustment.");
+                return Player.CHECK;
+            }
+        }
+
         logVerbose("Folding. No profitable action.");
         return Player.FOLD;
     }

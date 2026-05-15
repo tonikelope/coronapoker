@@ -888,6 +888,22 @@ public class Bot {
             return Player.BET;
         }
 
+        // Medium-strength raise band: HARD/EXPERT sharks convert a fraction of
+        // would-be calls into raises in the 0.55..valueRaiseThreshold gap so
+        // postflop AF lands in the industry 2.0-3.5 range instead of stuck at 1.2.
+        if ((DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)
+                && skillLevel == Skill.SHARK
+                && effectiveStrength >= 0.55 && effectiveStrength < valueRaiseThreshold
+                && evRaise > 0 && evRaise > adjustedEvCall * 0.7
+                && betCount < MAX_BET_COUNT
+                && currentProfile != Profile.STATION) {
+            int chance = (DIFFICULTY == Difficulty.EXPERT) ? 35 : 22;
+            if (randInt(100) < chance) {
+                logVerbose("Medium-strength raise (AF booster).");
+                return Player.BET;
+            }
+        }
+
         if (skillLevel == Skill.SHARK && betCount == 1 && activePlayers > 3 && effectiveStrength > 0.60 && foldEquity > 0.25 && randInt(100) < 20) {
             logVerbose("Executing Squeeze Play against multiple callers.");
             return Player.BET;
@@ -1138,17 +1154,24 @@ public class Bot {
                 logVerbose("Preflop LAG loose call in position.");
                 return Player.CHECK;
             }
-            // Heads-up BB defends much wider against SB opens. Even nits do not let
-            // the SB steal every BB unchallenged.
+            // Heads-up BB defends wider than full-ring but not unconditionally.
+            // Iteration 5 tightening: previous defends pushed VPIP to 75% on HARD
+            // (target 38-50%), so trim tier-5 and tier-4 frequencies across the
+            // board and let nits actually fold the worst hands.
             if (headsUp && isBB) {
                 int defendChance;
                 if (handTier == 4) {
-                    defendChance = (currentProfile == Profile.NIT) ? 60 : 90;
+                    defendChance = (currentProfile == Profile.NIT) ? 35
+                            : (currentProfile == Profile.STATION) ? 80
+                            : (currentProfile == Profile.LAG) ? 75
+                            : (skillLevel == Skill.SHARK) ? 65
+                            : 60; // TAG default
                 } else { // tier 5 trash
-                    defendChance = (currentProfile == Profile.NIT) ? 15
-                            : (currentProfile == Profile.STATION) ? 55
-                            : (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) ? 45
-                            : 30; // TAG default
+                    defendChance = (currentProfile == Profile.NIT) ? 5
+                            : (currentProfile == Profile.STATION) ? 45
+                            : (currentProfile == Profile.LAG) ? 25
+                            : (skillLevel == Skill.SHARK) ? 20
+                            : 15; // TAG default
                 }
                 if (randInt(100) < defendChance) {
                     logVerbose("Preflop HU BB defend vs button raise.");
@@ -1164,18 +1187,23 @@ public class Bot {
                 logVerbose("Preflop SB folded-to: open wide.");
                 return Player.BET;
             }
-            // Heads-up button opens trash much wider than full-ring cutoff/button.
-            // Industry HU button opens 70-85% — let the bot match that.
+            // Heads-up button opens trash wider than full-ring cutoff/button but
+            // not freely. Iteration 5 trim: previous 60% LAG/SHARK pushed HARD/EXPERT
+            // VPIP into the 75-78% range (target 38-50%). New targets put HU button
+            // open rates roughly at: NIT 45%, TAG 60%, STATION 70% (with limps),
+            // LAG 70%, SHARK 65% — covering the industry 60-80% band.
             if (handTier == 5 && headsUp) {
                 int stealChance;
                 if (currentProfile == Profile.NIT) {
-                    stealChance = 15;
-                } else if (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) {
-                    stealChance = 60;
+                    stealChance = 8;
+                } else if (currentProfile == Profile.LAG) {
+                    stealChance = 40;
+                } else if (skillLevel == Skill.SHARK) {
+                    stealChance = 35;
                 } else if (currentProfile == Profile.TAG) {
-                    stealChance = 45;
+                    stealChance = 28;
                 } else { // STATION recreational
-                    stealChance = 25;
+                    stealChance = 18;
                 }
                 if (randInt(100) < stealChance) {
                     logVerbose("Preflop HU SB steal (tier 5 wide).");

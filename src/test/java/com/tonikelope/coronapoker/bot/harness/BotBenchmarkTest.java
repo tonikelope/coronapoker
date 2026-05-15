@@ -42,8 +42,8 @@ class BotBenchmarkTest {
     // draws (one per bot per session) so aggregate stats reflect the entire
     // personality distribution of the difficulty level, not whichever two
     // personalities the single-simulator approach happened to roll.
-    private static final int SESSIONS_PER_DIFFICULTY = 15;
-    private static final int HANDS_PER_SESSION = 12;
+    private static final int SESSIONS_PER_DIFFICULTY = 30;
+    private static final int HANDS_PER_SESSION = 8;
     private static final long BASE_SEED = 0xC0C0AB07DEAD1234L;
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;

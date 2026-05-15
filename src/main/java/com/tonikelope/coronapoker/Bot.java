@@ -324,31 +324,17 @@ public class Bot {
         int skillRoll = randInt(100);
         int styleRoll = randInt(100);
 
-        // Skill mix per difficulty. Roll < recThreshold → RECREATIONAL;
-        // < regThreshold → REGULAR; otherwise → SHARK.
-        //   EASY:    60 rec  / 32 reg /  8 shark   ("fun fish-fest")
-        //   MEDIUM:  25 rec  / 55 reg / 20 shark   ("casual home game")
-        //   HARD:    10 rec  / 50 reg / 40 shark   ("experienced players")
-        //   EXPERT:   0 rec  / 35 reg / 65 shark   ("professional table")
-        int recThreshold, regThreshold;
-        switch (effectiveDifficulty()) {
-            case EASY:
-                recThreshold = 60;
-                regThreshold = 92;
-                break;
-            case HARD:
-                recThreshold = 10;
-                regThreshold = 60;
-                break;
-            case EXPERT:
-                recThreshold = 0;
-                regThreshold = 35;
-                break;
-            default: // MEDIUM
-                recThreshold = 25;
-                regThreshold = 80;
-                break;
-        }
+        // Skill mix: 10 rec / 50 reg / 40 shark for all difficulties. The
+        // Stockfish pattern — every level shares the same baseline engine
+        // and differs only by mistake-injection rate. Previously the four
+        // difficulties had wildly different personality distributions
+        // (EASY 60% recreational, EXPERT 65% shark), which produced
+        // non-monotonic gradients in HU because high-shark mixes bluff
+        // wider and bleed to passive opponents in the no-opponent-modeling
+        // baseline. Unifying the distribution guarantees the bb/100
+        // ordering EXPERT > HARD > MEDIUM > EASY by construction.
+        int recThreshold = 10;
+        int regThreshold = 60;
 
         if (skillRoll < recThreshold) {
             skillLevel = Skill.RECREATIONAL;
@@ -361,20 +347,14 @@ public class Bot {
         if (skillLevel == Skill.RECREATIONAL) {
             // Recreational sub-distribution depends on difficulty: EASY leans
             // hard into STATIONs (fish-fest feel), higher difficulties keep
-            // the original balanced mix so MEDIUM/HARD do not inherit too many
-            // calling-station limpers from a small rec slice.
-            int stationCut, lagCut, tagCut;
-            switch (effectiveDifficulty()) {
-                case EASY:
-                    stationCut = 75; lagCut = 87; tagCut = 96; // 75/12/9/4 (less LAG to drop PFR)
-                    break;
-                case MEDIUM:
-                    stationCut = 55; lagCut = 78; tagCut = 92; // 55/23/14/8
-                    break;
-                default: // HARD / EXPERT (rec is tiny anyway)
-                    stationCut = 45; lagCut = 73; tagCut = 90; // 45/28/17/10
-                    break;
-            }
+            // Unified recreational sub-mix across all difficulties so the
+            // baseline play is identical and only the mistake-injection
+            // rate differs between levels: 50 station / 25 LAG / 17 TAG /
+            // 8 NIT. STATION dominates because it's the most exploitable
+            // archetype for the higher-level bots to print value against.
+            int stationCut = 50;
+            int lagCut = 75;
+            int tagCut = 92;
             if (styleRoll < stationCut) {
                 baseProfile = Profile.STATION;
             } else if (styleRoll < lagCut) {

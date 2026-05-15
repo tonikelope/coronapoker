@@ -38,6 +38,22 @@ class HeadsUpSimulatorTest {
     }
 
     @Test
+    @DisplayName("Each difficulty level can drive a complete hand without throwing")
+    void allDifficultiesPlay() {
+        for (Bot.Difficulty d : Bot.Difficulty.values()) {
+            Bot.DIFFICULTY = d;
+            HeadsUpSimulator sim = new HeadsUpSimulator(99L, 200f, 2f, evaluator);
+            sim.playOneHand(true);
+            float total1 = sim.playerA().getStack() + sim.playerB().getStack();
+            assertEquals(400f, total1, 0.5f, "Chip conservation broken on difficulty " + d);
+            sim.resetStacks();
+            sim.playOneHand(false);
+            float total2 = sim.playerA().getStack() + sim.playerB().getStack();
+            assertEquals(400f, total2, 0.5f, "Chip conservation broken on difficulty " + d + " (swapped button)");
+        }
+    }
+
+    @Test
     @DisplayName("Runs 200 hands without exceptions and produces conservation-preserving outcomes")
     void manyHandsConserveChips() {
         Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;

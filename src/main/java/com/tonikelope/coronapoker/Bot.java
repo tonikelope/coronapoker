@@ -285,13 +285,17 @@ public class Bot {
         return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextDouble();
     }
 
-    private DealerView dealer() {
+    protected DealerView dealer() {
         DealerView d = dealer;
         if (d == null) {
             d = GameFrame.getInstance().getCrupier();
             dealer = d;
         }
         return d;
+    }
+
+    protected BotPlayerView player() {
+        return cpuPlayer;
     }
 
     private int[] currentBoard() {

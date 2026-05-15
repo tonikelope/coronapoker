@@ -46,8 +46,8 @@ public final class HeadsUpSimulator {
 
     private final TestBotPlayer p1;
     private final TestBotPlayer p2;
-    private final Bot bot1;
-    private final Bot bot2;
+    private Bot bot1;
+    private Bot bot2;
     private final TestDealer dealer;
     private final BotEvaluator evaluator;
     private final Random deckRng;
@@ -99,6 +99,25 @@ public final class HeadsUpSimulator {
 
     public Bot botB() {
         return bot2;
+    }
+
+    public TestDealer dealerView() {
+        return dealer;
+    }
+
+    /**
+     * Replace bot at seat A with an externally constructed instance (e.g. a
+     * {@link FixedStrategyBot} benchmark). The new bot must already be bound
+     * to {@link #playerA()}; this method wires up the dealer context.
+     */
+    public void setBotA(Bot bot) {
+        this.bot1 = bot;
+        this.bot1.setContext(dealer, evaluator);
+    }
+
+    public void setBotB(Bot bot) {
+        this.bot2 = bot;
+        this.bot2.setContext(dealer, evaluator);
     }
 
     public BotStats statsA() {

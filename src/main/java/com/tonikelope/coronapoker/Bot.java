@@ -888,17 +888,29 @@ public class Bot {
             return Player.BET;
         }
 
-        // Medium-strength raise band: HARD/EXPERT sharks convert a fraction of
-        // would-be calls into raises in the 0.55..valueRaiseThreshold gap so
-        // postflop AF lands in the industry 2.0-3.5 range instead of stuck at 1.2.
-        if ((DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)
-                && skillLevel == Skill.SHARK
-                && effectiveStrength >= 0.55 && effectiveStrength < valueRaiseThreshold
-                && evRaise > 0 && evRaise > adjustedEvCall * 0.7
+        // Medium-strength raise band: HARD/EXPERT sharks and TAGs convert a
+        // fraction of would-be calls into raises in the 0.50..valueRaiseThreshold
+        // gap so postflop AF lands in the industry 2.0-3.5 range instead of
+        // stuck at 1.2. Extending the band to TAG (not just SHARK) gives MEDIUM
+        // and HARD enough aggression density to move the needle.
+        boolean mediumRaiseEligible = effectiveStrength >= 0.50
+                && effectiveStrength < valueRaiseThreshold
+                && evRaise > 0 && evRaise > adjustedEvCall * 0.6
                 && betCount < MAX_BET_COUNT
-                && currentProfile != Profile.STATION) {
-            int chance = (DIFFICULTY == Difficulty.EXPERT) ? 35 : 22;
-            if (randInt(100) < chance) {
+                && currentProfile != Profile.STATION
+                && currentProfile != Profile.NIT;
+        if (mediumRaiseEligible && (skillLevel == Skill.SHARK || currentProfile == Profile.TAG)) {
+            int chance;
+            if (DIFFICULTY == Difficulty.EXPERT) {
+                chance = (skillLevel == Skill.SHARK) ? 38 : 22;
+            } else if (DIFFICULTY == Difficulty.HARD) {
+                chance = (skillLevel == Skill.SHARK) ? 26 : 14;
+            } else if (DIFFICULTY == Difficulty.MEDIUM) {
+                chance = (skillLevel == Skill.SHARK) ? 14 : 7;
+            } else {
+                chance = 0; // EASY stays passive
+            }
+            if (chance > 0 && randInt(100) < chance) {
                 logVerbose("Medium-strength raise (AF booster).");
                 return Player.BET;
             }
@@ -1495,13 +1507,13 @@ public class Bot {
     private static int difficultyLoosenessOffset() {
         switch (DIFFICULTY) {
             case EASY:
-                return 14;
+                return 20;
             case MEDIUM:
-                return 0;
+                return -8;
             case HARD:
-                return -10;
+                return -22;
             case EXPERT:
-                return -18;
+                return -30;
             default:
                 return 0;
         }

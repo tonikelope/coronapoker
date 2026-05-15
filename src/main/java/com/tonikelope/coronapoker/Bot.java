@@ -888,25 +888,30 @@ public class Bot {
             return Player.BET;
         }
 
-        // Medium-strength raise band: HARD/EXPERT sharks and TAGs convert a
-        // fraction of would-be calls into raises in the 0.50..valueRaiseThreshold
-        // gap so postflop AF lands in the industry 2.0-3.5 range instead of
-        // stuck at 1.2. Extending the band to TAG (not just SHARK) gives MEDIUM
-        // and HARD enough aggression density to move the needle.
-        boolean mediumRaiseEligible = effectiveStrength >= 0.50
+        // Medium-strength raise band: converts would-be calls into raises in the
+        // 0.45..valueRaiseThreshold gap so postflop AF lifts off the 1.2 plateau
+        // toward the industry 2.0-3.5 band. Wider eligibility (includes LAG) and
+        // higher firing rates than iter-7 — the previous values barely moved AF.
+        boolean mediumRaiseEligible = effectiveStrength >= 0.45
                 && effectiveStrength < valueRaiseThreshold
-                && evRaise > 0 && evRaise > adjustedEvCall * 0.6
+                && evRaise > 0 && evRaise > adjustedEvCall * 0.55
                 && betCount < MAX_BET_COUNT
                 && currentProfile != Profile.STATION
                 && currentProfile != Profile.NIT;
-        if (mediumRaiseEligible && (skillLevel == Skill.SHARK || currentProfile == Profile.TAG)) {
+        if (mediumRaiseEligible) {
             int chance;
             if (DIFFICULTY == Difficulty.EXPERT) {
-                chance = (skillLevel == Skill.SHARK) ? 38 : 22;
+                chance = (skillLevel == Skill.SHARK) ? 55
+                        : (currentProfile == Profile.LAG) ? 40
+                        : (currentProfile == Profile.TAG) ? 32 : 0;
             } else if (DIFFICULTY == Difficulty.HARD) {
-                chance = (skillLevel == Skill.SHARK) ? 26 : 14;
+                chance = (skillLevel == Skill.SHARK) ? 40
+                        : (currentProfile == Profile.LAG) ? 26
+                        : (currentProfile == Profile.TAG) ? 20 : 0;
             } else if (DIFFICULTY == Difficulty.MEDIUM) {
-                chance = (skillLevel == Skill.SHARK) ? 14 : 7;
+                chance = (skillLevel == Skill.SHARK) ? 22
+                        : (currentProfile == Profile.LAG) ? 14
+                        : (currentProfile == Profile.TAG) ? 8 : 0;
             } else {
                 chance = 0; // EASY stays passive
             }
@@ -1507,13 +1512,13 @@ public class Bot {
     private static int difficultyLoosenessOffset() {
         switch (DIFFICULTY) {
             case EASY:
-                return 20;
+                return 28;
             case MEDIUM:
-                return -8;
+                return -10;
             case HARD:
-                return -22;
-            case EXPERT:
                 return -30;
+            case EXPERT:
+                return -42;
             default:
                 return 0;
         }

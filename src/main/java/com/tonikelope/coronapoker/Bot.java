@@ -206,6 +206,11 @@ public class Bot {
     private volatile Position cachedPosition = Position.UNKNOWN;
     private volatile BoardTexture cachedTexture = null;
     private volatile int cachedTextureBoardSize = -1;
+    private volatile int cachedStrengthStreet = -1;
+    private volatile int cachedStrengthOpponents = -1;
+    private volatile double cachedStrength = 0.0;
+    private volatile int cachedPotentialStreet = -1;
+    private volatile Potential cachedPotential = null;
 
     // Advanced state
     private volatile boolean planCheckRaise = false;
@@ -394,6 +399,11 @@ public class Bot {
         cachedPosition = Position.UNKNOWN;
         cachedTexture = null;
         cachedTextureBoardSize = -1;
+        cachedStrengthStreet = -1;
+        cachedStrengthOpponents = -1;
+        cachedStrength = 0.0;
+        cachedPotentialStreet = -1;
+        cachedPotential = null;
 
         if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
             onTilt = Helpers.CSPRNG_GENERATOR.nextInt(100) < (30 + consecutiveLosses * 10);
@@ -493,14 +503,28 @@ public class Bot {
         int[] board = currentBoard();
         int hole1 = holeCard1.getIndex();
         int hole2 = holeCard2.getIndex();
-        double strength = evaluator.handStrengthVsN(hole1, hole2, board, opponentsCount);
+        double strength;
+        if (cachedStrengthStreet == street && cachedStrengthOpponents == opponentsCount) {
+            strength = cachedStrength;
+        } else {
+            strength = evaluator.handStrengthVsN(hole1, hole2, board, opponentsCount);
+            cachedStrength = strength;
+            cachedStrengthStreet = street;
+            cachedStrengthOpponents = opponentsCount;
+        }
+
         double ppot;
         double npot;
         if (street >= Crupier.RIVER) {
             ppot = 0;
             npot = 0;
+        } else if (cachedPotentialStreet == street && cachedPotential != null) {
+            ppot = cachedPotential.ppot();
+            npot = cachedPotential.npot();
         } else {
             Potential pot = evaluator.potential(hole1, hole2, board, street == Crupier.FLOP);
+            cachedPotential = pot;
+            cachedPotentialStreet = street;
             ppot = pot.ppot();
             npot = pot.npot();
         }

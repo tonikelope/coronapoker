@@ -713,6 +713,11 @@ public class Bot {
                 if (effectiveStrength > 0.65) {
                     cbetChance += 20;
                 }
+                if ((DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)
+                        && hasRangeAdvantageOverFlop()) {
+                    cbetChance += (DIFFICULTY == Difficulty.EXPERT ? 15 : 10);
+                    logVerbose("Range advantage detected on flop (high-card top-down).");
+                }
             }
 
             cBetInitiative = false;
@@ -1365,6 +1370,32 @@ public class Bot {
     private boolean isInPositionPostflop() {
         Position pos = determinePosition();
         return (pos == Position.LATE || pos == Position.MIDDLE);
+    }
+
+    /**
+     * True if the bot holds a high card (J+) that is strictly above the highest
+     * board card. As a preflop raiser, the bot's range is concentrated in big
+     * cards, so the assumed range-vs-range equity is favourable on these flops.
+     */
+    private boolean hasRangeAdvantageOverFlop() {
+        if (holeCard1 == null || holeCard2 == null) {
+            return false;
+        }
+        int high = Math.max(holeCard1.getRank(), holeCard2.getRank());
+        if (high < 9) { // need J (rank 9) or better
+            return false;
+        }
+        DealerView d = dealer();
+        int boardSize = d.getBoardSize();
+        if (boardSize < 3) {
+            return false;
+        }
+        for (int i = 0; i < boardSize; i++) {
+            if ((d.getBoardCardIndex(i) % 13) >= high) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private float potOdds() {

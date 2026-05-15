@@ -19,6 +19,18 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
+                <configuration>
+                    <!-- Each test class runs in its own JVM fork. This is the
+                         safest way to parallelize because Bot.TRACKER_MEMORY
+                         is a static map that would race between threads inside
+                         a single JVM. With per-class forks the bot has its own
+                         clean static state per test class.
+                         forkCount=0.6C ≈ 5 concurrent JVMs on an 8-core box,
+                         leaving headroom for OS and JIT compilation. -->
+                    <forkCount>0.6C</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <runOrder>balanced</runOrder>
+                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>

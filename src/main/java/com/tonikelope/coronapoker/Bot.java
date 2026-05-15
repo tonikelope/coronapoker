@@ -338,13 +338,27 @@ public class Bot {
         }
 
         if (skillLevel == Skill.RECREATIONAL) {
-            // Heavily STATION-leaning: drives EASY PFR into the industry 8-18%
-            // band by ensuring most recreational bots LIMP rather than raise.
-            if (styleRoll < 72) {
+            // Recreational sub-distribution depends on difficulty: EASY leans
+            // hard into STATIONs (fish-fest feel), higher difficulties keep
+            // the original balanced mix so MEDIUM/HARD do not inherit too many
+            // calling-station limpers from a small rec slice.
+            int stationCut, lagCut, tagCut;
+            switch (DIFFICULTY) {
+                case EASY:
+                    stationCut = 72; lagCut = 88; tagCut = 96; // 72/16/8/4
+                    break;
+                case MEDIUM:
+                    stationCut = 55; lagCut = 78; tagCut = 92; // 55/23/14/8
+                    break;
+                default: // HARD / EXPERT (rec is tiny anyway)
+                    stationCut = 45; lagCut = 73; tagCut = 90; // 45/28/17/10
+                    break;
+            }
+            if (styleRoll < stationCut) {
                 baseProfile = Profile.STATION;
-            } else if (styleRoll < 88) {
+            } else if (styleRoll < lagCut) {
                 baseProfile = Profile.LAG;
-            } else if (styleRoll < 96) {
+            } else if (styleRoll < tagCut) {
                 baseProfile = Profile.TAG;
             } else {
                 baseProfile = Profile.NIT;
@@ -1530,13 +1544,13 @@ public class Bot {
     private static int difficultyLoosenessOffset() {
         switch (DIFFICULTY) {
             case EASY:
-                return 28;
+                return 25;
             case MEDIUM:
-                return -10;
+                return -16;
             case HARD:
-                return -30;
+                return -38;
             case EXPERT:
-                return -42;
+                return -52;
             default:
                 return 0;
         }

@@ -303,19 +303,29 @@ public class Bot {
         int skillRoll = randInt(100);
         int styleRoll = randInt(100);
 
+        // Skill mix per difficulty. Roll < recThreshold → RECREATIONAL;
+        // < regThreshold → REGULAR; otherwise → SHARK.
+        //   EASY:    60 rec  / 32 reg /  8 shark   ("fun fish-fest")
+        //   MEDIUM:  25 rec  / 55 reg / 20 shark   ("casual home game")
+        //   HARD:    10 rec  / 50 reg / 40 shark   ("experienced players")
+        //   EXPERT:   0 rec  / 35 reg / 65 shark   ("professional table")
         int recThreshold, regThreshold;
         switch (DIFFICULTY) {
             case EASY:
-                recThreshold = 50;
-                regThreshold = 90;
+                recThreshold = 60;
+                regThreshold = 92;
                 break;
             case HARD:
-                recThreshold = 15;
-                regThreshold = 75;
+                recThreshold = 10;
+                regThreshold = 60;
                 break;
-            default:
-                recThreshold = 30;
-                regThreshold = 85;
+            case EXPERT:
+                recThreshold = 0;
+                regThreshold = 35;
+                break;
+            default: // MEDIUM
+                recThreshold = 25;
+                regThreshold = 80;
                 break;
         }
 
@@ -647,7 +657,7 @@ public class Bot {
                 }
             }
             if (skillLevel == Skill.SHARK && DIFFICULTY != Difficulty.EASY) {
-                winProb += 0.03;
+                winProb += (DIFFICULTY == Difficulty.EXPERT ? 0.05 : 0.03);
             }
         } else {
             if (onTilt) {
@@ -960,6 +970,8 @@ public class Bot {
             foldEquity *= 0.7;
         } else if (DIFFICULTY == Difficulty.HARD) {
             foldEquity *= 1.15;
+        } else if (DIFFICULTY == Difficulty.EXPERT) {
+            foldEquity *= 1.25;
         }
 
         return Math.max(0.0, Math.min(FOLD_EQ_CAP, foldEquity));

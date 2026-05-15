@@ -32,10 +32,14 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class BotMixedMatchupTest {
 
-    // 100 sessions × 15 hands = 1500 hands/matchup. Per-session delta is
-    // measured; SE of the matchup delta = stddev(deltas) / sqrt(N_sessions).
-    private static final int SESSIONS_PER_MATCHUP = 100;
-    private static final int HANDS_PER_SESSION = 15;
+    // 60 sessions × 50 hands = 3000 hands/matchup. Each session models one
+    // CoronaPoker game where the bot's OpponentTracker accumulates throughout
+    // the session (50 hands is well above the tracker's 10-hand threshold).
+    // TRACKER_MEMORY is cleared between sessions because seat composition
+    // alternates and the tracker must not carry data between different
+    // difficulty assignments at the same seat.
+    private static final int SESSIONS_PER_MATCHUP = 60;
+    private static final int HANDS_PER_SESSION = 50;
     private static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;

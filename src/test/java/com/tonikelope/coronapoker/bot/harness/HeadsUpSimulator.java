@@ -65,6 +65,11 @@ public final class HeadsUpSimulator {
     private boolean handCbetOppA, handCbetOppB;
     private boolean handCbetDoneA, handCbetDoneB;
 
+    // Hand counter for OpponentTracker handId — mirrors Crupier.conta_mano so
+    // tracker.recordVPIP/recordPFR detect repeated actions inside a single
+    // hand and do not double-count.
+    private int handCounter = 0;
+
     public HeadsUpSimulator(long seed, float startingStack, float bigBlind, BotEvaluator evaluator) {
         this.deckRng = new Random(seed);
         this.bigBlind = bigBlind;
@@ -204,6 +209,13 @@ public final class HeadsUpSimulator {
 
         sbBot.resetBot();
         bbBot.resetBot();
+
+        // Tracker: record hand played for each active opponent. Mirrors
+        // Crupier.java line 3443. Without this the opponent tracker stays
+        // empty and the bot never identifies stations/nits/maniacs.
+        handCounter++;
+        trackerFor(p1).recordHandPlayed();
+        trackerFor(p2).recordHandPlayed();
 
         boolean handReachedShowdown = false;
         int winnerIndex = -1;
@@ -422,12 +434,18 @@ public final class HeadsUpSimulator {
 
     // --- stat update helpers -------------------------------------------------
 
+    private Bot.OpponentTracker trackerFor(TestBotPlayer p) {
+        return Bot.TRACKER_MEMORY.computeIfAbsent(p.getNickname(),
+                k -> new Bot.OpponentTracker());
+    }
+
     private void recordPreflopVoluntary(boolean actorIsA) {
         if (actorIsA) {
             handVoluntaryA = true;
         } else {
             handVoluntaryB = true;
         }
+        trackerFor(actorIsA ? p1 : p2).recordVPIP(handCounter);
     }
 
     private void recordPreflopRaise(boolean actorIsA) {
@@ -441,6 +459,9 @@ public final class HeadsUpSimulator {
             handRaisedPreflopB = true;
             handRaisedPreflopA = false;
         }
+        Bot.OpponentTracker t = trackerFor(actorIsA ? p1 : p2);
+        t.recordVPIP(handCounter);
+        t.recordPFR(handCounter);
     }
 
     private void recordPostflopBetRaise(boolean actorIsA, int street, float toCall) {
@@ -454,10 +475,12 @@ public final class HeadsUpSimulator {
                 handCbetDoneB = true;
             }
         }
+        trackerFor(actorIsA ? p1 : p2).recordPostFlopBetOrRaise();
     }
 
     private void recordPostflopCall(boolean actorIsA) {
         (actorIsA ? statsA : statsB).postflopCalls++;
+        trackerFor(actorIsA ? p1 : p2).recordPostFlopCall();
     }
 
     private void recordPostflopCheck(boolean actorIsA) {

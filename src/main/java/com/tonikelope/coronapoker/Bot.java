@@ -783,7 +783,7 @@ public class Bot {
                 return Player.CHECK;
             }
         }
-        if (!floatPlay && canFloat(effectiveStrength, betCount, street, boardTexture)) {
+        if (!floatPlay && callCost <= pot * 0.6 && canFloat(effectiveStrength, betCount, street, boardTexture)) {
             floatPlay = true;
             logVerbose("Initiating Float Strategy (Calling to bluff later).");
             return Player.CHECK;

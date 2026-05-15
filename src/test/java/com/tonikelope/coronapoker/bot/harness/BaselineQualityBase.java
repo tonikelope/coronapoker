@@ -14,72 +14,36 @@ import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Absolute-quality baseline tests for the production EXPERT bot. Each test
- * pits EXPERT against a deterministic {@link FixedStrategyBot} archetype
- * and asserts that bb/100 lies above a known industry floor.
+ * Shared infrastructure for the per-archetype baseline quality tests. Each
+ * concrete subclass pits EXPERT against one deterministic
+ * {@link FixedStrategyBot} archetype. Splitting one test per file lets
+ * surefire fork each baseline matchup into its own JVM.
  *
- * <p>Together with the mixed-matchup gradient test, these tests ensure that
- * a passing build means EXPERT is both <em>better than</em> the lower
- * difficulties (gradient) and <em>good in absolute terms</em> (baseline).
- * No human judgement is required.</p>
- *
- * <p>Run with: {@code mvn test -Dtest=BaselineQualityTest}</p>
+ * <p>This base class deliberately does not end in {@code Test} so surefire
+ * does not run it on its own.</p>
  */
-class BaselineQualityTest {
+abstract class BaselineQualityBase {
 
-    // 60 sessions × 50 hands = 3000 hands/matchup. Each "session" represents
-    // one CoronaPoker game: the bot's OpponentTracker accumulates throughout
-    // the session (mirroring Crupier behavior) and is reset between sessions
-    // because seat composition resets per game. 50 hands per session is well
-    // above the tracker's 10-hand threshold so the bot has enough data to
-    // identify station/nit/maniac archetypes for the majority of decisions.
-    private static final int SESSIONS = 60;
-    private static final int HANDS_PER_SESSION = 50;
-    private static final long BASE_SEED = 0xBA5E11AAACADE000L;
-    private static final float STARTING_STACK = 200f;
-    private static final float BIG_BLIND = 2f;
+    // 60 sessions × 50 hands = 3000 hands/matchup. Tracker accumulates
+    // within each session (50 ≫ tracker 10-hand threshold) and resets
+    // between sessions because seat composition rolls per game.
+    protected static final int SESSIONS = 60;
+    protected static final int HANDS_PER_SESSION = 50;
+    protected static final long BASE_SEED = 0xBA5E11AAACADE000L;
+    protected static final float STARTING_STACK = 200f;
+    protected static final float BIG_BLIND = 2f;
 
-    private final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    protected final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
 
     @BeforeAll
     static void silence() {
         Logger.getLogger(Bot.class.getName()).setLevel(Level.WARNING);
     }
 
-    @Test
-    @DisplayName("EXPERT must crush calling station (>+300 bb/100)")
-    void expertCrushesStation() {
-        double bb100 = runMatchup("STATION-vs-EXPERT", FixedStrategyBot.Strategy.STATION);
-        assertAtLeast("EXPERT vs STATION", bb100, 300.0);
-    }
-
-    @Test
-    @DisplayName("EXPERT must steal from rock (>+50 bb/100)")
-    void expertStealsRock() {
-        double bb100 = runMatchup("ROCK-vs-EXPERT", FixedStrategyBot.Strategy.ROCK);
-        assertAtLeast("EXPERT vs ROCK", bb100, 50.0);
-    }
-
-    @Test
-    @DisplayName("EXPERT must trap maniac (>+100 bb/100)")
-    void expertTrapsManiac() {
-        double bb100 = runMatchup("MANIAC-vs-EXPERT", FixedStrategyBot.Strategy.MANIAC);
-        assertAtLeast("EXPERT vs MANIAC", bb100, 100.0);
-    }
-
-    @Test
-    @DisplayName("EXPERT vs fixed TAG (report-only, expect -20 to +50 bb/100)")
-    void expertVsTag() {
-        double bb100 = runMatchup("TAG-vs-EXPERT", FixedStrategyBot.Strategy.TAG);
-        System.out.printf("    INFO: EXPERT vs fixed-TAG bb/100 = %+.1f (no hard assert; report only)%n", bb100);
-    }
-
-    private double runMatchup(String label, FixedStrategyBot.Strategy oppStrategy) {
+    protected double runMatchup(String label, FixedStrategyBot.Strategy oppStrategy) {
         BotStats aggExpert = new BotStats("EXPERT");
         BotStats aggOpp = new BotStats(oppStrategy.name());
         int totalHands = SESSIONS * HANDS_PER_SESSION;
@@ -128,7 +92,7 @@ class BaselineQualityTest {
         return bb100;
     }
 
-    private static void assertAtLeast(String label, double bb100, double floor) {
+    protected static void assertAtLeast(String label, double bb100, double floor) {
         if (bb100 < floor) {
             fail(String.format("%s baseline quality FAIL: bb/100 = %+.1f, expected >= %+.1f",
                     label, bb100, floor));

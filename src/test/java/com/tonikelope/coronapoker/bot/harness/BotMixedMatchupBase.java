@@ -14,84 +14,40 @@ import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * AAA acid test: each higher-difficulty bot must outperform each lower
- * difficulty in bb/100 over a heads-up sample large enough to make the
- * result statistically significant.
+ * Shared infrastructure for the per-matchup mixed-difficulty acid tests.
+ * The split into one concrete class per matchup lets surefire fork each
+ * matchup into its own JVM (forkCount in pom.xml). Each matchup runs in
+ * parallel and gets its own clean {@link Bot#TRACKER_MEMORY}.
  *
- * <p>Each matchup is its own {@link Test} so the suite reports per-matchup
- * pass/fail (and surefire-parallel can run them concurrently if enabled in
- * the pom). Verdict is automated: {@code DELTA > MIN_DELTA_BB100} and
- * {@code DELTA > 2 × SE(DELTA)} → PASS, else FAIL. No human in the loop.</p>
- *
- * <p>Run with: {@code mvn test -Dtest=BotMixedMatchupTest}</p>
+ * <p>This class deliberately does not end in {@code Test} so surefire
+ * does not try to run it on its own.</p>
  */
-class BotMixedMatchupTest {
+abstract class BotMixedMatchupBase {
 
-    // 60 sessions × 50 hands = 3000 hands/matchup. Each session models one
-    // CoronaPoker game where the bot's OpponentTracker accumulates throughout
-    // the session (50 hands is well above the tracker's 10-hand threshold).
-    // TRACKER_MEMORY is cleared between sessions because seat composition
-    // alternates and the tracker must not carry data between different
-    // difficulty assignments at the same seat.
-    private static final int SESSIONS_PER_MATCHUP = 60;
-    private static final int HANDS_PER_SESSION = 50;
-    private static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
-    private static final float STARTING_STACK = 200f;
-    private static final float BIG_BLIND = 2f;
+    // 60 sessions × 50 hands = 3000 hands/matchup. Tracker accumulates
+    // within each session (50 ≫ tracker's 10-hand threshold) and is
+    // cleared between sessions because seat composition alternates.
+    protected static final int SESSIONS_PER_MATCHUP = 60;
+    protected static final int HANDS_PER_SESSION = 50;
+    protected static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
+    protected static final float STARTING_STACK = 200f;
+    protected static final float BIG_BLIND = 2f;
 
-    // AAA quality gate: a matchup PASSES when DELTA > 50 AND DELTA > 2 × SE.
-    private static final double MIN_DELTA_BB100 = 50.0;
-    private static final double MIN_SIGNIFICANCE_SIGMAS = 2.0;
+    // A matchup PASSES when DELTA > 50 AND DELTA > 2 × SE.
+    protected static final double MIN_DELTA_BB100 = 50.0;
+    protected static final double MIN_SIGNIFICANCE_SIGMAS = 2.0;
 
-    private final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    protected final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
 
     @BeforeAll
     static void silenceBotChatter() {
         Logger.getLogger(Bot.class.getName()).setLevel(Level.WARNING);
     }
 
-    @Test
-    @DisplayName("EXPERT > HARD")
-    void expertBeatsHard() {
-        evaluate(Bot.Difficulty.EXPERT, Bot.Difficulty.HARD);
-    }
-
-    @Test
-    @DisplayName("EXPERT > MEDIUM")
-    void expertBeatsMedium() {
-        evaluate(Bot.Difficulty.EXPERT, Bot.Difficulty.MEDIUM);
-    }
-
-    @Test
-    @DisplayName("EXPERT > EASY")
-    void expertBeatsEasy() {
-        evaluate(Bot.Difficulty.EXPERT, Bot.Difficulty.EASY);
-    }
-
-    @Test
-    @DisplayName("HARD > MEDIUM")
-    void hardBeatsMedium() {
-        evaluate(Bot.Difficulty.HARD, Bot.Difficulty.MEDIUM);
-    }
-
-    @Test
-    @DisplayName("HARD > EASY")
-    void hardBeatsEasy() {
-        evaluate(Bot.Difficulty.HARD, Bot.Difficulty.EASY);
-    }
-
-    @Test
-    @DisplayName("MEDIUM > EASY")
-    void mediumBeatsEasy() {
-        evaluate(Bot.Difficulty.MEDIUM, Bot.Difficulty.EASY);
-    }
-
-    private void evaluate(Bot.Difficulty hi, Bot.Difficulty lo) {
+    protected void evaluate(Bot.Difficulty hi, Bot.Difficulty lo) {
         MatchupResult result = runMatchup(hi, lo);
         System.out.println(result.report());
         if (!result.passed()) {

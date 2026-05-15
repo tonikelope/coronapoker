@@ -70,6 +70,9 @@ public final class HeadsUpSimulator {
         this.bot2 = new Bot(p2);
         this.bot1.setContext(dealer, evaluator);
         this.bot2.setContext(dealer, evaluator);
+        // Distinct seeded RNGs per bot so simulation runs are reproducible
+        this.bot1.setRng(new Random(seed ^ 0x1L));
+        this.bot2.setRng(new Random(seed ^ 0x2L));
     }
 
     public TestBotPlayer playerA() {

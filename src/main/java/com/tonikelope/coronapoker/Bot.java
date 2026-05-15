@@ -189,6 +189,7 @@ public class Bot {
     private volatile BotPlayerView cpuPlayer = null;
     private volatile DealerView dealer = null;
     private volatile BotEvaluator evaluator = EVALUATOR;
+    private volatile java.util.Random rng = null;
     private volatile Profile baseProfile;
     private volatile Profile currentProfile;
     private volatile Skill skillLevel;
@@ -244,6 +245,29 @@ public class Bot {
         }
     }
 
+    /**
+     * Inject a seeded RNG for deterministic replay; passing null restores the
+     * shared {@link Helpers#CSPRNG_GENERATOR} default.
+     */
+    public void setRng(java.util.Random rng) {
+        this.rng = rng;
+    }
+
+    private int randInt(int bound) {
+        java.util.Random r = rng;
+        return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextInt(bound);
+    }
+
+    private float randFloat() {
+        java.util.Random r = rng;
+        return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextFloat();
+    }
+
+    private double randDouble() {
+        java.util.Random r = rng;
+        return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextDouble();
+    }
+
     private DealerView dealer() {
         DealerView d = dealer;
         if (d == null) {
@@ -276,8 +300,8 @@ public class Bot {
     }
 
     private void assignPersonality() {
-        int skillRoll = Helpers.CSPRNG_GENERATOR.nextInt(100);
-        int styleRoll = Helpers.CSPRNG_GENERATOR.nextInt(100);
+        int skillRoll = randInt(100);
+        int styleRoll = randInt(100);
 
         int recThreshold, regThreshold;
         switch (DIFFICULTY) {
@@ -376,9 +400,9 @@ public class Bot {
         if (skillLevel == Skill.RECREATIONAL) {
             slowPlay = false;
         } else if (skillLevel == Skill.SHARK) {
-            slowPlay = Helpers.CSPRNG_GENERATOR.nextInt(100) < 20;
+            slowPlay = randInt(100) < 20;
         } else {
-            slowPlay = Helpers.CSPRNG_GENERATOR.nextInt(100) < (currentProfile == Profile.TAG ? 12 : 4);
+            slowPlay = randInt(100) < (currentProfile == Profile.TAG ? 12 : 4);
         }
 
         if (slowPlay) {
@@ -406,7 +430,7 @@ public class Bot {
         cachedPotential = null;
 
         if (skillLevel == Skill.RECREATIONAL && consecutiveLosses >= 2) {
-            onTilt = Helpers.CSPRNG_GENERATOR.nextInt(100) < (30 + consecutiveLosses * 10);
+            onTilt = randInt(100) < (30 + consecutiveLosses * 10);
             if (onTilt) {
                 logVerbose("Recreational bot has gone on TILT.");
             }
@@ -447,7 +471,7 @@ public class Bot {
             BoardTexture texture = calculateFullBoardTexture();
 
             if (skillLevel == Skill.RECREATIONAL) {
-                targetBet = pot * (0.45f + (Helpers.CSPRNG_GENERATOR.nextFloat() * 0.20f));
+                targetBet = pot * (0.45f + (randFloat() * 0.20f));
             } else {
                 if (texture.totalScore >= 4) {
                     if (effectiveStrength > WET_BOARD_OVERSIZE_EQ) {
@@ -468,14 +492,14 @@ public class Bot {
                 }
             }
 
-            if (skillLevel == Skill.SHARK && dealer.getStreet() == Crupier.RIVER && Helpers.CSPRNG_GENERATOR.nextInt(100) < 18) {
+            if (skillLevel == Skill.SHARK && dealer.getStreet() == Crupier.RIVER && randInt(100) < 18) {
                 targetBet = pot * (float) RIVER_OVERBET_FRACTION;
                 logVerbose("Applying polarized overbet sizing for River.");
             }
         }
 
-        if (Helpers.CSPRNG_GENERATOR.nextInt(100) < 30) {
-            targetBet *= (1.0f + (Helpers.CSPRNG_GENERATOR.nextFloat() * 0.30f - 0.15f));
+        if (randInt(100) < 30) {
+            targetBet *= (1.0f + (randFloat() * 0.30f - 0.15f));
         }
         targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / GameFrame.CIEGA_PEQUEÑA) * GameFrame.CIEGA_PEQUEÑA);
 
@@ -597,7 +621,7 @@ public class Bot {
 
         double winProb = effectiveStrength;
         OpponentTracker targetStats = getPrimaryOpponentStats();
-        double difficultyNoise = (DIFFICULTY == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (Helpers.CSPRNG_GENERATOR.nextDouble() * 0.10 - 0.05) : 0.0;
+        double difficultyNoise = (DIFFICULTY == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (randDouble() * 0.10 - 0.05) : 0.0;
 
         if (skillLevel != Skill.RECREATIONAL) {
             if (betCount > 1 && street >= Crupier.FLOP) {
@@ -684,15 +708,15 @@ public class Bot {
             }
             if (skillLevel == Skill.SHARK && effectiveStrength >= STRENGTH_VALUE_BET
                     && boardTexture.totalScore <= 2 && isInPositionPostflop()
-                    && activePlayers <= 2 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 55) {
+                    && activePlayers <= 2 && randInt(100) < 55) {
                 logVerbose("River thin value bet (small).");
                 return Player.BET;
             }
-            if (skillLevel != Skill.RECREATIONAL && previousPpot > 0.18 && effectiveStrength < 0.30 && foldEquity > 0.15 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 30) {
+            if (skillLevel != Skill.RECREATIONAL && previousPpot > 0.18 && effectiveStrength < 0.30 && foldEquity > 0.15 && randInt(100) < 30) {
                 logVerbose("River Bluff (Busted Draw).");
                 return Player.BET;
             }
-            if (skillLevel != Skill.RECREATIONAL && aggressiveLine && effectiveStrength < 0.35 && foldEquity > 0.20 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 25) {
+            if (skillLevel != Skill.RECREATIONAL && aggressiveLine && effectiveStrength < 0.35 && foldEquity > 0.20 && randInt(100) < 25) {
                 logVerbose("River Bluff (Aggressive Line follow-through).");
                 return Player.BET;
             }
@@ -721,7 +745,7 @@ public class Bot {
             }
 
             cBetInitiative = false;
-            if (Helpers.CSPRNG_GENERATOR.nextInt(100) < cbetChance) {
+            if (randInt(100) < cbetChance) {
                 logVerbose("Executing C-Bet.");
                 return Player.BET;
             }
@@ -730,7 +754,7 @@ public class Bot {
         if (street < Crupier.RIVER && skillLevel != Skill.RECREATIONAL && currentProfile != Profile.NIT
                 && ppot > 0.30 && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
                 && foldEquity > 0.18 && boardTexture.totalScore <= 3
-                && Helpers.CSPRNG_GENERATOR.nextInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)) {
+                && randInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)) {
             logVerbose("Semi-bluff with strong draw.");
             return Player.BET;
         }
@@ -846,7 +870,7 @@ public class Bot {
             return Player.BET;
         }
 
-        if (skillLevel == Skill.SHARK && betCount == 1 && activePlayers > 3 && effectiveStrength > 0.60 && foldEquity > 0.25 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 20) {
+        if (skillLevel == Skill.SHARK && betCount == 1 && activePlayers > 3 && effectiveStrength > 0.60 && foldEquity > 0.25 && randInt(100) < 20) {
             logVerbose("Executing Squeeze Play against multiple callers.");
             return Player.BET;
         }
@@ -952,7 +976,7 @@ public class Bot {
                 && boardTexture.totalScore <= 2
                 && effectiveStrength > 0.25
                 && effectiveStrength < 0.55
-                && Helpers.CSPRNG_GENERATOR.nextInt(100) < 18;
+                && randInt(100) < 18;
     }
 
     private void generateStreetPlan(double effectiveStrength, double ppot) {
@@ -964,7 +988,7 @@ public class Bot {
         streetPlanStartStreet = Crupier.FLOP;
 
         if (effectiveStrength >= 0.88) {
-            if (slowPlay || (currentProfile == Profile.TAG && Helpers.CSPRNG_GENERATOR.nextInt(100) < 25)) {
+            if (slowPlay || (currentProfile == Profile.TAG && randInt(100) < 25)) {
                 streetPlan = PLAN_CHECK_CALL;
                 logVerbose("Generated Street Plan: TRAP (Check-Call).");
             } else {
@@ -982,7 +1006,7 @@ public class Bot {
         } else if (ppot > 0.20 && effectiveStrength < 0.45) {
             streetPlan = PLAN_NONE;
             logVerbose("Drawing hand. Deciding street by street.");
-        } else if (currentProfile == Profile.LAG && effectiveStrength < 0.30 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 15) {
+        } else if (currentProfile == Profile.LAG && effectiveStrength < 0.30 && randInt(100) < 15) {
             streetPlan = PLAN_BET_BET_BET;
             logVerbose("Generated Street Plan: TRIPLE BARREL BLUFF.");
         } else {
@@ -1035,7 +1059,7 @@ public class Bot {
 
         if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3 && DIFFICULTY != Difficulty.EASY) {
             int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
-            if (Helpers.CSPRNG_GENERATOR.nextInt(100) < squeezeChance) {
+            if (randInt(100) < squeezeChance) {
                 logVerbose("Preflop Squeeze.");
                 return Player.BET;
             }
@@ -1076,7 +1100,7 @@ public class Bot {
                     || (high == 11 && low == 10 && !suited);
             if (skillLevel == Skill.SHARK && threeBetBluffCandidate
                     && (pos == Position.LATE || pos == Position.BLINDS)
-                    && Helpers.CSPRNG_GENERATOR.nextInt(100) < 30) {
+                    && randInt(100) < 30) {
                 logVerbose("Preflop 3-Bet bluff (blocker).");
                 return Player.BET;
             }
@@ -1102,12 +1126,12 @@ public class Bot {
                 return Player.BET;
             }
             if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
-                    && Helpers.CSPRNG_GENERATOR.nextInt(100) < 25) {
+                    && randInt(100) < 25) {
                 logVerbose("Preflop SB folded-to: trash steal.");
                 return Player.BET;
             }
             if (currentProfile == Profile.STATION && handTier == 5
-                    && Helpers.CSPRNG_GENERATOR.nextInt(100) < 40) {
+                    && randInt(100) < 40) {
                 logVerbose("Preflop SB limp-complete.");
                 return Player.CHECK;
             }
@@ -1125,7 +1149,7 @@ public class Bot {
                     logVerbose("Preflop Early Loose Open.");
                     return Player.BET;
                 }
-                if (skillLevel == Skill.RECREATIONAL && handTier <= 4 && Helpers.CSPRNG_GENERATOR.nextInt(100) < 30) {
+                if (skillLevel == Skill.RECREATIONAL && handTier <= 4 && randInt(100) < 30) {
                     logVerbose("Preflop Rec open limp.");
                     return Player.CHECK;
                 }
@@ -1149,7 +1173,7 @@ public class Bot {
                     logVerbose("Preflop Nit Open.");
                     return Player.BET;
                 }
-                if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) && Helpers.CSPRNG_GENERATOR.nextInt(100) < 20) {
+                if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) && randInt(100) < 20) {
                     logVerbose("Preflop Trash Steal (Bluff).");
                     return Player.BET;
                 }

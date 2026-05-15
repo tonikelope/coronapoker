@@ -1154,25 +1154,27 @@ public class Bot {
                 logVerbose("Preflop LAG loose call in position.");
                 return Player.CHECK;
             }
-            // Heads-up BB defends wider than full-ring but not unconditionally.
-            // Iteration 5 tightening: previous defends pushed VPIP to 75% on HARD
-            // (target 38-50%), so trim tier-5 and tier-4 frequencies across the
-            // board and let nits actually fold the worst hands.
+            // Heads-up BB defends wider than full-ring. Iteration 6 adds an
+            // explicit difficulty offset on top of the profile rates so the
+            // overall VPIP gradient slopes the right way: EASY plays loose
+            // (lots of defends, calling-station style), EXPERT plays tight
+            // (disciplined sharks fold trash to a button open).
             if (headsUp && isBB) {
                 int defendChance;
                 if (handTier == 4) {
-                    defendChance = (currentProfile == Profile.NIT) ? 35
-                            : (currentProfile == Profile.STATION) ? 80
-                            : (currentProfile == Profile.LAG) ? 75
+                    defendChance = (currentProfile == Profile.NIT) ? 45
+                            : (currentProfile == Profile.STATION) ? 88
+                            : (currentProfile == Profile.LAG) ? 78
                             : (skillLevel == Skill.SHARK) ? 65
-                            : 60; // TAG default
+                            : 62; // TAG default
                 } else { // tier 5 trash
-                    defendChance = (currentProfile == Profile.NIT) ? 5
-                            : (currentProfile == Profile.STATION) ? 45
-                            : (currentProfile == Profile.LAG) ? 25
-                            : (skillLevel == Skill.SHARK) ? 20
-                            : 15; // TAG default
+                    defendChance = (currentProfile == Profile.NIT) ? 8
+                            : (currentProfile == Profile.STATION) ? 55
+                            : (currentProfile == Profile.LAG) ? 30
+                            : (skillLevel == Skill.SHARK) ? 22
+                            : 20; // TAG default
                 }
+                defendChance = clampPct(defendChance + difficultyLoosenessOffset());
                 if (randInt(100) < defendChance) {
                     logVerbose("Preflop HU BB defend vs button raise.");
                     return Player.CHECK;
@@ -1195,16 +1197,17 @@ public class Bot {
             if (handTier == 5 && headsUp) {
                 int stealChance;
                 if (currentProfile == Profile.NIT) {
-                    stealChance = 8;
+                    stealChance = 10;
                 } else if (currentProfile == Profile.LAG) {
-                    stealChance = 40;
+                    stealChance = 42;
                 } else if (skillLevel == Skill.SHARK) {
-                    stealChance = 35;
+                    stealChance = 32;
                 } else if (currentProfile == Profile.TAG) {
                     stealChance = 28;
                 } else { // STATION recreational
                     stealChance = 18;
                 }
+                stealChance = clampPct(stealChance + difficultyLoosenessOffset());
                 if (randInt(100) < stealChance) {
                     logVerbose("Preflop HU SB steal (tier 5 wide).");
                     return Player.BET;
@@ -1479,6 +1482,39 @@ public class Bot {
     private boolean isInPositionPostflop() {
         Position pos = determinePosition();
         return (pos == Position.LATE || pos == Position.MIDDLE);
+    }
+
+    /**
+     * Difficulty-driven shift applied to heads-up tier-4/5 steal and defense
+     * percentages. EASY pulls everything looser (more fish-style play), EXPERT
+     * pulls everything tighter (disciplined sharks fold trash). MEDIUM is the
+     * neutral baseline. Combined with the profile-specific base rates this
+     * gives the per-difficulty VPIP gradient that mixed personality pools
+     * alone cannot produce.
+     */
+    private static int difficultyLoosenessOffset() {
+        switch (DIFFICULTY) {
+            case EASY:
+                return 14;
+            case MEDIUM:
+                return 0;
+            case HARD:
+                return -10;
+            case EXPERT:
+                return -18;
+            default:
+                return 0;
+        }
+    }
+
+    private static int clampPct(int v) {
+        if (v < 0) {
+            return 0;
+        }
+        if (v > 100) {
+            return 100;
+        }
+        return v;
     }
 
     /**

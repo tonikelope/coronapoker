@@ -1203,6 +1203,18 @@ public class Bot {
 
         if (isSB && betCount == 0) {
             if (handTier <= 4 && currentProfile != Profile.NIT) {
+                // Tier-4 marginal hands: HARD/EXPERT TAGs/SHARKs fold a slice
+                // rather than open every time. Keeps top-tier difficulties
+                // from over-opening when the SHARK pool is dominant.
+                if (handTier == 4 && currentProfile != Profile.STATION
+                        && currentProfile != Profile.LAG
+                        && (DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)) {
+                    int foldChance = (DIFFICULTY == Difficulty.EXPERT) ? 40 : 20;
+                    if (randInt(100) < foldChance) {
+                        logVerbose("Preflop HU SB tier-4 selective fold.");
+                        return Player.FOLD;
+                    }
+                }
                 logVerbose("Preflop SB folded-to: open wide.");
                 return Player.BET;
             }
@@ -1230,10 +1242,12 @@ public class Bot {
                     return Player.BET;
                 }
             }
-            if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
-                    && randInt(100) < 25) {
-                logVerbose("Preflop SB folded-to: trash steal.");
-                return Player.BET;
+            if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)) {
+                int fallbackChance = clampPct(25 + difficultyLoosenessOffset());
+                if (fallbackChance > 0 && randInt(100) < fallbackChance) {
+                    logVerbose("Preflop SB folded-to: trash steal.");
+                    return Player.BET;
+                }
             }
             if (currentProfile == Profile.STATION && handTier == 5
                     && randInt(100) < 40) {

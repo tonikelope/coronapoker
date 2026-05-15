@@ -1,0 +1,10 @@
+0,1351220,com.tonikelope.coronapoker.bot.harness.MixedMatchup_ExpertVsEasyTest,expertBeatsEasy
+0,1395270,com.tonikelope.coronapoker.bot.harness.MixedMatchup_HardVsEasyTest,hardBeatsEasy
+0,1417926,com.tonikelope.coronapoker.bot.harness.BaselineVsStationTest,expertCrushesStation
+0,1473224,com.tonikelope.coronapoker.bot.harness.MixedMatchup_MediumVsEasyTest,mediumBeatsEasy
+0,1616442,com.tonikelope.coronapoker.bot.harness.MixedMatchup_ExpertVsHardTest,expertBeatsHard
+0,1661730,com.tonikelope.coronapoker.bot.harness.MixedMatchup_ExpertVsMediumTest,expertBeatsMedium
+0,1685324,com.tonikelope.coronapoker.bot.harness.MixedMatchup_HardVsMediumTest,hardBeatsMedium
+4,41143,com.tonikelope.coronapoker.bot.harness.BaselineVsRockTest,expertStealsRock
+4,197284,com.tonikelope.coronapoker.bot.harness.BaselineVsTagTest,expertVsTag
+4,597016,com.tonikelope.coronapoker.bot.harness.BaselineVsManiacTest,expertTrapsManiac

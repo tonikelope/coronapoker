@@ -338,11 +338,13 @@ public class Bot {
         }
 
         if (skillLevel == Skill.RECREATIONAL) {
-            if (styleRoll < 50) {
+            // Heavily STATION-leaning: drives EASY PFR into the industry 8-18%
+            // band by ensuring most recreational bots LIMP rather than raise.
+            if (styleRoll < 72) {
                 baseProfile = Profile.STATION;
-            } else if (styleRoll < 75) {
+            } else if (styleRoll < 88) {
                 baseProfile = Profile.LAG;
-            } else if (styleRoll < 90) {
+            } else if (styleRoll < 96) {
                 baseProfile = Profile.TAG;
             } else {
                 baseProfile = Profile.NIT;
@@ -888,30 +890,31 @@ public class Bot {
             return Player.BET;
         }
 
-        // Medium-strength raise band: converts would-be calls into raises in the
-        // 0.45..valueRaiseThreshold gap so postflop AF lifts off the 1.2 plateau
-        // toward the industry 2.0-3.5 band. Wider eligibility (includes LAG) and
-        // higher firing rates than iter-7 — the previous values barely moved AF.
-        boolean mediumRaiseEligible = effectiveStrength >= 0.45
+        // Medium-strength raise band: aggressive aggression-factor booster.
+        // Iter 10 cranks rates much higher and drops the evRaise>adjustedEvCall*0.55
+        // floor — that guard was rejecting most candidates because EV math is
+        // sensitive on marginal hands. The "any positive evRaise" gate plus
+        // wider eligibility lifts HARD/EXPERT AF from 1.3 toward the 2-3 target.
+        boolean mediumRaiseEligible = effectiveStrength >= 0.40
                 && effectiveStrength < valueRaiseThreshold
-                && evRaise > 0 && evRaise > adjustedEvCall * 0.55
+                && evRaise > 0
                 && betCount < MAX_BET_COUNT
                 && currentProfile != Profile.STATION
                 && currentProfile != Profile.NIT;
         if (mediumRaiseEligible) {
             int chance;
             if (DIFFICULTY == Difficulty.EXPERT) {
-                chance = (skillLevel == Skill.SHARK) ? 55
-                        : (currentProfile == Profile.LAG) ? 40
-                        : (currentProfile == Profile.TAG) ? 32 : 0;
+                chance = (skillLevel == Skill.SHARK) ? 75
+                        : (currentProfile == Profile.LAG) ? 55
+                        : (currentProfile == Profile.TAG) ? 45 : 0;
             } else if (DIFFICULTY == Difficulty.HARD) {
-                chance = (skillLevel == Skill.SHARK) ? 40
-                        : (currentProfile == Profile.LAG) ? 26
-                        : (currentProfile == Profile.TAG) ? 20 : 0;
+                chance = (skillLevel == Skill.SHARK) ? 55
+                        : (currentProfile == Profile.LAG) ? 38
+                        : (currentProfile == Profile.TAG) ? 30 : 0;
             } else if (DIFFICULTY == Difficulty.MEDIUM) {
-                chance = (skillLevel == Skill.SHARK) ? 22
-                        : (currentProfile == Profile.LAG) ? 14
-                        : (currentProfile == Profile.TAG) ? 8 : 0;
+                chance = (skillLevel == Skill.SHARK) ? 30
+                        : (currentProfile == Profile.LAG) ? 18
+                        : (currentProfile == Profile.TAG) ? 10 : 0;
             } else {
                 chance = 0; // EASY stays passive
             }
@@ -1204,12 +1207,13 @@ public class Bot {
         if (isSB && betCount == 0) {
             if (handTier <= 4 && currentProfile != Profile.NIT) {
                 // Tier-4 marginal hands: HARD/EXPERT TAGs/SHARKs fold a slice
-                // rather than open every time. Keeps top-tier difficulties
-                // from over-opening when the SHARK pool is dominant.
+                // rather than open every time. Eased slightly from iter 9 (40%→25%
+                // EXPERT, 20%→12% HARD) to recover EXPERT PFR which had dropped to
+                // 28% (target 32-42%). VPIP stays in range either way.
                 if (handTier == 4 && currentProfile != Profile.STATION
                         && currentProfile != Profile.LAG
                         && (DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)) {
-                    int foldChance = (DIFFICULTY == Difficulty.EXPERT) ? 40 : 20;
+                    int foldChance = (DIFFICULTY == Difficulty.EXPERT) ? 25 : 12;
                     if (randInt(100) < foldChance) {
                         logVerbose("Preflop HU SB tier-4 selective fold.");
                         return Player.FOLD;

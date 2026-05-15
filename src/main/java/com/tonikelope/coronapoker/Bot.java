@@ -558,6 +558,114 @@ public class Bot {
     }
 
     public int calculateBotDecision(int opponentsCount) {
+        int decision = calculateBotDecisionInner(opponentsCount);
+        double mistakeRate = mistakeRateForDifficulty();
+        if (mistakeRate > 0.0 && randDouble() < mistakeRate) {
+            int corrupted = injectMistake(decision);
+            if (corrupted != decision) {
+                logVerbose("MISTAKE injection (difficulty=" + effectiveDifficulty() + "): "
+                        + decisionName(decision) + " -> " + decisionName(corrupted));
+                return corrupted;
+            }
+        }
+        return decision;
+    }
+
+    /**
+     * Per-difficulty probability of corrupting a decision with a recognisable
+     * recreational-poker mistake. EXPERT plays its baseline cleanly (rate=0).
+     * Lower difficulties pay off recognisable leaks (sticky calldown, overbet
+     * bluffs, scared folds, undersized passive lines) so a human at the table
+     * can tell which level the bot is set to without staring at a stats HUD.
+     *
+     * <p>Rates are tuned so that the gradient EXPERT > HARD > MEDIUM > EASY
+     * emerges from mistake frequency alone, independent of any other
+     * calibration — the lowest-mistake bot is always the strongest in
+     * expectation because the others occasionally throw money away.</p>
+     */
+    private double mistakeRateForDifficulty() {
+        switch (effectiveDifficulty()) {
+            case EXPERT:
+                return 0.00;
+            case HARD:
+                return 0.08;
+            case MEDIUM:
+                return 0.25;
+            case EASY:
+                return 0.55;
+            default:
+                return 0.0;
+        }
+    }
+
+    private static String decisionName(int d) {
+        switch (d) {
+            case Player.BET: return "BET";
+            case Player.CHECK: return "CHECK/CALL";
+            case Player.FOLD: return "FOLD";
+            default: return "?";
+        }
+    }
+
+    /**
+     * Replace the bot's planned decision with a recognisable recreational
+     * mistake. The pool is curated so each mistake is a leak a human poker
+     * player commits — sticky call with weak made hands, overbet bluff with
+     * air, scared fold of a strong holding, telegraphic limp of a premium.
+     * Returns the original decision if no mistake from the pool applies in
+     * the current spot.
+     */
+    private int injectMistake(int planned) {
+        DealerView d = dealer();
+        int street = d.getStreet();
+        float toCall = d.getApuesta_actual() - cpuPlayer.getBet();
+        double strength = previousStrength > 0 ? previousStrength : lastEffectiveStrength;
+        // All four mistakes downgrade decisions toward passivity or surrender —
+        // none INSERT new bets. Inserting bets would inflate the tracker's AF
+        // for the mistaken bot, falsely classifying it as a maniac and
+        // triggering the opponent's adaptive defenses. Pure call/fold leaks
+        // are unambiguously negative-EV and recognisable to a human at the
+        // table without distorting the tracker.
+        int pick = randInt(4);
+        switch (pick) {
+            case 0:
+                // Sticky calldown facing a bet with weak made hand. The classic
+                // "I have a pair, I can't fold" leak — pays off polarized
+                // ranges with a hand that almost never wins at showdown.
+                if (planned == Player.FOLD && toCall > 0f && strength > 0.15 && strength < 0.50) {
+                    return Player.CHECK;
+                }
+                break;
+            case 1:
+                // Hero fold of a strong hand facing a bet. The "I think they
+                // have me beat" leak — folds equity that should clearly
+                // continue. Pure negative EV when our strength is genuinely
+                // high.
+                if (planned == Player.CHECK && toCall > 0f && strength > 0.68) {
+                    return Player.FOLD;
+                }
+                break;
+            case 2:
+                // Skip value bet with a strong hand. Checks back instead of
+                // betting for value — a recreational passive leak that
+                // surrenders large pots to opponents on later streets.
+                if (planned == Player.BET && strength > 0.65 && street >= Crupier.FLOP) {
+                    return Player.CHECK;
+                }
+                break;
+            case 3:
+                // Spewy preflop call: would fold facing a raise, calls anyway
+                // with a marginal holding hoping to "outflop" the raiser.
+                if (planned == Player.FOLD && street == Crupier.PREFLOP && toCall > 0f
+                        && strength > 0.12 && strength < 0.42) {
+                    return Player.CHECK;
+                }
+                break;
+        }
+        return planned;
+    }
+
+    private int calculateBotDecisionInner(int opponentsCount) {
         DealerView dealer = dealer();
         int street = dealer.getStreet();
         int activePlayers = opponentsCount + 1;

@@ -28,6 +28,11 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.bot.context.BotPlayerView;
+import com.tonikelope.coronapoker.bot.context.DealerView;
+import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
+import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
+import com.tonikelope.coronapoker.bot.eval.Potential;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -39,10 +44,14 @@ public class Bot {
     public static final int MAX_BET_COUNT = 3;
     public static final int BOT_THINK_TIME = 1500;
 
-    // Core Alberta Engine Tools
+    // Core Alberta Engine Tools (retained as statics so legacy Crupier showdown paths keep
+    // working; new bot logic accesses them via the EVALUATOR abstraction below).
     public static final org.alberta.poker.Hand BOT_COMMUNITY_CARDS = new org.alberta.poker.Hand();
     public static final org.alberta.poker.HandEvaluator HANDEVALUATOR = new org.alberta.poker.HandEvaluator();
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
+
+    /** Default evaluator shared by every Bot instance; wraps the static singletons above. */
+    public static final BotEvaluator EVALUATOR = new AlbertaEvaluatorAdapter(HANDEVALUATOR, HANDPOTENTIAL);
 
     // Universal Opponent Memory Tracker
     public static final Map<String, OpponentTracker> TRACKER_MEMORY = new ConcurrentHashMap<>();
@@ -177,7 +186,9 @@ public class Bot {
         }
     }
 
-    private volatile RemotePlayer cpuPlayer = null;
+    private volatile BotPlayerView cpuPlayer = null;
+    private volatile DealerView dealer = null;
+    private volatile BotEvaluator evaluator = EVALUATOR;
     private volatile Profile baseProfile;
     private volatile Profile currentProfile;
     private volatile Skill skillLevel;
@@ -209,8 +220,42 @@ public class Bot {
     private static final Logger LOGGER = Logger.getLogger(Bot.class.getName());
 
     public Bot(RemotePlayer player) {
+        this((BotPlayerView) player);
+    }
+
+    public Bot(BotPlayerView player) {
         this.cpuPlayer = player;
         assignPersonality();
+    }
+
+    /**
+     * Inject the dealer view and evaluator used by this bot. Tests and the
+     * offline harness call this to bypass {@code GameFrame.getInstance()}.
+     */
+    public void setContext(DealerView dealer, BotEvaluator evaluator) {
+        this.dealer = dealer;
+        if (evaluator != null) {
+            this.evaluator = evaluator;
+        }
+    }
+
+    private DealerView dealer() {
+        DealerView d = dealer;
+        if (d == null) {
+            d = GameFrame.getInstance().getCrupier();
+            dealer = d;
+        }
+        return d;
+    }
+
+    private int[] currentBoard() {
+        DealerView d = dealer();
+        int n = d.getBoardSize();
+        int[] b = new int[n];
+        for (int i = 0; i < n; i++) {
+            b[i] = d.getBoardCardIndex(i);
+        }
+        return b;
     }
 
     /**
@@ -285,7 +330,7 @@ public class Bot {
     }
 
     private void adjustProfileElasticity() {
-        Crupier dealer = GameFrame.getInstance().getCrupier();
+        DealerView dealer = dealer();
         float stack = cpuPlayer.getStack();
         float blindsCost = dealer.getCiega_grande() + dealer.getCiega_pequeña();
         float mRatio = stack / (blindsCost > 0 ? blindsCost : 1);
@@ -374,7 +419,7 @@ public class Bot {
     }
 
     public float getBetSize(double effectiveStrength) {
-        Crupier dealer = GameFrame.getInstance().getCrupier();
+        DealerView dealer = dealer();
         float pot = dealer.getBote_total();
         float currentBet = dealer.getApuesta_actual();
         float minRaise = Helpers.float1DSecureCompare(0f, dealer.getUltimo_raise()) < 0 ? dealer.getUltimo_raise() : dealer.getCiega_grande();
@@ -432,7 +477,7 @@ public class Bot {
     }
 
     public int calculateBotDecision(int opponentsCount) {
-        Crupier dealer = GameFrame.getInstance().getCrupier();
+        DealerView dealer = dealer();
         int street = dealer.getStreet();
         int activePlayers = opponentsCount + 1;
         int betCount = dealer.getConta_bet();
@@ -445,22 +490,26 @@ public class Bot {
             return decision;
         }
 
-        double strength = HANDEVALUATOR.handRank(holeCard1, holeCard2, BOT_COMMUNITY_CARDS, opponentsCount);
+        int[] board = currentBoard();
+        int hole1 = holeCard1.getIndex();
+        int hole2 = holeCard2.getIndex();
+        double strength = evaluator.handStrengthVsN(hole1, hole2, board, opponentsCount);
         double ppot;
         double npot;
         if (street >= Crupier.RIVER) {
             ppot = 0;
             npot = 0;
         } else {
-            ppot = HANDPOTENTIAL.ppot_raw(holeCard1, holeCard2, BOT_COMMUNITY_CARDS, street == Crupier.FLOP);
-            npot = HANDPOTENTIAL.getLastNPot();
+            Potential pot = evaluator.potential(hole1, hole2, board, street == Crupier.FLOP);
+            ppot = pot.ppot();
+            npot = pot.npot();
         }
         double effectiveStrength = strength + (1 - strength) * ppot - strength * npot;
 
         if (holeCard1.getRank() == holeCard2.getRank()) {
             int overcards = 0;
-            for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
-                if (BOT_COMMUNITY_CARDS.getCard(i).getRank() > holeCard1.getRank()) {
+            for (int idx : board) {
+                if ((idx % 13) > holeCard1.getRank()) {
                     overcards++;
                 }
             }
@@ -711,8 +760,10 @@ public class Bot {
         if (skillLevel != Skill.RECREATIONAL && currentProfile != Profile.STATION && betCount == 1 && street < Crupier.RIVER) {
             boolean hasOvercards = false;
             if (holeCard1.getRank() == holeCard2.getRank()) {
-                for (int i = 1; i <= BOT_COMMUNITY_CARDS.size(); i++) {
-                    if (BOT_COMMUNITY_CARDS.getCard(i).getRank() > holeCard1.getRank()) {
+                DealerView d = dealer();
+                int boardSize = d.getBoardSize();
+                for (int i = 0; i < boardSize; i++) {
+                    if ((d.getBoardCardIndex(i) % 13) > holeCard1.getRank()) {
                         hasOvercards = true;
                         break;
                     }
@@ -931,7 +982,7 @@ public class Bot {
             return Player.CHECK;
         }
 
-        Crupier crupier = GameFrame.getInstance().getCrupier();
+        DealerView crupier = dealer();
         String myNick = cpuPlayer.getNickname();
         boolean isSB = myNick.equals(crupier.getSb_nick());
         boolean isBB = myNick.equals(crupier.getBb_nick());
@@ -1134,7 +1185,7 @@ public class Bot {
     }
 
     private BoardTexture calculateFullBoardTexture() {
-        int numCards = BOT_COMMUNITY_CARDS.size();
+        int numCards = dealer().getBoardSize();
         if (cachedTexture != null && cachedTextureBoardSize == numCards) {
             return cachedTexture;
         }
@@ -1149,18 +1200,20 @@ public class Bot {
         if (numCards < 3) {
             return tex;
         }
+        DealerView d = dealer();
         int[] suits = new int[4];
         int[] ranks = new int[15];
         int[] cardRanks = new int[numCards];
         int highCardCount = 0;
 
-        for (int i = 1; i <= numCards; i++) {
-            org.alberta.poker.Card c = BOT_COMMUNITY_CARDS.getCard(i);
-            suits[c.getSuit()]++;
-            int r = c.getRank();
-            ranks[r]++;
-            cardRanks[i - 1] = r;
-            if (r >= 10) {
+        for (int i = 0; i < numCards; i++) {
+            int idx = d.getBoardCardIndex(i);
+            int suit = idx / 13;
+            int rank = idx % 13;
+            suits[suit]++;
+            ranks[rank]++;
+            cardRanks[i] = rank;
+            if (rank >= 10) {
                 highCardCount++;
             }
         }
@@ -1230,7 +1283,7 @@ public class Bot {
 
     private Position computePosition() {
         String myNick = cpuPlayer.getNickname();
-        Crupier crupier = GameFrame.getInstance().getCrupier();
+        DealerView crupier = dealer();
         String dealerNick = crupier.getDealer_nick();
         if (myNick.equals(dealerNick)) {
             return Position.LATE;
@@ -1242,7 +1295,7 @@ public class Bot {
             return Position.EARLY;
         }
         // Cutoff: the active player immediately before the dealer in seating order
-        java.util.List<Player> jugadores = GameFrame.getInstance().getJugadores();
+        java.util.List<? extends Player> jugadores = crupier.getPlayersInSeatingOrder();
         int activos = 0;
         int dealerIdx = -1;
         int myIdx = -1;
@@ -1274,13 +1327,13 @@ public class Bot {
     }
 
     private float potOdds() {
-        Crupier d = GameFrame.getInstance().getCrupier();
+        DealerView d = dealer();
         float toCall = d.getApuesta_actual() - cpuPlayer.getBet();
         return toCall / (d.getBote_total() + toCall);
     }
 
     private OpponentTracker getPrimaryOpponentStats() {
-        Player lastAggressor = GameFrame.getInstance().getCrupier().getLast_aggressor();
+        Player lastAggressor = dealer().getLast_aggressor();
         if (lastAggressor == null || lastAggressor == cpuPlayer) {
             return null;
         }

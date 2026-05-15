@@ -364,8 +364,8 @@ public class Bot {
     }
 
     public void resetBot() {
-        holeCard1 = Bot.coronaCard2LokiCard(cpuPlayer.getHoleCard1());
-        holeCard2 = Bot.coronaCard2LokiCard(cpuPlayer.getHoleCard2());
+        holeCard1 = new org.alberta.poker.Card(cpuPlayer.getHoleCard1Index());
+        holeCard2 = new org.alberta.poker.Card(cpuPlayer.getHoleCard2Index());
         adjustProfileElasticity();
 
         if (skillLevel == Skill.RECREATIONAL) {

@@ -190,6 +190,7 @@ public class Bot {
     private volatile DealerView dealer = null;
     private volatile BotEvaluator evaluator = EVALUATOR;
     private volatile java.util.Random rng = null;
+    private volatile Difficulty perBotDifficulty = null; // null = fall back to static DIFFICULTY
     private volatile Profile baseProfile;
     private volatile Profile currentProfile;
     private volatile Skill skillLevel;
@@ -253,6 +254,22 @@ public class Bot {
         this.rng = rng;
     }
 
+    /**
+     * Override the global {@link #DIFFICULTY} for this bot specifically. Used
+     * by mixed-matchup tests (e.g. EXPERT vs EASY in the same hand). Re-rolls
+     * the bot's personality so the new skill distribution applies. Passing
+     * null returns to the global static fallback.
+     */
+    public void setDifficulty(Difficulty d) {
+        this.perBotDifficulty = d;
+        assignPersonality();
+    }
+
+    private Difficulty effectiveDifficulty() {
+        Difficulty d = perBotDifficulty;
+        return d != null ? d : DIFFICULTY;
+    }
+
     private int randInt(int bound) {
         java.util.Random r = rng;
         return (r != null ? r : Helpers.CSPRNG_GENERATOR).nextInt(bound);
@@ -310,7 +327,7 @@ public class Bot {
         //   HARD:    10 rec  / 50 reg / 40 shark   ("experienced players")
         //   EXPERT:   0 rec  / 35 reg / 65 shark   ("professional table")
         int recThreshold, regThreshold;
-        switch (DIFFICULTY) {
+        switch (effectiveDifficulty()) {
             case EASY:
                 recThreshold = 60;
                 regThreshold = 92;
@@ -343,7 +360,7 @@ public class Bot {
             // the original balanced mix so MEDIUM/HARD do not inherit too many
             // calling-station limpers from a small rec slice.
             int stationCut, lagCut, tagCut;
-            switch (DIFFICULTY) {
+            switch (effectiveDifficulty()) {
                 case EASY:
                     stationCut = 75; lagCut = 87; tagCut = 96; // 75/12/9/4 (less LAG to drop PFR)
                     break;
@@ -647,7 +664,7 @@ public class Bot {
 
         double winProb = effectiveStrength;
         OpponentTracker targetStats = getPrimaryOpponentStats();
-        double difficultyNoise = (DIFFICULTY == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (randDouble() * 0.10 - 0.05) : 0.0;
+        double difficultyNoise = (effectiveDifficulty() == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (randDouble() * 0.10 - 0.05) : 0.0;
 
         if (skillLevel != Skill.RECREATIONAL) {
             if (betCount > 1 && street >= Crupier.FLOP) {
@@ -672,8 +689,8 @@ public class Bot {
                     winProb -= 0.03;
                 }
             }
-            if (skillLevel == Skill.SHARK && DIFFICULTY != Difficulty.EASY) {
-                winProb += (DIFFICULTY == Difficulty.EXPERT ? 0.05 : 0.03);
+            if (skillLevel == Skill.SHARK && effectiveDifficulty() != Difficulty.EASY) {
+                winProb += (effectiveDifficulty() == Difficulty.EXPERT ? 0.05 : 0.03);
             }
         } else {
             if (onTilt) {
@@ -763,9 +780,9 @@ public class Bot {
                 if (effectiveStrength > 0.65) {
                     cbetChance += 20;
                 }
-                if ((DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)
+                if ((effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)
                         && hasRangeAdvantageOverFlop()) {
-                    cbetChance += (DIFFICULTY == Difficulty.EXPERT ? 15 : 10);
+                    cbetChance += (effectiveDifficulty() == Difficulty.EXPERT ? 15 : 10);
                     logVerbose("Range advantage detected on flop (high-card top-down).");
                 }
             }
@@ -894,9 +911,9 @@ public class Bot {
         // Threshold for raise-for-value drops on HARD/EXPERT so sharks generate
         // the AF=2-3 aggression industry regulars show, rather than calling down.
         double valueRaiseThreshold = STRENGTH_VALUE_RAISE;
-        if (DIFFICULTY == Difficulty.EXPERT) {
+        if (effectiveDifficulty() == Difficulty.EXPERT) {
             valueRaiseThreshold = 0.72;
-        } else if (DIFFICULTY == Difficulty.HARD) {
+        } else if (effectiveDifficulty() == Difficulty.HARD) {
             valueRaiseThreshold = 0.78;
         }
         if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > valueRaiseThreshold && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
@@ -917,15 +934,15 @@ public class Bot {
                 && currentProfile != Profile.NIT;
         if (mediumRaiseEligible) {
             int chance;
-            if (DIFFICULTY == Difficulty.EXPERT) {
+            if (effectiveDifficulty() == Difficulty.EXPERT) {
                 chance = (skillLevel == Skill.SHARK) ? 75
                         : (currentProfile == Profile.LAG) ? 55
                         : (currentProfile == Profile.TAG) ? 45 : 0;
-            } else if (DIFFICULTY == Difficulty.HARD) {
+            } else if (effectiveDifficulty() == Difficulty.HARD) {
                 chance = (skillLevel == Skill.SHARK) ? 55
                         : (currentProfile == Profile.LAG) ? 38
                         : (currentProfile == Profile.TAG) ? 30 : 0;
-            } else if (DIFFICULTY == Difficulty.MEDIUM) {
+            } else if (effectiveDifficulty() == Difficulty.MEDIUM) {
                 chance = (skillLevel == Skill.SHARK) ? 30
                         : (currentProfile == Profile.LAG) ? 18
                         : (currentProfile == Profile.TAG) ? 10 : 0;
@@ -975,7 +992,7 @@ public class Bot {
         // against half-pot-or-smaller river bets when the raw call EV is positive but a
         // profile-driven penalty (nit, scare card) flipped adjustedEvCall negative.
         if (skillLevel == Skill.SHARK
-                && (DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)
+                && (effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)
                 && evCall > 0 && adjustedEvCall <= 0
                 && street == Crupier.RIVER
                 && betRatio <= 1.0
@@ -1024,11 +1041,11 @@ public class Bot {
             }
         }
 
-        if (DIFFICULTY == Difficulty.EASY) {
+        if (effectiveDifficulty() == Difficulty.EASY) {
             foldEquity *= 0.7;
-        } else if (DIFFICULTY == Difficulty.HARD) {
+        } else if (effectiveDifficulty() == Difficulty.HARD) {
             foldEquity *= 1.15;
-        } else if (DIFFICULTY == Difficulty.EXPERT) {
+        } else if (effectiveDifficulty() == Difficulty.EXPERT) {
             foldEquity *= 1.25;
         }
 
@@ -1050,7 +1067,7 @@ public class Bot {
     }
 
     private void generateStreetPlan(double effectiveStrength, double ppot) {
-        if (DIFFICULTY == Difficulty.EASY) {
+        if (effectiveDifficulty() == Difficulty.EASY) {
             streetPlan = PLAN_NONE;
             return;
         }
@@ -1105,7 +1122,7 @@ public class Bot {
             }
         }
 
-        if (skillLevel != Skill.RECREATIONAL && DIFFICULTY != Difficulty.EASY) {
+        if (skillLevel != Skill.RECREATIONAL && effectiveDifficulty() != Difficulty.EASY) {
             if (activePlayers >= 7 && pos == Position.EARLY && handTier == 3) {
                 handTier = 4;
             }
@@ -1127,7 +1144,7 @@ public class Bot {
         boolean isSB = myNick.equals(crupier.getSb_nick());
         boolean isBB = myNick.equals(crupier.getBb_nick());
 
-        if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3 && DIFFICULTY != Difficulty.EASY) {
+        if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3 && effectiveDifficulty() != Difficulty.EASY) {
             int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
             if (randInt(100) < squeezeChance) {
                 logVerbose("Preflop Squeeze.");
@@ -1226,8 +1243,8 @@ public class Bot {
                 // relaxation pushed HARD VPIP back into 54%, outside target.
                 if (handTier == 4 && currentProfile != Profile.STATION
                         && currentProfile != Profile.LAG
-                        && (DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)) {
-                    int foldChance = (DIFFICULTY == Difficulty.EXPERT) ? 33 : 22;
+                        && (effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)) {
+                    int foldChance = (effectiveDifficulty() == Difficulty.EXPERT) ? 33 : 22;
                     if (randInt(100) < foldChance) {
                         logVerbose("Preflop HU SB tier-4 selective fold.");
                         return Player.FOLD;
@@ -1541,8 +1558,8 @@ public class Bot {
      * gives the per-difficulty VPIP gradient that mixed personality pools
      * alone cannot produce.
      */
-    private static int difficultyLoosenessOffset() {
-        switch (DIFFICULTY) {
+    private int difficultyLoosenessOffset() {
+        switch (effectiveDifficulty()) {
             case EASY:
                 return 25;
             case MEDIUM:

@@ -926,14 +926,19 @@ public class Bot {
         }
 
         // Medium-strength raise band: aggressive aggression-factor booster.
-        // Iter 10 cranks rates much higher and drops the evRaise>adjustedEvCall*0.55
-        // floor — that guard was rejecting most candidates because EV math is
-        // sensitive on marginal hands. The "any positive evRaise" gate plus
-        // wider eligibility lifts HARD/EXPERT AF from 1.3 toward the 2-3 target.
+        // Restricted to heads-up situations only. Multi-way 6-max data showed
+        // that medium-strength raises against 5 calling opponents bleed
+        // bb/100 catastrophically: callers see flops cheaply, out-equity the
+        // raiser at showdown on average, and the inflated pot magnifies the
+        // loss. EXPERT vs 5 EASY measured -167 bb/100 with AF=2.15 versus
+        // HARD vs 5 EASY at +11 bb/100 with AF=1.78 — high aggression is
+        // directly responsible. The booster stays available HU where fold
+        // equity from a single opponent makes the math viable.
         boolean mediumRaiseEligible = effectiveStrength >= 0.40
                 && effectiveStrength < valueRaiseThreshold
                 && evRaise > 0
                 && betCount < MAX_BET_COUNT
+                && activePlayers <= 2
                 && currentProfile != Profile.STATION
                 && currentProfile != Profile.NIT;
         if (mediumRaiseEligible) {

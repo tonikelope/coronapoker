@@ -686,11 +686,23 @@ public class Bot {
 
             if (betCount > 0 && targetStats != null && targetStats.hasEnoughData()) {
                 if (targetStats.isNit()) {
+                    // A nit's bet/raise polarizes their range toward the
+                    // top — our marginal equity is meaningfully lower.
                     winProb -= 0.18;
                 } else if (targetStats.isManiac()) {
-                    winProb += 0.12;
+                    // A maniac's range is wide and weak, but they bet so
+                    // frequently that small equity nudges over-commit
+                    // marginal hands into spots where the maniac shoves
+                    // and we cannot escape. A modest nudge captures the
+                    // range edge without inflating EV math beyond the
+                    // bet-sizing safety net.
+                    winProb += 0.04;
                 } else if (targetStats.isStation()) {
-                    winProb -= 0.03;
+                    // Stations call too wide with weak ranges. When they
+                    // do put money in, our equity is HIGHER, not lower —
+                    // the prior sign was inverted. Conservative nudge
+                    // because stations occasionally have the goods.
+                    winProb += 0.04;
                 }
             }
             if (skillLevel == Skill.SHARK && effectiveDifficulty() != Difficulty.EASY) {

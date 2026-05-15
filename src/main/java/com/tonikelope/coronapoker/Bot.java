@@ -1295,11 +1295,11 @@ public class Bot {
             return Position.EARLY;
         }
         // Cutoff: the active player immediately before the dealer in seating order
-        java.util.List<? extends Player> jugadores = crupier.getPlayersInSeatingOrder();
+        java.util.List<? extends BotPlayerView> jugadores = crupier.getPlayersInSeatingOrder();
         int activos = 0;
         int dealerIdx = -1;
         int myIdx = -1;
-        for (Player p : jugadores) {
+        for (BotPlayerView p : jugadores) {
             if (!p.isActivo()) {
                 continue;
             }
@@ -1333,7 +1333,7 @@ public class Bot {
     }
 
     private OpponentTracker getPrimaryOpponentStats() {
-        Player lastAggressor = dealer().getLast_aggressor();
+        BotPlayerView lastAggressor = dealer().getLast_aggressor();
         if (lastAggressor == null || lastAggressor == cpuPlayer) {
             return null;
         }

@@ -14,7 +14,6 @@
 package com.tonikelope.coronapoker.bot.context;
 
 import com.tonikelope.coronapoker.Card;
-import com.tonikelope.coronapoker.Player;
 import java.util.List;
 
 /**
@@ -52,16 +51,16 @@ public interface DealerView {
 
     String getUtg_nick();
 
-    Player getLast_aggressor();
+    BotPlayerView getLast_aggressor();
 
     int getJugadoresActivos();
 
     /**
      * Players in seating order (active and inactive). The bot iterates this
-     * list and filters by {@link Player#isActivo()} when computing positional
-     * information.
+     * list and filters by {@link BotPlayerView#isActivo()} when computing
+     * positional information.
      */
-    List<? extends Player> getPlayersInSeatingOrder();
+    List<? extends BotPlayerView> getPlayersInSeatingOrder();
 
     /**
      * Community card index in the canonical Alberta encoding (rank + suit*13)

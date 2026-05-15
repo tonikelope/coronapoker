@@ -756,7 +756,10 @@ public class Bot {
 
         double winProb = effectiveStrength;
         OpponentTracker targetStats = getPrimaryOpponentStats();
-        double difficultyNoise = (effectiveDifficulty() == Difficulty.EASY && skillLevel != Skill.RECREATIONAL) ? (randDouble() * 0.10 - 0.05) : 0.0;
+        // Stockfish-pattern unification: no per-difficulty noise in the EV
+        // estimation. The only thing that distinguishes difficulties now is
+        // the mistake-injection rate applied after the decision is made.
+        double difficultyNoise = 0.0;
 
         if (skillLevel != Skill.RECREATIONAL) {
             if (betCount > 1 && street >= Crupier.FLOP) {
@@ -793,8 +796,11 @@ public class Bot {
                     winProb += 0.04;
                 }
             }
-            if (skillLevel == Skill.SHARK && effectiveDifficulty() != Difficulty.EASY) {
-                winProb += (effectiveDifficulty() == Difficulty.EXPERT ? 0.05 : 0.03);
+            if (skillLevel == Skill.SHARK) {
+                // SHARK personality gets a small equity confidence boost
+                // regardless of difficulty — the Stockfish-pattern engine is
+                // identical across levels; only mistake rate differentiates.
+                winProb += 0.04;
             }
         } else {
             if (onTilt) {
@@ -884,9 +890,12 @@ public class Bot {
                 if (effectiveStrength > 0.65) {
                     cbetChance += 20;
                 }
-                if ((effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)
-                        && hasRangeAdvantageOverFlop()) {
-                    cbetChance += (effectiveDifficulty() == Difficulty.EXPERT ? 15 : 10);
+                if (hasRangeAdvantageOverFlop()) {
+                    // Range advantage c-bet is a sound concept at every
+                    // difficulty; mistake injection at lower levels will
+                    // skip it stochastically without removing it from the
+                    // baseline.
+                    cbetChance += 12;
                     logVerbose("Range advantage detected on flop (high-card top-down).");
                 }
             }
@@ -1012,24 +1021,19 @@ public class Bot {
             return Player.CHECK;
         }
 
-        // Threshold for raise-for-value drops on HARD/EXPERT so sharks generate
-        // the AF=2-3 aggression industry regulars show, rather than calling down.
-        double valueRaiseThreshold = STRENGTH_VALUE_RAISE;
-        if (effectiveDifficulty() == Difficulty.EXPERT) {
-            valueRaiseThreshold = 0.72;
-        } else if (effectiveDifficulty() == Difficulty.HARD) {
-            valueRaiseThreshold = 0.78;
-        }
+        // Unified value-raise threshold across difficulties. Mistake
+        // injection at lower levels stochastically downgrades these
+        // value bets to checks — there is no per-difficulty engine
+        // difference, only mistake frequency.
+        double valueRaiseThreshold = 0.75;
         if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > valueRaiseThreshold && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
             logVerbose("Raising for value. High EV.");
             return Player.BET;
         }
 
-        // Medium-strength raise band — heavily restricted in this iteration.
-        // Earlier 30-75% rates produced AF=2.0 but bled bb/100 vs loose
-        // opponents who call mid-strength bets and out-equity them at
-        // showdown. We keep only a small SHARK-only sprinkle to preserve
-        // some balanced aggression without leaking value.
+        // Medium-strength raise band — narrow SHARK-only AF booster. Rate
+        // is unified across difficulties; mistake injection at lower
+        // levels accounts for the difficulty gradient.
         boolean mediumRaiseEligible = effectiveStrength >= 0.50
                 && effectiveStrength < valueRaiseThreshold
                 && evRaise > 0
@@ -1038,19 +1042,9 @@ public class Bot {
                 && currentProfile != Profile.STATION
                 && currentProfile != Profile.NIT
                 && skillLevel == Skill.SHARK;
-        if (mediumRaiseEligible) {
-            int chance;
-            if (effectiveDifficulty() == Difficulty.EXPERT) {
-                chance = 15;
-            } else if (effectiveDifficulty() == Difficulty.HARD) {
-                chance = 10;
-            } else {
-                chance = 0;
-            }
-            if (chance > 0 && randInt(100) < chance) {
-                logVerbose("Medium-strength raise (AF booster, narrow SHARK band).");
-                return Player.BET;
-            }
+        if (mediumRaiseEligible && randInt(100) < 12) {
+            logVerbose("Medium-strength raise (AF booster, narrow SHARK band).");
+            return Player.BET;
         }
 
         if (skillLevel == Skill.SHARK && betCount == 1 && activePlayers > 3 && effectiveStrength > 0.60 && foldEquity > 0.25 && randInt(100) < 20) {
@@ -1165,11 +1159,6 @@ public class Bot {
     }
 
     private void generateStreetPlan(double effectiveStrength, double ppot) {
-        if (effectiveDifficulty() == Difficulty.EASY) {
-            streetPlan = PLAN_NONE;
-            return;
-        }
-
         streetPlanStartStreet = Crupier.FLOP;
 
         if (effectiveStrength >= 0.88) {
@@ -1220,7 +1209,7 @@ public class Bot {
             }
         }
 
-        if (skillLevel != Skill.RECREATIONAL && effectiveDifficulty() != Difficulty.EASY) {
+        if (skillLevel != Skill.RECREATIONAL) {
             if (activePlayers >= 7 && pos == Position.EARLY && handTier == 3) {
                 handTier = 4;
             }
@@ -1242,7 +1231,7 @@ public class Bot {
         boolean isSB = myNick.equals(crupier.getSb_nick());
         boolean isBB = myNick.equals(crupier.getBb_nick());
 
-        if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3 && effectiveDifficulty() != Difficulty.EASY) {
+        if (betCount == 1 && activePlayers > 3 && (skillLevel == Skill.SHARK || (currentProfile == Profile.LAG && skillLevel == Skill.REGULAR)) && handTier <= 3) {
             int squeezeChance = (pos == Position.LATE || pos == Position.BLINDS) ? 35 : 25;
             if (randInt(100) < squeezeChance) {
                 logVerbose("Preflop Squeeze.");
@@ -1640,26 +1629,15 @@ public class Bot {
     }
 
     /**
-     * Difficulty-driven shift applied to heads-up tier-4/5 steal and defense
-     * percentages. EASY pulls everything looser (more fish-style play), EXPERT
-     * pulls everything tighter (disciplined sharks fold trash). MEDIUM is the
-     * neutral baseline. Combined with the profile-specific base rates this
-     * gives the per-difficulty VPIP gradient that mixed personality pools
-     * alone cannot produce.
+     * Heads-up tier-4/5 looseness offset — unified to zero so every
+     * difficulty plays the same baseline opening / defending frequency.
+     * The historical per-difficulty offsets were a leak: making EXPERT
+     * tighter in HU SB caused it to donate blinds in the most profitable
+     * spot in the game. Mistake injection at lower levels now provides
+     * the gradient; this stays at zero by design.
      */
     private int difficultyLoosenessOffset() {
-        switch (effectiveDifficulty()) {
-            case EASY:
-                return 10;
-            case MEDIUM:
-                return 0;
-            case HARD:
-                return -8;
-            case EXPERT:
-                return -12;
-            default:
-                return 0;
-        }
+        return 0;
     }
 
     private static int clampPct(int v) {

@@ -345,7 +345,7 @@ public class Bot {
             int stationCut, lagCut, tagCut;
             switch (DIFFICULTY) {
                 case EASY:
-                    stationCut = 72; lagCut = 88; tagCut = 96; // 72/16/8/4
+                    stationCut = 75; lagCut = 87; tagCut = 96; // 75/12/9/4 (less LAG to drop PFR)
                     break;
                 case MEDIUM:
                     stationCut = 55; lagCut = 78; tagCut = 92; // 55/23/14/8
@@ -1221,13 +1221,13 @@ public class Bot {
         if (isSB && betCount == 0) {
             if (handTier <= 4 && currentProfile != Profile.NIT) {
                 // Tier-4 marginal hands: HARD/EXPERT TAGs/SHARKs fold a slice
-                // rather than open every time. Eased slightly from iter 9 (40%→25%
-                // EXPERT, 20%→12% HARD) to recover EXPERT PFR which had dropped to
-                // 28% (target 32-42%). VPIP stays in range either way.
+                // rather than open every time. Iter 12 retunes back toward
+                // iter-9 values (20% HARD / 33% EXPERT) because iter 10's
+                // relaxation pushed HARD VPIP back into 54%, outside target.
                 if (handTier == 4 && currentProfile != Profile.STATION
                         && currentProfile != Profile.LAG
                         && (DIFFICULTY == Difficulty.HARD || DIFFICULTY == Difficulty.EXPERT)) {
-                    int foldChance = (DIFFICULTY == Difficulty.EXPERT) ? 25 : 12;
+                    int foldChance = (DIFFICULTY == Difficulty.EXPERT) ? 33 : 22;
                     if (randInt(100) < foldChance) {
                         logVerbose("Preflop HU SB tier-4 selective fold.");
                         return Player.FOLD;

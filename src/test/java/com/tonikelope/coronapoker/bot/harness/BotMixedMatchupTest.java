@@ -28,8 +28,12 @@ import org.junit.jupiter.api.Test;
  */
 class BotMixedMatchupTest {
 
-    private static final int SESSIONS_PER_MATCHUP = 40;
-    private static final int HANDS_PER_SESSION = 12;
+    // 100 sessions × 15 hands = 1500 hands/matchup. With HU NLHE per-hand
+    // variance ~150 bb/100 std-dev, this drops the standard error on a
+    // single-side bb/100 to ~38 bb/100 (delta SE ~54). DELTAs of ±100+ are
+    // safely significant at 95% confidence under this volume.
+    private static final int SESSIONS_PER_MATCHUP = 100;
+    private static final int HANDS_PER_SESSION = 15;
     private static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;

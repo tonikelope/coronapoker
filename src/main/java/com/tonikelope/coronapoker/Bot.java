@@ -875,7 +875,15 @@ public class Bot {
             return Player.CHECK;
         }
 
-        if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > STRENGTH_VALUE_RAISE && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
+        // Threshold for raise-for-value drops on HARD/EXPERT so sharks generate
+        // the AF=2-3 aggression industry regulars show, rather than calling down.
+        double valueRaiseThreshold = STRENGTH_VALUE_RAISE;
+        if (DIFFICULTY == Difficulty.EXPERT) {
+            valueRaiseThreshold = 0.72;
+        } else if (DIFFICULTY == Difficulty.HARD) {
+            valueRaiseThreshold = 0.78;
+        }
+        if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > valueRaiseThreshold && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
             logVerbose("Raising for value. High EV.");
             return Player.BET;
         }
@@ -1103,6 +1111,8 @@ public class Bot {
             return Player.FOLD;
         }
 
+        boolean headsUp = (activePlayers == 2);
+
         if (betCount == 1) {
             if (handTier == 1) {
                 logVerbose("Preflop 3-Bet for value.");
@@ -1128,6 +1138,23 @@ public class Bot {
                 logVerbose("Preflop LAG loose call in position.");
                 return Player.CHECK;
             }
+            // Heads-up BB defends much wider against SB opens. Even nits do not let
+            // the SB steal every BB unchallenged.
+            if (headsUp && isBB) {
+                int defendChance;
+                if (handTier == 4) {
+                    defendChance = (currentProfile == Profile.NIT) ? 60 : 90;
+                } else { // tier 5 trash
+                    defendChance = (currentProfile == Profile.NIT) ? 15
+                            : (currentProfile == Profile.STATION) ? 55
+                            : (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) ? 45
+                            : 30; // TAG default
+                }
+                if (randInt(100) < defendChance) {
+                    logVerbose("Preflop HU BB defend vs button raise.");
+                    return Player.CHECK;
+                }
+            }
             logVerbose("Preflop Fold vs Raise.");
             return Player.FOLD;
         }
@@ -1136,6 +1163,24 @@ public class Bot {
             if (handTier <= 4 && currentProfile != Profile.NIT) {
                 logVerbose("Preflop SB folded-to: open wide.");
                 return Player.BET;
+            }
+            // Heads-up button opens trash much wider than full-ring cutoff/button.
+            // Industry HU button opens 70-85% — let the bot match that.
+            if (handTier == 5 && headsUp) {
+                int stealChance;
+                if (currentProfile == Profile.NIT) {
+                    stealChance = 15;
+                } else if (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) {
+                    stealChance = 60;
+                } else if (currentProfile == Profile.TAG) {
+                    stealChance = 45;
+                } else { // STATION recreational
+                    stealChance = 25;
+                }
+                if (randInt(100) < stealChance) {
+                    logVerbose("Preflop HU SB steal (tier 5 wide).");
+                    return Player.BET;
+                }
             }
             if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
                     && randInt(100) < 25) {

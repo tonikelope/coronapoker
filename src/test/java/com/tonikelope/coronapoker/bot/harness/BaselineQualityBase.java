@@ -27,10 +27,12 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 abstract class BaselineQualityBase {
 
-    // 60 sessions × 50 hands = 3000 hands/matchup. Tracker accumulates
-    // within each session (50 ≫ tracker 10-hand threshold) and resets
-    // between sessions because seat composition rolls per game.
-    protected static final int SESSIONS = 60;
+    // 200 sessions × 50 hands = 10000 hands/matchup. Larger sample gives
+    // the bb/100 estimate a much tighter standard error so calibration
+    // changes are distinguishable from noise. With paralelización
+    // (forkCount=0.6C ≈ 5 forks) the four baseline matchups still
+    // complete in roughly half the wall-clock of a serial run.
+    protected static final int SESSIONS = 200;
     protected static final int HANDS_PER_SESSION = 50;
     protected static final long BASE_SEED = 0xBA5E11AAACADE000L;
     protected static final float STARTING_STACK = 200f;

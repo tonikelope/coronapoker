@@ -27,10 +27,13 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 abstract class BotMixedMatchupBase {
 
-    // 60 sessions × 50 hands = 3000 hands/matchup. Tracker accumulates
-    // within each session (50 ≫ tracker's 10-hand threshold) and is
-    // cleared between sessions because seat composition alternates.
-    protected static final int SESSIONS_PER_MATCHUP = 60;
+    // 200 sessions × 50 hands = 10000 hands/matchup. The per-session
+    // delta SE in HU NLHE is roughly 400/sqrt(50) ~ 56 bb/100 per
+    // session, so with 200 sessions the matchup-level SE drops to
+    // ~4 bb/100 — comfortably below the +50 PASS threshold so DELTAs
+    // of +50 register as solid PASS rather than noise. Doubles
+    // wall-clock runtime but the calibration signal becomes legible.
+    protected static final int SESSIONS_PER_MATCHUP = 200;
     protected static final int HANDS_PER_SESSION = 50;
     protected static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
     protected static final float STARTING_STACK = 200f;

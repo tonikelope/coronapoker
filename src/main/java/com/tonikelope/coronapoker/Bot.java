@@ -921,36 +921,30 @@ public class Bot {
             return Player.BET;
         }
 
-        // Medium-strength raise band: aggressive aggression-factor booster.
-        // Iter 10 cranks rates much higher and drops the evRaise>adjustedEvCall*0.55
-        // floor — that guard was rejecting most candidates because EV math is
-        // sensitive on marginal hands. The "any positive evRaise" gate plus
-        // wider eligibility lifts HARD/EXPERT AF from 1.3 toward the 2-3 target.
-        boolean mediumRaiseEligible = effectiveStrength >= 0.40
+        // Medium-strength raise band — heavily restricted in this iteration.
+        // Earlier 30-75% rates produced AF=2.0 but bled bb/100 vs loose
+        // opponents who call mid-strength bets and out-equity them at
+        // showdown. We keep only a small SHARK-only sprinkle to preserve
+        // some balanced aggression without leaking value.
+        boolean mediumRaiseEligible = effectiveStrength >= 0.50
                 && effectiveStrength < valueRaiseThreshold
                 && evRaise > 0
+                && evRaise > adjustedEvCall
                 && betCount < MAX_BET_COUNT
                 && currentProfile != Profile.STATION
-                && currentProfile != Profile.NIT;
+                && currentProfile != Profile.NIT
+                && skillLevel == Skill.SHARK;
         if (mediumRaiseEligible) {
             int chance;
             if (effectiveDifficulty() == Difficulty.EXPERT) {
-                chance = (skillLevel == Skill.SHARK) ? 75
-                        : (currentProfile == Profile.LAG) ? 55
-                        : (currentProfile == Profile.TAG) ? 45 : 0;
+                chance = 15;
             } else if (effectiveDifficulty() == Difficulty.HARD) {
-                chance = (skillLevel == Skill.SHARK) ? 55
-                        : (currentProfile == Profile.LAG) ? 38
-                        : (currentProfile == Profile.TAG) ? 30 : 0;
-            } else if (effectiveDifficulty() == Difficulty.MEDIUM) {
-                chance = (skillLevel == Skill.SHARK) ? 30
-                        : (currentProfile == Profile.LAG) ? 18
-                        : (currentProfile == Profile.TAG) ? 10 : 0;
+                chance = 10;
             } else {
-                chance = 0; // EASY stays passive
+                chance = 0;
             }
             if (chance > 0 && randInt(100) < chance) {
-                logVerbose("Medium-strength raise (AF booster).");
+                logVerbose("Medium-strength raise (AF booster, narrow SHARK band).");
                 return Player.BET;
             }
         }
@@ -1237,19 +1231,10 @@ public class Bot {
 
         if (isSB && betCount == 0) {
             if (handTier <= 4 && currentProfile != Profile.NIT) {
-                // Tier-4 marginal hands: HARD/EXPERT TAGs/SHARKs fold a slice
-                // rather than open every time. Iter 12 retunes back toward
-                // iter-9 values (20% HARD / 33% EXPERT) because iter 10's
-                // relaxation pushed HARD VPIP back into 54%, outside target.
-                if (handTier == 4 && currentProfile != Profile.STATION
-                        && currentProfile != Profile.LAG
-                        && (effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)) {
-                    int foldChance = (effectiveDifficulty() == Difficulty.EXPERT) ? 33 : 22;
-                    if (randInt(100) < foldChance) {
-                        logVerbose("Preflop HU SB tier-4 selective fold.");
-                        return Player.FOLD;
-                    }
-                }
+                // HU SB is the most profitable button spot in poker — open
+                // every tier-1..4 hand. The earlier tier-4 selective fold
+                // (iter 9-12) was bleeding bb/100 vs loose-passive opponents
+                // because folding here is a pure blind donation in HU.
                 logVerbose("Preflop SB folded-to: open wide.");
                 return Player.BET;
             }
@@ -1561,13 +1546,13 @@ public class Bot {
     private int difficultyLoosenessOffset() {
         switch (effectiveDifficulty()) {
             case EASY:
-                return 25;
+                return 10;
             case MEDIUM:
-                return -16;
+                return 0;
             case HARD:
-                return -38;
+                return -8;
             case EXPERT:
-                return -52;
+                return -12;
             default:
                 return 0;
         }

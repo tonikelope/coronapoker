@@ -51,7 +51,7 @@ public class Bot {
     public static volatile Difficulty DIFFICULTY = Difficulty.MEDIUM;
 
     public enum Difficulty {
-        EASY, MEDIUM, HARD
+        EASY, MEDIUM, HARD, EXPERT
     }
 
     public enum Position {

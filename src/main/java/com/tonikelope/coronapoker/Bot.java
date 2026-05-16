@@ -759,11 +759,11 @@ public class Bot {
                 logVerbose("River thin value bet (small).");
                 return Player.BET;
             }
-            if (skillLevel != Skill.RECREATIONAL && previousPpot > 0.18 && effectiveStrength < 0.30 && foldEquity > 0.15 && randInt(100) < 30) {
+            if (skillLevel != Skill.RECREATIONAL && activePlayers <= 2 && previousPpot > 0.18 && effectiveStrength < 0.30 && foldEquity > 0.15 && randInt(100) < 30) {
                 logVerbose("River Bluff (Busted Draw).");
                 return Player.BET;
             }
-            if (skillLevel != Skill.RECREATIONAL && aggressiveLine && effectiveStrength < 0.35 && foldEquity > 0.20 && randInt(100) < 25) {
+            if (skillLevel != Skill.RECREATIONAL && activePlayers <= 2 && aggressiveLine && effectiveStrength < 0.35 && foldEquity > 0.20 && randInt(100) < 25) {
                 logVerbose("River Bluff (Aggressive Line follow-through).");
                 return Player.BET;
             }
@@ -799,6 +799,7 @@ public class Bot {
         }
 
         if (street < Crupier.RIVER && skillLevel != Skill.RECREATIONAL && currentProfile != Profile.NIT
+                && activePlayers <= 2
                 && ppot > 0.30 && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
                 && foldEquity > 0.18 && boardTexture.totalScore <= 3
                 && randInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)) {
@@ -883,7 +884,7 @@ public class Bot {
                 return Player.CHECK;
             }
         }
-        if (!floatPlay && callCost <= pot * 0.6 && canFloat(effectiveStrength, betCount, street, boardTexture)) {
+        if (!floatPlay && activePlayers <= 2 && callCost <= pot * 0.6 && canFloat(effectiveStrength, betCount, street, boardTexture)) {
             floatPlay = true;
             logVerbose("Initiating Float Strategy (Calling to bluff later).");
             return Player.CHECK;

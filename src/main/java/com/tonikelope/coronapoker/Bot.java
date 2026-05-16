@@ -585,11 +585,11 @@ public class Bot {
             case EXPERT:
                 return 0.00;
             case HARD:
-                return 0.06;
+                return 0.10;
             case MEDIUM:
-                return 0.18;
+                return 0.22;
             case EASY:
-                return 0.40;
+                return 0.45;
             default:
                 return 0.0;
         }

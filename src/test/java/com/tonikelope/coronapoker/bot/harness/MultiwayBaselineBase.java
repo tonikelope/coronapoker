@@ -46,9 +46,11 @@ abstract class MultiwayBaselineBase {
         BotStats aggHero = new BotStats("EXPERT");
         BotStats aggVillains = new BotStats(villainStrategy.name() + "_AVG");
         int totalHands = SESSIONS * HANDS_PER_SESSION;
-        System.out.println();
-        System.out.printf("--- 6-max baseline: EXPERT vs 5x %s (%d hands) ---%n",
-                villainStrategy.name(), totalHands);
+        long startMs = System.currentTimeMillis();
+        System.out.printf("%n[START] EXPERT vs 5x %s (%d sessions × %d hands = %d hands total)%n",
+                villainStrategy.name(), SESSIONS, HANDS_PER_SESSION, totalHands);
+        System.out.flush();
+        int progressStep = Math.max(1, SESSIONS / 10);
 
         for (int session = 0; session < SESSIONS; session++) {
             Bot.TRACKER_MEMORY.clear();
@@ -80,12 +82,23 @@ abstract class MultiwayBaselineBase {
                     aggVillains.add(sim.stats(i));
                 }
             }
+
+            if (((session + 1) % progressStep == 0) || session == SESSIONS - 1) {
+                long elapsed = (System.currentTimeMillis() - startMs) / 1000L;
+                int sessionsDone = session + 1;
+                int handsDone = sessionsDone * HANDS_PER_SESSION;
+                int pct = (sessionsDone * 100) / SESSIONS;
+                System.out.printf("  [EXPERT vs 5x %s] %3d%% — %d/%d sessions (%d hands) — %ds elapsed%n",
+                        villainStrategy.name(), pct, sessionsDone, SESSIONS, handsDone, elapsed);
+                System.out.flush();
+            }
         }
 
         System.out.println(aggHero.summary(BIG_BLIND));
         System.out.println(aggVillains.summary(BIG_BLIND));
         double bb100 = aggHero.bbPer100(BIG_BLIND);
         System.out.printf("    %s bb/100 = %+.1f%n", label, bb100);
+        System.out.flush();
         return bb100;
     }
 

@@ -585,11 +585,11 @@ public class Bot {
             case EXPERT:
                 return 0.00;
             case HARD:
-                return 0.08;
+                return 0.06;
             case MEDIUM:
-                return 0.22;
+                return 0.18;
             case EASY:
-                return 0.50;
+                return 0.40;
             default:
                 return 0.0;
         }
@@ -610,52 +610,48 @@ public class Bot {
 
     /**
      * Replace the bot's planned decision with a recreational leak when
-     * the current spot fits one. All mistakes downgrade decisions toward
-     * passivity or surrender; no mistake inserts a new BET that would
-     * inflate the tracker's aggression factor and make the bot look
-     * maniacal to its opponents.
+     * the current spot fits one. Mistakes are tried in cascade: the
+     * first applicable one fires. All downgrade decisions toward
+     * passivity or surrender; none inserts a new BET that would inflate
+     * the tracker's aggression factor.
      */
     private int injectRecreationalMistake(int planned) {
         DealerView d = dealer();
         int street = d.getStreet();
         float toCall = d.getApuesta_actual() - cpuPlayer.getBet();
+        float pot = d.getBote_total();
         double strength = previousStrength > 0 ? previousStrength : lastEffectiveStrength;
-        int pick = randInt(4);
-        switch (pick) {
-            case 0:
-                // Sticky calldown: planned FOLD facing a bet, marginal
-                // made hand → CALL. Pays off polarized barrels with a
-                // hand that rarely wins at showdown.
-                if (planned == Player.FOLD && toCall > 0f
-                        && strength > 0.15 && strength < 0.50) {
-                    return Player.CHECK;
-                }
-                break;
-            case 1:
-                // Hero fold: planned CALL with strong hand → FOLD.
-                // The classic "I think he has me" leak surrenders
-                // significant equity that should continue.
-                if (planned == Player.CHECK && toCall > 0f && strength > 0.68) {
-                    return Player.FOLD;
-                }
-                break;
-            case 2:
-                // Missed value: planned BET with strong hand → CHECK.
-                // Recreational passive — leaves money in the deck.
-                if (planned == Player.BET && strength > 0.65
-                        && street >= Crupier.FLOP) {
-                    return Player.CHECK;
-                }
-                break;
-            case 3:
-                // Spewy preflop call: planned FOLD vs raise, marginal
-                // holding → CALL. "Just gonna see a flop" leak.
-                if (planned == Player.FOLD && street == Crupier.PREFLOP
-                        && toCall > 0f && strength > 0.12 && strength < 0.42) {
-                    return Player.CHECK;
-                }
-                break;
+
+        // 1. Sticky calldown: weak made hand calls bet instead of folding.
+        if (planned == Player.FOLD && toCall > 0f
+                && strength > 0.10 && strength < 0.55
+                && toCall < pot * 1.5f) {
+            return Player.CHECK;
         }
+
+        // 2. Hero fold: strong hand folds to a bet that should be called
+        // or raised. Direct equity surrender on a value spot.
+        if (planned == Player.CHECK && toCall > 0f && strength > 0.62) {
+            return Player.FOLD;
+        }
+        if (planned == Player.BET && toCall > 0f && strength > 0.70) {
+            return Player.FOLD;
+        }
+
+        // 3. Missed value bet: strong made hand passes on the chance to
+        // grow the pot when checked to.
+        if (planned == Player.BET && toCall <= 0f && strength > 0.62
+                && street >= Crupier.FLOP) {
+            return Player.CHECK;
+        }
+
+        // 4. Spewy preflop call: marginal holding calls a raise it
+        // should fold. "Just gonna see a flop" leak.
+        if (planned == Player.FOLD && street == Crupier.PREFLOP
+                && toCall > 0f && strength > 0.10 && strength < 0.50) {
+            return Player.CHECK;
+        }
+
         return planned;
     }
 

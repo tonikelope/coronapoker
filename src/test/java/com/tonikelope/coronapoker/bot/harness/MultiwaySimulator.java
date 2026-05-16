@@ -328,13 +328,22 @@ public final class MultiwaySimulator {
             }
         }
         int toAct = firstToAct;
-        int actions = 0;
+        // iterations counts every loop pass so the safety net catches
+        // pathological scenarios (e.g. all remaining players all-in
+        // without exiting via allActiveAllIn check above) regardless
+        // of whether the pass corresponded to a real decision.
+        int iterations = 0;
 
-        while (actions < MAX_ACTIONS_PER_STREET) {
+        while (iterations < MAX_ACTIONS_PER_STREET) {
+            iterations++;
             if (countActive() <= 1) {
                 return BettingResult.HAND_OVER_FOLD;
             }
             if (needToAct.isEmpty() && allActiveMatched()) {
+                return BettingResult.STREET_DONE;
+            }
+            if (allActiveAllIn()) {
+                // No one left who can act: ship the street.
                 return BettingResult.STREET_DONE;
             }
             if (!players[toAct].isActivo()) {
@@ -427,7 +436,6 @@ public final class MultiwaySimulator {
                     }
                 }
             }
-            actions++;
             toAct = (toAct + 1) % numSeats;
         }
         return BettingResult.STREET_DONE;

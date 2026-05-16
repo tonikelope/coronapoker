@@ -75,6 +75,16 @@ abstract class MultiwayMatchupBase {
         BotStats aggVillain = new BotStats(villain.name() + "_AVG");
         double[] sessionDeltas = new double[SESSIONS_PER_MATCHUP];
 
+        long startMs = System.currentTimeMillis();
+        int totalHands = SESSIONS_PER_MATCHUP * HANDS_PER_SESSION;
+        System.out.printf("%n[START] %s vs 5x %s (%d sessions × %d hands = %d hands total)%n",
+                hero.name(), villain.name(), SESSIONS_PER_MATCHUP, HANDS_PER_SESSION, totalHands);
+        System.out.flush();
+
+        // Progress is reported every PROGRESS_STEP sessions so a hung run is
+        // visible from outside (~10 progress lines per matchup).
+        int progressStep = Math.max(1, SESSIONS_PER_MATCHUP / 10);
+
         for (int session = 0; session < SESSIONS_PER_MATCHUP; session++) {
             Bot.TRACKER_MEMORY.clear();
             long seed = BASE_SEED
@@ -105,6 +115,17 @@ abstract class MultiwayMatchupBase {
 
             aggHero.add(heroSessionStats);
             aggVillain.add(villainAggSession);
+
+            if (((session + 1) % progressStep == 0) || session == SESSIONS_PER_MATCHUP - 1) {
+                long elapsed = (System.currentTimeMillis() - startMs) / 1000L;
+                int sessionsDone = session + 1;
+                int handsDone = sessionsDone * HANDS_PER_SESSION;
+                int pct = (sessionsDone * 100) / SESSIONS_PER_MATCHUP;
+                System.out.printf("  [%s vs 5x %s] %3d%% — %d/%d sessions (%d hands) — %ds elapsed%n",
+                        hero.name(), villain.name(), pct,
+                        sessionsDone, SESSIONS_PER_MATCHUP, handsDone, elapsed);
+                System.out.flush();
+            }
         }
 
         double mean = mean(sessionDeltas);

@@ -410,12 +410,24 @@ public class Bot {
         float stack = cpuPlayer.getStack();
         float blindsCost = dealer.getCiega_grande() + dealer.getCiega_pequeña();
         float mRatio = stack / (blindsCost > 0 ? blindsCost : 1);
+        int activePlayers = dealer.getJugadoresActivos();
 
         if (skillLevel == Skill.RECREATIONAL) {
             currentProfile = onTilt ? Profile.LAG : baseProfile;
             if (onTilt) {
                 logVerbose("Player is on TILT. Switched to LAG.");
             }
+            return;
+        }
+
+        // Multi-way table: LAG personality plays losing poker without
+        // opponent modelling to identify which seat will fold. Force LAG
+        // to play tight-aggressive instead. Measured: EXPERT (with 45%
+        // SHARK-LAG mix) bled -177 bb/100 vs 5 EASY purely because LAG
+        // bluff lines and wide opens get called by stations.
+        if (activePlayers > 2 && baseProfile == Profile.LAG) {
+            currentProfile = Profile.TAG;
+            logVerbose("Multi-way table. LAG profile tightening to TAG.");
             return;
         }
 
@@ -1198,6 +1210,7 @@ public class Bot {
             boolean threeBetBluffCandidate = (high == 12 && low <= 3 && suited)
                     || (high == 11 && low == 10 && !suited);
             if (skillLevel == Skill.SHARK && threeBetBluffCandidate
+                    && activePlayers <= 2
                     && (pos == Position.LATE || pos == Position.BLINDS)
                     && randInt(100) < 30) {
                 logVerbose("Preflop 3-Bet bluff (blocker).");
@@ -1337,7 +1350,9 @@ public class Bot {
                     logVerbose("Preflop Nit Open.");
                     return Player.BET;
                 }
-                if (handTier == 5 && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK) && randInt(100) < 20) {
+                if (handTier == 5 && activePlayers <= 2
+                        && (currentProfile == Profile.LAG || skillLevel == Skill.SHARK)
+                        && randInt(100) < 20) {
                     logVerbose("Preflop Trash Steal (Bluff).");
                     return Player.BET;
                 }

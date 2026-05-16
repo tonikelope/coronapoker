@@ -71,7 +71,7 @@ import javax.swing.JLabel;
  * @author tonikelope This croupier does too many things, but at least it does
  * them well.
  */
-public class Crupier implements Runnable {
+public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
 
@@ -8627,6 +8627,26 @@ public class Crupier implements Runnable {
         // Sort alphabetically to guarantee identical mathematical positions across all clients
         java.util.Collections.sort(ring, (p1, p2) -> p1.getNickname().compareTo(p2.getNickname()));
         return ring;
+    }
+
+    // --- DealerView contract additions (read-only views over GameFrame and BOT_COMMUNITY_CARDS) ---
+
+    @Override
+    public java.util.List<? extends Player> getPlayersInSeatingOrder() {
+        return GameFrame.getInstance().getJugadores();
+    }
+
+    @Override
+    public int getBoardSize() {
+        return Bot.BOT_COMMUNITY_CARDS.size();
+    }
+
+    @Override
+    public int getBoardCardIndex(int i) {
+        if (i < 0 || i >= Bot.BOT_COMMUNITY_CARDS.size()) {
+            return -1;
+        }
+        return Bot.BOT_COMMUNITY_CARDS.getCard(i + 1).getIndex();
     }
 
 }

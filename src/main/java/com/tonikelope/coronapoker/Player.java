@@ -38,7 +38,7 @@ import javax.swing.JLabel;
  *
  * @author tonikelope
  */
-public interface Player {
+public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayerView {
 
     public static final int NODEC = -1;
     public static final int FOLD = 1;

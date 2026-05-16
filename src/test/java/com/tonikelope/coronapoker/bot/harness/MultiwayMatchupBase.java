@@ -34,13 +34,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 abstract class MultiwayMatchupBase {
 
     protected static final int NUM_SEATS = 6;
-    // 200 × 50 = 10000 hands/matchup. SE ~20 bb/100 — comfortable for
-    // resolving the +30 gradient floor with t > 2 on most matchups.
-    // 25 000-hand runs were attempted and timed out beyond reasonable
-    // wall-clock on this hardware (six-bot 6-max evaluation cost
-    // dominates with 25k hands); 10 000 hands is the established
-    // working volume that produces the AAA verdicts shown in the
-    // README results section.
+    // 200 × 50 = 10000 hands/matchup. The established working volume that
+    // produces the AAA gradient verdicts on the user's hardware (8-core
+    // 9800X3D) in ~4 hours wall-clock for the full nine-test suite.
     protected static final int SESSIONS_PER_MATCHUP = 200;
     protected static final int HANDS_PER_SESSION = 50;
     protected static final long BASE_SEED = 0xC0C0FEEDBA5E4321L;

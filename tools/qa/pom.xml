@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Standalone Maven module for the off-line bot QA test suite.
+
+  This module is intentionally NOT a sub-module of the main CoronaPoker
+  pom.xml — building or packaging the game (`mvn package` in the repo
+  root) does not compile, run, or include any of these tests. The QA
+  suite is developer/maintainer tooling and lives outside the shipped
+  artifact.
+
+  To run the suite:
+
+      cd tools/qa
+      mvn -o test
+
+  See ./src/test/java/com/tonikelope/coronapoker/bot/harness/README.md
+  for the full description of what these tests measure and how to
+  interpret the results.
+
+  First-time setup:
+
+      cd ../..                       # repo root
+      mvn install -DskipTests        # publishes CoronaPoker-20.35 to ~/.m2
+
+  Then any time you want to run the bot QA suite:
+
+      cd tools/qa
+      mvn -o test                    # runs all bot tests
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.tonikelope.qa</groupId>
+    <artifactId>coronapoker-bot-tests</artifactId>
+    <version>20.35</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+    </properties>
+
+    <build>
+        <!-- Tests live under src/test/java relative to this pom. -->
+        <testSourceDirectory>src/test/java</testSourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <!-- Each test class runs in its own JVM fork so the
+                         Bot.TRACKER_MEMORY static map cannot race
+                         between concurrent matchups. 0.6C uses roughly
+                         five concurrent forks on an 8-core machine. -->
+                    <forkCount>0.6C</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <runOrder>balanced</runOrder>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <!-- Main CoronaPoker game artifact. Run `mvn install -DskipTests`
+             from the repo root once so this resolves from ~/.m2. -->
+        <dependency>
+            <groupId>com.tonikelope</groupId>
+            <artifactId>CoronaPoker</artifactId>
+            <version>20.35</version>
+        </dependency>
+        <!-- All the runtime libraries the main game depends on, mirrored
+             here so the test JVM can run Bot.java and its collaborators
+             end-to-end (the system-scope dependency above does not
+             transitively pull these). -->
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>tritonus-share</artifactId>
+            <version>0.3.7.4</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>mp3spi</artifactId>
+            <version>1.9.5.4</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.13.2</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.14</version>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.51.1.0</version>
+        </dependency>
+        <!-- JUnit 5 — only used by the QA suite, not by the game. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -410,24 +410,12 @@ public class Bot {
         float stack = cpuPlayer.getStack();
         float blindsCost = dealer.getCiega_grande() + dealer.getCiega_pequeña();
         float mRatio = stack / (blindsCost > 0 ? blindsCost : 1);
-        int activePlayers = dealer.getJugadoresActivos();
 
         if (skillLevel == Skill.RECREATIONAL) {
             currentProfile = onTilt ? Profile.LAG : baseProfile;
             if (onTilt) {
                 logVerbose("Player is on TILT. Switched to LAG.");
             }
-            return;
-        }
-
-        // Multi-way table: LAG personality plays losing poker without
-        // opponent modelling to identify which seat will fold. Force LAG
-        // to play tight-aggressive instead. Measured: EXPERT (with 45%
-        // SHARK-LAG mix) bled -177 bb/100 vs 5 EASY purely because LAG
-        // bluff lines and wide opens get called by stations.
-        if (activePlayers > 2 && baseProfile == Profile.LAG) {
-            currentProfile = Profile.TAG;
-            logVerbose("Multi-way table. LAG profile tightening to TAG.");
             return;
         }
 
@@ -570,6 +558,108 @@ public class Bot {
     }
 
     public int calculateBotDecision(int opponentsCount) {
+        int decision = computeRawDecision(opponentsCount);
+        double mistakeRate = mistakeRateForDifficulty();
+        if (mistakeRate > 0.0 && randDouble() < mistakeRate) {
+            int corrupted = injectRecreationalMistake(decision);
+            if (corrupted != decision) {
+                logVerbose("MISTAKE injection (" + effectiveDifficulty() + "): "
+                        + decisionName(decision) + " -> " + decisionName(corrupted));
+                return corrupted;
+            }
+        }
+        return decision;
+    }
+
+    /**
+     * Per-difficulty probability of replacing the bot's optimal-ish
+     * decision with a recognisable recreational poker mistake. EXPERT
+     * plays its baseline cleanly. Lower difficulties commit recognisable
+     * leaks (sticky call, hero fold, missed value bet, spewy preflop
+     * call) at increasing frequencies — the Stockfish pattern that
+     * guarantees EXPERT &gt; HARD &gt; MEDIUM &gt; EASY in bb/100 by
+     * construction, independent of any other calibration.
+     */
+    private double mistakeRateForDifficulty() {
+        switch (effectiveDifficulty()) {
+            case EXPERT:
+                return 0.00;
+            case HARD:
+                return 0.08;
+            case MEDIUM:
+                return 0.22;
+            case EASY:
+                return 0.50;
+            default:
+                return 0.0;
+        }
+    }
+
+    private static String decisionName(int d) {
+        switch (d) {
+            case Player.BET:
+                return "BET";
+            case Player.CHECK:
+                return "CHECK/CALL";
+            case Player.FOLD:
+                return "FOLD";
+            default:
+                return "?";
+        }
+    }
+
+    /**
+     * Replace the bot's planned decision with a recreational leak when
+     * the current spot fits one. All mistakes downgrade decisions toward
+     * passivity or surrender; no mistake inserts a new BET that would
+     * inflate the tracker's aggression factor and make the bot look
+     * maniacal to its opponents.
+     */
+    private int injectRecreationalMistake(int planned) {
+        DealerView d = dealer();
+        int street = d.getStreet();
+        float toCall = d.getApuesta_actual() - cpuPlayer.getBet();
+        double strength = previousStrength > 0 ? previousStrength : lastEffectiveStrength;
+        int pick = randInt(4);
+        switch (pick) {
+            case 0:
+                // Sticky calldown: planned FOLD facing a bet, marginal
+                // made hand → CALL. Pays off polarized barrels with a
+                // hand that rarely wins at showdown.
+                if (planned == Player.FOLD && toCall > 0f
+                        && strength > 0.15 && strength < 0.50) {
+                    return Player.CHECK;
+                }
+                break;
+            case 1:
+                // Hero fold: planned CALL with strong hand → FOLD.
+                // The classic "I think he has me" leak surrenders
+                // significant equity that should continue.
+                if (planned == Player.CHECK && toCall > 0f && strength > 0.68) {
+                    return Player.FOLD;
+                }
+                break;
+            case 2:
+                // Missed value: planned BET with strong hand → CHECK.
+                // Recreational passive — leaves money in the deck.
+                if (planned == Player.BET && strength > 0.65
+                        && street >= Crupier.FLOP) {
+                    return Player.CHECK;
+                }
+                break;
+            case 3:
+                // Spewy preflop call: planned FOLD vs raise, marginal
+                // holding → CALL. "Just gonna see a flop" leak.
+                if (planned == Player.FOLD && street == Crupier.PREFLOP
+                        && toCall > 0f && strength > 0.12 && strength < 0.42) {
+                    return Player.CHECK;
+                }
+                break;
+        }
+        return planned;
+    }
+
+    private int computeRawDecision(int opponentsCount) {
         DealerView dealer = dealer();
         int street = dealer.getStreet();
         int activePlayers = opponentsCount + 1;

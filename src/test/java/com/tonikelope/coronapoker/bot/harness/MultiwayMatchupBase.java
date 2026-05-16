@@ -34,7 +34,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 abstract class MultiwayMatchupBase {
 
     protected static final int NUM_SEATS = 6;
-    protected static final int SESSIONS_PER_MATCHUP = 60;
+    // 200 × 50 = 10000 hands/matchup. SE drops from ~50 to ~20 bb/100,
+    // bringing the +30 PASS threshold above the noise floor.
+    protected static final int SESSIONS_PER_MATCHUP = 200;
     protected static final int HANDS_PER_SESSION = 50;
     protected static final long BASE_SEED = 0xC0C0FEEDBA5E4321L;
     protected static final float STARTING_STACK = 200f;

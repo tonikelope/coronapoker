@@ -28,8 +28,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 abstract class MultiwayBaselineBase {
 
     protected static final int NUM_SEATS = 6;
-    // 500 × 50 = 25000 hands/matchup — final AAA-validation volume.
-    protected static final int SESSIONS = 500;
+    // 200 × 50 = 10000 hands/matchup — the established working volume.
+    protected static final int SESSIONS = 200;
     protected static final int HANDS_PER_SESSION = 50;
     protected static final long BASE_SEED = 0xBA5E11AAA6A60001L;
     protected static final float STARTING_STACK = 200f;

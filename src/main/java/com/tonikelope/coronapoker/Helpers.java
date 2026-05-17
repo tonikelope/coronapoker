@@ -1332,7 +1332,7 @@ public class Helpers {
 
         THREAD_POOL.shutdown();
 
-        LOGGER.log(Level.INFO, "THREAD-POOL SHUTDOWN (you can ignore interrupted exceptions, if any)");
+        LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
 
         THREAD_POOL.shutdownNow();
     }
@@ -1485,7 +1485,17 @@ public class Helpers {
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.execute("VACUUM");
         } catch (SQLException ex) {
-            LOGGER.log(Level.SEVERE, null, ex);
+            String msg = ex.getMessage();
+            // VACUUM is opportunistic maintenance and benignly fails when
+            // other SQL statements are still in progress (typical during a
+            // busy game exit). That specific case is INFO. ANY other SQL
+            // error (disk full, permission denied, corruption, etc.) is a
+            // real problem and stays SEVERE.
+            if (msg != null && msg.contains("SQL statements in progress")) {
+                LOGGER.log(Level.INFO, "SQLite VACUUM skipped (SQL statements in progress, will retry next session).");
+            } else {
+                LOGGER.log(Level.SEVERE, "SQLite VACUUM failed", ex);
+            }
         }
 
     }
@@ -3074,6 +3084,24 @@ public class Helpers {
         return java_bin.toString();
     }
 
+    /**
+     * Log a cooperative-cancellation event from a pool worker that was
+     * waiting/sleeping when the pool was shut down. This is NEVER a real
+     * error in CoronaPoker: the only source of {@code InterruptedException}
+     * is {@code pool.shutdownNow()} during exit/teardown, and the only source
+     * of {@code BrokenBarrierException} is another thread on the same barrier
+     * being interrupted (cascade from the same shutdown). Re-raises the
+     * interrupt flag for InterruptedException so callers up the stack can
+     * observe the cancellation.
+     */
+    public static void logCooperativeCancellation(Logger logger, String operation, Throwable ex) {
+        if (ex instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        logger.log(Level.INFO, "{0} cancelled — {1} (cooperative cancellation)",
+                new Object[]{operation, ex.getClass().getSimpleName()});
+    }
+
     public static void pausar(long pause) {
         try {
             Thread.sleep(Math.max(pause, 0));
@@ -3081,8 +3109,10 @@ public class Helpers {
         } catch (InterruptedException ex) {
             // Restore the interrupt flag so callers can observe cooperative cancellation.
             Thread.currentThread().interrupt();
-            Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
+            // Cooperative cancellation (typically pool shutdown during game exit).
+            // Logged at INFO without stack trace — it is NOT an error.
+            Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                    "pausar() sleep interrupted (cooperative cancellation)");
         }
     }
 
@@ -3104,9 +3134,14 @@ public class Helpers {
             } else {
                 r.run();
             }
-        } catch (InterruptedException | InvocationTargetException ex) {
-            Logger.getLogger(Helpers.class
-                    .getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            // Expected during pool shutdown — the worker thread that was
+            // waiting for the EDT got interrupted cooperatively.
+            Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                    "GUIRunAndWait interrupted (cooperative cancellation)");
+        } catch (InvocationTargetException ex) {
+            Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }

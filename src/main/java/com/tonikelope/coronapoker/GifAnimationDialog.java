@@ -103,6 +103,9 @@ public class GifAnimationDialog extends JDialog {
 
             try {
                 gif_barrier.await();
+            } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                Helpers.logCooperativeCancellation(Logger.getLogger(GifAnimationDialog.class.getName()),
+                        "GIF animation dialog barrier", ex);
             } catch (Exception ex) {
                 Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
             }

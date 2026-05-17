@@ -451,7 +451,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         full_screen_lock.wait(1000);
                         t += 1000;
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                        Helpers.logCooperativeCancellation(Logger.getLogger(GameFrame.class.getName()),
+                                "fullscreen wait", ex);
+                        break;
                     }
                 }
             }
@@ -721,7 +723,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 try {
                     notifier.wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(Logger.getLogger(GameFrame.class.getName()),
+                            "refresh card notifier wait", ex);
+                    break;
                 }
             }
         }
@@ -842,7 +846,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 try {
                     lock_pause.wait(GameFrame.WAIT_PAUSE);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    Thread.currentThread().interrupt();
+                    // Expected during pool shutdown — Crupier pause wait
+                    // was interrupted cooperatively. Break out so we don't
+                    // spin re-entering wait() with the interrupt flag still
+                    // raised (which would throw immediately every iteration).
+                    Logger.getLogger(GameFrame.class.getName()).log(Level.INFO,
+                            "checkPause wait interrupted (cooperative cancellation)");
+                    break;
                 }
             }
 
@@ -1384,7 +1395,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 try {
                     mynotifier.wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(Logger.getLogger(GameFrame.class.getName()),
+                            "zoom notifier wait", ex);
+                    break;
                 }
             }
         }
@@ -1690,6 +1703,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         Bot.TRACKER_MEMORY.clear();
+        // Reset the static security lockdown flag — it never clears itself,
+        // so a previous session that ended in lockdown would otherwise leak
+        // into this fresh game.
+        Crupier.SECURITY_LOCKDOWN = false;
         crupier = new Crupier();
 
         initComponents();
@@ -1955,6 +1972,31 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         getLocalPlayer().getHurryup_timer().stop();
                     }
 
+                    // Stop GameFrame-owned Swing Timers so they don't keep
+                    // firing on stale UI references after the frame is
+                    // disposed. These live outside Helpers.THREAD_POOL and
+                    // therefore survive SHUTDOWN_THREAD_POOL.
+                    if (tiempo_juego != null) {
+                        tiempo_juego.stop();
+                    }
+
+                    if (zoom_debounce_timer != null) {
+                        zoom_debounce_timer.stop();
+                    }
+
+                    // Stop per-player Swing Timers on all remote players
+                    // (LocalPlayer was already handled above). Same reason:
+                    // Swing Timers are not in the thread pool.
+                    for (Player p : jugadores) {
+                        if (p instanceof RemotePlayer) {
+                            RemotePlayer rp = (RemotePlayer) p;
+                            rp.stopActionTimer();
+                            if (rp.getIwtsth_blink_timer() != null) {
+                                rp.getIwtsth_blink_timer().stop();
+                            }
+                        }
+                    }
+
                     if (jugadas_dialog != null) {
                         jugadas_dialog.setVisible(false);
                     }
@@ -2165,6 +2207,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.CREATE_THREAD_POOL();
 
+            // Re-submit the deadlock detector to the fresh pool — the previous
+            // instance died with the old pool's shutdownNow.
+            Init.startDeadlockDetector();
+
             if (!GameFrame.SONIDOS) {
 
                 Audio.muteAll();
@@ -2285,7 +2331,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         try {
                             GameFrame.NOTIFY_CHAT_QUEUE.wait(1000);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
+                            Thread.currentThread().interrupt();
+                            // Expected during pool shutdown — TTS watchdog
+                            // task is being cancelled cooperatively. Bail
+                            // out of the outer while loop so we don't spin
+                            // re-entering wait() with the interrupt flag.
+                            Logger.getLogger(GameFrame.class.getName()).log(Level.INFO,
+                                    "TTS watchdog wait interrupted (cooperative cancellation)");
+                            return;
                         }
                     }
 

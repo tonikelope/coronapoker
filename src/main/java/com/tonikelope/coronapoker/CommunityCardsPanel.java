@@ -1021,7 +1021,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 try {
                     mynotifier.wait(1000);
                 } catch (InterruptedException ex) {
-                    Logger.getLogger(CommunityCardsPanel.class.getName()).log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(Logger.getLogger(CommunityCardsPanel.class.getName()),
+                            "community cards zoom notifier wait", ex);
+                    break;
                 }
             }
         }

@@ -432,6 +432,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     try {
                         gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+                    } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                        Helpers.logCooperativeCancellation(Logger.getLogger(GifAnimationDialog.class.getName()),
+                                "local chat GIF barrier", ex);
                     } catch (Exception ex) {
                         Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -440,6 +443,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         if (Thread.currentThread().threadId() == chat_notify_thread) {
                             try {
                                 getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
+                            } catch (InterruptedException ex) {
+                                Helpers.logCooperativeCancellation(Logger.getLogger(GifAnimationDialog.class.getName()),
+                                        "local chat notify wait", ex);
                             } catch (Exception ex) {
                                 Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
                             }

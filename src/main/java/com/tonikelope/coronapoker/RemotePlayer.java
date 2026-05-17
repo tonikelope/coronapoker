@@ -413,6 +413,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                         try {
                             gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+                        } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                            Thread.currentThread().interrupt();
+                            // Expected during pool shutdown — chat-image GIF
+                            // barrier cancelled cooperatively.
+                            Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.INFO,
+                                    "GIF barrier cancelled (cooperative cancellation)");
                         } catch (Exception ex) {
                             Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -421,8 +427,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                             if (Thread.currentThread().threadId() == chat_notify_thread) {
                                 try {
                                     getChat_notify_label().wait(TTS_NO_SOUND_TIMEOUT);
-                                } catch (Exception ex) {
-                                    Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                    // Expected during pool shutdown.
+                                    Logger.getLogger(GifAnimationDialog.class.getName()).log(Level.INFO,
+                                            "Chat notify wait interrupted (cooperative cancellation)");
                                 }
                             }
                         }
@@ -933,6 +942,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (getChat_notify_label().getGif_barrier() != null) {
                 try {
                     getChat_notify_label().getGif_barrier().await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                    Thread.currentThread().interrupt();
+                    // Expected during pool shutdown — fold animation barrier
+                    // cancelled cooperatively.
+                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                            "Fold animation barrier cancelled (cooperative cancellation)");
                 } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -963,6 +978,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (getChat_notify_label().getGif_barrier() != null) {
                 try {
                     getChat_notify_label().getGif_barrier().await();
+                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                    Thread.currentThread().interrupt();
+                    // Expected during pool shutdown — animation barrier
+                    // cancelled cooperatively.
+                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                            "Animation barrier cancelled (cooperative cancellation)");
                 } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -1005,6 +1026,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (getChat_notify_label().getGif_barrier() != null) {
                 try {
                     getChat_notify_label().getGif_barrier().await();
+                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                    Thread.currentThread().interrupt();
+                    // Expected during pool shutdown — animation barrier
+                    // cancelled cooperatively.
+                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                            "Animation barrier cancelled (cooperative cancellation)");
                 } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }

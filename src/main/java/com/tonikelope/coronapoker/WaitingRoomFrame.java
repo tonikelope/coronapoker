@@ -330,7 +330,8 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     getLocalClientSocketLock().wait(1000);
                 } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(LOGGER, "reconnect key wait", ex);
+                    break;
                 }
             }
         }
@@ -346,7 +347,8 @@ public class WaitingRoomFrame extends JFrame {
                 try {
                     getLocalClientSocketLock().wait(1000);
                 } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(LOGGER, "reconnect key wait", ex);
+                    break;
                 }
             }
         }
@@ -1165,8 +1167,8 @@ public class WaitingRoomFrame extends JFrame {
                                             try {
                                                 net_client.getLock_reconnect().wait(1000);
                                             } catch (InterruptedException ex) {
-                                                LOGGER.log(Level.SEVERE,
-                                                        null, ex);
+                                                Helpers.logCooperativeCancellation(LOGGER, "reconnect dialog wait", ex);
+                                                break;
                                             }
                                         }
                                     }

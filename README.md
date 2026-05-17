@@ -58,14 +58,22 @@ A complete, rules-correct Texas Hold'em implementation with everything you'd exp
 
 Not the fold-everything kind. CoronaPoker bots play like real opponents.
 
-- **3 difficulty levels** — Easy, Medium, Hard
-- **4 adaptive personalities:**
+- **4 difficulty levels** — Easy, Medium, Hard, Expert
+- **3 skill tiers** assigned per bot, weighted by difficulty:
+  - 🍿 **Recreational** — loose, emotional, prone to tilt after losses
+  - 🛠️ **Regular** — solid fundamentals, occasional mistakes
+  - 🦈 **Shark** — disciplined, exploitative, calculates fold equity
+- **4 adaptive personalities** that shift dynamically with stack pressure (M-ratio), tilt and table dynamics:
   - 🗿 **NIT** — tight, conservative, rarely bluffs
   - 📡 **STATION** — calls everything, impossible to read
   - 🎯 **TAG** — tight-aggressive, the textbook grinder
   - 💥 **LAG** — loose-aggressive, unpredictable and relentless
-- Bots **c-bet, semi-bluff, slow-play traps, and tilt** under pressure
-- They **track and adjust** to each opponent's tendencies over time
+- **Real poker engine** built on the Alberta hand evaluator + hand-potential — true equity, not lookup tables
+- Multi-street planning: **c-bets, semi-bluffs, slow-played traps, float plays, scare-card reads, MDF bluff-catching** and range-aware aggression
+- **Per-bot opponent tracking** (VPIP / PFR / AF / fold-to-cbet) — they remember your tendencies and exploit them
+- **Heads-up vs multi-way awareness** — ranges and bluff frequencies are gated to the table size
+- **Calibrated mistake injection** scaled by difficulty — Expert is razor-sharp, Easy makes human-shaped errors in the right spots
+- **Validated through AAA QA** — every release is benchmarked against fixed-strategy opponents over tens of thousands of hands before shipping
 
 ---
 

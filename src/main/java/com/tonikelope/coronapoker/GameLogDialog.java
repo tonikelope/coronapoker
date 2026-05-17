@@ -28,9 +28,15 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Font;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import javax.swing.JDialog;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 
 /**
@@ -45,6 +51,8 @@ public final class GameLogDialog extends JDialog {
     private volatile boolean utf8_cards = false;
     private volatile boolean fin_transmision = false;
     private final Object log_lock = new Object();
+    private JTextArea debug_textarea;
+    private Consumer<String> debug_log_listener;
 
     public static void resetLOG() {
         LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
@@ -82,8 +90,51 @@ public final class GameLogDialog extends JDialog {
 
         getTextArea().setText(GameLogDialog.LOG_TEXT);
 
+        setupDebugTab();
+
         pack();
 
+    }
+
+    private void setupDebugTab() {
+
+        debug_textarea = new JTextArea();
+        debug_textarea.setEditable(false);
+        debug_textarea.setBackground(new Color(30, 30, 30));
+        debug_textarea.setForeground(new Color(220, 220, 220));
+        debug_textarea.setFont(new Font("Monospaced", Font.PLAIN, Math.max(8, textarea.getFont().getSize() - 1)));
+        debug_textarea.setLineWrap(true);
+        debug_textarea.setWrapStyleWord(false);
+        Helpers.JTextFieldRegularPopupMenu.addTo(debug_textarea);
+
+        JScrollPane debug_scroll = new JScrollPane(debug_textarea);
+
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setFont(new Font("Dialog", Font.BOLD, 16));
+        tabs.addTab(Translator.translate("log.registro"), jScrollPane1);
+        tabs.addTab(Translator.translate("log.debug"), debug_scroll);
+
+        getContentPane().remove(jScrollPane1);
+        getContentPane().setLayout(new BorderLayout());
+        getContentPane().add(tabs, BorderLayout.CENTER);
+
+        debug_textarea.setText(DebugLog.snapshot());
+        debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
+
+        debug_log_listener = (String record) -> Helpers.GUIRun(() -> {
+            try {
+                int caret_pos = debug_textarea.getCaretPosition();
+                debug_textarea.append(record);
+                if (auto_scroll) {
+                    debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
+                } else {
+                    debug_textarea.setCaretPosition(caret_pos);
+                }
+            } catch (Throwable t) {
+                // Textarea may be in transition between dispose/re-show; skip.
+            }
+        });
+        DebugLog.subscribe(debug_log_listener);
     }
 
     public JTextArea getTextArea() {

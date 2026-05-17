@@ -204,6 +204,9 @@ public class Init extends JFrame {
             }
             rootLogger.addHandler(newConsoleHandler);
 
+            // In-memory handler so the GameLogDialog can show the live debug log
+            DebugLog.install();
+
             // Print a header to mark a new session in the log file
             LOGGER.log(Level.INFO, "{0}=== NEW CORONAPOKER SESSION STARTED: {1} ==={2}", new Object[]{"\n============================================================================\n", java.time.LocalDateTime.now(), "\n============================================================================\n"});
 

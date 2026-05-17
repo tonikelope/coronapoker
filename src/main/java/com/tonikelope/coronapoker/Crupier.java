@@ -2447,18 +2447,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 j.setBet(0f);
                                 j.setSpectator(null);
                                 this.auditor.put(j.getNickname(), new Float[]{0f, (float) j.getBuyin()});
-                            } else if (j.isCalentando() && Helpers.float1DSecureCompare(0f, j.getStack()) > 0) {
+                            } else if (j.isCalentando() && Helpers.float1DSecureCompare(0f, j.getStack()) < 0) {
                                 j.setSpectator(Translator.translate("game.calentando"));
                             }
                         } else {
-                            if (Helpers.float1DSecureCompare(0f, j.getStack()) > 0) {
+                            if (Helpers.float1DSecureCompare(0f, j.getStack()) < 0) {
                                 j.setSpectator(Translator.translate("game.calentando"));
                             }
                             this.auditor.put(j.getNickname(), new Float[]{j.getStack(), (float) j.getBuyin()});
                         }
                     } else {
                         if (!inBalance) {
-                            if (Helpers.float1DSecureCompare(0f, j.getStack()) > 0) {
+                            if (Helpers.float1DSecureCompare(0f, j.getStack()) < 0) {
                                 j.setSpectator(Translator.translate("game.calentando"));
                             }
                             this.auditor.put(j.getNickname(), new Float[]{j.getStack(), (float) j.getBuyin()});

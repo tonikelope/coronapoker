@@ -65,6 +65,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractAction;
@@ -2155,15 +2156,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             GameLogDialog.resetLOG();
 
-            Helpers.SHUTDOWN_THREAD_POOL();
+            // Swap pools INSTANTLY: any concurrent submitter sees the fresh
+            // pool via the volatile reference, avoiding the brief window where
+            // THREAD_POOL pointed to a closed executor.
+            ThreadPoolExecutor oldPool = Helpers.THREAD_POOL;
+            Helpers.CREATE_THREAD_POOL();
+
+            // Drain the old pool in the background — the user must NOT wait
+            // for stragglers from the previous game on the way back to the
+            // main menu. The cleanup thread is a daemon so it never blocks
+            // JVM shutdown.
+            Thread cleanup = new Thread(() -> Helpers.SHUTDOWN_THREAD_POOL_GRACEFUL(oldPool), "RESET-GAME-CLEANUP");
+            cleanup.setDaemon(true);
+            cleanup.start();
 
             //Reiniciamos
             Helpers.GUIRunAndWait(() -> {
                 WaitingRoomFrame.resetInstance();
                 GameFrame.resetInstance();
             });
-
-            Helpers.CREATE_THREAD_POOL();
 
             if (!GameFrame.SONIDOS) {
 
@@ -2187,7 +2198,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             });
 
-        }).start();
+        }, "RESET-GAME").start();
     }
 
     public Timer getTiempo_juego() {

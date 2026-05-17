@@ -1337,6 +1337,30 @@ public class Helpers {
         THREAD_POOL.shutdownNow();
     }
 
+    public static void SHUTDOWN_THREAD_POOL_GRACEFUL(ThreadPoolExecutor pool) {
+
+        if (pool == null) {
+            return;
+        }
+
+        LOGGER.log(Level.INFO, "Old thread pool draining in background ({0} active, {1} queued, up to {2}s grace)",
+                new Object[]{pool.getActiveCount(), pool.getQueue().size(), THREAD_POOL_SHUTDOWN_TIMEOUT});
+
+        pool.shutdown();
+
+        try {
+            if (!pool.awaitTermination(THREAD_POOL_SHUTDOWN_TIMEOUT, TimeUnit.SECONDS)) {
+                LOGGER.log(Level.WARNING, "Pool did not drain in {0}s, forcing shutdownNow (in-flight tasks will be interrupted)", THREAD_POOL_SHUTDOWN_TIMEOUT);
+                pool.shutdownNow();
+            } else {
+                LOGGER.log(Level.INFO, "Old thread pool drained cleanly");
+            }
+        } catch (InterruptedException ex) {
+            pool.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public static void CREATE_THREAD_POOL() {
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 

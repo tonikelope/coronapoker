@@ -998,18 +998,29 @@ public class Init extends JFrame {
         join_button.setForeground(Color.WHITE);
     }//GEN-LAST:event_join_buttonMouseEntered
 
+    /**
+     * Submits the deadlock detection loop to the current thread pool. The loop
+     * exits cleanly when interrupted (pausar() re-raises the flag after
+     * catching the sleep interrupt, so the while-check breaks on the next
+     * pass), avoiding an infinite SEVERE spam when the pool is shut down.
+     * Call this once at app startup and again after every CREATE_THREAD_POOL
+     * to keep the detector alive across game sessions.
+     */
+    public static void startDeadlockDetector() {
+        Helpers.threadRun(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                Helpers.detectAndHandleDeadlocks();
+                Helpers.pausar(DEADLOCK_DETECT_WAIT);
+            }
+        });
+    }
+
     public static void main(String args[]) {
 
         //ensureRequiredJvmParameters(args, Init.class);
         setupConsoleLogger();
 
-        Helpers.threadRun(() -> {
-            // Deadlock detection
-            while (true) {
-                Helpers.detectAndHandleDeadlocks();
-                Helpers.pausar(DEADLOCK_DETECT_WAIT);
-            }
-        });
+        startDeadlockDetector();
 
         if (GameFrame.TEST_MODE) {
             GameFrame.CINEMATICAS = false;

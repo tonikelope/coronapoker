@@ -229,7 +229,8 @@ public class NetClient {
                 try {
                     local_client_socket_lock.wait(1000);
                 } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(LOGGER, "reconnect wait", ex);
+                    break;
                 }
             }
         }
@@ -258,7 +259,8 @@ public class NetClient {
                 try {
                     local_client_socket_lock.wait(1000);
                 } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(LOGGER, "reconnect wait", ex);
+                    break;
                 }
             }
         }

@@ -188,6 +188,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
             try {
                 central_label_barrier.await();
+            } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                        "central label barrier", ex);
             } catch (Exception ex) {
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             }

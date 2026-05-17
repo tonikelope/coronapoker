@@ -1405,7 +1405,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             Init.LOCK_CINEMATICS.wait(1000);
 
                                         } catch (InterruptedException ex) {
-                                            LOGGER.log(Level.SEVERE, null, ex);
+                                            Helpers.logCooperativeCancellation(LOGGER, "cinematic playback wait", ex);
+                                            break;
                                         }
                                     }
                                 }
@@ -2701,7 +2702,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
+                            Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            break;
                         }
                     }
                 }
@@ -3537,7 +3539,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             try {
                                 shuffle_lock.wait(1000);
                             } catch (InterruptedException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
+                                Helpers.logCooperativeCancellation(LOGGER, "shuffle wait (abort path)", ex);
+                                break;
                             }
                         }
                     }
@@ -3562,7 +3565,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         shuffle_lock.wait(1000);
                     } catch (InterruptedException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
+                        Helpers.logCooperativeCancellation(LOGGER, "shuffle wait", ex);
+                        break;
                     }
                 }
             }
@@ -4375,7 +4379,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
+                            Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            break;
                         }
                     }
                 }
@@ -4449,7 +4454,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             this.received_commands.wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
+                            Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                            break;
                         }
                     }
                 }
@@ -4694,7 +4700,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
 
                     } catch (InterruptedException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
+                        Helpers.logCooperativeCancellation(LOGGER, "received confirmations wait", ex);
+                        break;
                     }
 
                 }
@@ -5774,7 +5781,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         lock_rabbit.wait(1000);
                     } catch (InterruptedException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
+                        Helpers.logCooperativeCancellation(LOGGER, "rabbit hunting wait", ex);
+                        break;
                     }
                 }
             }
@@ -6738,7 +6746,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             try {
                                 this.received_commands.wait(WAIT_QUEUES);
                             } catch (InterruptedException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
+                                Helpers.logCooperativeCancellation(LOGGER, "received commands wait", ex);
+                                break;
                             }
                         }
                     }
@@ -7225,7 +7234,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                 } catch (InterruptedException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                    Helpers.logCooperativeCancellation(LOGGER, "pause progress bar loop", ex);
+                    break;
                 }
             }
         }

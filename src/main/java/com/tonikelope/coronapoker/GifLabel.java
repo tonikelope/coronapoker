@@ -157,6 +157,9 @@ public class GifLabel extends JLabel {
             Helpers.threadRun(() -> {
                 try {
                     gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                    Helpers.logCooperativeCancellation(Logger.getLogger(GifLabel.class.getName()),
+                            "GIF label barrier", ex);
                 } catch (Exception ex) {
                     Logger.getLogger(GifLabel.class.getName()).log(Level.SEVERE, null, ex);
                 }

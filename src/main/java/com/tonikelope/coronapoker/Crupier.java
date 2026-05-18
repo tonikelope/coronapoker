@@ -2094,7 +2094,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 try (java.sql.PreparedStatement stG = Helpers.getSQLITE().prepareStatement(sqlGame)) {
                     stG.setInt(1, this.sqlite_id_game);
                     stG.setLong(2, map.get("start") != null ? (long) map.get("start") : System.currentTimeMillis());
-                    stG.setString(3, (String) map.get("balance"));
+                    stG.setString(3, (String) map.get("preflop_players"));
                     stG.setInt(4, map.get("buyin") != null ? (int) map.get("buyin") : 100);
                     stG.setFloat(5, map.get("sbval") != null ? (float) map.get("sbval") : 0.1f);
                     stG.setInt(6, map.get("blinds_time") != null ? (int) map.get("blinds_time") : 0);
@@ -6413,8 +6413,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     Paths.get(Init.CORONA_DIR + "/balance_used"));
 
                             map.put("balance", balance.trim());
-
-                            map.put("forced_balance", true);
 
                             LOGGER.log(Level.WARNING, "Balance recuperado forzado");
 

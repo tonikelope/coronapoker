@@ -403,27 +403,6 @@ public class Helpers {
         }
     }
 
-    public static void cleanAllOldTempCrupierFiles() {
-        String suffix = "";
-        if (Init.DEV_MODE) {
-            String sanitizedNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-            suffix = "_" + sanitizedNick;
-        }
-
-        String[] fileTemplates = {
-            "/balance_backup%s.txt",
-            "/sra_hand_commit%s.bin"
-        };
-
-        for (String template : fileTemplates) {
-            String fileName = String.format(template, suffix);
-            try {
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + fileName));
-            } catch (IOException e) {
-            }
-        }
-    }
-
     public static void cleanHandCrupierTempFiles(int gameId) {
         deleteHandFossil(gameId);
     }

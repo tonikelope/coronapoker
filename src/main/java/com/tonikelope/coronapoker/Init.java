@@ -936,6 +936,8 @@ public class Init extends JFrame {
     private void create_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_create_buttonActionPerformed
         // TODO add your handling code here:
 
+        Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
+
         NewGameDialog dialog = new NewGameDialog(this, true, true);
 
         dialog.setLocationRelativeTo(dialog.getParent());

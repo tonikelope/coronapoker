@@ -1393,6 +1393,18 @@ public class NewGameDialog extends JDialog {
 
                 this.dialog_ok = true;
 
+                // EC-Identity v1 (commit 0): warn the host if the game password is weak.
+                // Non-blocking informational popup — the user dismisses with OK and proceeds.
+                if (this.partida_local && pass_text.getPassword().length > 0) {
+                    String pwd = new String(pass_text.getPassword());
+                    int entropyBits = Helpers.estimatePasswordEntropyBits(pwd);
+                    if (entropyBits < 60) {
+                        Helpers.mostrarMensajeInformativo(
+                                getContentPane(),
+                                Translator.translate("ui.password_debil_aviso", entropyBits));
+                    }
+                }
+
                 WaitingRoomFrame espera = new WaitingRoomFrame(partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
 
                 WaitingRoomFrame.setInstance(espera);

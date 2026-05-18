@@ -1767,6 +1767,52 @@ public class Helpers {
         }
     }
 
+    /**
+     * Estimates the entropy of a password in bits using the character-class heuristic:
+     * alphabet size is the sum of the sizes of the character classes present, and the
+     * entropy is length * log2(alphabet). Used by the password strength warning at
+     * game creation. This is a floor estimate that does not penalize dictionary words
+     * or common patterns.
+     *
+     * Returns 0 for null or empty input.
+     */
+    public static int estimatePasswordEntropyBits(String pwd) {
+        if (pwd == null || pwd.isEmpty()) {
+            return 0;
+        }
+        boolean hasLower = false, hasUpper = false, hasDigit = false, hasSymbol = false;
+        for (int i = 0; i < pwd.length(); i++) {
+            char c = pwd.charAt(i);
+            if (Character.isLowerCase(c)) {
+                hasLower = true;
+            } else if (Character.isUpperCase(c)) {
+                hasUpper = true;
+            } else if (Character.isDigit(c)) {
+                hasDigit = true;
+            } else {
+                hasSymbol = true;
+            }
+        }
+        int alphabet = 0;
+        if (hasLower) {
+            alphabet += 26;
+        }
+        if (hasUpper) {
+            alphabet += 26;
+        }
+        if (hasDigit) {
+            alphabet += 10;
+        }
+        if (hasSymbol) {
+            alphabet += 32;
+        }
+        if (alphabet == 0) {
+            return 0;
+        }
+        double bits = pwd.length() * (Math.log(alphabet) / Math.log(2));
+        return (int) Math.floor(bits);
+    }
+
     public static void screenshot(Rectangle rectangle, Integer delay) {
         try {
             Robot robot = new Robot();

@@ -424,17 +424,8 @@ public class Helpers {
         }
     }
 
-    public static void cleanHandCrupierTempFiles() {
-        String suffix = Init.DEV_MODE ? "_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") : "";
-        String[] fileTemplates = {
-            "/sra_hand_commit%s.bin"
-        };
-        for (String template : fileTemplates) {
-            try {
-                java.nio.file.Files.deleteIfExists(java.nio.file.Paths.get(Init.CORONA_DIR + String.format(template, suffix)));
-            } catch (IOException e) {
-            }
-        }
+    public static void cleanHandCrupierTempFiles(int gameId) {
+        deleteHandFossil(gameId);
     }
 
     public static void setSpinnerColors(JSpinner spinner, Color background, Color foreground) {
@@ -1440,6 +1431,57 @@ public class Helpers {
         }
     }
 
+    public static void saveHandFossil(int gameId, String payload) {
+        if (gameId <= 0) {
+            return;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            try (java.sql.PreparedStatement st = getSQLITE().prepareStatement("INSERT OR REPLACE INTO hand_state(id_game, payload) VALUES (?, ?)")) {
+                st.setQueryTimeout(30);
+                st.setInt(1, gameId);
+                st.setString(2, payload);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Failed to save hand fossil", ex);
+            }
+        }
+    }
+
+    public static String loadHandFossil(int gameId) {
+        if (gameId <= 0) {
+            return null;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            try (java.sql.PreparedStatement st = getSQLITE().prepareStatement("SELECT payload FROM hand_state WHERE id_game=?")) {
+                st.setQueryTimeout(30);
+                st.setInt(1, gameId);
+                try (ResultSet rs = st.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("payload");
+                    }
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Failed to load hand fossil", ex);
+            }
+            return null;
+        }
+    }
+
+    public static void deleteHandFossil(int gameId) {
+        if (gameId <= 0) {
+            return;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            try (java.sql.PreparedStatement st = getSQLITE().prepareStatement("DELETE FROM hand_state WHERE id_game=?")) {
+                st.setQueryTimeout(30);
+                st.setInt(1, gameId);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                Logger.getLogger(Helpers.class.getName()).log(Level.SEVERE, "Failed to delete hand fossil", ex);
+            }
+        }
+    }
+
     public static void initSQLITE() {
         try {
             Class.forName("org.sqlite.JDBC");
@@ -1453,6 +1495,7 @@ public class Helpers {
                 statement.execute("CREATE TABLE IF NOT EXISTS balance(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, stack REAL, buyin INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
+                statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
                 //ACTUALIZACIÓN
                 try {
                     statement.execute("ALTER TABLE game ADD ugi TEXT");

@@ -2186,17 +2186,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (!saltar_primera_mano && map.get("hand_end") != null && (Long) map.get("hand_end") == 0L) {
                 try {
-                    String fosil = null;
-                    String sraFossilName = "/sra_hand_commit.bin";
-                    if (Init.DEV_MODE) {
-                        String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                        sraFossilName = "/sra_hand_commit_" + safeNick + ".bin";
-                    }
-
-                    java.io.File fFile = new java.io.File(Init.CORONA_DIR + sraFossilName);
-                    if (fFile.exists()) {
-                        fosil = java.nio.file.Files.readString(fFile.toPath());
-                    }
+                    String fosil = Helpers.loadHandFossil(this.sqlite_id_game);
 
                     if (fosil != null && fosil.contains("#")) {
                         String orderMap = null;
@@ -2292,92 +2282,84 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             sqlSyncRecoveryShells(map);
             try {
-                String sraFossilName = "/sra_hand_commit.bin";
-                if (Init.DEV_MODE) {
-                    String safeNick = GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_");
-                    sraFossilName = "/sra_hand_commit_" + safeNick + ".bin";
-                }
-                java.io.File fFile = new java.io.File(Init.CORONA_DIR + sraFossilName);
-                if (fFile.exists()) {
-                    String fosil = java.nio.file.Files.readString(fFile.toPath());
-                    if (fosil != null && fosil.contains("#")) {
-                        String orderMap = null;
-                        String[] sraFossilParts = fosil.split("#");
-                        byte[] megaPacket = null;
+                String fosil = Helpers.loadHandFossil(this.sqlite_id_game);
+                if (fosil != null && fosil.contains("#")) {
+                    String orderMap = null;
+                    String[] sraFossilParts = fosil.split("#");
+                    byte[] megaPacket = null;
 
-                        for (String part : sraFossilParts) {
-                            if (part.startsWith("ORDER@")) {
-                                orderMap = part.substring("ORDER@".length());
-                            } else if (part.startsWith("FULLMEGAPACKET@")) {
-                                megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
-                            } else if (part.startsWith("SRAKEYS@")) {
-                                this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
-                                Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
-                                if (myP != null) {
-                                    myP.setSra_unlock(this.local_sra_unlock);
+                    for (String part : sraFossilParts) {
+                        if (part.startsWith("ORDER@")) {
+                            orderMap = part.substring("ORDER@".length());
+                        } else if (part.startsWith("FULLMEGAPACKET@")) {
+                            megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                        } else if (part.startsWith("SRAKEYS@")) {
+                            this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
+                            Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                            if (myP != null) {
+                                myP.setSra_unlock(this.local_sra_unlock);
+                            }
+                        } else if (part.startsWith("BOTKEYS@")) {
+                            String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
+                            for (String bk : bKeys) {
+                                if (bk.isEmpty()) {
+                                    continue;
                                 }
-                            } else if (part.startsWith("BOTKEYS@")) {
-                                String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
-                                for (String bk : bKeys) {
-                                    if (bk.isEmpty()) {
-                                        continue;
+                                String[] pair = bk.split(":");
+                                try {
+                                    String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                    byte[] bUnlock = Base64.getDecoder().decode(pair[1]);
+                                    Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                    if (pBot != null) {
+                                        pBot.setReceived_token(bUnlock);
                                     }
-                                    String[] pair = bk.split(":");
-                                    try {
-                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
-                                        byte[] bUnlock = Base64.getDecoder().decode(pair[1]);
-                                        Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
-                                        if (pBot != null) {
-                                            pBot.setReceived_token(bUnlock);
-                                        }
-                                    } catch (Exception e) {
-                                    }
+                                } catch (Exception e) {
                                 }
-                            } else if (part.startsWith("BOTVISUAL@")) {
-                                String[] bVisuals = part.substring("BOTVISUAL@".length()).split("@");
-                                for (String bv : bVisuals) {
-                                    if (bv.isEmpty()) {
-                                        continue;
-                                    }
-                                    String[] pair = bv.split(":");
-                                    try {
-                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
-                                        String[] cards = pair[1].split(",");
-                                        Player botPlayer = nick2player.get(bNick);
-                                        if (botPlayer != null) {
-                                            botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]) + 1);
-                                            botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]) + 1);
+                            }
+                        } else if (part.startsWith("BOTVISUAL@")) {
+                            String[] bVisuals = part.substring("BOTVISUAL@".length()).split("@");
+                            for (String bv : bVisuals) {
+                                if (bv.isEmpty()) {
+                                    continue;
+                                }
+                                String[] pair = bv.split(":");
+                                try {
+                                    String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                    String[] cards = pair[1].split(",");
+                                    Player botPlayer = nick2player.get(bNick);
+                                    if (botPlayer != null) {
+                                        botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]) + 1);
+                                        botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]) + 1);
 
-                                        }
-                                    } catch (Exception e) {
                                     }
+                                } catch (Exception e) {
                                 }
-                            } else if (part.startsWith("VISUAL@")) {
-                                String[] vis = part.substring("VISUAL@".length()).split(",");
-                                this.local_original_cards[0] = Byte.parseByte(vis[0]);
-                                this.local_original_cards[1] = Byte.parseByte(vis[1]);
+                            }
+                        } else if (part.startsWith("VISUAL@")) {
+                            String[] vis = part.substring("VISUAL@".length()).split(",");
+                            this.local_original_cards[0] = Byte.parseByte(vis[0]);
+                            this.local_original_cards[1] = Byte.parseByte(vis[1]);
+                        }
+                    }
+
+                    if (orderMap != null && megaPacket != null) {
+                        this.local_mega_packet = megaPacket;
+                        String[] orderTokens = orderMap.split(",");
+                        java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
+                        for (String token : orderTokens) {
+                            if (!token.isEmpty()) {
+                                ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
                             }
                         }
+                        this.active_crypto_ring = ringList.toArray(new String[0]);
 
-                        if (orderMap != null && megaPacket != null) {
-                            this.local_mega_packet = megaPacket;
-                            String[] orderTokens = orderMap.split(",");
-                            java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
-                            for (String token : orderTokens) {
-                                if (!token.isEmpty()) {
-                                    ringList.add(new String(java.util.Base64.getDecoder().decode(token), "UTF-8"));
-                                }
-                            }
-                            this.active_crypto_ring = ringList.toArray(new String[0]);
-
-                            byte[] visual = this.local_original_cards;
-                            if (visual != null && visual.length == 2) {
-                                Player myPlayer = GameFrame.getInstance().getLocalPlayer();
-                                myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
-                                myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
-                                myPlayer.getHoleCard1().destapar(false);
-                                myPlayer.getHoleCard2().destapar(false);
-                            }
+                        byte[] visual = this.local_original_cards;
+                        if (visual != null && visual.length == 2) {
+                            Player myPlayer = GameFrame.getInstance().getLocalPlayer();
+                            myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
+                            myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
+                            myPlayer.getHoleCard1().destapar(false);
+                            myPlayer.getHoleCard2().destapar(false);
                         }
                     }
                 }
@@ -3298,7 +3280,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
 
         if (!GameFrame.RECOVER) {
-            Helpers.cleanHandCrupierTempFiles();
+            Helpers.cleanHandCrupierTempFiles(this.sqlite_id_game);
         }
 
         readyForNextHand();
@@ -5477,9 +5459,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
             }
 
-            String fileName = Init.DEV_MODE ? "/sra_hand_commit_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".bin" : "/sra_hand_commit.bin";
-            java.io.File file = new java.io.File(Init.CORONA_DIR + fileName);
-            java.nio.file.Files.writeString(file.toPath(), fosil.toString());
+            Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error saving SRA fossil to disk", e);
         }

@@ -1069,6 +1069,12 @@ public class Init extends JFrame {
             LOGGER.log(Level.WARNING, "Fallback CSPRNG -> {0}", Helpers.CSPRNG_GENERATOR.getAlgorithm());
         }
 
+        // EC-Identity v1 (commit 1): trigger lazy Ed25519 identity load or generation
+        // synchronously at startup so any storage/permission errors surface immediately
+        // in the log instead of mid-game. UI integration that refuses networked games
+        // when isReady() == false lives in commit 2 (WaitingRoomFrame join hook).
+        IdentityManager.initialize();
+
         Helpers.GUI_FONT = Helpers.createAndRegisterFont(Helpers.class.getResourceAsStream("/fonts/McLaren-Regular.ttf"));
         Helpers.updateCoronaDialogsFont();
 

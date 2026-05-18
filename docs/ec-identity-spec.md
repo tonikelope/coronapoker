@@ -127,13 +127,27 @@ After verifying `self_sig`, each peer updates its local `known_identities`:
 
 ### Manual verification ("Verificar identidad" button)
 
-Inside the identity identicon dialog, a button "Verificar identidad" is offered. Clicking it:
+Inside the identity identicon dialog, a button labeled **"Verificar identidad"** is offered (Spanish: "Verificar", not "Validar" — verification connotes authenticity confirmation, validation connotes rule-checking). Clicking it:
 
 ```sql
 UPDATE known_identities SET verified_oob = 1 WHERE nick = ? AND pubkey = ?
 ```
 
 Next render, the shield turns green for that nick. If the pubkey later changes silently, `verified_oob` resets to 0 → shield reverts to grey.
+
+#### Hint text at the bottom of an unverified identicon dialog
+
+When the dialog opens on an `(nick, pubkey)` pair with `verified_oob = 0`, a small explanatory line is rendered below the identicon, above the "Verificar identidad" button. Proposed i18n key and copy:
+
+```properties
+# messages_es.properties
+ui.identicon.no_verificada=Esta clave no ha sido verificada por un canal seguro externo (ej. WhatsApp, Telegram). Cuando hayas confirmado que coincide con la del otro jugador, pulsa "Verificar identidad".
+
+# messages_en.properties
+ui.identicon.no_verificada=This key has not been verified through a secure external channel (e.g. WhatsApp, Telegram). Once you have confirmed it matches the other player's key, click "Verify identity".
+```
+
+When `verified_oob = 1`, the hint line is hidden and a small green checkmark indicator can be shown instead.
 
 ---
 

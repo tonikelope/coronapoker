@@ -4113,6 +4113,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
+        GameFrame.persistRecoverSettings(sqlite_id_game);
     }
 
     private void repartir() {
@@ -7503,6 +7504,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.RECOVER) {
             if (GameFrame.getInstance().isPartida_local()) {
                 this.sqlite_id_game = GameFrame.RECOVER_ID;
+                GameFrame.persistRecoverSettings(this.sqlite_id_game);
             } else {
                 Integer gid = sqlUGI2GID(GameFrame.UGI);
                 if (gid == null) {

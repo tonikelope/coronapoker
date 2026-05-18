@@ -412,8 +412,7 @@ public class Helpers {
 
         String[] fileTemplates = {
             "/balance_backup%s.txt",
-            "/sra_hand_commit%s.bin",
-            "/sra_hand_actions%s.bin"
+            "/sra_hand_commit%s.bin"
         };
 
         for (String template : fileTemplates) {
@@ -428,8 +427,7 @@ public class Helpers {
     public static void cleanHandCrupierTempFiles() {
         String suffix = Init.DEV_MODE ? "_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") : "";
         String[] fileTemplates = {
-            "/sra_hand_commit%s.bin",
-            "/sra_hand_actions%s.bin"
+            "/sra_hand_commit%s.bin"
         };
         for (String template : fileTemplates) {
             try {
@@ -1464,6 +1462,10 @@ public class Helpers {
                     statement.execute("ALTER TABLE game ADD local INTEGER DEFAULT 0");
                 } catch (Exception ex) {
                 } // set timeout to 30 sec.
+                try {
+                    statement.execute("ALTER TABLE game ADD recover_settings TEXT");
+                } catch (Exception ex) {
+                }
 
             }
         } catch (Exception ex) {

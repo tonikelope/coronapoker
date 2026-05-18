@@ -132,6 +132,8 @@ public class NewGameDialog extends JDialog {
 
         update = true;
 
+        partida_local = (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isServer());
+
         titulo_ventana.setText(Translator.translate("game.modificar_opciones_de_la_timba"));
 
         recover_checkbox_label.setText(Translator.translate("game.continuar_timba_anterior"));
@@ -471,7 +473,7 @@ public class NewGameDialog extends JDialog {
 
     private void loadLastGame() {
 
-        String sql = "SELECT id,start,server FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC LIMIT 1";
+        String sql = "SELECT id,start,server,recover_settings FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC LIMIT 1";
 
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.setQueryTimeout(30);
@@ -488,6 +490,12 @@ public class NewGameDialog extends JDialog {
 
                     HashMap<String, Object> map = new HashMap<>();
                     map.put("id", rs.getInt("id"));
+                    String settings = rs.getString("recover_settings");
+                    map.put("recover_settings", settings);
+                    GameFrame.applyRecoverSettings(settings);
+                    if (partida_local) {
+                        bots_combobox.setSelectedIndex(getCurrentBotLevel());
+                    }
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
                     game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
 
@@ -1163,6 +1171,8 @@ public class NewGameDialog extends JDialog {
                 GameFrame.CIEGAS_DOUBLE = 0;
             }
 
+            commitBotDifficultyFromCombo();
+
             this.dialog_ok = true;
 
             setVisible(false);
@@ -1243,6 +1253,8 @@ public class NewGameDialog extends JDialog {
                     GameFrame.CIEGAS_DOUBLE_TYPE = 1;
                     GameFrame.CIEGAS_DOUBLE = 0;
                 }
+
+                commitBotDifficultyFromCombo();
 
                 this.dialog_ok = true;
 
@@ -1592,7 +1604,13 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_game_comboItemStateChanged
 
     private void bots_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bots_comboboxActionPerformed
-        // TODO add your handling code here:
+        // Selection is committed only when the user accepts the dialog (see vamosActionPerformed).
+    }//GEN-LAST:event_bots_comboboxActionPerformed
+
+    private void commitBotDifficultyFromCombo() {
+        if (!partida_local) {
+            return;
+        }
         switch (bots_combobox.getSelectedIndex()) {
             case 0:
                 Bot.DIFFICULTY = Bot.Difficulty.EASY;
@@ -1610,7 +1628,7 @@ public class NewGameDialog extends JDialog {
                 Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
                 break;
         }
-    }//GEN-LAST:event_bots_comboboxActionPerformed
+    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;

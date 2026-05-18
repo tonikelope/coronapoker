@@ -164,6 +164,61 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return THIS;
     }
 
+    public static String serializeRecoverSettings() {
+        boolean iwtsth = (IWTSTH_RULE_RECOVER != null ? IWTSTH_RULE_RECOVER : IWTSTH_RULE);
+        int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
+        return "IWTSTH=" + (iwtsth ? "1" : "0")
+                + "#RABBIT=" + rabbit
+                + "#DIFFICULTY=" + Bot.DIFFICULTY.name();
+    }
+
+    public static void applyRecoverSettings(String serialized) {
+        if (serialized == null || serialized.isEmpty()) {
+            return;
+        }
+        for (String pair : serialized.split("#")) {
+            int eq = pair.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String key = pair.substring(0, eq);
+            String val = pair.substring(eq + 1);
+            switch (key) {
+                case "IWTSTH":
+                    IWTSTH_RULE_RECOVER = "1".equals(val);
+                    break;
+                case "RABBIT":
+                    try {
+                        RABBIT_HUNTING_RECOVER = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "DIFFICULTY":
+                    try {
+                        Bot.DIFFICULTY = Bot.Difficulty.valueOf(val);
+                    } catch (IllegalArgumentException ignore) {
+                    }
+                    break;
+            }
+        }
+    }
+
+    public static void persistRecoverSettings(int gameId) {
+        if (gameId <= 0) {
+            return;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            try (PreparedStatement st = Helpers.getSQLITE().prepareStatement("UPDATE game SET recover_settings=? WHERE id=?")) {
+                st.setQueryTimeout(30);
+                st.setString(1, serializeRecoverSettings());
+                st.setInt(2, gameId);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "Failed to persist recover_settings", ex);
+            }
+        }
+    }
+
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
     private final Object exit_now_lock = new Object();
@@ -4107,6 +4162,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.IWTSTH_RULE = iwtsth_rule_menu.isSelected();
                 getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (GameFrame.IWTSTH_RULE ? "1" : "0"), null);
                 if (isPartida_local()) {
+                    GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
                     Helpers.GUIRun(() -> {
                         iwtsth_rule_menu.setEnabled(true);
 
@@ -4190,6 +4246,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.RABBIT_HUNTING = 0;
                 getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
                 if (isPartida_local()) {
+                    GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
                     Helpers.GUIRun(() -> {
                         menu_rabbit_off.setEnabled(true);
                         menu_rabbit_free.setEnabled(true);
@@ -4234,6 +4291,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.RABBIT_HUNTING = 1;
                 getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
                 if (isPartida_local()) {
+                    GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
                     Helpers.GUIRun(() -> {
                         menu_rabbit_off.setEnabled(true);
                         menu_rabbit_free.setEnabled(true);
@@ -4277,6 +4335,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.RABBIT_HUNTING = 2;
                 getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
                 if (isPartida_local()) {
+                    GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
                     Helpers.GUIRun(() -> {
                         menu_rabbit_off.setEnabled(true);
                         menu_rabbit_free.setEnabled(true);
@@ -4320,6 +4379,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.RABBIT_HUNTING = 3;
                 getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(GameFrame.RABBIT_HUNTING), null);
                 if (isPartida_local()) {
+                    GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
                     Helpers.GUIRun(() -> {
                         menu_rabbit_off.setEnabled(true);
                         menu_rabbit_free.setEnabled(true);

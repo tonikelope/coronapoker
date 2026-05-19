@@ -2568,6 +2568,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void cancelarManoYDevolverApuestas(String motivo, boolean broadcast) {
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
+        // Issue #9 defense in depth: if a recovery dragon was left open (e.g. a
+        // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
+        // does not stay on screen and does not keep sincronizando_mano latched.
+        cerrarRecoverDialogYSync();
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + Translator.translate(motivo));
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
 
@@ -5096,6 +5100,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 boolean isCryptoReplay = this.conta_accion < this.tot_acciones_recuperadas;
                 boolean eraSincronizacion = this.isSincronizando_mano();
 
+                // Dead branch: the two reads above are consecutive and never disagree
+                // in single-threaded execution, so (!era && now) cannot fire. Kept here
+                // for archaeology only; the real dragon-close after the replay ends
+                // happens inside siguienteAccionLocalRecuperada (path #3) and as a
+                // safety net after rondaApuestas(PREFLOP) (path #4, issue #9 fix).
                 if (!eraSincronizacion && this.isSincronizando_mano()) {
                     this.setSincronizando_mano(false);
                     Helpers.GUIRun(() -> {
@@ -6622,6 +6631,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * Defensive cleanup: dispose the recovery dragon dialog (if open) and clear the
+     * sincronizando_mano flag. Idempotent — calling it when nothing is pending is a
+     * no-op. Used by early-exit paths (cancelarManoYDevolverApuestas, GAME OVER) so a
+     * dragon left behind by an aborted recovery does not stay on screen forever and
+     * does not keep suppressing cinematics/sounds via the sincronizando_mano gate.
+     */
+    private void cerrarRecoverDialogYSync() {
+        boolean wasSyncing = this.isSincronizando_mano();
+        boolean hadDialog = (this.recover_dialog != null);
+
+        if (hadDialog) {
+            Helpers.GUIRun(() -> {
+                if (recover_dialog != null) {
+                    recover_dialog.setVisible(false);
+                    recover_dialog.dispose();
+                    recover_dialog = null;
+                }
+                GameFrame.getInstance().getFull_screen_menu().setEnabled(true);
+                Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
+                GameFrame.getInstance().refresh();
+            });
+        }
+
+        if (wasSyncing) {
+            this.setSincronizando_mano(false);
+            this.acciones_locales_recuperadas.clear();
+            if (GameFrame.MUSICA_AMBIENTAL) {
+                Audio.stopLoopMp3("misc/recovering.mp3");
+                Audio.playLoopMp3Resource("misc/background_music.mp3");
+            }
+        }
+    }
+
     private String[] sortearSitios() {
 
         ArrayList<String> nicks = null;
@@ -7556,7 +7599,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GameFrame.getInstance().getLocalPlayer().desActivarPreBotones();
                         }
 
-                        if (!this.acciones_locales_recuperadas.isEmpty()) {
+                        // Issue #9: the dragon must close after the preflop replay even
+                        // when the local queue was empty from the start. That happens to
+                        // a CLIENT who reconnects during a recovery where they were not
+                        // part of the interrupted hand's crypto-ring (CALENTANDO): the
+                        // queue filter at line 6611 leaves it empty, current_player ==
+                        // localPlayer never fires for them in this round, so the path #3
+                        // close inside siguienteAccionLocalRecuperada is never invoked.
+                        // Guard on the sync flag instead of on the queue contents so the
+                        // dragon closes here as a final safety net.
+                        if (this.isSincronizando_mano()) {
                             this.acciones_locales_recuperadas.clear();
                             Helpers.GUIRun(() -> {
                                 if (recover_dialog != null) {
@@ -7950,6 +8002,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         GameFrame.getInstance().getTiempo_juego().stop();
 
+                        // Issue #9 defense in depth: if we reach GAME OVER while a
+                        // recovery dragon was still open (NUEVA_MANO returned false
+                        // before the replay loop got a chance to close it), tear it
+                        // down so the user is not stuck looking at the GIF.
+                        cerrarRecoverDialogYSync();
+
                         GameFrame.getInstance().getRegistro().print(Translator.translate("player.la_timba_ha_terminado_no"));
 
                         Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("player.la_timba_ha_terminado_no"), new ImageIcon(Init.class.getResource("/images/exit.png")));
@@ -7960,6 +8018,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
 
                     GameFrame.getInstance().getTiempo_juego().stop();
+
+                    // Issue #9 defense in depth: see comment above.
+                    cerrarRecoverDialogYSync();
 
                     GameFrame.getInstance().getRegistro().print(Translator.translate("player.la_timba_ha_terminado_no"));
 

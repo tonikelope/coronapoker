@@ -580,16 +580,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // 3. Los Humanos remotos quitan sus candados
+            // 3. Los Humanos remotos quitan sus candados.
+            //
+            // Si un peer hizo EXIT LIMPIO antes o durante esta fase, su client
+            // ya nos mandó su testamento (sra_unlock) en el comando EXIT. El
+            // host aplica ese testamento localmente para que la mano siga
+            // pudiéndose descifrar sin él. Sólo abortamos si NO hay testamento
+            // (el peer crasheó sin avisar).
             for (String hNick : currentRing) {
                 if (!hNick.equals(GameFrame.getInstance().getNick_local()) && !hNick.equals(targetNick)) {
                     Participant ph = GameFrame.getInstance().getParticipantes().get(hNick);
-                    if (ph != null && !ph.isCpu() && !ph.isExit()) {
-                        pocketCards = requestRemoteUnlock(hNick, pocketCards, ph);
-                        if (pocketCards == null) {
-                            // Peer marcado exit mientras esperábamos su RESP_SRA_UNLOCK.
-                            // El resto del ring sigue conectado esperando su POCKET_CARDS:
-                            // abortar la mano para que nadie quede colgado.
+                    if (ph != null && !ph.isCpu()) {
+                        if (!ph.isExit()) {
+                            byte[] requested = requestRemoteUnlock(hNick, pocketCards, ph);
+                            if (requested != null) {
+                                pocketCards = requested;
+                            } else if (ph.getSra_unlock() != null) {
+                                // requestRemoteUnlock salió por p.isExit() (EXIT
+                                // command con testamento llegó mid-request).
+                                // Aplicamos el testamento localmente.
+                                pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, ph.getSra_unlock());
+                            } else {
+                                // Sin testamento y socket caído sin EXIT limpio:
+                                // imposible descifrar, abortamos la mano para
+                                // que el resto del ring no quede colgado.
+                                cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
+                                return false;
+                            }
+                        } else if (ph.getSra_unlock() != null) {
+                            // El peer salió antes del cascade unlock pero dejó
+                            // testamento: lo aplicamos en su nombre.
+                            pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, ph.getSra_unlock());
+                        } else {
                             cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
                             return false;
                         }
@@ -2789,9 +2811,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void readyForNextHand() {
+        // Limpieza entre manos del cache de pocket cards y de la cola de comandos
+        // pendientes. La cola tiene que limpiarse bajo su propio monitor porque
+        // el thread del Participant puede estar polleando entradas al mismo
+        // tiempo (sync sobre received_commands en cada acceso). Sin synchronized
+        // aquí podía aparecer ConcurrentModificationException o mensajes legítimos
+        // de la mano siguiente quedarse en estado inconsistente.
         single_locked_pocket_cards.clear();
-        
-        received_commands.clear();
+
+        synchronized (received_commands) {
+            received_commands.clear();
+        }
 
         // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
         // first 32 feed the AES-256 key, last 16 feed the CTR IV.
@@ -4810,8 +4840,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA street unlock: {0}", street);
 
-        // Crash Prevention Shield
-        if (this.local_sra_unlock == null) {
+        // Crash Prevention Shield: ambos campos pueden quedar a null si el
+        // recovery del Crupier fue parcial o si NUEVA_MANO reinició estado
+        // antes de que entrase esta llamada. Validamos los dos juntos para no
+        // dereferenciar active_crypto_ring.length con un NPE silencioso que
+        // colgaría la mano sin avisar a nadie.
+        if (this.local_sra_unlock == null || this.active_crypto_ring == null) {
             cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
             return false;
         }
@@ -4844,8 +4878,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
                 } else if (p != null && !p.isExit()) {
-                    workingCards = requestRemoteUnlock(nick, workingCards, p);
-                    if (workingCards == null) {
+                    byte[] requested = requestRemoteUnlock(nick, workingCards, p);
+                    if (requested != null) {
+                        workingCards = requested;
+                    } else if (p.getSra_unlock() != null) {
+                        // El peer hizo EXIT limpio (con testamento) mientras
+                        // esperábamos su RESP_SRA_UNLOCK. Aplicamos su
+                        // testamento localmente y seguimos descifrando.
+                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
+                    } else {
                         cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
                         return false;
                     }

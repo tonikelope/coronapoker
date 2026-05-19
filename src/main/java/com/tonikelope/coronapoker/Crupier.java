@@ -488,55 +488,87 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
-        int numPlayers = ringCriptografico.size();
-
-        StringBuilder orderBuilder = new StringBuilder();
-        String[] currentRing = new String[numPlayers];
-
-        for (int i = 0; i < numPlayers; i++) {
-            Player j = ringCriptografico.get(i);
-            currentRing[i] = j.getNickname();
-            try {
-                orderBuilder.append(Base64.getEncoder().encodeToString(j.getNickname().getBytes("UTF-8"))).append(",");
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Error encoding nick in orderBuilder", e);
-            }
-        }
-        this.active_crypto_ring = currentRing;
-
-        // Generamos el candado del Servidor ANTES de empezar la cascada
-        this.local_sra_lock = CryptoSRA.generateLockScalar();
-        this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
-
         // FASE 1: CASCADA DE CIFRADO Y BARAJADO
-        byte[] workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock); // Host cifra
-        workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed); // Host baraja con su semilla secreta
+        //
+        // Si un peer humano cae DURANTE su pase de cascade (entre el DECK_CASCADE_REQ
+        // y nuestra recepción de su RESP), aún no se han enviado las pocket cards,
+        // así que no es un misdeal: rehacemos la cascada desde el genesis con un
+        // ring nuevo SIN el peer caído. Sólo damos por perdida la mano si se ha
+        // ido tanta gente que ya no quedan ≥2 activos para jugar.
+        StringBuilder orderBuilder;
+        String[] currentRing;
+        byte[] workingDeck;
 
-        for (int i = 0; i < numPlayers; i++) {
-            String currNick = currentRing[i];
-            if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
-                if (p != null && p.isCpu()) {
-                    // El Bot cifra y baraja localmente
-                    byte[] botLock = CryptoSRA.generateLockScalar();
-                    byte[] botUnlock = CryptoSRA.getUnlockScalar(botLock);
-                    byte[] botSeed = new byte[48];
-                    if (Helpers.CSPRNG_GENERATOR != null) {
-                        Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
-                    }
+        while (true) {
+            // Resetea cualquier estado parcial de un intento anterior abortado.
+            for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
+                if (p != null) {
+                    p.setReceived_token(null);
+                }
+            }
 
-                    p.setReceived_token(botUnlock); // Guardamos la llave para destapar luego
-                    workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
-                    workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
-                } else if (p != null && !p.isExit()) {
-                    // El humano remoto cifra y baraja a través del Socket
-                    workingDeck = requestRemoteCascade(currNick, workingDeck, p);
-                    if (workingDeck == null) {
-                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
-                        return false;
+            java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
+            int numPlayers = ringCriptografico.size();
+            if (numPlayers < 2) {
+                // Sin jugadores suficientes la mano no puede jugarse; sí es misdeal.
+                cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                return false;
+            }
+
+            orderBuilder = new StringBuilder();
+            currentRing = new String[numPlayers];
+
+            for (int i = 0; i < numPlayers; i++) {
+                Player j = ringCriptografico.get(i);
+                currentRing[i] = j.getNickname();
+                try {
+                    orderBuilder.append(Base64.getEncoder().encodeToString(j.getNickname().getBytes("UTF-8"))).append(",");
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Error encoding nick in orderBuilder", e);
+                }
+            }
+            this.active_crypto_ring = currentRing;
+
+            // Candado fresco del Host por intento.
+            this.local_sra_lock = CryptoSRA.generateLockScalar();
+            this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
+
+            workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock);
+            workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
+
+            boolean restart = false;
+            for (int i = 0; i < numPlayers && !restart; i++) {
+                String currNick = currentRing[i];
+                if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
+                    Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
+                    if (p != null && p.isCpu()) {
+                        byte[] botLock = CryptoSRA.generateLockScalar();
+                        byte[] botUnlock = CryptoSRA.getUnlockScalar(botLock);
+                        byte[] botSeed = new byte[48];
+                        if (Helpers.CSPRNG_GENERATOR != null) {
+                            Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
+                        }
+                        p.setReceived_token(botUnlock);
+                        workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
+                        workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
+                    } else if (p != null && !p.isExit()) {
+                        byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
+                        if (cascaded != null) {
+                            workingDeck = cascaded;
+                        } else {
+                            // El peer cayó durante el cascade (su Participant lo marcó
+                            // exit por socket muerto). Aún no hemos repartido nada, así
+                            // que volvemos a empezar la cascada SIN él.
+                            LOGGER.log(Level.WARNING,
+                                    "Peer {0} dropped during cascade — restarting shuffle without them",
+                                    currNick);
+                            restart = true;
+                        }
                     }
                 }
+            }
+            if (!restart) {
+                break;
             }
         }
 
@@ -561,7 +593,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // colgado esperando una POCKET_CARDS que nunca emitiríamos. CryptoSRA
         // con inputs válidos NUNCA devuelve null — los unlocks del propio host
         // y de los bots están garantizados desde la cascada (fase 1).
-        for (int i = 0; i < numPlayers; i++) {
+        for (int i = 0; i < currentRing.length; i++) {
             String targetNick = currentRing[i];
 
             byte[] pocketCards = new byte[64];

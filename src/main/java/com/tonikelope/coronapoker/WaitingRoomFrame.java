@@ -1762,14 +1762,24 @@ public class WaitingRoomFrame extends JFrame {
                                                             Helpers.threadRun(() -> {
                                                                 try {
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
-                                                                    Crupier c = GameFrame.getInstance().getCrupier();
 
                                                                     byte[] lockScalar = CryptoSRA.generateLockScalar();
                                                                     byte[] unlockScalar = CryptoSRA.getUnlockScalar(lockScalar);
                                                                     this.participantes.get(local_nick).setSra_unlock(unlockScalar);
 
                                                                     byte[] locked = CryptoSRA.applyCommutativeLock(incomingDeck, lockScalar);
-                                                                    byte[] mySeed = c.getLocal_hand_seed();
+
+                                                                    // Generate fresh local entropy for THIS shuffle on the spot.
+                                                                    // The handler runs on an async thread that may fire before the
+                                                                    // local Crupier reaches readyForNextHand() and sets
+                                                                    // local_hand_seed for the new hand. Reading c.getLocal_hand_seed()
+                                                                    // there used to yield null (first hand) or stale (previous
+                                                                    // hand's seed), which either threw an NPE inside shuffleDeck
+                                                                    // — silently aborting the hand from the host's perspective —
+                                                                    // or reused stale entropy. The seed never leaves this process
+                                                                    // so there is no protocol reason to share it with the Crupier.
+                                                                    byte[] mySeed = new byte[48];
+                                                                    Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
                                                                     byte[] shuffled = CryptoSRA.shuffleDeck(locked, mySeed);
 
                                                                     String b64Deck = Base64.getEncoder().encodeToString(shuffled);

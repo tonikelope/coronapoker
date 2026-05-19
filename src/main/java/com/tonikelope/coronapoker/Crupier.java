@@ -371,7 +371,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
 
-        long start_time = System.currentTimeMillis();
+        // Sin timeout artificial: la cascada SRA con N peers se alarga linealmente
+        // con N (y con la latencia de los clientes más lentos). Un timeout fijo
+        // aborta cascadas legítimas en mesas grandes o con clientes lentos. La
+        // única señal real de "este peer no va a responder" es que su propio thread
+        // de Participant lo marca exit por inactividad de PING/PONG; usamos eso.
         boolean ok = false;
         byte[] newDeck = null;
         do {
@@ -403,21 +407,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!ok) {
-                if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    break;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.getReceived_commands().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                        }
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision());
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit());
         if (!ok) {
-            remotePlayerQuit(nick);
             return null;
         }
         return newDeck;
@@ -434,7 +433,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
 
-        long start_time = System.currentTimeMillis();
+        // Sin timeout artificial — ver requestRemoteCascade para la razón. Sólo se
+        // sale del bucle si el peer en sí queda marcado exit por su thread propio.
         boolean ok = false;
         byte[] unlocked = null;
         do {
@@ -466,21 +466,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!ok) {
-                if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    break;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.getReceived_commands().wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                        }
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision());
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit());
         if (!ok) {
-            remotePlayerQuit(nick);
             return null;
         }
         return unlocked;
@@ -558,6 +553,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64, null, true);
 
         // FASE 2: EXTRACCIÓN SECUENCIAL DE LAS CARTAS (Pocket Cards)
+        //
+        // El único path por el que pocketCards puede quedar null es que
+        // requestRemoteUnlock devuelva null porque su Participant se marcó exit
+        // mientras esperábamos su respuesta. Si eso ocurre, abortamos la mano
+        // entera con MISDEAL: el resto del ring sigue conectado y se quedaría
+        // colgado esperando una POCKET_CARDS que nunca emitiríamos. CryptoSRA
+        // con inputs válidos NUNCA devuelve null — los unlocks del propio host
+        // y de los bots están garantizados desde la cascada (fase 1).
         for (int i = 0; i < numPlayers; i++) {
             String targetNick = currentRing[i];
 
@@ -583,22 +586,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Participant ph = GameFrame.getInstance().getParticipantes().get(hNick);
                     if (ph != null && !ph.isCpu() && !ph.isExit()) {
                         pocketCards = requestRemoteUnlock(hNick, pocketCards, ph);
+                        if (pocketCards == null) {
+                            // Peer marcado exit mientras esperábamos su RESP_SRA_UNLOCK.
+                            // El resto del ring sigue conectado esperando su POCKET_CARDS:
+                            // abortar la mano para que nadie quede colgado.
+                            cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
+                            return false;
+                        }
                     }
                 }
             }
 
-            if (pocketCards != null) {
-                this.single_locked_pocket_cards.put(targetNick, pocketCards);
+            this.single_locked_pocket_cards.put(targetNick, pocketCards);
 
-                // DIFUNDIMOS SIEMPRE (Zero-Trust): Para que todos los clientes guarden el cach de este jugador
-                try {
-                    String pcB64 = Base64.getEncoder().encodeToString(pocketCards);
-                    String nickB64 = Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"));
-                    // CRÍTICO: cada cliente necesita su POCKET_CARDS para descifrar sus cartas. Esperamos ACK.
-                    broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
-                } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS for " + targetNick, e);
-                }
+            try {
+                String pcB64 = Base64.getEncoder().encodeToString(pocketCards);
+                String nickB64 = Base64.getEncoder().encodeToString(targetNick.getBytes("UTF-8"));
+                broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS for " + targetNick, e);
+                cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
+                return false;
             }
 
             if (targetNick.equals(GameFrame.getInstance().getNick_local())) {
@@ -2788,48 +2796,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_hand_seed = jvm_entropy;
 
         if (GameFrame.getInstance().isPartida_local()) {
+            // Espera a que todos los humanos conectados envíen HAND_READY. Sin
+            // timeout artificial — clientes lentos en la red o en CPU NO se kickean;
+            // la única salida del bucle es que estén ready o que su socket muera
+            // (isExit() lo refleja, gestionado por su propio Participant.run()).
             boolean ready;
-            int timeout = 0;
             do {
                 ready = true;
                 for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
                     Participant p = entry.getValue();
-                    // Excluimos al jugador local (el servidor no se manda paquetes a sí mismo).
-                    if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local()) && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
+                    if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())
+                            && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
                         ready = false;
-                        if (timeout == NEW_HAND_READY_WAIT_TIMEOUT) {
-                            this.remotePlayerQuit(p.getNick());
-                        } else {
-                            break;
-                        }
+                        break;
                     }
                 }
                 if (!ready) {
-                    timeout += NEW_HAND_READY_WAIT;
-                    if (timeout <= NEW_HAND_READY_WAIT_TIMEOUT) {
-                        synchronized (lock_nueva_mano) {
-                            try {
-                                lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
-                            } catch (InterruptedException ex) {
-                            }
+                    synchronized (lock_nueva_mano) {
+                        try {
+                            lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
+                        } catch (InterruptedException ex) {
                         }
-                    } else {
-                        timeout = 0;
                     }
                 }
-            } while (!ready);
+            } while (!ready && !isFin_de_la_transmision());
 
             // Host ordena a todos que pueden empezar a procesar la cascada SRA.
-            // CRÍTICO: esperamos ACK porque el host iniciará requestRemoteCascade inmediatamente después
-            // y los clientes deben estar preparados para responder al primer DECK_CASCADE_REQ.
             broadcastGAMECommandFromServer("START_SRA_CASCADE", null, true);
 
         } else {
-            // Cliente avisa de que está listo para la mano actual
+            // Cliente avisa de que está listo para la mano actual y espera la
+            // señal del host SIN timeout. Si el host se cae, isFin_de_la_transmision
+            // o el socket reader lo detectarán por su cuenta.
             this.sendGAMECommandToServer("HAND_READY#" + String.valueOf(this.conta_mano + 1));
 
             boolean serverCommitted = false;
-            long start_time = System.currentTimeMillis();
             do {
                 synchronized (this.getReceived_commands()) {
                     java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -2846,17 +2847,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.getReceived_commands().addAll(rejected);
                     }
                 }
-                if (!serverCommitted) {
-                    if (GameFrame.getInstance().checkPause()) {
-                        start_time = System.currentTimeMillis();
-                    } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                        break;
-                    } else {
-                        synchronized (this.getReceived_commands()) {
-                            try {
-                                this.getReceived_commands().wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                            }
+                if (!serverCommitted && !isFin_de_la_transmision()) {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.getReceived_commands().wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
                         }
                     }
                 }
@@ -4266,16 +4261,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!consensus_ok) {
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    consensus_ok = true;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
+                GameFrame.getInstance().checkPause();
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
                     }
                 }
             }
@@ -4462,9 +4452,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
-        long start = System.currentTimeMillis();
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
-        boolean timeout = false;
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
@@ -4488,17 +4476,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 this.waitSyncConfirmations(id, pendientes);
 
-                if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    LOGGER.log(Level.SEVERE, "RECOVER DATA CONFIRMATION TIMEOUT. Kicking unresponsive players...");
-                    for (String nick : pendientes) {
-                        if (!nick2player.get(nick).isExit()) {
-                            this.remotePlayerQuit(nick);
-                        }
-                    }
-                    timeout = true;
-                }
-
-                if (!pendientes.isEmpty() && !timeout) {
+                // Sin timeout artificial: si un cliente tarda en confirmar la
+                // recuperación de datos (red lenta, payload grande), esperamos.
+                // La única salida es que el cliente se marque exit por su socket
+                // muerto, en cuyo caso waitSyncConfirmations sale por su cuenta
+                // y la siguiente vuelta del do-while reevalúa pendientes.
+                if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
                         if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
@@ -4520,14 +4503,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!pendientes.isEmpty() && !timeout);
+        } while (!pendientes.isEmpty());
     }
 
     public void enviarAccionesRecuperadas(ArrayList<String> pendientes, String datos) {
 
-        long start = System.currentTimeMillis();
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
-        boolean timeout = false;
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
@@ -4548,17 +4529,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 this.waitSyncConfirmations(id, pendientes);
 
-                if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                    LOGGER.log(Level.SEVERE, "ACTION RECOVER CONFIRMATION TIMEOUT. Kicking unresponsive players...");
-                    for (String nick : pendientes) {
-                        if (!nick2player.get(nick).isExit()) {
-                            this.remotePlayerQuit(nick);
-                        }
-                    }
-                    timeout = true;
-                }
-
-                if (!pendientes.isEmpty() && !timeout) {
+                // Sin timeout artificial: ver enviarDatosClaveRecuperados.
+                if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
                         if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
@@ -4573,7 +4545,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-        } while (!pendientes.isEmpty() && !timeout);
+        } while (!pendientes.isEmpty());
     }
 
     private float[] calcularBoteParaGanador(float cantidad, int tot_ganadores) {
@@ -4758,9 +4730,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (GameFrame.getInstance().checkPause()) {
                         start = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
+                        // El jugador no envió ACTION dentro de su tiempo de pensar:
+                        // FOLD silencioso para que la mano avance, pero NO se le
+                        // expulsa de la partida. Volverá a jugar la siguiente mano
+                        // si su socket sigue vivo.
                         timeout = true;
-                        LOGGER.log(Level.SEVERE, "Action timeout for: {0}", jugador.getNickname());
-                        this.remotePlayerQuit(jugador.getNickname());
+                        LOGGER.log(Level.INFO, "Action timeout for: {0} — auto-FOLD", jugador.getNickname());
                     } else {
                         synchronized (this.getReceived_commands()) {
                             try {
@@ -4909,9 +4884,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean recibirCartasComunitarias() {
-        long start_time = System.currentTimeMillis();
-        boolean ok = false, timeout = false;
+        boolean ok = false;
 
+        // Sin timeout: el descifrado de calles (FLOP/TURN/RIVER) en el host requiere
+        // un unlock RTT por cada cliente humano en el crypto-ring antes de poder
+        // broadcastear la carta resuelta. Con N clientes lentos eso puede tardar
+        // minutos. El cliente espera indefinidamente la carta — TCP nos garantiza
+        // que llegará o el socket morirá. MISDEAL del host es la única señal de que
+        // la mano se cancela legítimamente.
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -4953,26 +4933,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if (!ok) {
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    timeout = true;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
+            if (!ok && !isFin_de_la_transmision()) {
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
                     }
                 }
             }
         } while (!ok && !isFin_de_la_transmision());
 
-        if (timeout) {
-            cancelarManoYDevolverApuestas("zero_trust.timeout_community_cards");
-            return false;
-        }
         return true;
     }
 
@@ -5666,20 +5636,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!pendientes.isEmpty()) {
-                if (GameFrame.getInstance().checkPause()) {
-                    start_time = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    timeout = true;
-                } else {
-                    synchronized (this.getReceived_commands()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
-                        }
+                GameFrame.getInstance().checkPause();
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
                     }
                 }
             }
-        } while (!pendientes.isEmpty() && !timeout);
+        } while (!pendientes.isEmpty() && !isFin_de_la_transmision());
     }
 
     private void checkJugadasParciales(ArrayList<Player> resisten) {
@@ -5831,8 +5796,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void broadcastGAMECommandFromServer(String command, String skip_nick, boolean confirmation) {
 
-        long start = System.currentTimeMillis();
-
         ArrayList<String> pendientes = new ArrayList<>();
         ArrayList<Participant> targets = new ArrayList<>();
 
@@ -5850,10 +5813,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (!pendientes.isEmpty()) {
 
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            boolean timeout = false;
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
+            // Sin timeout artificial: si un cliente tarda mucho en confirmar (red lenta,
+            // CPU saturada, baraja SRA grande), seguimos esperando indefinidamente.
+            // TCP nos garantiza que el mensaje llegará o el socket morirá; nunca se
+            // pierde "en el medio". La única salida del bucle es que pendientes se
+            // vacíe (todos confirmaron o todos se marcaron exit porque su socket murió
+            // de verdad). Antes este loop forzaba remotePlayerQuit() tras
+            // CLIENT_RECON_TIMEOUT, lo que provocaba kicks injustos a clientes
+            // simplemente lentos durante cascadas SRA.
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -5889,21 +5859,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
-
-                    if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                        LOGGER.log(Level.SEVERE, "BROADCAST CONFIRMATION TIMEOUT. Kicking unresponsive players...");
-                        if (!nick2player.isEmpty()) {
-                            for (String nick : pendientes) {
-                                if (!nick2player.get(nick).isExit()) {
-                                    this.remotePlayerQuit(nick);
-                                }
-                            }
-                        }
-                        timeout = true;
-                    }
                 }
 
-            } while (confirmation && !pendientes.isEmpty() && !timeout);
+            } while (confirmation && !pendientes.isEmpty());
         }
     }
 

@@ -1793,11 +1793,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (GameFrame.getInstance().isPartida_local()) {
-                        LOGGER.log(Level.SEVERE, "REBUY TIMEOUT. Kicking unresponsive players...");
+                        // Jugador no respondió al rebuy en el tiempo esperado:
+                        // se asume "no rebuy" (= spectator), MISMO comportamiento
+                        // que si hubiera contestado "0" expresamente. Antes este
+                        // path llamaba remotePlayerQuit y los expulsaba de la
+                        // mesa, lo cual es un kick injustificado: el jugador
+                        // sigue en la partida como spectator y volverá a jugar
+                        // si recarga manualmente en la siguiente mano.
+                        LOGGER.log(Level.INFO, "REBUY timeout — pending players default to spectator (no kick)");
                         for (String nick : pending) {
                             Player jpk = nick2player.get(nick);
                             if (jpk != null && !jpk.isExit()) {
-                                this.remotePlayerQuit(nick);
+                                jpk.setSpectator(null);
+                                jpk.setTimeout(false);
                             }
                         }
                         timeout = true;

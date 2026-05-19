@@ -4749,14 +4749,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public Object[] readActionFromRemotePlayer(Player jugador) {
-        long start = System.currentTimeMillis();
-        boolean ok = false, timeout = false;
+        boolean ok = false;
         Object[] action = new Object[3];
         /* [0] decision, [1] bet (or cinematic on ALLIN), [2] packetB64 */
 
+        // Sin timeout artificial en el host: cada cliente tiene su propio
+        // contador de tiempo de pensar (LocalPlayer.response_counter) que al
+        // llegar a cero hace auto-click en CHECK o FOLD y envía la ACTION.
+        // Si el reloj del cliente está desfasado respecto al del host (clientes
+        // lentos, GC stalls, latencia), forzar FOLD desde el host expulsaría
+        // la decisión real del jugador. Confiamos en la ACTION del cliente y
+        // sólo salimos del bucle si su socket muere de verdad (isExit).
         do {
             ok = false;
-            timeout = false;
 
             if (!jugador.isExit()) {
                 synchronized (this.getReceived_commands()) {
@@ -4797,28 +4802,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!ok) {
-                    if (GameFrame.getInstance().checkPause()) {
-                        start = System.currentTimeMillis();
-                    } else if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT) {
-                        // El jugador no envió ACTION dentro de su tiempo de pensar:
-                        // FOLD silencioso para que la mano avance, pero NO se le
-                        // expulsa de la partida. Volverá a jugar la siguiente mano
-                        // si su socket sigue vivo.
-                        timeout = true;
-                        LOGGER.log(Level.INFO, "Action timeout for: {0} — auto-FOLD", jugador.getNickname());
-                    } else {
-                        synchronized (this.getReceived_commands()) {
-                            try {
-                                this.received_commands.wait(WAIT_QUEUES);
-                            } catch (InterruptedException ex) {
-                            }
+                    GameFrame.getInstance().checkPause();
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.received_commands.wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
                         }
                     }
                 }
             }
-        } while (!ok && !jugador.isExit() && !timeout);
+        } while (!ok && !jugador.isExit());
 
-        if (jugador.isExit() || timeout) {
+        if (jugador.isExit()) {
             action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;

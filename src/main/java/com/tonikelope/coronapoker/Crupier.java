@@ -3428,7 +3428,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
+        if (getJugadoresActivos() > 1) {
+            if (saltar_primera_mano) {
+                // Recovery decided not to replay the previous hand (clean exit
+                // with hand_end!=0, fossil corrupt, or a preflop player missing).
+                // Force a brand-new hand record so actions don't get written
+                // into the previous (already-closed) hand.
+                this.sqlite_id_hand = -1;
+            }
             if (this.sqlite_id_hand == -1) {
                 sqlNewHand();
             }

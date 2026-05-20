@@ -7753,25 +7753,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
-
-            StringBuilder rebuyCountsBulk = new StringBuilder();
-            boolean firstRC = true;
-            for (Map.Entry<String, Integer> entry : rebuy_counts.entrySet()) {
-                if (entry.getValue() != null && entry.getValue() > 0) {
-                    try {
-                        if (!firstRC) {
-                            rebuyCountsBulk.append(",");
-                        }
-                        rebuyCountsBulk.append(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")))
-                                .append("@").append(entry.getValue());
-                        firstRC = false;
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.WARNING, "Failed to encode rebuy_count entry for INIT bulk", ex);
-                    }
-                }
-            }
-
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY) + "#" + rebuyCountsBulk.toString(), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY), null);
         }
 
         if (GameFrame.RECOVER) {

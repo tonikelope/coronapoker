@@ -2183,25 +2183,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.BLIND_CAP = partes_comando.length > 10 ? Float.parseFloat(partes_comando[10]) : 0f;
                                                             GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
                                                             GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
-                                                            String rebuy_counts_bulk = partes_comando.length > 13 ? partes_comando[13] : "";
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
                                                                     new GameFrame(THIS, local_nick, false);
                                                                 }
                                                             });
-                                                            if (!rebuy_counts_bulk.isEmpty()) {
-                                                                for (String pair : rebuy_counts_bulk.split(",")) {
-                                                                    String[] kv = pair.split("@");
-                                                                    if (kv.length == 2) {
-                                                                        try {
-                                                                            String pn = new String(Base64.getDecoder().decode(kv[0]), "UTF-8");
-                                                                            int pc = Integer.parseInt(kv[1]);
-                                                                            GameFrame.getInstance().getCrupier().getRebuy_counts().put(pn, pc);
-                                                                        } catch (Exception e) {
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
                                                             partida_empezada = true;
                                                             GameFrame.getInstance().AJUGAR();
                                                             break;

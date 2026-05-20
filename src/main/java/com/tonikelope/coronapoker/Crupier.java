@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
@@ -245,7 +246,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
-    private void triggerSecurityLockdown(String reason) {
+    public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + reason);
@@ -2128,9 +2129,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Phases ya servidas esta mano (clave compuesta por phase+peer_idx para
     // POCKET, sólo phase para el resto). Bloquea que el host pida la misma
     // phase dos veces engañando con bytes distintos.
-    private final java.util.Set<String> sra_unlock_tags_served = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<String> sra_unlock_tags_served = ConcurrentHashMap.newKeySet();
 
-    public java.util.Set<String> getSra_unlock_tags_served() {
+    public Set<String> getSra_unlock_tags_served() {
         return sra_unlock_tags_served;
     }
 
@@ -2140,7 +2141,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // los índices (0..51) por phase para verificarlos cuando llegue el
     // broadcast FLOPCARDS/TURNCARD/RIVERCARD/RABBIT_*. Si el host anuncia algo
     // distinto, ha mentido sobre los bytes de la calle pedida y lo cazamos.
-    private final java.util.concurrent.ConcurrentHashMap<Integer, int[]> expected_community_cards = new java.util.concurrent.ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, int[]> expected_community_cards = new ConcurrentHashMap<>();
 
     public void recordExpectedCommunityCards(int phase, int[] cardIndices) {
         if (cardIndices != null) {
@@ -2167,16 +2168,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (expected == null) {
             return; // no era el último peer; no tengo verificación local
         }
-        if (!java.util.Arrays.equals(expected, announced)) {
+        if (!Arrays.equals(expected, announced)) {
             LOGGER.log(Level.SEVERE,
-                    "ZERO-TRUST: host announced community cards {0} but my last-peer decryption produced {1} for phase {2} — HOST IS CHEATING (sent wrong-slot bytes under correct phase). Aborting hand.",
-                    new Object[]{java.util.Arrays.toString(announced), java.util.Arrays.toString(expected), phase});
-            cancelarManoYDevolverApuestas("zero_trust.host_lied_about_community");
+                    "ZERO-TRUST: host announced community cards {0} but my last-peer decryption produced {1} for phase {2} — HOST IS CHEATING (sent wrong-slot bytes under correct phase).",
+                    new Object[]{Arrays.toString(announced), Arrays.toString(expected), phase});
+            triggerSecurityLockdown(Translator.translate("zero_trust.host_lied_about_community"));
         }
     }
 
     public static String sraUnlockTagKey(int phase, int peer_idx) {
         return phase == UNLOCK_PHASE_POCKET ? (phase + ":" + peer_idx) : String.valueOf(phase);
+    }
+
+    public static int phaseForStreet(int street, boolean isRabbit) {
+        if (street == Crupier.FLOP) {
+            return isRabbit ? UNLOCK_PHASE_RABBIT_FLOP : UNLOCK_PHASE_FLOP;
+        }
+        if (street == Crupier.TURN) {
+            return isRabbit ? UNLOCK_PHASE_RABBIT_TURN : UNLOCK_PHASE_TURN;
+        }
+        return isRabbit ? UNLOCK_PHASE_RABBIT_RIVER : UNLOCK_PHASE_RIVER;
+    }
+
+    public boolean hasMegaPacket() {
+        return local_mega_packet != null;
     }
 
     /**
@@ -5253,14 +5268,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         workingCards = CryptoSRA.applyCommutativeLock(workingCards, this.local_sra_unlock);
 
-        int unlockPhase;
-        if (street == Crupier.FLOP) {
-            unlockPhase = UNLOCK_PHASE_FLOP;
-        } else if (street == Crupier.TURN) {
-            unlockPhase = UNLOCK_PHASE_TURN;
-        } else {
-            unlockPhase = UNLOCK_PHASE_RIVER;
-        }
+        int unlockPhase = phaseForStreet(street, false);
 
         for (String nick : this.active_crypto_ring) {
             if (!nick.equals(GameFrame.getInstance().getNick_local())) {
@@ -5944,14 +5952,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         workingCards = CryptoSRA.applyCommutativeLock(workingCards, this.local_sra_unlock);
 
-        int rabbitPhase;
-        if (targetStreet == Crupier.FLOP) {
-            rabbitPhase = UNLOCK_PHASE_RABBIT_FLOP;
-        } else if (targetStreet == Crupier.TURN) {
-            rabbitPhase = UNLOCK_PHASE_RABBIT_TURN;
-        } else {
-            rabbitPhase = UNLOCK_PHASE_RABBIT_RIVER;
-        }
+        int rabbitPhase = phaseForStreet(targetStreet, true);
 
         for (String nick : this.active_crypto_ring) {
             if (!nick.equals(GameFrame.getInstance().getNick_local())) {

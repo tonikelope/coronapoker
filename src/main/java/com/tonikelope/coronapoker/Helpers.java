@@ -3140,12 +3140,17 @@ public class Helpers {
 
         private static final long serialVersionUID = 1L;
 
+        // Control-flow exception: stack trace is intentionally suppressed
+        // (writableStackTrace=false) so catch sites that simply log the
+        // throwable don't dump a useless trace for every cancelled worker
+        // during teardown.
+
         public CooperativeCancellationException() {
-            super("cooperative cancellation");
+            super("cooperative cancellation", null, false, false);
         }
 
         public CooperativeCancellationException(InterruptedException cause) {
-            super("cooperative cancellation", cause);
+            super("cooperative cancellation", cause, false, false);
         }
     }
 

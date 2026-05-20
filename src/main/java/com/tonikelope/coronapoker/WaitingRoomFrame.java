@@ -1879,40 +1879,45 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
 
-                                                                    // GATE 5 (anti-self-pocket cripto-check): si phase=POCKET y el resultado
-                                                                    // de aplicar mi unlock al payload son 2 puntos del genesis deck, eso
-                                                                    // significa que esos eran MIS propias pocket cards y el host está
-                                                                    // intentando extraerlas. En Phase 2 legítima los bytes nunca llegan
-                                                                    // a genesis tras un solo unlock porque siempre queda lock del target T.
-                                                                    if (phase == Crupier.UNLOCK_PHASE_POCKET && unlocked != null && unlocked.length == 64) {
-                                                                        byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
-                                                                        byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
-                                                                        if (CryptoSRA.resolveCardIndex(c1) >= 0 && CryptoSRA.resolveCardIndex(c2) >= 0) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK pocket payload would resolve to my own hole cards — host is attempting pocket-card extraction, refusing");
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                            return;
-                                                                        }
-                                                                    }
-
-                                                                    // GATE 6 (last-peer detector): si phase es una comunitaria y tras
-                                                                    // aplicar mi unlock todos los chunks resuelven al genesis deck,
-                                                                    // soy el ÚLTIMO peer en la cadena → conozco el plaintext exacto
-                                                                    // que el host está a punto de anunciar. Lo guardo; el handler de
-                                                                    // FLOPCARDS/TURNCARD/RIVERCARD/RABBIT_* compara con el announce.
-                                                                    if (unlocked != null && phase != Crupier.UNLOCK_PHASE_POCKET) {
+                                                                    // GATE 5 (anti-genesis-smuggling cripto-check): cuento cuántos
+                                                                    // chunks de 32 bytes resuelven al genesis deck tras aplicar mi
+                                                                    // unlock. Tres casos:
+                                                                    //
+                                                                    //  - 0 genesis → cadena en curso, peer intermedio. OK.
+                                                                    //  - todos genesis y phase=POCKET → SON MIS hole cards, el host
+                                                                    //    quería extraerlas. ABORT.
+                                                                    //  - todos genesis y phase comunitaria → soy last-peer legítimo,
+                                                                    //    guardo el plaintext para verificarlo contra el broadcast.
+                                                                    //  - mixed (algunos sí, otros no) → el host está smuggleando
+                                                                    //    bytes de OTRO slot bajo la phase declarada. ABORT.
+                                                                    //
+                                                                    // El caso "mixed" cierra el bypass detectado en security-review:
+                                                                    // host envía payload = single_locked_pocket_cards[V] || padding
+                                                                    // bajo phase=FLOP; los 2 primeros chunks resuelven a genesis
+                                                                    // (mis pockets), el tercero no → mixed → abort.
+                                                                    if (unlocked != null) {
                                                                         int numChunks = unlocked.length / 32;
                                                                         int[] resolved = new int[numChunks];
-                                                                        boolean allGenesis = true;
+                                                                        int genesisCount = 0;
                                                                         for (int k = 0; k < numChunks; k++) {
                                                                             byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
                                                                             int idx = CryptoSRA.resolveCardIndex(chunk);
-                                                                            if (idx < 0) {
-                                                                                allGenesis = false;
-                                                                                break;
-                                                                            }
                                                                             resolved[k] = idx;
+                                                                            if (idx >= 0) {
+                                                                                genesisCount++;
+                                                                            }
                                                                         }
-                                                                        if (allGenesis) {
+                                                                        if (genesisCount > 0 && genesisCount < numChunks) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK payload mixes genesis and non-genesis chunks under phase {0} — host is smuggling cross-slot bytes, refusing", phase);
+                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                            return;
+                                                                        }
+                                                                        if (genesisCount == numChunks) {
+                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK pocket payload would resolve to my own hole cards — host is attempting pocket-card extraction, refusing");
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                return;
+                                                                            }
                                                                             crupier.recordExpectedCommunityCards(phase, resolved);
                                                                         }
                                                                     }

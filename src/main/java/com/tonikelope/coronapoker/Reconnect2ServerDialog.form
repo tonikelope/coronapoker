@@ -70,6 +70,7 @@
                       <Component id="yes" alignment="0" max="32767" attributes="0"/>
                       <Component id="barra" alignment="0" max="32767" attributes="0"/>
                       <Component id="status2" alignment="0" max="32767" attributes="0"/>
+                      <Component id="back_to_lobby" alignment="0" max="32767" attributes="0"/>
                       <Component id="exit_button" alignment="0" max="32767" attributes="0"/>
                   </Group>
                   <EmptySpace max="-2" attributes="0"/>
@@ -87,6 +88,8 @@
                   <Component id="status2" min="-2" max="-2" attributes="0"/>
                   <EmptySpace type="separate" max="-2" attributes="0"/>
                   <Component id="yes" max="-2" attributes="0"/>
+                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                  <Component id="back_to_lobby" min="-2" max="-2" attributes="0"/>
                   <EmptySpace type="unrelated" max="-2" attributes="0"/>
                   <Component id="exit_button" min="-2" max="-2" attributes="0"/>
                   <EmptySpace type="separate" max="-2" attributes="0"/>
@@ -152,6 +155,31 @@
             <Property name="text" type="java.lang.String" value="(Comprueba si la direcci&#xf3;n o el puerto han cambiado antes de reconectar)"/>
             <Property name="doubleBuffered" type="boolean" value="true"/>
           </Properties>
+        </Component>
+        <Component class="javax.swing.JButton" name="back_to_lobby">
+          <Properties>
+            <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+              <Color blue="0" green="99" red="ff" type="rgb"/>
+            </Property>
+            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+              <Font name="Dialog" size="18" style="1"/>
+            </Property>
+            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+              <Color blue="ff" green="ff" red="ff" type="rgb"/>
+            </Property>
+            <Property name="text" type="java.lang.String" value="VOLVER A SALA DE INICIO"/>
+            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+              <Color id="Cursor de Mano"/>
+            </Property>
+            <Property name="doubleBuffered" type="boolean" value="true"/>
+            <Property name="focusable" type="boolean" value="false"/>
+          </Properties>
+          <Events>
+            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="back_to_lobbyActionPerformed"/>
+          </Events>
+          <AuxValues>
+            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="back_to_lobby.putClientProperty(&quot;i18n.key&quot;, &quot;conn.volver_a_sala_inicio&quot;);"/>
+          </AuxValues>
         </Component>
         <Component class="javax.swing.JButton" name="exit_button">
           <Properties>

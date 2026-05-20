@@ -2496,6 +2496,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else {
                             this.auditor.put(name, new Float[]{Float.parseFloat(p[1]), Float.parseFloat(p[2])});
                         }
+                        if (p.length > 3) {
+                            int rc = Integer.parseInt(p[3]);
+                            if (rc > 0) {
+                                rebuy_counts.put(name, rc);
+                            }
+                        }
                     } catch (Exception e) {
                     }
                 }
@@ -4131,12 +4137,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             PreparedStatement statement;
             try {
                 statement = Helpers.getSQLITE()
-                        .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin) VALUES (?,?,?,?)");
+                        .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?)");
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 statement.setString(2, nick);
                 statement.setFloat(3, Helpers.floatClean(stack));
                 statement.setInt(4, buyin);
+                statement.setInt(5, getRebuyCount(nick));
                 statement.executeUpdate();
 
                 statement.close();
@@ -4153,12 +4160,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             PreparedStatement statement;
             try {
                 statement = Helpers.getSQLITE()
-                        .prepareStatement("UPDATE balance SET stack=?, buyin=? WHERE id_hand=? and player=?");
+                        .prepareStatement("UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? and player=?");
                 statement.setQueryTimeout(30);
                 statement.setFloat(1, Helpers.floatClean(stack));
                 statement.setInt(2, buyin);
-                statement.setInt(3, this.sqlite_id_hand);
-                statement.setString(4, nick);
+                statement.setInt(3, getRebuyCount(nick));
+                statement.setInt(4, this.sqlite_id_hand);
+                statement.setString(5, nick);
                 statement.executeUpdate();
 
                 statement.close();
@@ -6523,7 +6531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     } else {
 
-                        sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+                        sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
                         statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -6541,7 +6549,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             balance.add(
                                     Base64.getEncoder().encodeToString(rs.getString("PLAYER").getBytes("UTF-8")) + "|"
-                                    + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
+                                    + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN") + "|" + rs.getInt("REBUY_COUNT"));
                         }
 
                         map.put("balance", String.join("@", balance));

@@ -2161,6 +2161,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.UGI = partes_comando[7].split("@")[1];
                                                             GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
                                                             GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
+                                                            GameFrame.BLIND_CAP = partes_comando.length > 10 ? Float.parseFloat(partes_comando[10]) : 0f;
+                                                            GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
+                                                            GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
                                                                     new GameFrame(THIS, local_nick, false);

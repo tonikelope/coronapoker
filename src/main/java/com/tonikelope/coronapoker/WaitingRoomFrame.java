@@ -90,6 +90,7 @@ import javax.swing.event.HyperlinkEvent;
 import javax.swing.text.DefaultCaret;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
 import static com.tonikelope.coronapoker.Init.DEV_MODE;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -1777,8 +1778,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // honesto NUNCA pide DECK_CASCADE_REQ después del MEGAPACKET
                                                                     // hasta NUEVA_MANO (que limpia local_mega_packet a null).
                                                                     Crupier crupierCheck = GameFrame.getInstance().getCrupier();
-                                                                    if (crupierCheck != null && crupierCheck.local_mega_packet != null) {
+                                                                    if (crupierCheck != null && crupierCheck.hasMegaPacket()) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received mid-hand (MEGAPACKET already locked) — refusing to overwrite my sra_unlock");
+                                                                        crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_cascade_mid_hand"));
                                                                         return;
                                                                     }
 
@@ -1837,22 +1839,29 @@ public class WaitingRoomFrame extends JFrame {
                                                                     byte[] cards = Base64.getDecoder().decode(partes_unlock[6]);
 
                                                                     // GATE 1: longitud permitida.
+                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
                                                                     if (cards == null || (cards.length != 32 && cards.length != 64 && cards.length != 96)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK illegal payload length ({0}) — refusing", (cards == null ? -1 : cards.length));
+                                                                        if (crupier != null) {
+                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                        }
                                                                         return;
                                                                     }
 
                                                                     // GATE 2: state machine + tag + anti-reuse + peer_idx-not-self (para POCKET).
-                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
                                                                     if (crupier == null || !crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK rejected by state machine (phase={0}, peer_idx={1}, hand_id={2}, length={3}) — host asked for the wrong street/slot or replayed a tag",
                                                                                 new Object[]{phase, peer_idx, hand_id, cards.length});
+                                                                        if (crupier != null) {
+                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                        }
                                                                         return;
                                                                     }
 
                                                                     // GATE 3: validar que cada chunk de 32 bytes es un punto en Curve25519.
                                                                     if (!CryptoSRA.arePointsOnCurve(cards)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK payload contains non-curve points — refusing");
+                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
 
@@ -1864,6 +1873,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String tagKey = Crupier.sraUnlockTagKey(phase, peer_idx);
                                                                     if (!crupier.getSra_unlock_tags_served().add(tagKey)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK concurrent duplicate for tag {0} — refusing", tagKey);
+                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                         return;
                                                                     }
 
@@ -1875,10 +1885,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // intentando extraerlas. En Phase 2 legítima los bytes nunca llegan
                                                                     // a genesis tras un solo unlock porque siempre queda lock del target T.
                                                                     if (phase == Crupier.UNLOCK_PHASE_POCKET && unlocked != null && unlocked.length == 64) {
-                                                                        byte[] c1 = java.util.Arrays.copyOfRange(unlocked, 0, 32);
-                                                                        byte[] c2 = java.util.Arrays.copyOfRange(unlocked, 32, 64);
+                                                                        byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
+                                                                        byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
                                                                         if (CryptoSRA.resolveCardIndex(c1) >= 0 && CryptoSRA.resolveCardIndex(c2) >= 0) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK pocket payload would resolve to my own hole cards — host is attempting pocket-card extraction, refusing");
+                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                             return;
                                                                         }
                                                                     }
@@ -1893,7 +1904,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         int[] resolved = new int[numChunks];
                                                                         boolean allGenesis = true;
                                                                         for (int k = 0; k < numChunks; k++) {
-                                                                            byte[] chunk = java.util.Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
+                                                                            byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
                                                                             int idx = CryptoSRA.resolveCardIndex(chunk);
                                                                             if (idx < 0) {
                                                                                 allGenesis = false;

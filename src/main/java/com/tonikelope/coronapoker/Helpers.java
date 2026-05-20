@@ -3126,17 +3126,63 @@ public class Helpers {
                 new Object[]{operation, ex.getClass().getSimpleName()});
     }
 
+    /**
+     * Unchecked counterpart of {@link InterruptedException}. Thrown by
+     * {@link #pausar(long)} when the calling thread has been interrupted
+     * (typically by {@code pool.shutdownNow()} during exit/teardown). Lets
+     * outer {@code while}/{@code for} loops bail out of cooperative cancellation
+     * naturally without each one having to check {@code Thread.interrupted()}
+     * by hand. The interrupt flag is restored before the throw, so any catch
+     * site can still observe it. NOT a real error: catch sites should log at
+     * INFO without stack trace.
+     */
+    public static class CooperativeCancellationException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        public CooperativeCancellationException() {
+            super("cooperative cancellation");
+        }
+
+        public CooperativeCancellationException(InterruptedException cause) {
+            super("cooperative cancellation", cause);
+        }
+    }
+
+    private static final ThreadLocal<Boolean> PAUSAR_CANCELLATION_LOGGED =
+            ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    private static void logPausarCancellationOnce(String msg) {
+        // One-time log per thread. Without this guard, a worker that ignores
+        // Thread.interrupted() in a tight while-pausar loop produces thousands
+        // of identical INFO lines per second between pool.shutdownNow() and
+        // the JVM finally tearing the thread down.
+        if (!PAUSAR_CANCELLATION_LOGGED.get()) {
+            PAUSAR_CANCELLATION_LOGGED.set(Boolean.TRUE);
+            Logger.getLogger(Helpers.class.getName()).log(Level.INFO, msg);
+        }
+    }
+
     public static void pausar(long pause) {
+        if (Thread.currentThread().isInterrupted()) {
+            // Caller looped back into pausar() without observing the interrupt
+            // flag. Throwing here breaks the spin and lets the outer try/catch
+            // (or the Future submitted to the pool) absorb the cancellation.
+            logPausarCancellationOnce("pausar() entered while interrupted — cooperative cancellation");
+            throw new CooperativeCancellationException();
+        }
         try {
             Thread.sleep(Math.max(pause, 0));
 
         } catch (InterruptedException ex) {
-            // Restore the interrupt flag so callers can observe cooperative cancellation.
+            // Restore the interrupt flag so callers up the stack can observe
+            // cooperative cancellation if they need to.
             Thread.currentThread().interrupt();
+            logPausarCancellationOnce("pausar() sleep interrupted — cooperative cancellation");
             // Cooperative cancellation (typically pool shutdown during game exit).
-            // Logged at INFO without stack trace — it is NOT an error.
-            Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
-                    "pausar() sleep interrupted (cooperative cancellation)");
+            // Propagated as an unchecked exception so any outer while/for loop
+            // bails out automatically — NOT a real error.
+            throw new CooperativeCancellationException(ex);
         }
     }
 

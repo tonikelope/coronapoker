@@ -1676,6 +1676,11 @@ public class WaitingRoomFrame extends JFrame {
                             });
 
                             recibido = readCommandFromServer();
+                            if (recibido == null) {
+                                // Server dropped after NICKOK, before sending its identity payload.
+                                exit = true;
+                                throw new IOException("Server closed channel during nick handshake");
+                            }
                             partes = recibido.split("#");
                             server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8").trim();
 
@@ -1694,6 +1699,11 @@ public class WaitingRoomFrame extends JFrame {
                             }
 
                             recibido = readCommandFromServer();
+                            if (recibido == null) {
+                                // Server dropped before sending chat history sentinel.
+                                exit = true;
+                                throw new IOException("Server closed channel during chat handshake");
+                            }
 
                             if (!"*".equals(recibido)) {
                                 chat_text = new StringBuffer(new String(Base64.getDecoder().decode(recibido.replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8"));

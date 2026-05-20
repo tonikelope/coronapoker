@@ -162,12 +162,15 @@ public class CoronaMP3FilePlayer {
         final byte[] buffer = new byte[65536];
         int n = -1;
 
-        while (line.isOpen() && playing && (n = in.read(buffer)) != -1) {
-            while (paused && line.isOpen() && playing) {
+        while (line.isOpen() && playing && !Thread.currentThread().isInterrupted() && (n = in.read(buffer)) != -1) {
+            while (paused && line.isOpen() && playing && !Thread.currentThread().isInterrupted()) {
                 synchronized (pause_lock) {
                     try {
                         pause_lock.wait(1000);
                     } catch (InterruptedException ex) {
+                        // Pool shutdown during paused playback. Restoring the flag plus
+                        // the !isInterrupted() guard in both while conditions exits the
+                        // inner and outer loops without spinning.
                         Thread.currentThread().interrupt();
                     }
                 }

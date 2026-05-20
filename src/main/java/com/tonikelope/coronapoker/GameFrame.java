@@ -122,7 +122,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int BUYIN = 10;
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
+    public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
     public static volatile boolean REBUY = true;
+    public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
+    public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
@@ -169,7 +172,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
         return "IWTSTH=" + (iwtsth ? "1" : "0")
                 + "#RABBIT=" + rabbit
-                + "#DIFFICULTY=" + Bot.DIFFICULTY.name();
+                + "#DIFFICULTY=" + Bot.DIFFICULTY.name()
+                + "#BLIND_CAP=" + BLIND_CAP
+                + "#REBUY_LIMIT=" + REBUY_LIMIT
+                + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -198,6 +204,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Bot.DIFFICULTY = Bot.Difficulty.valueOf(val);
                     } catch (IllegalArgumentException ignore) {
                     }
+                    break;
+                case "BLIND_CAP":
+                    try {
+                        BLIND_CAP = Float.parseFloat(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "REBUY_LIMIT":
+                    try {
+                        REBUY_LIMIT = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "BOT_REBUY":
+                    BOT_REBUY = "1".equals(val);
                     break;
             }
         }

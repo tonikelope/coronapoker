@@ -53,6 +53,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -285,6 +286,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
     private final HashMap<String, Float[]> auditor = new HashMap<>();
@@ -980,6 +982,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return rebuy_now;
     }
 
+    public ConcurrentHashMap<String, Integer> getRebuy_counts() {
+        return rebuy_counts;
+    }
+
+    public int getRebuyCount(String nick) {
+        return rebuy_counts.getOrDefault(nick, 0);
+    }
+
+    private boolean atRebuyLimit(String nick) {
+        return GameFrame.REBUY_LIMIT > 0 && getRebuyCount(nick) >= GameFrame.REBUY_LIMIT;
+    }
+
     public boolean isLast_hand() {
 
         synchronized (lock_last_hand) {
@@ -1029,7 +1043,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (lock_rebuynow) {
             if (!rebuy_now.containsKey(nick)) {
-                this.rebuy_now.put(nick, buyin);
+                if (!atRebuyLimit(nick)) {
+                    this.rebuy_now.put(nick, buyin);
+                }
             } else {
                 this.rebuy_now.remove(nick);
             }
@@ -1812,11 +1828,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (partes.length > 4) {
-                                if (partes[4].equals("0")) {
+                                if (partes[4].equals("0") || atRebuyLimit(nick)) {
                                     jugador.setSpectator(null);
                                 } else {
                                     rebuy_now.put(nick, Integer.parseInt(partes[4]));
                                 }
+                            } else if (atRebuyLimit(nick)) {
+                                jugador.setSpectator(null);
                             } else {
                                 rebuy_now.put(nick, GameFrame.BUYIN);
                             }
@@ -2478,6 +2496,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else {
                             this.auditor.put(name, new Float[]{Float.parseFloat(p[1]), Float.parseFloat(p[2])});
                         }
+                        if (p.length > 3) {
+                            int rc = Integer.parseInt(p[3]);
+                            if (rc > 0) {
+                                rebuy_counts.put(name, rc);
+                            }
+                        }
                     } catch (Exception e) {
                     }
                 }
@@ -2891,9 +2915,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private float[] simulateNextBlinds() {
+        int i = 0, j = 0;
+        while (Helpers.float1DSecureCompare((float) this.ciega_pequeña / (float) Math.pow(10, j), CIEGAS[i][0]) != 0) {
+            i = (i + 1) % CIEGAS.length;
+            if (i == 0) {
+                j++;
+            }
+        }
+        i = (i + 1) % CIEGAS.length;
+        if (i == 0) {
+            j++;
+        }
+        return new float[]{(float) (CIEGAS[i][0] * Math.pow(10, j)), (float) (CIEGAS[i][1] * Math.pow(10, j))};
+    }
+
     private boolean checkDoblarCiegas() {
 
         synchronized (lock_ciegas) {
+            if (GameFrame.BLIND_CAP > 0f && simulateNextBlinds()[1] > GameFrame.BLIND_CAP) {
+                return false;
+            }
             if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
                 return (GameFrame.CIEGAS_DOUBLE > 0
                         && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego()
@@ -3566,9 +3608,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.bote = new HandPot(0f);
         this.beneficio_bote_principal = null;
 
+        HashSet<String> rebuys_about_to_apply = new HashSet<>();
+        for (Map.Entry<String, Integer> e : rebuy_now.entrySet()) {
+            if (e.getValue() != null && e.getValue() > 0) {
+                rebuys_about_to_apply.add(e.getKey());
+            }
+        }
+
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
             if (jugador.isActivo()) {
                 jugador.nuevaMano();
+            }
+        }
+
+        for (String nick : rebuys_about_to_apply) {
+            if (!rebuy_now.containsKey(nick)) {
+                rebuy_counts.merge(nick, 1, Integer::sum);
             }
         }
 
@@ -4203,12 +4258,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             PreparedStatement statement;
             try {
                 statement = Helpers.getSQLITE()
-                        .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin) VALUES (?,?,?,?)");
+                        .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?)");
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 statement.setString(2, nick);
                 statement.setFloat(3, Helpers.floatClean(stack));
                 statement.setInt(4, buyin);
+                statement.setInt(5, getRebuyCount(nick));
                 statement.executeUpdate();
 
                 statement.close();
@@ -4225,12 +4281,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             PreparedStatement statement;
             try {
                 statement = Helpers.getSQLITE()
-                        .prepareStatement("UPDATE balance SET stack=?, buyin=? WHERE id_hand=? and player=?");
+                        .prepareStatement("UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? and player=?");
                 statement.setQueryTimeout(30);
                 statement.setFloat(1, Helpers.floatClean(stack));
                 statement.setInt(2, buyin);
-                statement.setInt(3, this.sqlite_id_hand);
-                statement.setString(4, nick);
+                statement.setInt(3, getRebuyCount(nick));
+                statement.setInt(4, this.sqlite_id_hand);
+                statement.setString(5, nick);
                 statement.executeUpdate();
 
                 statement.close();
@@ -6595,7 +6652,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     } else {
 
-                        sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+                        sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
                         statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -6613,7 +6670,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                             balance.add(
                                     Base64.getEncoder().encodeToString(rs.getString("PLAYER").getBytes("UTF-8")) + "|"
-                                    + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN"));
+                                    + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN") + "|" + rs.getInt("REBUY_COUNT"));
                         }
 
                         map.put("balance", String.join("@", balance));
@@ -7681,7 +7738,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY), null);
         }
 
         if (GameFrame.RECOVER) {
@@ -8210,10 +8267,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     && Helpers.float1DSecureCompare(0f,
                             Helpers.floatClean(jugador.getStack()) + Helpers.floatClean(jugador.getPagar())) == 0) {
 
-                if (GameFrame.REBUY) {
-                    rebuy_players.add(jugador.getNickname());
-                } else {
+                String nick = jugador.getNickname();
+                Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
+                boolean isBot = participante != null && participante.isCpu();
+
+                if (!GameFrame.REBUY || (isBot && !GameFrame.BOT_REBUY) || atRebuyLimit(nick)) {
                     jugador.setSpectator(null);
+                } else {
+                    rebuy_players.add(nick);
                 }
 
             }
@@ -8229,7 +8290,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
-            if (GameFrame.REBUY) {
+            if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
                     if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
@@ -8355,10 +8416,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()) != null
                             && GameFrame.getInstance().getParticipantes().get(jugador.getNickname()).isCpu()) {
 
-                        int res = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(),
-                                Translator.translate("rebuy.recompra") + jugador.getNickname(),
-                                new ImageIcon(getClass().getResource("/images/pot.png")));
-
                         rebuy_players.remove(jugador.getNickname());
 
                         rebuy_now.put(jugador.getNickname(), GameFrame.BUYIN);
@@ -8366,17 +8423,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             String comando = "REBUY#"
                                     + Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
-                                    + ((!GameFrame.REBUY || res != 0) ? "#0" : "#" + String.valueOf(GameFrame.BUYIN));
+                                    + "#" + String.valueOf(GameFrame.BUYIN);
 
                             this.broadcastGAMECommandFromServer(comando, null);
 
                         } catch (UnsupportedEncodingException ex) {
                             LOGGER.log(Level.SEVERE, null, ex);
-                        }
-
-                        if (res != 0) {
-                            rebuy_now.remove(jugador.getNickname());
-                            jugador.setSpectator(null);
                         }
 
                     }

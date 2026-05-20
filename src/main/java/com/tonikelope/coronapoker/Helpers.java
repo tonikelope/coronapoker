@@ -1488,6 +1488,10 @@ public class Helpers {
                     statement.execute("ALTER TABLE game ADD recover_settings TEXT");
                 } catch (Exception ex) {
                 }
+                try {
+                    statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
+                } catch (Exception ex) {
+                }
 
             }
         } catch (Exception ex) {

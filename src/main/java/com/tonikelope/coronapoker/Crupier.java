@@ -2637,6 +2637,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void cancelarManoYDevolverApuestas(String motivo, boolean broadcast) {
+        // Issue #9 idempotency: MISDEAL is intentionally double-fed on the
+        // client side. WaitingRoomFrame.java:2015 invokes us directly from
+        // the reader thread for an immediate refund + popup, then queues
+        // the same MISDEAL command on received_commands so the Crupier
+        // run() consumers (Crupier.java:4405/5091/7163) can break out of
+        // their consensus/wait loops. Those consumers call us again with
+        // the same motivo. Without an early return here, the second call
+        // would re-log, re-print the registro, re-play the error sound and
+        // re-queue another popup on the EDT (it would appear after the user
+        // dismisses the first one). The first invocation already performed
+        // the visible side effects; the second one is solely a signaling
+        // breakout so just return.
+        if (isFin_de_la_transmision()) {
+            return;
+        }
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         // Issue #9 defense in depth: if a recovery dragon was left open (e.g. a
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
@@ -2706,16 +2721,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // the reader thread blocking during the modal just delays delivery
         // by however long the user takes to click OK, which is harmless.
         //
-        // If we are already in fin_de_la_transmision (a previous MISDEAL
-        // is tearing things down) we just queue the info popup async and
-        // return; no second teardown.
-        if (isFin_de_la_transmision()) {
-            Helpers.GUIRun(() -> {
-                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
-            });
-            return;
-        }
-
         Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
         rollbackAbortedHand();
         setFin_de_la_transmision(true);

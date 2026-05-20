@@ -296,9 +296,13 @@ public class Reconnect2ServerDialog extends JDialog {
             GameFrame.getInstance().getLocalPlayer().setExit();
         }
         Helpers.threadRun(() -> {
-            if (WaitingRoomFrame.getInstance() != null) {
-                synchronized (WaitingRoomFrame.getInstance().getLock_reconnect()) {
-                    WaitingRoomFrame.getInstance().getLock_reconnect().notifyAll();
+            WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
+            if (wrf != null) {
+                Object lock = wrf.getLock_reconnect();
+                if (lock != null) {
+                    synchronized (lock) {
+                        lock.notifyAll();
+                    }
                 }
             }
         });

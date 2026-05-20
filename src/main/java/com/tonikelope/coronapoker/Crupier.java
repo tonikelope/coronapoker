@@ -990,7 +990,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return rebuy_counts.getOrDefault(nick, 0);
     }
 
-    private boolean atRebuyLimit(String nick) {
+    public boolean atRebuyLimit(String nick) {
         return GameFrame.REBUY_LIMIT > 0 && getRebuyCount(nick) >= GameFrame.REBUY_LIMIT;
     }
 
@@ -1042,8 +1042,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void rebuyNow(String nick, int buyin) {
 
         synchronized (lock_rebuynow) {
+            boolean denied_by_limit = false;
             if (!rebuy_now.containsKey(nick)) {
-                if (!atRebuyLimit(nick)) {
+                if (atRebuyLimit(nick)) {
+                    denied_by_limit = true;
+                } else {
                     this.rebuy_now.put(nick, buyin);
                 }
             } else {
@@ -1053,10 +1056,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.getInstance().isPartida_local()) {
 
                 try {
-                    this.broadcastGAMECommandFromServer(
-                            "REBUYNOW#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                            + String.valueOf(buyin),
-                            nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname()) ? null : nick);
+                    if (denied_by_limit) {
+                        this.broadcastGAMECommandFromServer(
+                                "REBUYDENIED#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                + String.valueOf(GameFrame.REBUY_LIMIT),
+                                null, false);
+                    } else {
+                        this.broadcastGAMECommandFromServer(
+                                "REBUYNOW#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                + String.valueOf(buyin),
+                                nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname()) ? null : nick);
+                    }
                 } catch (UnsupportedEncodingException ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
@@ -4141,13 +4151,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 + String.valueOf(jugador.getStack()
                                         + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
                                         : 0f))
-                                + "|" + String.valueOf(jugador.getBuyin());
+                                + "|" + String.valueOf(jugador.getBuyin())
+                                + "|" + String.valueOf(getRebuyCount(jugador.getNickname()));
                     } else {
 
                         Float[] pasta = entry.getValue();
                         sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
                         balance_float[i] = Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
-                                + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]));
+                                + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]))
+                                + "|" + String.valueOf(getRebuyCount(entry.getKey()));
                     }
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
@@ -7741,7 +7753,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY), null);
+
+            StringBuilder rebuyCountsBulk = new StringBuilder();
+            boolean firstRC = true;
+            for (Map.Entry<String, Integer> entry : rebuy_counts.entrySet()) {
+                if (entry.getValue() != null && entry.getValue() > 0) {
+                    try {
+                        if (!firstRC) {
+                            rebuyCountsBulk.append(",");
+                        }
+                        rebuyCountsBulk.append(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")))
+                                .append("@").append(entry.getValue());
+                        firstRC = false;
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Failed to encode rebuy_count entry for INIT bulk", ex);
+                    }
+                }
+            }
+
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY) + "#" + rebuyCountsBulk.toString(), null);
         }
 
         if (GameFrame.RECOVER) {

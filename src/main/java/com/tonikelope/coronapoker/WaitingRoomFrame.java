@@ -1922,6 +1922,25 @@ public class WaitingRoomFrame extends JFrame {
                                                             } catch (Exception e) {
                                                             }
                                                             break;
+                                                        case "REBUYDENIED":
+                                                            try {
+                                                                String dnNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                int dnLimit = Integer.parseInt(partes_comando[4]);
+                                                                if (GameFrame.getInstance().getLocalPlayer() != null
+                                                                        && dnNick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+                                                                    Helpers.GUIRun(() -> {
+                                                                        if (GameFrame.getInstance().getRebuy_now_menu() != null) {
+                                                                            GameFrame.getInstance().getRebuy_now_menu().setSelected(false);
+                                                                            GameFrame.getInstance().getRebuy_now_menu().setEnabled(true);
+                                                                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+                                                                            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+                                                                        }
+                                                                        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(dnLimit)));
+                                                                    });
+                                                                }
+                                                            } catch (Exception e) {
+                                                            }
+                                                            break;
                                                         case "SHOWCARDS":
                                                             Helpers.threadRun(() -> {
                                                                 try {
@@ -2164,11 +2183,25 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.BLIND_CAP = partes_comando.length > 10 ? Float.parseFloat(partes_comando[10]) : 0f;
                                                             GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
                                                             GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
+                                                            String rebuy_counts_bulk = partes_comando.length > 13 ? partes_comando[13] : "";
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
                                                                     new GameFrame(THIS, local_nick, false);
                                                                 }
                                                             });
+                                                            if (!rebuy_counts_bulk.isEmpty()) {
+                                                                for (String pair : rebuy_counts_bulk.split(",")) {
+                                                                    String[] kv = pair.split("@");
+                                                                    if (kv.length == 2) {
+                                                                        try {
+                                                                            String pn = new String(Base64.getDecoder().decode(kv[0]), "UTF-8");
+                                                                            int pc = Integer.parseInt(kv[1]);
+                                                                            GameFrame.getInstance().getCrupier().getRebuy_counts().put(pn, pc);
+                                                                        } catch (Exception e) {
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
                                                             partida_empezada = true;
                                                             GameFrame.getInstance().AJUGAR();
                                                             break;

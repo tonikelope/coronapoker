@@ -3996,6 +3996,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Audio.playWavResource("misc/button_off.wav");
             });
 
+        } else if (crupier.atRebuyLimit(player.getNickname())) {
+
+            rebuy_now_menu.setEnabled(true);
+            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+            rebuy_now_menu.setSelected(false);
+            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(GameFrame.REBUY_LIMIT)));
+
         } else {
 
             rebuy_dialog = new RebuyDialog(GameFrame.getInstance(), true, true, -1);

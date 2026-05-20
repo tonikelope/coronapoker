@@ -323,10 +323,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean fin_de_la_transmision = false;
     private volatile int street = PREFLOP;
     // Zero-trust state machine: el cliente sólo responde REQ_SRA_UNLOCK si
-    // la longitud encaja con la calle/fase en que está. Cualquier host que
-    // intente pedir un descifrado fuera de orden (RIVER en PREFLOP, segundo
-    // pocket-unlock tras Phase 2, etc.) se topa con un MEEEC silencioso.
-    private volatile boolean pocket_received = false;
+    // la longitud encaja con la calle/fase en que está. Para POCKET el guard
+    // verdadero es el anti-genesis cripto-check del cliente — no hay un flag
+    // de "ya terminó Phase 2 para mí" porque cada peer sigue siendo unlocker
+    // para los pockets de los OTROS targets aún cuando ya recibió los suyos.
     private volatile boolean flop_revealed = false;
     private volatile boolean turn_revealed = false;
     private volatile boolean river_revealed = false;
@@ -771,7 +771,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             this.local_original_cards[1] = (byte) id2;
                                             cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
                                             cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
-                                            this.pocket_received = true;
                                             ok = true;
                                         }
                                     } else {
@@ -2087,10 +2086,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return show_time;
     }
 
-    public boolean isPocket_received() {
-        return pocket_received;
-    }
-
     public boolean isFlop_revealed() {
         return flop_revealed;
     }
@@ -2220,7 +2215,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         switch (phase) {
             case UNLOCK_PHASE_POCKET: {
-                if (length != 64 || this.pocket_received) {
+                if (length != 64) {
                     return false;
                 }
                 if (this.active_crypto_ring == null
@@ -3784,7 +3779,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.jugada_ganadora = 0;
         this.perdedores.clear();
         this.street = PREFLOP;
-        this.pocket_received = false;
         this.flop_revealed = false;
         this.turn_revealed = false;
         this.river_revealed = false;

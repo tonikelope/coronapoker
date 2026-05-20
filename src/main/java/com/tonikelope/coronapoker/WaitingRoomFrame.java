@@ -1850,8 +1850,13 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     // GATE 2: state machine + tag + anti-reuse + peer_idx-not-self (para POCKET).
                                                                     if (crupier == null || !crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK rejected by state machine (phase={0}, peer_idx={1}, hand_id={2}, length={3}) — host asked for the wrong street/slot or replayed a tag",
-                                                                                new Object[]{phase, peer_idx, hand_id, cards.length});
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK rejected by state machine (phase={0}, peer_idx={1}, hand_id={2}, length={3}, flop_revealed={4}, turn_revealed={5}, river_revealed={6}, show_time={7}, tags_served={8}) — host asked for the wrong street/slot or replayed a tag",
+                                                                                new Object[]{phase, peer_idx, hand_id, cards.length,
+                                                                                    crupier != null && crupier.isFlop_revealed(),
+                                                                                    crupier != null && crupier.isTurn_revealed(),
+                                                                                    crupier != null && crupier.isRiver_revealed(),
+                                                                                    crupier != null && crupier.isShow_time(),
+                                                                                    crupier != null ? crupier.getSra_unlock_tags_served() : "(null)"});
                                                                         if (crupier != null) {
                                                                             crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                         }

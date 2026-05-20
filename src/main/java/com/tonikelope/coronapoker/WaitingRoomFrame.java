@@ -1771,6 +1771,17 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String[] partes_cascade = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
+                                                                    // ZERO-TRUST: refuse cascade mid-hand. Si ya tenemos un
+                                                                    // MEGAPACKET activo, aceptar un nuevo cascade sobreescribiría
+                                                                    // nuestro sra_unlock y destruiría la mano en curso. Un host
+                                                                    // honesto NUNCA pide DECK_CASCADE_REQ después del MEGAPACKET
+                                                                    // hasta NUEVA_MANO (que limpia local_mega_packet a null).
+                                                                    Crupier crupierCheck = GameFrame.getInstance().getCrupier();
+                                                                    if (crupierCheck != null && crupierCheck.local_mega_packet != null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received mid-hand (MEGAPACKET already locked) — refusing to overwrite my sra_unlock");
+                                                                        return;
+                                                                    }
+
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
 
                                                                     byte[] lockScalar = CryptoSRA.generateLockScalar();
@@ -1807,8 +1818,93 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String[] partes_unlock = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
-                                                                    byte[] cards = Base64.getDecoder().decode(partes_unlock[3]);
+                                                                    // Wire: GAME#<id>#REQ_SRA_UNLOCK#<phase>#<peer_idx>#<hand_id>#<cards_b64>
+                                                                    if (partes_unlock.length < 7) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK with malformed wire (parts={0}) — refusing", partes_unlock.length);
+                                                                        return;
+                                                                    }
+                                                                    int phase;
+                                                                    int peer_idx;
+                                                                    int hand_id;
+                                                                    try {
+                                                                        phase = Integer.parseInt(partes_unlock[3]);
+                                                                        peer_idx = Integer.parseInt(partes_unlock[4]);
+                                                                        hand_id = Integer.parseInt(partes_unlock[5]);
+                                                                    } catch (NumberFormatException nfe) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK with non-numeric phase/peer_idx/hand_id — refusing");
+                                                                        return;
+                                                                    }
+                                                                    byte[] cards = Base64.getDecoder().decode(partes_unlock[6]);
+
+                                                                    // GATE 1: longitud permitida.
+                                                                    if (cards == null || (cards.length != 32 && cards.length != 64 && cards.length != 96)) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK illegal payload length ({0}) — refusing", (cards == null ? -1 : cards.length));
+                                                                        return;
+                                                                    }
+
+                                                                    // GATE 2: state machine + tag + anti-reuse + peer_idx-not-self (para POCKET).
+                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
+                                                                    if (crupier == null || !crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK rejected by state machine (phase={0}, peer_idx={1}, hand_id={2}, length={3}) — host asked for the wrong street/slot or replayed a tag",
+                                                                                new Object[]{phase, peer_idx, hand_id, cards.length});
+                                                                        return;
+                                                                    }
+
+                                                                    // GATE 3: validar que cada chunk de 32 bytes es un punto en Curve25519.
+                                                                    if (!CryptoSRA.arePointsOnCurve(cards)) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK payload contains non-curve points — refusing");
+                                                                        return;
+                                                                    }
+
+                                                                    // GATE 4: reservar atómicamente la tag (check-and-set). Si dos REQs
+                                                                    // concurrentes con el mismo tag pasan el state-machine, sólo el
+                                                                    // primero que llegue aquí gana — el segundo ve add()==false y se
+                                                                    // niega. Reservamos ANTES de la cripto-check para que un fallo
+                                                                    // posterior NO permita retry con bytes distintos.
+                                                                    String tagKey = Crupier.sraUnlockTagKey(phase, peer_idx);
+                                                                    if (!crupier.getSra_unlock_tags_served().add(tagKey)) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK concurrent duplicate for tag {0} — refusing", tagKey);
+                                                                        return;
+                                                                    }
+
                                                                     byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
+
+                                                                    // GATE 5 (anti-self-pocket cripto-check): si phase=POCKET y el resultado
+                                                                    // de aplicar mi unlock al payload son 2 puntos del genesis deck, eso
+                                                                    // significa que esos eran MIS propias pocket cards y el host está
+                                                                    // intentando extraerlas. En Phase 2 legítima los bytes nunca llegan
+                                                                    // a genesis tras un solo unlock porque siempre queda lock del target T.
+                                                                    if (phase == Crupier.UNLOCK_PHASE_POCKET && unlocked != null && unlocked.length == 64) {
+                                                                        byte[] c1 = java.util.Arrays.copyOfRange(unlocked, 0, 32);
+                                                                        byte[] c2 = java.util.Arrays.copyOfRange(unlocked, 32, 64);
+                                                                        if (CryptoSRA.resolveCardIndex(c1) >= 0 && CryptoSRA.resolveCardIndex(c2) >= 0) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK pocket payload would resolve to my own hole cards — host is attempting pocket-card extraction, refusing");
+                                                                            return;
+                                                                        }
+                                                                    }
+
+                                                                    // GATE 6 (last-peer detector): si phase es una comunitaria y tras
+                                                                    // aplicar mi unlock todos los chunks resuelven al genesis deck,
+                                                                    // soy el ÚLTIMO peer en la cadena → conozco el plaintext exacto
+                                                                    // que el host está a punto de anunciar. Lo guardo; el handler de
+                                                                    // FLOPCARDS/TURNCARD/RIVERCARD/RABBIT_* compara con el announce.
+                                                                    if (unlocked != null && phase != Crupier.UNLOCK_PHASE_POCKET) {
+                                                                        int numChunks = unlocked.length / 32;
+                                                                        int[] resolved = new int[numChunks];
+                                                                        boolean allGenesis = true;
+                                                                        for (int k = 0; k < numChunks; k++) {
+                                                                            byte[] chunk = java.util.Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
+                                                                            int idx = CryptoSRA.resolveCardIndex(chunk);
+                                                                            if (idx < 0) {
+                                                                                allGenesis = false;
+                                                                                break;
+                                                                            }
+                                                                            resolved[k] = idx;
+                                                                        }
+                                                                        if (allGenesis) {
+                                                                            crupier.recordExpectedCommunityCards(phase, resolved);
+                                                                        }
+                                                                    }
 
                                                                     String uB64 = Base64.getEncoder().encodeToString(unlocked);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
@@ -1953,28 +2049,44 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             });
                                                             break;
-                                                        case "RABBIT_FLOP":
+                                                        case "RABBIT_FLOP": {
+                                                            // RABBIT_FLOP llega con valores 1..52 (no 0..51 como FLOPCARDS).
+                                                            // Reduzco -1 para comparar contra mi descifrado last-peer (0..51).
+                                                            int a = Integer.parseInt(partes_comando[3]) - 1;
+                                                            int b = Integer.parseInt(partes_comando[4]) - 1;
+                                                            int c = Integer.parseInt(partes_comando[5]) - 1;
+                                                            GameFrame.getInstance().getCrupier().verifyAnnouncedCommunity(Crupier.UNLOCK_PHASE_RABBIT_FLOP, new int[]{a, b, c});
+                                                            GameFrame.getInstance().getCrupier().setFlop_revealed(true);
                                                             Helpers.GUIRun(() -> {
-                                                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(Integer.parseInt(partes_comando[3]));
-                                                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(Integer.parseInt(partes_comando[4]));
-                                                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(Integer.parseInt(partes_comando[5]));
+                                                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(a + 1);
+                                                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(b + 1);
+                                                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(c + 1);
                                                                 GameFrame.getInstance().getFlop1().taparRabbit();
                                                                 GameFrame.getInstance().getFlop2().taparRabbit();
                                                                 GameFrame.getInstance().getFlop3().taparRabbit();
                                                             });
                                                             break;
-                                                        case "RABBIT_TURN":
+                                                        }
+                                                        case "RABBIT_TURN": {
+                                                            int a = Integer.parseInt(partes_comando[3]) - 1;
+                                                            GameFrame.getInstance().getCrupier().verifyAnnouncedCommunity(Crupier.UNLOCK_PHASE_RABBIT_TURN, new int[]{a});
+                                                            GameFrame.getInstance().getCrupier().setTurn_revealed(true);
                                                             Helpers.GUIRun(() -> {
-                                                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(Integer.parseInt(partes_comando[3]));
+                                                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(a + 1);
                                                                 GameFrame.getInstance().getTurn().taparRabbit();
                                                             });
                                                             break;
-                                                        case "RABBIT_RIVER":
+                                                        }
+                                                        case "RABBIT_RIVER": {
+                                                            int a = Integer.parseInt(partes_comando[3]) - 1;
+                                                            GameFrame.getInstance().getCrupier().verifyAnnouncedCommunity(Crupier.UNLOCK_PHASE_RABBIT_RIVER, new int[]{a});
+                                                            GameFrame.getInstance().getCrupier().setRiver_revealed(true);
                                                             Helpers.GUIRun(() -> {
-                                                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(Integer.parseInt(partes_comando[3]));
+                                                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(a + 1);
                                                                 GameFrame.getInstance().getRiver().taparRabbit();
                                                             });
                                                             break;
+                                                        }
                                                         case "LASTHAND":
                                                             if (partes_comando[3].equals("0")) {
                                                                 GameFrame.getInstance().getCrupier().setForce_recover(false);

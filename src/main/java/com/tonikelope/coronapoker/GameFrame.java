@@ -122,6 +122,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int BUYIN = 10;
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
+    public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
     public static volatile boolean REBUY = true;
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;

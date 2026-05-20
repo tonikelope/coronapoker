@@ -156,6 +156,9 @@
                 <Property name="text" type="java.lang.String" value="Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el &quot;hilo fino&quot;,"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel2.putClientProperty(&quot;i18n.key&quot;, &quot;about.gracias_1&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="dedicado">
               <Properties>
@@ -169,6 +172,9 @@
                 <Property name="text" type="java.lang.String" value="En memoria de todas las v&#xed;ctimas de la COVID-19"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="dedicado.putClientProperty(&quot;i18n.key&quot;, &quot;about.dedicado&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jvm">
               <Properties>
@@ -199,6 +205,9 @@
                 <Property name="text" type="java.lang.String" value="(Todos los c&#xe9;ntimos desaparecidos en las betas fueron para una buena causa)."/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel4.putClientProperty(&quot;i18n.key&quot;, &quot;about.centimos&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="merecemos">
               <Properties>
@@ -209,6 +218,9 @@
                 <Property name="text" type="java.lang.String" value="El videojuego de Texas hold &apos;em NL que nos merecemos, no el que necesitamos &#xbf;o era al rev&#xe9;s?"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="merecemos.putClientProperty(&quot;i18n.key&quot;, &quot;about.merecemos&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel6">
               <Properties>
@@ -219,6 +231,9 @@
                 <Property name="text" type="java.lang.String" value="Nota: si posees el copyright de esta m&#xfa;sica (o cualquier otro elemento) y no permites su utilizaci&#xf3;n, escr&#xed;beme a -&gt; tonikelope@gmail.com"/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel6.putClientProperty(&quot;i18n.key&quot;, &quot;about.copyright&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel5">
               <Properties>
@@ -229,6 +244,9 @@
                 <Property name="text" type="java.lang.String" value="a Pepillo por ese talento para cazar los bugs m&#xe1;s raros, a Lato por las pruebas en su Mac y a mi madre... por todo lo dem&#xe1;s."/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel5.putClientProperty(&quot;i18n.key&quot;, &quot;about.gracias_2&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel7">
               <Properties>
@@ -239,6 +257,9 @@
                 <Property name="text" type="java.lang.String" value="El hilo musical que suena durante el juego fue compuesto por David Luong."/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel7.putClientProperty(&quot;i18n.key&quot;, &quot;about.musica_juego&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel8">
               <Properties>
@@ -249,6 +270,9 @@
                 <Property name="text" type="java.lang.String" value="La canci&#xf3;n que suena en el visor de estad&#xed;sticas es el tema principal de la m&#xed;tica pel&#xed;cula EL GOLPE."/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel8.putClientProperty(&quot;i18n.key&quot;, &quot;about.musica_stats&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel10">
               <Properties>
@@ -259,6 +283,9 @@
                 <Property name="text" type="java.lang.String" value="La canci&#xf3;n que suena aqu&#xed; es &quot;La Sala del Trono&quot; compuesta por John Williams para Star Wars."/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel10.putClientProperty(&quot;i18n.key&quot;, &quot;about.musica_about&quot;);"/>
+              </AuxValues>
             </Component>
             <Component class="javax.swing.JLabel" name="jLabel11">
               <Properties>
@@ -269,6 +296,9 @@
                 <Property name="text" type="java.lang.String" value="La canci&#xf3;n que suena en la sala de espera es &quot;The Dream&quot; compuesta por Jerry Goldsmith para la pel&#xed;cula Total Recall."/>
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
+              <AuxValues>
+                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel11.putClientProperty(&quot;i18n.key&quot;, &quot;about.musica_espera&quot;);"/>
+              </AuxValues>
             </Component>
             <Container class="javax.swing.JPanel" name="jPanel1">
               <Properties>
@@ -404,6 +434,9 @@
                   <Events>
                     <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="jLabel12MouseClicked"/>
                   </Events>
+                  <AuxValues>
+                    <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel12.putClientProperty(&quot;i18n.tooltip_key&quot;, &quot;tooltip.robert_rules&quot;);"/>
+                  </AuxValues>
                 </Component>
                 <Component class="javax.swing.JLabel" name="jLabel9">
                   <Properties>
@@ -417,6 +450,9 @@
                     <Property name="text" type="java.lang.String" value="Hecho a mano en Espa&#xf1;a y con amor por tonikelope (c) 2020"/>
                     <Property name="toolTipText" type="java.lang.String" value="PLVS VLTRA"/>
                   </Properties>
+                  <AuxValues>
+                    <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="jLabel9.putClientProperty(&quot;i18n.key&quot;, &quot;about.hecho_a_mano&quot;);"/>
+                  </AuxValues>
                 </Component>
               </SubComponents>
             </Container>

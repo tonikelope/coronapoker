@@ -2997,7 +2997,7 @@ public class WaitingRoomFrame extends JFrame {
 
         conectados.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         conectados.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
-        conectados.setToolTipText("Participantes conectados");
+        Helpers.setTranslatedToolTip(conectados, "tooltip.connected_participants");
         conectados.setCellRenderer(new com.tonikelope.coronapoker.ParticipantsListLabel());
         conectados.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         conectados.setDoubleBuffered(true);
@@ -3104,7 +3104,7 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
-        pass_icon.setToolTipText("Click para gestionar contraseña");
+        Helpers.setTranslatedToolTip(pass_icon, "tooltip.manage_password");
         pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -3118,7 +3118,7 @@ public class WaitingRoomFrame extends JFrame {
 
         server_address_label.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         server_address_label.setText("1.1.1.1");
-        server_address_label.setToolTipText("Click para obtener datos de conexión");
+        Helpers.setTranslatedToolTip(server_address_label, "tooltip.connection_data");
         server_address_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         server_address_label.setDoubleBuffered(true);
         server_address_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -3226,7 +3226,7 @@ public class WaitingRoomFrame extends JFrame {
         danger_server.setForeground(new java.awt.Color(255, 255, 255));
         danger_server.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         danger_server.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/danger.png"))); // NOI18N
-        danger_server.setText("POSIBLE SERVIDOR TRAMPOSO");
+        Helpers.setTranslatedText(danger_server, "ui.posible_servidor_tramposo");
         danger_server.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         danger_server.setOpaque(true);
 
@@ -3281,7 +3281,7 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         image_button.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/chat_image.png"))); // NOI18N
-        image_button.setToolTipText("Enviar imagen");
+        Helpers.setTranslatedToolTip(image_button, "tooltip.send_image");
         image_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         image_button.setDoubleBuffered(true);
         image_button.setMargin(new java.awt.Insets(0, 0, 0, 0));

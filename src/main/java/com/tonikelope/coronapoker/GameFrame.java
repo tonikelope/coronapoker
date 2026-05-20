@@ -2205,7 +2205,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         });
                     } else if (!isPartida_local()) {
                         Helpers.GUIRun(() -> {
-                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "EL SERVIDOR HA DETENIDO LA TIMBA (ESPERANDO PARA RECONECTAR...)", Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE);
+                            InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("conn.el_servidor_ha_detenido_la"), Color.WHITE, Color.BLACK, getClass().getResource("/images/stop.png"), HALT_PAUSE);
                             dialog.setLocationRelativeTo(dialog.getParent());
                             dialog.setVisible(true);
                         });

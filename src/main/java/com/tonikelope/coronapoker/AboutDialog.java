@@ -245,12 +245,14 @@ public class AboutDialog extends JDialog {
         jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel2.setText("Gracias a todos los amigos que han colaborado en esta aventura, en especial a Pepsi por sus barajas y el \"hilo fino\",");
         jLabel2.setDoubleBuffered(true);
+        jLabel2.putClientProperty("i18n.key", "about.gracias_1");
 
         dedicado.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         dedicado.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         dedicado.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/luto.png"))); // NOI18N
         dedicado.setText("En memoria de todas las víctimas de la COVID-19");
         dedicado.setDoubleBuffered(true);
+        dedicado.putClientProperty("i18n.key", "about.dedicado");
 
         jvm.setText(Helpers.getSystemInfo());
         jvm.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
@@ -268,41 +270,49 @@ public class AboutDialog extends JDialog {
         jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel4.setText("(Todos los céntimos desaparecidos en las betas fueron para una buena causa).");
         jLabel4.setDoubleBuffered(true);
+        jLabel4.putClientProperty("i18n.key", "about.centimos");
 
         merecemos.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         merecemos.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         merecemos.setText("El videojuego de Texas hold 'em NL que nos merecemos, no el que necesitamos ¿o era al revés?");
         merecemos.setDoubleBuffered(true);
+        merecemos.putClientProperty("i18n.key", "about.merecemos");
 
         jLabel6.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel6.setText("Nota: si posees el copyright de esta música (o cualquier otro elemento) y no permites su utilización, escríbeme a -> tonikelope@gmail.com");
         jLabel6.setDoubleBuffered(true);
+        jLabel6.putClientProperty("i18n.key", "about.copyright");
 
         jLabel5.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel5.setText("a Pepillo por ese talento para cazar los bugs más raros, a Lato por las pruebas en su Mac y a mi madre... por todo lo demás.");
         jLabel5.setDoubleBuffered(true);
+        jLabel5.putClientProperty("i18n.key", "about.gracias_2");
 
         jLabel7.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel7.setText("El hilo musical que suena durante el juego fue compuesto por David Luong.");
         jLabel7.setDoubleBuffered(true);
+        jLabel7.putClientProperty("i18n.key", "about.musica_juego");
 
         jLabel8.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel8.setText("La canción que suena en el visor de estadísticas es el tema principal de la mítica película EL GOLPE.");
         jLabel8.setDoubleBuffered(true);
+        jLabel8.putClientProperty("i18n.key", "about.musica_stats");
 
         jLabel10.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel10.setText("La canción que suena aquí es \"La Sala del Trono\" compuesta por John Williams para Star Wars.");
         jLabel10.setDoubleBuffered(true);
+        jLabel10.putClientProperty("i18n.key", "about.musica_about");
 
         jLabel11.setFont(new java.awt.Font("Dialog", 2, 10)); // NOI18N
         jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel11.setText("La canción que suena en la sala de espera es \"The Dream\" compuesta por Jerry Goldsmith para la película Total Recall.");
         jLabel11.setDoubleBuffered(true);
+        jLabel11.putClientProperty("i18n.key", "about.musica_espera");
 
         jPanel1.setOpaque(false);
 
@@ -380,12 +390,14 @@ public class AboutDialog extends JDialog {
                 jLabel12MouseClicked(evt);
             }
         });
+        jLabel12.putClientProperty("i18n.tooltip_key", "tooltip.robert_rules");
 
         jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel9.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/cruz.png"))); // NOI18N
         jLabel9.setText("Hecho a mano en España y con amor por tonikelope (c) 2020");
         jLabel9.setToolTipText("PLVS VLTRA");
+        jLabel9.putClientProperty("i18n.key", "about.hecho_a_mano");
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);

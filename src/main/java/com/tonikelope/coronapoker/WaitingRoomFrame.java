@@ -2281,6 +2281,22 @@ public class WaitingRoomFrame extends JFrame {
                     /* FIN INTERCAMBIO DE CLAVES */
 
                     recibido = readCommandFromClient(client_socket, aes_key, hmac_key);
+
+                    if (recibido == null) {
+                        // readCommand returns null on socket failure (peer dropped between
+                        // key exchange and payload). Bail out cleanly instead of NPE-ing on split.
+                        LOGGER.log(Level.WARNING,
+                                "Handshake aborted: client closed connection before sending payload.");
+                        try {
+                            if (!client_socket.isClosed()) {
+                                client_socket.close();
+                            }
+                        } catch (Exception ex) {
+                        }
+                        net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                        return;
+                    }
+
                     partes = recibido.split("#");
                     String client_nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
 

@@ -2321,8 +2321,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         String[] cards = pair[1].split(",");
                                         Player botPlayer = nick2player.get(bNick);
                                         if (botPlayer != null) {
-                                            botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]) + 1);
-                                            botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]) + 1);
+                                            // BOTVISUAL almacena getCartaComoEntero() (rango 1..52) — no sumar +1 al restaurar.
+                                            botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]));
+                                            botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]));
 
                                         }
                                     } catch (Exception e) {
@@ -2416,8 +2417,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     String[] cards = pair[1].split(",");
                                     Player botPlayer = nick2player.get(bNick);
                                     if (botPlayer != null) {
-                                        botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]) + 1);
-                                        botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]) + 1);
+                                        // BOTVISUAL almacena getCartaComoEntero() (rango 1..52) — no sumar +1 al restaurar.
+                                        botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]));
+                                        botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]));
 
                                     }
                                 } catch (Exception e) {

@@ -2680,6 +2680,44 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Helpers.GUIRun(() -> {
             Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
         });
+
+        // Issue #9 — route the table out of the broken hand. The accumulated
+        // WARMING UP / dragon / shuffle hangs across 20.40-20.44 all stem from
+        // trying to deal NUEVA_MANO right after a MISDEAL with peers in
+        // inconsistent reconnection states. Instead we reuse the user-triggered
+        // exit-with-recover path (force_recover + SERVEREXITRECOVER +
+        // finTransmision) so every peer lands at Init.VENTANA_INICIO with the
+        // recover dialog auto-opened. The host's surviving WaitingRoom is
+        // re-created in recover mode by continueLastGame; originals (including
+        // the one whose abrupt drop caused the MISDEAL) reconnect there as
+        // fresh participants — no warm-up path required.
+        if (broadcast && GameFrame.getInstance().isPartida_local() && !isFin_de_la_transmision()) {
+            abortToRecover();
+        }
+    }
+
+    /**
+     * Auto-trigger the exit-with-recover flow from the MISDEAL handler. Mirrors
+     * what GameFrame.exit_menuActionPerformed does when the user clicks "wait
+     * for hand end and exit" — except the hand is already aborted by MISDEAL,
+     * so there is nothing to wait for. Runs in its own thread because
+     * finTransmision -> RESET_GAME shuts down the very thread pool we are on.
+     */
+    private void abortToRecover() {
+        setForce_recover(true);
+        Helpers.threadRun(() -> {
+            try {
+                String passSuffix = "";
+                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getPassword() != null) {
+                    passSuffix = "#" + Base64.getEncoder().encodeToString(
+                            WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8"));
+                }
+                broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to broadcast SERVEREXITRECOVER from MISDEAL", ex);
+            }
+            GameFrame.getInstance().finTransmision(true);
+        });
     }
 
     private void recibirPosiciones() {

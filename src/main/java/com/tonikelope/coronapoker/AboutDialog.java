@@ -71,10 +71,12 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "20.50";
+    public static final String VERSION = "20.51";
     // Oldest version this build will still accept as a client (handshake-level check).
     // Bump this when a release breaks wire compatibility (protocol/crypto changes).
-    public static final String MIN_COMPATIBLE_VERSION = "20.50";
+    // 20.51: REQ_SRA_UNLOCK wire format cambia a phase+peer_idx+hand_id+cards
+    //        (zero-trust state machine + anti-reuse + anti-self-pocket).
+    public static final String MIN_COMPATIBLE_VERSION = "20.51";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
 
     /**

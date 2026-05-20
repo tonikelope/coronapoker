@@ -321,6 +321,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
     private volatile int street = PREFLOP;
+    // Zero-trust state machine: el cliente sólo responde REQ_SRA_UNLOCK si
+    // la longitud encaja con la calle/fase en que está. Cualquier host que
+    // intente pedir un descifrado fuera de orden (RIVER en PREFLOP, segundo
+    // pocket-unlock tras Phase 2, etc.) se topa con un MEEEC silencioso.
+    private volatile boolean pocket_received = false;
+    private volatile boolean flop_revealed = false;
+    private volatile boolean turn_revealed = false;
+    private volatile boolean river_revealed = false;
     private volatile HandPot bote = null;
     private volatile boolean cartas_resistencia = false;
     private volatile int ciegas_double = 0;
@@ -424,13 +432,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return newDeck;
     }
 
-    private byte[] requestRemoteUnlock(String nick, byte[] cards, Participant p) {
+    private byte[] requestRemoteUnlock(String nick, byte[] cards, Participant p, int phase, int peer_idx) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
         String cardsB64 = Base64.getEncoder().encodeToString(cards);
         try {
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#REQ_SRA_UNLOCK#" + cardsB64, p.getAes_key(), iv, p.getHmac_key()));
+            // Wire: GAME#<id>#REQ_SRA_UNLOCK#<phase>#<peer_idx>#<hand_id>#<cards>
+            // El cliente verifica (phase, peer_idx, hand_id) contra su estado local.
+            p.writeCommandFromServer(Helpers.encryptCommand(
+                    "GAME#" + id + "#REQ_SRA_UNLOCK#" + phase + "#" + peer_idx + "#" + this.conta_mano + "#" + cardsB64,
+                    p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             return null;
         }
@@ -626,7 +638,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Participant ph = GameFrame.getInstance().getParticipantes().get(hNick);
                     if (ph != null && !ph.isCpu()) {
                         if (!ph.isExit()) {
-                            byte[] requested = requestRemoteUnlock(hNick, pocketCards, ph);
+                            byte[] requested = requestRemoteUnlock(hNick, pocketCards, ph, UNLOCK_PHASE_POCKET, i);
                             if (requested != null) {
                                 pocketCards = requested;
                             } else if (ph.getSra_unlock() != null) {
@@ -758,6 +770,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             this.local_original_cards[1] = (byte) id2;
                                             cartas[0] = Card.VALORES[id1 % 13] + "_" + Card.PALOS[id1 / 13];
                                             cartas[1] = Card.VALORES[id2 % 13] + "_" + Card.PALOS[id2 / 13];
+                                            this.pocket_received = true;
                                             ok = true;
                                         }
                                     } else {
@@ -2071,6 +2084,153 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public boolean isShow_time() {
         return show_time;
+    }
+
+    public boolean isPocket_received() {
+        return pocket_received;
+    }
+
+    public boolean isFlop_revealed() {
+        return flop_revealed;
+    }
+
+    public boolean isTurn_revealed() {
+        return turn_revealed;
+    }
+
+    public boolean isRiver_revealed() {
+        return river_revealed;
+    }
+
+    public void setFlop_revealed(boolean v) {
+        this.flop_revealed = v;
+    }
+
+    public void setTurn_revealed(boolean v) {
+        this.turn_revealed = v;
+    }
+
+    public void setRiver_revealed(boolean v) {
+        this.river_revealed = v;
+    }
+
+    // Phase enum para REQ_SRA_UNLOCK. El wire lleva un int; el cliente
+    // verifica que la phase encaja con su estado local Y que aún no se ha
+    // servido esa phase en esta mano (anti-reuse, ver isSraUnlockRequestLegitimate).
+    public static final int UNLOCK_PHASE_POCKET = 0;
+    public static final int UNLOCK_PHASE_FLOP = 1;
+    public static final int UNLOCK_PHASE_TURN = 2;
+    public static final int UNLOCK_PHASE_RIVER = 3;
+    public static final int UNLOCK_PHASE_RABBIT_FLOP = 4;
+    public static final int UNLOCK_PHASE_RABBIT_TURN = 5;
+    public static final int UNLOCK_PHASE_RABBIT_RIVER = 6;
+
+    // Phases ya servidas esta mano (clave compuesta por phase+peer_idx para
+    // POCKET, sólo phase para el resto). Bloquea que el host pida la misma
+    // phase dos veces engañando con bytes distintos.
+    private final java.util.Set<String> sra_unlock_tags_served = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    public java.util.Set<String> getSra_unlock_tags_served() {
+        return sra_unlock_tags_served;
+    }
+
+    // Si tras aplicar mi unlock a un payload de comunitaria los chunks
+    // resultantes ya están en el genesis deck, soy el ÚLTIMO peer en la cadena
+    // y conozco el plaintext exacto que el host debería anunciar. Guardo aquí
+    // los índices (0..51) por phase para verificarlos cuando llegue el
+    // broadcast FLOPCARDS/TURNCARD/RIVERCARD/RABBIT_*. Si el host anuncia algo
+    // distinto, ha mentido sobre los bytes de la calle pedida y lo cazamos.
+    private final java.util.concurrent.ConcurrentHashMap<Integer, int[]> expected_community_cards = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public void recordExpectedCommunityCards(int phase, int[] cardIndices) {
+        if (cardIndices != null) {
+            expected_community_cards.put(phase, cardIndices);
+        }
+    }
+
+    public int[] getExpectedCommunityCards(int phase) {
+        return expected_community_cards.get(phase);
+    }
+
+    /**
+     * Compara los índices anunciados por el host (FLOPCARDS / TURNCARD /
+     * RIVERCARD / RABBIT_*) contra lo que YO descifré como último peer
+     * de la cadena de unlocks. Si no coinciden, el host ha mentido sobre
+     * los bytes de la calle pedida (envió bytes de otro slot bajo phase
+     * correcta) y lo cazamos.
+     *
+     * Si yo NO fui el último peer en el ring de unlocks, no tengo un valor
+     * esperado y este método no hace nada (no puedo verificar).
+     */
+    public void verifyAnnouncedCommunity(int phase, int[] announced) {
+        int[] expected = expected_community_cards.get(phase);
+        if (expected == null) {
+            return; // no era el último peer; no tengo verificación local
+        }
+        if (!java.util.Arrays.equals(expected, announced)) {
+            LOGGER.log(Level.SEVERE,
+                    "ZERO-TRUST: host announced community cards {0} but my last-peer decryption produced {1} for phase {2} — HOST IS CHEATING (sent wrong-slot bytes under correct phase). Aborting hand.",
+                    new Object[]{java.util.Arrays.toString(announced), java.util.Arrays.toString(expected), phase});
+            cancelarManoYDevolverApuestas("zero_trust.host_lied_about_community");
+        }
+    }
+
+    public static String sraUnlockTagKey(int phase, int peer_idx) {
+        return phase == UNLOCK_PHASE_POCKET ? (phase + ":" + peer_idx) : String.valueOf(phase);
+    }
+
+    /**
+     * Zero-trust gate for REQ_SRA_UNLOCK responses.
+     *
+     * The host declares which slot it is asking the client to unlock via
+     * (phase, peer_idx, hand_id). The client validates:
+     *   1) MEGAPACKET ya recibido (sin él no hay nada que unlockear).
+     *   2) hand_id == conta_mano (anti replay cross-hand).
+     *   3) (phase, peer_idx) no ha sido servida ya esta mano (anti-reuse).
+     *   4) payload length coherente con phase.
+     *   5) state machine: la phase es legal AHORA según flags locales.
+     *   6) POCKET: peer_idx ∈ [0, ring_size) y ring[peer_idx] != mi_nick (anti-self-pocket).
+     *
+     * El caller registra la tag-key en sra_unlock_tags_served DESPUÉS de responder.
+     */
+    public boolean isSraUnlockRequestLegitimate(int phase, int peer_idx, int hand_id, int length) {
+        if (this.local_mega_packet == null) {
+            return false;
+        }
+        if (hand_id != this.conta_mano) {
+            return false;
+        }
+        if (this.sra_unlock_tags_served.contains(sraUnlockTagKey(phase, peer_idx))) {
+            return false;
+        }
+        switch (phase) {
+            case UNLOCK_PHASE_POCKET: {
+                if (length != 64 || this.pocket_received) {
+                    return false;
+                }
+                if (this.active_crypto_ring == null
+                        || peer_idx < 0 || peer_idx >= this.active_crypto_ring.length) {
+                    return false;
+                }
+                String targetNick = this.active_crypto_ring[peer_idx];
+                String myNick = GameFrame.getInstance().getNick_local();
+                return targetNick != null && !targetNick.equals(myNick);
+            }
+            case UNLOCK_PHASE_FLOP:
+                return length == 96 && !this.flop_revealed;
+            case UNLOCK_PHASE_TURN:
+                return length == 32 && this.flop_revealed && !this.turn_revealed;
+            case UNLOCK_PHASE_RIVER:
+                return length == 32 && this.turn_revealed && !this.river_revealed;
+            case UNLOCK_PHASE_RABBIT_FLOP:
+                return length == 96 && this.show_time && !this.flop_revealed;
+            case UNLOCK_PHASE_RABBIT_TURN:
+                return length == 32 && this.show_time && !this.turn_revealed;
+            case UNLOCK_PHASE_RABBIT_RIVER:
+                return length == 32 && this.show_time && !this.river_revealed;
+            default:
+                return false;
+        }
     }
 
     public void showPlayerCards(String nick, String sraKeyB64) {
@@ -3599,6 +3759,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.jugada_ganadora = 0;
         this.perdedores.clear();
         this.street = PREFLOP;
+        this.pocket_received = false;
+        this.flop_revealed = false;
+        this.turn_revealed = false;
+        this.river_revealed = false;
+        this.sra_unlock_tags_served.clear();
+        this.expected_community_cards.clear();
         this.cartas_resistencia = false;
         this.destapar_resistencia = false;
         this.ultimo_raise = 0f;
@@ -5087,6 +5253,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         workingCards = CryptoSRA.applyCommutativeLock(workingCards, this.local_sra_unlock);
 
+        int unlockPhase;
+        if (street == Crupier.FLOP) {
+            unlockPhase = UNLOCK_PHASE_FLOP;
+        } else if (street == Crupier.TURN) {
+            unlockPhase = UNLOCK_PHASE_TURN;
+        } else {
+            unlockPhase = UNLOCK_PHASE_RIVER;
+        }
+
         for (String nick : this.active_crypto_ring) {
             if (!nick.equals(GameFrame.getInstance().getNick_local())) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
@@ -5098,7 +5273,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
                 } else if (p != null && !p.isExit()) {
-                    byte[] requested = requestRemoteUnlock(nick, workingCards, p);
+                    byte[] requested = requestRemoteUnlock(nick, workingCards, p, unlockPhase, 0);
                     if (requested != null) {
                         workingCards = requested;
                     } else if (p.getSra_unlock() != null) {
@@ -5171,19 +5346,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         if (street == Crupier.FLOP && partes.length >= 4 && partes[2].equals("FLOPCARDS")) {
                             if (partes.length >= 7) {
-                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
-                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(Integer.parseInt(partes[5]) + 1);
-                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(Integer.parseInt(partes[6]) + 1);
+                                int a = Integer.parseInt(partes[4]);
+                                int b = Integer.parseInt(partes[5]);
+                                int c = Integer.parseInt(partes[6]);
+                                verifyAnnouncedCommunity(UNLOCK_PHASE_FLOP, new int[]{a, b, c});
+                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(a + 1);
+                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(b + 1);
+                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(c + 1);
+                                this.flop_revealed = true;
                                 ok = true;
                             }
                         } else if (street == Crupier.TURN && partes.length >= 4 && partes[2].equals("TURNCARD")) {
                             if (partes.length >= 5) {
-                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
+                                int a = Integer.parseInt(partes[4]);
+                                verifyAnnouncedCommunity(UNLOCK_PHASE_TURN, new int[]{a});
+                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(a + 1);
+                                this.turn_revealed = true;
                                 ok = true;
                             }
                         } else if (street == Crupier.RIVER && partes.length >= 4 && partes[2].equals("RIVERCARD")) {
                             if (partes.length >= 5) {
-                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(Integer.parseInt(partes[4]) + 1);
+                                int a = Integer.parseInt(partes[4]);
+                                verifyAnnouncedCommunity(UNLOCK_PHASE_RIVER, new int[]{a});
+                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(a + 1);
+                                this.river_revealed = true;
                                 ok = true;
                             }
                         } else if (partes.length >= 4 && partes[2].equals("MISDEAL")) {
@@ -5758,6 +5944,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         workingCards = CryptoSRA.applyCommutativeLock(workingCards, this.local_sra_unlock);
 
+        int rabbitPhase;
+        if (targetStreet == Crupier.FLOP) {
+            rabbitPhase = UNLOCK_PHASE_RABBIT_FLOP;
+        } else if (targetStreet == Crupier.TURN) {
+            rabbitPhase = UNLOCK_PHASE_RABBIT_TURN;
+        } else {
+            rabbitPhase = UNLOCK_PHASE_RABBIT_RIVER;
+        }
+
         for (String nick : this.active_crypto_ring) {
             if (!nick.equals(GameFrame.getInstance().getNick_local())) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
@@ -5767,7 +5962,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } else if (p != null && !p.isExit()) {
                     // Request the remote client to remove their lock over the network
-                    workingCards = requestRemoteUnlock(nick, workingCards, p);
+                    workingCards = requestRemoteUnlock(nick, workingCards, p, rabbitPhase, 0);
                     if (workingCards == null) {
                         return false;
                     }

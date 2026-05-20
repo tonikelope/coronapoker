@@ -280,6 +280,12 @@ public class Participant implements Runnable {
                         timeout = true;
                         GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
 
+                        // Issue #9 visibility — log el momento exacto en que el host entra
+                        // en estado timeout para este peer. El siguiente readLine() bloquea
+                        // hasta que llegue resetSocket() (reconexion) o el wait expire.
+                        long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
+                        LOGGER.log(Level.INFO, "[ISSUE #9] Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
+
                         if (!this.force_reset_socket) {
                             try {
                                 GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("TIMEOUT#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")), nick, false);
@@ -290,12 +296,17 @@ public class Participant implements Runnable {
                         if (!reset_socket) {
                             synchronized (getParticipant_socket_lock()) {
                                 try {
-                                    getParticipant_socket_lock().wait((resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT);
+                                    getParticipant_socket_lock().wait(graceMs);
                                 } catch (Exception ex) {
                                 }
                             }
                         }
                     } else {
+                        // Issue #9 visibility — el host da por perdido al peer. exit=true
+                        // hace que el reader thread termine y que el game flow del Crupier,
+                        // cuando necesite a este jugador para SRA cascade/unlock, dispare
+                        // MISDEAL -> abortToRecover (fase 1).
+                        LOGGER.log(Level.WARNING, "[ISSUE #9] Participant {0} TIMEOUT expired without reconnect — marking exit=true", nick);
                         exit = true;
                     }
                 }
@@ -537,8 +548,13 @@ public class Participant implements Runnable {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
                 this.reset_socket = true;
+                // Issue #9 visibility — reconexion dentro de la ventana de gracia.
+                // El reader thread saldra del wait, leera del socket nuevo y la partida
+                // sigue sin MISDEAL.
+                LOGGER.log(Level.INFO, "[ISSUE #9] Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;
+                LOGGER.log(Level.WARNING, "[ISSUE #9] Participant " + nick + " resetSocket FAILED — reader thread will continue to timeout", ex);
             } finally {
                 this.recon_socket = null;
                 this.force_reset_socket = false;

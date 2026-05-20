@@ -2764,6 +2764,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * finTransmision -> RESET_GAME shuts down the very thread pool we are on.
      */
     private void abortToRecover() {
+        // Issue #9 visibility — punto donde el host pasa de "MISDEAL local" a
+        // "aborto y todos al lobby con recover". Si el log muestra esta linea
+        // significa que (a) un Participant fue marcado exit=true previamente
+        // y (b) el Crupier no pudo continuar el flow (cascade/unlock falló).
+        LOGGER.log(Level.WARNING, "[ISSUE #9] abortToRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
         setForce_recover(true);
         Helpers.threadRun(() -> {
             try {

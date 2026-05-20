@@ -518,6 +518,16 @@ public class NewGameDialog extends JDialog {
                     if (partida_local) {
                         bots_combobox.setSelectedIndex(getCurrentBotLevel());
                     }
+
+                    this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
+                    if (GameFrame.BLIND_CAP > 0f) {
+                        this.blind_cap_spinner.setValue((int) GameFrame.BLIND_CAP);
+                    }
+                    this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
+                    if (GameFrame.REBUY_LIMIT > 0) {
+                        this.rebuy_limit_spinner.setValue(GameFrame.REBUY_LIMIT);
+                    }
+                    this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
                     game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
 
@@ -1489,6 +1499,18 @@ public class NewGameDialog extends JDialog {
 
                 this.doblar_checkbox.setEnabled(false);
 
+                this.blind_cap_checkbox.setEnabled(false);
+
+                this.blind_cap_spinner.setEnabled(false);
+
+                this.rebuy_checkbox.setEnabled(false);
+
+                this.rebuy_limit_checkbox.setEnabled(false);
+
+                this.rebuy_limit_spinner.setEnabled(false);
+
+                this.bot_rebuy_checkbox.setEnabled(false);
+
                 this.recover_checkbox_label.setOpaque(true);
 
                 this.recover_checkbox_label.setBackground(Color.YELLOW);
@@ -1531,6 +1553,8 @@ public class NewGameDialog extends JDialog {
 
             this.doblar_checkbox.setEnabled(true);
 
+            this.rebuy_checkbox.setEnabled(true);
+
             this.recover_checkbox_label.setOpaque(false);
             this.recover_checkbox_label.setBackground(null);
 
@@ -1544,6 +1568,10 @@ public class NewGameDialog extends JDialog {
 
                 this.doblar_ciegas_spinner_minutos.setEnabled(this.double_blinds_radio_minutos.isSelected());
 
+                this.blind_cap_checkbox.setEnabled(true);
+
+                this.blind_cap_spinner.setEnabled(this.blind_cap_checkbox.isSelected());
+
             } else {
                 this.double_blinds_radio_minutos.setEnabled(false);
 
@@ -1552,6 +1580,20 @@ public class NewGameDialog extends JDialog {
                 this.doblar_ciegas_spinner_manos.setEnabled(false);
 
                 this.doblar_ciegas_spinner_minutos.setEnabled(false);
+
+                this.blind_cap_checkbox.setEnabled(false);
+
+                this.blind_cap_spinner.setEnabled(false);
+            }
+
+            if (this.rebuy_checkbox.isSelected()) {
+                this.rebuy_limit_checkbox.setEnabled(true);
+                this.rebuy_limit_spinner.setEnabled(this.rebuy_limit_checkbox.isSelected());
+                this.bot_rebuy_checkbox.setEnabled(true);
+            } else {
+                this.rebuy_limit_checkbox.setEnabled(false);
+                this.rebuy_limit_spinner.setEnabled(false);
+                this.bot_rebuy_checkbox.setEnabled(false);
             }
 
             this.nick.setEnabled(true);

@@ -2231,12 +2231,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String myNick = GameFrame.getInstance().getNick_local();
                 return targetNick != null && !targetNick.equals(myNick);
             }
+            // Para TURN/RIVER usamos sra_unlock_tags_served (lo que YO he servido)
+            // en lugar de los flags flop_revealed/turn_revealed (que se setean al
+            // recibir el broadcast del host). Si dependiéramos del broadcast, un
+            // host malicioso podría enviar FLOPCARDS sin haber hecho la cascada
+            // de unlock y abrir la phase TURN sin más. Con esta versión, sólo
+            // TÚ puedes avanzar el state machine sirviendo el tag legítimo.
             case UNLOCK_PHASE_FLOP:
                 return length == 96 && !this.flop_revealed;
             case UNLOCK_PHASE_TURN:
-                return length == 32 && this.flop_revealed && !this.turn_revealed;
+                return length == 32
+                        && this.sra_unlock_tags_served.contains(String.valueOf(UNLOCK_PHASE_FLOP))
+                        && !this.turn_revealed;
             case UNLOCK_PHASE_RIVER:
-                return length == 32 && this.turn_revealed && !this.river_revealed;
+                return length == 32
+                        && this.sra_unlock_tags_served.contains(String.valueOf(UNLOCK_PHASE_TURN))
+                        && !this.river_revealed;
             case UNLOCK_PHASE_RABBIT_FLOP:
                 return length == 96 && this.show_time && !this.flop_revealed;
             case UNLOCK_PHASE_RABBIT_TURN:

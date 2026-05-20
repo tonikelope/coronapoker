@@ -172,7 +172,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
         return "IWTSTH=" + (iwtsth ? "1" : "0")
                 + "#RABBIT=" + rabbit
-                + "#DIFFICULTY=" + Bot.DIFFICULTY.name();
+                + "#DIFFICULTY=" + Bot.DIFFICULTY.name()
+                + "#BLIND_CAP=" + BLIND_CAP
+                + "#REBUY_LIMIT=" + REBUY_LIMIT
+                + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -201,6 +204,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Bot.DIFFICULTY = Bot.Difficulty.valueOf(val);
                     } catch (IllegalArgumentException ignore) {
                     }
+                    break;
+                case "BLIND_CAP":
+                    try {
+                        BLIND_CAP = Float.parseFloat(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "REBUY_LIMIT":
+                    try {
+                        REBUY_LIMIT = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "BOT_REBUY":
+                    BOT_REBUY = "1".equals(val);
                     break;
             }
         }

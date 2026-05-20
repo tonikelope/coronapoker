@@ -124,6 +124,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
     public static volatile boolean REBUY = true;
+    public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
+    public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;

@@ -3784,9 +3784,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
+            // Issue #9 — auditor invariant must hold across "exited cleanly +
+            // come back via recovery". A human player who sends EXIT mid-game
+            // stays in jugadores with isExit()=true and their stack+buyin
+            // preserved in memory. Before this fix the condition below skipped
+            // them (isActivo() is false for exited players and their stack is
+            // typically >0), so no balance row got written for them in any
+            // subsequent hand. The recovery loader (sqlRecoverServerLocalGameKeyData
+            // around line 6575) only reads balances from MAX(hand.id), so the
+            // exited player ended up with no row to restore from and came back
+            // with default stack/buyin — instant auditor mismatch.
+            //
+            // Including isExit() here writes one balance row per (exited
+            // player, hand) with their unchanged stack and buyin. The row is
+            // idempotent for sqlUpdateHandEnd (their pagar is 0 because they
+            // aren't betting) and is exactly what recovery needs to find their
+            // state on the LATEST hand of the game. Warming-up players
+            // (spectator && stack>0 && !exit) still get no row — they should
+            // not contribute to balance until they enter a hand for real.
             if (this.conta_mano == 1) {
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                    if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+                    if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0 || jugador.isExit()) {
                         this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
                     }
                 }
@@ -3794,7 +3812,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
                     Player jugador = nick2player.get(entry.getKey());
                     if (jugador != null) {
-                        if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+                        if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0 || jugador.isExit()) {
                             this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
                         }
                     } else {

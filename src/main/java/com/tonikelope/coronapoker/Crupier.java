@@ -2677,45 +2677,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         Audio.playWavResource("misc/error.wav");
 
-        // Issue #9 — MISDEAL on the host must HALT the table before any new
-        // hand can start. Three things have to happen, in this order:
+        // Issue #9 — coherent MISDEAL halt across host AND client.
         //
-        //   1. Show the MISDEAL popup synchronously and wait for the user to
-        //      click OK. While this modal is up, the Crupier thread is blocked
-        //      and cannot advance to a fresh NUEVA_MANO. This is the "force
-        //      detention" the issue thread asked for: nothing in the run()
-        //      loop progresses until the user acknowledges.
-        //   2. Roll back the aborted hand from the persistent state. NUEVA_MANO
-        //      already incremented conta_mano (~line 3460) and inserted a row
-        //      via sqlNewHand (~line 3547) BEFORE the cascade started, so by
-        //      the time the cascade fails the counter and the SQL row reflect
-        //      a hand that was never really dealt. Leaving them in place would
-        //      mislead recuperarDatosClavePartida into either replaying a
-        //      broken hand (end=0) or jumping the visible counter forward.
-        //   3. Set fin_de_la_transmision(true) synchronously so any
-        //      isFin_de_la_transmision() check still running on the calling
-        //      stack — inside enviarCartasJugadoresRemotos, repartir,
-        //      rondaApuestas, etc — bails out cleanly before more shuffle or
-        //      cascade work happens. Only AFTER that we kick the async
-        //      abortToRecover() which does the SERVEREXITRECOVER broadcast and
-        //      finTransmision(true) -> RESET_GAME -> Init.VENTANA_INICIO with
-        //      the recover dialog auto-opened. The async wrap is mandatory
-        //      because finTransmision shuts down the thread pool we are on.
+        // Both peers MUST:
+        //   - Show the MISDEAL popup synchronously so the calling thread
+        //     (Crupier thread on host, network reader thread on client)
+        //     blocks until the user acknowledges. While the modal is up,
+        //     nothing in that thread's callstack can advance towards a
+        //     fresh NUEVA_MANO / cascade.
+        //   - rollbackAbortedHand(): undo the conta_mano++ (NUEVA_MANO:3460)
+        //     and the sqlNewHand insert (NUEVA_MANO:3547). Both ran on
+        //     EVERY peer before the cascade failed. If we skipped this on
+        //     the client, the client's local SQLite would still hold a
+        //     hand row with end=0, and a future "Recover" from its main
+        //     menu would try to replay a hand that was never really dealt.
+        //   - setFin_de_la_transmision(true): halt the local run() loop
+        //     before any new hand can start. ANY isFin_de_la_transmision()
+        //     check downstream (NUEVA_MANO, repartir, rondaApuestas, SRA
+        //     helpers, etc) bails out cleanly.
         //
-        // On clients receiving the MISDEAL command from the host (broadcast =
-        // false) we keep the popup ASYNC so the network reader thread stays
-        // responsive: the SERVEREXITRECOVER from the host arrives in the same
-        // socket and must be processable without waiting on user input.
-        final boolean hostInitiated = broadcast && GameFrame.getInstance().isPartida_local();
-        if (hostInitiated && !isFin_de_la_transmision()) {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
-            rollbackAbortedHand();
-            setFin_de_la_transmision(true);
-            abortToRecover();
-        } else {
+        // Only the HOST then fires abortToRecover() which broadcasts
+        // SERVEREXITRECOVER and triggers finTransmision -> RESET_GAME ->
+        // Init.VENTANA_INICIO with the recover dialog auto-opened.
+        //
+        // Clients do NOT broadcast — they are driven by receiving the
+        // host's SERVEREXITRECOVER right after the reader thread resumes
+        // from the popup. TCP guarantees the command arrives in order;
+        // the reader thread blocking during the modal just delays delivery
+        // by however long the user takes to click OK, which is harmless.
+        //
+        // If we are already in fin_de_la_transmision (a previous MISDEAL
+        // is tearing things down) we just queue the info popup async and
+        // return; no second teardown.
+        if (isFin_de_la_transmision()) {
             Helpers.GUIRun(() -> {
                 Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
             });
+            return;
+        }
+
+        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+        rollbackAbortedHand();
+        setFin_de_la_transmision(true);
+
+        if (broadcast && GameFrame.getInstance().isPartida_local()) {
+            abortToRecover();
         }
     }
 

@@ -30,7 +30,19 @@ public class Participant implements Runnable {
     private static final Logger LOGGER = Logger.getLogger(Participant.class.getName());
 
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
-    public static final int RECIBIDO_TIMEOUT = 5000;
+    // Issue #9 calibration — periodo de gracia tras el primer null read del
+    // socket de un peer. Si llega resetSocket() en este margen el reader
+    // continua sin marcar exit=true. Subido de 5s a 15s en analisis de
+    // logs reales del reporter (issue #9): su reconexion completa tardo
+    // 26s por TCP retransmit timeout largo + segundo intento. Con 5s el
+    // host marcaba exit=true y disparaba MISDEAL antes de que el cliente
+    // pudiera volver, generando falsos positivos. 15s absorbe la gran
+    // mayoria de hiccups de internet sin colgar la mesa mas alla de lo
+    // tolerable cuando un peer SI esta muerto de verdad (post Fase 1 el
+    // abortToRecover lleva todo el mundo al lobby con recover dialog,
+    // asi que el coste de un eventual false positive a 15s tampoco es
+    // grave).
+    public static final int RECIBIDO_TIMEOUT = 15000;
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();

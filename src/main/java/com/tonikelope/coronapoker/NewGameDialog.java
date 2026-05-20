@@ -201,6 +201,18 @@ public class NewGameDialog extends JDialog {
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
 
+        this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
+
+        this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
+        this.rebuy_limit_spinner.setEnabled(GameFrame.REBUY_LIMIT > 0);
+        this.rebuy_limit_spinner.setModel(new SpinnerNumberModel(GameFrame.REBUY_LIMIT > 0 ? GameFrame.REBUY_LIMIT : 3, 1, null, 1));
+        ((DefaultEditor) this.rebuy_limit_spinner.getEditor()).getTextField().setEditable(false);
+
+        this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
+        this.blind_cap_spinner.setEnabled(GameFrame.BLIND_CAP > 0f);
+        this.blind_cap_spinner.setModel(new SpinnerNumberModel(GameFrame.BLIND_CAP > 0f ? (int) GameFrame.BLIND_CAP : 100, 1, null, 1));
+        ((DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+
         String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
 
         int i = 0, t = this.ciegas_combobox.getModel().getSize();
@@ -419,6 +431,13 @@ public class NewGameDialog extends JDialog {
 
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);
+            bot_rebuy_checkbox.setSelected(true);
+            blind_cap_checkbox.setSelected(false);
+            blind_cap_spinner.setEnabled(false);
+            rebuy_limit_checkbox.setSelected(false);
+            rebuy_limit_spinner.setEnabled(false);
+            ((DefaultEditor) blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+            ((DefaultEditor) rebuy_limit_spinner.getEditor()).getTextField().setEditable(false);
             ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
             ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
 
@@ -547,6 +566,12 @@ public class NewGameDialog extends JDialog {
         manos_checkbox = new javax.swing.JCheckBox();
         limite_manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
+        limits_panel = new javax.swing.JPanel();
+        blind_cap_checkbox = new javax.swing.JCheckBox();
+        blind_cap_spinner = new javax.swing.JSpinner();
+        rebuy_limit_checkbox = new javax.swing.JCheckBox();
+        rebuy_limit_spinner = new javax.swing.JSpinner();
+        bot_rebuy_checkbox = new javax.swing.JCheckBox();
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
@@ -821,6 +846,72 @@ public class NewGameDialog extends JDialog {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        limits_panel.setOpaque(false);
+
+        blind_cap_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        blind_cap_checkbox.setText("Tope ciega grande");
+        blind_cap_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        blind_cap_checkbox.setDoubleBuffered(true);
+        blind_cap_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                blind_cap_checkboxActionPerformed(evt);
+            }
+        });
+        blind_cap_checkbox.putClientProperty("i18n.key", "blinds.tope_ciega_grande");
+
+        blind_cap_spinner.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        blind_cap_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
+        blind_cap_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        blind_cap_spinner.setDoubleBuffered(true);
+
+        rebuy_limit_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        rebuy_limit_checkbox.setText("Límite por jugador");
+        rebuy_limit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy_limit_checkbox.setDoubleBuffered(true);
+        rebuy_limit_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                rebuy_limit_checkboxActionPerformed(evt);
+            }
+        });
+        rebuy_limit_checkbox.putClientProperty("i18n.key", "rebuy.limite_por_jugador");
+
+        rebuy_limit_spinner.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        rebuy_limit_spinner.setModel(new javax.swing.SpinnerNumberModel(3, 1, null, 1));
+        rebuy_limit_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy_limit_spinner.setDoubleBuffered(true);
+
+        bot_rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        bot_rebuy_checkbox.setText("Rebuy a bots");
+        bot_rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        bot_rebuy_checkbox.setDoubleBuffered(true);
+        bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
+
+        javax.swing.GroupLayout limits_panelLayout = new javax.swing.GroupLayout(limits_panel);
+        limits_panel.setLayout(limits_panelLayout);
+        limits_panelLayout.setHorizontalGroup(
+            limits_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(limits_panelLayout.createSequentialGroup()
+                .addComponent(blind_cap_checkbox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(rebuy_limit_checkbox)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(bot_rebuy_checkbox)
+                .addGap(0, 0, Short.MAX_VALUE))
+        );
+        limits_panelLayout.setVerticalGroup(
+            limits_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(limits_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(blind_cap_checkbox)
+                .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(rebuy_limit_checkbox)
+                .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(bot_rebuy_checkbox))
+        );
+
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
@@ -849,6 +940,10 @@ public class NewGameDialog extends JDialog {
                 .addGap(18, 18, 18)
                 .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
+            .addGroup(jPanel3Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(limits_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -873,6 +968,8 @@ public class NewGameDialog extends JDialog {
                             .addComponent(rebuy_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addGap(0, 0, Short.MAX_VALUE))
                     .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(limits_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
 
@@ -1149,6 +1246,12 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.REBUY = this.rebuy_checkbox.isSelected();
 
+            GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
+
+            GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
+
+            GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? ((Number) this.blind_cap_spinner.getValue()).floatValue() : 0f;
+
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
@@ -1231,6 +1334,12 @@ public class NewGameDialog extends JDialog {
                 }
 
                 GameFrame.REBUY = this.rebuy_checkbox.isSelected();
+
+                GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
+
+                GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
+
+                GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? ((Number) this.blind_cap_spinner.getValue()).floatValue() : 0f;
 
                 GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
@@ -1558,6 +1667,14 @@ public class NewGameDialog extends JDialog {
         this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
     }//GEN-LAST:event_manos_checkboxActionPerformed
 
+    private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_blind_cap_checkboxActionPerformed
+        this.blind_cap_spinner.setEnabled(this.blind_cap_checkbox.isSelected());
+    }//GEN-LAST:event_blind_cap_checkboxActionPerformed
+
+    private void rebuy_limit_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_limit_checkboxActionPerformed
+        this.rebuy_limit_spinner.setEnabled(this.rebuy_limit_checkbox.isSelected());
+    }//GEN-LAST:event_rebuy_limit_checkboxActionPerformed
+
     private void recover_checkbox_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_recover_checkbox_labelMouseClicked
         // TODO add your handling code here:
         recover_checkbox.doClick();
@@ -1632,6 +1749,9 @@ public class NewGameDialog extends JDialog {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
+    private javax.swing.JCheckBox blind_cap_checkbox;
+    private javax.swing.JSpinner blind_cap_spinner;
+    private javax.swing.JCheckBox bot_rebuy_checkbox;
     private javax.swing.JComboBox<String> bots_combobox;
     private javax.swing.JLabel bots_label;
     private javax.swing.JLabel buyin_label;
@@ -1650,6 +1770,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JLabel limite_manos_label;
+    private javax.swing.JPanel limits_panel;
     private javax.swing.JPanel main_panel;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
@@ -1659,6 +1780,8 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
     private javax.swing.JCheckBox rebuy_checkbox;
+    private javax.swing.JCheckBox rebuy_limit_checkbox;
+    private javax.swing.JSpinner rebuy_limit_spinner;
     private javax.swing.JLabel recomprar_label;
     private javax.swing.JCheckBox recover_checkbox;
     private javax.swing.JLabel recover_checkbox_label;

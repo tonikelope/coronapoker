@@ -3127,23 +3127,29 @@ public class Helpers {
     }
 
     /**
-     * Unchecked counterpart of {@link InterruptedException}. Thrown by
-     * {@link #pausar(long)} when the calling thread has been interrupted
-     * (typically by {@code pool.shutdownNow()} during exit/teardown). Lets
-     * outer {@code while}/{@code for} loops bail out of cooperative cancellation
-     * naturally without each one having to check {@code Thread.interrupted()}
-     * by hand. The interrupt flag is restored before the throw, so any catch
-     * site can still observe it. NOT a real error: catch sites should log at
-     * INFO without stack trace.
+     * Control-flow throwable signalled by {@link #pausar(long)} when the calling
+     * thread has been interrupted (typically by {@code pool.shutdownNow()} during
+     * exit/teardown). Lets outer {@code while}/{@code for} loops bail out of
+     * cooperative cancellation naturally without each callsite having to check
+     * {@code Thread.interrupted()} by hand.
+     *
+     * <p>Extends {@link Error} ON PURPOSE so the dozens of existing
+     * {@code catch (Exception)} blocks (some of which trigger destructive side
+     * effects like {@code cancelarManoYDevolverApuestas} or
+     * {@code System.exit(1)} on CRUPIER FATAL ERROR) do NOT swallow it: the
+     * throwable must propagate to the top of the worker's {@code Runnable} and
+     * be absorbed silently by the {@code Future}. The interrupt flag is restored
+     * before the throw, so any catch site that explicitly wants to react can
+     * still observe it. NOT a real error — never logged as SEVERE.
      */
-    public static class CooperativeCancellationException extends RuntimeException {
+    public static class CooperativeCancellationException extends Error {
 
         private static final long serialVersionUID = 1L;
 
-        // Control-flow exception: stack trace is intentionally suppressed
-        // (writableStackTrace=false) so catch sites that simply log the
-        // throwable don't dump a useless trace for every cancelled worker
-        // during teardown.
+        // writableStackTrace=false: stack trace intentionally suppressed.
+        // Control-flow throwables don't need traces; suppressing them also
+        // means any rare catch (Throwable) that prints the throwable produces
+        // a single short line instead of a noisy multi-frame dump.
 
         public CooperativeCancellationException() {
             super("cooperative cancellation", null, false, false);

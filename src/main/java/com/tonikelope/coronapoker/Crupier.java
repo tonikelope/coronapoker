@@ -2663,7 +2663,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void cancelarManoYDevolverApuestas(String motivo, boolean broadcast) {
-        // Issue #9 idempotency: MISDEAL is intentionally double-fed on the
+        // Idempotency: MISDEAL is intentionally double-fed on the
         // client side. WaitingRoomFrame.java:2015 invokes us directly from
         // the reader thread for an immediate refund + popup, then queues
         // the same MISDEAL command on received_commands so the Crupier
@@ -2679,7 +2679,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
-        // Issue #9 defense in depth: if a recovery dragon was left open (e.g. a
+        // Defense in depth: if a recovery dragon was left open (e.g. a
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
         // does not stay on screen and does not keep sincronizando_mano latched.
         cerrarRecoverDialogYSync();
@@ -2718,7 +2718,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         Audio.playWavResource("misc/error.wav");
 
-        // Issue #9 — coherent MISDEAL halt across host AND client.
+        // Coherent MISDEAL halt across host AND client.
         //
         // Both peers MUST:
         //   - Show the MISDEAL popup synchronously so the calling thread
@@ -2740,6 +2740,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Only the HOST then fires abortToRecover() which broadcasts
         // SERVEREXITRECOVER and triggers finTransmision -> RESET_GAME ->
         // Init.VENTANA_INICIO with the recover dialog auto-opened.
+        //
         //
         // Clients do NOT broadcast — they are driven by receiving the
         // host's SERVEREXITRECOVER right after the reader thread resumes
@@ -2790,11 +2791,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * finTransmision -> RESET_GAME shuts down the very thread pool we are on.
      */
     private void abortToRecover() {
-        // Issue #9 visibility — punto donde el host pasa de "MISDEAL local" a
-        // "aborto y todos al lobby con recover". Si el log muestra esta linea
-        // significa que (a) un Participant fue marcado exit=true previamente
-        // y (b) el Crupier no pudo continuar el flow (cascade/unlock falló).
-        LOGGER.log(Level.WARNING, "[ISSUE #9] abortToRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
+        // Punto donde el host pasa de "MISDEAL local" a "aborto y todos al
+        // lobby con recover". Si el log muestra esta linea significa que
+        // (a) un Participant fue marcado exit=true previamente y (b) el
+        // Crupier no pudo continuar el flow (cascade/unlock falló).
+        LOGGER.log(Level.WARNING, "[RECOVERY] abortToRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
         setForce_recover(true);
         Helpers.threadRun(() -> {
             try {
@@ -3846,8 +3847,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            // Issue #9 — auditor invariant must hold across "exited cleanly +
-            // come back via recovery". A human player who sends EXIT mid-game
+            // Auditor invariant must hold across "exited cleanly + come back
+            // via recovery". A human player who sends EXIT mid-game
             // stays in jugadores with isExit()=true and their stack+buyin
             // preserved in memory. Before this fix the condition below skipped
             // them (isActivo() is false for exited players and their stack is
@@ -5330,7 +5331,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // in single-threaded execution, so (!era && now) cannot fire. Kept here
                 // for archaeology only; the real dragon-close after the replay ends
                 // happens inside siguienteAccionLocalRecuperada (path #3) and as a
-                // safety net after rondaApuestas(PREFLOP) (path #4, issue #9 fix).
+                // safety net after rondaApuestas(PREFLOP) (path #4).
                 if (!eraSincronizacion && this.isSincronizando_mano()) {
                     this.setSincronizando_mano(false);
                     Helpers.GUIRun(() -> {
@@ -7813,7 +7814,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             GameFrame.getInstance().getLocalPlayer().desActivarPreBotones();
                         }
 
-                        // Issue #9: the dragon must close after the preflop replay even
+                        // The dragon must close after the preflop replay even
                         // when the local queue was empty from the start. That happens to
                         // a CLIENT who reconnects during a recovery where they were not
                         // part of the interrupted hand's crypto-ring (CALENTANDO): the
@@ -8216,7 +8217,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         GameFrame.getInstance().getTiempo_juego().stop();
 
-                        // Issue #9 defense in depth: if we reach GAME OVER while a
+                        // Defense in depth: if we reach GAME OVER while a
                         // recovery dragon was still open (NUEVA_MANO returned false
                         // before the replay loop got a chance to close it), tear it
                         // down so the user is not stuck looking at the GIF.
@@ -8233,7 +8234,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     GameFrame.getInstance().getTiempo_juego().stop();
 
-                    // Issue #9 defense in depth: see comment above.
+                    // Defense in depth: see comment above.
                     cerrarRecoverDialogYSync();
 
                     GameFrame.getInstance().getRegistro().print(Translator.translate("player.la_timba_ha_terminado_no"));

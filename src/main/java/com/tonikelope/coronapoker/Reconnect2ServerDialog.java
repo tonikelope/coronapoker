@@ -281,17 +281,17 @@ public class Reconnect2ServerDialog extends JDialog {
     }//GEN-LAST:event_exit_buttonActionPerformed
 
     private void back_to_lobbyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_back_to_lobbyActionPerformed
-        // Issue #9 fase 2 — graceful exit from a stuck reconnect attempt.
-        // The host has aborted the table (typically via the MISDEAL ->
-        // abortToRecover path of fase 1) so its server socket is no longer
-        // listening; reconectarCliente keeps failing with ConnectException.
-        // Instead of nuking the process with System.exit (which would leave
-        // the user without a path to recover), we mark the local player as
-        // exit (so reconectarCliente's do-while terminates), then set
-        // force_recover and let GameFrame.finTransmision(true) drive the
-        // existing teardown flow: RESET_GAME -> Init.VENTANA_INICIO with
-        // the recover dialog auto-opened by continueLastGame(). From there
-        // the user can rejoin the same recovery session as the host.
+        // Graceful exit from a stuck reconnect attempt. The host has aborted
+        // the table (typically via the MISDEAL -> abortToRecover path) so its
+        // server socket is no longer listening; reconectarCliente keeps
+        // failing with ConnectException. Instead of nuking the process with
+        // System.exit (which would leave the user without a path to recover),
+        // we mark the local player as exit (so reconectarCliente's do-while
+        // terminates), then set force_recover and let
+        // GameFrame.finTransmision(true) drive the existing teardown flow:
+        // RESET_GAME -> Init.VENTANA_INICIO with the recover dialog
+        // auto-opened by continueLastGame(). From there the user can rejoin
+        // the same recovery session as the host.
         if (GameFrame.getInstance() != null && GameFrame.getInstance().getLocalPlayer() != null) {
             GameFrame.getInstance().getLocalPlayer().setExit();
         }

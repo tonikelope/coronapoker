@@ -2637,6 +2637,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void cancelarManoYDevolverApuestas(String motivo, boolean broadcast) {
+        // Issue #9 idempotency: MISDEAL is intentionally double-fed on the
+        // client side. WaitingRoomFrame.java:2015 invokes us directly from
+        // the reader thread for an immediate refund + popup, then queues
+        // the same MISDEAL command on received_commands so the Crupier
+        // run() consumers (Crupier.java:4405/5091/7163) can break out of
+        // their consensus/wait loops. Those consumers call us again with
+        // the same motivo. Without an early return here, the second call
+        // would re-log, re-print the registro, re-play the error sound and
+        // re-queue another popup on the EDT (it would appear after the user
+        // dismisses the first one). The first invocation already performed
+        // the visible side effects; the second one is solely a signaling
+        // breakout so just return.
+        if (isFin_de_la_transmision()) {
+            return;
+        }
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         // Issue #9 defense in depth: if a recovery dragon was left open (e.g. a
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
@@ -2677,8 +2692,96 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         Audio.playWavResource("misc/error.wav");
 
-        Helpers.GUIRun(() -> {
-            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+        // Issue #9 — coherent MISDEAL halt across host AND client.
+        //
+        // Both peers MUST:
+        //   - Show the MISDEAL popup synchronously so the calling thread
+        //     (Crupier thread on host, network reader thread on client)
+        //     blocks until the user acknowledges. While the modal is up,
+        //     nothing in that thread's callstack can advance towards a
+        //     fresh NUEVA_MANO / cascade.
+        //   - rollbackAbortedHand(): undo the conta_mano++ (NUEVA_MANO:3460)
+        //     and the sqlNewHand insert (NUEVA_MANO:3547). Both ran on
+        //     EVERY peer before the cascade failed. If we skipped this on
+        //     the client, the client's local SQLite would still hold a
+        //     hand row with end=0, and a future "Recover" from its main
+        //     menu would try to replay a hand that was never really dealt.
+        //   - setFin_de_la_transmision(true): halt the local run() loop
+        //     before any new hand can start. ANY isFin_de_la_transmision()
+        //     check downstream (NUEVA_MANO, repartir, rondaApuestas, SRA
+        //     helpers, etc) bails out cleanly.
+        //
+        // Only the HOST then fires abortToRecover() which broadcasts
+        // SERVEREXITRECOVER and triggers finTransmision -> RESET_GAME ->
+        // Init.VENTANA_INICIO with the recover dialog auto-opened.
+        //
+        // Clients do NOT broadcast — they are driven by receiving the
+        // host's SERVEREXITRECOVER right after the reader thread resumes
+        // from the popup. TCP guarantees the command arrives in order;
+        // the reader thread blocking during the modal just delays delivery
+        // by however long the user takes to click OK, which is harmless.
+        //
+        Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+        rollbackAbortedHand();
+        setFin_de_la_transmision(true);
+
+        if (broadcast && GameFrame.getInstance().isPartida_local()) {
+            abortToRecover();
+        }
+    }
+
+    /**
+     * Undo the conta_mano increment and the sqlNewHand insert that NUEVA_MANO
+     * performed before the cascade/deal failed. After this method, the in-
+     * memory counter and the SQLite state reflect the last successfully
+     * completed hand, which is what recuperarDatosClavePartida should see on
+     * the recover path. balance/action/showdown/showcards rows for this hand
+     * are wiped automatically via ON DELETE CASCADE on the hand foreign key.
+     */
+    private void rollbackAbortedHand() {
+        if (conta_mano > 0) {
+            conta_mano--;
+        }
+        if (sqlite_id_hand > 0) {
+            synchronized (GameFrame.SQL_LOCK) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("DELETE FROM hand WHERE id=?")) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, sqlite_id_hand);
+                    statement.executeUpdate();
+                } catch (SQLException ex) {
+                    LOGGER.log(Level.SEVERE, "Failed to delete aborted hand from SQLite", ex);
+                }
+            }
+            sqlite_id_hand = -1;
+        }
+    }
+
+    /**
+     * Auto-trigger the exit-with-recover flow from the MISDEAL handler. Mirrors
+     * what GameFrame.exit_menuActionPerformed does when the user clicks "wait
+     * for hand end and exit" — except the hand is already aborted by MISDEAL,
+     * so there is nothing to wait for. Runs in its own thread because
+     * finTransmision -> RESET_GAME shuts down the very thread pool we are on.
+     */
+    private void abortToRecover() {
+        // Issue #9 visibility — punto donde el host pasa de "MISDEAL local" a
+        // "aborto y todos al lobby con recover". Si el log muestra esta linea
+        // significa que (a) un Participant fue marcado exit=true previamente
+        // y (b) el Crupier no pudo continuar el flow (cascade/unlock falló).
+        LOGGER.log(Level.WARNING, "[ISSUE #9] abortToRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
+        setForce_recover(true);
+        Helpers.threadRun(() -> {
+            try {
+                String passSuffix = "";
+                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().getPassword() != null) {
+                    passSuffix = "#" + Base64.getEncoder().encodeToString(
+                            WaitingRoomFrame.getInstance().getPassword().getBytes("UTF-8"));
+                }
+                broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to broadcast SERVEREXITRECOVER from MISDEAL", ex);
+            }
+            GameFrame.getInstance().finTransmision(true);
         });
     }
 
@@ -3686,9 +3789,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
+            // Issue #9 — auditor invariant must hold across "exited cleanly +
+            // come back via recovery". A human player who sends EXIT mid-game
+            // stays in jugadores with isExit()=true and their stack+buyin
+            // preserved in memory. Before this fix the condition below skipped
+            // them (isActivo() is false for exited players and their stack is
+            // typically >0), so no balance row got written for them in any
+            // subsequent hand. The recovery loader (sqlRecoverServerLocalGameKeyData
+            // around line 6575) only reads balances from MAX(hand.id), so the
+            // exited player ended up with no row to restore from and came back
+            // with default stack/buyin — instant auditor mismatch.
+            //
+            // Including isExit() here writes one balance row per (exited
+            // player, hand) with their unchanged stack and buyin. The row is
+            // idempotent for sqlUpdateHandEnd (their pagar is 0 because they
+            // aren't betting) and is exactly what recovery needs to find their
+            // state on the LATEST hand of the game. Warming-up players
+            // (spectator && stack>0 && !exit) still get no row — they should
+            // not contribute to balance until they enter a hand for real.
             if (this.conta_mano == 1) {
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
-                    if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+                    if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0 || jugador.isExit()) {
                         this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
                     }
                 }
@@ -3696,7 +3817,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
                     Player jugador = nick2player.get(entry.getKey());
                     if (jugador != null) {
-                        if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0) {
+                        if (jugador.isActivo() || Helpers.float1DSecureCompare(0f, jugador.getStack()) == 0 || jugador.isExit()) {
                             this.sqlNewHandBalance(jugador.getNickname(), jugador.getStack() + jugador.getBet(), jugador.getBuyin());
                         }
                     } else {

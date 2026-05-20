@@ -120,6 +120,7 @@ public class Reconnect2ServerDialog extends JDialog {
         yes = new javax.swing.JButton();
         barra = new javax.swing.JProgressBar();
         status2 = new javax.swing.JLabel();
+        back_to_lobby = new javax.swing.JButton();
         exit_button = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -168,6 +169,19 @@ public class Reconnect2ServerDialog extends JDialog {
         status2.setText("(Comprueba si la dirección o el puerto han cambiado antes de reconectar)");
         status2.putClientProperty("i18n.key", "conn.comprueba_direccion_puerto");
 
+        back_to_lobby.setBackground(new java.awt.Color(255, 153, 0));
+        back_to_lobby.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        back_to_lobby.setForeground(new java.awt.Color(255, 255, 255));
+        back_to_lobby.setText("VOLVER A SALA DE INICIO");
+        back_to_lobby.putClientProperty("i18n.key", "conn.volver_a_sala_inicio");
+        back_to_lobby.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        back_to_lobby.setFocusable(false);
+        back_to_lobby.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                back_to_lobbyActionPerformed(evt);
+            }
+        });
+
         exit_button.setBackground(new java.awt.Color(255, 0, 0));
         exit_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         exit_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -193,6 +207,7 @@ public class Reconnect2ServerDialog extends JDialog {
                     .addComponent(yes, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(barra, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(status2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(back_to_lobby, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
@@ -207,6 +222,8 @@ public class Reconnect2ServerDialog extends JDialog {
                 .addComponent(status2)
                 .addGap(18, 18, 18)
                 .addComponent(yes)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(back_to_lobby)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(exit_button)
                 .addGap(18, 18, 18)
@@ -263,6 +280,42 @@ public class Reconnect2ServerDialog extends JDialog {
         System.exit(1);
     }//GEN-LAST:event_exit_buttonActionPerformed
 
+    private void back_to_lobbyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_back_to_lobbyActionPerformed
+        // Issue #9 fase 2 — graceful exit from a stuck reconnect attempt.
+        // The host has aborted the table (typically via the MISDEAL ->
+        // abortToRecover path of fase 1) so its server socket is no longer
+        // listening; reconectarCliente keeps failing with ConnectException.
+        // Instead of nuking the process with System.exit (which would leave
+        // the user without a path to recover), we mark the local player as
+        // exit (so reconectarCliente's do-while terminates), then set
+        // force_recover and let GameFrame.finTransmision(true) drive the
+        // existing teardown flow: RESET_GAME -> Init.VENTANA_INICIO with
+        // the recover dialog auto-opened by continueLastGame(). From there
+        // the user can rejoin the same recovery session as the host.
+        if (GameFrame.getInstance() != null && GameFrame.getInstance().getLocalPlayer() != null) {
+            GameFrame.getInstance().getLocalPlayer().setExit();
+        }
+        Helpers.threadRun(() -> {
+            WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
+            if (wrf != null) {
+                Object lock = wrf.getLock_reconnect();
+                if (lock != null) {
+                    synchronized (lock) {
+                        lock.notifyAll();
+                    }
+                }
+            }
+        });
+        Helpers.threadRun(() -> {
+            if (GameFrame.getInstance() != null) {
+                if (GameFrame.getInstance().getCrupier() != null) {
+                    GameFrame.getInstance().getCrupier().setForce_recover(true);
+                }
+                GameFrame.getInstance().finTransmision(true);
+            }
+        });
+    }//GEN-LAST:event_back_to_lobbyActionPerformed
+
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
         // TODO add your handling code here:
         if (isModal()) {
@@ -281,6 +334,7 @@ public class Reconnect2ServerDialog extends JDialog {
     }//GEN-LAST:event_formWindowDeactivated
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton back_to_lobby;
     private javax.swing.JProgressBar barra;
     private javax.swing.JButton exit_button;
     private javax.swing.JTextField ip_port;

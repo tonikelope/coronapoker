@@ -1749,7 +1749,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (Helpers.float1DSecureCompare(
                             Helpers.floatClean(stack_sum) + Helpers.floatClean(this.bote_sobrante), buyin_sum) != 0) {
                         Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                                "¡OJO A ESTO: NO SALEN LAS CUENTAS GLOBALES! -> (STACKS + SOBRANTE) != BUYIN");
+                                Translator.translate("ui.ojo_a_esto_no_salen"));
                         GameFrame.getInstance().getRegistro()
                                 .print(Translator.translate("ui.ojo_a_esto_no_salen"));
                     }
@@ -3470,7 +3470,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         .print(Translator.translate("blinds.la_configuracion_de_las_ciegas"));
                 Helpers.threadRun(() -> {
                     Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
-                            "LA CONFIGURACIÓN DE LAS CIEGAS SE HA ACTUALIZADO",
+                            Translator.translate("blinds.la_configuracion_de_las_ciegas"),
                             new ImageIcon(Init.class.getResource("/images/ciegas_big.png")));
                 });
             }

@@ -680,7 +680,7 @@ public class NewGameDialog extends JDialog {
         buyin_label.setDoubleBuffered(true);
 
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        rebuy_checkbox.setToolTipText("Si algún jugador se queda sin fichas");
+        Helpers.setTranslatedToolTip(rebuy_checkbox, "tooltip.rebuy_description");
         rebuy_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rebuy_checkbox.setDoubleBuffered(true);
 
@@ -907,8 +907,8 @@ public class NewGameDialog extends JDialog {
         });
 
         nick_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        nick_label.setText("Nick:");
-        nick_label.setToolTipText("Haz click para cambiar el avatar");
+        Helpers.setTranslatedText(nick_label, "ui.nick");
+        Helpers.setTranslatedToolTip(nick_label, "tooltip.change_avatar");
         nick_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         nick_label.setDoubleBuffered(true);
         nick_label.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -972,7 +972,7 @@ public class NewGameDialog extends JDialog {
         );
 
         recover_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        recover_checkbox.setToolTipText("El MODO RECUPERACIÓN permite arrancar una timba que se interrumpió previamente");
+        Helpers.setTranslatedToolTip(recover_checkbox, "tooltip.recovery_description_full");
         recover_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recover_checkbox.setDoubleBuffered(true);
         recover_checkbox.addActionListener(new java.awt.event.ActionListener() {

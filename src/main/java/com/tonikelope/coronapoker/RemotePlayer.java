@@ -1349,7 +1349,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
+        Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setDoubleBuffered(true);
@@ -1421,7 +1421,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
-        hands_win.setToolTipText("MANOS GANADAS");
+        Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
         hands_win.setDoubleBuffered(true);
 
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);

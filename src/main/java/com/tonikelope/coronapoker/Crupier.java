@@ -2677,22 +2677,71 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         Audio.playWavResource("misc/error.wav");
 
-        Helpers.GUIRun(() -> {
+        // Issue #9 — MISDEAL on the host must HALT the table before any new
+        // hand can start. Three things have to happen, in this order:
+        //
+        //   1. Show the MISDEAL popup synchronously and wait for the user to
+        //      click OK. While this modal is up, the Crupier thread is blocked
+        //      and cannot advance to a fresh NUEVA_MANO. This is the "force
+        //      detention" the issue thread asked for: nothing in the run()
+        //      loop progresses until the user acknowledges.
+        //   2. Roll back the aborted hand from the persistent state. NUEVA_MANO
+        //      already incremented conta_mano (~line 3460) and inserted a row
+        //      via sqlNewHand (~line 3547) BEFORE the cascade started, so by
+        //      the time the cascade fails the counter and the SQL row reflect
+        //      a hand that was never really dealt. Leaving them in place would
+        //      mislead recuperarDatosClavePartida into either replaying a
+        //      broken hand (end=0) or jumping the visible counter forward.
+        //   3. Set fin_de_la_transmision(true) synchronously so any
+        //      isFin_de_la_transmision() check still running on the calling
+        //      stack — inside enviarCartasJugadoresRemotos, repartir,
+        //      rondaApuestas, etc — bails out cleanly before more shuffle or
+        //      cascade work happens. Only AFTER that we kick the async
+        //      abortToRecover() which does the SERVEREXITRECOVER broadcast and
+        //      finTransmision(true) -> RESET_GAME -> Init.VENTANA_INICIO with
+        //      the recover dialog auto-opened. The async wrap is mandatory
+        //      because finTransmision shuts down the thread pool we are on.
+        //
+        // On clients receiving the MISDEAL command from the host (broadcast =
+        // false) we keep the popup ASYNC so the network reader thread stays
+        // responsive: the SERVEREXITRECOVER from the host arrives in the same
+        // socket and must be processable without waiting on user input.
+        final boolean hostInitiated = broadcast && GameFrame.getInstance().isPartida_local();
+        if (hostInitiated && !isFin_de_la_transmision()) {
             Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
-        });
-
-        // Issue #9 — route the table out of the broken hand. The accumulated
-        // WARMING UP / dragon / shuffle hangs across 20.40-20.44 all stem from
-        // trying to deal NUEVA_MANO right after a MISDEAL with peers in
-        // inconsistent reconnection states. Instead we reuse the user-triggered
-        // exit-with-recover path (force_recover + SERVEREXITRECOVER +
-        // finTransmision) so every peer lands at Init.VENTANA_INICIO with the
-        // recover dialog auto-opened. The host's surviving WaitingRoom is
-        // re-created in recover mode by continueLastGame; originals (including
-        // the one whose abrupt drop caused the MISDEAL) reconnect there as
-        // fresh participants — no warm-up path required.
-        if (broadcast && GameFrame.getInstance().isPartida_local() && !isFin_de_la_transmision()) {
+            rollbackAbortedHand();
+            setFin_de_la_transmision(true);
             abortToRecover();
+        } else {
+            Helpers.GUIRun(() -> {
+                Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo) + "<b>" + Translator.translate("game.mano_anulada_footer") + "</b>");
+            });
+        }
+    }
+
+    /**
+     * Undo the conta_mano increment and the sqlNewHand insert that NUEVA_MANO
+     * performed before the cascade/deal failed. After this method, the in-
+     * memory counter and the SQLite state reflect the last successfully
+     * completed hand, which is what recuperarDatosClavePartida should see on
+     * the recover path. balance/action/showdown/showcards rows for this hand
+     * are wiped automatically via ON DELETE CASCADE on the hand foreign key.
+     */
+    private void rollbackAbortedHand() {
+        if (conta_mano > 0) {
+            conta_mano--;
+        }
+        if (sqlite_id_hand > 0) {
+            synchronized (GameFrame.SQL_LOCK) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("DELETE FROM hand WHERE id=?")) {
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, sqlite_id_hand);
+                    statement.executeUpdate();
+                } catch (SQLException ex) {
+                    LOGGER.log(Level.SEVERE, "Failed to delete aborted hand from SQLite", ex);
+                }
+            }
+            sqlite_id_hand = -1;
         }
     }
 

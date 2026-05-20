@@ -8148,9 +8148,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String nick = jugador.getNickname();
                 Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
-                boolean isBotLocally = GameFrame.getInstance().isPartida_local() && participante != null && participante.isCpu();
+                boolean isBot = participante != null && participante.isCpu();
 
-                if (!GameFrame.REBUY || (isBotLocally && !GameFrame.BOT_REBUY) || atRebuyLimit(nick)) {
+                if (!GameFrame.REBUY || (isBot && !GameFrame.BOT_REBUY) || atRebuyLimit(nick)) {
                     jugador.setSpectator(null);
                 } else {
                     rebuy_players.add(nick);

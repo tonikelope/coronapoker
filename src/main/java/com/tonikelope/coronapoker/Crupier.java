@@ -2788,9 +2788,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    private float[] simulateNextBlinds() {
+        int i = 0, j = 0;
+        while (Helpers.float1DSecureCompare((float) this.ciega_pequeña / (float) Math.pow(10, j), CIEGAS[i][0]) != 0) {
+            i = (i + 1) % CIEGAS.length;
+            if (i == 0) {
+                j++;
+            }
+        }
+        i = (i + 1) % CIEGAS.length;
+        if (i == 0) {
+            j++;
+        }
+        return new float[]{(float) (CIEGAS[i][0] * Math.pow(10, j)), (float) (CIEGAS[i][1] * Math.pow(10, j))};
+    }
+
     private boolean checkDoblarCiegas() {
 
         synchronized (lock_ciegas) {
+            if (GameFrame.BLIND_CAP > 0f && simulateNextBlinds()[1] > GameFrame.BLIND_CAP) {
+                return false;
+            }
             if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
                 return (GameFrame.CIEGAS_DOUBLE > 0
                         && (int) Math.floor((float) GameFrame.getInstance().getConta_tiempo_juego()

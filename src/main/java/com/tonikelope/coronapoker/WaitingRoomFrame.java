@@ -135,12 +135,6 @@ public class WaitingRoomFrame extends JFrame {
     // capturada en write (deteccion ~0ms en el siguiente PING saliente) y el SO_KEEPALIVE
     // del socket.
     public static final int MAX_CONSECUTIVE_PING_FAILURES = 3;
-    // Tope absoluto de intentos del bucle de reconectarCliente. Tras
-    // ~16 reintentos automaticos (pre-dialog, 80s/5s) el cliente abre
-    // el Reconnect2ServerDialog modal y cada click "Reconectar" cuenta
-    // como un intento mas. Con 100 cubrimos sesiones largas con red
-    // inestable sin permitir bucle infinito si la mesa ya no existe.
-    public static final int MAX_RECONNECT_ATTEMPTS = 100;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
@@ -1027,8 +1021,6 @@ public class WaitingRoomFrame extends JFrame {
 
                 ok_rec = false;
 
-                int attempts = 0;
-
                 Mac orig_sha256_HMAC = Mac.getInstance("HmacSHA256");
 
                 orig_sha256_HMAC.init(net_client.getLocal_client_hmac_key_orig());
@@ -1038,27 +1030,6 @@ public class WaitingRoomFrame extends JFrame {
                 String b64_hmac_nick = Base64.getEncoder().encodeToString(orig_sha256_HMAC.doFinal(local_nick.getBytes("UTF-8")));
 
                 do {
-
-                    attempts++;
-                    if (attempts > MAX_RECONNECT_ATTEMPTS) {
-                        LOGGER.log(Level.SEVERE,
-                                "Reconnect aborted after {0} attempts - giving up",
-                                MAX_RECONNECT_ATTEMPTS);
-                        Helpers.GUIRun(() -> {
-                            if (net_client.getReconnect_dialog() != null) {
-                                net_client.getReconnect_dialog().dispose();
-                                net_client.setReconnect_dialog(null);
-                            }
-                        });
-                        // exit=true hace que runSocketReaderClientThread salga,
-                        // y finTransmision(true) lleva al lobby con recover dialog.
-                        exit = true;
-                        if (GameFrame.getInstance() != null
-                                && GameFrame.getInstance().getLocalPlayer() != null) {
-                            GameFrame.getInstance().getLocalPlayer().setExit();
-                        }
-                        break;
-                    }
 
                     try {
 

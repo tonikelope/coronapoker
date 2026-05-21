@@ -71,11 +71,11 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "20.54";
+    public static final String VERSION = "20.55";
     // Oldest version this build will still accept as a client (handshake-level check).
     // Bump junto a VERSION cuando se libere un fix con impacto en compatibilidad
     // wire o en garantías de seguridad zero-trust del ring.
-    public static final String MIN_COMPATIBLE_VERSION = "20.54";
+    public static final String MIN_COMPATIBLE_VERSION = "20.55";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
 
     /**

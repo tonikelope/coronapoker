@@ -1135,6 +1135,13 @@ public class WaitingRoomFrame extends JFrame {
 
                         LOGGER.log(Level.INFO, "RECONNECTED SUCCESSFULLY TO SERVER");
 
+                        // Reset de contadores del PING/PONG defensivo cliente: si llevaban
+                        // fallos contra el socket viejo, el primer fail contra el nuevo
+                        // (puede ser jitter post-reconexion legitimo) no debe alcanzar el
+                        // threshold ni cerrar el socket recien instalado. Equivalente al
+                        // reset que hace Participant.resetSocket en el server.
+                        net_client.setReset_ping_counters(true);
+
                         ok_rec = true;
 
                     } catch (Exception ex) {
@@ -1500,6 +1507,14 @@ public class WaitingRoomFrame extends JFrame {
             int consecutive_ping_failures = 0;
 
             while (!exit && WaitingRoomFrame.getInstance() != null) {
+
+                // Si reconectarCliente completo una reconexion durante el ultimo
+                // ciclo, los contadores acumulados contra el socket viejo ya no
+                // aplican. Reseteamos antes de enviar el primer PING al socket nuevo.
+                if (net_client.isReset_ping_counters()) {
+                    consecutive_ping_failures = 0;
+                    net_client.setReset_ping_counters(false);
+                }
 
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
 

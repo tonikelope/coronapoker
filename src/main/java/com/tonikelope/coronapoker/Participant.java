@@ -225,7 +225,12 @@ public class Participant implements Runnable {
                 // bufferizado sin ack y no genere error. En ese borde, este threshold
                 // (N=3 PONGs perdidos consecutivos) cierra el socket por nuestra cuenta
                 // y deja que runSocketReaderThread entre por la via de grace normal.
-                if (!exit && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
+                //
+                // Guarda anti-race: si estamos en mitad de un resetSocket/forceSocketReconnect
+                // los contadores pueden estar acumulados contra el socket viejo. Cerrar
+                // ahora cerraria el socket nuevo recien instalado por error.
+                if (!exit && !resetting_socket && !force_reset_socket
+                        && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
                         || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
                     LOGGER.log(Level.WARNING,
                             "[PEER] Participant {0} lost {1}/{2} consecutive PONGs - closing socket",
@@ -679,6 +684,12 @@ public class Participant implements Runnable {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
                 this.reset_socket = true;
+                // Reseteo de contadores ping defensivo: si llevaban fallos acumulados
+                // contra el socket viejo, el primer fail contra el nuevo (que puede
+                // ser legitimo por jitter post-reconexion) no debe alcanzar el
+                // threshold ni cerrar el socket recien instalado.
+                this.pong_timeout_counter = 0;
+                this.pong2_timeout_counter = 0;
                 LOGGER.log(Level.INFO, "[PEER] Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;

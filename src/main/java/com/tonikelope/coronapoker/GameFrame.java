@@ -168,11 +168,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     //   del cliente en mitad de cascade SRA disparaba MISDEAL en la mesa
     //   (sra_unlock no llegaba). Con el hook el host aplica el testamento y
     //   la mano termina sin MISDEAL.
-    // - Host: broadcast SERVEREXITRECOVER (con password si la sala la tenia)
-    //   a todos los clientes. Sin esto, los clientes veian al host caido y
-    //   entraban a reconectarCliente() reintentando un servidor inexistente
-    //   hasta que el dialog modal aparecia a los 80s. Con el hook saltan
-    //   directos al lobby con el recover dialog auto-rellenado.
+    // - Host: broadcast SERVEREXIT a todos los clientes. La partida no puede
+    //   continuar sin host, asi que no usamos SERVEREXITRECOVER (eso abriria
+    //   el recover dialog en el cliente esperando a re-conectarse a un host
+    //   que ya no existe). SERVEREXIT lleva al cliente al lobby normal:
+    //   game over limpio. Si el usuario quiere recover lo hace a mano desde
+    //   el menu. Sin el hook, los clientes veian al host caido y entraban
+    //   a reconectarCliente reintentando un servidor inexistente hasta que
+    //   el dialog modal aparecia a los 80s.
     private static volatile Thread SHUTDOWN_HOOK_THREAD = null;
 
     /**
@@ -200,19 +203,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
 
                 if (gf.isPartida_local()) {
-                    // --- HOST: broadcast SERVEREXITRECOVER a todos los clientes ---
-                    // Confirmation=false: fire-and-forget. No podemos esperar CONF
-                    // durante shutdown (Windows mata a los 5s). broadcastGAMECommandFromServer
-                    // con false ejecuta el do-while una sola vez: encripta y escribe
-                    // a cada Participant. writeCommandFromServer hace flush.
+                    // --- HOST: broadcast SERVEREXIT a todos los clientes ---
+                    // La partida muere con el host (no hay nadie a quien re-conectarse),
+                    // asi que mandamos SERVEREXIT (game over limpio), NO SERVEREXITRECOVER
+                    // (ese path abre el recover dialog del cliente esperando reconexion
+                    // a un host inexistente). Confirmation=false: fire-and-forget. No
+                    // podemos esperar CONF durante shutdown (Windows mata a los 5s).
                     try {
-                        String passSuffix = "";
-                        String pass = wrf.getPassword();
-                        if (pass != null) {
-                            passSuffix = "#" + java.util.Base64.getEncoder()
-                                    .encodeToString(pass.getBytes("UTF-8"));
-                        }
-                        c.broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+                        c.broadcastGAMECommandFromServer("SERVEREXIT", null, false);
                     } catch (Throwable ignored) {
                     }
                     return;

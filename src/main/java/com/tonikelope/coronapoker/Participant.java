@@ -70,6 +70,13 @@ public class Participant implements Runnable {
     private volatile int latency;
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
+    // Numero de pongs consecutivos perdidos antes de marcar exit=true al
+    // peer. Con PING_INTERVAL_MS=5s y PING_PONG_TIMEOUT=10s, 3 fallos = ~15s
+    // sin respuesta del cliente, que es el mismo grace period que ya tiene
+    // RECIBIDO_TIMEOUT para el reader. Sin este threshold, sockets que NO
+    // detectan caida silenciosa (peer killed sin RST) dejaban al server sin
+    // expulsar nunca al peer.
+    public static final int PING_TIMEOUT_KICK_THRESHOLD = 3;
     private volatile int pong2_timeout_counter = 0;
     private volatile byte[] received_token = null;
     private volatile int new_hand_ready = 0;
@@ -196,9 +203,43 @@ public class Participant implements Runnable {
 
                 if (latency == -1) {
                     pong_timeout_counter++;
+                } else {
+                    pong_timeout_counter = 0;
                 }
                 if (latency2 == -1) {
                     pong2_timeout_counter++;
+                } else {
+                    pong2_timeout_counter = 0;
+                }
+
+                // Si el cliente lleva PING_TIMEOUT_KICK_THRESHOLD intentos
+                // consecutivos sin responder al ping, lo damos por caido y
+                // marcamos exit=true para que el reader rompa su bucle, los
+                // waits del Crupier (requestRemoteUnlock, lectura de DECISION,
+                // etc) salgan, y se dispare el flujo de peer caido normal
+                // (autofold en ronda de apuestas o MISDEAL peer.* si la
+                // cascade no puede completar). Sin este check, un socket que
+                // no detecta caida silenciosa (peer killed sin RST) deja al
+                // reader bloqueado indefinidamente y el server jamas expulsa
+                // al peer.
+                if (pong_timeout_counter >= PING_TIMEOUT_KICK_THRESHOLD && !exit && !isCpu()
+                        && WaitingRoomFrame.getInstance() != null
+                        && WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                    LOGGER.log(Level.WARNING, "[PEER] Participant {0} missed {1} consecutive pongs — marking exit=true (peer kicked)", new Object[]{nick, pong_timeout_counter});
+                    exit = true;
+                    try {
+                        if (this.socket != null) {
+                            this.socket.close();
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    synchronized (getParticipant_socket_lock()) {
+                        getParticipant_socket_lock().notifyAll();
+                    }
+                    synchronized (ping_pong_lock) {
+                        ping_pong_lock.notifyAll();
+                    }
+                    break;
                 }
 
                 if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {

@@ -237,6 +237,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
+    // Maximo tiempo que el dragon dialog (RecoverDialog) puede mantenerse
+    // abierto en estado sincronizando_mano antes de forzar su cierre. Si
+    // las acciones recuperadas no completan el replay en este tiempo, el
+    // cliente queda colgado indefinidamente (caso real del issue#9: peer
+    // reconecta entre manos con residuales en queue que nunca disparan
+    // el cierre del dialog). 30s es generoso para WAN lentas.
+    public static final int RECOVER_SYNC_WATCHDOG_MS = 30000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
     public static final int IWTSTH_TIMEOUT = 15000;
@@ -3068,6 +3075,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (this.tot_acciones_recuperadas > 0) {
                 this.sincronizando_mano = true;
+                // Watchdog del dragon dialog. Si la sincronización de acciones
+                // recuperadas no completa en RECOVER_SYNC_WATCHDOG_MS, el
+                // dragon queda colgado indefinidamente (caso reportado por
+                // el tester en issue#9: peer reconecta tras end-of-hand,
+                // acciones residuales del ring viejo quedan en queue pero
+                // nunca disparan el path que cierra el dialog). Sin este
+                // timeout, el peer queda visualmente atascado en la pantalla
+                // del dragon y el host le marca TIMEOUT por no responder a
+                // la siguiente DECISION.
+                final int expectedActions = this.tot_acciones_recuperadas;
+                Helpers.threadRun(() -> {
+                    try {
+                        Thread.sleep(RECOVER_SYNC_WATCHDOG_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                    if (this.sincronizando_mano && !isFin_de_la_transmision()) {
+                        LOGGER.log(Level.WARNING, "[RECOVER-WATCHDOG] sincronizando_mano stuck for {0}ms (tot_acciones_recuperadas={1}, pending={2}) — forcing dragon close", new Object[]{RECOVER_SYNC_WATCHDOG_MS, expectedActions, this.acciones_locales_recuperadas.size()});
+                        cerrarRecoverDialogYSync();
+                    }
+                });
             } else {
                 GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));
 

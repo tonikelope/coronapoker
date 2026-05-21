@@ -442,11 +442,19 @@ public class CryptoSRA {
 
     /**
      * Validates that a single 32-byte little-endian X-coordinate represents a
-     * point on Curve25519. Rejects the identity, small-subgroup torsion points
-     * and any non-residue-quadratic x. Used as a defense-in-depth gate before
-     * applying a commutative lock to data received from an untrusted peer.
+     * point on Curve25519. Uses the Legendre symbol of (x^3 + Ax^2 + x) mod p
+     * to assert that y^2 has a solution — well-formedness of the x as a curve
+     * point. Used as a defense-in-depth gate before applying a commutative
+     * lock to data received from an untrusted peer.
+     *
+     * Nota: este check NO rechaza por sí solo todos los puntos de torsión
+     * pequeña (cofactor 8 de Curve25519). La defensa estructural frente a
+     * small-subgroup attacks viene del diseño SRA: el genesis deck se genera
+     * multiplicando cada candidato por el cofactor (mapea cualquier torsión
+     * al neutro), y los lock scalars son clamped X25519. Esa combinación
+     * neutraliza el ataque incluso si un x torsión-pequeña pasa por aquí.
      * @param point 32-byte little-endian X coordinate
-     * @return true if the point is on the curve
+     * @return true if y^2 = x^3 + Ax^2 + x has a solution mod p
      */
     public static boolean isPointOnCurve(byte[] point) {
         if (point == null || point.length != 32) {

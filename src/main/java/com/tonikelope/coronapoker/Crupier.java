@@ -6768,6 +6768,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             String preflop_players = (String) this.sqlRecoverServerLocalGameKeyData(false).get("preflop_players");
 
+            // Tras un MISDEAL que aborta antes de que la mano tenga el row
+            // preflop_players guardado en SQL, esta lectura devuelve null y el
+            // .contains(b64) de abajo lanzaba NullPointerException. El catch
+            // sólo coge IOException, así que el NPE escapaba y mataba el
+            // thread del Crupier silenciosamente — el cliente quedaba
+            // esperando un SEATS que nunca llegaba ("sorteando sitios"
+            // colgado). Devolviendo null aquí, el caller (sortearSitios) cae
+            // en su rama `else` y hace un shuffle fresh, comportamiento de
+            // "no hay nada que recuperar".
+            if (preflop_players == null) {
+                LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no preflop_players row in SQL — falling back to fresh shuffle");
+                return null;
+            }
+
             ArrayList<String> permutados = new ArrayList<>();
 
             for (String b64 : sitiosb64) {

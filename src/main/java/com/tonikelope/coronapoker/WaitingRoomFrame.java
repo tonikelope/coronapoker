@@ -2015,6 +2015,35 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             }
                                                             break;
+                                                        case "MEGAPACKET":
+                                                            // El handler REQ_SRA_UNLOCK que sigue corre en su propio threadRun
+                                                            // y necesita ver local_mega_packet + active_crypto_ring para el
+                                                            // state machine. Si lo dejásemos para que el Crupier los setease
+                                                            // desde su queue, habría una carrera (otro thread procesa REQ_
+                                                            // SRA_UNLOCK antes y rechaza por mano-no-iniciada). Aquí los
+                                                            // populamos síncronos y reenviamos a la queue para que el resto
+                                                            // del flujo del Crupier (descifrado de mis pocket cards) siga
+                                                            // funcionando idéntico a antes.
+                                                            try {
+                                                                Crupier crupierMP = GameFrame.getInstance().getCrupier();
+                                                                String orderStr = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                String[] orderTokens = orderStr.split(",");
+                                                                java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
+                                                                for (String token : orderTokens) {
+                                                                    if (!token.isEmpty()) {
+                                                                        ringList.add(new String(Base64.getDecoder().decode(token), "UTF-8"));
+                                                                    }
+                                                                }
+                                                                crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
+                                                                crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
+                                                            } catch (Exception e) {
+                                                                LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
+                                                            }
+                                                            synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                                GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                            }
+                                                            break;
                                                         case "POCKET_CARDS":
                                                             Helpers.threadRun(() -> {
                                                                 try {

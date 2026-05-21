@@ -1814,14 +1814,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
                                                                     byte[] shuffled = CryptoSRA.shuffleDeck(locked, mySeed);
 
-                                                                    // Last-mile re-check: si OTRO handler levantó lockdown
-                                                                    // mientras este corría (cripto + shuffle no son
-                                                                    // gratis), no enviamos la respuesta. Lockdown ⇒
-                                                                    // ninguna clave ni cascade sale del cliente.
-                                                                    if (Crupier.SECURITY_LOCKDOWN) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ passed all gates but lockdown was raised concurrently — suppressing DECK_CASCADE_RESP");
-                                                                        return;
-                                                                    }
+                                                                    // (last-mile lockdown re-check eliminado — ver nota
+                                                                    // equivalente en REQ_SRA_UNLOCK. La gate al inicio del
+                                                                    // handler ya impide procesar requests nuevas
+                                                                    // post-lockdown. Mantenerla aquí dejaba al host colgado
+                                                                    // indefinidamente cuando un duplicate concurrente
+                                                                    // disparaba lockdown durante el procesamiento de la
+                                                                    // request legítima.)
 
                                                                     String b64Deck = Base64.getEncoder().encodeToString(shuffled);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
@@ -2009,18 +2008,25 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                     }
 
-                                                                    // GATE 7 (last-mile lockdown re-check): la cripto y los
-                                                                    // checks tardan ms. Si OTRO REQ_SRA_UNLOCK paralelo en
-                                                                    // este mismo socket detectó trampa y disparó lockdown
-                                                                    // mientras este handler corría, no debemos enviar la
-                                                                    // respuesta — la promesa "lockdown ⇒ no servimos más
-                                                                    // claves" debe cubrir incluso las requests que pasaron
-                                                                    // todas las gates pero fueron alcanzadas por el flag
-                                                                    // entre el último check y el writeCommandToServer.
-                                                                    if (Crupier.SECURITY_LOCKDOWN) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK passed all gates but lockdown was raised concurrently — suppressing RESP_SRA_UNLOCK");
-                                                                        return;
-                                                                    }
+                                                                    // NOTA: aquí había un GATE 7 last-mile que abortaba el
+                                                                    // envío si SECURITY_LOCKDOWN se levantaba mientras esta
+                                                                    // request procesaba. Resultó demasiado bruto: si DOS
+                                                                    // requests legítimas-por-separado entran concurrentes y
+                                                                    // una de las dos dispara lockdown (típicamente por anti
+                                                                    // -reuse al ver la tag ya reservada por la otra),
+                                                                    // AMBAS quedaban suprimidas — la primera porque su
+                                                                    // last-mile veía el flag puesto por la segunda, la
+                                                                    // segunda por el propio anti-reuse — y el host se
+                                                                    // queda esperando un RESP_SRA_UNLOCK que nunca llega
+                                                                    // (la cascade SRA no tiene timeout por diseño). La
+                                                                    // primera request ya pasó GATEs 1-6 por separado, su
+                                                                    // respuesta es legítima por construcción, no enviarla
+                                                                    // sólo provoca cuelgues del host. La gate al INICIO del
+                                                                    // handler (cerca de la línea 1840) sigue impidiendo
+                                                                    // procesar requests NUEVAS una vez disparado lockdown
+                                                                    // — eso cumple la promesa "lockdown ⇒ no servimos más
+                                                                    // claves nuevas" sin romper las que ya estaban en
+                                                                    // vuelo.
 
                                                                     String uB64 = Base64.getEncoder().encodeToString(unlocked);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));

@@ -65,6 +65,17 @@ public class GifLabel extends JLabel {
         repeat = 1;
         audio = null;
         audio_playing = false;
+
+        // Toolkit.getImage(URL) caches Images by URL for the entire JVM lifetime
+        // and the GIF's internal frame counter survives across dialog instances.
+        // Flushing resets the Image so the animation restarts from frame 0 on each setIcon.
+        if (icon instanceof ImageIcon) {
+            Image img = ((ImageIcon) icon).getImage();
+            if (img != null) {
+                img.flush();
+            }
+        }
+
         super.setIcon(icon);
     }
 

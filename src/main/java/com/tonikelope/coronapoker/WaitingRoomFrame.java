@@ -128,7 +128,13 @@ public class WaitingRoomFrame extends JFrame {
     private static final Pattern CHAT_EMOJI_PATTERN = Pattern.compile("#([0-9]+)#");
 
     public static final long PING_INTERVAL_MS = 5000;
-    public static final long SEC_PING_INTERVAL_MS = 15000;
+    // Umbral de PONGs consecutivos perdidos antes de cerrar el socket por nuestra cuenta.
+    // Red de seguridad para sockets "mudos" (peer killed sin RST, particion unidireccional,
+    // GC stall infinito del peer). Con N=3, PING_INTERVAL_MS=5s y PING_PONG_TIMEOUT=10s,
+    // la deteccion peor caso es ~3*(10+5)=45s. La via primaria sigue siendo la IOException
+    // capturada en write (deteccion ~0ms en el siguiente PING saliente) y el SO_KEEPALIVE
+    // del socket.
+    public static final int MAX_CONSECUTIVE_PING_FAILURES = 3;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 10;
@@ -1033,6 +1039,7 @@ public class WaitingRoomFrame extends JFrame {
                         net_client.setLocal_client_socket(newSock);
 
                         newSock.setTcpNoDelay(true);
+                        newSock.setKeepAlive(true);
 
                         LOGGER.log(Level.WARNING, "Connected to server! Exchanging keys...");
 
@@ -1461,6 +1468,8 @@ public class WaitingRoomFrame extends JFrame {
         // --- PING/PONG KEEPALIVE THREAD ---
         Helpers.threadRun(() -> {
 
+            int consecutive_ping_failures = 0;
+
             while (!exit && WaitingRoomFrame.getInstance() != null) {
 
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
@@ -1521,6 +1530,9 @@ public class WaitingRoomFrame extends JFrame {
 
                     Integer pong1 = net_client.getRemote_server_pong();
                     Integer pong2 = net_client.getRemote_server_pong2();
+                    boolean round_ok = pong1 != null && pong1 == ping + 1
+                            && pong2 != null && pong2 == ping + 2;
+
                     if (pong1 == null) {
                         LOGGER.log(Level.WARNING,
                                 "SERVER FAILED TO RESPOND TO PING");
@@ -1537,6 +1549,23 @@ public class WaitingRoomFrame extends JFrame {
                         LOGGER.log(Level.INFO,
                                 "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
                                 new Object[]{net_client.getRemote_server_latency(), net_client.getRemote_server_latency2()});
+                    }
+
+                    // Red de seguridad: si el socket esta mudo (PONGs perdidos N rondas
+                    // seguidas) cerramos local y dejamos que runSocketReaderClientThread
+                    // detecte el null read y arranque reconectarCliente. La via primaria
+                    // sigue siendo la IOException en write (NetClient.writeCommand).
+                    if (round_ok) {
+                        consecutive_ping_failures = 0;
+                    } else {
+                        consecutive_ping_failures++;
+                        if (consecutive_ping_failures >= MAX_CONSECUTIVE_PING_FAILURES) {
+                            LOGGER.log(Level.WARNING,
+                                    "Client lost {0} consecutive PONGs - closing socket to force reconnect",
+                                    consecutive_ping_failures);
+                            closeClientSocket();
+                            break;
+                        }
                     }
 
                     Helpers.pausar(PING_INTERVAL_MS);
@@ -1565,6 +1594,7 @@ public class WaitingRoomFrame extends JFrame {
                     Socket sock = new Socket(direccion[0], Integer.parseInt(direccion[1]));
                     net_client.setLocal_client_socket(sock);
                     sock.setTcpNoDelay(true);
+                    sock.setKeepAlive(true);
 
                     sock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
                     sock.getOutputStream().flush();
@@ -2545,6 +2575,7 @@ public class WaitingRoomFrame extends JFrame {
             String[] partes;
             try {
                 client_socket.setTcpNoDelay(true);
+                client_socket.setKeepAlive(true);
                 byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
                 client_socket.getInputStream().read(magic);
                 if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {

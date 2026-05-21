@@ -2771,8 +2771,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.sqlite_id_hand = (int) map.get("hand_id");
             }
             sqlSyncRecoveryShells(map);
+            // Solo cargar fosil si la mano realmente estaba en-curso
+            // (hand_end == 0L). Si la mano esta cerrada (post-MISDEAL la
+            // marca con end!=0 via rollbackAbortedHand) NO se carga
+            // local_mega_packet/ring desde el fosil viejo — sino el
+            // DECK_CASCADE_REQ de la mano FRESH del host disparaba
+            // hasMegaPacket()=true en cliente y triggerSecurityLockdown
+            // como falso positivo "MEGAPACKET already locked".
+            // El HOST ya tiene este mismo check arriba (linea ~2671);
+            // sin el equivalente aqui en CLIENTE, race condition garantizada.
+            boolean handInProgress = map != null
+                    && map.get("hand_end") != null
+                    && (Long) map.get("hand_end") == 0L;
             try {
-                String fosil = Helpers.loadHandFossil(this.sqlite_id_game);
+                String fosil = handInProgress ? Helpers.loadHandFossil(this.sqlite_id_game) : null;
                 if (fosil != null && fosil.contains("#")) {
                     String orderMap = null;
                     String[] sraFossilParts = fosil.split("#");

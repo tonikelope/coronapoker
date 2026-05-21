@@ -2735,6 +2735,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } else {
                 saltar_primera_mano = true;
             }
+            // Si el fosil existia pero no llego a entregar mega_packet+ring
+            // utilizables (corrupto o vacio por MISDEAL+rollback previo), no
+            // hay material para replay. Forzar saltar=true asegura simetria
+            // con el branch cliente (recibira map sin megapacket y tambien
+            // saltara).
+            if (!saltar_primera_mano && (this.local_mega_packet == null || this.active_crypto_ring == null)) {
+                saltar_primera_mano = true;
+            }
             enviarDatosClaveRecuperados(pendientes, map);
         } else {
             map = recibirDatosClaveRecuperados();
@@ -2838,7 +2846,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception e) {
             }
 
-            if (map == null || (map.get("hand_end") != null && (Long) map.get("hand_end") != 0L)) {
+            // Simetrico con la decision del host (rama partida_local de arriba,
+            // checks de map.get("hand_end") y del fosil): solo se intenta replay
+            // de la mano interrumpida cuando hand_end existe explicitamente y
+            // vale 0 (mano-en-curso real) Y el fosil entrega un megapacket
+            // utilizable. Si la mano fue rolled-back tras MISDEAL, hand_end
+            // viene null o sin row, y el fosil queda vacio: ahi NO hay nada
+            // que replay, hay que arrancar mano fresh. Sin este branch el
+            // cliente quedaba esperando datos de una mano inexistente mientras
+            // el host ya habia llamado sqlNewHand() -> cuelgue indefinido y
+            // stack 0 en GUI (de ahi el "ESPECTADOR no calentando").
+            if (map == null
+                    || map.get("hand_end") == null
+                    || (Long) map.get("hand_end") != 0L
+                    || this.local_mega_packet == null
+                    || this.active_crypto_ring == null) {
                 saltar_primera_mano = true;
             } else {
                 this.game_recovered = 1;

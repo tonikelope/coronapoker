@@ -3201,23 +3201,51 @@ public class Helpers {
         }
     }
 
+    /**
+     * Wrap defensivo: si el lambda lanza NPE porque GameFrame.getInstance()
+     * ya devuelve null (resetInstance() drenó la ventana antes de que el EDT
+     * llegase a procesarlo — race normal del cleanup post-MISDEAL /
+     * fin-de-partida), descartamos el lambda silenciosamente. Si en cambio
+     * GameFrame sigue vivo, el NPE es bug real y se relanza para que el EDT
+     * lo loguee como siempre.
+     *
+     * Sin este wrap, cada lambda Helpers.GUIRun(() -> GameFrame.getInstance()...)
+     * tendría que pre-validar el singleton — y hay literalmente cientos.
+     */
+    private static Runnable wrapGuiRunnable(Runnable r) {
+        return () -> {
+            try {
+                r.run();
+            } catch (NullPointerException ex) {
+                if (GameFrame.getInstance() == null) {
+                    Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                            "GUIRun lambda dropped — GameFrame.getInstance() is null (cleanup race after resetInstance)");
+                    return;
+                }
+                throw ex;
+            }
+        };
+    }
+
     public static void GUIRun(Runnable r) {
 
+        Runnable safe = wrapGuiRunnable(r);
         if (!SwingUtilities.isEventDispatchThread()) {
-            SwingUtilities.invokeLater(r);
+            SwingUtilities.invokeLater(safe);
         } else {
-            r.run();
+            safe.run();
         }
 
     }
 
     public static void GUIRunAndWait(Runnable r) {
 
+        Runnable safe = wrapGuiRunnable(r);
         try {
             if (!SwingUtilities.isEventDispatchThread()) {
-                SwingUtilities.invokeAndWait(r);
+                SwingUtilities.invokeAndWait(safe);
             } else {
-                r.run();
+                safe.run();
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();

@@ -3894,7 +3894,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.isRECOVER()) {
             GameFrame.getInstance().getRegistro().print(Translator.translate("game.recuperando_timba"));
-            recuperarDatosClavePartida();
+            try {
+                recuperarDatosClavePartida();
+            } finally {
+                // Garantizar reset incluso si recuperarDatosClavePartida lanza
+                // o sale temprano por algún return interno. De lo contrario
+                // GameFrame.RECOVER queda stale y la siguiente partida fresh
+                // entra de nuevo en modo recovery — el host sin datos válidos
+                // por SQL y el cliente esperando RECOVERDATA del host (que no
+                // los va a enviar porque para él NO es recovery). Cuelgue
+                // garantizado. setRECOVER es idempotente.
+                if (GameFrame.RECOVER) {
+                    GameFrame.setRECOVER(false);
+                }
+            }
         }
 
         this.apuesta_actual = this.ciega_grande;

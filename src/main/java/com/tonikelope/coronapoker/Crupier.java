@@ -252,6 +252,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + reason);
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
+            // Si somos cliente, cerramos el socket con el host inmediatamente.
+            // Una vez en lockdown el cliente refuse cualquier REQ_SRA_UNLOCK
+            // siguiente; el host se quedaría colgado indefinidamente esperando
+            // la respuesta (la cascade SRA NO tiene timeout artificial — fue
+            // decisión explícita del 20.43 para no kickar clientes lentos). Sin
+            // este cierre, lockdown del cliente = cuelgue total del host hasta
+            // que el usuario lo mate manualmente.
+            //
+            // Al cerrar el socket aquí, el host detecta peer caído por
+            // SocketException en su Participant thread → marca exit=true →
+            // requestRemoteUnlock sale del wait con null → cascade falla
+            // limpio → MISDEAL → abortToRecover → SERVEREXITRECOVER al resto
+            // del ring → todos vuelven al lobby por el flujo normal.
+            //
+            // Sólo aplica si NO somos el host (isPartida_local()=false).
+            if (!GameFrame.getInstance().isPartida_local()) {
+                WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
+                if (wrf != null) {
+                    try {
+                        wrf.closeClientSocket();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         Translator.translate("zero_trust.critical_alert_header")

@@ -2889,12 +2889,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         if (map != null) {
-            this.sqlite_id_hand = map.get("hand_id") != null ? (int) map.get("hand_id") : -1;
-            GameFrame.BUYIN = map.get("buyin") != null ? (int) map.get("buyin") : 100;
-            GameFrame.REBUY = map.get("rebuy") != null ? (boolean) map.get("rebuy") : true;
-            setContaManoLocal(map.get("conta_mano") != null ? (int) map.get("conta_mano") : 1);
-            this.ciega_pequeña = map.get("sbval") != null ? (float) map.get("sbval") : 0.1f;
-            this.ciega_grande = map.get("bbval") != null ? (float) map.get("bbval") : 0.2f;
+            // rs.getInt/getLong devuelven 0 cuando la columna SQL es NULL (no
+            // null) y map.put usa primitivos autoboxed por lo que !=null
+            // siempre es true. Sin estos guards extra, un recovery sobre SQL
+            // sin row (post-MISDEAL con la mano ya cerrada por
+            // rollbackAbortedHand) sobreescribia GameFrame.BUYIN/CIEGAS a 0
+            // -> players sin dinero ni blinds correctos.
+            int recoveredHandId = map.get("hand_id") != null ? (int) map.get("hand_id") : -1;
+            this.sqlite_id_hand = recoveredHandId > 0 ? recoveredHandId : -1;
+            int recoveredBuyin = map.get("buyin") != null ? (int) map.get("buyin") : 0;
+            if (recoveredBuyin > 0) {
+                GameFrame.BUYIN = recoveredBuyin;
+            }
+            if (map.get("rebuy") != null) {
+                GameFrame.REBUY = (boolean) map.get("rebuy");
+            }
+            int recoveredContaMano = map.get("conta_mano") != null ? (int) map.get("conta_mano") : 0;
+            if (recoveredContaMano > 0) {
+                setContaManoLocal(recoveredContaMano);
+            }
+            float recoveredSb = map.get("sbval") != null ? (float) map.get("sbval") : 0f;
+            if (recoveredSb > 0f) {
+                this.ciega_pequeña = recoveredSb;
+            }
+            float recoveredBb = map.get("bbval") != null ? (float) map.get("bbval") : 0f;
+            if (recoveredBb > 0f) {
+                this.ciega_grande = recoveredBb;
+            }
             this.ciegas_double = map.get("blinds_double") != null ? (int) map.get("blinds_double") : 0;
             if (map.get("play_time") != null) {
                 GameFrame.getInstance().setConta_tiempo_juego((long) map.get("play_time"));
@@ -3198,21 +3219,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * are wiped automatically via ON DELETE CASCADE on the hand foreign key.
      */
     private void rollbackAbortedHand() {
-        if (conta_mano > 0) {
-            setContaManoLocal(conta_mano - 1);
-        }
+        // La mano abortada se MARCA como terminada (end != 0, pot=0) +
+        // balance row con stacks post-refund, en lugar de borrarse. Asi el
+        // recovery encuentra una "ultima mano cerrada limpiamente" igual
+        // que tras un exit con wait-for-hand-end. La siguiente NUEVA_MANO
+        // arranca fresh con calcularPosiciones limpio. conta_mano y
+        // sqlite_id_hand se preservan (la mano cuenta como completada).
+        // Sin este UPDATE+INSERT (DELETE original), recovery encontraba
+        // SQL vacio -> dealer_nick=null -> repartir() petaba +
+        // balance vacio -> players quedaban spectator sin cartas.
         if (sqlite_id_hand > 0) {
             synchronized (GameFrame.SQL_LOCK) {
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("DELETE FROM hand WHERE id=?")) {
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE hand SET end=?, pot=0 WHERE id=?")) {
                     statement.setQueryTimeout(30);
-                    statement.setInt(1, sqlite_id_hand);
+                    statement.setLong(1, System.currentTimeMillis());
+                    statement.setInt(2, sqlite_id_hand);
                     statement.executeUpdate();
                 } catch (SQLException ex) {
-                    LOGGER.log(Level.SEVERE, "Failed to delete aborted hand from SQLite", ex);
+                    LOGGER.log(Level.SEVERE, "Failed to mark aborted hand as ended", ex);
                 }
             }
-            sqlite_id_hand = -1;
+            try {
+                for (Player j : GameFrame.getInstance().getJugadores()) {
+                    if (j != null && !j.isExit()) {
+                        sqlNewHandBalance(j.getNickname(), Helpers.floatClean(j.getStack()), j.getBuyin());
+                    }
+                }
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Failed to persist post-MISDEAL balance", ex);
+            }
         }
+        // Refs in-memory: el Crupier sera destruido por RESET_GAME tras
+        // abortAndRecover/abortAndExit. Limpieza por higiene.
+        this.local_mega_packet = null;
+        this.active_crypto_ring = null;
+        this.local_sra_unlock = null;
+        this.local_original_cards = new byte[2];
     }
 
     /**
@@ -4120,6 +4162,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (GameFrame.RECOVER) {
                     GameFrame.setRECOVER(false);
                 }
+                // Tras recovery con saltar=true (mano fresh, sin replay), el
+                // setPositions de NUEVA_MANO mas arriba se skipeo (estaba bajo
+                // !GameFrame.RECOVER y RECOVER aun era true en ese punto).
+                // Sin esta llamada explicita aqui, dealer/sb/bb quedan null
+                // y repartir() peta. En HOST calcularPosiciones asigna nicks
+                // desde nicks_permutados y broadcast POSITIONS; en CLIENTE
+                // recibirPosiciones lee POSITIONS de la queue del Crupier.
+                if (saltar_primera_mano) {
+                    this.setPositions();
+                }
+                // Rescate de spectator: tras saltar=true y balance vacio del
+                // recovery, los players quedan marcados spectator desde el
+                // INIT (warming-up). Sin este unsetSpectator, isActivo()=false
+                // -> getJugadoresActivos()=0 -> NUEVA_MANO no arranca, timba
+                // muere. Solo rescatamos players con stack > 0.
+                if (saltar_primera_mano) {
+                    try {
+                        for (Player j : GameFrame.getInstance().getJugadores()) {
+                            if (j != null && !j.isExit() && j.isSpectator()
+                                    && Helpers.float1DSecureCompare(0f, j.getStack()) < 0) {
+                                j.unsetSpectator();
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
             }
         }
 
@@ -4854,8 +4922,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int i = 0;
 
-        while (!GameFrame.getInstance().getJugadores().get(i).getNickname().equals(this.dealer_nick)) {
+        // Guard: si dealer_nick es null o no esta en la lista de jugadores,
+        // el while desborda con IndexOutOfBoundsException matando el thread
+        // del Crupier silenciosamente. Abortamos la mano controladamente.
+        if (this.dealer_nick == null) {
+            LOGGER.log(Level.SEVERE, "repartir() dealer_nick is null — aborting hand");
+            cancelarManoYDevolverApuestas("peer.state_inconsistent", true);
+            return;
+        }
+        int jugSize = GameFrame.getInstance().getJugadores().size();
+        boolean found = false;
+        while (i < jugSize) {
+            if (this.dealer_nick.equals(GameFrame.getInstance().getJugadores().get(i).getNickname())) {
+                found = true;
+                break;
+            }
             i++;
+        }
+        if (!found) {
+            LOGGER.log(Level.SEVERE, "repartir() dealer_nick={0} not found in jugadores — aborting hand", this.dealer_nick);
+            cancelarManoYDevolverApuestas("peer.state_inconsistent", true);
+            return;
         }
 
         int j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();

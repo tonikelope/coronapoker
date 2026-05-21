@@ -4170,6 +4170,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // desde nicks_permutados y broadcast POSITIONS; en CLIENTE
                 // recibirPosiciones lee POSITIONS de la queue del Crupier.
                 if (saltar_primera_mano) {
+                    // Limpiar refs cripto que recuperarDatosClavePartida pudo
+                    // haber repoblado del fosil viejo. Sin esto, la cascade
+                    // NUEVA del host disparaba DECK_CASCADE_REQ en cliente y
+                    // el handler veia hasMegaPacket()=true (de la mano vieja)
+                    // -> lockdown falso positivo "MEGAPACKET already locked".
+                    this.local_mega_packet = null;
+                    this.active_crypto_ring = null;
+                    this.local_sra_unlock = null;
+                    this.local_sra_lock = null;
+                    this.local_original_cards = new byte[2];
                     this.setPositions();
                 }
                 // Rescate de spectator: tras saltar=true y balance vacio del

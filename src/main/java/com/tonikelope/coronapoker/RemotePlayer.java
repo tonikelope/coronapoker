@@ -825,12 +825,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BET:
                 Helpers.GUIRun(() -> {
-                    if (isRaising()) {
-                        player_action.setText((GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
+                    final float apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
+                    final int conta_raise_snapshot = GameFrame.getInstance().getCrupier().getConta_raise();
+                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet) < 0 && Helpers.float1DSecureCompare(0f, apuesta_actual_snapshot) < 0) {
+                        player_action.setText((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - apuesta_actual_snapshot) + ")");
 
                         raise = true;
 
-                        reraise = (GameFrame.getInstance().getCrupier().getConta_raise() > 0);
+                        reraise = (conta_raise_snapshot > 0);
 
                     } else {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
@@ -842,8 +844,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
-                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet + stack) < 0) {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - GameFrame.getInstance().getCrupier().getApuesta_actual()) + ")");
+                    final float apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
+                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet + stack) < 0) {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - apuesta_actual_snapshot) + ")");
                     } else {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
@@ -1005,11 +1008,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         return Helpers.floatClean(this.stack) + Helpers.floatClean(this.bote) + Helpers.floatClean(this.pagar);
 
-    }
-
-    private boolean isRaising() {
-
-        return (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), bet) < 0 && Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0);
     }
 
     private void bet(float new_bet) {

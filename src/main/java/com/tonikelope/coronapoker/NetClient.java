@@ -71,6 +71,13 @@ public class NetClient {
     private volatile Integer remote_server_pong2;
     private volatile int remote_server_latency;
     private volatile int remote_server_latency2;
+    // Flag consumido por runPingPongThreadCliente al inicio de cada iteracion
+    // para resetear su contador local consecutive_ping_failures. Se eleva en
+    // reconectarCliente al completarse una reconexion: si el contador habia
+    // acumulado fallos contra el socket viejo, el primer fail contra el nuevo
+    // (potencialmente legitimo por jitter post-reconexion) no debe alcanzar
+    // el threshold ni cerrar el socket recien instalado.
+    private volatile boolean reset_ping_counters = false;
 
     public NetClient(WaitingRoomFrame waiting_room) {
         this.waiting_room = waiting_room;
@@ -207,6 +214,14 @@ public class NetClient {
 
     public void setRemote_server_latency2(int l) {
         this.remote_server_latency2 = l;
+    }
+
+    public boolean isReset_ping_counters() {
+        return reset_ping_counters;
+    }
+
+    public void setReset_ping_counters(boolean v) {
+        this.reset_ping_counters = v;
     }
 
     // --- Helpers de ciclo de vida ---

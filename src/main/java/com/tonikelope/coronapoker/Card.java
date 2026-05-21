@@ -705,10 +705,24 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     }
 
     public void actualizarConValorNumerico(int value) {
+        if (value < 1 || value > 52) {
+            // Defensa: valor fuera del rango 1..52 (típicamente porque una
+            // mano abortada por MISDEAL guardó VISUAL@ -1,-1 en el fósil y
+            // un caller hizo (byte -1 & 0xFF) + 1 = 256). Sin esta gate la
+            // PALOS[(value-1)/13] = PALOS[19] lanza
+            // ArrayIndexOutOfBoundsException que escapa al try-catch
+            // genérico de Crupier.run y dispara CRUPIER FATAL ERROR +
+            // System.exit(1) (server muere). Mejor no actualizar.
+            return;
+        }
         actualizarValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
     }
 
     public void iniciarConValorNumerico(int value) {
+        if (value < 1 || value > 52) {
+            // Ver nota en actualizarConValorNumerico.
+            return;
+        }
         iniciarConValorPalo(VALORES[((value - 1) % 13)], PALOS[(int) ((float) (value - 1) / 13)]);
     }
 

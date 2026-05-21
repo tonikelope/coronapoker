@@ -252,6 +252,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + reason);
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
+            // Si somos cliente, cerramos el socket con el host inmediatamente.
+            // Una vez en lockdown el cliente refuse cualquier REQ_SRA_UNLOCK
+            // siguiente; el host se quedaría colgado indefinidamente esperando
+            // la respuesta (la cascade SRA NO tiene timeout artificial — fue
+            // decisión explícita del 20.43 para no kickar clientes lentos). Sin
+            // este cierre, lockdown del cliente = cuelgue total del host hasta
+            // que el usuario lo mate manualmente.
+            //
+            // Al cerrar el socket aquí, el host detecta peer caído por
+            // SocketException en su Participant thread → marca exit=true →
+            // requestRemoteUnlock sale del wait con null → cascade falla
+            // limpio → MISDEAL → abortToRecover → SERVEREXITRECOVER al resto
+            // del ring → todos vuelven al lobby por el flujo normal.
+            //
+            // Sólo aplica si NO somos el host (isPartida_local()=false).
+            if (!GameFrame.getInstance().isPartida_local()) {
+                WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
+                if (wrf != null) {
+                    try {
+                        wrf.closeClientSocket();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         Translator.translate("zero_trust.critical_alert_header")
@@ -2521,8 +2546,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             } else if (part.startsWith("VISUAL@")) {
                                 String[] vis = part.substring("VISUAL@".length()).split(",");
-                                this.local_original_cards[0] = Byte.parseByte(vis[0]);
-                                this.local_original_cards[1] = Byte.parseByte(vis[1]);
+                                try {
+                                    byte v0 = Byte.parseByte(vis[0]);
+                                    byte v1 = Byte.parseByte(vis[1]);
+                                    if (v0 >= 0 && v0 < 52 && v1 >= 0 && v1 < 52) {
+                                        this.local_original_cards[0] = v0;
+                                        this.local_original_cards[1] = v1;
+                                    } else {
+                                        LOGGER.log(Level.WARNING, "VISUAL@ skipped — out-of-range values ({0},{1}) from poisoned fossil (likely MISDEAL before card decryption)", new Object[]{v0, v1});
+                                    }
+                                } catch (NumberFormatException nfe) {
+                                    LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
+                                }
                             }
                         }
 
@@ -2617,8 +2652,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         } else if (part.startsWith("VISUAL@")) {
                             String[] vis = part.substring("VISUAL@".length()).split(",");
-                            this.local_original_cards[0] = Byte.parseByte(vis[0]);
-                            this.local_original_cards[1] = Byte.parseByte(vis[1]);
+                            try {
+                                byte v0 = Byte.parseByte(vis[0]);
+                                byte v1 = Byte.parseByte(vis[1]);
+                                if (v0 >= 0 && v0 < 52 && v1 >= 0 && v1 < 52) {
+                                    this.local_original_cards[0] = v0;
+                                    this.local_original_cards[1] = v1;
+                                } else {
+                                    LOGGER.log(Level.WARNING, "VISUAL@ skipped — out-of-range values ({0},{1}) from poisoned fossil (likely MISDEAL before card decryption)", new Object[]{v0, v1});
+                                }
+                            } catch (NumberFormatException nfe) {
+                                LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
+                            }
                         }
                     }
 
@@ -3004,6 +3049,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirPosiciones() {
 
+        // Guard de salida: si la transmisión termina (host caído, cliente
+        // saliendo por SERVEREXITRECOVER, etc.) salimos sin haber recibido
+        // POSITIONS. El caller (Crupier.run) ya tiene checks posteriores
+        // que abortan limpiamente al ver isFin_de_la_transmision. Sin este
+        // guard el cliente queda colgado para siempre esperando un
+        // comando que nunca va a llegar — síntoma "stuck indefinitely"
+        // reportado en issue #9.
         boolean ok;
 
         long start_time = System.currentTimeMillis();
@@ -3085,7 +3137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isFin_de_la_transmision());
 
     }
 
@@ -3842,7 +3894,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.isRECOVER()) {
             GameFrame.getInstance().getRegistro().print(Translator.translate("game.recuperando_timba"));
-            recuperarDatosClavePartida();
+            try {
+                recuperarDatosClavePartida();
+            } finally {
+                // Garantizar reset incluso si recuperarDatosClavePartida lanza
+                // o sale temprano por algún return interno. De lo contrario
+                // GameFrame.RECOVER queda stale y la siguiente partida fresh
+                // entra de nuevo en modo recovery — el host sin datos válidos
+                // por SQL y el cliente esperando RECOVERDATA del host (que no
+                // los va a enviar porque para él NO es recovery). Cuelgue
+                // garantizado. setRECOVER es idempotente.
+                if (GameFrame.RECOVER) {
+                    GameFrame.setRECOVER(false);
+                }
+            }
         }
 
         this.apuesta_actual = this.ciega_grande;
@@ -4733,6 +4798,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
 
+        // Guard de salida (ver nota en recibirPosiciones). Retorno null
+        // si la transmisión muere antes de recibir RECOVERDATA.
         HashMap<String, Object> map = null;
 
         boolean ok;
@@ -4818,13 +4885,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isFin_de_la_transmision());
 
         return map;
     }
 
     private String recibirAccionesRecuperadas() {
 
+        // Guard de salida (ver nota en recibirPosiciones). Sin él, si la
+        // transmisión muere durante el wait el cliente queda colgado para
+        // siempre esperando ACTIONDATA. El retorno null en ese caso es
+        // OK: el caller ya está en flujo de terminación.
         String actions = null;
 
         boolean ok;
@@ -4893,7 +4964,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isFin_de_la_transmision());
 
         return actions;
     }
@@ -5908,7 +5979,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#BOTVISUAL@").append(botVisuals.toString());
             }
 
-            if (this.local_original_cards != null) {
+            // VISUAL@ guarda los índices 0..51 que resuelven a una carta
+            // del genesis deck. Si la mano abortó por MISDEAL antes de
+            // descifrar correctamente las hole cards, resolveCardIndex
+            // devolvió -1 y guardar ese valor envenena el fósil: en
+            // recovery se lee como byte=-1 → (byte&0xFF)+1 = 256 →
+            // PALOS[19] OOB → CRUPIER FATAL ERROR. Sólo persistimos si
+            // ambos índices son válidos.
+            if (this.local_original_cards != null
+                    && this.local_original_cards[0] >= 0 && this.local_original_cards[0] < 52
+                    && this.local_original_cards[1] >= 0 && this.local_original_cards[1] < 52) {
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
             }
 
@@ -7209,7 +7289,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-            } while (!ok);
+            // Guard de salida (ver nota en recibirPosiciones). Si la
+            // transmisión muere el cliente abandona el wait de SEATS
+            // y permutados queda null — el caller debe ser robusto a eso
+            // o el flujo terminar por isFin_de_la_transmision al mirar
+            // el retorno.
+            } while (!ok && !isFin_de_la_transmision());
 
         }
 

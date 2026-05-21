@@ -275,9 +275,9 @@ public class Reconnect2ServerDialog extends JDialog {
     }//GEN-LAST:event_formComponentShown
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
-        // TODO add your handling code here:
-
-        System.exit(1);
+        // Salida voluntaria del usuario: exit code 0 (clean). Antes era 1
+        // (error) y confundia a supervisores externos (systemd, watchdogs).
+        System.exit(0);
     }//GEN-LAST:event_exit_buttonActionPerformed
 
     private void back_to_lobbyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_back_to_lobbyActionPerformed

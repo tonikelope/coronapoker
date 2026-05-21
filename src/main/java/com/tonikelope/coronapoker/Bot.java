@@ -548,7 +548,18 @@ public class Bot {
         if (randInt(100) < 30) {
             targetBet *= (1.0f + (randFloat() * 0.30f - 0.15f));
         }
-        targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / GameFrame.CIEGA_PEQUEÑA) * GameFrame.CIEGA_PEQUEÑA);
+        // Redondear al chip mínimo del juego = ciega pequeña ACTUAL del
+        // dealer, no GameFrame.CIEGA_PEQUEÑA (que es la SB INICIAL global
+        // y no cambia con doblarCiegas ni con recovery). Con esa estática,
+        // tras subir las ciegas o tras recovery el bot apostaba en steps
+        // de la SB vieja (e.g. 0.1) cuando los blinds ya valían 0.4/0.8 —
+        // resultando en montos no múltiplos de la SB actual ("fractions
+        // of 1/2 BB" según el reporte del tester en el issue #9).
+        float sb = dealer.getCiega_pequeña();
+        if (sb <= 0f) {
+            sb = GameFrame.CIEGA_PEQUEÑA;
+        }
+        targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / sb) * sb);
 
         if (Helpers.float1DSecureCompare(currentBet, 0f) == 0 || (dealer.getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(currentBet, bb) == 0)) {
             return Math.max(bb, targetBet);

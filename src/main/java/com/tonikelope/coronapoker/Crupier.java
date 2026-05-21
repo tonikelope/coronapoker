@@ -576,7 +576,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int numPlayers = ringCriptografico.size();
             if (numPlayers < 2) {
                 // Sin jugadores suficientes la mano no puede jugarse; sí es misdeal.
-                cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                cancelarManoYDevolverApuestas("peer.not_enough_players");
                 return false;
             }
 
@@ -701,7 +701,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // Sin testamento y socket caído sin EXIT limpio:
                                 // imposible descifrar, abortamos la mano para
                                 // que el resto del ring no quede colgado.
-                                cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
+                                cancelarManoYDevolverApuestas("peer.unlock_no_testament");
                                 return false;
                             }
                         } else if (ph.getSra_unlock() != null) {
@@ -709,7 +709,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // testamento: lo aplicamos en su nombre.
                             pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, ph.getSra_unlock());
                         } else {
-                            cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
+                            cancelarManoYDevolverApuestas("peer.unlock_no_testament");
                             return false;
                         }
                     }
@@ -724,7 +724,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 broadcastGAMECommandFromServer("POCKET_CARDS#" + nickB64 + "#" + pcB64, null, true);
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Error broadcasting POCKET_CARDS for " + targetNick, e);
-                cancelarManoYDevolverApuestas("zero_trust.unlock_failed");
+                cancelarManoYDevolverApuestas("peer.broadcast_failed");
                 return false;
             }
 
@@ -5535,7 +5535,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // dereferenciar active_crypto_ring.length con un NPE silencioso que
         // colgaría la mano sin avisar a nadie.
         if (this.local_sra_unlock == null || this.active_crypto_ring == null) {
-            cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
             return false;
         }
 
@@ -5564,7 +5564,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (p != null && p.isCpu()) {
                     if (p.getReceived_token() == null) {
-                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                        cancelarManoYDevolverApuestas("peer.bot_no_token");
                         return false;
                     }
                     workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
@@ -5578,14 +5578,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // testamento localmente y seguimos descifrando.
                         workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
                     } else {
-                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                        cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
                         return false;
                     }
                 } else {
                     if (p != null && p.getSra_unlock() != null) {
                         workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
                     } else {
-                        cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                        cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
                         return false;
                     }
                 }
@@ -5597,7 +5597,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] singleCard = java.util.Arrays.copyOfRange(workingCards, i * 32, (i + 1) * 32);
             int id = CryptoSRA.resolveCardIndex(singleCard);
             if (id < 0) {
-                cancelarManoYDevolverApuestas("zero_trust.cascade_failed");
+                // Violacion cripto real: la carta descifrada NO resuelve a
+                // ningun indice valido del genesis deck. Esto solo puede
+                // ocurrir si algun peer envio bytes que NO son producto de
+                // la cascade legitima -> ataque o bug grave. Termina la
+                // timba con BalanceDialog (motivo zero_trust dispara
+                // abortAndExit en cancelarManoYDevolverApuestas).
+                cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
                 return false;
             }
             ramCards[i] = (byte) id;

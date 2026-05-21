@@ -1772,6 +1772,15 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String[] partes_cascade = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
+                                                                    // ZERO-TRUST: si ya cazamos una trampa de este host en esta
+                                                                    // sesión, nunca más generamos una clave para él. La
+                                                                    // promesa zero-trust ("si detectamos trampa, no entregamos
+                                                                    // más claves") sólo se cumple si el lockdown es un gate
+                                                                    // duro, no sólo un popup.
+                                                                    if (Crupier.SECURITY_LOCKDOWN) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ refused — security lockdown active");
+                                                                        return;
+                                                                    }
                                                                     // ZERO-TRUST: refuse cascade mid-hand. Si ya tenemos un
                                                                     // MEGAPACKET activo, aceptar un nuevo cascade sobreescribiría
                                                                     // nuestro sra_unlock y destruiría la mano en curso. Un host
@@ -1820,6 +1829,17 @@ public class WaitingRoomFrame extends JFrame {
                                                             final String[] partes_unlock = partes_comando;
                                                             Helpers.threadRun(() -> {
                                                                 try {
+                                                                    // ZERO-TRUST: si un cheat anterior disparó lockdown,
+                                                                    // este cliente no vuelve a generar una sola clave
+                                                                    // para el host en lo que queda de sesión. Sin este
+                                                                    // gate la promesa "lockdown ⇒ no servimos más
+                                                                    // claves" no se cumplía: el handler seguía
+                                                                    // procesando requests legítimas por encima del
+                                                                    // popup.
+                                                                    if (Crupier.SECURITY_LOCKDOWN) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK refused — security lockdown active");
+                                                                        return;
+                                                                    }
                                                                     // Wire: GAME#<id>#REQ_SRA_UNLOCK#<phase>#<peer_idx>#<hand_id>#<cards_b64>
                                                                     if (partes_unlock.length < 7) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK with malformed wire (parts={0}) — refusing", partes_unlock.length);
@@ -1848,8 +1868,61 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
 
-                                                                    // GATE 2: state machine + tag + anti-reuse + peer_idx-not-self (para POCKET).
-                                                                    if (crupier == null || !crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
+                                                                    // GATE 2 (anti early-cascade): el cliente sólo
+                                                                    // sirve la clave de FLOP/TURN/RIVER cuando su
+                                                                    // propio rondaApuestas ha cerrado la calle previa
+                                                                    // — es la única señal local de "ya jugamos la
+                                                                    // calle anterior". Sin esto, un host con código
+                                                                    // modificado puede correr la cascade comunitaria
+                                                                    // antes del pre-flop betting, conocer flop+turn+
+                                                                    // river, y jugar el pre-flop con el board en la
+                                                                    // mano. Espera bloqueante (no rechaza) hasta el
+                                                                    // estado seguro. Distinguimos tres salidas:
+                                                                    //  - READY: el estado local ya cubre la phase, seguir.
+                                                                    //  - STALE_HAND: el comando es de una mano que
+                                                                    //    ya pasó (o el cliente fue cancelado): drop
+                                                                    //    silencioso, NO lockdown — es residuo no ataque.
+                                                                    //  - TIMEOUT: vencieron UNLOCK_WAIT_TIMEOUT_MS
+                                                                    //    sin avanzar la calle: el host pide la phase
+                                                                    //    fuera de orden de su propio juego, ataque.
+                                                                    //  - LOCKDOWN: ya está activo, ni siquiera logueamos.
+                                                                    // POCKET tiene predicado true desde el primer
+                                                                    // momento; nunca bloquea salvo lockdown/stale.
+                                                                    if (crupier == null) {
+                                                                        return;
+                                                                    }
+                                                                    Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
+                                                                    if (waitResult != Crupier.UnlockWaitResult.READY) {
+                                                                        switch (waitResult) {
+                                                                            case STALE_HAND:
+                                                                                LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK for hand {0} dropped (Crupier already in hand {1} or transmission ended) — residual command, not an attack", new Object[]{hand_id, crupier.getMano()});
+                                                                                break;
+                                                                            case TIMEOUT:
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK phase {0} timed out waiting for local Crupier to reach the matching street — host is requesting community-card cascade out of order, refusing", phase);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                                break;
+                                                                            case LOCKDOWN:
+                                                                                // Ya logueado por el path que disparó el lockdown.
+                                                                                break;
+                                                                            default:
+                                                                                break;
+                                                                        }
+                                                                        return;
+                                                                    }
+
+                                                                    // Micro-race defensiva: entre el wait READY y este
+                                                                    // punto, NUEVA_MANO puede haber avanzado conta_mano
+                                                                    // (mano nueva). Eso NO es ataque, es ventana de
+                                                                    // pocos ns; si lo dejásemos caer al state machine,
+                                                                    // dispararía lockdown por hand_id mismatch. Silent
+                                                                    // drop.
+                                                                    if (hand_id != crupier.getMano()) {
+                                                                        LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK: hand advanced between wait and state-machine check (current={0}, request={1}) — dropping silently", new Object[]{crupier.getMano(), hand_id});
+                                                                        return;
+                                                                    }
+
+                                                                    // GATE 3: state machine + tag + anti-reuse + peer_idx-not-self (para POCKET).
+                                                                    if (!crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK rejected by state machine (phase={0}, peer_idx={1}, hand_id={2}, length={3}, flop_revealed={4}, turn_revealed={5}, river_revealed={6}, show_time={7}, tags_served={8}) — host asked for the wrong street/slot or replayed a tag",
                                                                                 new Object[]{phase, peer_idx, hand_id, cards.length,
                                                                                     crupier != null && crupier.isFlop_revealed(),

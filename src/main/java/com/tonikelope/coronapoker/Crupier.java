@@ -8557,12 +8557,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             Helpers.GUIRun(() -> {
-                                if (GameFrame.getInstance().isPartida_local()) {
-                                    GameFrame.getInstance().getMenu_rabbit_off().setEnabled(true);
-                                    GameFrame.getInstance().getMenu_rabbit_free().setEnabled(true);
-                                    GameFrame.getInstance().getMenu_rabbit_sb().setEnabled(true);
-                                    GameFrame.getInstance().getMenu_rabbit_bb().setEnabled(true);
-                                    GameFrame.getInstance().getIwtsth_rule_menu().setEnabled(true);
+                                // El lambda se programa al EDT y puede ejecutarse
+                                // después de que finTransmision/abortToRecover hayan
+                                // disposed GameFrame (caso MISDEAL → abort). Sin
+                                // null-check, el NPE rompe el EDT y deja la JVM
+                                // medio-muerta para la siguiente partida.
+                                GameFrame gf = GameFrame.getInstance();
+                                if (gf != null && gf.isPartida_local()) {
+                                    gf.getMenu_rabbit_off().setEnabled(true);
+                                    gf.getMenu_rabbit_free().setEnabled(true);
+                                    gf.getMenu_rabbit_sb().setEnabled(true);
+                                    gf.getMenu_rabbit_bb().setEnabled(true);
+                                    gf.getIwtsth_rule_menu().setEnabled(true);
                                     Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);

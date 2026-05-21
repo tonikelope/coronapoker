@@ -225,20 +225,13 @@ public class Participant implements Runnable {
                 if (pong_timeout_counter >= PING_TIMEOUT_KICK_THRESHOLD && !exit && !isCpu()
                         && WaitingRoomFrame.getInstance() != null
                         && WaitingRoomFrame.getInstance().isPartida_empezada()) {
-                    LOGGER.log(Level.WARNING, "[PEER] Participant {0} missed {1} consecutive pongs — marking exit=true (peer kicked)", new Object[]{nick, pong_timeout_counter});
-                    exit = true;
                     try {
                         if (this.socket != null) {
                             this.socket.close();
                         }
                     } catch (Exception ignored) {
                     }
-                    synchronized (getParticipant_socket_lock()) {
-                        getParticipant_socket_lock().notifyAll();
-                    }
-                    synchronized (ping_pong_lock) {
-                        ping_pong_lock.notifyAll();
-                    }
+                    markExitAndNotify("missed " + pong_timeout_counter + " consecutive pongs");
                     break;
                 }
 
@@ -350,8 +343,7 @@ public class Participant implements Runnable {
                             }
                         }
                     } else {
-                        LOGGER.log(Level.WARNING, "[PEER] Participant {0} TIMEOUT expired without reconnect — marking exit=true", nick);
-                        exit = true;
+                        markExitAndNotify("TIMEOUT expired without reconnect");
                     }
                 }
             } // END WHILE
@@ -516,28 +508,60 @@ public class Participant implements Runnable {
                 return false;
             }
         } catch (IOException ex) {
-            // Socket cerrado / peer caido detectado en el write. Sin esto el
-            // server seguia intentando escribir indefinidamente sin enterarse
-            // de la caida: PINGs no llegan, DECISION_REQUEST/REQ_SRA_UNLOCK
-            // no llegan, y los waits del Crupier quedaban colgados hasta
-            // que el ping/pong threshold lo expulsara (15s) o nunca si el
-            // socket no detectaba EOF.
-            // Marcar exit + notify desbloquea inmediatamente los waiters:
-            // ronda de apuestas (autofold del peer caido), requestRemoteUnlock
-            // (sale con null -> MISDEAL peer.* -> abortAndRecover -> sala de
-            // espera), y el propio reader thread sale del while.
+            // Socket cerrado / peer caido detectado en el write. markExitAndNotify
+            // marca Participant.exit Y Player.exit Y despierta los waits del
+            // Crupier sobre received_commands. Sin propagar a Player.exit, el
+            // do-while que espera DECISION (Crupier.java ~5476) queda colgado
+            // porque chequea jugador.isExit() = Player, no Participant.
             if (!exit && !resetting_socket && !force_reset_socket) {
-                LOGGER.log(Level.WARNING, "[PEER] Participant {0} write failed (socket closed) — marking exit=true", nick);
-                exit = true;
-                synchronized (getParticipant_socket_lock()) {
-                    getParticipant_socket_lock().notifyAll();
-                }
-                synchronized (ping_pong_lock) {
-                    ping_pong_lock.notifyAll();
-                }
+                markExitAndNotify("write failed (socket closed)");
             }
         }
         return true;
+    }
+
+    /**
+     * Marca este Participant como exit=true Y propaga al Player asociado
+     * (RemotePlayer.setExit), notifica todos los waits posibles, y despierta
+     * la queue de comandos del Crupier para que cualquier wait que espere
+     * DECISION/ACTION/RESP_SRA_UNLOCK del peer caido salga inmediatamente.
+     *
+     * Sin esto, marcar solo Participant.exit dejaba el bucle del Crupier
+     * (que checa Player.isExit, no Participant.isExit) colgado indefinido,
+     * y el wait sobre received_commands sin notificar.
+     */
+    public void markExitAndNotify(String reason) {
+        if (exit) {
+            return;
+        }
+        exit = true;
+        LOGGER.log(Level.WARNING, "[PEER] Participant {0} marked exit — {1}", new Object[]{nick, reason});
+        try {
+            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                Crupier c = GameFrame.getInstance().getCrupier();
+                Player p = c.getNick2player() != null ? c.getNick2player().get(nick) : null;
+                if (p != null && !p.isExit()) {
+                    p.setExit();
+                }
+                synchronized (c.getReceived_commands()) {
+                    c.getReceived_commands().notifyAll();
+                }
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "markExitAndNotify failed to propagate to Player/Crupier", ex);
+        }
+        try {
+            synchronized (getParticipant_socket_lock()) {
+                getParticipant_socket_lock().notifyAll();
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            synchronized (ping_pong_lock) {
+                ping_pong_lock.notifyAll();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     public String readCommandFromClient() {

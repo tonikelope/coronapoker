@@ -2019,15 +2019,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void finTransmision(boolean partida_terminada) {
 
         // Snapshot del auditor bajo lock_contabilidad ANTES de entrar al
-        // SQL_LOCK. Mantiene el orden global lock_contabilidad → SQL_LOCK
-        // (mismo orden que Crupier.run al cerrar una mano: dentro de
-        // synchronized(lock_contabilidad) llama a sqlUpdateHandEnd que a su
-        // vez toma synchronized(SQL_LOCK)). Sin este snapshot, el bloque
-        // synchronized(crupier.getLock_contabilidad()) anidado dentro del
-        // SQL_LOCK creaba el orden inverso SQL→CONTAB y deadlock AB-BA con
-        // Crupier.run cuando MISDEAL se disparaba mientras el Crupier estaba
-        // cerrando una mano (caso rarísimo en juego honesto, sistemático
-        // bajo el testbench hostil).
+        // SQL_LOCK para preservar el orden global lock_contabilidad → SQL_LOCK
+        // (mismo orden que Crupier.run al cerrar una mano vía sqlUpdateHandEnd).
+        // Sin el snapshot, anidar synchronized(lock_contabilidad) dentro del
+        // SQL_LOCK invierte el orden y produce deadlock AB-BA con Crupier.run.
         HashMap<String, Float[]> auditor_snapshot = null;
         if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {

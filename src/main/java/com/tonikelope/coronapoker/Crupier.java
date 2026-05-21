@@ -3066,7 +3066,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recuperarAccionesLocales();
             }
 
-            if (this.tot_acciones_recuperadas > 0) {
+            // sincronizando_mano debe activarse solo si TENGO acciones MIAS
+            // (o de bots locales) que replicar visualmente via
+            // siguienteAccionLocalRecuperada — esa es la unica ruta que
+            // cierra el dragon dialog cuando la queue se vacia. Antes el
+            // check era sobre tot_acciones_recuperadas (TODAS las acciones
+            // de TODOS los peers de la mano): si la mano tenia acciones de
+            // otros pero ninguna mia (caso clasico: me desconecte antes de
+            // actuar), sincronizando_mano quedaba latched y el dragon
+            // nunca se cerraba. Quien NO tiene acciones que replicar es un
+            // observador del replay y no necesita el dialog.
+            if (!this.acciones_locales_recuperadas.isEmpty()) {
                 this.sincronizando_mano = true;
             } else {
                 GameFrame.getInstance().getRegistro().print(Translator.translate("game.timba_recuperada"));

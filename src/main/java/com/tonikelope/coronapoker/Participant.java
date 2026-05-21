@@ -516,6 +516,26 @@ public class Participant implements Runnable {
                 return false;
             }
         } catch (IOException ex) {
+            // Socket cerrado / peer caido detectado en el write. Sin esto el
+            // server seguia intentando escribir indefinidamente sin enterarse
+            // de la caida: PINGs no llegan, DECISION_REQUEST/REQ_SRA_UNLOCK
+            // no llegan, y los waits del Crupier quedaban colgados hasta
+            // que el ping/pong threshold lo expulsara (15s) o nunca si el
+            // socket no detectaba EOF.
+            // Marcar exit + notify desbloquea inmediatamente los waiters:
+            // ronda de apuestas (autofold del peer caido), requestRemoteUnlock
+            // (sale con null -> MISDEAL peer.* -> abortAndRecover -> sala de
+            // espera), y el propio reader thread sale del while.
+            if (!exit && !resetting_socket && !force_reset_socket) {
+                LOGGER.log(Level.WARNING, "[PEER] Participant {0} write failed (socket closed) — marking exit=true", nick);
+                exit = true;
+                synchronized (getParticipant_socket_lock()) {
+                    getParticipant_socket_lock().notifyAll();
+                }
+                synchronized (ping_pong_lock) {
+                    ping_pong_lock.notifyAll();
+                }
+            }
         }
         return true;
     }

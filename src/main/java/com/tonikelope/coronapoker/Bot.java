@@ -548,13 +548,9 @@ public class Bot {
         if (randInt(100) < 30) {
             targetBet *= (1.0f + (randFloat() * 0.30f - 0.15f));
         }
-        // Redondear al chip mínimo del juego = ciega pequeña ACTUAL del
-        // dealer, no GameFrame.CIEGA_PEQUEÑA (que es la SB INICIAL global
-        // y no cambia con doblarCiegas ni con recovery). Con esa estática,
-        // tras subir las ciegas o tras recovery el bot apostaba en steps
-        // de la SB vieja (e.g. 0.1) cuando los blinds ya valían 0.4/0.8 —
-        // resultando en montos no múltiplos de la SB actual ("fractions
-        // of 1/2 BB" según el reporte del tester en el issue #9).
+        // Redondear al chip mínimo = SB ACTUAL del dealer, no
+        // GameFrame.CIEGA_PEQUEÑA (que es la SB inicial global y no
+        // refleja doblarCiegas ni recovery).
         float sb = dealer.getCiega_pequeña();
         if (sb <= 0f) {
             sb = GameFrame.CIEGA_PEQUEÑA;

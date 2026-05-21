@@ -2659,15 +2659,11 @@ public class WaitingRoomFrame extends JFrame {
                                 // del Participant). Caso ESPERADO tras una
                                 // interrupción larga — el Reconnect2ServerDialog
                                 // del cliente intenta automáticamente cada pocos
-                                // segundos y cada intento aterriza aquí. NO
-                                // disparamos popup al host: el cliente acabará
+                                // segundos. NO disparamos popup al host: cada
+                                // intento generaría un popup nuevo y se acumulan
+                                // hasta inutilizar el server. El cliente acabará
                                 // viendo "imposible reconectar" en su propio
-                                // dialog y eligiendo VOLVER A SALA DE INICIO o
-                                // SALIR. Mostrar un popup por cada intento
-                                // (testers vieron 753 popups en pocos minutos
-                                // → server inutilizable, había que matar el
-                                // proceso). El log queda como rastro auditable
-                                // pero sin GUI noise.
+                                // dialog. El log queda como rastro auditable.
                                 LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT (BAD HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
                                 try {
                                     if (!client_socket.isClosed()) {

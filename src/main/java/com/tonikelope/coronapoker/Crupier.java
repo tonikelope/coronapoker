@@ -259,20 +259,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
             // Si somos cliente, cerramos el socket con el host inmediatamente.
-            // Una vez en lockdown el cliente refuse cualquier REQ_SRA_UNLOCK
-            // siguiente; el host se quedaría colgado indefinidamente esperando
-            // la respuesta (la cascade SRA NO tiene timeout artificial — fue
-            // decisión explícita del 20.43 para no kickar clientes lentos). Sin
-            // este cierre, lockdown del cliente = cuelgue total del host hasta
-            // que el usuario lo mate manualmente.
-            //
-            // Al cerrar el socket aquí, el host detecta peer caído por
-            // SocketException en su Participant thread → marca exit=true →
-            // requestRemoteUnlock sale del wait con null → cascade falla
-            // limpio → MISDEAL → abortToRecover → SERVEREXITRECOVER al resto
-            // del ring → todos vuelven al lobby por el flujo normal.
-            //
-            // Sólo aplica si NO somos el host (isPartida_local()=false).
+            // En lockdown el cliente refusa cualquier REQ_SRA_UNLOCK siguiente
+            // y la cascade SRA no tiene timeout artificial, así que sin cierre
+            // el host queda esperando respuesta indefinidamente. Cerrar el
+            // socket fuerza al host a detectar peer caído por SocketException
+            // → exit=true → cascade falla limpio → MISDEAL → abortToRecover →
+            // SERVEREXITRECOVER al resto del ring.
             if (!GameFrame.getInstance().isPartida_local()) {
                 WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
                 if (wrf != null) {
@@ -3209,8 +3201,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // POSITIONS. El caller (Crupier.run) ya tiene checks posteriores
         // que abortan limpiamente al ver isFin_de_la_transmision. Sin este
         // guard el cliente queda colgado para siempre esperando un
-        // comando que nunca va a llegar — síntoma "stuck indefinitely"
-        // reportado en issue #9.
+        // comando que nunca va a llegar.
         boolean ok;
 
         long start_time = System.currentTimeMillis();

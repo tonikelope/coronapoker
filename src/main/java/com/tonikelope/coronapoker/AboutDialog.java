@@ -73,16 +73,9 @@ public class AboutDialog extends JDialog {
 
     public static final String VERSION = "20.54";
     // Oldest version this build will still accept as a client (handshake-level check).
-    // Bump this when a release breaks wire compatibility (protocol/crypto changes)
-    // or cuando un fix de seguridad EXIGE que todos los participantes estén
-    // actualizados (clientes viejos seguirían siendo vulnerables a un host
-    // hostil incluso si el resto del juego es compatible).
-    // 20.51: REQ_SRA_UNLOCK wire format cambia a phase+peer_idx+hand_id+cards
-    //        (zero-trust state machine + anti-reuse + anti-self-pocket).
-    // 20.53: cierre del early-cascade attack (gate temporal por street local) +
-    //        SECURITY_LOCKDOWN gate duro. Wire compatible con 20.52 pero un
-    //        cliente 20.52 sigue siendo vulnerable, así que forzamos upgrade.
-    public static final String MIN_COMPATIBLE_VERSION = "20.53";
+    // Bump junto a VERSION cuando se libere un fix con impacto en compatibilidad
+    // wire o en garantías de seguridad zero-trust del ring.
+    public static final String MIN_COMPATIBLE_VERSION = "20.54";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
 
     /**

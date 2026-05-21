@@ -832,6 +832,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public String getTestamentoCriptografico(String nick) {
+        // ZERO-TRUST: si el cliente entró en lockdown nunca compartimos
+        // nuestra propia sra_unlock con el servidor — eso permitiría al
+        // host descifrar nuestras pocket cards de la mano congelada. El
+        // testamento de OTROS peers sí se devuelve normal (uso local del
+        // host honesto para destapar a un peer que se marchó).
+        if (Crupier.SECURITY_LOCKDOWN && nick.equals(GameFrame.getInstance().getNick_local())) {
+            return "*";
+        }
         try {
             byte[] testament = null;
             if (nick.equals(GameFrame.getInstance().getNick_local())) {
@@ -2057,8 +2065,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (GameFrame.getInstance().isPartida_local()) {
                     broadcastGAMECommandFromServer(comando, nick);
                 } else if (isLocal) {
-                    // CRÍTICO: el host necesita la clave SRA para descifrar y mostrar las cartas. Esperamos ACK.
-                    sendGAMECommandToServer(comando, true);
+                    // ZERO-TRUST: SHOWCARDS lleva nuestra sra_unlock; si el
+                    // cliente ya entró en lockdown por una incidencia previa,
+                    // la promesa "no se envía ninguna clave criptográfica más
+                    // al servidor en esta sesión" debe cubrir también la
+                    // muestra voluntaria. Suprimimos el envío.
+                    if (Crupier.SECURITY_LOCKDOWN) {
+                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: SHOWCARDS suppressed — security lockdown active");
+                    } else {
+                        // CRÍTICO: el host necesita la clave SRA para descifrar y mostrar las cartas. Esperamos ACK.
+                        sendGAMECommandToServer(comando, true);
+                    }
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Error sending SHOWCARDS for " + nick, ex);

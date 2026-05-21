@@ -71,40 +71,8 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "20.55";
-    // Oldest version this build will still accept as a client (handshake-level check).
-    // Bump junto a VERSION cuando se libere un fix con impacto en compatibilidad
-    // wire o en garantías de seguridad zero-trust del ring.
-    public static final String MIN_COMPATIBLE_VERSION = "20.55";
+    public static final String VERSION = "20.56";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
-
-    /**
-     * Compares two CoronaPoker version strings like "20.32" or "20.32.1". Returns a
-     * negative number if {@code a} is older than {@code b}, positive if newer, zero
-     * if equal. Non-numeric segments are treated as -1 (so they sort BEFORE valid
-     * versions, forcing the server to reject them).
-     */
-    public static int compareVersions(String a, String b) {
-        String[] partsA = a == null ? new String[0] : a.split("\\.");
-        String[] partsB = b == null ? new String[0] : b.split("\\.");
-        int len = Math.max(partsA.length, partsB.length);
-        for (int i = 0; i < len; i++) {
-            int va = i < partsA.length ? parseSegment(partsA[i]) : 0;
-            int vb = i < partsB.length ? parseSegment(partsB[i]) : 0;
-            if (va != vb) {
-                return Integer.compare(va, vb);
-            }
-        }
-        return 0;
-    }
-
-    private static int parseSegment(String s) {
-        try {
-            return Integer.parseInt(s.trim());
-        } catch (Exception ex) {
-            return -1;
-        }
-    }
 
     public static final String TITLE = "about.titulo";
     public static final int MAX_MOD_LOGO_HEIGHT = 75;

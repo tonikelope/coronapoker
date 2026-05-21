@@ -1814,6 +1814,15 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
                                                                     byte[] shuffled = CryptoSRA.shuffleDeck(locked, mySeed);
 
+                                                                    // Last-mile re-check: si OTRO handler levantó lockdown
+                                                                    // mientras este corría (cripto + shuffle no son
+                                                                    // gratis), no enviamos la respuesta. Lockdown ⇒
+                                                                    // ninguna clave ni cascade sale del cliente.
+                                                                    if (Crupier.SECURITY_LOCKDOWN) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ passed all gates but lockdown was raised concurrently — suppressing DECK_CASCADE_RESP");
+                                                                        return;
+                                                                    }
+
                                                                     String b64Deck = Base64.getEncoder().encodeToString(shuffled);
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
@@ -1936,14 +1945,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                         return;
                                                                     }
 
-                                                                    // GATE 3: validar que cada chunk de 32 bytes es un punto en Curve25519.
+                                                                    // GATE 4: validar que cada chunk de 32 bytes es un punto en Curve25519.
                                                                     if (!CryptoSRA.arePointsOnCurve(cards)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK payload contains non-curve points — refusing");
                                                                         crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
 
-                                                                    // GATE 4: reservar atómicamente la tag (check-and-set). Si dos REQs
+                                                                    // GATE 5: reservar atómicamente la tag (check-and-set). Si dos REQs
                                                                     // concurrentes con el mismo tag pasan el state-machine, sólo el
                                                                     // primero que llegue aquí gana — el segundo ve add()==false y se
                                                                     // niega. Reservamos ANTES de la cripto-check para que un fallo
@@ -1957,7 +1966,7 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, this.participantes.get(local_nick).getSra_unlock());
 
-                                                                    // GATE 5 (anti-genesis-smuggling cripto-check): cuento cuántos
+                                                                    // GATE 6 (anti-genesis-smuggling cripto-check): cuento cuántos
                                                                     // chunks de 32 bytes resuelven al genesis deck tras aplicar mi
                                                                     // unlock. Tres casos:
                                                                     //
@@ -1998,6 +2007,19 @@ public class WaitingRoomFrame extends JFrame {
                                                                             }
                                                                             crupier.recordExpectedCommunityCards(phase, resolved);
                                                                         }
+                                                                    }
+
+                                                                    // GATE 7 (last-mile lockdown re-check): la cripto y los
+                                                                    // checks tardan ms. Si OTRO REQ_SRA_UNLOCK paralelo en
+                                                                    // este mismo socket detectó trampa y disparó lockdown
+                                                                    // mientras este handler corría, no debemos enviar la
+                                                                    // respuesta — la promesa "lockdown ⇒ no servimos más
+                                                                    // claves" debe cubrir incluso las requests que pasaron
+                                                                    // todas las gates pero fueron alcanzadas por el flag
+                                                                    // entre el último check y el writeCommandToServer.
+                                                                    if (Crupier.SECURITY_LOCKDOWN) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK passed all gates but lockdown was raised concurrently — suppressing RESP_SRA_UNLOCK");
+                                                                        return;
                                                                     }
 
                                                                     String uB64 = Base64.getEncoder().encodeToString(unlocked);

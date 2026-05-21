@@ -3049,6 +3049,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirPosiciones() {
 
+        // Guard de salida: si la transmisión termina (host caído, cliente
+        // saliendo por SERVEREXITRECOVER, etc.) salimos sin haber recibido
+        // POSITIONS. El caller (Crupier.run) ya tiene checks posteriores
+        // que abortan limpiamente al ver isFin_de_la_transmision. Sin este
+        // guard el cliente queda colgado para siempre esperando un
+        // comando que nunca va a llegar — síntoma "stuck indefinitely"
+        // reportado en issue #9.
         boolean ok;
 
         long start_time = System.currentTimeMillis();
@@ -3130,7 +3137,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isFin_de_la_transmision());
 
     }
 
@@ -4778,6 +4785,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {
 
+        // Guard de salida (ver nota en recibirPosiciones). Retorno null
+        // si la transmisión muere antes de recibir RECOVERDATA.
         HashMap<String, Object> map = null;
 
         boolean ok;
@@ -4863,13 +4872,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isFin_de_la_transmision());
 
         return map;
     }
 
     private String recibirAccionesRecuperadas() {
 
+        // Guard de salida (ver nota en recibirPosiciones). Sin él, si la
+        // transmisión muere durante el wait el cliente queda colgado para
+        // siempre esperando ACTIONDATA. El retorno null en ese caso es
+        // OK: el caller ya está en flujo de terminación.
         String actions = null;
 
         boolean ok;
@@ -4938,7 +4951,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-        } while (!ok);
+        } while (!ok && !isFin_de_la_transmision());
 
         return actions;
     }
@@ -7263,7 +7276,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-            } while (!ok);
+            // Guard de salida (ver nota en recibirPosiciones). Si la
+            // transmisión muere el cliente abandona el wait de SEATS
+            // y permutados queda null — el caller debe ser robusto a eso
+            // o el flujo terminar por isFin_de_la_transmision al mirar
+            // el retorno.
+            } while (!ok && !isFin_de_la_transmision());
 
         }
 

@@ -159,20 +159,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private static volatile GameFrame THIS = null;
 
-    // Shutdown hook que envia EXIT#testamento por el socket cliente cuando la
-    // JVM termina por SIGINT (Ctrl+C), SIGTERM, cierre de consola (Windows
-    // CTRL_CLOSE_EVENT, ~5s antes de TerminateProcess) o cualquier salida
-    // brusca distinta a cerrar la ventana del juego. Sin esto, una caida
-    // abrupta del cliente en mitad de una cascade SRA provocaba MISDEAL en
-    // la mesa porque no llegaba la sra_unlock del peer. Con el hook el host
-    // recibe el testamento, lo aplica como si el peer hubiera salido
-    // ordenadamente y la mano termina sin MISDEAL.
+    // Shutdown hook que se activa cuando la JVM termina por SIGINT (Ctrl+C),
+    // SIGTERM, cierre de consola (Windows CTRL_CLOSE_EVENT, ~5s antes de
+    // TerminateProcess) o cualquier salida brusca distinta a cerrar la
+    // ventana del juego.
+    //
+    // - Cliente: envia "EXIT#<testamento>" al host. Sin esto, una caida abrupta
+    //   del cliente en mitad de cascade SRA disparaba MISDEAL en la mesa
+    //   (sra_unlock no llegaba). Con el hook el host aplica el testamento y
+    //   la mano termina sin MISDEAL.
+    // - Host: broadcast SERVEREXITRECOVER (con password si la sala la tenia)
+    //   a todos los clientes. Sin esto, los clientes veian al host caido y
+    //   entraban a reconectarCliente() reintentando un servidor inexistente
+    //   hasta que el dialog modal aparecia a los 80s. Con el hook saltan
+    //   directos al lobby con el recover dialog auto-rellenado.
     private static volatile Thread SHUTDOWN_HOOK_THREAD = null;
 
     /**
      * Registra el shutdown hook si no esta ya registrado. El hook es
-     * idempotente y se auto-comprueba: si la partida ya termino o no es
-     * un cliente, no hace nada. Se llama desde el constructor de GameFrame.
+     * idempotente, se auto-comprueba (si la partida ya termino no hace nada)
+     * y discrimina internamente entre host y cliente.
      */
     private static void registerShutdownHook() {
         if (SHUTDOWN_HOOK_THREAD != null) {
@@ -189,12 +195,30 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (c == null || c.isFin_de_la_transmision()) {
                     return; // Partida ya cerrada limpiamente.
                 }
-                if (gf.isPartida_local()) {
-                    return; // Host: no aplica este path.
-                }
                 if (!wrf.isPartida_empezada()) {
                     return; // No hay nada que enviar (estamos en lobby/sala-espera).
                 }
+
+                if (gf.isPartida_local()) {
+                    // --- HOST: broadcast SERVEREXITRECOVER a todos los clientes ---
+                    // Confirmation=false: fire-and-forget. No podemos esperar CONF
+                    // durante shutdown (Windows mata a los 5s). broadcastGAMECommandFromServer
+                    // con false ejecuta el do-while una sola vez: encripta y escribe
+                    // a cada Participant. writeCommandFromServer hace flush.
+                    try {
+                        String passSuffix = "";
+                        String pass = wrf.getPassword();
+                        if (pass != null) {
+                            passSuffix = "#" + java.util.Base64.getEncoder()
+                                    .encodeToString(pass.getBytes("UTF-8"));
+                        }
+                        c.broadcastGAMECommandFromServer("SERVEREXITRECOVER" + passSuffix, null, false);
+                    } catch (Throwable ignored) {
+                    }
+                    return;
+                }
+
+                // --- CLIENTE: envia EXIT#testamento al host ---
                 NetClient nc = wrf.getNet_client();
                 if (nc == null || nc.isReconnecting()) {
                     return; // Si ya estabamos reconectando, el server YA sabe que estamos caidos.
@@ -229,9 +253,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             } catch (Throwable ignored) {
                 // Hook silencioso: si algo falla durante el shutdown, volvemos
-                // al comportamiento sin hook (server detecta caida por null
-                // read del socket en <=5s y la mano puede acabar en MISDEAL
-                // si estabamos en cascade SRA). No es regresion, es fallback.
+                // al comportamiento sin hook (clientes detectan caida del host
+                // por null read y entran a reconectarCliente hasta el dialog
+                // modal a los 80s; cliente caido sin testamento -> posible
+                // MISDEAL si estabamos en cascade SRA). No es regresion.
             }
         }, "CoronaPoker-Exit-Hook");
         hook.setDaemon(false);
@@ -1851,10 +1876,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         // Registrar shutdown hook lo antes posible para cubrir tambien
         // caidas tempranas (Ctrl+C / cerrar consola durante el AJUGAR).
-        // El hook es no-op para host (partida_local) y se auto-comprueba.
-        if (!partidalocal) {
-            registerShutdownHook();
-        }
+        // El hook discrimina internamente entre host y cliente:
+        //   - Host: broadcast SERVEREXITRECOVER (con password) a los peers.
+        //   - Cliente: envia EXIT#testamento al host.
+        registerShutdownHook();
 
         sala_espera = salaespera; //Esto aquí arriba para que no pete getParticipantes()
 

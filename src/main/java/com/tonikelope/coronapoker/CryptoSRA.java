@@ -440,6 +440,48 @@ public class CryptoSRA {
         return rhs.modPow(EXP_EULER, P).equals(BigInteger.ONE);
     }
 
+    /**
+     * Validates that a single 32-byte little-endian X-coordinate represents a
+     * point on Curve25519. Rejects the identity, small-subgroup torsion points
+     * and any non-residue-quadratic x. Used as a defense-in-depth gate before
+     * applying a commutative lock to data received from an untrusted peer.
+     * @param point 32-byte little-endian X coordinate
+     * @return true if the point is on the curve
+     */
+    public static boolean isPointOnCurve(byte[] point) {
+        if (point == null || point.length != 32) {
+            return false;
+        }
+        // X25519 ignores the high bit on decode; mirror that here so equal
+        // points serialise to equal scalar inputs.
+        byte[] masked = new byte[32];
+        System.arraycopy(point, 0, masked, 0, 32);
+        masked[31] &= 0x7f;
+        BigInteger x = decodeLittleEndian(masked).mod(P);
+        return isOnCurve(x);
+    }
+
+    /**
+     * Validates that a flat array of 32-byte points is well-formed and that
+     * every point is on Curve25519.
+     * @param data flat array whose length must be a multiple of 32
+     * @return true if every chunk is a valid curve point
+     */
+    public static boolean arePointsOnCurve(byte[] data) {
+        if (data == null || data.length == 0 || data.length % 32 != 0) {
+            return false;
+        }
+        int n = data.length / 32;
+        byte[] chunk = new byte[32];
+        for (int i = 0; i < n; i++) {
+            System.arraycopy(data, i * 32, chunk, 0, 32);
+            if (!isPointOnCurve(chunk)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static BigInteger decodeLittleEndian(byte[] b) {
         byte[] reversed = new byte[b.length + 1];
         for (int i = 0; i < b.length; i++) {

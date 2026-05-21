@@ -45,6 +45,16 @@ public class Participant implements Runnable {
     // a completar resetSocket aunque el handshake tarde en redes lentas.
     public static final int RECIBIDO_TIMEOUT = 40000;
 
+    // Tope absoluto del grace acumulado por refreshes via signalReconnectIntent.
+    // Sin esto, un peer interno autenticado podria mantener la mesa congelada
+    // indefinidamente reabriendo conexiones validas cada ~CLIENT_RECON_TIMEOUT
+    // segundos (cada intent eleva grace_deadline_floor a now+80s, sin techo).
+    // Con el cap, el grace total medido desde la primera entrada al estado
+    // TIMEOUT del reader no excede MAX_GRACE_TOTAL_MS = 5 * CLIENT_RECON_TIMEOUT
+    // = ~7 min, tras los cuales el wait expira y markExitAndNotify procede
+    // aunque sigan llegando intents legitimos.
+    public static final long MAX_GRACE_TOTAL_MS = 5L * GameFrame.CLIENT_RECON_TIMEOUT;
+
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
@@ -344,17 +354,35 @@ public class Participant implements Runnable {
                         // peer con red lenta que tarda mas que el grace base en
                         // completar el handshake no es expulsado mientras siga
                         // demostrando criptograficamente su identidad.
+                        //
+                        // Tope absoluto MAX_GRACE_TOTAL_MS: los refreshes sucesivos
+                        // se acotan a now+MAX_GRACE_TOTAL_MS desde la primera entrada
+                        // a este estado, evitando que un peer (legitimo o malicioso)
+                        // mantenga la mesa congelada indefinidamente reabriendo
+                        // conexiones validas.
                         if (!reset_socket) {
-                            long deadline = System.currentTimeMillis() + graceMs;
+                            long graceStartedAt = System.currentTimeMillis();
+                            long maxDeadline = graceStartedAt + MAX_GRACE_TOTAL_MS;
+                            long deadline = Math.min(graceStartedAt + graceMs, maxDeadline);
+                            boolean cap_logged = false;
                             synchronized (getParticipant_socket_lock()) {
                                 while (!reset_socket && !exit
                                         && !WaitingRoomFrame.getInstance().isExit()
                                         && System.currentTimeMillis() < deadline) {
                                     if (grace_deadline_floor > deadline) {
-                                        LOGGER.log(Level.INFO,
-                                                "[PEER] Participant {0} grace extended by authenticated reconnect intent (+{1}ms)",
-                                                new Object[]{nick, grace_deadline_floor - deadline});
-                                        deadline = grace_deadline_floor;
+                                        long newDeadline = Math.min(grace_deadline_floor, maxDeadline);
+                                        if (newDeadline > deadline) {
+                                            LOGGER.log(Level.INFO,
+                                                    "[PEER] Participant {0} grace extended by authenticated reconnect intent (+{1}ms; absolute cap remaining {2}ms)",
+                                                    new Object[]{nick, newDeadline - deadline, maxDeadline - System.currentTimeMillis()});
+                                            deadline = newDeadline;
+                                        }
+                                        if (!cap_logged && grace_deadline_floor > maxDeadline) {
+                                            cap_logged = true;
+                                            LOGGER.log(Level.WARNING,
+                                                    "[PEER] Participant {0} reached absolute grace cap ({1}ms); ignoring further reconnect intents this cycle",
+                                                    new Object[]{nick, MAX_GRACE_TOTAL_MS});
+                                        }
                                     }
                                     long remaining = deadline - System.currentTimeMillis();
                                     if (remaining <= 0) {

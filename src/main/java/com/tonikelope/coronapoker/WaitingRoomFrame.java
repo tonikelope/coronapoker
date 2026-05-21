@@ -2688,7 +2688,7 @@ public class WaitingRoomFrame extends JFrame {
                             } catch (Exception ex) {
                             }
                         }
-                    } else if (AboutDialog.compareVersions(client_version, AboutDialog.MIN_COMPATIBLE_VERSION) < 0) {
+                    } else if (!AboutDialog.VERSION.equals(client_version)) {
                         writeCommandFromServer(
                                 Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key),
                                 client_socket);

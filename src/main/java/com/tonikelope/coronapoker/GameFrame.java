@@ -100,10 +100,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int WAIT_PAUSE = 1000;
     public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
     public static final int CONFIRMATION_TIMEOUT = 10000;
-    public static final int CLIENT_RECON_TIMEOUT = 2 * Crupier.TIEMPO_PENSAR * 1000; // Tiempo en milisegundos que esperaremos cliente que perdió la conexión antes (preguntar) si echarle de la timba
+    public static final int CLIENT_RECON_TIMEOUT = 2 * Crupier.TIEMPO_PENSAR * 1000; // 2 * TIEMPO_PENSAR: grace extendido cuando el peer ya esta intentando reconectar activamente, y umbral del Reconnect2ServerDialog en el cliente.
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
-    public static final int MAX_TIMEOUT_CONFIRMATION_ERROR = 10;
     public static final String BARAJA_DEFAULT = "coronapoker";
     public static final String DEFAULT_LANGUAGE = "es";
     public static final int PEPILLO_COUNTER_MAX = 5;

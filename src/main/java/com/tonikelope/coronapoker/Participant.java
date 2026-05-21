@@ -32,15 +32,17 @@ public class Participant implements Runnable {
     public static final int ASYNC_COMMAND_QUEUE_WAIT = 1000;
     // Periodo de gracia tras el primer null read del socket de un peer.
     // Si llega resetSocket() en este margen el reader continua sin marcar
-    // exit=true. Subido de 5s a 15s tras observar reconexiones reales que
-    // tardaban 26s (TCP retransmit timeout largo + segundo intento): con
-    // 5s el host marcaba exit=true y disparaba MISDEAL antes de que el
-    // cliente pudiera volver, generando falsos positivos. 15s absorbe la
-    // gran mayoria de hiccups de internet sin colgar la mesa mas alla de
-    // lo tolerable cuando un peer SI esta muerto de verdad (abortToRecover
-    // lleva a todo el mundo al lobby con recover dialog, asi que el coste
-    // de un eventual false positive a 15s tampoco es grave).
-    public static final int RECIBIDO_TIMEOUT = 15000;
+    // exit=true.
+    //
+    // Escala derivada de Crupier.TIEMPO_PENSAR=40s (ancla del juego):
+    //   RECIBIDO_TIMEOUT       = ~0.75 * TIEMPO_PENSAR (primer intento de reconexion)
+    //   CLIENT_RECON_TIMEOUT   = 2.00 * TIEMPO_PENSAR  (grace extendido / dialog)
+    //
+    // Reconexiones reales observadas tardaban hasta 26s (TCP retransmit largo +
+    // segundo intento). 15s no cubria ese caso y disparaba MISDEAL falso.
+    // 30s absorbe el caso documentado con margen y sigue por debajo del
+    // tiempo natural de pensar, asi que la mesa no se siente colgada.
+    public static final int RECIBIDO_TIMEOUT = 30000;
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
@@ -196,9 +198,30 @@ public class Participant implements Runnable {
 
                 if (latency == -1) {
                     pong_timeout_counter++;
+                } else {
+                    pong_timeout_counter = 0;
                 }
                 if (latency2 == -1) {
                     pong2_timeout_counter++;
+                } else {
+                    pong2_timeout_counter = 0;
+                }
+
+                // Red de seguridad para sockets "mudos" (peer killed sin RST, particion
+                // unidireccional, GC stall infinito). La via primaria sigue siendo la
+                // IOException en writeCommandFromServer (commit 27fe6906), pero si el peer
+                // SOLO recibe sin que nadie le escriba nada distinto al PING, ese write
+                // del PING SI dispara IOException... a menos que el SO mantenga el envio
+                // bufferizado sin ack y no genere error. En ese borde, este threshold
+                // (N=3 PONGs perdidos consecutivos) cierra el socket por nuestra cuenta
+                // y deja que runSocketReaderThread entre por la via de grace normal.
+                if (!exit && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
+                        || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
+                    LOGGER.log(Level.WARNING,
+                            "[PEER] Participant {0} lost {1}/{2} consecutive PONGs - closing socket",
+                            new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
+                    socketClose();
+                    break;
                 }
 
                 if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {

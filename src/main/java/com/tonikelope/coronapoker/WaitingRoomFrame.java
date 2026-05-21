@@ -2640,6 +2640,14 @@ public class WaitingRoomFrame extends JFrame {
                             if (MessageDigest.isEqual(orig_hmac, Base64.getDecoder().decode(partes[4]))) {
 
                                 LOGGER.log(Level.WARNING, "Client HMAC is authentic");
+
+                                // Refresh autenticado del grace ANTES de resetSocket:
+                                // si el reader del Participant esta en wait y el grace
+                                // base esta a punto de expirar, este intent cripto-valido
+                                // lo extiende a CLIENT_RECON_TIMEOUT. Cubre el caso de
+                                // red lenta donde handshake+payload llegan justo al borde.
+                                participantes.get(client_nick).signalReconnectIntent();
+
                                 LOGGER.log(Level.WARNING, "Resetting client socket...");
 
                                 if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {

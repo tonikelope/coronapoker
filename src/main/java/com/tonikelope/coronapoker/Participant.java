@@ -35,14 +35,15 @@ public class Participant implements Runnable {
     // exit=true.
     //
     // Escala derivada de Crupier.TIEMPO_PENSAR=40s (ancla del juego):
-    //   RECIBIDO_TIMEOUT       = ~0.75 * TIEMPO_PENSAR (primer intento de reconexion)
-    //   CLIENT_RECON_TIMEOUT   = 2.00 * TIEMPO_PENSAR  (grace extendido / dialog)
+    //   RECIBIDO_TIMEOUT      = 1.00 * TIEMPO_PENSAR  (40s - grace base sin intent)
+    //   CLIENT_RECON_TIMEOUT  = 2.00 * TIEMPO_PENSAR  (80s - grace tras intent autenticado / dialog)
     //
-    // Reconexiones reales observadas tardaban hasta 26s (TCP retransmit largo +
-    // segundo intento). 15s no cubria ese caso y disparaba MISDEAL falso.
-    // 30s absorbe el caso documentado con margen y sigue por debajo del
-    // tiempo natural de pensar, asi que la mesa no se siente colgada.
-    public static final int RECIBIDO_TIMEOUT = 30000;
+    // Ratio limpio 1:2. Si durante el grace base el cliente consigue abrir
+    // socket + handshake + HMAC contra hmac_key_orig (intent autenticado
+    // criptograficamente), signalReconnectIntent() refresca el deadline a
+    // CLIENT_RECON_TIMEOUT desde ese momento, dando al peer legitimo tiempo
+    // a completar resetSocket aunque el handshake tarde en redes lentas.
+    public static final int RECIBIDO_TIMEOUT = 40000;
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
@@ -75,6 +76,15 @@ public class Participant implements Runnable {
     private volatile int pong2_timeout_counter = 0;
     private volatile byte[] received_token = null;
     private volatile int new_hand_ready = 0;
+
+    // Suelo de deadline para el wait de grace en runSocketReaderThread.
+    // signalReconnectIntent() lo eleva a now()+CLIENT_RECON_TIMEOUT cuando
+    // un intento de reconexion entrante valida HMAC contra hmac_key_orig:
+    // el reader, al rearmarse el wait, usara max(deadline_actual, grace_deadline_floor)
+    // y asi el grace se prolonga el tiempo necesario para que el cliente
+    // legitimo complete el handshake aunque la red sea lenta. Solo crece,
+    // nunca decrece (monotonico).
+    private volatile long grace_deadline_floor = 0L;
 
     // --- SRA ZERO-TRUST VARIABLES ---
     private volatile byte[] sra_unlock = null; // Master key to remove player lock
@@ -323,11 +333,32 @@ public class Participant implements Runnable {
                             }
                         }
 
+                        // Wait con deadline rearmable: signalReconnectIntent() puede
+                        // elevar grace_deadline_floor durante este wait y el bucle
+                        // recogera la extension en la siguiente iteracion. Asi un
+                        // peer con red lenta que tarda mas que el grace base en
+                        // completar el handshake no es expulsado mientras siga
+                        // demostrando criptograficamente su identidad.
                         if (!reset_socket) {
+                            long deadline = System.currentTimeMillis() + graceMs;
                             synchronized (getParticipant_socket_lock()) {
-                                try {
-                                    getParticipant_socket_lock().wait(graceMs);
-                                } catch (Exception ex) {
+                                while (!reset_socket && !exit
+                                        && !WaitingRoomFrame.getInstance().isExit()
+                                        && System.currentTimeMillis() < deadline) {
+                                    if (grace_deadline_floor > deadline) {
+                                        LOGGER.log(Level.INFO,
+                                                "[PEER] Participant {0} grace extended by authenticated reconnect intent (+{1}ms)",
+                                                new Object[]{nick, grace_deadline_floor - deadline});
+                                        deadline = grace_deadline_floor;
+                                    }
+                                    long remaining = deadline - System.currentTimeMillis();
+                                    if (remaining <= 0) {
+                                        break;
+                                    }
+                                    try {
+                                        getParticipant_socket_lock().wait(remaining);
+                                    } catch (Exception ex) {
+                                    }
                                 }
                             }
                         }
@@ -579,6 +610,29 @@ public class Participant implements Runnable {
                 } catch (Exception ex) {
                 }
             }
+        }
+    }
+
+    /**
+     * Senaliza que ha llegado un intento de reconexion autenticado
+     * criptograficamente (HMAC del nick contra hmac_key_orig verificado).
+     * Eleva grace_deadline_floor a now()+CLIENT_RECON_TIMEOUT (monotonico)
+     * y despierta el wait del reader para que rearme su deadline al
+     * nuevo suelo.
+     *
+     * Solo debe llamarse desde serverSocketHandler una vez verificada
+     * la identidad: jamas con HMAC invalido, jamas por simple coincidencia
+     * de IP. Asi un peer caido pero con su clave de sesion original puede
+     * extender el grace todas las veces que necesite mientras reintenta
+     * el handshake, sin que un atacante externo pueda hacerlo.
+     */
+    public void signalReconnectIntent() {
+        long candidate = System.currentTimeMillis() + GameFrame.CLIENT_RECON_TIMEOUT;
+        synchronized (getParticipant_socket_lock()) {
+            if (candidate > grace_deadline_floor) {
+                grace_deadline_floor = candidate;
+            }
+            getParticipant_socket_lock().notifyAll();
         }
     }
 

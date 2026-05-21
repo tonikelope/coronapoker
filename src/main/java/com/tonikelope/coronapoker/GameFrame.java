@@ -309,6 +309,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.RABBIT_HUNTING = 0;
 
+        // Defensivo: sin resetear estos statics, una partida que acaba con
+        // force_recover=true deja contaminada la siguiente partida fresh
+        // (el INIT del host replica RECOVER=true al cliente arrancando un
+        // recovery sin nada que recuperar). Aqui se setean al estado inicial
+        // identico a una arranque limpio del JVM.
+        GameFrame.RECOVER = false;
+        GameFrame.RECOVER_ID = -1;
+        GameFrame.UGI = null;
+
         THIS.setVisible(false);
 
         THIS.dispose();

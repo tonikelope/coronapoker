@@ -249,6 +249,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
+            // Despierta a cualquier handler bloqueado en
+            // awaitStreetForUnlockPhase para que vea el lockdown y aborte
+            // sin esperar al timeout.
+            synchronized (protocol_state_lock) {
+                protocol_state_lock.notifyAll();
+            }
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + reason);
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
@@ -302,6 +308,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final Object lock_rebuynow = new Object();
     private final Object lock_pausa_barra = new Object();
     private final Object lock_fin_mano = new Object();
+    // Publica las transiciones de calle (street) y de showdown (show_time)
+    // hacia los hilos que deben esperar a esos estados antes de servir una
+    // REQ_SRA_UNLOCK. Toda escritura de street/show_time pasa por
+    // setStreetLocal/setShowTime y dispara notifyAll bajo este lock, así
+    // ningún waiter pierde una transición.
+    private final Object protocol_state_lock = new Object();
     private final ConcurrentHashMap<String, Player> nick2player = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Player, Hand> perdedores = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<Player> flop_players = new ConcurrentLinkedQueue<>();
@@ -2189,6 +2201,132 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return local_mega_packet != null;
     }
 
+    // Tiempo máximo que el handler de REQ_SRA_UNLOCK espera a que el
+    // Crupier local avance hasta la calle exigida por la phase pedida
+    // antes de tratarlo como maniobra del host (early-cascade attack).
+    // Generoso: cubre clientes lentos, redes con jitter alto y manos con
+    // muchos jugadores remotos. Un host honesto nunca rebasa este margen
+    // porque su propia cascade se dispara justo después de su rondaApuestas
+    // local cerrar, y eso espera al último ACTION que el cliente también
+    // recibió por el mismo socket.
+    public static final long UNLOCK_WAIT_TIMEOUT_MS = 60000L;
+
+    // Único punto desde el que se modifica street; publica la transición
+    // bajo protocol_state_lock para que awaitStreetForUnlockPhase no se
+    // pierda el cambio. Llamar siempre por aquí en lugar de tocar el
+    // campo directamente.
+    private void setStreetLocal(int s) {
+        synchronized (protocol_state_lock) {
+            this.street = s;
+            protocol_state_lock.notifyAll();
+        }
+    }
+
+    // Idem para show_time (cubre las phases RABBIT_*).
+    public void setShowTime(boolean v) {
+        synchronized (protocol_state_lock) {
+            this.show_time = v;
+            protocol_state_lock.notifyAll();
+        }
+    }
+
+    // Idem para conta_mano. Necesario para que el wait con hand_id pueda
+    // distinguir un comando de mano antigua que llega retrasado (drop
+    // silencioso) de un timeout genuino (ataque, lockdown). Todas las
+    // mutaciones de conta_mano pasan por aquí.
+    private void setContaManoLocal(int value) {
+        synchronized (protocol_state_lock) {
+            this.conta_mano = value;
+            protocol_state_lock.notifyAll();
+        }
+    }
+
+    /**
+     * Espera bloqueante hasta que el Crupier local haya progresado lo
+     * suficiente para que sea seguro servir un REQ_SRA_UNLOCK de la phase
+     * pedida, o hasta agotar el timeout.
+     *
+     * Gateo zero-trust contra el "early-cascade attack": un host malicioso
+     * (con el código modificado, y dado que CoronaPoker es 100% open source
+     * cualquiera puede compilar una versión hostil) podría adelantar la
+     * cascade de FLOP/TURN/RIVER antes de jugar la calle previa, leer las
+     * cartas comunitarias y jugar el pre-flop con conocimiento del board.
+     * El state machine por sí solo no lo detecta (la cascade está bien
+     * formada, sólo va prematura). Esta espera fuerza que el cliente sólo
+     * sirva la clave cuando su propia ronda local ha cerrado la calle
+     * anterior — el cliente es la fuente de verdad de "hemos jugado el
+     * pre-flop".
+     *
+     * Devuelve un código discreto para que el caller distinga las tres
+     * salidas posibles (READY, STALE_HAND, TIMEOUT) y aplique distinta
+     * política de seguridad — un comando residual de una mano ya pasada
+     * NO es trampa (drop silencioso), pero un timeout legítimo sí lo es.
+     */
+    public UnlockWaitResult awaitStreetForUnlockPhase(int phase, int hand_id, long timeoutMs) {
+        synchronized (protocol_state_lock) {
+            long deadline = System.currentTimeMillis() + timeoutMs;
+            while (true) {
+                if (Crupier.SECURITY_LOCKDOWN) {
+                    return UnlockWaitResult.LOCKDOWN;
+                }
+                if (isFin_de_la_transmision()) {
+                    return UnlockWaitResult.STALE_HAND;
+                }
+                if (hand_id != this.conta_mano) {
+                    // Mano de la request no coincide con la actual: o
+                    // viene de una mano ya cerrada (drop silencioso, no
+                    // es ataque) o el host nos está adelantando (raro y
+                    // tampoco sirve para nada; lo tratamos igual).
+                    return UnlockWaitResult.STALE_HAND;
+                }
+                if (isUnlockPhaseStateSafe(phase)) {
+                    return UnlockWaitResult.READY;
+                }
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    return UnlockWaitResult.TIMEOUT;
+                }
+                try {
+                    protocol_state_lock.wait(remaining);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return UnlockWaitResult.TIMEOUT;
+                }
+            }
+        }
+    }
+
+    public enum UnlockWaitResult {
+        READY,        // listo para servir, las gates posteriores deciden
+        STALE_HAND,   // hand_id no coincide con la mano actual o se canceló: drop silencioso
+        TIMEOUT,      // expiró el deadline esperando a la calle: ataque
+        LOCKDOWN      // lockdown ya activo, no servir nada más
+    }
+
+    // Predicado interno: ¿el estado local del Crupier admite ya servir
+    // esta phase? POCKET es siempre seguro (es el primer paso de la mano);
+    // FLOP/TURN/RIVER exigen que el propio rondaApuestas haya avanzado la
+    // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
+    // protocol_state_lock.
+    private boolean isUnlockPhaseStateSafe(int phase) {
+        switch (phase) {
+            case UNLOCK_PHASE_POCKET:
+                return true;
+            case UNLOCK_PHASE_FLOP:
+                return this.street >= FLOP;
+            case UNLOCK_PHASE_TURN:
+                return this.street >= TURN;
+            case UNLOCK_PHASE_RIVER:
+                return this.street >= RIVER;
+            case UNLOCK_PHASE_RABBIT_FLOP:
+            case UNLOCK_PHASE_RABBIT_TURN:
+            case UNLOCK_PHASE_RABBIT_RIVER:
+                return this.show_time;
+            default:
+                return false;
+        }
+    }
+
     /**
      * Zero-trust gate for REQ_SRA_UNLOCK responses.
      *
@@ -2657,7 +2795,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.sqlite_id_hand = map.get("hand_id") != null ? (int) map.get("hand_id") : -1;
             GameFrame.BUYIN = map.get("buyin") != null ? (int) map.get("buyin") : 100;
             GameFrame.REBUY = map.get("rebuy") != null ? (boolean) map.get("rebuy") : true;
-            this.conta_mano = map.get("conta_mano") != null ? (int) map.get("conta_mano") : 1;
+            setContaManoLocal(map.get("conta_mano") != null ? (int) map.get("conta_mano") : 1);
             this.ciega_pequeña = map.get("sbval") != null ? (float) map.get("sbval") : 0.1f;
             this.ciega_grande = map.get("bbval") != null ? (float) map.get("bbval") : 0.2f;
             this.ciegas_double = map.get("blinds_double") != null ? (int) map.get("blinds_double") : 0;
@@ -2957,7 +3095,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      */
     private void rollbackAbortedHand() {
         if (conta_mano > 0) {
-            conta_mano--;
+            setContaManoLocal(conta_mano - 1);
         }
         if (sqlite_id_hand > 0) {
             synchronized (GameFrame.SQL_LOCK) {
@@ -3757,7 +3895,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             carta.resetearCarta(false);
         }
 
-        this.conta_mano++;
+        setContaManoLocal(this.conta_mano + 1);
 
         if (GameFrame.MANOS == conta_mano && GameFrame.getInstance().isPartida_local()) {
             Helpers.GUIRun(GameFrame.getInstance().getTapete().getCommunityCards()::hand_label_left_click);
@@ -3778,7 +3916,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.badbeat = false;
         this.jugada_ganadora = 0;
         this.perdedores.clear();
-        this.street = PREFLOP;
+        setStreetLocal(PREFLOP);
         this.flop_revealed = false;
         this.turn_revealed = false;
         this.river_revealed = false;
@@ -5433,8 +5571,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        this.street = street;
-        
+        setStreetLocal(street);
+
         if (this.street == Crupier.FLOP) {
             this.flop_players.clear();
             this.flop_players.addAll(resisten);
@@ -8060,7 +8198,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
 
-                        this.show_time = true;
+                        setShowTime(true);
 
                         synchronized (lock_mostrar) {
                             lock_mostrar.notifyAll();
@@ -8375,7 +8513,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
 
                                 synchronized (lock_mostrar) {
-                                    this.show_time = false;
+                                    setShowTime(false);
                                 }
                                 GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
                                 GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);
@@ -8394,7 +8532,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } else {
                                 this.pausaConBarra(Crupier.PAUSA_ENTRE_MANOS_TEST);
                                 synchronized (lock_mostrar) {
-                                    this.show_time = false;
+                                    setShowTime(false);
                                 }
                                 GameFrame.getInstance().getLocalPlayer().desactivar_boton_mostrar();
                                 GameFrame.getInstance().getRegistro().actualizarCartasPerdedores(perdedores);

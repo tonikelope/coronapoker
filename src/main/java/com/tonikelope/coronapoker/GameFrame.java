@@ -2018,6 +2018,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void finTransmision(boolean partida_terminada) {
 
+        // Snapshot del auditor bajo lock_contabilidad ANTES de entrar al
+        // SQL_LOCK. Mantiene el orden global lock_contabilidad → SQL_LOCK
+        // (mismo orden que Crupier.run al cerrar una mano: dentro de
+        // synchronized(lock_contabilidad) llama a sqlUpdateHandEnd que a su
+        // vez toma synchronized(SQL_LOCK)). Sin este snapshot, el bloque
+        // synchronized(crupier.getLock_contabilidad()) anidado dentro del
+        // SQL_LOCK creaba el orden inverso SQL→CONTAB y deadlock AB-BA con
+        // Crupier.run cuando MISDEAL se disparaba mientras el Crupier estaba
+        // cerrando una mano (caso rarísimo en juego honesto, sistemático
+        // bajo el testbench hostil).
+        HashMap<String, Float[]> auditor_snapshot = null;
+        if (partida_terminada && crupier != null) {
+            synchronized (crupier.getLock_contabilidad()) {
+                crupier.auditorCuentas();
+                auditor_snapshot = new HashMap<>(crupier.getAuditor());
+            }
+        }
+
         synchronized (GameFrame.SQL_LOCK) {
             if (!fin) {
 
@@ -2119,11 +2137,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                    synchronized (crupier.getLock_contabilidad()) {
+                    // Iteramos el snapshot tomado bajo lock_contabilidad FUERA
+                    // del SQL_LOCK al inicio del método (ver comentario allí).
+                    // Sin retomar el lock aquí no hay anidación SQL → CONTAB y
+                    // por tanto no hay deadlock con Crupier.run.
+                    if (auditor_snapshot != null) {
 
-                        crupier.auditorCuentas();
-
-                        for (Map.Entry<String, Float[]> entry : crupier.getAuditor().entrySet()) {
+                        for (Map.Entry<String, Float[]> entry : auditor_snapshot.entrySet()) {
 
                             Float[] pasta = entry.getValue();
 

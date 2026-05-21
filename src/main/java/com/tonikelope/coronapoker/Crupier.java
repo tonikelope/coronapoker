@@ -2521,8 +2521,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             } else if (part.startsWith("VISUAL@")) {
                                 String[] vis = part.substring("VISUAL@".length()).split(",");
-                                this.local_original_cards[0] = Byte.parseByte(vis[0]);
-                                this.local_original_cards[1] = Byte.parseByte(vis[1]);
+                                try {
+                                    byte v0 = Byte.parseByte(vis[0]);
+                                    byte v1 = Byte.parseByte(vis[1]);
+                                    if (v0 >= 0 && v0 < 52 && v1 >= 0 && v1 < 52) {
+                                        this.local_original_cards[0] = v0;
+                                        this.local_original_cards[1] = v1;
+                                    } else {
+                                        LOGGER.log(Level.WARNING, "VISUAL@ skipped — out-of-range values ({0},{1}) from poisoned fossil (likely MISDEAL before card decryption)", new Object[]{v0, v1});
+                                    }
+                                } catch (NumberFormatException nfe) {
+                                    LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
+                                }
                             }
                         }
 
@@ -2617,8 +2627,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         } else if (part.startsWith("VISUAL@")) {
                             String[] vis = part.substring("VISUAL@".length()).split(",");
-                            this.local_original_cards[0] = Byte.parseByte(vis[0]);
-                            this.local_original_cards[1] = Byte.parseByte(vis[1]);
+                            try {
+                                byte v0 = Byte.parseByte(vis[0]);
+                                byte v1 = Byte.parseByte(vis[1]);
+                                if (v0 >= 0 && v0 < 52 && v1 >= 0 && v1 < 52) {
+                                    this.local_original_cards[0] = v0;
+                                    this.local_original_cards[1] = v1;
+                                } else {
+                                    LOGGER.log(Level.WARNING, "VISUAL@ skipped — out-of-range values ({0},{1}) from poisoned fossil (likely MISDEAL before card decryption)", new Object[]{v0, v1});
+                                }
+                            } catch (NumberFormatException nfe) {
+                                LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
+                            }
                         }
                     }
 
@@ -5908,7 +5928,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#BOTVISUAL@").append(botVisuals.toString());
             }
 
-            if (this.local_original_cards != null) {
+            // VISUAL@ guarda los índices 0..51 que resuelven a una carta
+            // del genesis deck. Si la mano abortó por MISDEAL antes de
+            // descifrar correctamente las hole cards, resolveCardIndex
+            // devolvió -1 y guardar ese valor envenena el fósil: en
+            // recovery se lee como byte=-1 → (byte&0xFF)+1 = 256 →
+            // PALOS[19] OOB → CRUPIER FATAL ERROR. Sólo persistimos si
+            // ambos índices son válidos.
+            if (this.local_original_cards != null
+                    && this.local_original_cards[0] >= 0 && this.local_original_cards[0] < 52
+                    && this.local_original_cards[1] >= 0 && this.local_original_cards[1] < 52) {
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
             }
 

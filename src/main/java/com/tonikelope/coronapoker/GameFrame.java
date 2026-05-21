@@ -158,6 +158,107 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private static final Object ZOOM_LOCK = new Object();
 
     private static volatile GameFrame THIS = null;
+
+    // Shutdown hook que envia EXIT#testamento por el socket cliente cuando la
+    // JVM termina por SIGINT (Ctrl+C), SIGTERM, cierre de consola (Windows
+    // CTRL_CLOSE_EVENT, ~5s antes de TerminateProcess) o cualquier salida
+    // brusca distinta a cerrar la ventana del juego. Sin esto, una caida
+    // abrupta del cliente en mitad de una cascade SRA provocaba MISDEAL en
+    // la mesa porque no llegaba la sra_unlock del peer. Con el hook el host
+    // recibe el testamento, lo aplica como si el peer hubiera salido
+    // ordenadamente y la mano termina sin MISDEAL.
+    private static volatile Thread SHUTDOWN_HOOK_THREAD = null;
+
+    /**
+     * Registra el shutdown hook si no esta ya registrado. El hook es
+     * idempotente y se auto-comprueba: si la partida ya termino o no es
+     * un cliente, no hace nada. Se llama desde el constructor de GameFrame.
+     */
+    private static void registerShutdownHook() {
+        if (SHUTDOWN_HOOK_THREAD != null) {
+            return;
+        }
+        Thread hook = new Thread(() -> {
+            try {
+                GameFrame gf = GameFrame.getInstance();
+                WaitingRoomFrame wrf = WaitingRoomFrame.getInstance();
+                if (gf == null || wrf == null) {
+                    return;
+                }
+                Crupier c = gf.getCrupier();
+                if (c == null || c.isFin_de_la_transmision()) {
+                    return; // Partida ya cerrada limpiamente.
+                }
+                if (gf.isPartida_local()) {
+                    return; // Host: no aplica este path.
+                }
+                if (!wrf.isPartida_empezada()) {
+                    return; // No hay nada que enviar (estamos en lobby/sala-espera).
+                }
+                NetClient nc = wrf.getNet_client();
+                if (nc == null || nc.isReconnecting()) {
+                    return; // Si ya estabamos reconectando, el server YA sabe que estamos caidos.
+                }
+                java.net.Socket s = nc.getLocal_client_socket();
+                if (s == null || s.isClosed()) {
+                    return;
+                }
+                // Construye el comando directamente para evitar reentrar en
+                // sendGAMECommandToServer (do-while con waits que durante
+                // shutdown pueden colgarnos por encima del timeout de 5s
+                // que da Windows al cerrar la consola).
+                String testamento;
+                try {
+                    testamento = c.getTestamentoCriptografico();
+                } catch (Throwable ex) {
+                    testamento = "*"; // Sin testamento valido: mejor mandar EXIT desnudo que nada.
+                }
+                String body = "GAME#" + Helpers.CSPRNG_GENERATOR.nextInt() + "#EXIT#" + testamento;
+                javax.crypto.spec.SecretKeySpec aes = nc.getLocal_client_aes_key();
+                javax.crypto.spec.SecretKeySpec hmac = nc.getLocal_client_hmac_key();
+                if (aes == null || hmac == null) {
+                    return;
+                }
+                String encrypted = Helpers.encryptCommand(body, aes, hmac);
+                if (encrypted == null) {
+                    return;
+                }
+                synchronized (s.getOutputStream()) {
+                    s.getOutputStream().write((encrypted + "\n").getBytes("UTF-8"));
+                    s.getOutputStream().flush();
+                }
+            } catch (Throwable ignored) {
+                // Hook silencioso: si algo falla durante el shutdown, volvemos
+                // al comportamiento sin hook (server detecta caida por null
+                // read del socket en <=5s y la mano puede acabar en MISDEAL
+                // si estabamos en cascade SRA). No es regresion, es fallback.
+            }
+        }, "CoronaPoker-Exit-Hook");
+        hook.setDaemon(false);
+        try {
+            Runtime.getRuntime().addShutdownHook(hook);
+            SHUTDOWN_HOOK_THREAD = hook;
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * Desregistra el shutdown hook cuando la partida termina limpiamente
+     * (finTransmision). Asi no queda colgando un hook que intentaria
+     * enviar EXIT por un socket ya cerrado tras volver al lobby.
+     */
+    public static void unregisterShutdownHook() {
+        Thread h = SHUTDOWN_HOOK_THREAD;
+        if (h != null) {
+            try {
+                Runtime.getRuntime().removeShutdownHook(h);
+            } catch (IllegalStateException ignored) {
+                // JVM ya en shutdown: no se puede desregistrar, ya da igual.
+            } catch (Throwable ignored) {
+            }
+            SHUTDOWN_HOOK_THREAD = null;
+        }
+    }
     public static volatile Boolean IWTSTH_RULE_RECOVER = null;
     public static volatile Integer RABBIT_HUNTING_RECOVER = null;
     public static volatile String PASSWORD_RECOVER = null;
@@ -1748,6 +1849,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         THIS = this;
 
+        // Registrar shutdown hook lo antes posible para cubrir tambien
+        // caidas tempranas (Ctrl+C / cerrar consola durante el AJUGAR).
+        // El hook es no-op para host (partida_local) y se auto-comprueba.
+        if (!partidalocal) {
+            registerShutdownHook();
+        }
+
         sala_espera = salaespera; //Esto aquí arriba para que no pete getParticipantes()
 
         nick_local = nicklocal;
@@ -2025,6 +2133,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public void finTransmision(boolean partida_terminada) {
+
+        // Desregistrar el shutdown hook: la partida termina por la via
+        // normal (host abort, fin natural, salida voluntaria) y el EXIT
+        // que pudiera enviar el hook ya seria sobre un socket cerrado.
+        unregisterShutdownHook();
 
         // Snapshot del auditor bajo lock_contabilidad ANTES de entrar al
         // SQL_LOCK para preservar el orden global lock_contabilidad → SQL_LOCK

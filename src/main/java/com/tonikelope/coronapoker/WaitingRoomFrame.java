@@ -2553,13 +2553,28 @@ public class WaitingRoomFrame extends JFrame {
                                 }
 
                             } else {
-                                LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT (BAD HMAC)", client_nick);
+                                // BAD HMAC: el cliente trae una clave de sesión
+                                // vieja (su HMAC orig no coincide con el actual
+                                // del Participant). Caso ESPERADO tras una
+                                // interrupción larga — el Reconnect2ServerDialog
+                                // del cliente intenta automáticamente cada pocos
+                                // segundos y cada intento aterriza aquí. NO
+                                // disparamos popup al host: el cliente acabará
+                                // viendo "imposible reconectar" en su propio
+                                // dialog y eligiendo VOLVER A SALA DE INICIO o
+                                // SALIR. Mostrar un popup por cada intento
+                                // (testers vieron 753 popups en pocos minutos
+                                // → server inutilizable, había que matar el
+                                // proceso). El log queda como rastro auditable
+                                // pero sin GUI noise.
+                                LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT (BAD HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
                                 try {
                                     if (!client_socket.isClosed()) {
                                         client_socket.close();
                                     }
                                 } catch (Exception ex) {
                                 }
+                                rec_error = false;
                             }
                             if (rec_error) {
                                 Helpers.threadRun(() -> {

@@ -1838,32 +1838,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                     byte[] cards = Base64.getDecoder().decode(partes_unlock[6]);
 
-                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
-
-                                                                    // El MEGAPACKET viaja por la queue del Crupier (entra por el
-                                                                    // default: del switch de GAME y lo procesa recibirMisCartas en
-                                                                    // su propio thread). Este handler corre en su propio threadRun
-                                                                    // — la carrera entre ambos puede hacer que entremos aquí ANTES
-                                                                    // de que local_mega_packet esté seteado, aunque TCP haya
-                                                                    // entregado MEGAPACKET primero. Esperamos hasta 5 s a que el
-                                                                    // Crupier procese su queue; si no llega, NO es un host
-                                                                    // malicioso, es que la mano no ha empezado para mí — rechazo
-                                                                    // sin disparar el lockdown.
-                                                                    long megaDeadline = System.currentTimeMillis() + 5000;
-                                                                    while (crupier != null && crupier.local_mega_packet == null && System.currentTimeMillis() < megaDeadline) {
-                                                                        try {
-                                                                            Thread.sleep(50);
-                                                                        } catch (InterruptedException ie) {
-                                                                            Thread.currentThread().interrupt();
-                                                                            return;
-                                                                        }
-                                                                    }
-                                                                    if (crupier == null || crupier.local_mega_packet == null) {
-                                                                        LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK arrived but local MEGAPACKET never landed within 5 s — declining (not treated as cheating)");
-                                                                        return;
-                                                                    }
-
                                                                     // GATE 1: longitud permitida.
+                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
                                                                     if (cards == null || (cards.length != 32 && cards.length != 64 && cards.length != 96)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK illegal payload length ({0}) — refusing", (cards == null ? -1 : cards.length));
                                                                         if (crupier != null) {

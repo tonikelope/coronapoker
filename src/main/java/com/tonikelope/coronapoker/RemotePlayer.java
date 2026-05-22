@@ -937,7 +937,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Audio.playWavResource("misc/fold.wav");
 
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked()) {
+        // Skip the GIF cinematic entirely when this is an autofold of a peer
+        // that already left. The chat-notify label belongs to a player slot
+        // that the UI has already torn down, the GIF never finishes painting,
+        // its barrier never gets the "frames done" party, and the await below
+        // blocks the game thread for GIF_BARRIER_TIMEOUT seconds before
+        // throwing TimeoutException. Just play the sound and finish the turn.
+        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(3);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
@@ -969,7 +975,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.CHECK);
 
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked()) {
+        // See fold() comment: skip cinematic for exited players to avoid the
+        // 10-second blocking await on a barrier the GIF callback never closes.
+        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
 
             if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
                 int r = 1 + new Random().nextInt(4);
@@ -1016,7 +1024,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked()) {
+        // See fold() comment: skip cinematic for exited players to avoid the
+        // 10-second blocking await on a barrier the GIF callback never closes.
+        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(4);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));

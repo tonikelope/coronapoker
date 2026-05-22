@@ -1476,6 +1476,13 @@ public class Helpers {
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS known_identities(nick TEXT PRIMARY KEY, pubkey BLOB NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, sessions_count INTEGER NOT NULL DEFAULT 0, verified_oob INTEGER NOT NULL DEFAULT 0)");
+                // EC-Identity v1 (commit 6): forensic log of hands whose end-of-hand consensus
+                // did not check out unanimously. The hand is paid out regardless — this table is
+                // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of
+                // every receipt this peer collected for that hand (each receipt = HAND_ID ||
+                // H_final || sig, 16+32+64 = 112 bytes); local_h is this peer's own H_final at
+                // dispute time.
+                statement.execute("CREATE TABLE IF NOT EXISTS disputed_hands(id INTEGER PRIMARY KEY, id_hand INTEGER NOT NULL, timestamp INTEGER NOT NULL, receipts BLOB NOT NULL, local_h BLOB NOT NULL, reason TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 //ACTUALIZACIÓN
                 try {
                     statement.execute("ALTER TABLE game ADD ugi TEXT");

@@ -44,15 +44,14 @@ import java.util.List;
  *           || SHA-256(cascaded_deck_bytes)    // 32-byte deck commitment
  *         )
  *
- *   H_t = SHA-256(record_t)                    // commit 4 only
+ *   H_t = SHA-256(record_t || sig_t)
  * </pre>
  *
- * <p>Commit 5 will extend the per-action ratchet to {@code SHA-256(record_t ||
- * sig_t)} once Ed25519 signatures are added to the wire. Until then the chain
- * is purely deterministic from the action records themselves — useful for
- * cross-peer divergence detection but does not yet provide signature-level
- * non-repudiation. {@code MIN_COMPATIBLE_VERSION} is bumped in commit 5 to
- * force every peer to migrate atomically when the wire format changes.
+ * <p>The signature in the ratchet provides signature-level non-repudiation on
+ * top of the cross-peer divergence detection. Phase 3 extends the same ratchet
+ * to host-signed community-card announces (ACTION_COMMUNITY records), closing
+ * the cross-recipient fork attack where the host could announce different
+ * boards to different peers without leaving evidence in H_t.
  *
  * <p>Instances are NOT thread-safe. Callers serialize access through the
  * dealer's per-hand control flow.

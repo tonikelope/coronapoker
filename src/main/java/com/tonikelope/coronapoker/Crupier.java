@@ -2918,6 +2918,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 myPlayer.getHoleCard1().destapar(false);
                                 myPlayer.getHoleCard2().destapar(false);
                             }
+
+                            // EC-Identity v1 (recovery): restore HAND_ID from SQL
+                            // and re-init HandStateChain. Without this the chain
+                            // stays null through the recovered hand, action absorbs
+                            // become no-ops and the consensus phase skips silently.
+                            // Replay then re-absorbs every action via the persisted
+                            // record/sig in the action table, advancing H_t exactly
+                            // as the pre-crash chain did.
+                            try {
+                                Object handIdObj = (map != null) ? map.get("hand_id_b64") : null;
+                                if (handIdObj instanceof String) {
+                                    byte[] hid = Base64.getDecoder().decode((String) handIdObj);
+                                    if (hid.length == CanonicalActionRecord.HAND_ID_BYTES) {
+                                        this.current_hand_id = hid;
+                                        initHandStateChain();
+                                    }
+                                }
+                            } catch (Exception chainEx) {
+                                LOGGER.log(Level.WARNING, "Failed to restore HandStateChain on recovery (host)", chainEx);
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -3043,6 +3063,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
                             myPlayer.getHoleCard1().destapar(false);
                             myPlayer.getHoleCard2().destapar(false);
+                        }
+
+                        // EC-Identity v1 (recovery): symmetric with host branch —
+                        // restore HAND_ID from the map (sent by host) and re-init
+                        // HandStateChain so replay re-absorbs actions with the
+                        // persisted record/sig from the wire.
+                        try {
+                            Object handIdObj = (map != null) ? map.get("hand_id_b64") : null;
+                            if (handIdObj instanceof String) {
+                                byte[] hid = Base64.getDecoder().decode((String) handIdObj);
+                                if (hid.length == CanonicalActionRecord.HAND_ID_BYTES) {
+                                    this.current_hand_id = hid;
+                                    initHandStateChain();
+                                }
+                            }
+                        } catch (Exception chainEx) {
+                            LOGGER.log(Level.WARNING, "Failed to restore HandStateChain on recovery (client)", chainEx);
                         }
                     }
                 }
@@ -4641,9 +4678,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void sqlNewAction(Player current_player) {
+    private void sqlNewAction(Player current_player, byte[] actionRecord, byte[] actionSig) {
         synchronized (GameFrame.SQL_LOCK) {
-            String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            // EC-Identity v1 (recovery): persist the canonical record + Ed25519
+            // signature bytes alongside the action so a post-crash recovery can
+            // replay them into HandStateChain. Both are nullable for legacy
+            // interop and for paths where the chain wasn't initialised (recovery
+            // mid-hand, identity not ready, etc.).
+            String sql = "INSERT INTO action(id_hand, player, counter, round, action, bet, conta_raise, response_time, record_b64, sig_b64) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
@@ -4654,6 +4696,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 statement.setFloat(6, Helpers.floatClean(current_player.getBet()));
                 statement.setInt(7, this.getConta_raise());
                 statement.setInt(8, current_player.getResponseTime());
+                if (actionRecord != null) {
+                    statement.setString(9, Base64.getEncoder().encodeToString(actionRecord));
+                } else {
+                    statement.setNull(9, java.sql.Types.VARCHAR);
+                }
+                if (actionSig != null) {
+                    statement.setString(10, Base64.getEncoder().encodeToString(actionSig));
+                } else {
+                    statement.setNull(10, java.sql.Types.VARCHAR);
+                }
                 statement.executeUpdate();
             } catch (java.sql.SQLException ex) {
                 java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
@@ -7084,7 +7136,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.conta_accion++;
 
                 if (!isCryptoReplay) {
-                    this.sqlNewAction(current_player);
+                    this.sqlNewAction(current_player, localRecord, localSig);
                 } else if (GameFrame.getInstance().isPartida_local()) {
                     if (this.sqlCheckGenuineRecoverAction(current_player)) {
                         LOGGER.log(Level.INFO, "RECOVER ACTION OK");
@@ -7509,9 +7561,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.current_hand_id, playerIds, this.local_mega_packet);
             LOGGER.log(Level.INFO, "Hand state chain initialized: H_0={0}",
                     Base64.getEncoder().encodeToString(this.hand_state_chain.getCurrentHash()));
+            // EC-Identity v1 (recovery): persist HAND_ID on the SQL hand row so
+            // recovery can re-init the chain with the same handId after a crash.
+            // Skipped during recovery replay itself (the row was already populated
+            // by the original hand; the value being restored is what we want).
+            sqlUpdateHandHandId(this.current_hand_id);
         } catch (RuntimeException ex) {
             LOGGER.log(Level.WARNING, "HandStateChain.start failed: " + ex.getMessage(), ex);
             this.hand_state_chain = null;
+        }
+    }
+
+    /**
+     * EC-Identity v1 (recovery): writes the 16-byte HAND_ID (base64) onto the
+     * current hand's SQL row. Best-effort; failures are logged but never fatal.
+     * No-op when sqlite_id_hand isn't set yet (NUEVA_MANO ordering edge case).
+     */
+    private void sqlUpdateHandHandId(byte[] handId) {
+        if (handId == null || this.sqlite_id_hand <= 0) {
+            return;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            String sql = "UPDATE hand SET hand_id_b64=? WHERE id=?";
+            try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+                statement.setQueryTimeout(30);
+                statement.setString(1, Base64.getEncoder().encodeToString(handId));
+                statement.setInt(2, this.sqlite_id_hand);
+                statement.executeUpdate();
+            } catch (java.sql.SQLException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to persist hand_id_b64 for hand " + this.sqlite_id_hand, ex);
+            }
         }
     }
 
@@ -8307,7 +8386,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private String sqlRecoverHandActions() {
         synchronized (GameFrame.SQL_LOCK) {
             String ret = null;
-            String sql = "SELECT player, action, round(bet,2) as bet FROM action WHERE action.id_hand=?";
+            // EC-Identity v1 (recovery): pull record_b64 / sig_b64 alongside the
+            // legacy fields so recovery replays each action with the exact bytes
+            // that were absorbed into H_t pre-crash. Both columns are nullable;
+            // missing values map to "*" on the wire so the receiver falls back to
+            // a no-op absorb for that step (chain stays at the previous H_t).
+            String sql = "SELECT player, action, round(bet,2) as bet, record_b64, sig_b64 FROM action WHERE action.id_hand=? ORDER BY counter ASC";
             String actions = null;
             try (java.sql.PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
@@ -8315,9 +8399,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.sql.ResultSet rs = statement.executeQuery();
                 actions = "";
                 while (rs.next()) {
+                    String recordB64 = rs.getString("record_b64");
+                    String sigB64 = rs.getString("sig_b64");
                     actions += java.util.Base64.getEncoder().encodeToString(rs.getString("player").getBytes("UTF-8")) + "#"
                             + String.valueOf(rs.getInt("action")) + "#"
-                            + String.valueOf(rs.getFloat("bet")) + "@";
+                            + String.valueOf(rs.getFloat("bet")) + "#"
+                            + (recordB64 != null && !recordB64.isEmpty() ? recordB64 : "*") + "#"
+                            + (sigB64 != null && !sigB64.isEmpty() ? sigB64 : "*") + "@";
                 }
                 ret = actions;
             } catch (java.sql.SQLException ex) {
@@ -8338,7 +8426,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             try {
 
-                String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, server, game.start, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
+                String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, hand.hand_id_b64 as hand_id_b64, server, game.start, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
                 PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
 
@@ -8360,6 +8448,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 map.put("hand_end", rs.getLong("hand_end"));
                 map.put("server", rs.getString("server"));
                 map.put("preflop_players", rs.getString("preflop_players"));
+                // EC-Identity v1 (recovery): cryptographic HAND_ID (16 bytes,
+                // base64) needed to re-seed HandStateChain.start with the same
+                // value the original hand used. Nullable — recovery falls back
+                // to "chain stays null" (legacy degraded mode) when missing.
+                String handIdB64 = rs.getString("hand_id_b64");
+                if (handIdB64 != null) {
+                    map.put("hand_id_b64", handIdB64);
+                }
                 map.put("buyin", rs.getInt("buyin"));
                 map.put("rebuy", rs.getBoolean("rebuy"));
                 map.put("play_time", rs.getLong("play_time"));
@@ -8496,7 +8592,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (name.equals(nick)) {
 
-                    res = new Object[2];
+                    // EC-Identity v1 (recovery): return a 6-slot action so the
+                    // rondaApuestas absorb path picks up the persisted record + sig
+                    // bytes and ratchets H_t exactly as before the crash. Legacy
+                    // recovery data (pre-v1) has 3 fields and falls back to "*"
+                    // placeholders — those leave record/sig null, the canBuild gate
+                    // takes over (host re-builds with its privkey for its own
+                    // actions, client no-ops for others), so the chain ends up null
+                    // for the recovered hand only when pre-v1 data is fed in.
+                    res = new Object[6];
 
                     res[0] = Integer.parseInt(accion_partes[1]);
 
@@ -8504,6 +8608,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         res[1] = Helpers.floatClean(Float.parseFloat(accion_partes[2]));
                     } else {
                         res[1] = 0f;
+                    }
+                    res[2] = null;
+                    res[3] = null;
+                    res[4] = null;
+                    res[5] = Boolean.TRUE;
+                    if (accion_partes.length >= 5
+                            && !"*".equals(accion_partes[3]) && !"*".equals(accion_partes[4])) {
+                        try {
+                            byte[] recordBytes = Base64.getDecoder().decode(accion_partes[3]);
+                            byte[] sigBytes = Base64.getDecoder().decode(accion_partes[4]);
+                            res[3] = recordBytes;
+                            res[4] = sigBytes;
+                            if (recordBytes != null && recordBytes.length == CanonicalActionRecord.RECORD_BYTES) {
+                                int flags = ((recordBytes[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
+                                        | (recordBytes[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
+                                res[5] = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
+                            }
+                        } catch (Exception decodeEx) {
+                            LOGGER.log(Level.WARNING, "Failed to decode persisted record/sig on recovery replay", decodeEx);
+                            res[3] = null;
+                            res[4] = null;
+                        }
                     }
 
                     break;

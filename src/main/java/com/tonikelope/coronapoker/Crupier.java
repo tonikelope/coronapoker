@@ -6419,6 +6419,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } else if (street == Crupier.RIVER) {
             GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
         }
+
+        // EC-Identity v1 (Phase 3): broadcast a host-signed announce of these
+        // indices and absorb into H_t. Every recipient cross-checks their
+        // PIECE-decoded indices against the announce; mismatch triggers
+        // lockdown (cross-recipient fork attack closed). Skipped when the
+        // chain isn't initialised (legacy interop / recovery-degraded) — the
+        // hand still plays out via the SRA piece resolution alone.
+        Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToWire(street), hostIndices);
+        if (recsig != null) {
+            byte[] record = (byte[]) recsig[0];
+            byte[] sig = (byte[]) recsig[1];
+            try {
+                String comando = "COMM_REVEAL#"
+                        + Base64.getEncoder().encodeToString(record)
+                        + "#" + Base64.getEncoder().encodeToString(sig);
+                broadcastGAMECommandFromServer(comando, null);
+            } catch (RuntimeException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to broadcast COMM_REVEAL for street " + street, ex);
+            }
+            // Host absorbs with its own nick (always in active_crypto_ring, so
+            // the isInActiveCryptoRing guard passes).
+            absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
+        }
+
         return true;
     }
 
@@ -6572,7 +6596,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean recibirCartasComunitarias() {
-        boolean ok = false;
+        boolean piece_ok = false;
+        boolean reveal_ok = false;
+
+        // EC-Identity v1 (Phase 3): client also waits for the host's signed
+        // COMM_REVEAL announcement of these community cards, verifies the sig
+        // with the host's pubkey, compares the announced indices against the
+        // locally-decoded PIECE indices (mismatch ⇒ cross-recipient fork,
+        // lockdown) and absorbs the record+sig into H_t. Reveal is only
+        // required when the local chain is initialised — when chain==null
+        // (legacy interop or recovery without restore) the client falls back
+        // to PIECE-only verification (pre-Phase-3 behaviour) so the hand
+        // still plays out.
+        final boolean chainRequiresReveal = (this.hand_state_chain != null);
+        if (!chainRequiresReveal) {
+            reveal_ok = true;
+        }
 
         // En v3 cada cliente humano recibe SU PROPIA pieza cifrada (FLOP_PIECE
         // /TURN_PIECE/RIVER_PIECE) con los locks de los demás ya quitados; el
@@ -6586,10 +6625,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // que la pieza llega o el socket muere. MISDEAL del host es la única señal
         // de que la mano se cancela legítimamente.
         String localNick = GameFrame.getInstance().getNick_local();
+        int[] pieceIndices = null;
+        byte[] revealRecord = null;
+        byte[] revealSig = null;
+        int expectedNumCards = (street == Crupier.FLOP) ? 3 : 1;
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
-                while (!ok && !this.getReceived_commands().isEmpty()) {
+                while ((!piece_ok || !reveal_ok) && !this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#");
 
@@ -6597,7 +6640,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
                                 : (street == Crupier.TURN) ? "TURN_PIECE"
                                         : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
-                        if (expectedCmd != null && partes.length >= 5 && partes[2].equals(expectedCmd)) {
+                        if (expectedCmd != null && partes.length >= 5 && partes[2].equals(expectedCmd) && !piece_ok) {
                             String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (!targetNick.equals(localNick)) {
                                 // Pieza de otro destinatario; no la puedo
@@ -6615,9 +6658,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 return false;
                             }
                             byte[] unlocked = CryptoSRA.applyCommutativeLock(piece, this.local_sra_unlock);
-                            int numCards = (street == Crupier.FLOP) ? 3 : 1;
-                            int[] indices = new int[numCards];
-                            for (int k = 0; k < numCards; k++) {
+                            int[] indices = new int[expectedNumCards];
+                            for (int k = 0; k < expectedNumCards; k++) {
                                 byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
                                 int idx = CryptoSRA.resolveCardIndex(chunk);
                                 if (idx < 0) {
@@ -6629,19 +6671,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                                 indices[k] = idx;
                             }
-                            if (street == Crupier.FLOP) {
-                                GameFrame.getInstance().getFlop1().actualizarConValorNumerico(indices[0] + 1);
-                                GameFrame.getInstance().getFlop2().actualizarConValorNumerico(indices[1] + 1);
-                                GameFrame.getInstance().getFlop3().actualizarConValorNumerico(indices[2] + 1);
-                                this.flop_revealed = true;
-                            } else if (street == Crupier.TURN) {
-                                GameFrame.getInstance().getTurn().actualizarConValorNumerico(indices[0] + 1);
-                                this.turn_revealed = true;
-                            } else if (street == Crupier.RIVER) {
-                                GameFrame.getInstance().getRiver().actualizarConValorNumerico(indices[0] + 1);
-                                this.river_revealed = true;
+                            pieceIndices = indices;
+                            piece_ok = true;
+                        } else if (partes.length >= 4 && partes[2].equals("COMM_REVEAL") && !reveal_ok) {
+                            try {
+                                revealRecord = java.util.Base64.getDecoder().decode(partes[3]);
+                                revealSig = java.util.Base64.getDecoder().decode(partes[4]);
+                                reveal_ok = true;
+                            } catch (Exception decodeEx) {
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST: COMM_REVEAL wire malformed for street {0} — lockdown",
+                                        street);
+                                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                                return false;
                             }
-                            ok = true;
                         } else if (partes.length >= 4 && partes[2].equals("MISDEAL")) {
                             String motivo = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
                             cancelarManoYDevolverApuestas(motivo, false);
@@ -6658,7 +6701,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if (!ok && !isFin_de_la_transmision()) {
+            if ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision()) {
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.received_commands.wait(WAIT_QUEUES);
@@ -6666,7 +6709,90 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision());
+        } while ((!piece_ok || !reveal_ok) && !isFin_de_la_transmision());
+
+        if (!piece_ok) {
+            return false;
+        }
+
+        // EC-Identity v1 (Phase 3): cross-check the announce against the piece.
+        // chainRequiresReveal=false means legacy/recovery-degraded mode and the
+        // reveal was never expected — skip the cross-check entirely.
+        if (chainRequiresReveal && revealRecord != null && revealSig != null) {
+            try {
+                if (revealRecord.length != CanonicalActionRecord.RECORD_BYTES) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: COMM_REVEAL record wrong length ({0} != {1}) — lockdown",
+                            new Object[]{revealRecord.length, CanonicalActionRecord.RECORD_BYTES});
+                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    return false;
+                }
+                if (CanonicalActionRecord.readActionType(revealRecord) != CanonicalActionRecord.ACTION_COMMUNITY) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: COMM_REVEAL record action_type != ACTION_COMMUNITY — lockdown");
+                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    return false;
+                }
+                int recordStreet = CanonicalActionRecord.readStreet(revealRecord);
+                if (recordStreet != mapJavaStreetToWire(street)) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: COMM_REVEAL street {0} != current street {1} — lockdown",
+                            new Object[]{recordStreet, mapJavaStreetToWire(street)});
+                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    return false;
+                }
+                byte[] hostPubkey = null;
+                String hostNick = GameFrame.getInstance().getSala_espera() != null
+                        ? GameFrame.getInstance().getSala_espera().getServer_nick() : null;
+                if (hostNick != null) {
+                    Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
+                    if (hostPar != null) {
+                        hostPubkey = hostPar.getIdentity_pubkey();
+                    }
+                }
+                if (hostPubkey == null || !IdentityManager.verifyAction(hostPubkey, revealRecord, revealSig)) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: COMM_REVEAL signature invalid for street {0} — lockdown",
+                            street);
+                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    return false;
+                }
+                long packed = CanonicalActionRecord.readAmountCents(revealRecord);
+                int[] announceIndices = CanonicalActionRecord.unpackCommunityCards(packed, expectedNumCards);
+                if (!Arrays.equals(pieceIndices, announceIndices)) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST: COMM_REVEAL announced cards differ from PIECE-decoded indices for street {0} (announce={1}, piece={2}) — cross-recipient fork, lockdown",
+                            new Object[]{street, java.util.Arrays.toString(announceIndices), java.util.Arrays.toString(pieceIndices)});
+                    triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                    return false;
+                }
+                // All checks passed: absorb into H_t with the host's nick as the
+                // "actor" (host is always in active_crypto_ring, so the isInActiveCryptoRing
+                // guard in absorbActionIntoChain passes).
+                if (hostNick != null) {
+                    absorbActionIntoChain(hostNick, revealRecord, revealSig);
+                }
+            } catch (RuntimeException ex) {
+                LOGGER.log(Level.SEVERE,
+                        "ZERO-TRUST: COMM_REVEAL processing failed for street " + street + " — lockdown", ex);
+                triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                return false;
+            }
+        }
+
+        // Finally update UI with the verified indices.
+        if (street == Crupier.FLOP) {
+            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(pieceIndices[0] + 1);
+            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(pieceIndices[1] + 1);
+            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(pieceIndices[2] + 1);
+            this.flop_revealed = true;
+        } else if (street == Crupier.TURN) {
+            GameFrame.getInstance().getTurn().actualizarConValorNumerico(pieceIndices[0] + 1);
+            this.turn_revealed = true;
+        } else if (street == Crupier.RIVER) {
+            GameFrame.getInstance().getRiver().actualizarConValorNumerico(pieceIndices[0] + 1);
+            this.river_revealed = true;
+        }
 
         return true;
     }
@@ -7814,6 +7940,45 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE,
                     "Failed to build local action record/sig (nick=" + playerNick
                     + ", decision=" + javaDecision + ")", ex);
+            return null;
+        }
+    }
+
+    /**
+     * EC-Identity v1 (Phase 3): builds the canonical 92-byte community-reveal
+     * record and signs it with the host's privkey. Called only on the host
+     * (partida_local) right after the per-recipient PIECE cascade completes,
+     * before broadcasting the announce wire. Returns null when the chain isn't
+     * ready (legacy interop, recovery without chain restore, etc.) — the caller
+     * skips broadcasting the announce in that case and the chain stays in
+     * degraded mode for this hand.
+     */
+    private Object[] buildCommunityRevealRecordAndSig(int wireStreet, int[] cards) {
+        HandStateChain chain = this.hand_state_chain;
+        if (chain == null) {
+            return null;
+        }
+        IdentityManager im = IdentityManager.getInstance();
+        if (!im.isReady()) {
+            return null;
+        }
+        try {
+            byte[] pid = CanonicalActionRecord.playerIdFromNick(GameFrame.getInstance().getNick_local());
+            long packed = CanonicalActionRecord.packCommunityCards(cards);
+            byte[] record = CanonicalActionRecord.encode(
+                    chain.getCurrentHash(),
+                    chain.getHandId(),
+                    pid,
+                    wireStreet,
+                    CanonicalActionRecord.ACTION_COMMUNITY,
+                    packed,
+                    false,
+                    false);
+            byte[] sig = im.signAction(record);
+            return new Object[]{record, sig};
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE,
+                    "Failed to build community-reveal record/sig (street=" + wireStreet + ")", ex);
             return null;
         }
     }

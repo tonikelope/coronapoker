@@ -5774,6 +5774,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",
                     new Object[]{sqlite_id_hand, expected.size(), localHB64});
+            // EC-Identity v1: even on a clean consensus OK, if any of the
+            // peers whose receipts we just verified are still on TOFU-NEW
+            // (pubkey pinned but not yet confirmed out-of-band by the user),
+            // emit a debug-log WARNING. This goes to JUL only — never to the
+            // in-game registro and never to a popup — so it stays as forensic
+            // info for the user reviewing the debug log later. The OK verdict
+            // is still cryptographically sound under the pinned key; the
+            // warning just notes that a malicious peer with a stolen key
+            // could have produced the same OK without the user catching it
+            // via OOB verification.
+            String localNick = GameFrame.getInstance().getNick_local();
+            java.util.List<String> unverifiedTofu = new java.util.ArrayList<>();
+            for (String nick : expected) {
+                if (nick == null || nick.equals(localNick)) {
+                    continue;
+                }
+                Participant par = GameFrame.getInstance().getParticipantes().get(nick);
+                if (par == null) {
+                    continue;
+                }
+                byte[] pubkey = par.getIdentity_pubkey();
+                if (pubkey == null) {
+                    unverifiedTofu.add(nick + "(no_pubkey)");
+                    continue;
+                }
+                if (!TOFUResolver.isVerified(nick, pubkey)) {
+                    unverifiedTofu.add(nick);
+                }
+            }
+            if (!unverifiedTofu.isEmpty()) {
+                LOGGER.log(Level.WARNING,
+                        "Hand {0} consensus OK but the following peers have UNVERIFIED Ed25519 pubkeys (TOFU pinned but not confirmed out-of-band): [{1}]",
+                        new Object[]{sqlite_id_hand, String.join(", ", unverifiedTofu)});
+            }
             GameFrame.getInstance().getRegistro().print(
                     Translator.translate("game.mano_verificada_consenso"));
         }

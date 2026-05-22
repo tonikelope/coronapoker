@@ -5502,10 +5502,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Returns the set of nicks this peer expects to receive a receipt from
-     * (spec §6.3): humans still active at the moment the HANDVERIFY trigger
-     * fires. Players who left mid-hand are NOT counted as MISSING (they are
-     * excluded). Bots are excluded too — their actions are signed by the host
-     * inside H_t (§10), so they have no separate receipt.
+     * (spec §6.3): humans who actually played this hand and are still active
+     * at the moment the HANDVERIFY trigger fires. Excluded:
+     *
+     * <ul>
+     *   <li>Bots — their actions are signed by the host inside H_t (§10),
+     *       no separate receipt.</li>
+     *   <li>Players who left mid-hand (Participant.isExit()).</li>
+     *   <li>Warming-up players (Player.isCalentando()) — joined a game
+     *       already in progress, no hole cards, no chain state.</li>
+     *   <li>Spectators (Player.isSpectator()) — bust or no buy-in for this
+     *       hand, did not participate in the SRA cascade.</li>
+     * </ul>
+     *
+     * <p>The local nick is added unconditionally only when this peer DOES
+     * have a chain (the caller has already snapshotted hand_state_chain and
+     * skips the consensus phase entirely when it's null), so reaching this
+     * method already implies localNick was a real participant.
      */
     private Set<String> computeExpectedConsensusSigners() {
         Set<String> out = new LinkedHashSet<>();
@@ -5531,6 +5544,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (par.isExit()) {
                 continue;
+            }
+            Player jugador = nick2player.get(nick);
+            if (jugador != null) {
+                if (jugador.isCalentando()) {
+                    continue;
+                }
+                if (jugador.isSpectator()) {
+                    continue;
+                }
             }
             out.add(nick);
         }

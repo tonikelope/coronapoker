@@ -177,20 +177,51 @@ public final class HandStateChain {
         return absorbedActions;
     }
 
+    /** Length in bytes of an Ed25519 signature (§4.4). */
+    public static final int SIG_BYTES = 64;
+
     /**
-     * Absorbs one canonical action record into the chain. The first 32 bytes of
-     * the record must equal the chain's current {@code H_t} (i.e. the caller
-     * built the record with {@link CanonicalActionRecord#encode} using the
-     * latest {@link #getCurrentHash()} as {@code prevH}). This is enforced
-     * because it is the whole point of the chain — every action commits to the
-     * exact sequence of actions before it.
+     * Absorbs a record-only action (no signature) into the chain. Used by commit-4
+     * callers and unit tests for the bare ratchet. The first 32 bytes of the record
+     * must equal the chain's current {@code H_t}; this is the point of the chain.
      *
-     * <p>Commit 4 ratchet: {@code H_{t+1} = SHA-256(record)}. Commit 5 will
-     * change this to {@code H_{t+1} = SHA-256(record || sig)}.
+     * <p>Commit 4 ratchet: {@code H_{t+1} = SHA-256(record)}.
      *
      * @return the new {@code H_{t+1}} (defensive copy)
      */
     public byte[] absorb(byte[] record) {
+        validateRecord(record);
+        this.currentHash = sha256(record);
+        this.absorbedActions++;
+        return getCurrentHash();
+    }
+
+    /**
+     * Absorbs a signed action into the chain (commit 5). The signature bytes are
+     * concatenated to the record before hashing, so verifying {@code H_final}
+     * implicitly verifies that every constituent action was accompanied by some
+     * signature. Whether that signature was VALID is checked separately by the
+     * caller (§4.5 receiver rule) — invalid sigs are absorbed anyway so that
+     * divergence is detectable at hand close.
+     *
+     * <p>Commit 5 ratchet: {@code H_{t+1} = SHA-256(record || sig)}.
+     *
+     * @return the new {@code H_{t+1}} (defensive copy)
+     */
+    public byte[] absorb(byte[] record, byte[] sig) {
+        validateRecord(record);
+        if (sig == null || sig.length != SIG_BYTES) {
+            throw new IllegalArgumentException("sig must be " + SIG_BYTES + " bytes");
+        }
+        byte[] preimage = new byte[record.length + sig.length];
+        System.arraycopy(record, 0, preimage, 0, record.length);
+        System.arraycopy(sig, 0, preimage, record.length, sig.length);
+        this.currentHash = sha256(preimage);
+        this.absorbedActions++;
+        return getCurrentHash();
+    }
+
+    private void validateRecord(byte[] record) {
         if (record == null || record.length != CanonicalActionRecord.RECORD_BYTES) {
             throw new IllegalArgumentException("record must be "
                     + CanonicalActionRecord.RECORD_BYTES + " bytes");
@@ -201,9 +232,6 @@ public final class HandStateChain {
                         "record.PREV_H does not match the chain's current H_t");
             }
         }
-        this.currentHash = sha256(record);
-        this.absorbedActions++;
-        return getCurrentHash();
     }
 
     /**

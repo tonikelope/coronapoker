@@ -610,8 +610,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerBorder(new Color(204, 204, 204, 75));
 
-                holeCard1.resetearCarta();
-                holeCard2.resetearCarta();
+                // Preserve the hole-card state the peer had at the moment of
+                // leaving: if they were still active in the hand, the cards are
+                // face-down (tapadas, visible_card=true) and stay that way as a
+                // visual cue that they had a hand; if they had already folded,
+                // fold() set visible_card=false and they remain hidden. A
+                // resetearCarta() call here would flatten both cases to an empty
+                // slot. The next-hand board reset purges everything anyway.
 
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
@@ -692,6 +697,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         turno = true;
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
+
+        // Once setExit() has painted the orange "SE PIRA" badge, the slot must
+        // stay that way until the next hand purges the board. esTuTurno fires
+        // when rondaApuestas iterates to this player's slot — if a race makes
+        // the peer's EXIT arrive at our lambda before main thread reaches the
+        // iteration, setExit runs first and esTuTurno would then repaint the
+        // orange "thinking" border + the "pensando" label over it. Bail before
+        // touching any GUI so SE PIRA wins. The do-while at the caller still
+        // exits cleanly because readActionFromRemotePlayer detects isExit and
+        // returns a synth FOLD that triggers finTurno (no UI work needed).
+        if (this.exit) {
+            return;
+        }
 
         if (this.getDecision() == Player.NODEC) {
 
@@ -808,6 +826,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         raise = false;
 
         reraise = false;
+
+        // If the peer has already left, setExit() has painted the slot orange
+        // with "SE PIRA" — the player_action label, the colours, the icon, the
+        // border, the chip label. The synthetic FOLD that rondaApuestas issues
+        // to advance the betting loop must NOT overwrite that visual state with
+        // a regular fold/check/bet decoration. Keep the internal decision in
+        // sync with the betting logic (already done above) but stop here so the
+        // GUI stays as setExit left it.
+        if (this.exit) {
+            return;
+        }
 
         switch (dec) {
             case Player.CHECK:

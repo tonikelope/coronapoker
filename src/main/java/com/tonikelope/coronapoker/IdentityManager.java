@@ -303,6 +303,44 @@ public final class IdentityManager {
         }
     }
 
+    // ===== ACTION_V1 helpers (commit 5) =====
+
+    /**
+     * Domain separator for per-action signatures (spec §4.4). Bound to the 92-byte
+     * CanonicalActionRecord so a signature cannot be replayed in any other protocol
+     * context.
+     */
+    private static final byte[] ACTION_DOMAIN = "ACTION_V1\0".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Signs a CanonicalActionRecord with this installation's privkey under the
+     * ACTION_V1 domain. The host uses this both for its own player actions and for
+     * actions it issues on behalf of others (auto-folds with voluntary=0, bot
+     * actions). The caller is responsible for building the record with the correct
+     * PLAYER_ID and FLAGS bits.
+     */
+    public byte[] signAction(byte[] record) {
+        if (record == null || record.length == 0) {
+            throw new IllegalArgumentException("record required");
+        }
+        return sign(ACTION_DOMAIN, record);
+    }
+
+    /**
+     * Verifies a per-action signature against the given raw 32-byte Ed25519 pubkey
+     * under the ACTION_V1 domain. Returns false on any error or mismatch. Caller
+     * is responsible for picking the right pubkey using the §10 consolidated
+     * receiver rule (voluntary bit + bot check).
+     */
+    public static boolean verifyAction(byte[] rawPubKey, byte[] record, byte[] sig) {
+        try {
+            return verify(rawPubKey, ACTION_DOMAIN, record, sig);
+        } catch (IllegalArgumentException ex) {
+            LOGGER.log(Level.WARNING, "verifyAction rejected by argument validation: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
     // ===== JOIN_IDENTITY helpers (commit 2b) =====
 
     private static final byte[] JOIN_DOMAIN = "JOIN_V1\0".getBytes(StandardCharsets.UTF_8);

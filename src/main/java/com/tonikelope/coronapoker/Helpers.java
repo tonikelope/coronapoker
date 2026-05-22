@@ -1500,6 +1500,28 @@ public class Helpers {
                     statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
                 } catch (Exception ex) {
                 }
+                // EC-Identity v1 (recovery): per-hand cryptographic HAND_ID (16 bytes,
+                // base64). Needed to rebuild HandStateChain on recovery — the SQL
+                // hand.id is an auto-increment PK and does NOT match the bytes that
+                // initHandStateChain feeds into SHA-256(domain || HAND_ID || ...).
+                try {
+                    statement.execute("ALTER TABLE hand ADD hand_id_b64 TEXT");
+                } catch (Exception ex) {
+                }
+                // EC-Identity v1 (recovery): per-action canonical 92-byte record + Ed25519
+                // signature, both base64. Stored so recovery can replay every action
+                // through HandStateChain.absorb with the exact bytes that were absorbed
+                // pre-crash. Other peers' signatures cannot be re-derived locally
+                // (different privkeys), so persisting them is the only way to converge
+                // the chain after a recovery.
+                try {
+                    statement.execute("ALTER TABLE action ADD record_b64 TEXT");
+                } catch (Exception ex) {
+                }
+                try {
+                    statement.execute("ALTER TABLE action ADD sig_b64 TEXT");
+                } catch (Exception ex) {
+                }
 
             }
         } catch (Exception ex) {

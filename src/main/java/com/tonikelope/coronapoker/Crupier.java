@@ -5452,6 +5452,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECEPTION_TIMEOUT;
             boolean isHost = GameFrame.getInstance().isPartida_local();
 
+            // Relays are collected inside the synchronized block and dispatched
+            // OUTSIDE it. The relay broadcast waits for ACKs (sync,
+            // confirmation=true) and can block tens of seconds; doing it while
+            // holding the received_commands monitor freezes every server-side
+            // Participant.run() that has a HANDVERIFY default-case waiting to
+            // add to received_commands. With those threads stuck mid-message
+            // their socket_reader_queue stops draining and any CONF for our
+            // broadcast queued behind never gets processed — host waits for
+            // an ACK that cannot arrive, peer never advances, deadlock holds
+            // across reconnects.
+            java.util.ArrayList<String[]> pendingRelays = new java.util.ArrayList<>();
             while (System.currentTimeMillis() < deadline
                     && !receipts.keySet().containsAll(expected)
                     && !isFin_de_la_transmision()) {
@@ -5466,6 +5477,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (receipts.keySet().containsAll(expected)) {
                     break;
                 }
+                pendingRelays.clear();
+                boolean misdealAbort = false;
+                String misdealMotivo = "";
                 synchronized (this.getReceived_commands()) {
                     ArrayList<String> rejected = new ArrayList<>();
                     while (!this.getReceived_commands().isEmpty()) {
@@ -5477,27 +5491,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 byte[] receipt = Base64.getDecoder().decode(partes[4]);
                                 receipts.put(senderNick, receipt);
                                 if (isHost) {
-                                    // Relay to every OTHER active client so each peer can
-                                    // run the same consensus check locally.
-                                    String subcommand = "HANDVERIFY#" + partes[3] + "#" + partes[4];
-                                    try {
-                                        broadcastGAMECommandFromServer(subcommand, senderNick, true);
-                                    } catch (RuntimeException relayEx) {
-                                        LOGGER.log(Level.WARNING,
-                                                "Failed to relay HANDVERIFY receipt from " + senderNick, relayEx);
-                                    }
+                                    pendingRelays.add(new String[]{partes[3], partes[4], senderNick});
                                 }
                             } catch (Exception ex) {
                                 LOGGER.log(Level.SEVERE, "Failed to parse HANDVERIFY receipt", ex);
                             }
                         } else if (partes.length >= 4 && "MISDEAL".equals(partes[2])) {
-                            String motivo = "";
+                            misdealAbort = true;
                             try {
-                                motivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                                misdealMotivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             } catch (Exception e) {
                             }
-                            cancelarManoYDevolverApuestas(motivo, false);
-                            return;
+                            break;
                         } else {
                             rejected.add(comando);
                         }
@@ -5505,11 +5510,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (!rejected.isEmpty()) {
                         this.getReceived_commands().addAll(rejected);
                     }
-                    if (System.currentTimeMillis() < deadline
-                            && !receipts.keySet().containsAll(expected)) {
+                }
+
+                if (misdealAbort) {
+                    cancelarManoYDevolverApuestas(misdealMotivo, false);
+                    return;
+                }
+
+                if (isHost && !pendingRelays.isEmpty()) {
+                    for (String[] r : pendingRelays) {
+                        String subcommand = "HANDVERIFY#" + r[0] + "#" + r[1];
                         try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ex) {
+                            broadcastGAMECommandFromServer(subcommand, r[2], true);
+                        } catch (RuntimeException relayEx) {
+                            LOGGER.log(Level.WARNING,
+                                    "Failed to relay HANDVERIFY receipt from " + r[2], relayEx);
+                        }
+                    }
+                    pendingRelays.clear();
+                }
+
+                if (System.currentTimeMillis() < deadline
+                        && !receipts.keySet().containsAll(expected)) {
+                    synchronized (this.getReceived_commands()) {
+                        if (this.getReceived_commands().isEmpty()) {
+                            try {
+                                this.received_commands.wait(WAIT_QUEUES);
+                            } catch (InterruptedException ex) {
+                            }
                         }
                     }
                 }

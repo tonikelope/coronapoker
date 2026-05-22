@@ -1588,15 +1588,39 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_actionMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        // TODO add your handling code here:
-        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
-
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance(), true, this.nickname, GameFrame.getInstance().getParticipantes().get(this.nickname).getAes_key());
-
-            identicon.setLocationRelativeTo(GameFrame.getInstance());
-
-            identicon.setVisible(true);
+        // EC-Identity v1: clicking a remote human avatar opens the identicon of that
+        // peer's Ed25519 public identity. The dialog includes a "Verificar identidad"
+        // button that marks (nick, pubkey) as verified_oob if the user has compared
+        // the fingerprint with the peer through an external secure channel.
+        //
+        // The pubkey is normally cached on the Participant during the JOIN handshake
+        // (host's pubkey rides the intro packet; the rest piggyback on USERSLIST /
+        // NEWUSER atomically with their nick + avatar). If for any reason the
+        // Participant has no pubkey, we fall back to the TOFU-pinned pubkey from
+        // known_identities so the click still works.
+        Participant par = GameFrame.getInstance().getParticipantes().get(this.nickname);
+        if (par == null || par.isCpu()) {
+            return;
         }
+        byte[] pubkey = par.getIdentity_pubkey();
+        if (pubkey == null) {
+            pubkey = TOFUResolver.getPinnedPubkey(this.nickname);
+            if (pubkey != null) {
+                par.setIdentity_pubkey(pubkey);
+            }
+        }
+        if (pubkey == null) {
+            java.util.logging.Logger.getLogger(RemotePlayer.class.getName()).log(
+                    java.util.logging.Level.WARNING,
+                    "No identity pubkey recorded for {0}; cannot open identity identicon",
+                    this.nickname);
+            return;
+        }
+        IdenticonDialog identicon = new IdenticonDialog(
+                GameFrame.getInstance(), true, this.nickname,
+                pubkey, IdenticonDialog.Mode.IDENTITY, pubkey);
+        identicon.setLocationRelativeTo(GameFrame.getInstance());
+        identicon.setVisible(true);
     }//GEN-LAST:event_avatarMouseClicked
 
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked

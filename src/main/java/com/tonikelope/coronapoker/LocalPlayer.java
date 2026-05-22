@@ -2723,15 +2723,26 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        // TODO add your handling code here:
-        if (!GameFrame.getInstance().isPartida_local()) {
-
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance(), true, player_name.getText(), GameFrame.getInstance().getSala_espera().getLocal_client_aes_key());
-
-            identicon.setLocationRelativeTo(GameFrame.getInstance());
-
-            identicon.setVisible(true);
+        // EC-Identity v1: clicking own avatar opens the identicon of THIS installation's
+        // Ed25519 public identity. The dialog shows the visual icon and the 128-bit
+        // fingerprint in 8 groups of 4, ready to be shared with a peer through an
+        // out-of-band channel (WhatsApp, Telegram, voice).
+        //
+        // No "Verify identity" button: the user is verifying themselves, which has no
+        // meaning here. Just a showcase to share the fingerprint with peers.
+        //
+        // Works for both roles (host and client). Unlike the legacy AES-session
+        // identicon which only made sense for clients, the identity identicon is
+        // symmetric — every node has exactly one Ed25519 keypair regardless of role.
+        IdentityManager im = IdentityManager.getInstance();
+        if (!im.isReady()) {
+            return;
         }
+        IdenticonDialog identicon = new IdenticonDialog(
+                GameFrame.getInstance(), true, player_name.getText(),
+                im.getPublicKey(), IdenticonDialog.Mode.IDENTITY, null);
+        identicon.setLocationRelativeTo(GameFrame.getInstance());
+        identicon.setVisible(true);
     }//GEN-LAST:event_avatarMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

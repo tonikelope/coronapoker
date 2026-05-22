@@ -2043,6 +2043,45 @@ public class WaitingRoomFrame extends JFrame {
                                                                             crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                             return;
                                                                         }
+
+                                                                        // GATE 6b (anti-cascade-reorder): para phases comunitarias,
+                                                                        // el auditor designado de la mano es el humano no-host
+                                                                        // con MAX(SHA-256(handId || NFC(nick))) entre los humanos
+                                                                        // del ring. Un host honesto ordena la cascada por red de
+                                                                        // forma que ese peer aplique el ultimo unlock y vea sus
+                                                                        // chunks ya en el genesis deck. Dos asimetrias delatan
+                                                                        // manipulacion del orden:
+                                                                        //
+                                                                        //  - soy el designado pero chunks NO en genesis: el host
+                                                                        //    me salto y puso un bot, a si mismo, o a otro humano
+                                                                        //    al final para esquivar la auditoria.
+                                                                        //  - NO soy el designado pero chunks SI en genesis: el
+                                                                        //    host me empujo al final cuando no me tocaba (el
+                                                                        //    auditor real se quedo sin guardar expected y por
+                                                                        //    tanto sin verificar el broadcast posterior).
+                                                                        //
+                                                                        // Ambas se cazan con un solo XOR. Si la mesa no tiene
+                                                                        // humanos remotos (host + solo bots) el designated es
+                                                                        // null y la gate no aplica (este handler ni siquiera
+                                                                        // se ejecutaria en ese caso porque no habria peer remoto
+                                                                        // que recibiera REQ_SRA_UNLOCK).
+                                                                        if (phase != Crupier.UNLOCK_PHASE_POCKET) {
+                                                                            boolean allGenesis = (genesisCount == numChunks);
+                                                                            String hostNickGate = THIS.getServer_nick();
+                                                                            String designated = Crupier.designatedCascadeAuditor(
+                                                                                    hand_id, crupier.active_crypto_ring, hostNickGate, this.participantes);
+                                                                            if (designated != null) {
+                                                                                boolean iAmDesignated = local_nick.equals(designated);
+                                                                                if (iAmDesignated != allGenesis) {
+                                                                                    LOGGER.log(Level.SEVERE,
+                                                                                            "ZERO-TRUST: cascade order mismatch for hand {0} phase {1} — iAmDesignated={2} allGenesis={3} designated={4} myNick={5} — host manipulated the cascade order",
+                                                                                            new Object[]{hand_id, phase, iAmDesignated, allGenesis, designated, local_nick});
+                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_cascade_order_manipulated"));
+                                                                                    return;
+                                                                                }
+                                                                            }
+                                                                        }
+
                                                                         if (genesisCount == numChunks) {
                                                                             if (phase == Crupier.UNLOCK_PHASE_POCKET) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK pocket payload would resolve to my own hole cards — host is attempting pocket-card extraction, refusing");

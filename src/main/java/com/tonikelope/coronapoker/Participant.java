@@ -97,6 +97,29 @@ public class Participant implements Runnable {
         this.sra_unlock = sra_unlock;
     }
 
+    // --- EC-Identity v1 ---
+    // Cached at JOIN time. The host keeps these so it can later relay the verbatim
+    // self_sig to any peer that connects after this one (atomic identity transport
+    // via intro/USERSLIST/NEWUSER).
+    private volatile byte[] identity_pubkey = null;
+    private volatile byte[] identity_self_sig = null;
+
+    public byte[] getIdentity_pubkey() {
+        return identity_pubkey;
+    }
+
+    public void setIdentity_pubkey(byte[] pubkey) {
+        this.identity_pubkey = pubkey;
+    }
+
+    public byte[] getIdentity_self_sig() {
+        return identity_self_sig;
+    }
+
+    public void setIdentity_self_sig(byte[] self_sig) {
+        this.identity_self_sig = self_sig;
+    }
+
     public int getNew_hand_ready() {
         return new_hand_ready;
     }

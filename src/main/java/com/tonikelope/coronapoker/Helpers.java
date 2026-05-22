@@ -1475,6 +1475,14 @@ public class Helpers {
                 statement.execute("CREATE TABLE IF NOT EXISTS showcards(id INTEGER PRIMARY KEY, id_hand INTEGER, player TEXT, parguela INTEGER, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
+                statement.execute("CREATE TABLE IF NOT EXISTS known_identities(nick TEXT PRIMARY KEY, pubkey BLOB NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, sessions_count INTEGER NOT NULL DEFAULT 0, verified_oob INTEGER NOT NULL DEFAULT 0)");
+                // EC-Identity v1 (commit 6): forensic log of hands whose end-of-hand consensus
+                // did not check out unanimously. The hand is paid out regardless — this table is
+                // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of
+                // every receipt this peer collected for that hand (each receipt = HAND_ID ||
+                // H_final || sig, 16+32+64 = 112 bytes); local_h is this peer's own H_final at
+                // dispute time.
+                statement.execute("CREATE TABLE IF NOT EXISTS disputed_hands(id INTEGER PRIMARY KEY, id_hand INTEGER NOT NULL, timestamp INTEGER NOT NULL, receipts BLOB NOT NULL, local_h BLOB NOT NULL, reason TEXT, FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE)");
                 //ACTUALIZACIÓN
                 try {
                     statement.execute("ALTER TABLE game ADD ugi TEXT");
@@ -1490,6 +1498,28 @@ public class Helpers {
                 }
                 try {
                     statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
+                } catch (Exception ex) {
+                }
+                // EC-Identity v1 (recovery): per-hand cryptographic HAND_ID (16 bytes,
+                // base64). Needed to rebuild HandStateChain on recovery — the SQL
+                // hand.id is an auto-increment PK and does NOT match the bytes that
+                // initHandStateChain feeds into SHA-256(domain || HAND_ID || ...).
+                try {
+                    statement.execute("ALTER TABLE hand ADD hand_id_b64 TEXT");
+                } catch (Exception ex) {
+                }
+                // EC-Identity v1 (recovery): per-action canonical 92-byte record + Ed25519
+                // signature, both base64. Stored so recovery can replay every action
+                // through HandStateChain.absorb with the exact bytes that were absorbed
+                // pre-crash. Other peers' signatures cannot be re-derived locally
+                // (different privkeys), so persisting them is the only way to converge
+                // the chain after a recovery.
+                try {
+                    statement.execute("ALTER TABLE action ADD record_b64 TEXT");
+                } catch (Exception ex) {
+                }
+                try {
+                    statement.execute("ALTER TABLE action ADD sig_b64 TEXT");
                 } catch (Exception ex) {
                 }
 
@@ -1765,6 +1795,52 @@ public class Helpers {
         } catch (Exception ex) {
             throw new RuntimeException("Channel secret derivation failed", ex);
         }
+    }
+
+    /**
+     * Estimates the entropy of a password in bits using the character-class heuristic:
+     * alphabet size is the sum of the sizes of the character classes present, and the
+     * entropy is length * log2(alphabet). Used by the password strength warning at
+     * game creation. This is a floor estimate that does not penalize dictionary words
+     * or common patterns.
+     *
+     * Returns 0 for null or empty input.
+     */
+    public static int estimatePasswordEntropyBits(String pwd) {
+        if (pwd == null || pwd.isEmpty()) {
+            return 0;
+        }
+        boolean hasLower = false, hasUpper = false, hasDigit = false, hasSymbol = false;
+        for (int i = 0; i < pwd.length(); i++) {
+            char c = pwd.charAt(i);
+            if (Character.isLowerCase(c)) {
+                hasLower = true;
+            } else if (Character.isUpperCase(c)) {
+                hasUpper = true;
+            } else if (Character.isDigit(c)) {
+                hasDigit = true;
+            } else {
+                hasSymbol = true;
+            }
+        }
+        int alphabet = 0;
+        if (hasLower) {
+            alphabet += 26;
+        }
+        if (hasUpper) {
+            alphabet += 26;
+        }
+        if (hasDigit) {
+            alphabet += 10;
+        }
+        if (hasSymbol) {
+            alphabet += 32;
+        }
+        if (alphabet == 0) {
+            return 0;
+        }
+        double bits = pwd.length() * (Math.log(alphabet) / Math.log(2));
+        return (int) Math.floor(bits);
     }
 
     public static void screenshot(Rectangle rectangle, Integer delay) {

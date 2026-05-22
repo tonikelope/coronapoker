@@ -204,9 +204,10 @@ STREET (uint8):       ACTION_TYPE (uint8):
   3 = river             3 = BET
   4 = showdown          4 = RAISE
                         5 = ALLIN
+                        6 = COMMUNITY   (§4.7)
 ```
 
-If Java refactors its enums (rename, add `STRADDLE`, etc.), the wire byte stays stable. Translation Java↔wire is isolated in `HandStateChain`.
+If Java refactors its enums (rename, add `STRADDLE`, etc.), the wire byte stays stable. Translation Java↔wire is isolated in `HandStateChain` and `CanonicalActionRecord`.
 
 ### 4.4 Per-action signature
 
@@ -215,28 +216,54 @@ sig_t = Ed25519.sign(player_privkey,
                      "ACTION_V1\0" || record_t)
 ```
 
-### 4.5 Host-issued auto-fold (timeout)
+### 4.5 Departed peers and the `is_voluntary` bit
 
-When a player times out and the host auto-folds them:
+When a peer leaves mid-hand:
 
-- `ACTION_TYPE = FOLD`
-- `FLAGS bit1 (is_voluntary) = 0`
-- The signature is by the **host's privkey**, not the timed-out player's.
+- The host broadcasts `EXIT` immediately (synchronous, confirmation-true), so every receiver flips `Participant.isExit` for that peer.
+- Every peer (host included) detects `isExit()` next time `rondaApuestas` would iterate to that slot. `readActionFromRemotePlayer` returns a local FOLD synth with `record = sig = null`, marked by `is_voluntary = 0` (the `action[5] = FALSE` flag).
+- `rondaApuestas` keys off that flag to skip both the wire `ACTION` broadcast and the chain `absorb`. **No record is contributed for that slot on any peer** — the chain converges by mutual omission.
 
-Receivers verify: if `is_voluntary=0`, signature must validate against the host's pubkey (known from `known_identities`). If `is_voluntary=1`, signature must validate against `PLAYER_ID`'s pubkey. Any other combination → reject.
+Consequences for the `is_voluntary` bit:
 
-### 4.6 Events NOT in the chain
+- `is_voluntary = 1` is the only value that actually travels on the wire today (humans signing their own actions; bots signed by the host with the bot's `PLAYER_ID` and `is_voluntary = 1`).
+- `is_voluntary = 0` is **reserved**. It is set on the in-memory `action[]` slot for exit synth but never reaches the wire (because the broadcast is skipped) and never lands in `H_t` (because the absorb is skipped). The receiver verification table (§4.6) keeps the slot defined in case a future protocol revision needs host-signed records.
+
+Honest player timeouts (peer connected but not acting) are resolved client-side: each peer's local `auto_action` timer auto-clicks CHECK or FOLD and sends the regular `ACTION` wire with the peer's own signature (`is_voluntary = 1`). There is no host-side timeout autofold.
+
+### 4.6 Receiver verification table
+
+| FLAGS.is_voluntary | Actor type | Expected signer pubkey |
+|---|---|---|
+| 1 | Human | Actor's own pinned pubkey |
+| 1 | Bot (`Participant.isCpu()`) | Host's pinned pubkey (§10) |
+| 0 | — | Reserved (never on wire as of this release; reject if seen) |
+
+### 4.7 Host-signed community card reveals
+
+Flop, turn and river reveals are absorbed in `H_t` like any other action, with `ACTION_TYPE = COMMUNITY (6)` and the host's identity as signer.
+
+- `PLAYER_ID = SHA-256(NFC(host_nick))`
+- `STREET` = the street being revealed (flop=1, turn=2, river=3)
+- `AMOUNT_CENTS` carries the packed card ordinals being revealed (3 cards for flop, 1 for turn/river — encoded into the 8-byte field via `CanonicalActionRecord.packCommunityCards`)
+- `FLAGS.is_voluntary = 1` — the host signs with its own Ed25519 privkey
+- `sig_t = Ed25519.sign(host_privkey, "ACTION_V1\0" || record_t)`
+
+Wire form: `GAME # <hand_seq> # COMM_REVEAL # <street_byte> # <cards> # <record_b64> # <sig_b64>`. The host broadcasts the same `(record, sig)` pair to every connected peer, so each peer absorbs identical bytes into the chain — this is what closes the "cross-recipient fork" attack where a malicious host could otherwise announce different card sets to different peers.
+
+Phase 3 fix safeguards the host side: the record is absorbed into the host's own `H_t` **only after** the broadcast confirms (no partial chain advance if the broadcast throws), and receiving peers drop any `COMM_REVEAL` whose `STREET` doesn't match the current street to avoid stale-street replay.
+
+### 4.8 Events NOT in the chain
 
 Out of scope for `CanonicalActionRecord`. Each has its own flow:
 
 | Event | Why excluded |
 |---|---|
 | SHOW_CARDS at showdown | Needs to transport `sra_unlock` (32B) or revealed cards — doesn't fit 92B. Separate flow, individually signed but outside chain. |
-| Community card reveal by host | Host-driven event, not player action. Deck commitment in `H_0` already binds the deck. |
-| EXIT | Session-level event. Signed with the player's Ed25519 identity key for non-repudiation (prevents host from forging an EXIT of another player). Outside the action chain `H_t`. |
+| EXIT | Session-level event carried by the regular encrypted/HMAC'd channel (no per-event Ed25519 signature). A malicious host could in principle forge an EXIT for an arbitrary peer, but the spoofed peer is still connected and will see the desync as soon as it ratchets a hand against a missing slot — the protocol stays signaletic: outcomes always settle, divergence is detectable post-hand. Out-of-band identity verification (§9) is the actual defence against host impersonation of peers. |
 | REBUY | Between hands, doesn't affect current `H_t`. Stays as today. |
 
-### 4.7 Wire encoding (commit 5)
+### 4.9 Wire encoding (commit 5)
 
 ```
 GAME # <hand_seq> # <ACTION_TYPE_STR> # <nick> # <amount_str> # <record_b64> # <sig_b64>
@@ -472,8 +499,8 @@ This model preserves the separation of identities — the host plays as itself a
 
 The host of a game has the same Ed25519 identity as any other peer (one keypair per installation). They are stored in `known_identities` like everyone else, sign their own actions like everyone else, and other peers verify their actions against the host's known pubkey. The only special role of the host in cryptographic terms is:
 
-- Issuing auto-folds on behalf of timed-out players (with `FLAGS.is_voluntary=0`, signed by host's own privkey, verified against host's known pubkey).
-- Generating ephemeral bot keypairs for the game session.
+- Signing community card reveals (`ACTION_TYPE = COMMUNITY`, §4.7) with the host's own privkey, so every peer absorbs identical reveal records into `H_t`.
+- Signing bot actions on behalf of the bots it operates (§10 above), since bots have no persistent identity of their own.
 
 No special "host pubkey" exists in the protocol. Host == player + extra responsibilities.
 

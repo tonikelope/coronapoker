@@ -5604,8 +5604,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Object[] readActionFromRemotePlayer(Player jugador) {
         boolean ok = false;
-        Object[] action = new Object[3];
-        /* [0] decision, [1] bet (or cinematic on ALLIN), [2] packetB64 */
+        // EC-Identity v1 (commit 5): action[] grows to 6 slots so the wire's
+        // record + sig and the voluntary flag survive the trip through Crupier:
+        //   [0] decision        (Integer)
+        //   [1] bet             (Float; on ALLIN overloaded to cinematic String —
+        //                        kept for backward-compat with rondaApuestas)
+        //   [2] cinematic       (String|null — separate slot; [1] is overloaded)
+        //   [3] record          (byte[92]|null — canonical record from the wire)
+        //   [4] sig             (byte[64]|null — Ed25519 signature from the wire)
+        //   [5] isVoluntary     (Boolean — false only for host-issued auto-fold §4.5)
+        Object[] action = new Object[6];
 
         // Sin timeout artificial en el host: cada cliente tiene su propio
         // contador de tiempo de pensar (LocalPlayer.response_counter) que al
@@ -5626,7 +5634,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (!jugador.isExit()) {
                             try {
-                                /* LITE FORMAT SRA: GAME#ID#ACTION#NICK_B64#DECISION#BET#[CINEMATICA] */
+                                /* EC-Identity v1 wire (commit 5):
+                                 *   GAME#ID#ACTION#NICK_B64#DECISION#BET#CINEMATIC_OR_*#RECORD_B64#SIG_B64
+                                 * Legacy wire (pre-commit-5) is shorter; record/sig stay null and the
+                                 * receiver verification is skipped (the chain absorbs only if both are
+                                 * present, so the legacy path remains correct).
+                                 */
                                 if (partes.length >= 6 && partes[2].equals("ACTION")) {
                                     String senderNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
 
@@ -5639,6 +5652,50 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         /* Cinematic extraction on ALLIN */
                                         if ((Integer) action[0] == Player.ALLIN && partes.length > 6 && !partes[6].isEmpty() && !partes[6].equals("*")) {
                                             action[1] = partes[6];
+                                            action[2] = partes[6];
+                                        }
+
+                                        // EC-Identity v1: record + sig from the wire (commit 5).
+                                        // partes[7] / partes[8] arrive as base64; absent (or "*") means
+                                        // the sender is on a pre-v1 build and verification is skipped.
+                                        action[3] = null;
+                                        action[4] = null;
+                                        action[5] = Boolean.TRUE; // genuine player decision
+                                        if (partes.length >= 9
+                                                && !"*".equals(partes[7]) && !"*".equals(partes[8])) {
+                                            try {
+                                                byte[] wireRecord = java.util.Base64.getDecoder().decode(partes[7]);
+                                                byte[] wireSig = java.util.Base64.getDecoder().decode(partes[8]);
+                                                action[3] = wireRecord;
+                                                action[4] = wireSig;
+
+                                                // EC-Identity v1: decode the FLAGS.is_voluntary bit from the
+                                                // record so action[5] reflects what the sender claimed (§4.5
+                                                // host auto-folds use voluntary=0). The §10 receiver rule
+                                                // picks the signer pubkey from this bit + Participant.isCpu().
+                                                if (wireRecord != null
+                                                        && wireRecord.length == CanonicalActionRecord.RECORD_BYTES) {
+                                                    int flags = ((wireRecord[CanonicalActionRecord.OFFSET_FLAGS] & 0xff) << 8)
+                                                            | (wireRecord[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
+                                                    boolean wireVoluntary = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
+                                                    action[5] = wireVoluntary;
+
+                                                    byte[] signerPubkey = resolveActionSignerPubkey(jugador.getNickname(), wireVoluntary);
+                                                    if (signerPubkey == null) {
+                                                        LOGGER.log(Level.WARNING,
+                                                                "Cannot resolve signer pubkey for action by {0} (voluntary={1}) — verification skipped",
+                                                                new Object[]{jugador.getNickname(), wireVoluntary});
+                                                    } else if (!IdentityManager.verifyAction(signerPubkey, wireRecord, wireSig)) {
+                                                        LOGGER.log(Level.SEVERE,
+                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — absorbed anyway, divergence will surface at hand close",
+                                                                new Object[]{jugador.getNickname(), wireVoluntary});
+                                                    }
+                                                }
+                                            } catch (Exception parseEx) {
+                                                LOGGER.log(Level.WARNING, "Failed to decode/verify record/sig from ACTION wire", parseEx);
+                                                action[3] = null;
+                                                action[4] = null;
+                                            }
                                         }
                                     }
                                 }
@@ -5668,9 +5725,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } while (!ok && !jugador.isExit());
 
         if (jugador.isExit()) {
+            // EC-Identity v1: host-issued auto-fold per §4.5. The host fabricates the
+            // canonical record (voluntary=0, PLAYER_ID names the timed-out player so
+            // the chain reflects who folded) and signs with its own privkey. The
+            // wire will carry these bytes verbatim through the broadcast below so
+            // every receiver verifies against the host's pubkey.
             action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;
+            Object[] recsig = buildLocalActionRecordAndSig(
+                    jugador.getNickname(), Player.FOLD, 0f, jugador, false);
+            if (recsig != null) {
+                action[3] = recsig[0];
+                action[4] = recsig[1];
+            }
+            action[5] = Boolean.FALSE; // host-issued auto-fold (§4.5)
         } else {
             jugador.setTimeout(false);
         }
@@ -6287,33 +6356,76 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.current_remote_cinematic_b64 = null;
                 }
 
+                // EC-Identity v1 (commit 5): resolve record + sig for this action.
+                // Four sources cover all cases without ambiguity:
+                //   1) RemotePlayer human, action came from the wire via
+                //      readActionFromRemotePlayer → action[3]/[4] already populated.
+                //   2) RemotePlayer that EXIT'd mid-turn → readActionFromRemotePlayer
+                //      synthesised host-signed autofold with voluntary=false (§4.5).
+                //   3) RemotePlayer that is a bot → host has to sign with its privkey
+                //      because bots have no persistent identity (§10). action[] from
+                //      the bot path is 3-slot, so fall through to local build below.
+                //   4) LocalPlayer (host's or client's own UI) → action[] from the
+                //      UI is 3-slot too; build with own privkey.
+                byte[] localRecord = null;
+                byte[] localSig = null;
+                boolean isVoluntary = true;
+                if (action.length >= 6) {
+                    if (action[3] instanceof byte[]) {
+                        localRecord = (byte[]) action[3];
+                    }
+                    if (action[4] instanceof byte[]) {
+                        localSig = (byte[]) action[4];
+                    }
+                    if (action[5] instanceof Boolean) {
+                        isVoluntary = (Boolean) action[5];
+                    }
+                }
+                if (localRecord == null || localSig == null) {
+                    Object[] recsig = buildLocalActionRecordAndSig(
+                            current_player.getNickname(), decision, action[1], current_player, isVoluntary);
+                    if (recsig != null) {
+                        localRecord = (byte[]) recsig[0];
+                        localSig = (byte[]) recsig[1];
+                    }
+                }
+
+                // Cinematic_or_* field is now always present in the wire (fixed slot).
+                String cinematicField = "*";
+                if (decision == Player.ALLIN) {
+                    if (current_player == GameFrame.getInstance().getLocalPlayer()
+                            && !GameFrame.getInstance().isPartida_local()) {
+                        if (this.current_local_cinematic_b64 != null) {
+                            cinematicField = this.current_local_cinematic_b64;
+                        }
+                    } else if (this.current_remote_cinematic_b64 != null) {
+                        cinematicField = this.current_remote_cinematic_b64;
+                    }
+                }
+
                 String comando = null;
                 try {
+                    // EC-Identity v1 wire (commit 5):
+                    //   ACTION#nickB64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
                     comando = "ACTION#"
                             + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
                             + "#" + decision
-                            + "#" + (decision == Player.BET ? String.valueOf((float) action[1]) : "0");
+                            + "#" + (decision == Player.BET ? String.valueOf((float) action[1]) : "0")
+                            + "#" + cinematicField
+                            + "#" + (localRecord != null ? java.util.Base64.getEncoder().encodeToString(localRecord) : "*")
+                            + "#" + (localSig != null ? java.util.Base64.getEncoder().encodeToString(localSig) : "*");
                 } catch (Exception ex) {
                 }
 
                 if (current_player == GameFrame.getInstance().getLocalPlayer()) {
                     if (GameFrame.getInstance().isPartida_local()) {
-                        if (decision == Player.ALLIN && this.current_remote_cinematic_b64 != null) {
-                            comando += "#" + this.current_remote_cinematic_b64;
-                        }
                         broadcastGAMECommandFromServer(comando, current_player.getNickname());
                     } else {
-                        if (decision == Player.ALLIN && this.current_local_cinematic_b64 != null) {
-                            comando += "#" + this.current_local_cinematic_b64;
-                        }
                         this.sendGAMECommandToServer(comando);
                     }
                 } else {
                     ((RemotePlayer) current_player).setDecisionFromRemotePlayer(decision, (float) action[1]);
                     if (GameFrame.getInstance().isPartida_local()) {
-                        if (decision == Player.ALLIN && this.current_remote_cinematic_b64 != null) {
-                            comando += "#" + this.current_remote_cinematic_b64;
-                        }
                         broadcastGAMECommandFromServer(comando, current_player.getNickname());
                     }
                 }
@@ -6327,12 +6439,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } while (current_player.isTurno());
 
-                // EC-Identity v1: ratchet the hand state chain with this action. Each peer
-                // (host and clients) runs the same absorb call on the same record bytes, so
-                // H_t stays byte-identical across the table. The is_voluntary flag is true
-                // for every player-initiated decision; commit 5 will flip it to false on
-                // host-issued auto-folds so the host signs them with its own privkey.
-                absorbActionIntoChain(current_player.getNickname(), decision, true);
+                // EC-Identity v1 (commit 5): absorb the (record || sig) bytes into H_t.
+                // Same call on host and every client, so the chain stays byte-identical
+                // across the table. Failed-verify sigs are absorbed too so divergence
+                // remains detectable at hand close (§4.5).
+                absorbActionIntoChain(current_player.getNickname(), localRecord, localSig);
 
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
 
@@ -6874,34 +6985,147 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Builds a canonical record for the action {@code playerNick} just emitted
-     * (decision + final bet amount stored on the Player) and absorbs it into this
-     * peer's H_t chain. If the chain has not been initialised (older host without
-     * HAND_ID in the MEGAPACKET, or hand started before the upgrade) the call is a
-     * no-op so we don't refuse to play.
-     *
-     * <p>{@code isVoluntary} should be {@code false} for host-issued auto-folds
-     * (spec §4.5) — the resulting record is then signed by the host's privkey in
-     * commit 5, not by the timed-out player's.
+     * EC-Identity v1: absorbs the wire (record, sig) bytes directly into the
+     * peer's H_t chain. Used by the action loop once the canonical record +
+     * signature are in hand. Invalid signatures are absorbed too (the receipt
+     * protocol catches divergence at hand close, §4.5). No-op when the chain
+     * is uninitialised (older host without HAND_ID, recovery paths, etc).
      */
-    private void absorbActionIntoChain(String playerNick, int javaDecision,
-            boolean isVoluntary) {
+    private void absorbActionIntoChain(String playerNick, byte[] record, byte[] sig) {
         HandStateChain chain = this.hand_state_chain;
         if (chain == null) {
+            return;
+        }
+        if (record == null || sig == null) {
             return;
         }
         if (!isInActiveCryptoRing(playerNick)) {
             return;
         }
-        Player player = nick2player.get(playerNick);
-        if (player == null) {
-            return;
+        try {
+            byte[] newHash = chain.absorb(record, sig);
+            if (HandStateChain.DEBUG_HANDCHAIN) {
+                try {
+                    String hCheckCmd = "H_CHECK#"
+                            + Base64.getEncoder().encodeToString(playerNick.getBytes("UTF-8"))
+                            + "#" + Base64.getEncoder().encodeToString(newHash);
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        broadcastGAMECommandFromServer(hCheckCmd, null, false);
+                    }
+                    LOGGER.log(Level.INFO, "H_CHECK after {0}'s signed action: {1}",
+                            new Object[]{playerNick, Base64.getEncoder().encodeToString(newHash)});
+                } catch (Exception broadcastEx) {
+                    LOGGER.log(Level.WARNING, "H_CHECK broadcast failed: " + broadcastEx.getMessage());
+                }
+            }
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE,
+                    "Failed to absorb signed action into hand state chain (nick=" + playerNick + ")", ex);
+        }
+    }
+
+    /**
+     * EC-Identity v1 (commit 5): predicts the post-action total bet (in cents) for the
+     * player about to act, WITHOUT waiting for async setDecision side-effects.
+     *
+     * <ul>
+     *   <li>FOLD → 0 (no money moves)</li>
+     *   <li>CHECK → {@code apuesta_actual} (covers true check and call)</li>
+     *   <li>BET → absolute target supplied by the local UI / bot logic</li>
+     *   <li>ALLIN → {@code player.bet + player.stack} (allin moves stack into bet,
+     *       so the sum is invariant pre/post-action)</li>
+     * </ul>
+     */
+    private long predictPostActionBetCents(int javaDecision, Object originalActionBet, Player player) {
+        switch (javaDecision) {
+            case Player.FOLD:
+                return 0L;
+            case Player.CHECK:
+                return CanonicalActionRecord.amountToCents(Helpers.floatClean(this.apuesta_actual));
+            case Player.BET: {
+                float betFloat = 0f;
+                if (originalActionBet instanceof Float) {
+                    betFloat = (Float) originalActionBet;
+                } else if (originalActionBet instanceof Number) {
+                    betFloat = ((Number) originalActionBet).floatValue();
+                }
+                return CanonicalActionRecord.amountToCents(Helpers.floatClean(betFloat));
+            }
+            case Player.ALLIN:
+                return CanonicalActionRecord.amountToCents(
+                        Helpers.floatClean(player.getBet() + player.getStack()));
+            default:
+                return 0L;
+        }
+    }
+
+    /**
+     * EC-Identity v1 (commit 5): resolves the Ed25519 raw pubkey to verify an action's
+     * signature against, applying the §10 consolidated receiver rule:
+     *
+     * <ul>
+     *   <li>voluntary=0 (host auto-fold per §4.5) → host's pubkey</li>
+     *   <li>actor is a bot (Participant.isCpu()) → host's pubkey (§10)</li>
+     *   <li>otherwise (voluntary human action) → actor's pubkey</li>
+     * </ul>
+     *
+     * Host's pubkey resolution depends on which side we are on:
+     *   - partida_local=true (this process IS the host): IdentityManager.getInstance().getPublicKey().
+     *   - partida_local=false (this process is a client): participantes.get(server_nick).getIdentity_pubkey().
+     *
+     * Returns null when the requested pubkey is not yet available (TOFU race during
+     * a fresh JOIN). Caller treats null as "verification skipped" and logs.
+     */
+    private byte[] resolveActionSignerPubkey(String actorNick, boolean isVoluntary) {
+        boolean useHostKey = !isVoluntary;
+        if (!useHostKey) {
+            Participant actorPar = GameFrame.getInstance().getParticipantes().get(actorNick);
+            if (actorPar != null && actorPar.isCpu()) {
+                useHostKey = true;
+            } else if (actorPar != null) {
+                return actorPar.getIdentity_pubkey();
+            } else {
+                return null;
+            }
+        }
+        if (GameFrame.getInstance().isPartida_local()) {
+            IdentityManager im = IdentityManager.getInstance();
+            return im.isReady() ? im.getPublicKey() : null;
+        }
+        String hostNick = GameFrame.getInstance().getSala_espera().getServer_nick();
+        if (hostNick == null) {
+            return null;
+        }
+        Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
+        return hostPar != null ? hostPar.getIdentity_pubkey() : null;
+    }
+
+    /**
+     * EC-Identity v1 (commit 5): builds and signs a canonical action record for an
+     * action originating LOCALLY in this process — host's own UI, a bot (host drives
+     * it), an auto-fold (host fabricates on behalf of a timed-out / EXITed peer), or
+     * a client's own UI when partida_local is false. Returns null when the chain is
+     * uninitialised or IdentityManager isn't ready (the wire then carries "*"
+     * placeholders so the receiver skips verification gracefully).
+     *
+     * <p>{@code isVoluntary} is true for genuine decisions, false for host-fabricated
+     * auto-folds (§4.5). Bot actions are voluntary=true but signed by the host's
+     * privkey — receivers identify them by Participant.isCpu() (§10).
+     */
+    private Object[] buildLocalActionRecordAndSig(String playerNick, int javaDecision,
+            Object originalActionBet, Player player, boolean isVoluntary) {
+        HandStateChain chain = this.hand_state_chain;
+        if (chain == null) {
+            return null;
+        }
+        IdentityManager im = IdentityManager.getInstance();
+        if (!im.isReady()) {
+            return null;
         }
         try {
             int wireAction = mapJavaActionToWire(javaDecision);
             int wireStreet = mapJavaStreetToWire(this.street);
-            long cents = CanonicalActionRecord.amountToCents(
-                    Helpers.floatClean(player.getBet()));
+            long cents = predictPostActionBetCents(javaDecision, originalActionBet, player);
             byte[] pid = CanonicalActionRecord.playerIdFromNick(playerNick);
             byte[] record = CanonicalActionRecord.encode(
                     chain.getCurrentHash(),
@@ -6912,27 +7136,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     cents,
                     javaDecision == Player.ALLIN,
                     isVoluntary);
-            byte[] newHash = chain.absorb(record);
-
-            if (HandStateChain.DEBUG_HANDCHAIN) {
-                try {
-                    String hCheckCmd = "H_CHECK#"
-                            + Base64.getEncoder().encodeToString(playerNick.getBytes("UTF-8"))
-                            + "#" + Base64.getEncoder().encodeToString(newHash);
-                    if (GameFrame.getInstance().isPartida_local()) {
-                        broadcastGAMECommandFromServer(hCheckCmd, null, false);
-                    }
-                    LOGGER.log(Level.INFO, "H_CHECK after {0}'s action: {1}",
-                            new Object[]{playerNick,
-                                Base64.getEncoder().encodeToString(newHash)});
-                } catch (Exception broadcastEx) {
-                    LOGGER.log(Level.WARNING, "H_CHECK broadcast failed: " + broadcastEx.getMessage());
-                }
-            }
+            byte[] sig = im.signAction(record);
+            return new Object[]{record, sig};
         } catch (RuntimeException ex) {
             LOGGER.log(Level.SEVERE,
-                    "Failed to absorb action into hand state chain (nick=" + playerNick
+                    "Failed to build local action record/sig (nick=" + playerNick
                     + ", decision=" + javaDecision + ")", ex);
+            return null;
         }
     }
 

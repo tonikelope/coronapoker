@@ -6093,19 +6093,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } while (!ok && !jugador.isExit());
 
         if (jugador.isExit()) {
-            // EC-Identity v1: host-issued auto-fold per §4.5. The host fabricates the
-            // canonical record (voluntary=0, PLAYER_ID names the timed-out player so
-            // the chain reflects who folded) and signs with its own privkey. The
-            // wire will carry these bytes verbatim through the broadcast below so
-            // every receiver verifies against the host's pubkey.
+            // EC-Identity v1: host-issued auto-fold per §4.5. Only the HOST may fabricate
+            // and sign the autofold record — its own privkey is the §10-correct signer
+            // for voluntary=false actions. Clients hitting isExit without a wire ACTION
+            // (race between the host's autofold broadcast and an EXIT command) leave
+            // record/sig null. Their chain absorb becomes a no-op; if the divergence
+            // matters it surfaces as DIVERGENT at hand close, which is the correct
+            // signal — but in practice TCP ordering keeps the host's autofold ACTION
+            // ahead of EXIT and the wire-parsing path covers it.
             action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;
-            Object[] recsig = buildLocalActionRecordAndSig(
-                    jugador.getNickname(), Player.FOLD, 0f, jugador, false);
-            if (recsig != null) {
-                action[3] = recsig[0];
-                action[4] = recsig[1];
+            if (GameFrame.getInstance().isPartida_local()) {
+                Object[] recsig = buildLocalActionRecordAndSig(
+                        jugador.getNickname(), Player.FOLD, 0f, jugador, false);
+                if (recsig != null) {
+                    action[3] = recsig[0];
+                    action[4] = recsig[1];
+                }
             }
             action[5] = Boolean.FALSE; // host-issued auto-fold (§4.5)
         } else {

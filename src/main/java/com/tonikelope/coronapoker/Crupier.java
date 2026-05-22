@@ -431,32 +431,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] current_hand_id = null;
     public volatile HandStateChain hand_state_chain = null;
 
-    // EC-Identity v1 (chain consistency fix): host-side buffer for EXIT broadcasts
-    // that should be delayed until AFTER the exiting peer's autofold ACTION is
-    // broadcast. Without this, TCP order on receivers is EXIT-then-ACTION, the
-    // WaitingRoomFrame inline-handles EXIT (setting Player.isExit + Participant.isExit
-    // on the client), the main thread enters its isExit branch on the next turn
-    // and silently misses the autofold ACTION wire that arrived after — host's
-    // chain advances by one absorb while the client's stays put, surfacing as
-    // DIVERGENT at hand close even though the protocol ran correctly.
-    //
-    // remotePlayerQuit deposits the EXIT command here when the hand is active.
-    // rondaApuestas drains the entry for current_player right after broadcasting
-    // its autofold ACTION (per-turn flush). readyForNextHand flushes whatever is
-    // left as a safety net for players who exited while already folded out of the
-    // hand and therefore never got a synth turn.
-    private final java.util.Map<String, String> pending_exit_broadcasts = new java.util.HashMap<>();
-    private final Object pending_exit_lock = new Object();
-
-    // EC-Identity v1 (chain consistency fix): true while the host is between
-    // HANDVERIFY trigger and runConsensusCheck. During this window there are no
-    // more autofold turns to synthesise, so remotePlayerQuit MUST NOT defer the
-    // EXIT broadcast — clients are sitting in their consensus wait loop and need
-    // to see the exit immediately to drop the missing peer from their expected
-    // signer set (otherwise the loop ticks down to CLIENT_RECEPTION_TIMEOUT and
-    // surfaces MISSING for a peer the host already excluded).
-    private volatile boolean in_consensus_phase = false;
-
     // EC-Identity v1 (Opción A): per-hand flag — set to true the first time this
     // peer rejects an Ed25519 signature on an incoming ACTION or COMM_REVEAL
     // wire during the hand. The flag is embedded into this peer's receipt (under
@@ -2118,26 +2092,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (testamento != null && !testamento.isEmpty() && !testamento.equals("*")) {
                         cmd += "#" + testamento;
                     }
-                    // EC-Identity v1 (chain consistency fix): defer EXIT broadcast
-                    // when the hand is live so the autofold ACTION for this peer
-                    // (synthesised by rondaApuestas when it reaches their turn)
-                    // arrives at every receiver BEFORE the EXIT command. See the
-                    // pending_exit_broadcasts field comment for the full rationale.
-                    //
-                    // Skip the defer during the consensus phase: there are no more
-                    // autofold turns left, and other peers are blocked in their
-                    // receipt wait loop expecting this peer's contribution. Flushing
-                    // immediately lets them re-compute expected_signers and drop the
-                    // missing peer before the per-hand timeout fires.
-                    if (WaitingRoomFrame.getInstance().isPartida_empezada()
-                            && !this.isFin_de_la_transmision()
-                            && !this.in_consensus_phase) {
-                        synchronized (pending_exit_lock) {
-                            pending_exit_broadcasts.put(nick, cmd);
-                        }
-                    } else {
-                        broadcastGAMECommandFromServer(cmd, nick);
-                    }
+                    // EXIT goes out NOW. The previous "defer until autofold ACTION
+                    // is broadcast" pattern existed to keep wire order ACTION→EXIT
+                    // so receivers could absorb a host-signed autofold record into
+                    // their chain before marking the peer as out. That whole
+                    // mechanism is gone: a departed peer contributes no record to
+                    // the slot it would have played, every receiver synths the
+                    // local FOLD on EXIT, and the chain converges by mutual
+                    // omission. So no buffering, no flush — just send.
+                    broadcastGAMECommandFromServer(cmd, nick);
                 } catch (UnsupportedEncodingException ex) {
                 }
 
@@ -2174,49 +2137,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Sobrecarga de compatibilidad
     public synchronized void remotePlayerQuit(String nick) {
         remotePlayerQuit(nick, null);
-    }
-
-    /**
-     * Broadcasts a deferred EXIT command for {@code nick} (if any was queued by
-     * remotePlayerQuit during a live hand) and removes it from the buffer. Called
-     * by rondaApuestas right after broadcasting an autofold ACTION so the EXIT
-     * follows the ACTION on every receiver's TCP stream.
-     */
-    private void flushPendingExitBroadcast(String nick) {
-        String cmd;
-        synchronized (pending_exit_lock) {
-            cmd = pending_exit_broadcasts.remove(nick);
-        }
-        if (cmd != null) {
-            try {
-                broadcastGAMECommandFromServer(cmd, nick);
-            } catch (RuntimeException ex) {
-                LOGGER.log(Level.WARNING, "Deferred EXIT broadcast failed for " + nick, ex);
-            }
-        }
-    }
-
-    /**
-     * Safety-net flush of every EXIT command still buffered at hand boundary.
-     * Catches peers who exited while already folded and therefore never got an
-     * autofold turn to trigger the per-turn flush.
-     */
-    private void flushAllPendingExitBroadcasts() {
-        java.util.Map<String, String> snapshot;
-        synchronized (pending_exit_lock) {
-            if (pending_exit_broadcasts.isEmpty()) {
-                return;
-            }
-            snapshot = new java.util.HashMap<>(pending_exit_broadcasts);
-            pending_exit_broadcasts.clear();
-        }
-        for (java.util.Map.Entry<String, String> e : snapshot.entrySet()) {
-            try {
-                broadcastGAMECommandFromServer(e.getValue(), e.getKey());
-            } catch (RuntimeException ex) {
-                LOGGER.log(Level.WARNING, "Deferred EXIT broadcast failed for " + e.getKey(), ex);
-            }
-        }
     }
 
     public Object getLock_apuestas() {
@@ -3745,13 +3665,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // EC-Identity v1 (Opción A): reset the invalid-sig flag for the new hand.
         this.saw_invalid_action_sig = false;
-
-        // EC-Identity v1 (chain consistency fix): safety-net flush of any EXIT
-        // broadcasts still buffered from peers who exited while already folded
-        // out of the just-ended hand (no autofold turn to trigger the per-turn
-        // flush). Runs on the host only; no-op when partida_local=false because
-        // remotePlayerQuit never deposits there.
-        flushAllPendingExitBroadcasts();
 
         // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
         // first 32 feed the AES-256 key, last 16 feed the CTR IV.
@@ -5394,24 +5307,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // row, popup and JUL log are all in place before the payout code that follows
         // this call begins. The outcome is signaletic only — §6.3/§6.4 mandate the
         // hand always settles.
-        //
-        // EC-Identity v1 (chain consistency fix): mark the consensus window BEFORE
-        // any broadcast / wait so concurrent remotePlayerQuit calls (running on
-        // Participant reader threads when a peer's socket dies) stop deferring the
-        // EXIT broadcast. Setting it inside the try ensures the finally always
-        // clears it even if HANDVERIFY broadcast or the receipt loop throws.
-        this.in_consensus_phase = true;
         try {
             if (GameFrame.getInstance().isPartida_local()) {
-                // EC-Identity v1 (chain consistency fix): flush any pending EXIT
-                // broadcasts BEFORE the HANDVERIFY trigger leaves so clients see the
-                // exits and exclude those peers from their own computeExpectedConsensusSigners.
-                // Without this, a peer who exits between their last bet and the consensus
-                // phase has their EXIT held in pending_exit_broadcasts until the next
-                // hand's readyForNextHand — too late for the current hand's consensus,
-                // which surfaces MISSING on every other client even though the host
-                // correctly excluded the exited peer.
-                flushAllPendingExitBroadcasts();
                 // HOST: fire the trigger (sync, confirmed) so every connected client wakes
                 // up its own consensus phase before we start emitting receipts.
                 broadcastGAMECommandFromServer("HANDVERIFY", null, true);
@@ -5452,27 +5349,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECEPTION_TIMEOUT;
             boolean isHost = GameFrame.getInstance().isPartida_local();
 
-            // Relays are collected inside the synchronized block and dispatched
-            // OUTSIDE it. The relay broadcast waits for ACKs (sync,
-            // confirmation=true) and can block tens of seconds; doing it while
-            // holding the received_commands monitor freezes every server-side
-            // Participant.run() that has a HANDVERIFY default-case waiting to
-            // add to received_commands. With those threads stuck mid-message
-            // their socket_reader_queue stops draining and any CONF for our
-            // broadcast queued behind never gets processed — host waits for
-            // an ACK that cannot arrive, peer never advances, deadlock holds
-            // across reconnects.
+            // EC-Identity v1 (deadlock fix): relays are collected inside the
+            // synchronized block and dispatched OUTSIDE it. The relay broadcast
+            // waits for ACKs (sync, confirmation=true) and can block tens of
+            // seconds; doing it while holding the received_commands monitor
+            // freezes every server-side Participant.run() that has a HANDVERIFY
+            // default-case waiting to add to received_commands. With those
+            // threads stuck mid-message, their socket_reader_queue stops draining
+            // and any CONF for our broadcast queued behind never gets processed
+            // — host waits for an ACK that cannot arrive, peer never advances,
+            // deadlock holds across reconnects.
             java.util.ArrayList<String[]> pendingRelays = new java.util.ArrayList<>();
             while (System.currentTimeMillis() < deadline
                     && !receipts.keySet().containsAll(expected)
                     && !isFin_de_la_transmision()) {
-                // EC-Identity v1 (chain consistency fix): re-compute expected on each
-                // iteration so peers that exit DURING the consensus wait drop out of
-                // the awaited set. The host's remotePlayerQuit flushes their EXIT
-                // immediately (in_consensus_phase=true), every receiver's WaitingRoomFrame
-                // processes the EXIT inline (setting Participant.isExit), and the
-                // next refresh trims them from the expected set so the loop exits as
-                // soon as the surviving signers' receipts arrive.
+                // Re-compute expected on each iteration so peers that exit DURING the
+                // consensus wait drop out of the awaited set. remotePlayerQuit broadcasts
+                // the EXIT immediately, every receiver's WaitingRoomFrame processes it
+                // inline (setting Participant.isExit), and the next refresh trims them
+                // from the expected set so the loop exits as soon as the surviving
+                // signers' receipts arrive.
                 expected = computeExpectedConsensusSigners();
                 if (receipts.keySet().containsAll(expected)) {
                     break;
@@ -5547,8 +5443,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // and now, especially after the wait wake-up that broke the loop.
             expected = computeExpectedConsensusSigners();
             runConsensusCheck(receipts, expected, handIdSnap, hFinalSnap);
-        } finally {
-            this.in_consensus_phase = false;
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE, "requestShowdownKeys failed", ex);
         }
     }
 
@@ -6449,26 +6345,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } while (!ok && !jugador.isExit());
 
         if (jugador.isExit()) {
-            // EC-Identity v1: host-issued auto-fold per §4.5. Only the HOST may fabricate
-            // and sign the autofold record — its own privkey is the §10-correct signer
-            // for voluntary=false actions. Clients hitting isExit without a wire ACTION
-            // (race between the host's autofold broadcast and an EXIT command) leave
-            // record/sig null. Their chain absorb becomes a no-op; if the divergence
-            // matters it surfaces as DIVERGENT at hand close, which is the correct
-            // signal — but in practice TCP ordering keeps the host's autofold ACTION
-            // ahead of EXIT and the wire-parsing path covers it.
+            // Peer left. Local synth FOLD for UI + finTurno (so the betting loop
+            // advances), but record/sig stay null on EVERY peer — host included.
+            // The chain rule: an exited peer contributes NO record to the slot
+            // it would have played. All peers absorb the same nothing → chain
+            // converges without needing a host-signed synth absorbed in order.
+            // rondaApuestas keys off action[5]==FALSE to skip both the wire
+            // broadcast and the absorb call.
             action[0] = Player.FOLD;
             action[1] = 0f;
             action[2] = null;
-            if (GameFrame.getInstance().isPartida_local()) {
-                Object[] recsig = buildLocalActionRecordAndSig(
-                        jugador.getNickname(), Player.FOLD, 0f, jugador, false);
-                if (recsig != null) {
-                    action[3] = recsig[0];
-                    action[4] = recsig[1];
-                }
-            }
-            action[5] = Boolean.FALSE; // host-issued auto-fold (§4.5)
+            action[3] = null;
+            action[4] = null;
+            action[5] = Boolean.FALSE;
         } else {
             jugador.setTimeout(false);
         }
@@ -7247,16 +7136,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 // EC-Identity v1 (commit 5): resolve record + sig for this action.
-                // Four sources cover all cases without ambiguity:
+                // Three sources cover the cases:
                 //   1) RemotePlayer human, action came from the wire via
                 //      readActionFromRemotePlayer → action[3]/[4] already populated.
-                //   2) RemotePlayer that EXIT'd mid-turn → readActionFromRemotePlayer
-                //      synthesised host-signed autofold with voluntary=false (§4.5).
-                //   3) RemotePlayer that is a bot → host has to sign with its privkey
-                //      because bots have no persistent identity (§10). action[] from
-                //      the bot path is 3-slot, so fall through to local build below.
-                //   4) LocalPlayer (host's or client's own UI) → action[] from the
-                //      UI is 3-slot too; build with own privkey.
+                //   2) RemotePlayer that left (action[5] == FALSE) → no record absorbed,
+                //      no wire broadcast. All peers locally synth FOLD and skip the
+                //      slot; the chain converges by mutual omission.
+                //   3) RemotePlayer that is a bot, or LocalPlayer's own turn →
+                //      action[] from the UI/bot path is 3-slot, so fall through to
+                //      the local build below.
                 byte[] localRecord = null;
                 byte[] localSig = null;
                 boolean isVoluntary = true;
@@ -7271,22 +7159,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         isVoluntary = (Boolean) action[5];
                     }
                 }
-                if (localRecord == null || localSig == null) {
-                    // EC-Identity v1 (chain consistency fix): only the §10-correct
-                    // signer should build a record here:
+                // Exit synth: action[5]==FALSE marks a local FOLD synthesised because
+                // the peer left. No fallback record build (host doesn't speak for
+                // departed peers anymore), no wire broadcast, no chain absorb.
+                final boolean exitSynth = !isVoluntary;
+                if (!exitSynth && (localRecord == null || localSig == null)) {
+                    // Only the §10-correct signer should build:
                     //   - LocalPlayer's own turn → we sign with our own privkey.
-                    //   - Host (partida_local) → bot actions (§10: bot ⇒ host key)
-                    //     and §4.5 autofold synth (host signs voluntary=false).
-                    //
-                    // On a client receiving a remote player's wire that arrived
-                    // empty (autofold race, late wire), we are NOT the §10 signer.
-                    // The previous unconditional fallback signed with the client's
-                    // privkey, producing different bytes than the host built and
-                    // forking the chain across peers at hand close. Leaving null
-                    // makes absorb a no-op on the client; the autofold wire from
-                    // the host arrives via the queue drain inside
-                    // readActionFromRemotePlayer (which now handles isExit without
-                    // bypassing the drain).
+                    //   - Host (partida_local) → bot actions (§10: bot ⇒ host key).
+                    // On a client receiving a remote player's wire that arrived empty
+                    // (late / lost), we are NOT the §10 signer. Leaving null makes
+                    // absorb a no-op on the client.
                     boolean canBuild = (current_player == GameFrame.getInstance().getLocalPlayer())
                             || GameFrame.getInstance().isPartida_local();
                     Object[] recsig = canBuild
@@ -7334,14 +7217,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } else {
                     ((RemotePlayer) current_player).setDecisionFromRemotePlayer(decision, (float) action[1]);
-                    if (GameFrame.getInstance().isPartida_local()) {
+                    // No wire broadcast for exit-synth — the EXIT command already went
+                    // out immediately when the peer left, and no peer has a record to
+                    // absorb for this slot. Every receiver hits its own readActionFromRemotePlayer's
+                    // isExit branch and synthesises the same local FOLD without absorb.
+                    if (GameFrame.getInstance().isPartida_local() && !exitSynth) {
                         broadcastGAMECommandFromServer(comando, current_player.getNickname());
-                        // EC-Identity v1 (chain consistency fix): flush this player's
-                        // deferred EXIT broadcast (if any) right after the autofold
-                        // ACTION goes out, so every receiver sees ACTION-then-EXIT in
-                        // TCP order and absorbs the host's autofold record before
-                        // setting isExit.
-                        flushPendingExitBroadcast(current_player.getNickname());
                     }
                 }
 
@@ -7357,8 +7238,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // EC-Identity v1 (commit 5): absorb the (record || sig) bytes into H_t.
                 // Same call on host and every client, so the chain stays byte-identical
                 // across the table. Failed-verify sigs are absorbed too so divergence
-                // remains detectable at hand close (§4.5).
-                absorbActionIntoChain(current_player.getNickname(), localRecord, localSig);
+                // remains detectable at hand close (§4.5). Exit-synth skips: localRecord
+                // is null anyway and absorbActionIntoChain is a no-op for null, but the
+                // explicit guard documents the rule.
+                if (!exitSynth) {
+                    absorbActionIntoChain(current_player.getNickname(), localRecord, localSig);
+                }
 
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
 

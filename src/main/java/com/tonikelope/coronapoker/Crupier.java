@@ -6056,6 +6056,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         LOGGER.log(Level.SEVERE,
                                                                 "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — absorbed anyway, divergence will surface at hand close",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
+                                                        printInvalidActionSigToRegistro(jugador.getNickname());
                                                     }
                                                 }
                                             } catch (Exception parseEx) {
@@ -7465,6 +7466,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
         return hostPar != null ? hostPar.getIdentity_pubkey() : null;
+    }
+
+    /**
+     * EC-Identity v1 (commit 6 polish 2): writes the in-game registro line for a
+     * per-action signature failure so the user notices in real time. JUL has the
+     * full SEVERE detail already; this line is the human-visible warning. Runs
+     * on the GUI thread to keep the registro's append model consistent with master.
+     */
+    private void printInvalidActionSigToRegistro(String actorNick) {
+        final String nick = actorNick;
+        Helpers.GUIRun(() -> {
+            try {
+                GameFrame.getInstance().getRegistro().print(
+                        MessageFormat.format(
+                                Translator.translate("game.firma_accion_invalida"),
+                                nick));
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Failed to print invalid-action-sig registro line", ex);
+            }
+        });
     }
 
     /**

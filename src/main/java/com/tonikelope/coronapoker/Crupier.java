@@ -43,11 +43,15 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -2250,6 +2254,76 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return isRabbit ? UNLOCK_PHASE_RABBIT_TURN : UNLOCK_PHASE_TURN;
         }
         return isRabbit ? UNLOCK_PHASE_RABBIT_RIVER : UNLOCK_PHASE_RIVER;
+    }
+
+    // SHA-256(handId_BE_4bytes || NFC-UTF8(nick)). Determinista y rotativo
+    // entre manos (depende de hand_id), inmune a manipulacion del host
+    // (los nicks y el hand_id son publicos y consistentes entre peers).
+    // Usado para ordenar la cascada comunitaria por la red y para que cada
+    // peer identifique al auditor designado de la mano actual.
+    public static byte[] cascadeOrderHash(int handId, String nick) {
+        try {
+            byte[] handIdBytes = new byte[]{
+                (byte) ((handId >>> 24) & 0xFF),
+                (byte) ((handId >>> 16) & 0xFF),
+                (byte) ((handId >>> 8) & 0xFF),
+                (byte) (handId & 0xFF)
+            };
+            byte[] nickBytes = Normalizer.normalize(nick, Normalizer.Form.NFC).getBytes(StandardCharsets.UTF_8);
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            sha.update(handIdBytes);
+            sha.update(nickBytes);
+            return sha.digest();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new RuntimeException("SHA-256 unavailable", ex);
+        }
+    }
+
+    public static int compareUnsignedBytes(byte[] a, byte[] b) {
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int diff = (a[i] & 0xFF) - (b[i] & 0xFF);
+            if (diff != 0) {
+                return diff;
+            }
+        }
+        return a.length - b.length;
+    }
+
+    // Devuelve los nicks de peers humanos remotos del ring (excluye host y
+    // bots), ordenados ascending por cascadeOrderHash. El ultimo elemento es
+    // el auditor designado de la mano. Lista vacia si la mesa solo tiene
+    // host y bots.
+    public static ArrayList<String> humansSortedForCascade(int handId, String[] ring, String hostNick, Map<String, Participant> parts) {
+        ArrayList<String> humans = new ArrayList<>();
+        if (ring == null || parts == null) {
+            return humans;
+        }
+        for (String nick : ring) {
+            if (nick == null) {
+                continue;
+            }
+            if (hostNick != null && nick.equals(hostNick)) {
+                continue;
+            }
+            Participant p = parts.get(nick);
+            if (p == null || p.isCpu()) {
+                continue;
+            }
+            humans.add(nick);
+        }
+        humans.sort((a, b) -> compareUnsignedBytes(cascadeOrderHash(handId, a), cascadeOrderHash(handId, b)));
+        return humans;
+    }
+
+    // Auditor designado de la mano: el ultimo humano remoto en el orden de
+    // cascada. Es quien aplicara el unlock final y por tanto detectara sus
+    // chunks ya en el genesis deck. Null si no hay humanos remotos en la
+    // mesa (host + solo bots; no hay auditoria posible pero tampoco hay
+    // victima que estafar).
+    public static String designatedCascadeAuditor(int handId, String[] ring, String hostNick, Map<String, Participant> parts) {
+        ArrayList<String> humans = humansSortedForCascade(handId, ring, hostNick, parts);
+        return humans.isEmpty() ? null : humans.get(humans.size() - 1);
     }
 
     public boolean hasMegaPacket() {
@@ -5677,36 +5751,65 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int unlockPhase = phaseForStreet(street, false);
 
+        // FASE 1 (LOCAL): TODOS los bots aplican sus unlocks AQUI, antes de la
+        // cascada por la red. Asi garantizamos que el ultimo en aplicar unlock
+        // en toda la cadena sea siempre un peer humano remoto (no un bot que
+        // el host maneja localmente). Eso hace que verifyAnnouncedCommunity se
+        // dispare en un peer humano al detectar sus chunks ya en el genesis
+        // deck tras su unlock, cerrando el ataque en el que el host miente
+        // sobre el plaintext anunciado cuando el orden alfabetico del ring
+        // dejaria un bot al final.
         for (String nick : this.active_crypto_ring) {
-            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+            if (nick.equals(GameFrame.getInstance().getNick_local())) {
+                continue;
+            }
+            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+            if (p != null && p.isCpu()) {
+                if (p.getReceived_token() == null) {
+                    cancelarManoYDevolverApuestas("peer.bot_no_token");
+                    return false;
+                }
+                workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
+            }
+        }
 
-                if (p != null && p.isCpu()) {
-                    if (p.getReceived_token() == null) {
-                        cancelarManoYDevolverApuestas("peer.bot_no_token");
-                        return false;
-                    }
-                    workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
-                } else if (p != null && !p.isExit()) {
-                    byte[] requested = requestRemoteUnlock(nick, workingCards, p, unlockPhase, 0);
-                    if (requested != null) {
-                        workingCards = requested;
-                    } else if (p.getSra_unlock() != null) {
-                        // El peer hizo EXIT limpio (con testamento) mientras
-                        // esperábamos su RESP_SRA_UNLOCK. Aplicamos su
-                        // testamento localmente y seguimos descifrando.
-                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
-                    } else {
-                        cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
-                        return false;
-                    }
+        // FASE 2 (RED): cascada con SOLO peers humanos remotos, en orden
+        // determinista por SHA-256(handId || nick) que rota cada mano. El
+        // ultimo de la lista es el auditor designado de esta mano:
+        // detectara sus chunks ya en el genesis tras aplicar su unlock y
+        // verificara el broadcast FLOPCARDS/TURNCARD/RIVERCARD contra lo
+        // que el descifro. El peer no necesita confiar en el host para
+        // saber si le toca auditar: lo calcula con los mismos inputs
+        // (handId publico en el wire, nicks publicos del ring).
+        String hostNick = GameFrame.getInstance().getNick_local();
+        ArrayList<String> humansOrdered = humansSortedForCascade(
+                this.conta_mano, this.active_crypto_ring, hostNick,
+                GameFrame.getInstance().getParticipantes());
+        for (String nick : humansOrdered) {
+            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+            if (p == null) {
+                cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                return false;
+            }
+            if (!p.isExit()) {
+                byte[] requested = requestRemoteUnlock(nick, workingCards, p, unlockPhase, 0);
+                if (requested != null) {
+                    workingCards = requested;
+                } else if (p.getSra_unlock() != null) {
+                    // El peer hizo EXIT limpio (con testamento) mientras
+                    // esperábamos su RESP_SRA_UNLOCK. Aplicamos su
+                    // testamento localmente y seguimos descifrando.
+                    workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
                 } else {
-                    if (p != null && p.getSra_unlock() != null) {
-                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
-                    } else {
-                        cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
-                        return false;
-                    }
+                    cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                    return false;
+                }
+            } else {
+                if (p.getSra_unlock() != null) {
+                    workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
+                } else {
+                    cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                    return false;
                 }
             }
         }
@@ -6376,24 +6479,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int rabbitPhase = phaseForStreet(targetStreet, true);
 
+        // FASE 1 (LOCAL): bots aplicados aqui para que el ultimo en la
+        // cascade por red sea el auditor humano designado por SHA-256.
         for (String nick : this.active_crypto_ring) {
-            if (!nick.equals(GameFrame.getInstance().getNick_local())) {
-                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                if (p != null && p.isCpu()) {
-                    if (p.getReceived_token() != null) {
-                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
-                    }
-                } else if (p != null && !p.isExit()) {
-                    // Request the remote client to remove their lock over the network
-                    workingCards = requestRemoteUnlock(nick, workingCards, p, rabbitPhase, 0);
-                    if (workingCards == null) {
-                        return false;
-                    }
-                } else {
-                    if (p != null && p.getSra_unlock() != null) {
-                        workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
-                    }
+            if (nick.equals(GameFrame.getInstance().getNick_local())) {
+                continue;
+            }
+            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+            if (p != null && p.isCpu() && p.getReceived_token() != null) {
+                workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getReceived_token());
+            }
+        }
+
+        // FASE 2 (RED): humanos remotos en orden hashed. El ultimo es el
+        // auditor designado y verifica RABBIT_* anunciado por el host.
+        String rabbitHostNick = GameFrame.getInstance().getNick_local();
+        ArrayList<String> rabbitHumansOrdered = humansSortedForCascade(
+                this.conta_mano, this.active_crypto_ring, rabbitHostNick,
+                GameFrame.getInstance().getParticipantes());
+        for (String nick : rabbitHumansOrdered) {
+            Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+            if (p == null) {
+                continue;
+            }
+            if (!p.isExit()) {
+                workingCards = requestRemoteUnlock(nick, workingCards, p, rabbitPhase, 0);
+                if (workingCards == null) {
+                    return false;
                 }
+            } else if (p.getSra_unlock() != null) {
+                workingCards = CryptoSRA.applyCommutativeLock(workingCards, p.getSra_unlock());
             }
         }
 
@@ -9397,6 +9512,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private HashMap<Player, Integer[]> monteCarlo(ArrayList<Player> resisten, int iterations) {
 
         HashMap<Player, Integer[]> stats = new HashMap<>();
+
+        // Defensa: jugadores que llegan a monteCarlo sin hole cards
+        // reveladas (disconnection mid-hand antes del showdown) construyen
+        // una org.alberta.poker.Hand con suit/rank invalido, y
+        // HandEvaluator.Find_Flush devuelve -1 al iterar el array de
+        // palos -> OOBE -> CRUPIER FATAL. calcularJugadas ya filtra el
+        // mismo caso (logea [MUCK] y los excluye del calculo de
+        // ganadores); aqui replicamos el filtro para que monteCarlo no
+        // pete cuando se evalua la ronda siguiente a un peer recien caido.
+        ArrayList<Player> resistenSafe = new ArrayList<>(resisten.size());
+        for (Player p : resisten) {
+            if (p == null) {
+                continue;
+            }
+            Card hc1 = p.getHoleCard1();
+            Card hc2 = p.getHoleCard2();
+            if (hc1 == null || hc2 == null) {
+                continue;
+            }
+            String v1 = hc1.getValor();
+            String v2 = hc2.getValor();
+            if (v1 == null || v1.isEmpty() || v1.equals("null")
+                    || v2 == null || v2.isEmpty() || v2.equals("null")) {
+                continue;
+            }
+            resistenSafe.add(p);
+        }
+        resisten = resistenSafe;
 
         if (resisten.size() <= 1) {
             return stats;

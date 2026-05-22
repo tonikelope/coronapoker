@@ -341,20 +341,25 @@ public final class IdentityManager {
         }
     }
 
-    // ===== RECEIPT_V1 helpers (commit 6) =====
+    // ===== RECEIPT_V2 helpers (Opción A: flags byte) =====
 
     /**
-     * Domain separator for end-of-hand consensus receipts (spec §6.2). Binds a
-     * receipt to its purpose so a JOIN or ACTION signature cannot be replayed
-     * as a hand receipt.
+     * Domain separator for end-of-hand consensus receipts (spec §6.2). Bumped
+     * to V2 with the addition of the 1-byte flags field (bit0 = the issuer
+     * observed an invalid Ed25519 signature on at least one ACTION or
+     * COMM_REVEAL during the hand). V1 receipts (no flags) are wire-incompatible
+     * — within-session version pinning already prevents mixing.
      */
-    private static final byte[] RECEIPT_DOMAIN = "RECEIPT_V1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] RECEIPT_DOMAIN = "RECEIPT_V2\0".getBytes(StandardCharsets.UTF_8);
 
     /**
-     * Canonical payload for a receipt: {@code HAND_ID || H_final}. The domain
-     * separator "RECEIPT_V1\0" is applied by sign/verify, not embedded here.
+     * Canonical payload for a receipt: {@code HAND_ID || H_final || flags}. The
+     * flags byte is part of what gets signed so the host (or any relay) cannot
+     * silently strip the "saw_invalid_sig" bit when forwarding a receipt to
+     * other peers. The domain separator "RECEIPT_V2\0" is applied by
+     * sign/verify, not embedded here.
      */
-    public static byte[] receiptPayload(byte[] handId, byte[] hFinal) {
+    public static byte[] receiptPayload(byte[] handId, byte[] hFinal, byte flags) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
             throw new IllegalArgumentException("handId must be "
                     + CanonicalActionRecord.HAND_ID_BYTES + " bytes");
@@ -362,30 +367,31 @@ public final class IdentityManager {
         if (hFinal == null || hFinal.length != 32) {
             throw new IllegalArgumentException("hFinal must be 32 bytes");
         }
-        byte[] payload = new byte[handId.length + hFinal.length];
+        byte[] payload = new byte[handId.length + hFinal.length + 1];
         System.arraycopy(handId, 0, payload, 0, handId.length);
         System.arraycopy(hFinal, 0, payload, handId.length, hFinal.length);
+        payload[handId.length + hFinal.length] = flags;
         return payload;
     }
 
     /**
-     * Signs an end-of-hand receipt {@code (HAND_ID || H_final)} with this
-     * installation's privkey under the RECEIPT_V1 domain. Returns the 64-byte
-     * Ed25519 signature. The on-wire receipt is the concatenation
-     * {@code HAND_ID || H_final || sig}; the wire encoder lives in
+     * Signs an end-of-hand receipt {@code (HAND_ID || H_final || flags)} with
+     * this installation's privkey under the RECEIPT_V2 domain. Returns the
+     * 64-byte Ed25519 signature. The on-wire receipt is the concatenation
+     * {@code HAND_ID || H_final || flags || sig}; the wire encoder lives in
      * {@link Crupier} so the format stays close to its consumer.
      */
-    public byte[] signReceipt(byte[] handId, byte[] hFinal) {
-        return sign(RECEIPT_DOMAIN, receiptPayload(handId, hFinal));
+    public byte[] signReceipt(byte[] handId, byte[] hFinal, byte flags) {
+        return sign(RECEIPT_DOMAIN, receiptPayload(handId, hFinal, flags));
     }
 
     /**
      * Verifies a receipt signature against the given 32-byte raw Ed25519 pubkey.
      * Returns false on any error.
      */
-    public static boolean verifyReceipt(byte[] rawPubKey, byte[] handId, byte[] hFinal, byte[] sig) {
+    public static boolean verifyReceipt(byte[] rawPubKey, byte[] handId, byte[] hFinal, byte flags, byte[] sig) {
         try {
-            return verify(rawPubKey, RECEIPT_DOMAIN, receiptPayload(handId, hFinal), sig);
+            return verify(rawPubKey, RECEIPT_DOMAIN, receiptPayload(handId, hFinal, flags), sig);
         } catch (IllegalArgumentException ex) {
             LOGGER.log(Level.WARNING, "verifyReceipt rejected by argument validation: {0}", ex.getMessage());
             return false;

@@ -1189,6 +1189,14 @@ public class Helpers {
     }
 
     public static void setScaledIconLabel(JLabel label, String path, int width, int height) {
+        // Image.getScaledInstance(0, 0, ...) lanza IllegalArgumentException. Cuando
+        // el caller intenta escalar antes de que el contenedor tenga tamaño
+        // (típico en zoomIcons disparado desde un re-layout que aún no se ha
+        // computado) las dimensiones llegan a 0; sin este guard la excepción
+        // sube a EDT y queda como SEVERE en JUL sin que el caller se entere.
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
@@ -1216,6 +1224,9 @@ public class Helpers {
     }
 
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
@@ -1225,6 +1236,9 @@ public class Helpers {
     }
 
     public static void setScaledRoundedIconLabel(JLabel label, String path, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
@@ -1240,6 +1254,9 @@ public class Helpers {
     }
 
     public static void setScaledRoundedIconLabel(JLabel label, URL path, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         Helpers.GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
@@ -1249,6 +1266,9 @@ public class Helpers {
     }
 
     public static void setScaledIconButton(JButton button, String path, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 try {
@@ -1263,6 +1283,9 @@ public class Helpers {
     }
 
     public static void setScaledIconButton(JButton button, URL path, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
                 button.setIcon(new ImageIcon(new ImageIcon(path).getImage().getScaledInstance(width, height, Helpers.isImageGIF(path) ? Image.SCALE_DEFAULT : Image.SCALE_SMOOTH)));

@@ -95,6 +95,20 @@ public final class CanonicalActionRecord {
     public static final int ACTION_BET = 3;
     public static final int ACTION_RAISE = 4;
     public static final int ACTION_ALLIN = 5;
+    /**
+     * EC-Identity v1 (Phase 3): host-signed announcement of the community cards
+     * revealed at a street boundary (flop, turn, river). PLAYER_ID is the host's
+     * canonical player id (the signer), STREET is the street being revealed,
+     * AMOUNT_CENTS packs the card indices (see {@link #packCommunityCards} /
+     * {@link #unpackCommunityCards}). Recipients verify the signature with the
+     * host's pubkey, compare the announced indices against the locally-decoded
+     * PIECE bytes (mismatch ⇒ security lockdown), and absorb the record+sig
+     * into H_t. This closes the cross-recipient fork attack: a host that
+     * announces different cards to different peers, or announces correctly but
+     * ships a divergent PIECE, is caught the moment any peer reaches the
+     * verify-or-compare step.
+     */
+    public static final int ACTION_COMMUNITY = 6;
 
     /** {@code FLAGS} bit positions. */
     public static final int FLAG_BIT_ALLIN = 0;
@@ -201,6 +215,88 @@ public final class CanonicalActionRecord {
         out[OFFSET_FLAGS + 1] = (byte) (flags & 0xFF);
 
         return out;
+    }
+
+    /**
+     * EC-Identity v1 (Phase 3): packs 1..3 community card indices (0..51 each)
+     * into the AMOUNT_CENTS field of a community-reveal record. Layout is
+     * little-endian within the 8-byte slot but card-major (first card in the
+     * lowest byte of the packed value), so unpacking byte-by-byte yields the
+     * cards in announce order regardless of host endianness.
+     */
+    public static long packCommunityCards(int[] cards) {
+        if (cards == null || cards.length == 0 || cards.length > 3) {
+            throw new IllegalArgumentException("cards must have 1..3 entries");
+        }
+        long packed = 0L;
+        for (int i = 0; i < cards.length; i++) {
+            int c = cards[i];
+            if (c < 0 || c > 51) {
+                throw new IllegalArgumentException("card index out of range: " + c);
+            }
+            packed |= ((long) (c & 0xFF)) << (i * 8);
+        }
+        return packed;
+    }
+
+    /**
+     * EC-Identity v1 (Phase 3): inverse of {@link #packCommunityCards}.
+     * {@code numCards} is implied by the street (3 for FLOP, 1 for TURN/RIVER).
+     */
+    public static int[] unpackCommunityCards(long packed, int numCards) {
+        if (numCards <= 0 || numCards > 3) {
+            throw new IllegalArgumentException("numCards must be 1..3");
+        }
+        int[] out = new int[numCards];
+        for (int i = 0; i < numCards; i++) {
+            out[i] = (int) ((packed >> (i * 8)) & 0xFF);
+        }
+        return out;
+    }
+
+    /**
+     * EC-Identity v1: reads the {@code AMOUNT_CENTS} field (8 bytes, big-endian)
+     * from an encoded record. Exposed for receivers that need the raw amount
+     * (e.g., the Phase 3 community-reveal flow unpacks card indices from it).
+     */
+    public static long readAmountCents(byte[] record) {
+        if (record == null || record.length != RECORD_BYTES) {
+            throw new IllegalArgumentException("record must be " + RECORD_BYTES + " bytes");
+        }
+        return readInt64BE(record, OFFSET_AMOUNT_CENTS);
+    }
+
+    /**
+     * EC-Identity v1: reads the {@code STREET} byte (uint8) from an encoded record.
+     */
+    public static int readStreet(byte[] record) {
+        if (record == null || record.length != RECORD_BYTES) {
+            throw new IllegalArgumentException("record must be " + RECORD_BYTES + " bytes");
+        }
+        return record[OFFSET_STREET] & 0xFF;
+    }
+
+    /**
+     * EC-Identity v1: reads the {@code ACTION_TYPE} byte (uint8) from an encoded
+     * record. Used by receivers to dispatch community-reveal records to the
+     * Phase 3 verification flow instead of the player-action flow.
+     */
+    public static int readActionType(byte[] record) {
+        if (record == null || record.length != RECORD_BYTES) {
+            throw new IllegalArgumentException("record must be " + RECORD_BYTES + " bytes");
+        }
+        return record[OFFSET_ACTION_TYPE] & 0xFF;
+    }
+
+    private static long readInt64BE(byte[] buf, int offset) {
+        return ((long) (buf[offset] & 0xFF) << 56)
+                | ((long) (buf[offset + 1] & 0xFF) << 48)
+                | ((long) (buf[offset + 2] & 0xFF) << 40)
+                | ((long) (buf[offset + 3] & 0xFF) << 32)
+                | ((long) (buf[offset + 4] & 0xFF) << 24)
+                | ((long) (buf[offset + 5] & 0xFF) << 16)
+                | ((long) (buf[offset + 6] & 0xFF) << 8)
+                | ((long) (buf[offset + 7] & 0xFF));
     }
 
     /**

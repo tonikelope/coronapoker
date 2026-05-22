@@ -457,6 +457,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // surfaces MISSING for a peer the host already excluded).
     private volatile boolean in_consensus_phase = false;
 
+    // EC-Identity v1 (Opción A): per-hand flag — set to true the first time this
+    // peer rejects an Ed25519 signature on an incoming ACTION or COMM_REVEAL
+    // wire during the hand. The flag is embedded into this peer's receipt (under
+    // the issuer's own sig, so the host relay cannot strip it). runConsensusCheck
+    // then refuses to report OK if ANY collected receipt has the flag set, even
+    // when H_finals coincide — closes the "all peers see the same invalid sig
+    // and consensus passes anyway" hole. Cleared in readyForNextHand.
+    private volatile boolean saw_invalid_action_sig = false;
+
     private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -3734,6 +3743,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.current_hand_id = null;
         this.hand_state_chain = null;
 
+        // EC-Identity v1 (Opción A): reset the invalid-sig flag for the new hand.
+        this.saw_invalid_action_sig = false;
+
         // EC-Identity v1 (chain consistency fix): safety-net flush of any EXIT
         // broadcasts still buffered from peers who exited while already folded
         // out of the just-ended hand (no autofold turn to trigger the per-turn
@@ -5355,11 +5367,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    /** Receipt blob layout: {@code HAND_ID(16) || H_final(32) || sig(64)} = 112 bytes. */
+    /**
+     * Receipt blob layout (v2 — Opción A): {@code HAND_ID(16) || H_final(32) ||
+     * flags(1) || sig(64)} = 113 bytes. The flags byte sits BETWEEN H_final and
+     * sig so the sig (over RECEIPT_V2 || HAND_ID || H_final || flags) covers it.
+     *
+     * <p>Flag bits:
+     * <ul>
+     *   <li>bit0 = the issuer observed an invalid Ed25519 signature on at least
+     *       one ACTION wire during the hand. {@code runConsensusCheck} refuses
+     *       to report OK if any received receipt has this bit set, even when
+     *       H_finals match — closes the "all peers see the same invalid sig"
+     *       hole where consensus would otherwise pass silently.</li>
+     * </ul>
+     */
     private static final int RECEIPT_HANDID_LEN = CanonicalActionRecord.HAND_ID_BYTES;
     private static final int RECEIPT_HFINAL_LEN = 32;
+    private static final int RECEIPT_FLAGS_LEN = 1;
     private static final int RECEIPT_SIG_LEN = HandStateChain.SIG_BYTES;
-    private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_SIG_LEN;
+    private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN + RECEIPT_SIG_LEN;
+    private static final int RECEIPT_FLAG_BIT_INVALID_SIG_SEEN = 0;
 
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         // EC-Identity v1 (commit 6): trigger barrier + receipt exchange + unanimous
@@ -5498,11 +5525,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 6): builds the encoded receipt
-     * {@code HAND_ID || H_final || sig} for this peer's local view of the
-     * just-finished hand. Returns null if the local identity is not usable.
-     * In that case we still participate as listener but show up as MISSING
-     * for other peers, which is the correct signaletic outcome.
+     * EC-Identity v1 (commit 6, extended by Opción A): builds the encoded
+     * receipt {@code HAND_ID || H_final || flags || sig} for this peer's local
+     * view of the just-finished hand. Returns null if the local identity is
+     * not usable. The flags byte encodes the {@code saw_invalid_action_sig}
+     * bit so other peers' consensus check knows we observed at least one
+     * malformed signature this hand.
      */
     private byte[] buildLocalReceipt(byte[] handId, byte[] hFinal) {
         IdentityManager im = IdentityManager.getInstance();
@@ -5512,22 +5540,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         try {
-            byte[] sig = im.signReceipt(handId, hFinal);
-            return encodeReceiptBlob(handId, hFinal, sig);
+            byte flags = 0;
+            if (this.saw_invalid_action_sig) {
+                flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
+            }
+            byte[] sig = im.signReceipt(handId, hFinal, flags);
+            return encodeReceiptBlob(handId, hFinal, flags, sig);
         } catch (RuntimeException ex) {
             LOGGER.log(Level.SEVERE, "signReceipt failed", ex);
             return null;
         }
     }
 
-    private static byte[] encodeReceiptBlob(byte[] handId, byte[] hFinal, byte[] sig) {
+    private static byte[] encodeReceiptBlob(byte[] handId, byte[] hFinal, byte flags, byte[] sig) {
         if (handId.length != RECEIPT_HANDID_LEN || hFinal.length != RECEIPT_HFINAL_LEN || sig.length != RECEIPT_SIG_LEN) {
             throw new IllegalArgumentException("Receipt component length mismatch");
         }
         byte[] out = new byte[RECEIPT_TOTAL_LEN];
         System.arraycopy(handId, 0, out, 0, RECEIPT_HANDID_LEN);
         System.arraycopy(hFinal, 0, out, RECEIPT_HANDID_LEN, RECEIPT_HFINAL_LEN);
-        System.arraycopy(sig, 0, out, RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN, RECEIPT_SIG_LEN);
+        out[RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN] = flags;
+        System.arraycopy(sig, 0, out,
+                RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN, RECEIPT_SIG_LEN);
         return out;
     }
 
@@ -5612,24 +5646,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 6): compares collected receipts against this peer's
-     * own (HAND_ID, H_final) and writes the outcome to the Crupier log (i18n),
-     * the JUL log, the in-game popup, and the disputed_hands SQLite table.
-     * Three outcomes:
+     * EC-Identity v1 (commit 6, extended by Opción A): compares collected
+     * receipts against this peer's own (HAND_ID, H_final) and writes the
+     * outcome to the Crupier log (i18n), the JUL log, the in-game popup, and
+     * the disputed_hands SQLite table. Four outcomes (priority top-down):
      *
      * <ul>
-     *   <li>OK: every expected peer's receipt present, sig valid, H_final matches.</li>
-     *   <li>MISSING: at least one expected peer did not respond inside the timeout
-     *       (network outage, client crash, etc.). Ambiguous: WARNING.</li>
      *   <li>DIVERGENT: some receipt arrived with a different H_final, or a sig
-     *       that fails verification (we cannot trust the receipt). Smoking-gun
-     *       evidence of host manipulation: SEVERE.</li>
+     *       that fails verification (we cannot trust the receipt). Hard
+     *       cryptographic evidence: SEVERE.</li>
+     *   <li>MISSING: at least one expected peer did not respond inside the
+     *       timeout (network outage, client crash, etc.). Ambiguous: WARNING.</li>
+     *   <li>INVALID_SIG_SEEN (new): every H_final matches and every receipt is
+     *       present, but at least one peer set the bit0 flag in its receipt
+     *       indicating it observed an invalid Ed25519 signature on an ACTION
+     *       wire during the hand. Bytes were consistent across peers (host
+     *       relayed faithfully) but the original signature was broken —
+     *       suggests a peer running modified software or a software bug.
+     *       Reported as a notice, not an alert.</li>
+     *   <li>OK: every expected peer's receipt present, sig valid, H_final
+     *       matches, no flags set.</li>
      * </ul>
      */
     private void runConsensusCheck(java.util.Map<String, byte[]> receipts, Set<String> expected,
             byte[] handIdLocal, byte[] hFinalLocal) {
         Set<String> missing = new LinkedHashSet<>();
         Set<String> divergent = new LinkedHashSet<>();
+        Set<String> invalidSigReporters = new LinkedHashSet<>();
 
         for (String nick : expected) {
             byte[] r = receipts.get(nick);
@@ -5640,7 +5683,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] handId = Arrays.copyOfRange(r, 0, RECEIPT_HANDID_LEN);
             byte[] hFinal = Arrays.copyOfRange(r, RECEIPT_HANDID_LEN,
                     RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN);
-            byte[] sig = Arrays.copyOfRange(r, RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN,
+            byte flags = r[RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN];
+            byte[] sig = Arrays.copyOfRange(r,
+                    RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN,
                     RECEIPT_TOTAL_LEN);
 
             byte[] pubkey = resolveReceiptSignerPubkey(nick);
@@ -5653,7 +5698,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 missing.add(nick);
                 continue;
             }
-            if (!IdentityManager.verifyReceipt(pubkey, handId, hFinal, sig)) {
+            if (!IdentityManager.verifyReceipt(pubkey, handId, hFinal, flags, sig)) {
                 // Receipt does NOT verify against the peer's known pubkey: forgery
                 // or corrupted key. Stronger signal than absence → DIVERGENT.
                 LOGGER.log(Level.SEVERE, "Receipt signature INVALID for nick={0}", nick);
@@ -5670,6 +5715,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (!Arrays.equals(hFinal, hFinalLocal)) {
                 divergent.add(nick);
+                continue;
+            }
+            // Receipt valid + H_final matches: still check the flags bit. The
+            // bit is part of what the issuer signed, so a host relay cannot
+            // strip it. If a peer (including this one) saw an invalid action
+            // sig during the hand, the bit propagates and consensus refuses
+            // to report a clean OK.
+            if (((flags >> RECEIPT_FLAG_BIT_INVALID_SIG_SEEN) & 1) != 0) {
+                invalidSigReporters.add(nick);
             }
         }
 
@@ -5701,6 +5755,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     MessageFormat.format(
                             Translator.translate("game.popup_verificacion_ausente"),
                             missingList));
+        } else if (!invalidSigReporters.isEmpty()) {
+            String reportersList = String.join(", ", invalidSigReporters);
+            LOGGER.log(Level.WARNING,
+                    "Hand {0} verified with invalid-sig flag from: [{1}], local_H={2}",
+                    new Object[]{sqlite_id_hand, reportersList, localHB64});
+            GameFrame.getInstance().getRegistro().print(
+                    MessageFormat.format(
+                            Translator.translate("game.mano_verificacion_firma_invalida"),
+                            reportersList));
+            insertDisputedHandRow(receipts, hFinalLocal, "INVALID_SIG_SEEN");
+            showConsensusPopup(
+                    Translator.translate("game.popup_verificacion_titulo_aviso"),
+                    MessageFormat.format(
+                            Translator.translate("game.popup_verificacion_firma_invalida"),
+                            reportersList));
         } else {
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",
@@ -6275,9 +6344,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                     } else if (!IdentityManager.verifyAction(signerPubkey, wireRecord, wireSig)) {
                                                         LOGGER.log(Level.SEVERE,
-                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — absorbed anyway, divergence will surface at hand close",
+                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — absorbed anyway, flagged in receipt",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
+                                                        // EC-Identity v1 (Opción A): mark the hand as having seen
+                                                        // an invalid signature so the receipt carries the bit and
+                                                        // consensus refuses to report OK at hand close.
+                                                        this.saw_invalid_action_sig = true;
                                                     }
                                                 }
                                             } catch (Exception parseEx) {

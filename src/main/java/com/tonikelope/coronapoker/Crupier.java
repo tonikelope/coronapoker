@@ -6533,21 +6533,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // lockdown (cross-recipient fork attack closed). Skipped when the
         // chain isn't initialised (legacy interop / recovery-degraded) — the
         // hand still plays out via the SRA piece resolution alone.
+        //
+        // Order matters: absorb ONLY if the broadcast succeeded. If the
+        // broadcast throws (clients didn't receive the announce) but we
+        // absorb anyway, our chain advances while their chains stay put →
+        // guaranteed DIVERGENT at consensus close. Skipping the absorb on
+        // broadcast failure keeps host and clients in lockstep (all
+        // skipped) and surfaces the failure as a normal SRA / connection
+        // issue rather than a phantom cryptographic divergence.
         Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToWire(street), hostIndices);
         if (recsig != null) {
             byte[] record = (byte[]) recsig[0];
             byte[] sig = (byte[]) recsig[1];
+            boolean broadcastOk = false;
             try {
                 String comando = "COMM_REVEAL#"
                         + Base64.getEncoder().encodeToString(record)
                         + "#" + Base64.getEncoder().encodeToString(sig);
                 broadcastGAMECommandFromServer(comando, null);
+                broadcastOk = true;
             } catch (RuntimeException ex) {
                 LOGGER.log(Level.SEVERE, "Failed to broadcast COMM_REVEAL for street " + street, ex);
             }
-            // Host absorbs with its own nick (always in active_crypto_ring, so
-            // the isInActiveCryptoRing guard passes).
-            absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
+            if (broadcastOk) {
+                // Host absorbs with its own nick (always in active_crypto_ring, so
+                // the isInActiveCryptoRing guard passes).
+                absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
+            }
         }
 
         return true;

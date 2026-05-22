@@ -1320,6 +1320,19 @@ public class NewGameDialog extends JDialog {
 
                 Helpers.PROPERTIES.setProperty("nick", elnick);
 
+                // EC-Identity v1: load or generate the Ed25519 keypair bound to the nick the user
+                // is about to enter the waiting room. Per-nick files in CORONA_DIR let different
+                // test instances on the same machine use distinct identities, and switching back
+                // to a known nick reloads the existing keypair. Abort the join if storage fails —
+                // networked games cannot proceed without a stable identity.
+                IdentityManager im = IdentityManager.initializeForNick(elnick);
+                if (!im.isReady()) {
+                    vamos.setEnabled(true);
+                    Helpers.mostrarMensajeError(getContentPane(),
+                            Translator.translate("ui.identity.load_error", im.getLoadError()));
+                    return;
+                }
+
                 if (this.partida_local) {
                     Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
                 } else {

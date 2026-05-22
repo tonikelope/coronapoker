@@ -610,8 +610,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerBorder(new Color(204, 204, 204, 75));
 
-                holeCard1.resetearCarta();
-                holeCard2.resetearCarta();
+                // Preserve the hole-card state the peer had at the moment of
+                // leaving: if they were still active in the hand, the cards are
+                // face-down (tapadas, visible_card=true) and stay that way as a
+                // visual cue that they had a hand; if they had already folded,
+                // fold() set visible_card=false and they remain hidden. A
+                // resetearCarta() call here would flatten both cases to an empty
+                // slot. The next-hand board reset purges everything anyway.
 
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
@@ -692,6 +697,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         turno = true;
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
+
+        // Once setExit() has painted the orange "SE PIRA" badge, the slot must
+        // stay that way until the next hand purges the board. esTuTurno fires
+        // when rondaApuestas iterates to this player's slot — if a race makes
+        // the peer's EXIT arrive at our lambda before main thread reaches the
+        // iteration, setExit runs first and esTuTurno would then repaint the
+        // orange "thinking" border + the "pensando" label over it. Bail before
+        // touching any GUI so SE PIRA wins. The do-while at the caller still
+        // exits cleanly because readActionFromRemotePlayer detects isExit and
+        // returns a synth FOLD that triggers finTurno (no UI work needed).
+        if (this.exit) {
+            return;
+        }
 
         if (this.getDecision() == Player.NODEC) {
 
@@ -808,6 +826,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         raise = false;
 
         reraise = false;
+
+        // If the peer has already left, setExit() has painted the slot orange
+        // with "SE PIRA" — the player_action label, the colours, the icon, the
+        // border, the chip label. The synthetic FOLD that rondaApuestas issues
+        // to advance the betting loop must NOT overwrite that visual state with
+        // a regular fold/check/bet decoration. Keep the internal decision in
+        // sync with the betting logic (already done above) but stop here so the
+        // GUI stays as setExit left it.
+        if (this.exit) {
+            return;
+        }
 
         switch (dec) {
             case Player.CHECK:
@@ -937,7 +966,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         Audio.playWavResource("misc/fold.wav");
 
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked()) {
+        // Skip the GIF cinematic entirely when this is an autofold of a peer
+        // that already left. The chat-notify label belongs to a player slot
+        // that the UI has already torn down, the GIF never finishes painting,
+        // its barrier never gets the "frames done" party, and the await below
+        // blocks the game thread for GIF_BARRIER_TIMEOUT seconds before
+        // throwing TimeoutException. Just play the sound and finish the turn.
+        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(3);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
@@ -957,8 +992,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         }
 
-        holeCard1.setVisibleCard(false);
-        holeCard2.setVisibleCard(false);
+        // Only hide the hole cards on a real fold. When fold() runs as part of
+        // the exit synth flow (peer left mid-turn → readActionFromRemotePlayer
+        // returns a local FOLD → setDecisionFromRemotePlayer → fold()), the
+        // contract is: cards stay face-down (tapadas) as the visual cue that
+        // the peer had a hand when they left. Hiding them here would flatten
+        // that to an empty slot, indistinguishable from the "peer folded
+        // before leaving" case which fold() handled BEFORE setExit was called
+        // (and therefore actually wants the cards hidden).
+        if (!this.exit) {
+            holeCard1.setVisibleCard(false);
+            holeCard2.setVisibleCard(false);
+        }
 
         finTurno();
     }
@@ -969,7 +1014,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.CHECK);
 
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked()) {
+        // See fold() comment: skip cinematic for exited players to avoid the
+        // 10-second blocking await on a barrier the GIF callback never closes.
+        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
 
             if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
                 int r = 1 + new Random().nextInt(4);
@@ -1016,7 +1063,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         setDecision(Player.BET);
 
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked()) {
+        // See fold() comment: skip cinematic for exited players to avoid the
+        // 10-second blocking await on a barrier the GIF callback never closes.
+        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(4);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));
@@ -1588,15 +1637,39 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_actionMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        // TODO add your handling code here:
-        if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(this.nickname).isCpu()) {
-
-            IdenticonDialog identicon = new IdenticonDialog(GameFrame.getInstance(), true, this.nickname, GameFrame.getInstance().getParticipantes().get(this.nickname).getAes_key());
-
-            identicon.setLocationRelativeTo(GameFrame.getInstance());
-
-            identicon.setVisible(true);
+        // EC-Identity v1: clicking a remote human avatar opens the identicon of that
+        // peer's Ed25519 public identity. The dialog includes a "Verificar identidad"
+        // button that marks (nick, pubkey) as verified_oob if the user has compared
+        // the fingerprint with the peer through an external secure channel.
+        //
+        // The pubkey is normally cached on the Participant during the JOIN handshake
+        // (host's pubkey rides the intro packet; the rest piggyback on USERSLIST /
+        // NEWUSER atomically with their nick + avatar). If for any reason the
+        // Participant has no pubkey, we fall back to the TOFU-pinned pubkey from
+        // known_identities so the click still works.
+        Participant par = GameFrame.getInstance().getParticipantes().get(this.nickname);
+        if (par == null || par.isCpu()) {
+            return;
         }
+        byte[] pubkey = par.getIdentity_pubkey();
+        if (pubkey == null) {
+            pubkey = TOFUResolver.getPinnedPubkey(this.nickname);
+            if (pubkey != null) {
+                par.setIdentity_pubkey(pubkey);
+            }
+        }
+        if (pubkey == null) {
+            java.util.logging.Logger.getLogger(RemotePlayer.class.getName()).log(
+                    java.util.logging.Level.WARNING,
+                    "No identity pubkey recorded for {0}; cannot open identity identicon",
+                    this.nickname);
+            return;
+        }
+        IdenticonDialog identicon = new IdenticonDialog(
+                GameFrame.getInstance(), true, this.nickname,
+                pubkey, IdenticonDialog.Mode.IDENTITY, pubkey);
+        identicon.setLocationRelativeTo(GameFrame.getInstance());
+        identicon.setVisible(true);
     }//GEN-LAST:event_avatarMouseClicked
 
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked

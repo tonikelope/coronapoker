@@ -1320,6 +1320,19 @@ public class NewGameDialog extends JDialog {
 
                 Helpers.PROPERTIES.setProperty("nick", elnick);
 
+                // EC-Identity v1: load or generate the Ed25519 keypair bound to the nick the user
+                // is about to enter the waiting room. Per-nick files in CORONA_DIR let different
+                // test instances on the same machine use distinct identities, and switching back
+                // to a known nick reloads the existing keypair. Abort the join if storage fails —
+                // networked games cannot proceed without a stable identity.
+                IdentityManager im = IdentityManager.initializeForNick(elnick);
+                if (!im.isReady()) {
+                    vamos.setEnabled(true);
+                    Helpers.mostrarMensajeError(getContentPane(),
+                            Translator.translate("ui.identity.load_error", im.getLoadError()));
+                    return;
+                }
+
                 if (this.partida_local) {
                     Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
                 } else {
@@ -1392,6 +1405,18 @@ public class NewGameDialog extends JDialog {
                 commitBotDifficultyFromCombo();
 
                 this.dialog_ok = true;
+
+                // EC-Identity v1 (commit 0): warn the host if the game password is weak.
+                // Non-blocking informational popup — the user dismisses with OK and proceeds.
+                if (this.partida_local && pass_text.getPassword().length > 0) {
+                    String pwd = new String(pass_text.getPassword());
+                    int entropyBits = Helpers.estimatePasswordEntropyBits(pwd);
+                    if (entropyBits < 60) {
+                        Helpers.mostrarMensajeInformativo(
+                                getContentPane(),
+                                Translator.translate("ui.password_debil_aviso", entropyBits));
+                    }
+                }
 
                 WaitingRoomFrame espera = new WaitingRoomFrame(partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
 

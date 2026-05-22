@@ -992,8 +992,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         }
 
-        holeCard1.setVisibleCard(false);
-        holeCard2.setVisibleCard(false);
+        // Only hide the hole cards on a real fold. When fold() runs as part of
+        // the exit synth flow (peer left mid-turn → readActionFromRemotePlayer
+        // returns a local FOLD → setDecisionFromRemotePlayer → fold()), the
+        // contract is: cards stay face-down (tapadas) as the visual cue that
+        // the peer had a hand when they left. Hiding them here would flatten
+        // that to an empty slot, indistinguishable from the "peer folded
+        // before leaving" case which fold() handled BEFORE setExit was called
+        // (and therefore actually wants the cards hidden).
+        if (!this.exit) {
+            holeCard1.setVisibleCard(false);
+            holeCard2.setVisibleCard(false);
+        }
 
         finTurno();
     }

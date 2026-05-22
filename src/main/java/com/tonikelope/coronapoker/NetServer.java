@@ -193,7 +193,11 @@ public class NetServer {
 
     /**
      * Le envía a un Participant recién conectado el USERSLIST con todos los demás
-     * Participants ya presentes (excluyendo al propio destinatario).
+     * Participants ya presentes (excluyendo al propio destinatario). El host NO
+     * va aquí: su identidad ya viaja en el intro síncrono del handshake.
+     *
+     * Wire format per entry: {@code nickB64|unsecureFlag|avatarB64_or_*|pubkeyB64_or_*|selfSigB64_or_*}
+     * Entries are joined with {@code @}. Bots have no identity → {@code *|*}.
      */
     public void enviarListaUsuariosToNewUser(Participant par) {
         StringBuilder commandBuilder = new StringBuilder("USERSLIST#");
@@ -205,10 +209,11 @@ public class NetServer {
                     if (p != null && p != par) {
                         commandBuilder.append(Base64.getEncoder().encodeToString(p.getNick().getBytes("UTF-8")))
                                 .append("|")
-                                .append(p.isUnsecure_player() ? "1" : "0");
+                                .append(p.isUnsecure_player() ? "1" : "0")
+                                .append("|");
 
+                        byte[] avatar_b = null;
                         if (p.getAvatar() != null || p.isCpu()) {
-                            byte[] avatar_b = null;
                             try {
                                 if (!p.isCpu() && p.getAvatar() != null) {
                                     try (InputStream is = new FileInputStream(p.getAvatar())) {
@@ -224,13 +229,17 @@ public class NetServer {
                             } catch (Exception e) {
                                 LOGGER.log(Level.WARNING, "Error reading avatar for USERSLIST", e);
                             }
-
-                            if (avatar_b != null) {
-                                commandBuilder.append("|").append(Base64.getEncoder().encodeToString(avatar_b));
-                            } else {
-                                commandBuilder.append("|*");
-                            }
                         }
+                        commandBuilder.append(avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
+
+                        // EC-Identity v1: pubkey + self_sig per entry, atomic with
+                        // the rest of the peer's data. Bots have no identity ("*|*").
+                        byte[] pubkey = p.isCpu() ? null : p.getIdentity_pubkey();
+                        byte[] selfSig = p.isCpu() ? null : p.getIdentity_self_sig();
+                        commandBuilder.append("|")
+                                .append(pubkey != null ? Base64.getEncoder().encodeToString(pubkey) : "*")
+                                .append("|")
+                                .append(selfSig != null ? Base64.getEncoder().encodeToString(selfSig) : "*");
                         commandBuilder.append("@");
                     }
                 } catch (Exception ex) {

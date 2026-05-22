@@ -34,22 +34,30 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * EC-Identity v1: persistent per-installation Ed25519 keypair used for player identity.
+ * EC-Identity v1: persistent per-nick Ed25519 keypair used for player identity.
  *
- * Pubkey identifies the machine (the installation). Nick identifies the player. Two players
- * sharing one machine have the same pubkey but different nicks; the same player on two
- * machines has the same nick but different pubkeys (seen by peers as a key change via TOFU).
+ * The keypair is bound to the NFC-canonicalized nick: each nick used on this machine
+ * gets its own keypair on disk, so two test instances launched with different nicks on
+ * the same machine end up with distinct identities. Switching to a previously used
+ * nick reloads the existing keypair instead of generating a new one.
  *
- * Storage:
- *   <user.home>/.coronapoker/identity.ed25519       PKCS#8 encoded private key, FS 0600 on POSIX
- *   <user.home>/.coronapoker/identity.ed25519.pub   32 raw bytes (no header)
+ * Storage (per nick):
+ *   <user.home>/.coronapoker/identity_<player_id_hex>.ed25519       PKCS#8 private key (0600 on POSIX)
+ *   <user.home>/.coronapoker/identity_<player_id_hex>.ed25519.pub   32 raw bytes (no header)
+ *
+ *   player_id_hex = first 16 hex chars (8 bytes / 64 bits) of SHA-256(NFC(nick) UTF-8).
+ *
+ * Lifecycle:
+ *   - {@link #initializeForNick(String)} is called once the nick is committed (from
+ *     NewGameDialog before opening the waiting room). It loads or generates the keypair
+ *     synchronously and surfaces any I/O error via {@link #getLoadError()}.
+ *   - {@link #getInstance()} returns the current singleton. If never initialized it
+ *     returns an "uninitialized" instance with isReady()==false; callers in the
+ *     networked code path must check isReady().
+ *   - Re-initialization with a different nick swaps the keypair (testing scenario).
  *
  * Domain separators are required for every sign/verify call to prevent cross-protocol
  * signature confusion. Example: "ACTION_V1\0", "JOIN_V1\0", "RECEIPT_V1\0".
- *
- * If the identity cannot be loaded or generated, the manager keeps the load error and
- * isReady() returns false; callers must refuse to start networked games. The integration
- * with the UI to surface this error lives in WaitingRoomFrame (commit 2).
  */
 public final class IdentityManager {
 
@@ -70,8 +78,17 @@ public final class IdentityManager {
     private static final int RAW_PUBKEY_LEN = 32;
     private static final int X509_PUBKEY_LEN = X509_ED25519_HEADER.length + RAW_PUBKEY_LEN;
 
-    private static final String IDENTITY_FILE = "identity.ed25519";
-    private static final String IDENTITY_PUB_FILE = "identity.ed25519.pub";
+    private static final String IDENTITY_FILE_PREFIX = "identity_";
+    private static final String IDENTITY_FILE_SUFFIX = ".ed25519";
+    private static final String IDENTITY_PUB_FILE_SUFFIX = ".ed25519.pub";
+
+    /**
+     * Length in hex chars of the player-id slug appended to the identity filename.
+     * 16 hex chars == 8 bytes == 64 bits, derived from SHA-256(NFC(nick) UTF-8). Wide
+     * enough that accidental nick collisions on the same machine are astronomically
+     * unlikely; not so wide that it makes filenames unreadable.
+     */
+    private static final int PLAYER_ID_HEX_LEN = 16;
 
     /**
      * Resolved independently of Init.CORONA_DIR so this class stays standalone and
@@ -87,48 +104,77 @@ public final class IdentityManager {
     private final String shortFingerprint;
     private final String fullFingerprint;
     private final String loadError;
+    private final String boundNick;
 
     /**
-     * Returns the singleton. Synchronously loads or generates the identity on first call.
-     * Never returns null; if load/generation failed, isReady() returns false and
-     * getLoadError() returns the user-facing reason.
+     * Loads or generates the Ed25519 keypair bound to {@code nick} and installs it as
+     * the current singleton. If a singleton already exists for the same nick it is
+     * returned unchanged. If the nick differs, the singleton is replaced.
+     *
+     * Synchronous; surface any storage error via {@link #getLoadError()} on the returned
+     * instance and refuse to enter networked games when {@link #isReady()} is false.
+     */
+    public static synchronized IdentityManager initializeForNick(String nick) {
+        if (nick == null || nick.trim().isEmpty()) {
+            throw new IllegalArgumentException("nick required");
+        }
+        String canonical = canonicalNick(nick);
+        if (INSTANCE != null && canonical.equals(INSTANCE.boundNick)) {
+            return INSTANCE;
+        }
+        INSTANCE = new IdentityManager(canonical);
+        return INSTANCE;
+    }
+
+    /**
+     * Returns the singleton previously installed by {@link #initializeForNick(String)}.
+     * If no initialization has happened yet, returns an "uninitialized" instance whose
+     * {@link #isReady()} returns false; callers must check before using.
      */
     public static synchronized IdentityManager getInstance() {
         if (INSTANCE == null) {
-            INSTANCE = new IdentityManager();
+            INSTANCE = new IdentityManager(null);
         }
         return INSTANCE;
     }
 
-    private IdentityManager() {
+    private IdentityManager(String canonicalNick) {
         PrivateKey priv = null;
         byte[] pubRaw = null;
         String error = null;
 
-        try {
-            File dir = ensureCoronaDir();
-            File privFile = new File(dir, IDENTITY_FILE);
-            File pubFile = new File(dir, IDENTITY_PUB_FILE);
+        if (canonicalNick == null) {
+            error = "Identity not bound to a nick yet";
+        } else {
+            try {
+                File dir = ensureCoronaDir();
+                String slug = playerIdHex(canonicalNick);
+                File privFile = new File(dir, IDENTITY_FILE_PREFIX + slug + IDENTITY_FILE_SUFFIX);
+                File pubFile = new File(dir, IDENTITY_FILE_PREFIX + slug + IDENTITY_PUB_FILE_SUFFIX);
 
-            if (privFile.isFile() && pubFile.isFile()) {
-                priv = loadPrivateKey(privFile);
-                pubRaw = loadPublicKeyRaw(pubFile);
-                LOGGER.log(Level.INFO, "Ed25519 identity loaded from {0}", dir.getAbsolutePath());
-            } else {
-                KeyPair kp = generateKeyPair();
-                priv = kp.getPrivate();
-                pubRaw = x509PubKeyToRaw(kp.getPublic().getEncoded());
-                writeKeypair(privFile, pubFile, priv, pubRaw);
-                LOGGER.log(Level.INFO, "Ed25519 identity generated at {0}", dir.getAbsolutePath());
+                if (privFile.isFile() && pubFile.isFile()) {
+                    priv = loadPrivateKey(privFile);
+                    pubRaw = loadPublicKeyRaw(pubFile);
+                    LOGGER.log(Level.INFO, "Ed25519 identity loaded for nick=\"{0}\" from {1}",
+                            new Object[]{canonicalNick, privFile.getAbsolutePath()});
+                } else {
+                    KeyPair kp = generateKeyPair();
+                    priv = kp.getPrivate();
+                    pubRaw = x509PubKeyToRaw(kp.getPublic().getEncoded());
+                    writeKeypair(privFile, pubFile, priv, pubRaw);
+                    LOGGER.log(Level.INFO, "Ed25519 identity generated for nick=\"{0}\" at {1}",
+                            new Object[]{canonicalNick, privFile.getAbsolutePath()});
+                }
+            } catch (IdentityException ex) {
+                error = ex.getMessage();
+                LOGGER.log(Level.SEVERE, "Identity initialization failed: {0}", error);
+            } catch (Exception ex) {
+                error = "Unexpected error: " + ex.getMessage();
+                LOGGER.log(Level.SEVERE, "Identity initialization failed unexpectedly", ex);
             }
-        } catch (IdentityException ex) {
-            error = ex.getMessage();
-            LOGGER.log(Level.SEVERE, "Identity initialization failed: {0}", error);
-        } catch (Exception ex) {
-            error = "Unexpected error: " + ex.getMessage();
-            LOGGER.log(Level.SEVERE, "Identity initialization failed unexpectedly", ex);
         }
 
+        this.boundNick = canonicalNick;
         this.privateKey = priv;
         this.publicKeyRaw = pubRaw;
         this.loadError = error;
@@ -142,6 +188,31 @@ public final class IdentityManager {
             this.shortFingerprint = null;
             this.fullFingerprint = null;
         }
+    }
+
+    /**
+     * NFC-canonicalize a nick to the same form used everywhere else in the identity
+     * layer (joinPayload, PLAYER_ID hash). Trims surrounding whitespace because the
+     * nick may arrive from a text field.
+     */
+    private static String canonicalNick(String nick) {
+        return java.text.Normalizer.normalize(nick.trim(), java.text.Normalizer.Form.NFC);
+    }
+
+    /**
+     * Derives the per-nick filename slug: the first PLAYER_ID_HEX_LEN hex chars of
+     * SHA-256(NFC(nick) UTF-8). Same nick on two machines yields the same slug; two
+     * nicks with different NFC bytes yield different slugs with overwhelming
+     * probability (64 bits).
+     */
+    private static String playerIdHex(String canonicalNick) {
+        byte[] hash = sha256(canonicalNick.getBytes(StandardCharsets.UTF_8));
+        StringBuilder sb = new StringBuilder(PLAYER_ID_HEX_LEN);
+        int nbytes = PLAYER_ID_HEX_LEN / 2;
+        for (int i = 0; i < nbytes; i++) {
+            sb.append(String.format("%02x", hash[i] & 0xff));
+        }
+        return sb.toString();
     }
 
     public boolean isReady() {
@@ -228,6 +299,57 @@ public final class IdentityManager {
             return sig.verify(signature);
         } catch (Exception ex) {
             LOGGER.log(Level.FINE, "Ed25519 verify failed", ex);
+            return false;
+        }
+    }
+
+    // ===== JOIN_IDENTITY helpers (commit 2b) =====
+
+    private static final byte[] JOIN_DOMAIN = "JOIN_V1\0".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Canonical payload signed inside a JOIN_IDENTITY self_sig: NFC-normalized nick UTF-8
+     * concatenated with session_id and the 32-byte raw pubkey. The domain separator
+     * "JOIN_V1\0" is applied by sign/verify, not embedded in this byte string.
+     */
+    public static byte[] joinPayload(byte[] sessionId, String nick, byte[] rawPubKey) {
+        if (sessionId == null || sessionId.length == 0) {
+            throw new IllegalArgumentException("sessionId required");
+        }
+        if (nick == null || nick.isEmpty()) {
+            throw new IllegalArgumentException("nick required");
+        }
+        if (rawPubKey == null || rawPubKey.length != RAW_PUBKEY_LEN) {
+            throw new IllegalArgumentException("rawPubKey must be 32 bytes");
+        }
+        byte[] nickBytes = java.text.Normalizer.normalize(nick, java.text.Normalizer.Form.NFC)
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] payload = new byte[sessionId.length + nickBytes.length + rawPubKey.length];
+        int o = 0;
+        System.arraycopy(sessionId, 0, payload, o, sessionId.length);
+        o += sessionId.length;
+        System.arraycopy(nickBytes, 0, payload, o, nickBytes.length);
+        o += nickBytes.length;
+        System.arraycopy(rawPubKey, 0, payload, o, rawPubKey.length);
+        return payload;
+    }
+
+    /**
+     * Signs a JOIN_IDENTITY self-attestation for this installation. The returned 64-byte
+     * Ed25519 signature commits to (session_id, nick, own pubkey) under the JOIN_V1 domain.
+     */
+    public byte[] signJoin(byte[] sessionId, String nick) {
+        return sign(JOIN_DOMAIN, joinPayload(sessionId, nick, getPublicKey()));
+    }
+
+    /**
+     * Verifies a JOIN_IDENTITY self-attestation received from a remote peer.
+     */
+    public static boolean verifyJoin(byte[] sessionId, String nick, byte[] rawPubKey, byte[] sig) {
+        try {
+            return verify(rawPubKey, JOIN_DOMAIN, joinPayload(sessionId, nick, rawPubKey), sig);
+        } catch (Exception ex) {
+            LOGGER.log(Level.FINE, "verifyJoin rejected: " + ex.getMessage());
             return false;
         }
     }
@@ -366,12 +488,4 @@ public final class IdentityManager {
         }
     }
 
-    /**
-     * Optional warm-up: triggers identity load/generation. Safe to call any number of
-     * times. Used by Init.main() to surface load errors as early as possible in the
-     * application lifecycle, so the user sees them at startup rather than mid-game.
-     */
-    public static void initialize() {
-        getInstance();
-    }
 }

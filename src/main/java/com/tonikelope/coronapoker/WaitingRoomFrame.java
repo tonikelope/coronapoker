@@ -172,6 +172,30 @@ public class WaitingRoomFrame extends JFrame {
     private final NetServer net_server;
     private final NetClient net_client;
 
+    // EC-Identity v1: per-game 16-byte session identifier. The host generates it once
+    // at construction and ships it inside the ECDH handshake. Clients capture it from
+    // the handshake and use it to compute their JOIN_IDENTITY self_sig (which binds
+    // their pubkey to this specific game session and thus blocks replay across sessions).
+    private volatile byte[] session_id = null;
+
+    // EC-Identity v1: the host computes its own self_sig at game creation so it can be
+    // shipped to every joining client embedded in the sync intro (atomic transport).
+    // Host is special-cased because it is not in `participantes` — it IS the room.
+    private volatile byte[] host_self_sig = null;
+    private volatile byte[] host_identity_pubkey = null;
+
+    public byte[] getSession_id() {
+        return session_id;
+    }
+
+    public byte[] getHost_identity_pubkey() {
+        return host_identity_pubkey;
+    }
+
+    public byte[] getHost_self_sig() {
+        return host_self_sig;
+    }
+
     public NetServer getNet_server() {
         return net_server;
     }
@@ -666,6 +690,25 @@ public class WaitingRoomFrame extends JFrame {
         this.net_server = server ? new NetServer(this) : null;
         this.net_client = server ? null : new NetClient(this);
 
+        // EC-Identity v1: host pre-generates session_id once at construction so it can be
+        // shipped to every joining client during the ECDH handshake. Clients leave it null
+        // here and capture the value from the wire when they connect.
+        //
+        // The host also pre-computes its own self_sig over (session_id || nick || pubkey) so
+        // that the host's identity can be relayed to every joining peer embedded in the sync
+        // intro (atomic transport, no separate async IDENTITY command).
+        if (server) {
+            this.session_id = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(this.session_id);
+            IdentityManager im = IdentityManager.getInstance();
+            if (im.isReady()) {
+                this.host_identity_pubkey = im.getPublicKey();
+                this.host_self_sig = im.signJoin(this.session_id, local_nick);
+            } else {
+                LOGGER.log(Level.SEVERE, "Host identity not ready: {0}", im.getLoadError());
+            }
+        }
+
         initComponents();
 
         setTitle(Init.WINDOW_TITLE + Translator.translate("game.sala_de_espera") + nick + ")");
@@ -1074,6 +1117,14 @@ public class WaitingRoomFrame extends JFrame {
                         byte[] serverPubKeyEnc = new byte[length];
 
                         dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
+
+                        // EC-Identity v1: read session_id off the stream. On reconnect we don't
+                        // recompute self_sig because the host already has our pinned identity,
+                        // but we MUST consume these bytes to keep the stream in sync.
+                        int sidLen = dIn.readInt();
+                        byte[] receivedSessionId = new byte[sidLen];
+                        dIn.readFully(receivedSessionId, 0, sidLen);
+                        this.session_id = receivedSessionId;
 
                         KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
 
@@ -1633,6 +1684,11 @@ public class WaitingRoomFrame extends JFrame {
                     int length = dIn.readInt();
                     byte[] serverPubKeyEnc = new byte[length];
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
+                    // EC-Identity v1: capture session_id sent right after the server pubkey.
+                    int sidLen = dIn.readInt();
+                    byte[] receivedSessionId = new byte[sidLen];
+                    dIn.readFully(receivedSessionId, 0, sidLen);
+                    this.session_id = receivedSessionId;
 
                     KeyFactory clientKeyFac = KeyFactory.getInstance("EC");
                     X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(serverPubKeyEnc);
@@ -1656,9 +1712,27 @@ public class WaitingRoomFrame extends JFrame {
 
                     // PSK-DH already authenticates the password: a wrong password produces a different
                     // channel key and the server cannot decrypt this message. No need to send the password.
+                    //
+                    // EC-Identity v1: augment the first command with the JOIN_IDENTITY marker, this
+                    // installation's Ed25519 pubkey, and a self_sig that binds it to the session_id
+                    // received during the handshake. Field layout (6 fields):
+                    //   nick_b64 # version # avatar_b64_or_* # JOIN_V1 # pubkey_b64 # self_sig_b64
+                    // The server validates self_sig before adding the client to the participants
+                    // list; an invalid signature closes the socket.
+                    IdentityManager im = IdentityManager.getInstance();
+                    if (!im.isReady()) {
+                        exit = true;
+                        mostrarMensajeError(THIS, "Identity not ready: " + im.getLoadError());
+                        throw new IOException("Identity not ready, refusing to JOIN");
+                    }
+                    String pubkeyB64 = Base64.getEncoder().encodeToString(im.getPublicKey());
+                    String selfSigB64 = Base64.getEncoder().encodeToString(im.signJoin(this.session_id, local_nick));
                     writeCommandToServer(Helpers.encryptCommand(Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
                             + "#" + AboutDialog.VERSION
-                            + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*"),
+                            + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*")
+                            + "#JOIN_V1"
+                            + "#" + pubkeyB64
+                            + "#" + selfSigB64,
                             aesKey, hmacKey));
 
                     net_client.setLocal_client_buffer_read_is(new BufferedReader(new InputStreamReader(sock.getInputStream())));
@@ -1730,7 +1804,9 @@ public class WaitingRoomFrame extends JFrame {
                             partes = recibido.split("#");
                             server_nick = new String(Base64.getDecoder().decode(partes[0].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8").trim();
 
-                            String server_avatar_base64 = partes.length > 1 ? partes[1].replaceAll("[^A-Za-z0-9+/=]", "") : "";
+                            String server_avatar_base64 = partes.length > 1 && !"*".equals(partes[1])
+                                    ? partes[1].replaceAll("[^A-Za-z0-9+/=]", "")
+                                    : "";
                             File server_avatar = null;
                             try {
                                 if (server_avatar_base64.length() > 0) {
@@ -1742,6 +1818,21 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             } catch (Exception ex) {
                                 server_avatar = null;
+                            }
+
+                            // EC-Identity v1: host identity rides on the same intro packet that
+                            // carries nick + avatar. Capture pubkey+sig here; verify and apply
+                            // once the Participant exists.
+                            byte[] hostIdPubkey = null;
+                            byte[] hostIdSig = null;
+                            if (partes.length >= 4 && !"*".equals(partes[2]) && !"*".equals(partes[3])) {
+                                try {
+                                    hostIdPubkey = Base64.getDecoder().decode(partes[2]);
+                                    hostIdSig = Base64.getDecoder().decode(partes[3]);
+                                } catch (Exception ex) {
+                                    hostIdPubkey = null;
+                                    hostIdSig = null;
+                                }
                             }
 
                             recibido = readCommandFromServer();
@@ -1757,6 +1848,27 @@ public class WaitingRoomFrame extends JFrame {
 
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
+
+                            // EC-Identity v1: apply the host's identity to the freshly-created
+                            // Participant. Verify self_sig against current session_id; on success,
+                            // store on Participant and run TOFU.
+                            if (hostIdPubkey != null && hostIdSig != null
+                                    && hostIdPubkey.length == 32 && hostIdSig.length == 64) {
+                                if (!IdentityManager.verifyJoin(this.session_id, server_nick, hostIdPubkey, hostIdSig)) {
+                                    LOGGER.log(Level.WARNING, "Intro identity bad self_sig for host {0}", server_nick);
+                                } else {
+                                    TOFUResolver.Resolution res = TOFUResolver.resolve(server_nick, hostIdPubkey);
+                                    Participant hostPar = participantes.get(server_nick);
+                                    if (hostPar != null) {
+                                        hostPar.setIdentity_pubkey(hostIdPubkey);
+                                        hostPar.setIdentity_self_sig(hostIdSig);
+                                    }
+                                    LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3}) via intro",
+                                            new Object[]{server_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+                                }
+                            } else {
+                                LOGGER.log(Level.WARNING, "Intro carried no host identity for {0}", server_nick);
+                            }
 
                             Helpers.GUIRunAndWait(() -> {
                                 status.setText(Translator.translate("status.conectado"));
@@ -2405,6 +2517,12 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "NEWUSER":
+                                                            // EC-Identity v1: layout
+                                                            //   [3] nickB64
+                                                            //   [4] unsecureFlag
+                                                            //   [5] avatarB64_or_*
+                                                            //   [6] pubkeyB64_or_*
+                                                            //   [7] selfSigB64_or_*
                                                             Audio.playWavResource("misc/laser.wav");
                                                             try {
                                                                 String nickNew = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
@@ -2413,21 +2531,56 @@ public class WaitingRoomFrame extends JFrame {
                                                                 if (file_id < 0) {
                                                                     file_id *= -1;
                                                                 }
-                                                                if (partes_comando.length == 6 && !partes_comando[5].equals("*")) {
+                                                                if (partes_comando.length >= 6 && !"*".equals(partes_comando[5])) {
                                                                     avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nickNew + "_avatar" + String.valueOf(file_id));
                                                                     try (FileOutputStream os = new FileOutputStream(avatarNew)) {
                                                                         os.write(Base64.getDecoder().decode(partes_comando[5]));
                                                                     } catch (Exception e) {
                                                                     }
                                                                 }
+                                                                boolean isBot = nickNew.startsWith("CoronaBot$");
                                                                 if (!participantes.containsKey(nickNew)) {
-                                                                    boolean isBot = nickNew.startsWith("CoronaBot$");
                                                                     nuevoParticipante(nickNew, avatarNew, null, null, null, isBot, "1".equals(partes_comando[4]));
+                                                                }
+
+                                                                if (partes_comando.length >= 8
+                                                                        && !"*".equals(partes_comando[6]) && !"*".equals(partes_comando[7])) {
+                                                                    try {
+                                                                        byte[] idPubkey = Base64.getDecoder().decode(partes_comando[6]);
+                                                                        byte[] idSig = Base64.getDecoder().decode(partes_comando[7]);
+                                                                        if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity malformed for {0}", nickNew);
+                                                                        } else if (!IdentityManager.verifyJoin(this.session_id, nickNew, idPubkey, idSig)) {
+                                                                            LOGGER.log(Level.WARNING, "NEWUSER identity bad self_sig for {0}", nickNew);
+                                                                        } else {
+                                                                            TOFUResolver.Resolution res = TOFUResolver.resolve(nickNew, idPubkey);
+                                                                            Participant p = participantes.get(nickNew);
+                                                                            if (p != null) {
+                                                                                p.setIdentity_pubkey(idPubkey);
+                                                                                p.setIdentity_self_sig(idSig);
+                                                                            }
+                                                                            LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3}) via NEWUSER",
+                                                                                    new Object[]{nickNew, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+                                                                        }
+                                                                    } catch (Exception idex) {
+                                                                        LOGGER.log(Level.WARNING, "NEWUSER identity decode failed for " + nickNew, idex);
+                                                                    }
                                                                 }
                                                             } catch (Exception e) {
                                                             }
                                                             break;
                                                         case "USERSLIST":
+                                                            // EC-Identity v1: each entry now carries pubkey + self_sig in
+                                                            // fields [3] and [4] (or "*" for bots / unknown). Apply them
+                                                            // to the Participant once it exists, after TOFU.
+                                                            //
+                                                            // USERSLIST may arrive empty when the joining client is the
+                                                            // only peer besides the host (host is never an entry here — its
+                                                            // identity comes through the intro packet). Skip when there is
+                                                            // no payload.
+                                                            if (partes_comando.length < 4) {
+                                                                break;
+                                                            }
                                                             String[] current_users_parts = partes_comando[3].split("@");
                                                             for (String user : current_users_parts) {
                                                                 if (user.isEmpty()) {
@@ -2437,7 +2590,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     String list_nick = new String(Base64.getDecoder().decode(user_parts[0]), "UTF-8");
                                                                     File list_avatar = null;
-                                                                    if (user_parts.length == 3 && !user_parts[2].equals("*")) {
+                                                                    if (user_parts.length >= 3 && !"*".equals(user_parts[2])) {
                                                                         int fid = Helpers.CSPRNG_GENERATOR.nextInt();
                                                                         if (fid < 0) {
                                                                             fid *= -1;
@@ -2448,9 +2601,33 @@ public class WaitingRoomFrame extends JFrame {
                                                                         } catch (Exception e) {
                                                                         }
                                                                     }
+                                                                    boolean isListBot = list_nick.startsWith("CoronaBot$");
                                                                     if (!participantes.containsKey(list_nick)) {
-                                                                        boolean isListBot = list_nick.startsWith("CoronaBot$");
                                                                         nuevoParticipante(list_nick, list_avatar, null, null, null, isListBot, "1".equals(user_parts[1]));
+                                                                    }
+
+                                                                    if (user_parts.length >= 5
+                                                                            && !"*".equals(user_parts[3]) && !"*".equals(user_parts[4])) {
+                                                                        try {
+                                                                            byte[] idPubkey = Base64.getDecoder().decode(user_parts[3]);
+                                                                            byte[] idSig = Base64.getDecoder().decode(user_parts[4]);
+                                                                            if (idPubkey.length != 32 || idSig.length != 64) {
+                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity malformed for {0}", list_nick);
+                                                                            } else if (!IdentityManager.verifyJoin(this.session_id, list_nick, idPubkey, idSig)) {
+                                                                                LOGGER.log(Level.WARNING, "USERSLIST identity bad self_sig for {0}", list_nick);
+                                                                            } else {
+                                                                                TOFUResolver.Resolution res = TOFUResolver.resolve(list_nick, idPubkey);
+                                                                                Participant p = participantes.get(list_nick);
+                                                                                if (p != null) {
+                                                                                    p.setIdentity_pubkey(idPubkey);
+                                                                                    p.setIdentity_self_sig(idSig);
+                                                                                }
+                                                                                LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3}) via USERSLIST",
+                                                                                        new Object[]{list_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+                                                                            }
+                                                                        } catch (Exception idex) {
+                                                                            LOGGER.log(Level.WARNING, "USERSLIST identity decode failed for " + list_nick, idex);
+                                                                        }
                                                                     }
                                                                 } catch (Exception e) {
                                                                 }
@@ -2566,6 +2743,47 @@ public class WaitingRoomFrame extends JFrame {
         net_server.enviarListaUsuariosToNewUser(par);
     }
 
+    /**
+     * EC-Identity v1: verifies a JOIN_IDENTITY self_sig sent by a new client during
+     * their initial handshake. Decodes the base64-encoded pubkey (32 bytes) and signature
+     * (64 bytes), then delegates to {@link IdentityManager#verifyJoin} under the current
+     * game's session_id and the NFC-normalized nick.
+     *
+     * Returns false on any decode error or signature mismatch. Never throws.
+     */
+    private boolean verifyJoinSelfSig(String nick, String pubkeyB64, String selfSigB64) {
+        try {
+            byte[] pubkey = Base64.getDecoder().decode(pubkeyB64);
+            byte[] sig = Base64.getDecoder().decode(selfSigB64);
+            if (pubkey.length != 32 || sig.length != 64) {
+                return false;
+            }
+            return IdentityManager.verifyJoin(this.session_id, nick, pubkey, sig);
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "verifyJoinSelfSig decode/verify error: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * EC-Identity v1: stores the validated identity on the participant entry, runs the
+     * local TOFU resolution, and logs the outcome (NEW / MATCH / CHANGED). Called by
+     * the host right after a successful JOIN.
+     */
+    private void recordJoinIdentity(Participant par, String pubkeyB64, String selfSigB64) {
+        try {
+            byte[] pubkey = Base64.getDecoder().decode(pubkeyB64);
+            byte[] sig = Base64.getDecoder().decode(selfSigB64);
+            par.setIdentity_pubkey(pubkey);
+            par.setIdentity_self_sig(sig);
+            TOFUResolver.Resolution res = TOFUResolver.resolve(par.getNick(), pubkey);
+            LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3})",
+                    new Object[]{par.getNick(), res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "recordJoinIdentity failed for " + par.getNick(), ex);
+        }
+    }
+
     private void serverSocketHandler(final Socket client_socket) {
 
         Helpers.threadRun(() -> {
@@ -2598,6 +2816,11 @@ public class WaitingRoomFrame extends JFrame {
                     DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
                     dOut.writeInt(serverPubKeyEnc.length);
                     dOut.write(serverPubKeyEnc);
+                    // EC-Identity v1: ship the game session_id immediately after the server
+                    // pubkey. Clients on this version expect these bytes; old clients are
+                    // blocked by the strict-equality VERSION gate further down.
+                    dOut.writeInt(session_id.length);
+                    dOut.write(session_id);
                     dOut.flush();
 
                     serverKeyAgree.doPhase(clientPubKey, true);
@@ -2774,6 +2997,22 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
                     } else if (participantes.containsKey(client_nick)) {
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
+                    } else if (partes.length != 6 || !"JOIN_V1".equals(partes[3])) {
+                        // EC-Identity v1: clients on the new wire MUST send a JOIN_V1 payload
+                        // with pubkey + self_sig. Anything else is a misformatted client and
+                        // gets the same response as a version mismatch.
+                        LOGGER.log(Level.WARNING, "Client {0} sent malformed JOIN (fields={1}, marker={2})",
+                                new Object[]{client_nick, partes.length, partes.length > 3 ? partes[3] : "(missing)"});
+                        writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
+                    } else if (!verifyJoinSelfSig(client_nick, partes[4], partes[5])) {
+                        // EC-Identity v1: self_sig invalid means either the client is on the
+                        // wrong session_id (replay from another game) or has a tampered key.
+                        // Reject without explanation to deny an oracle to attackers.
+                        LOGGER.log(Level.WARNING, "Client {0} sent invalid JOIN self_sig -> rejecting", client_nick);
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
                     } else {
                         String client_avatar_base64 = partes[2];
                         try {
@@ -2808,9 +3047,16 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         }
 
+                        // EC-Identity v1: piggyback host's pubkey + self_sig on the sync intro so
+                        // the new client has the host's identity in the same packet as nick + avatar
+                        // — no dependency on any async queue. Avatar slot uses "*" placeholder when
+                        // there is no avatar, keeping a fixed 4-field layout
+                        // (nick_b64 # avatar_b64_or_* # pubkey_b64_or_* # self_sig_b64_or_*).
                         writeCommandFromServer(Helpers.encryptCommand(
                                 Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
-                                + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : ""),
+                                + "#" + (avatar_bytes != null ? Base64.getEncoder().encodeToString(avatar_bytes) : "*")
+                                + "#" + (host_identity_pubkey != null ? Base64.getEncoder().encodeToString(host_identity_pubkey) : "*")
+                                + "#" + (host_self_sig != null ? Base64.getEncoder().encodeToString(host_self_sig) : "*"),
                                 aes_key, hmac_key), client_socket);
 
                         writeCommandFromServer(Helpers.encryptCommand(
@@ -2833,23 +3079,41 @@ public class WaitingRoomFrame extends JFrame {
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
                                     nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
+                                    // EC-Identity v1: cache pubkey+self_sig on the new Participant
+                                    // and run local TOFU resolution. partes[4] / partes[5] were
+                                    // validated above by verifyJoinSelfSig.
+                                    recordJoinIdentity(participantes.get(client_nick), partes[4], partes[5]);
                                     Audio.playWavResource("misc/laser.wav");
 
                                     if (participantes.size() > 2) {
+                                        // Sólo enviamos USERSLIST cuando hay al menos otro peer
+                                        // aparte del nuevo (host + nuevo == size 2 → nada que listar;
+                                        // la identidad del host ya viaja en el intro síncrono).
                                         enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
 
-                                        String comando = "NEWUSER#"
-                                                + Base64.getEncoder().encodeToString(client_nick.getBytes("UTF-8")) + "#"
-                                                + (participantes.get(client_nick).isUnsecure_player() ? "1" : "0");
-
+                                        // EC-Identity v1: NEWUSER carries the new peer's pubkey +
+                                        // self_sig so already-connected peers can independently verify
+                                        // and TOFU-resolve in the same packet that announces the join.
+                                        // Avatar slot uses "*" placeholder for a fixed 5-field layout
+                                        // (nick|flag|avatar|pubkey|sig).
+                                        Participant newPar = participantes.get(client_nick);
+                                        String avatarB64 = "*";
                                         if (client_avatar != null) {
                                             byte[] avatar_b;
                                             try (FileInputStream is = new FileInputStream(client_avatar)) {
                                                 avatar_b = is.readAllBytes();
                                             }
-                                            comando += "#" + Base64.getEncoder().encodeToString(avatar_b);
+                                            avatarB64 = Base64.getEncoder().encodeToString(avatar_b);
                                         }
-                                        broadcastASYNCGAMECommandFromServer(comando, participantes.get(client_nick));
+                                        byte[] newPubkey = newPar.getIdentity_pubkey();
+                                        byte[] newSig = newPar.getIdentity_self_sig();
+                                        String comando = "NEWUSER#"
+                                                + Base64.getEncoder().encodeToString(client_nick.getBytes("UTF-8")) + "#"
+                                                + (newPar.isUnsecure_player() ? "1" : "0") + "#"
+                                                + avatarB64 + "#"
+                                                + (newPubkey != null ? Base64.getEncoder().encodeToString(newPubkey) : "*") + "#"
+                                                + (newSig != null ? Base64.getEncoder().encodeToString(newSig) : "*");
+                                        broadcastASYNCGAMECommandFromServer(comando, newPar);
                                     }
                                     Helpers.GUIRun(() -> {
                                         kick_user.setEnabled(true);

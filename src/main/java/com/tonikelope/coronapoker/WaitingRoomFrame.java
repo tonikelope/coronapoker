@@ -2140,6 +2140,36 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             });
                                                             break;
+                                                        case "H_CHECK":
+                                                            // EC-Identity v1: debug-only chain divergence probe. The host
+                                                            // broadcasts its H_t after every action when
+                                                            // HandStateChain.DEBUG_HANDCHAIN is on; clients compare it to
+                                                            // their own absorbed chain and log SEVERE on mismatch. The case
+                                                            // is always wired (cheap no-op when the flag is off in release
+                                                            // builds) so probes from a debug host never crash a release client.
+                                                            try {
+                                                                String hcheckNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                byte[] hostHash = Base64.getDecoder().decode(partes_comando[4]);
+                                                                Crupier hcheckC = GameFrame.getInstance().getCrupier();
+                                                                if (HandStateChain.DEBUG_HANDCHAIN && hcheckC != null && hcheckC.hand_state_chain != null) {
+                                                                    byte[] localHash = hcheckC.hand_state_chain.getCurrentHash();
+                                                                    if (!java.util.Arrays.equals(localHash, hostHash)) {
+                                                                        LOGGER.log(Level.SEVERE,
+                                                                                "H_CHECK DIVERGENCE after {0}'s action: host={1} local={2}",
+                                                                                new Object[]{hcheckNick,
+                                                                                    Base64.getEncoder().encodeToString(hostHash),
+                                                                                    Base64.getEncoder().encodeToString(localHash)});
+                                                                    } else {
+                                                                        LOGGER.log(Level.INFO,
+                                                                                "H_CHECK match after {0}'s action: {1}",
+                                                                                new Object[]{hcheckNick,
+                                                                                    Base64.getEncoder().encodeToString(localHash)});
+                                                                    }
+                                                                }
+                                                            } catch (Exception e) {
+                                                                // Debug-only command: never tear down the socket thread.
+                                                            }
+                                                            break;
                                                         case "TIMEOUT":
                                                             // Process the timeout command directly in the client UI thread
                                                             try {

@@ -422,6 +422,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean force_recover = false;
     public volatile String[] active_crypto_ring = null;
 
+    // EC-Identity v1: hand-state chain (H_t ratchet) for the current hand. Initialized
+    // after the MEGAPACKET is processed on both host and clients; absorbs every canonical
+    // action record produced during the hand. Cleared to null between hands by
+    // readyForNextHand.
+    public volatile byte[] current_hand_id = null;
+    public volatile HandStateChain hand_state_chain = null;
+
     private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -584,6 +591,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        // EC-Identity v1: fresh per-hand 16-byte HAND_ID that the host broadcasts to
+        // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
+        // this id + the sorted player ids of the crypto-ring + the cascaded deck, so
+        // H_0 is byte-identical across the table.
+        this.current_hand_id = new byte[CanonicalActionRecord.HAND_ID_BYTES];
+        if (Helpers.CSPRNG_GENERATOR != null) {
+            Helpers.CSPRNG_GENERATOR.nextBytes(this.current_hand_id);
+        }
+
         // FASE 1: CASCADA DE CIFRADO Y BARAJADO
         //
         // Si un peer humano cae DURANTE su pase de cascade (entre el DECK_CASCADE_REQ
@@ -677,8 +693,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Error encoding orderB64 for MEGAPACKET", e);
         }
 
-        // Enviamos el MEGAPACKET final a todos
-        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64, null, true);
+        // Enviamos el MEGAPACKET final a todos. EC-Identity v1: append HAND_ID as
+        // a fourth field. Old clients (pre-v1) just stop parsing at the third field;
+        // new clients pick it up to seed their HandStateChain.
+        String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
+        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64, null, true);
+
+        // EC-Identity v1: now that MEGAPACKET is finalised and every peer (in theory)
+        // sees the same active_crypto_ring + cascadedDeck + handId, seed our own
+        // HandStateChain. Subsequent actions in rondaApuestas ratchet H_t through this
+        // chain on every peer in parallel.
+        initHandStateChain();
 
         // FASE 2 (v3): cascade POCKET en un único batch por helper humano.
         //
@@ -837,6 +862,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } catch (Exception e) {
                                 LOGGER.log(Level.WARNING, "Error parsing ORDER of MEGAPACKET", e);
                             }
+                            // EC-Identity v1: the host appends a 16-byte HAND_ID as a fourth
+                            // payload field. If present and well formed, seed our HandStateChain
+                            // so subsequent actions ratchet on every peer in parallel.
+                            if (partes.length >= 6) {
+                                try {
+                                    byte[] hid = java.util.Base64.getDecoder().decode(partes[5]);
+                                    if (hid.length == CanonicalActionRecord.HAND_ID_BYTES) {
+                                        this.current_hand_id = hid;
+                                    } else {
+                                        LOGGER.log(Level.WARNING, "MEGAPACKET HAND_ID has wrong length: {0}", hid.length);
+                                        this.current_hand_id = null;
+                                    }
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.WARNING, "Error parsing HAND_ID of MEGAPACKET", e);
+                                    this.current_hand_id = null;
+                                }
+                            }
+                            initHandStateChain();
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length >= 5) {
                             try {
                                 String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
@@ -3547,6 +3590,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (received_commands) {
             received_commands.clear();
         }
+
+        // EC-Identity v1: the per-hand chain belongs to the hand that just ended. The
+        // new hand seeds a fresh chain after its MEGAPACKET arrives.
+        this.current_hand_id = null;
+        this.hand_state_chain = null;
 
         // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
         // first 32 feed the AES-256 key, last 16 feed the CTR IV.
@@ -6279,6 +6327,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } while (current_player.isTurno());
 
+                // EC-Identity v1: ratchet the hand state chain with this action. Each peer
+                // (host and clients) runs the same absorb call on the same record bytes, so
+                // H_t stays byte-identical across the table. The is_voluntary flag is true
+                // for every player-initiated decision; commit 5 will flip it to false on
+                // host-issued auto-folds so the host signs them with its own privkey.
+                absorbActionIntoChain(current_player.getNickname(), decision, true);
+
                 Bot.OpponentTracker stats = Bot.TRACKER_MEMORY.computeIfAbsent(current_player.getNickname(), k -> new Bot.OpponentTracker());
 
                 if (this.street == Crupier.PREFLOP) {
@@ -6744,6 +6799,141 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
         } while (pending);
+    }
+
+    /**
+     * EC-Identity v1: seed the per-hand H_t chain from the three pieces every peer
+     * already has after MEGAPACKET — the HAND_ID from the host, the active_crypto_ring
+     * nicks and the cascaded deck. Idempotent: if any of them is missing the chain is
+     * set to null so downstream absorb calls become no-ops (failing soft until commit 5
+     * makes the chain a hard requirement).
+     */
+    private void initHandStateChain() {
+        if (this.current_hand_id == null
+                || this.local_mega_packet == null
+                || this.active_crypto_ring == null
+                || this.active_crypto_ring.length == 0) {
+            this.hand_state_chain = null;
+            return;
+        }
+        java.util.List<byte[]> playerIds = new java.util.ArrayList<>();
+        for (String nick : this.active_crypto_ring) {
+            playerIds.add(CanonicalActionRecord.playerIdFromNick(nick));
+        }
+        try {
+            this.hand_state_chain = HandStateChain.start(
+                    this.current_hand_id, playerIds, this.local_mega_packet);
+            LOGGER.log(Level.INFO, "Hand state chain initialized: H_0={0}",
+                    Base64.getEncoder().encodeToString(this.hand_state_chain.getCurrentHash()));
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.WARNING, "HandStateChain.start failed: " + ex.getMessage(), ex);
+            this.hand_state_chain = null;
+        }
+    }
+
+    /**
+     * Translate the in-memory Java action enum into the wire enum the spec defines
+     * (§4.3). Java collapses CALL into CHECK and RAISE into BET (the bet amount
+     * differentiates them); we keep that collapse on the wire side too. What matters
+     * is that every peer maps the same Java decision to the same wire value, so H_t
+     * converges across the table.
+     */
+    private static int mapJavaActionToWire(int javaDecision) {
+        switch (javaDecision) {
+            case Player.FOLD:  return CanonicalActionRecord.ACTION_FOLD;
+            case Player.CHECK: return CanonicalActionRecord.ACTION_CHECK;
+            case Player.BET:   return CanonicalActionRecord.ACTION_BET;
+            case Player.ALLIN: return CanonicalActionRecord.ACTION_ALLIN;
+            default:
+                throw new IllegalArgumentException("Unmappable Java decision: " + javaDecision);
+        }
+    }
+
+    /** Java streets are 1-based (PREFLOP=1..SHOWDOWN=5), wire is 0-based. */
+    private static int mapJavaStreetToWire(int javaStreet) {
+        return javaStreet - 1;
+    }
+
+    /**
+     * Returns {@code true} iff {@code nick} sits in the current hand's crypto-ring.
+     * Players who joined or warmed up after the deal (and therefore are not in
+     * {@code active_crypto_ring}) are excluded so their stray actions don't pollute
+     * the chain.
+     */
+    private boolean isInActiveCryptoRing(String nick) {
+        String[] ring = this.active_crypto_ring;
+        if (ring == null) {
+            return false;
+        }
+        for (String n : ring) {
+            if (n.equals(nick)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Builds a canonical record for the action {@code playerNick} just emitted
+     * (decision + final bet amount stored on the Player) and absorbs it into this
+     * peer's H_t chain. If the chain has not been initialised (older host without
+     * HAND_ID in the MEGAPACKET, or hand started before the upgrade) the call is a
+     * no-op so we don't refuse to play.
+     *
+     * <p>{@code isVoluntary} should be {@code false} for host-issued auto-folds
+     * (spec §4.5) — the resulting record is then signed by the host's privkey in
+     * commit 5, not by the timed-out player's.
+     */
+    private void absorbActionIntoChain(String playerNick, int javaDecision,
+            boolean isVoluntary) {
+        HandStateChain chain = this.hand_state_chain;
+        if (chain == null) {
+            return;
+        }
+        if (!isInActiveCryptoRing(playerNick)) {
+            return;
+        }
+        Player player = nick2player.get(playerNick);
+        if (player == null) {
+            return;
+        }
+        try {
+            int wireAction = mapJavaActionToWire(javaDecision);
+            int wireStreet = mapJavaStreetToWire(this.street);
+            long cents = CanonicalActionRecord.amountToCents(
+                    Helpers.floatClean(player.getBet()));
+            byte[] pid = CanonicalActionRecord.playerIdFromNick(playerNick);
+            byte[] record = CanonicalActionRecord.encode(
+                    chain.getCurrentHash(),
+                    chain.getHandId(),
+                    pid,
+                    wireStreet,
+                    wireAction,
+                    cents,
+                    javaDecision == Player.ALLIN,
+                    isVoluntary);
+            byte[] newHash = chain.absorb(record);
+
+            if (HandStateChain.DEBUG_HANDCHAIN) {
+                try {
+                    String hCheckCmd = "H_CHECK#"
+                            + Base64.getEncoder().encodeToString(playerNick.getBytes("UTF-8"))
+                            + "#" + Base64.getEncoder().encodeToString(newHash);
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        broadcastGAMECommandFromServer(hCheckCmd, null, false);
+                    }
+                    LOGGER.log(Level.INFO, "H_CHECK after {0}'s action: {1}",
+                            new Object[]{playerNick,
+                                Base64.getEncoder().encodeToString(newHash)});
+                } catch (Exception broadcastEx) {
+                    LOGGER.log(Level.WARNING, "H_CHECK broadcast failed: " + broadcastEx.getMessage());
+                }
+            }
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE,
+                    "Failed to absorb action into hand state chain (nick=" + playerNick
+                    + ", decision=" + javaDecision + ")", ex);
+        }
     }
 
     private void sentarParticipantes() {

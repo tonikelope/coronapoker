@@ -8191,6 +8191,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // de verdad). Antes este loop forzaba remotePlayerQuit() tras
             // CLIENT_RECON_TIMEOUT, lo que provocaba kicks injustos a clientes
             // simplemente lentos durante cascadas SRA.
+            //
+            // Para que la espera "infinita" no sea invisible al autor revisando el
+            // debug log, llevamos un contador de iteraciones del do-while. Cada
+            // iteración representa un período entero de CONFIRMATION_TIMEOUT
+            // (~10 s) en el que waitSyncConfirmations no recibió todos los ACK.
+            // A partir de la segunda iteración consecutiva sin progreso, emitimos
+            // un Level.WARNING en JUL con los nicks que siguen pendientes y el
+            // tiempo acumulado. Es solo info forense — no acelera el kick ni
+            // dispara timeouts: el flujo sigue dependiendo de TCP/isExit.
+            long broadcastStartMs = System.currentTimeMillis();
+            int slowIterCount = 0;
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
 
@@ -8213,6 +8224,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     if (!pendientes.isEmpty() && !nick2player.isEmpty()) {
+                        slowIterCount++;
+                        if (slowIterCount >= 2) {
+                            long elapsedMs = System.currentTimeMillis() - broadcastStartMs;
+                            String cmdHead = command.length() > 40
+                                    ? command.substring(0, 40) + "..."
+                                    : command;
+                            LOGGER.log(Level.WARNING,
+                                    "Still waiting for ACK from {0} after {1} ms on broadcast \"{2}\" (TCP alive — no kick, will keep retrying until peers ACK or their sockets die)",
+                                    new Object[]{
+                                        String.join(", ", pendientes),
+                                        elapsedMs,
+                                        cmdHead});
+                        }
                         for (String nick : pendientes) {
                             nick2player.get(nick).setTimeout(true);
                             if (!GameFrame.getInstance().getParticipantes().get(nick).isForce_reset_socket()) {
@@ -8225,6 +8249,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                             }
                         }
+                    } else {
+                        slowIterCount = 0;
                     }
                 }
 

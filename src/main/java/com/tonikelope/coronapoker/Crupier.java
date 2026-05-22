@@ -6780,10 +6780,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             pieceIndices = indices;
                             piece_ok = true;
-                        } else if (partes.length >= 4 && partes[2].equals("COMM_REVEAL") && !reveal_ok) {
+                        } else if (partes.length >= 5 && partes[2].equals("COMM_REVEAL") && !reveal_ok) {
                             try {
-                                revealRecord = java.util.Base64.getDecoder().decode(partes[3]);
-                                revealSig = java.util.Base64.getDecoder().decode(partes[4]);
+                                byte[] candidateRecord = java.util.Base64.getDecoder().decode(partes[3]);
+                                byte[] candidateSig = java.util.Base64.getDecoder().decode(partes[4]);
+                                // EC-Identity v1 (Phase 3): reject silently if the
+                                // reveal is for a different street than the one we
+                                // are processing right now. Avoids lockdown on a
+                                // duplicate/stale COMM_REVEAL left over from the
+                                // previous street (TCP order should prevent this
+                                // in normal operation, but a buggy or malicious
+                                // host shouldn't be able to wedge us into lockdown
+                                // by sending the wrong reveal early).
+                                if (candidateRecord.length != CanonicalActionRecord.RECORD_BYTES
+                                        || CanonicalActionRecord.readActionType(candidateRecord) != CanonicalActionRecord.ACTION_COMMUNITY
+                                        || CanonicalActionRecord.readStreet(candidateRecord) != mapJavaStreetToWire(street)) {
+                                    LOGGER.log(Level.WARNING,
+                                            "Dropping stale/foreign COMM_REVEAL during street {0} drain", street);
+                                    continue;
+                                }
+                                revealRecord = candidateRecord;
+                                revealSig = candidateSig;
                                 reveal_ok = true;
                             } catch (Exception decodeEx) {
                                 LOGGER.log(Level.SEVERE,

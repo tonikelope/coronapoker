@@ -341,6 +341,57 @@ public final class IdentityManager {
         }
     }
 
+    // ===== RECEIPT_V1 helpers (commit 6) =====
+
+    /**
+     * Domain separator for end-of-hand consensus receipts (spec §6.2). Binds a
+     * receipt to its purpose so a JOIN or ACTION signature cannot be replayed
+     * as a hand receipt.
+     */
+    private static final byte[] RECEIPT_DOMAIN = "RECEIPT_V1\0".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Canonical payload for a receipt: {@code HAND_ID || H_final}. The domain
+     * separator "RECEIPT_V1\0" is applied by sign/verify, not embedded here.
+     */
+    public static byte[] receiptPayload(byte[] handId, byte[] hFinal) {
+        if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+            throw new IllegalArgumentException("handId must be "
+                    + CanonicalActionRecord.HAND_ID_BYTES + " bytes");
+        }
+        if (hFinal == null || hFinal.length != 32) {
+            throw new IllegalArgumentException("hFinal must be 32 bytes");
+        }
+        byte[] payload = new byte[handId.length + hFinal.length];
+        System.arraycopy(handId, 0, payload, 0, handId.length);
+        System.arraycopy(hFinal, 0, payload, handId.length, hFinal.length);
+        return payload;
+    }
+
+    /**
+     * Signs an end-of-hand receipt {@code (HAND_ID || H_final)} with this
+     * installation's privkey under the RECEIPT_V1 domain. Returns the 64-byte
+     * Ed25519 signature. The on-wire receipt is the concatenation
+     * {@code HAND_ID || H_final || sig}; the wire encoder lives in
+     * {@link Crupier} so the format stays close to its consumer.
+     */
+    public byte[] signReceipt(byte[] handId, byte[] hFinal) {
+        return sign(RECEIPT_DOMAIN, receiptPayload(handId, hFinal));
+    }
+
+    /**
+     * Verifies a receipt signature against the given 32-byte raw Ed25519 pubkey.
+     * Returns false on any error.
+     */
+    public static boolean verifyReceipt(byte[] rawPubKey, byte[] handId, byte[] hFinal, byte[] sig) {
+        try {
+            return verify(rawPubKey, RECEIPT_DOMAIN, receiptPayload(handId, hFinal), sig);
+        } catch (IllegalArgumentException ex) {
+            LOGGER.log(Level.WARNING, "verifyReceipt rejected by argument validation: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
     // ===== JOIN_IDENTITY helpers (commit 2b) =====
 
     private static final byte[] JOIN_DOMAIN = "JOIN_V1\0".getBytes(StandardCharsets.UTF_8);

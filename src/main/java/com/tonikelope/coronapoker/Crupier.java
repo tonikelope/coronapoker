@@ -46,6 +46,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.PreparedStatement;
+import java.text.MessageFormat;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -54,6 +55,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -5141,34 +5143,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();
     }
 
-    private void recibirConsensoFinal(ArrayList<Player> inShowdown) {
-        boolean consensus_ok = false;
+    /**
+     * EC-Identity v1 (commit 6): on the client, waits for the host's bare
+     * {@code HANDVERIFY} trigger (no payload). Returns true when the trigger
+     * arrived (or the per-call deadline elapsed and we give up); returns false
+     * only if a MISDEAL command was polled instead — in that case the hand was
+     * already cancelled here and the caller must NOT continue with the
+     * consensus phase. Other {@code HANDVERIFY} commands (with payload) and
+     * unrelated commands are left in {@code received_commands} so the
+     * consensus phase loop can re-poll them after the trigger settles.
+     */
+    private boolean waitForHandverifyTrigger() {
+        boolean trigger_seen = false;
         long start_time = System.currentTimeMillis();
 
         do {
             synchronized (this.getReceived_commands()) {
                 ArrayList<String> rejected = new ArrayList<>();
-                while (!consensus_ok && !this.getReceived_commands().isEmpty()) {
+                while (!trigger_seen && !this.getReceived_commands().isEmpty()) {
                     String comando = this.received_commands.poll();
                     String[] partes = comando.split("#", -1);
 
-                    if (partes.length >= 3) {
-                        switch (partes[2]) {
-                            case "HANDVERIFY":
-                                consensus_ok = true;
-                                break;
-                            case "MISDEAL":
-                                String motivo = "";
-                                try {
-                                    motivo = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
-                                } catch (Exception e) {
-                                }
-                                cancelarManoYDevolverApuestas(motivo, false);
-                                return;
-                            default:
-                                rejected.add(comando);
-                                break;
+                    if (partes.length == 3 && "HANDVERIFY".equals(partes[2])) {
+                        trigger_seen = true;
+                    } else if (partes.length >= 4 && "MISDEAL".equals(partes[2])) {
+                        String motivo = "";
+                        try {
+                            motivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
                         }
+                        cancelarManoYDevolverApuestas(motivo, false);
+                        return false;
                     } else {
                         rejected.add(comando);
                     }
@@ -5178,7 +5183,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            if (!consensus_ok) {
+            if (!trigger_seen) {
                 GameFrame.getInstance().checkPause();
                 synchronized (this.getReceived_commands()) {
                     try {
@@ -5187,18 +5192,380 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-        } while (!consensus_ok && !isFin_de_la_transmision());
+        } while (!trigger_seen && !isFin_de_la_transmision());
+
+        return true;
     }
 
+    /** Receipt blob layout: {@code HAND_ID(16) || H_final(32) || sig(64)} = 112 bytes. */
+    private static final int RECEIPT_HANDID_LEN = CanonicalActionRecord.HAND_ID_BYTES;
+    private static final int RECEIPT_HFINAL_LEN = 32;
+    private static final int RECEIPT_SIG_LEN = HandStateChain.SIG_BYTES;
+    private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_SIG_LEN;
+
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
-        if (!GameFrame.getInstance().isPartida_local()) {
-            Helpers.threadRun(() -> {
-                recibirConsensoFinal(inShowdown);
-            });
+        // EC-Identity v1 (commit 6): trigger barrier + receipt exchange + unanimous
+        // consensus check. Synchronous on both host and client so the disputed_hands
+        // row, popup and JUL log are all in place before the payout code that follows
+        // this call begins. The outcome is signaletic only — §6.3/§6.4 mandate the
+        // hand always settles.
+        if (GameFrame.getInstance().isPartida_local()) {
+            // HOST: fire the trigger (sync, confirmed) so every connected client wakes
+            // up its own consensus phase before we start emitting receipts.
+            broadcastGAMECommandFromServer("HANDVERIFY", null, true);
+        } else {
+            if (!waitForHandverifyTrigger()) {
+                // MISDEAL was received and cancelarManoYDevolverApuestas ran. Bail —
+                // no consensus phase on cancelled hands.
+                return;
+            }
+        }
+
+        // Snapshot the hand state. Even if a follow-up readyForNextHand resets the
+        // chain or generates a new HAND_ID, we keep working with the values that
+        // existed at hand-close. Hands that never built a chain (legacy interop or
+        // chain init failure) skip the consensus phase silently.
+        final HandStateChain chainSnap = this.hand_state_chain;
+        if (chainSnap == null) {
             return;
         }
-        // Synchronization signal: all clients ACK before the host closes the showdown.
-        broadcastGAMECommandFromServer("HANDVERIFY", null, true);
+        final byte[] handIdSnap = chainSnap.getHandId();
+        final byte[] hFinalSnap = chainSnap.getCurrentHash();
+
+        // Build our own receipt and emit it. Identity-not-ready is logged but does
+        // not prevent the loop below from collecting others' receipts (we will appear
+        // as MISSING in their consensus check, which is the correct outcome).
+        byte[] localReceipt = buildLocalReceipt(handIdSnap, hFinalSnap);
+        if (localReceipt != null) {
+            emitOwnReceipt(localReceipt);
+        }
+
+        Set<String> expected = computeExpectedConsensusSigners();
+        java.util.Map<String, byte[]> receipts = new HashMap<>();
+        String localNick = GameFrame.getInstance().getNick_local();
+        if (localReceipt != null) {
+            receipts.put(localNick, localReceipt);
+        }
+
+        long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECEPTION_TIMEOUT;
+        boolean isHost = GameFrame.getInstance().isPartida_local();
+
+        while (System.currentTimeMillis() < deadline
+                && !receipts.keySet().containsAll(expected)
+                && !isFin_de_la_transmision()) {
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String comando = this.received_commands.poll();
+                    String[] partes = comando.split("#", -1);
+                    if (partes.length == 5 && "HANDVERIFY".equals(partes[2])) {
+                        try {
+                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            byte[] receipt = Base64.getDecoder().decode(partes[4]);
+                            receipts.put(senderNick, receipt);
+                            if (isHost) {
+                                // Relay to every OTHER active client so each peer can
+                                // run the same consensus check locally.
+                                String subcommand = "HANDVERIFY#" + partes[3] + "#" + partes[4];
+                                try {
+                                    broadcastGAMECommandFromServer(subcommand, senderNick, true);
+                                } catch (RuntimeException relayEx) {
+                                    LOGGER.log(Level.WARNING,
+                                            "Failed to relay HANDVERIFY receipt from " + senderNick, relayEx);
+                                }
+                            }
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.SEVERE, "Failed to parse HANDVERIFY receipt", ex);
+                        }
+                    } else if (partes.length >= 4 && "MISDEAL".equals(partes[2])) {
+                        String motivo = "";
+                        try {
+                            motivo = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                        } catch (Exception e) {
+                        }
+                        cancelarManoYDevolverApuestas(motivo, false);
+                        return;
+                    } else {
+                        rejected.add(comando);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+                if (System.currentTimeMillis() < deadline
+                        && !receipts.keySet().containsAll(expected)) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                    }
+                }
+            }
+        }
+
+        runConsensusCheck(receipts, expected, handIdSnap, hFinalSnap);
+    }
+
+    /**
+     * EC-Identity v1 (commit 6): builds the encoded receipt
+     * {@code HAND_ID || H_final || sig} for this peer's local view of the
+     * just-finished hand. Returns null if the local identity is not usable.
+     * In that case we still participate as listener but show up as MISSING
+     * for other peers, which is the correct signaletic outcome.
+     */
+    private byte[] buildLocalReceipt(byte[] handId, byte[] hFinal) {
+        IdentityManager im = IdentityManager.getInstance();
+        if (!im.isReady()) {
+            LOGGER.log(Level.SEVERE,
+                    "Cannot build local receipt: identity not ready ({0})", im.getLoadError());
+            return null;
+        }
+        try {
+            byte[] sig = im.signReceipt(handId, hFinal);
+            return encodeReceiptBlob(handId, hFinal, sig);
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE, "signReceipt failed", ex);
+            return null;
+        }
+    }
+
+    private static byte[] encodeReceiptBlob(byte[] handId, byte[] hFinal, byte[] sig) {
+        if (handId.length != RECEIPT_HANDID_LEN || hFinal.length != RECEIPT_HFINAL_LEN || sig.length != RECEIPT_SIG_LEN) {
+            throw new IllegalArgumentException("Receipt component length mismatch");
+        }
+        byte[] out = new byte[RECEIPT_TOTAL_LEN];
+        System.arraycopy(handId, 0, out, 0, RECEIPT_HANDID_LEN);
+        System.arraycopy(hFinal, 0, out, RECEIPT_HANDID_LEN, RECEIPT_HFINAL_LEN);
+        System.arraycopy(sig, 0, out, RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN, RECEIPT_SIG_LEN);
+        return out;
+    }
+
+    /**
+     * Emits this peer's own receipt to everyone else. Hosts broadcast to all
+     * connected clients; clients send to the host, which relays the receipt
+     * to each of the other clients inside the consensus loop.
+     */
+    private void emitOwnReceipt(byte[] localReceipt) {
+        try {
+            String myNick = GameFrame.getInstance().getNick_local();
+            String myNickB64 = Base64.getEncoder().encodeToString(myNick.getBytes("UTF-8"));
+            String receiptB64 = Base64.getEncoder().encodeToString(localReceipt);
+            String cmd = "HANDVERIFY#" + myNickB64 + "#" + receiptB64;
+            if (GameFrame.getInstance().isPartida_local()) {
+                broadcastGAMECommandFromServer(cmd, null, true);
+            } else {
+                sendGAMECommandToServer(cmd);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Failed to emit own consensus receipt", ex);
+        }
+    }
+
+    /**
+     * Returns the set of nicks this peer expects to receive a receipt from
+     * (spec §6.3): humans still active at the moment the HANDVERIFY trigger
+     * fires. Players who left mid-hand are NOT counted as MISSING (they are
+     * excluded). Bots are excluded too — their actions are signed by the host
+     * inside H_t (§10), so they have no separate receipt.
+     */
+    private Set<String> computeExpectedConsensusSigners() {
+        Set<String> out = new LinkedHashSet<>();
+        java.util.Map<String, Participant> participantes = GameFrame.getInstance().getParticipantes();
+        if (participantes == null) {
+            return out;
+        }
+        String localNick = GameFrame.getInstance().getNick_local();
+        if (localNick != null) {
+            out.add(localNick);
+        }
+        for (java.util.Map.Entry<String, Participant> entry : participantes.entrySet()) {
+            String nick = entry.getKey();
+            Participant par = entry.getValue();
+            if (nick == null || nick.equals(localNick)) {
+                continue;
+            }
+            if (par == null) {
+                continue;
+            }
+            if (par.isCpu()) {
+                continue;
+            }
+            if (par.isExit()) {
+                continue;
+            }
+            out.add(nick);
+        }
+        return out;
+    }
+
+    /**
+     * EC-Identity v1 (commit 6): compares collected receipts against this peer's
+     * own (HAND_ID, H_final) and writes the outcome to the Crupier log (i18n),
+     * the JUL log, the in-game popup, and the disputed_hands SQLite table.
+     * Three outcomes:
+     *
+     * <ul>
+     *   <li>OK: every expected peer's receipt present, sig valid, H_final matches.</li>
+     *   <li>MISSING: at least one expected peer did not respond inside the timeout
+     *       (network outage, client crash, etc.). Ambiguous: WARNING.</li>
+     *   <li>DIVERGENT: some receipt arrived with a different H_final, or a sig
+     *       that fails verification (we cannot trust the receipt). Smoking-gun
+     *       evidence of host manipulation: SEVERE.</li>
+     * </ul>
+     */
+    private void runConsensusCheck(java.util.Map<String, byte[]> receipts, Set<String> expected,
+            byte[] handIdLocal, byte[] hFinalLocal) {
+        Set<String> missing = new LinkedHashSet<>();
+        Set<String> divergent = new LinkedHashSet<>();
+
+        for (String nick : expected) {
+            byte[] r = receipts.get(nick);
+            if (r == null || r.length != RECEIPT_TOTAL_LEN) {
+                missing.add(nick);
+                continue;
+            }
+            byte[] handId = Arrays.copyOfRange(r, 0, RECEIPT_HANDID_LEN);
+            byte[] hFinal = Arrays.copyOfRange(r, RECEIPT_HANDID_LEN,
+                    RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN);
+            byte[] sig = Arrays.copyOfRange(r, RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN,
+                    RECEIPT_TOTAL_LEN);
+
+            byte[] pubkey = resolveReceiptSignerPubkey(nick);
+            if (pubkey == null) {
+                // Local TOFU never got this peer's pubkey (handshake glitch, late
+                // join). We cannot decide whether tampering happened — fall back
+                // to MISSING (lenient bucket) so we don't accuse a benign peer.
+                LOGGER.log(Level.SEVERE,
+                        "Cannot verify receipt — pubkey unavailable for nick={0}", nick);
+                missing.add(nick);
+                continue;
+            }
+            if (!IdentityManager.verifyReceipt(pubkey, handId, hFinal, sig)) {
+                // Receipt does NOT verify against the peer's known pubkey: forgery
+                // or corrupted key. Stronger signal than absence → DIVERGENT.
+                LOGGER.log(Level.SEVERE, "Receipt signature INVALID for nick={0}", nick);
+                divergent.add(nick);
+                continue;
+            }
+            if (!Arrays.equals(handId, handIdLocal)) {
+                // Receipt for a different hand (late receipt from the previous
+                // hand). Treat as not received for THIS hand: MISSING, not DIVERGENT.
+                LOGGER.log(Level.SEVERE,
+                        "Receipt HAND_ID mismatch for nick={0} — ignoring", nick);
+                missing.add(nick);
+                continue;
+            }
+            if (!Arrays.equals(hFinal, hFinalLocal)) {
+                divergent.add(nick);
+            }
+        }
+
+        String localHB64 = Base64.getEncoder().encodeToString(hFinalLocal);
+
+        if (!divergent.isEmpty()) {
+            String divergentList = String.join(", ", divergent);
+            LOGGER.log(Level.SEVERE,
+                    "Hand {0} signature divergence: divergent=[{1}], local_H={2}",
+                    new Object[]{sqlite_id_hand, divergentList, localHB64});
+            GameFrame.getInstance().getRegistro().print(
+                    Translator.translate("game.mano_verificacion_divergente"));
+            insertDisputedHandRow(receipts, hFinalLocal, "DIVERGENT");
+            showConsensusPopup(
+                    Translator.translate("game.popup_verificacion_titulo_alerta"),
+                    Translator.translate("game.popup_verificacion_divergente"));
+        } else if (!missing.isEmpty()) {
+            String missingList = String.join(", ", missing);
+            LOGGER.log(Level.WARNING,
+                    "Hand {0} verification incomplete: missing=[{1}]",
+                    new Object[]{sqlite_id_hand, missingList});
+            GameFrame.getInstance().getRegistro().print(
+                    MessageFormat.format(
+                            Translator.translate("game.mano_verificacion_jugador_ausente"),
+                            missingList));
+            insertDisputedHandRow(receipts, hFinalLocal, "MISSING");
+            showConsensusPopup(
+                    Translator.translate("game.popup_verificacion_titulo_aviso"),
+                    MessageFormat.format(
+                            Translator.translate("game.popup_verificacion_ausente"),
+                            missingList));
+        } else {
+            LOGGER.log(Level.INFO,
+                    "Hand {0} verified: {1} receipts unanimous, H={2}",
+                    new Object[]{sqlite_id_hand, expected.size(), localHB64});
+            GameFrame.getInstance().getRegistro().print(
+                    Translator.translate("game.mano_verificada_consenso"));
+        }
+    }
+
+    /**
+     * Resolves the pubkey that should validate {@code nick}'s receipt sig. The
+     * host's own pubkey comes from IdentityManager when {@code nick} is the
+     * local user; everyone else's comes from Participant.getIdentity_pubkey().
+     */
+    private byte[] resolveReceiptSignerPubkey(String nick) {
+        if (nick == null) {
+            return null;
+        }
+        if (nick.equals(GameFrame.getInstance().getNick_local())) {
+            return IdentityManager.getInstance().getPublicKey();
+        }
+        Participant par = GameFrame.getInstance().getParticipantes().get(nick);
+        return par != null ? par.getIdentity_pubkey() : null;
+    }
+
+    /**
+     * Writes a disputed_hands row with the concatenation of every collected
+     * receipt blob, this peer's local H_final and the outcome reason. Failing
+     * to insert is logged but does not propagate — the popup and JUL log are
+     * still served, the user is informed regardless.
+     */
+    private void insertDisputedHandRow(java.util.Map<String, byte[]> receipts, byte[] localHFinal, String reason) {
+        if (this.sqlite_id_hand < 0) {
+            LOGGER.log(Level.WARNING,
+                    "No sqlite_id_hand available, skipping disputed_hands insert (reason={0})", reason);
+            return;
+        }
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        for (java.util.Map.Entry<String, byte[]> e : receipts.entrySet()) {
+            if (e.getValue() != null && e.getValue().length == RECEIPT_TOTAL_LEN) {
+                try {
+                    out.write(e.getValue());
+                } catch (java.io.IOException ioex) {
+                    LOGGER.log(Level.SEVERE, "Failed to concat receipt for " + e.getKey(), ioex);
+                }
+            }
+        }
+        byte[] receiptsBlob = out.toByteArray();
+
+        try (java.sql.PreparedStatement st = Helpers.getSQLITE().prepareStatement(
+                "INSERT INTO disputed_hands(id_hand, timestamp, receipts, local_h, reason) VALUES(?,?,?,?,?)")) {
+            st.setInt(1, this.sqlite_id_hand);
+            st.setLong(2, System.currentTimeMillis() / 1000L);
+            st.setBytes(3, receiptsBlob);
+            st.setBytes(4, localHFinal);
+            st.setString(5, reason);
+            st.executeUpdate();
+            LOGGER.log(Level.INFO,
+                    "disputed_hands row inserted: id_hand={0}, reason={1}, receipts_collected={2}",
+                    new Object[]{this.sqlite_id_hand, reason, receipts.size()});
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Failed to insert disputed_hands row", ex);
+        }
+    }
+
+    /**
+     * Fires an informative popup on the EDT so the user sees the consensus
+     * outcome without blocking the game loop.
+     */
+    private void showConsensusPopup(String title, String body) {
+        Helpers.GUIRun(() -> {
+            try {
+                java.awt.Container container = GameFrame.getInstance();
+                String composed = (title != null ? title + "\n\n" : "") + body;
+                Helpers.mostrarMensajeInformativo(container, composed);
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Failed to show consensus popup", ex);
+            }
+        });
     }
 
     private HashMap<String, Object> recibirDatosClaveRecuperados() {

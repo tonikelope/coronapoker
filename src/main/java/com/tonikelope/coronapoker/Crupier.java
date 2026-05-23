@@ -316,8 +316,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // --- LLAVES EC-SRA DEL JUGADOR LOCAL ---
+    // Dual-lock (Opción G): cada peer genera DOS pares de scalars por mano.
+    //   - local_sra_lock / local_sra_unlock se usan en la cascade principal y
+    //     siguen siendo la clave de las pocket pieces.
+    //   - local_sra_lock_community / local_sra_unlock_community se usan en la
+    //     fase de rotación que transforma las community pieces y luego para
+    //     desbloquearlas en cada calle. El testamento criptográfico al hacer
+    //     EXIT entrega SOLO la mitad community; las pocket cards del peer
+    //     que sale permanecen ininteligibles para el host.
     public volatile byte[] local_sra_lock = null;
     public volatile byte[] local_sra_unlock = null;
+    public volatile byte[] local_sra_lock_community = null;
+    public volatile byte[] local_sra_unlock_community = null;
+    // Locks community de los bots que orquesta este host. La mitad UNLOCK la
+    // guarda el Participant (sra_unlock_community); el LOCK solo es necesario
+    // localmente en la fase de rotación, así que vive en este Map keyed por
+    // nick del bot. Limpiado en los mismos sitios que el resto de scalars.
+    public final java.util.concurrent.ConcurrentHashMap<String, byte[]> bot_community_locks = new java.util.concurrent.ConcurrentHashMap<>();
     public volatile byte[] local_mega_packet = null;
 
     // --- TOKENS DEL HOST ---
@@ -518,6 +533,82 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return newDeck;
     }
 
+    // Dual-lock (Opción G): pide a un peer remoto que aplique sobre el bloque
+    // de community pieces la rotación uPocket + kCommunity (en ese orden).
+    // Tras la rotación, el peer pierde su lock de pocket sobre las community
+    // pieces y añade su lock de community — la mitad que sí se entrega vía
+    // testamento al hacer EXIT. La fase de rotación es secuencial peer-a-peer
+    // igual que la cascade principal; este método maneja un solo peer.
+    private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        byte[] iv = new byte[16];
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        String piecesB64 = Base64.getEncoder().encodeToString(communityPieces);
+        try {
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#DECK_ROTATION_REQ#" + piecesB64, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            return null;
+        }
+        int expectedLength = communityPieces.length;
+        boolean ok = false;
+        boolean fatalError = false;
+        byte[] newPieces = null;
+        do {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                while (!ok && !fatalError && !this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("DECK_ROTATION_RESP")) {
+                        try {
+                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (senderNick.equals(nick)) {
+                                byte[] candidate = Base64.getDecoder().decode(partes[4]);
+                                // El bloque rotado debe conservar exactamente la misma longitud
+                                // (mismas N posiciones) y seguir siendo puntos de la curva.
+                                if (candidate.length == expectedLength && CryptoSRA.arePointsOnCurve(candidate)) {
+                                    newPieces = candidate;
+                                    ok = true;
+                                } else {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: DECK_ROTATION_RESP from {0} carries invalid pieces (len={1}, on_curve={2}) — refusing rotation",
+                                            new Object[]{nick, candidate.length,
+                                                candidate.length == expectedLength ? CryptoSRA.arePointsOnCurve(candidate) : false});
+                                    fatalError = true;
+                                }
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            rejected.add(cmd);
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+            if (fatalError) {
+                return null;
+            }
+            if (!ok) {
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit());
+        if (!ok) {
+            return null;
+        }
+        return newPieces;
+    }
+
     // v3: ronda total — pide a UN peer remoto que aplique su unlock a una LISTA
     // de payloads en un solo RTT. Cada payload identifica al destinatario al que
     // pertenece (peer_idx en el ring) y comparte la misma phase del batch. El
@@ -615,8 +706,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
                 p.setReceived_token(null); // Usado para guardar la llave de los Bots
+                p.setSra_unlock_community(null); // Dual-lock: par community del bot
             }
         }
+        this.bot_community_locks.clear();
 
         // EC-Identity v1: fresh per-hand 16-byte HAND_ID that the host broadcasts to
         // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
@@ -643,8 +736,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
                 if (p != null) {
                     p.setReceived_token(null);
+                    p.setSra_unlock_community(null);
                 }
             }
+            this.bot_community_locks.clear();
 
             java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
             int numPlayers = ringCriptografico.size();
@@ -671,6 +766,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Candado fresco del Host por intento.
             this.local_sra_lock = CryptoSRA.generateLockScalar();
             this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
+            // Dual-lock (Opción G): segundo par para community. Generado por
+            // adelantado para que la fase de rotación que vendrá después de la
+            // cascade tenga el scalar listo. Hasta que se cablee la rotación
+            // este par queda inerte (no se aplica a nada).
+            this.local_sra_lock_community = CryptoSRA.generateLockScalar();
+            this.local_sra_unlock_community = CryptoSRA.getUnlockScalar(this.local_sra_lock_community);
 
             workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
@@ -688,6 +789,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
                         }
                         p.setReceived_token(botUnlock);
+                        // Dual-lock: scalars community del bot. El lock se usará
+                        // durante la rotación; el unlock se guarda en el Participant
+                        // para que cascadeAndDealCommunityPieces pueda aplicarlo.
+                        byte[] botCommunityLock = CryptoSRA.generateLockScalar();
+                        byte[] botCommunityUnlock = CryptoSRA.getUnlockScalar(botCommunityLock);
+                        this.bot_community_locks.put(currNick, botCommunityLock);
+                        p.setSra_unlock_community(botCommunityUnlock);
                         workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
                     } else if (p != null && !p.isExit()) {
@@ -710,6 +818,76 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 break;
             }
         }
+
+        // FASE 1.5 (dual-lock, Opción G): ROTACIÓN de community pieces.
+        //
+        // Tras la cascade, workingDeck tiene 52 cartas * 32 bytes = 1664 bytes.
+        // Las primeras N*2 cartas (N*64 bytes) son pocket pieces para los N
+        // jugadores; el resto son community pieces (flop+turn+river+burns).
+        // Cada peer aplica uPocket + kCommunity sobre el subarray community
+        // para rotar los locks de la mitad pocket a la mitad community. Tras
+        // este pase, las community pieces solo tienen locks de k_community y
+        // su unlock se distribuye separadamente del de pocket — esa separación
+        // es lo que permite que el testamento al hacer EXIT entregue solo la
+        // mitad community sin filtrar pocket. Las pocket pieces no se tocan,
+        // siguen con todos los locks de k_pocket de la cascade.
+        int numPlayersFinal = currentRing.length;
+        int pocketBytesEnd = numPlayersFinal * 64;
+        int communityBytesLen = 1664 - pocketBytesEnd;
+        byte[] communityPieces = new byte[communityBytesLen];
+        System.arraycopy(workingDeck, pocketBytesEnd, communityPieces, 0, communityBytesLen);
+
+        boolean rotationOk = true;
+        for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
+            String currNick = currentRing[i];
+            if (currNick.equals(GameFrame.getInstance().getNick_local())) {
+                communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
+                communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
+            } else {
+                Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
+                if (p != null && p.isCpu()) {
+                    byte[] botUnlock = p.getReceived_token();
+                    byte[] botCommunityLock = this.bot_community_locks.get(currNick);
+                    if (botUnlock == null || botCommunityLock == null) {
+                        LOGGER.log(Level.SEVERE,
+                                "Bot {0} missing pocket-unlock or community-lock during rotation — aborting hand",
+                                currNick);
+                        rotationOk = false;
+                        break;
+                    }
+                    communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, botUnlock);
+                    communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
+                } else if (p != null && !p.isExit()) {
+                    byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
+                    if (rotated != null) {
+                        communityPieces = rotated;
+                    } else {
+                        LOGGER.log(Level.WARNING,
+                                "Peer {0} dropped or returned invalid during rotation — aborting hand",
+                                currNick);
+                        rotationOk = false;
+                        break;
+                    }
+                } else {
+                    LOGGER.log(Level.WARNING,
+                            "Peer {0} not available for rotation (null or exit) — aborting hand",
+                            currNick);
+                    rotationOk = false;
+                    break;
+                }
+            }
+        }
+
+        if (!rotationOk) {
+            cancelarManoYDevolverApuestas("peer.dropped_during_rotation");
+            return false;
+        }
+
+        // Reensamblar el deck: pocket pieces intactos + community pieces rotados.
+        byte[] dualLockDeck = new byte[1664];
+        System.arraycopy(workingDeck, 0, dualLockDeck, 0, pocketBytesEnd);
+        System.arraycopy(communityPieces, 0, dualLockDeck, pocketBytesEnd, communityBytesLen);
+        workingDeck = dualLockDeck;
 
         this.local_mega_packet = workingDeck;
         String megaPacketB64 = Base64.getEncoder().encodeToString(this.local_mega_packet);
@@ -992,25 +1170,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return "*";
         }
         try {
+            // Dual-lock (Opción G): el testamento entrega EXCLUSIVAMENTE la mitad
+            // community. La mitad pocket (sra_unlock / received_token / local_sra_unlock)
+            // NUNCA se comparte vía EXIT — es la propiedad de seguridad que justifica
+            // el refactor. Con solo community, el host puede continuar revelando las
+            // comunitarias pero no descifrar las cartas privadas del peer que sale.
             byte[] testament = null;
             if (nick.equals(GameFrame.getInstance().getNick_local())) {
-                testament = this.local_sra_unlock;
+                testament = this.local_sra_unlock_community;
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                 if (p != null) {
-                    if (p.isCpu()) {
-                        testament = p.getReceived_token(); // Llave del Bot (Host side)
-                    } else {
-                        testament = p.getSra_unlock(); // Llave que nos envi el humano (o la que guardamos nosotros)
-                    }
+                    // Para bots y humanos: el unlock community vive en
+                    // sra_unlock_community. Para bots lo puso el host en la cascade;
+                    // para humanos llega vía testamento previo.
+                    testament = p.getSra_unlock_community();
                 }
             }
 
-            // Fallback para cliente remoto que no ha seteado local_sra_unlock pero la tiene en Participant
+            // Fallback para cliente remoto que no ha seteado local_sra_unlock_community
+            // pero lo tiene en su Participant local.
             if (testament == null && nick.equals(GameFrame.getInstance().getNick_local())) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                 if (p != null) {
-                    testament = p.getSra_unlock();
+                    testament = p.getSra_unlock_community();
                 }
             }
 
@@ -1019,6 +1202,59 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error generating the SRA exit testament for " + nick, e);
+        }
+        return "*";
+    }
+
+    /**
+     * Dual-lock (Opción G): la clave que viaja en SHOWCARDS al revelar
+     * voluntariamente las cartas privadas de un jugador al showdown. Es la
+     * mitad POCKET — el receptor la usa con applyCommutativeLock sobre el
+     * pocket piece cifrado para destapar las cartas. NUNCA debe confundirse
+     * con getTestamentoCriptografico (que es la mitad community para EXIT):
+     * mezclar las dos rompe el showdown (pocket pieces no se descifran con
+     * community) o filtra cartas privadas del peer que sale (community
+     * pieces no son sensibles a la pocket).
+     *
+     * Self vs others: el host tiene p.getReceived_token() para sus bots; para
+     * un humano remoto solo se tiene su pocket key si ya envió un SHOWCARDS
+     * propio antes en esta mano y se guardó en p.sra_unlock (línea 2757).
+     */
+    public String getShowdownPocketKey(String nick) {
+        if (Crupier.SECURITY_LOCKDOWN && nick.equals(GameFrame.getInstance().getNick_local())) {
+            return "*";
+        }
+        try {
+            byte[] pocketKey = null;
+            if (nick.equals(GameFrame.getInstance().getNick_local())) {
+                pocketKey = this.local_sra_unlock;
+                if (pocketKey == null) {
+                    // Fallback para cliente remoto: el Crupier puede no haber
+                    // copiado todavía el unlock desde el Participant (el copy
+                    // ocurre al procesar POCKET_CARDS, línea ~1084).
+                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                    if (p != null) {
+                        pocketKey = p.getSra_unlock();
+                    }
+                }
+            } else {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                if (p != null) {
+                    if (p.isCpu()) {
+                        pocketKey = p.getReceived_token();
+                    } else {
+                        // Humano remoto: solo conocemos su pocket key si ya hizo
+                        // SHOWCARDS propio antes en esta mano y la guardamos en
+                        // sra_unlock al procesar la respuesta (línea 2757).
+                        pocketKey = p.getSra_unlock();
+                    }
+                }
+            }
+            if (pocketKey != null && pocketKey.length == 32) {
+                return Base64.getEncoder().encodeToString(pocketKey);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error generating showdown pocket key for " + nick, e);
         }
         return "*";
     }
@@ -2228,8 +2464,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // ZERO-TRUST SRA: Enviamos la clave de desbloqueo en vez de las cartas en texto plano.
             // Cada receptor descifra localmente desde su propia copia del mega_packet.
+            //
+            // Dual-lock (Opción G): SHOWCARDS revela cartas PRIVADAS, así que la clave que viaja
+            // es la mitad POCKET (no la community que entrega EXIT). El receptor la guarda en
+            // Participant.sra_unlock y unlockPlayerCardsWithSRAKey la aplica sobre el pocket
+            // piece almacenado en single_locked_pocket_cards.
             try {
-                String sraKeyB64 = getTestamentoCriptografico(nick);
+                String sraKeyB64 = getShowdownPocketKey(nick);
 
                 String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64;
                 if (GameFrame.getInstance().isPartida_local()) {
@@ -2792,11 +3033,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                            } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
+                                // Dual-lock: la mitad community se guardó en SRAKEYS_COMMUNITY@
+                                // por guardarFosilSRA. Recuperarla es lo que permite que
+                                // cascadeAndDealCommunityPieces siga funcionando post-recovery.
+                                this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
+                                Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                                if (myP != null) {
+                                    myP.setSra_unlock_community(this.local_sra_unlock_community);
+                                }
                             } else if (part.startsWith("SRAKEYS@")) {
                                 this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
                                 Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                                 if (myP != null) {
                                     myP.setSra_unlock(this.local_sra_unlock);
+                                }
+                            } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
+                                // Dual-lock: unlocks community de cada bot. Sin esto, la
+                                // contribución community del bot quedaría sin invertir y
+                                // las community pieces no se podrían descifrar tras recovery.
+                                String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
+                                for (String bk : bKeys) {
+                                    if (bk.isEmpty()) {
+                                        continue;
+                                    }
+                                    String[] pair = bk.split(":");
+                                    try {
+                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        byte[] bUnlockCommunity = Base64.getDecoder().decode(pair[1]);
+                                        Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                        if (pBot != null) {
+                                            pBot.setSra_unlock_community(bUnlockCommunity);
+                                        }
+                                    } catch (Exception e) {
+                                    }
                                 }
                             } else if (part.startsWith("BOTKEYS@")) {
                                 String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
@@ -2938,11 +3208,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             orderMap = part.substring("ORDER@".length());
                         } else if (part.startsWith("FULLMEGAPACKET@")) {
                             megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                        } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
+                            // Dual-lock: la mitad community persistida por guardarFosilSRA.
+                            this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
+                            Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                            if (myP != null) {
+                                myP.setSra_unlock_community(this.local_sra_unlock_community);
+                            }
                         } else if (part.startsWith("SRAKEYS@")) {
                             this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
                             Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                             if (myP != null) {
                                 myP.setSra_unlock(this.local_sra_unlock);
+                            }
+                        } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
+                            String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
+                            for (String bk : bKeys) {
+                                if (bk.isEmpty()) {
+                                    continue;
+                                }
+                                String[] pair = bk.split(":");
+                                try {
+                                    String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                    byte[] bUnlockCommunity = Base64.getDecoder().decode(pair[1]);
+                                    Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                    if (pBot != null) {
+                                        pBot.setSra_unlock_community(bUnlockCommunity);
+                                    }
+                                } catch (Exception e) {
+                                }
                             }
                         } else if (part.startsWith("BOTKEYS@")) {
                             String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
@@ -3489,6 +3783,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_mega_packet = null;
         this.active_crypto_ring = null;
         this.local_sra_unlock = null;
+        this.local_sra_lock_community = null;
+        this.local_sra_unlock_community = null;
         this.local_original_cards = new byte[2];
     }
 
@@ -4221,6 +4517,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.local_sra_lock = null;
         this.local_sra_unlock = null;
+        this.local_sra_lock_community = null;
+        this.local_sra_unlock_community = null;
         this.local_mega_packet = null;
 
         this.active_crypto_ring = null;
@@ -4430,6 +4728,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.active_crypto_ring = null;
                     this.local_sra_unlock = null;
                     this.local_sra_lock = null;
+                    this.local_sra_lock_community = null;
+                    this.local_sra_unlock_community = null;
                     this.local_original_cards = new byte[2];
                     // setPositions solo en el fresh-start genuino (game_recovered==0):
                     // host calcula y broadcastea POSITIONS, clientes esperan POSITIONS.
@@ -6518,7 +6818,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA street unlock: {0}", street);
 
-        if (this.local_sra_unlock == null || this.active_crypto_ring == null) {
+        // Dual-lock: ambas mitades son load-bearing. La pocket sigue siendo
+        // necesaria para resolver el resto de la mano y la community es la
+        // que descifra los pieces post-rotación; faltar cualquiera es un
+        // estado inconsistente (típicamente recovery de un fósil legacy
+        // sin SRAKEYS_COMMUNITY@).
+        if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             cancelarManoYDevolverApuestas("peer.state_inconsistent");
             return false;
         }
@@ -6627,31 +6932,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<String, byte[]> copies = new HashMap<>();
 
         // Copia del host: NO le quitamos su propio lock todavía.
+        // Dual-lock: tras la rotación, las community pieces tienen SOLO locks de
+        // community. El host aplica unlock_community propio (más abajo) y los
+        // unlock_community de los bots (cada bot tiene su par almacenado en
+        // sra_unlock_community del Participant). Los pocket scalars no aplican
+        // sobre community pieces post-rotación.
         byte[] copyHost = new byte[numCards * 32];
         System.arraycopy(this.local_mega_packet, offset * 32, copyHost, 0, numCards * 32);
         for (String nick : this.active_crypto_ring) {
             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
             if (pp != null && pp.isCpu()) {
-                if (pp.getReceived_token() == null) {
+                if (pp.getSra_unlock_community() == null) {
                     if (abortOnFail) {
                         cancelarManoYDevolverApuestas("peer.bot_no_token");
                     }
                     return null;
                 }
-                copyHost = CryptoSRA.applyCommutativeLock(copyHost, pp.getReceived_token());
+                copyHost = CryptoSRA.applyCommutativeLock(copyHost, pp.getSra_unlock_community());
             }
         }
         copies.put(hostNick, copyHost);
 
-        // Copia de cada humano remoto R: aplicamos local host_unlock + bot_unlocks.
+        // Copia de cada humano remoto R: aplicamos host_unlock_community local + bot_unlock_community.
         for (String r : remoteHumans) {
             byte[] copyR = new byte[numCards * 32];
             System.arraycopy(this.local_mega_packet, offset * 32, copyR, 0, numCards * 32);
-            copyR = CryptoSRA.applyCommutativeLock(copyR, this.local_sra_unlock);
+            copyR = CryptoSRA.applyCommutativeLock(copyR, this.local_sra_unlock_community);
             for (String nick : this.active_crypto_ring) {
                 Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
-                if (pp != null && pp.isCpu() && pp.getReceived_token() != null) {
-                    copyR = CryptoSRA.applyCommutativeLock(copyR, pp.getReceived_token());
+                if (pp != null && pp.isCpu() && pp.getSra_unlock_community() != null) {
+                    copyR = CryptoSRA.applyCommutativeLock(copyR, pp.getSra_unlock_community());
                 }
             }
             copies.put(r, copyR);
@@ -6685,9 +6995,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     for (int i = 0; i < recipientsForH.size(); i++) {
                         copies.put(recipientsForH.get(i), response.get(i));
                     }
-                } else if (ph.getSra_unlock() != null) {
+                } else if (ph.getSra_unlock_community() != null) {
+                    // Dual-lock: el testamento entrega SOLO la mitad community, así
+                    // que el fallback usa sra_unlock_community.
                     for (String r : recipientsForH) {
-                        copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock()));
+                        copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
                     }
                 } else {
                     if (abortOnFail) {
@@ -6695,9 +7007,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     return null;
                 }
-            } else if (ph.getSra_unlock() != null) {
+            } else if (ph.getSra_unlock_community() != null) {
                 for (String r : recipientsForH) {
-                    copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock()));
+                    copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
                 }
             } else {
                 if (abortOnFail) {
@@ -6707,8 +7019,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Resolver la copia del host (queda sólo su propio lock).
-        byte[] hostFinal = CryptoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock);
+        // Resolver la copia del host (queda sólo el lock community propio del host).
+        byte[] hostFinal = CryptoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock_community);
         int[] hostIndices = new int[numCards];
         for (int i = 0; i < numCards; i++) {
             byte[] chunk = Arrays.copyOfRange(hostFinal, i * 32, (i + 1) * 32);
@@ -6769,6 +7081,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Player myPlayer = GameFrame.getInstance().getLocalPlayer();
         final boolean iAmObserver = !inRing
                 || this.local_sra_unlock == null
+                || this.local_sra_unlock_community == null
                 || (myPlayer != null && (myPlayer.isCalentando() || myPlayer.isSpectator()));
         if (iAmObserver) {
             piece_ok = true;
@@ -6842,7 +7155,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
                                 return false;
                             }
-                            byte[] unlocked = CryptoSRA.applyCommutativeLock(piece, this.local_sra_unlock);
+                            // Dual-lock: tras la rotación, las community pieces están cifradas
+                            // con scalars de community. El recipient aplica SU unlock_community
+                            // para descifrar.
+                            byte[] unlocked = CryptoSRA.applyCommutativeLock(piece, this.local_sra_unlock_community);
                             int[] indices = new int[expectedNumCards];
                             for (int k = 0; k < expectedNumCards; k++) {
                                 byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
@@ -7575,7 +7891,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS@").append(java.util.Base64.getEncoder().encodeToString(unlockToSave));
             }
 
+            // Dual-lock (Opción G): además del unlock pocket guardamos el unlock
+            // community. Sin esto, una recuperación post-rotación dejaría las
+            // community pieces sin descifrar y la mano se atascaría en FLOP.
+            byte[] unlockCommunityToSave = this.local_sra_unlock_community;
+            if (unlockCommunityToSave == null) {
+                Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                if (p != null) {
+                    unlockCommunityToSave = p.getSra_unlock_community();
+                }
+            }
+            if (unlockCommunityToSave != null) {
+                fosil.append("#SRAKEYS_COMMUNITY@").append(java.util.Base64.getEncoder().encodeToString(unlockCommunityToSave));
+            }
+
             StringBuilder botKeys = new StringBuilder();
+            StringBuilder botKeysCommunity = new StringBuilder();
             StringBuilder botVisuals = new StringBuilder();
             for (String nick : this.active_crypto_ring) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
@@ -7588,6 +7919,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 .append(java.util.Base64.getEncoder().encodeToString(p.getReceived_token()))
                                 .append(",");
                     }
+                    if (p.getSra_unlock_community() != null) {
+                        botKeysCommunity.append(java.util.Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
+                                .append(":")
+                                .append(java.util.Base64.getEncoder().encodeToString(p.getSra_unlock_community()))
+                                .append(",");
+                    }
                     if (botPlayer != null && botPlayer.getHoleCard1().getCartaComoEntero() >= 0) {
                         botVisuals.append(java.util.Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
                                 .append(":")
@@ -7598,6 +7935,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (botKeys.length() > 0) {
                 fosil.append("#BOTKEYS@").append(botKeys.toString());
+            }
+            if (botKeysCommunity.length() > 0) {
+                fosil.append("#BOTKEYS_COMMUNITY@").append(botKeysCommunity.toString());
             }
             if (botVisuals.length() > 0) {
                 fosil.append("#BOTVISUAL@").append(botVisuals.toString());
@@ -7640,7 +7980,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarRabbitComunitarias(int targetStreet) {
-        if (this.local_sra_unlock == null || this.active_crypto_ring == null) {
+        // Dual-lock: rabbit hunting usa cascadeAndDealCommunityPieces que aplica
+        // el unlock community local. Sin community-half no podemos revelar las
+        // cartas no jugadas; salida silenciosa (el rabbit es no crítico, no
+        // disparamos abort de mano).
+        if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             return false;
         }
 

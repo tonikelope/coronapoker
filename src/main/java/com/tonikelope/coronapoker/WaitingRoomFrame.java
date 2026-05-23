@@ -1997,6 +1997,15 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
 
+                                                                    // Dual-lock (Opción G): el cliente necesita el Crupier para guardar
+                                                                    // el lock community que aplicará durante la fase de rotación. Si por
+                                                                    // alguna razón el Crupier no existe aún, refusar — un host sano nunca
+                                                                    // pide DECK_CASCADE_REQ antes de que el cliente tenga Crupier.
+                                                                    if (crupierCheck == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ received before Crupier exists — refusing");
+                                                                        return;
+                                                                    }
+
                                                                     // ZERO-TRUST: el host nos pide aplicar nuestro lock al deck que envía.
                                                                     // Si el deck no son 52 puntos válidos de Curve25519, es basura
                                                                     // (downgrade del host: enviarnos bytes inválidos para que gastemos
@@ -2005,15 +2014,23 @@ public class WaitingRoomFrame extends JFrame {
                                                                     if (incomingDeck == null || incomingDeck.length != 1664 || !CryptoSRA.arePointsOnCurve(incomingDeck)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
                                                                                 incomingDeck == null ? -1 : incomingDeck.length);
-                                                                        if (crupierCheck != null) {
-                                                                            crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                        }
+                                                                        crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
 
                                                                     byte[] lockScalar = CryptoSRA.generateLockScalar();
                                                                     byte[] unlockScalar = CryptoSRA.getUnlockScalar(lockScalar);
                                                                     this.participantes.get(local_nick).setSra_unlock(unlockScalar);
+
+                                                                    // Dual-lock (Opción G): segundo par de scalars para la rotación de
+                                                                    // community pieces que vendrá después de la cascade. Se guardan en
+                                                                    // el Crupier para que el handler de DECK_ROTATION_REQ los recupere
+                                                                    // sin tener que pedir más entropía nueva entonces.
+                                                                    byte[] communityLockScalar = CryptoSRA.generateLockScalar();
+                                                                    byte[] communityUnlockScalar = CryptoSRA.getUnlockScalar(communityLockScalar);
+                                                                    crupierCheck.local_sra_lock_community = communityLockScalar;
+                                                                    crupierCheck.local_sra_unlock_community = communityUnlockScalar;
+                                                                    this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
 
                                                                     byte[] locked = CryptoSRA.applyCommutativeLock(incomingDeck, lockScalar);
 
@@ -2045,6 +2062,71 @@ public class WaitingRoomFrame extends JFrame {
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
+                                                                }
+                                                            });
+                                                            break;
+
+                                                        case "DECK_ROTATION_REQ":
+                                                            // Dual-lock (Opción G): tras la cascade principal, el host pide a cada
+                                                            // peer en orden que aplique sobre las community pieces uPocket (quita su
+                                                            // lock pocket) + kCommunity (añade su lock community). Resultado: las
+                                                            // community pieces quedan cifradas SOLO con scalars de community y su
+                                                            // unlock se entrega luego separadamente del de pocket.
+                                                            final String[] partes_rotation = partes_comando;
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    if (Crupier.SECURITY_LOCKDOWN) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ refused — security lockdown active");
+                                                                        return;
+                                                                    }
+                                                                    Crupier crupierRot = GameFrame.getInstance().getCrupier();
+                                                                    if (crupierRot == null
+                                                                            || crupierRot.local_sra_lock_community == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
+                                                                        return;
+                                                                    }
+                                                                    // El unlock pocket del cliente vive en el Participant local (la cascade
+                                                                    // handler lo guarda ahí, no en el Crupier — la mitad pocket no se
+                                                                    // "publica" en Crupier hasta que el MEGAPACKET llega y el cliente
+                                                                    // lo copia desde Participant). Para la rotación necesitamos uPocket
+                                                                    // (quitar nuestro lock pocket) + kCommunity (añadir nuestro lock
+                                                                    // community), así que leemos uPocket del Participant directamente.
+                                                                    byte[] myPocketUnlock = this.participantes.get(local_nick).getSra_unlock();
+                                                                    if (myPocketUnlock == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without local pocket unlock (Participant.sra_unlock null) — refusing");
+                                                                        return;
+                                                                    }
+                                                                    if (partes_rotation.length < 4) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ malformed wire (parts={0}) — refusing", partes_rotation.length);
+                                                                        return;
+                                                                    }
+                                                                    byte[] incomingPieces = Base64.getDecoder().decode(partes_rotation[3]);
+                                                                    // ZERO-TRUST: payload debe ser un múltiplo de 32 bytes (32-byte points)
+                                                                    // y todos los chunks deben estar en la curva. La longitud exacta
+                                                                    // depende del número de jugadores del ring del host; no la
+                                                                    // re-derivamos aquí porque el cliente no la conoce, pero un payload
+                                                                    // no-curve es siempre rechazado.
+                                                                    if (incomingPieces == null
+                                                                            || incomingPieces.length == 0
+                                                                            || incomingPieces.length % 32 != 0
+                                                                            || !CryptoSRA.arePointsOnCurve(incomingPieces)) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ payload not a valid curve-point block (len={0}) — refusing",
+                                                                                incomingPieces == null ? -1 : incomingPieces.length);
+                                                                        crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                        return;
+                                                                    }
+                                                                    // Rotación: aplicar uPocket + kCommunity en ese orden. El resultado
+                                                                    // mantiene la longitud y sigue siendo válido en la curva (el output
+                                                                    // de scalar mult sobre puntos en la curva permanece en la curva).
+                                                                    byte[] rotated = CryptoSRA.applyCommutativeLock(incomingPieces, myPocketUnlock);
+                                                                    rotated = CryptoSRA.applyCommutativeLock(rotated, crupierRot.local_sra_lock_community);
+
+                                                                    String b64Rot = Base64.getEncoder().encodeToString(rotated);
+                                                                    String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+                                                                    int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
                                                                 }
                                                             });
                                                             break;
@@ -2119,7 +2201,21 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // extraer datos — en v3 los recipients son siempre los
                                                                     // últimos en su propia cadena, los helpers nunca
                                                                     // deberían ver genesis).
-                                                                    byte[] myUnlock = this.participantes.get(local_nick).getSra_unlock();
+                                                                    // Dual-lock (Opción G): la mitad de la clave a aplicar depende de la phase.
+                                                                    //   POCKET → unlock pocket (sra_unlock): es lo que ya hacía single-lock.
+                                                                    //   FLOP/TURN/RIVER + RABBIT_*: unlock community (sra_unlock_community):
+                                                                    //     las community pieces están cifradas con scalars community tras la
+                                                                    //     fase de rotación. Aplicar el unlock pocket aquí daría basura.
+                                                                    byte[] myUnlock;
+                                                                    if (phase == Crupier.UNLOCK_PHASE_POCKET) {
+                                                                        myUnlock = this.participantes.get(local_nick).getSra_unlock();
+                                                                    } else {
+                                                                        myUnlock = this.participantes.get(local_nick).getSra_unlock_community();
+                                                                    }
+                                                                    if (myUnlock == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH for phase {0} has no local unlock scalar — refusing", phase);
+                                                                        return;
+                                                                    }
                                                                     int[] peerIdxs = new int[count];
                                                                     byte[][] unlockedPayloads = new byte[count][];
                                                                     // Tags reservadas en esta batch: si la batch no completa (excepción
@@ -2434,7 +2530,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                         return;
                                                                     }
-                                                                    byte[] unlockedRP = CryptoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock());
+                                                                    // Dual-lock: las rabbit pieces son comunitarias, cifradas
+                                                                    // con scalars de community tras la rotación.
+                                                                    byte[] unlockedRP = CryptoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock_community());
                                                                     int numCards = "RABBIT_FLOP_PIECE".equals(cmdName) ? 3 : 1;
                                                                     int[] indices = new int[numCards];
                                                                     for (int k = 0; k < numCards; k++) {
@@ -2577,8 +2675,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                                         try {
                                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
+                                                                            // Dual-lock: el testamento es la mitad community del peer que sale.
+                                                                            // La mitad pocket nunca se comparte vía EXIT.
                                                                             if (testament.length == 32) {
-                                                                                p.setSra_unlock(testament);
+                                                                                p.setSra_unlock_community(testament);
                                                                             }
                                                                         } catch (Exception e) {
                                                                         }

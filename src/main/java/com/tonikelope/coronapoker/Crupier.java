@@ -10323,6 +10323,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // con valores correctos pero todavía tapadas — showdown() las destapará
             // con su timing dramático (pivote → resto secuencial, winner marking).
             if (potcardsApplied) {
+                // Limpiamos los flags que ANTES limpiaba el showPlayerCards al
+                // recibir cada SHOWCARDS individual en el showdown. Sin esto la
+                // barra entre manos del cliente queda congelada (pausaConBarra
+                // no decrementa si isIwtsthing()) hasta que algo más los limpie.
+                synchronized (lock_iwtsth) {
+                    if (this.iwtsthing) {
+                        this.iwtsthing = false;
+                        lock_iwtsth.notifyAll();
+                    }
+                    this.iwtsthing_request = false;
+                }
                 break;
             }
 

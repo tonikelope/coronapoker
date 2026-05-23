@@ -558,9 +558,23 @@ public class Bot {
         targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / sb) * sb);
 
         if (Helpers.float1DSecureCompare(currentBet, 0f) == 0 || (dealer.getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(currentBet, bb) == 0)) {
+            // Apertura: bb y targetBet ya son múltiplos de sb (bb = 2*sb por
+            // la tabla CIEGAS, targetBet alineado en la línea de Math.ceil
+            // de arriba), asi que el max final mantiene la alineación.
             return Math.max(bb, targetBet);
         } else {
-            return Math.max(currentBet + minRaise, currentBet + targetBet);
+            // Raise: el bet final se compone como currentBet + delta. Si
+            // currentBet viene fraccionario respecto a la sb ACTUAL — caso
+            // típico, un all-in previo con stack residual no múltiplo de la
+            // nueva sb tras doblarCiegas o tras recovery con blinds doblados
+            // — la suma no queda alineada aunque targetBet y minRaise lo
+            // estuvieran. Realineamos el total al múltiplo de sb superior
+            // para que la apuesta del bot SIEMPRE sea legal. El Math.ceil
+            // hacia arriba ya está cubierto por la siguiente comprobación
+            // de stack > 75% en el caller, que convierte el bet en ALLIN
+            // si la subida termina cerca del stack completo.
+            float raw_result = Math.max(currentBet + minRaise, currentBet + targetBet);
+            return (float) (Math.ceil(Helpers.floatClean(raw_result) / sb) * sb);
         }
     }
 

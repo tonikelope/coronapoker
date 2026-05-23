@@ -2828,11 +2828,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (jugador.getHoleCard1().isTapada()) {
-                    // ZERO-TRUST SRA: Usamos la clave recibida para descifrar localmente
+                    // ZERO-TRUST SRA: aplicamos la clave recibida sobre nuestro
+                    // single_locked_pocket_cards[nick]. La protección es la propia
+                    // matemática SRA: si la clave es errónea, applyCommutativeLock
+                    // produce un punto random que resolveCardIndex no reconoce y
+                    // devuelve -1 → unlockPlayerCardsWithSRAKey devuelve false →
+                    // las cartas siguen tapada. El cheater no consigue convencer
+                    // a nadie de cartas falsas; el peor caso es que él esconda las
+                    // suyas, lo cual no le da ventaja porque el pot ya se resuelve
+                    // por acciones. NO disparamos lockdown: el SRA es suficiente,
+                    // un lockdown extra abre flanco de falsos positivos (red mala,
+                    // bug transitorio) que reventarían la mesa sin razón.
                     boolean decrypted = false;
-                    boolean keyWasProvided = false;
                     if (sraKeyB64 != null && !sraKeyB64.equals("*")) {
-                        keyWasProvided = true;
                         try {
                             byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
                             if (sraKey.length == 32) {
@@ -2845,20 +2853,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } catch (Exception e) {
                             LOGGER.log(Level.WARNING, "Error decrypting SRA SHOWCARDS for " + nick, e);
                         }
-                    }
-
-                    // PHASE A.1 (showdown zero-trust): lockdown SOLO si tenía data
-                    // local con la que cruzar (single_locked_pocket_cards[nick]) Y
-                    // la verificación falló. Sin data — caso típico del espectador
-                    // calentando que no participó en la cascade — no es cheating,
-                    // es estado normal: el spectator no puede verificar SHOWCARDS,
-                    // se entera por POTCARDS. Disparar lockdown ahí sería romper a
-                    // los espectadores sin razón.
-                    if (keyWasProvided && !decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
-                        LOGGER.log(Level.SEVERE,
-                                "ZERO-TRUST: SHOWCARDS for {0} carries a key that does NOT resolve to valid card indices — peer cheating at showdown, lockdown",
-                                nick);
-                        triggerSecurityLockdown(Translator.translate("zero_trust.peer_showdown_cheating"));
                     }
 
                     if (decrypted) {
@@ -8207,9 +8201,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // PHASE A.1: helper del host para verificar SRA + broadcast SHOWCARDS de una
     // sola entrega per-peer. Aplica la clave al single_locked_pocket_cards
-    // almacenado durante el pocket dealing; si resolveCardIndex devuelve -1
-    // para alguna de las dos cartas, el peer está mintiendo y se dispara
-    // SECURITY_LOCKDOWN. Devuelve true si la verificación pasó.
+    // almacenado durante el pocket dealing. Si resolveCardIndex devuelve -1
+    // para alguna de las dos cartas, la clave es errónea: sus cartas se quedan
+    // tapada en la UI de todos (no se emite SHOWCARDS, no entran en POTCARDS)
+    // y el peer no convence a nadie de cartas falsas. NO lockdown: el SRA es
+    // la verificación, no hace falta castigo extra que pueda dispararse por
+    // bugs transitorios o redes malas. Devuelve true si la verificación pasó.
     private boolean verifyAndBroadcastShowdownKey(String nick, String keyB64) {
         if (keyB64 == null || keyB64.equals("*")) {
             return false;
@@ -8217,16 +8214,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         try {
             byte[] key = Base64.getDecoder().decode(keyB64);
             if (key.length != 32) {
-                LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} has wrong length {1} — refusing, lockdown",
+                LOGGER.log(Level.WARNING,
+                        "verifyAndBroadcastShowdownKey: RESP_SHOWDOWN_KEY from {0} has wrong length {1} — sus cartas no se revelan",
                         new Object[]{nick, key.length});
-                triggerSecurityLockdown(Translator.translate("zero_trust.peer_showdown_cheating"));
                 return false;
             }
             byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
             if (pocketCards == null || pocketCards.length != 64) {
                 LOGGER.log(Level.WARNING,
-                        "verifyAndBroadcastShowdownKey: no single_locked_pocket_cards for {0} — skipping (internal state, no lockdown)",
+                        "verifyAndBroadcastShowdownKey: no single_locked_pocket_cards for {0} — skipping",
                         nick);
                 return false;
             }
@@ -8236,10 +8232,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id1 = CryptoSRA.resolveCardIndex(c1);
             int id2 = CryptoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
-                LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} does NOT resolve pocket cards (ids={1},{2}) — peer cheating at showdown, lockdown",
+                LOGGER.log(Level.WARNING,
+                        "verifyAndBroadcastShowdownKey: clave de {0} no resuelve pocket cards (ids={1},{2}) — sus cartas se quedan tapada en la UI",
                         new Object[]{nick, id1, id2});
-                triggerSecurityLockdown(Translator.translate("zero_trust.peer_showdown_cheating"));
                 return false;
             }
 

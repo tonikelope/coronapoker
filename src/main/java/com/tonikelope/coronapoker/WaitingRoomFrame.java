@@ -1997,6 +1997,20 @@ public class WaitingRoomFrame extends JFrame {
 
                                                                     byte[] incomingDeck = Base64.getDecoder().decode(partes_cascade[3]);
 
+                                                                    // ZERO-TRUST: el host nos pide aplicar nuestro lock al deck que envía.
+                                                                    // Si el deck no son 52 puntos válidos de Curve25519, es basura
+                                                                    // (downgrade del host: enviarnos bytes inválidos para que gastemos
+                                                                    // nuestro shuffle/lock sobre datos no recuperables, o smuggling).
+                                                                    // Rechazar antes de comprometer nuestro sra_unlock recién generado.
+                                                                    if (incomingDeck == null || incomingDeck.length != 1664 || !CryptoSRA.arePointsOnCurve(incomingDeck)) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
+                                                                                incomingDeck == null ? -1 : incomingDeck.length);
+                                                                        if (crupierCheck != null) {
+                                                                            crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                        }
+                                                                        return;
+                                                                    }
+
                                                                     byte[] lockScalar = CryptoSRA.generateLockScalar();
                                                                     byte[] unlockScalar = CryptoSRA.getUnlockScalar(lockScalar);
                                                                     this.participantes.get(local_nick).setSra_unlock(unlockScalar);
@@ -2108,78 +2122,97 @@ public class WaitingRoomFrame extends JFrame {
                                                                     byte[] myUnlock = this.participantes.get(local_nick).getSra_unlock();
                                                                     int[] peerIdxs = new int[count];
                                                                     byte[][] unlockedPayloads = new byte[count][];
-                                                                    for (int k = 0; k < count; k++) {
-                                                                        int peer_idx;
-                                                                        byte[] cards;
-                                                                        try {
-                                                                            peer_idx = Integer.parseInt(partes_batch[6 + 2 * k]);
-                                                                            cards = Base64.getDecoder().decode(partes_batch[7 + 2 * k]);
-                                                                        } catch (Exception e) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} malformed — refusing", k);
-                                                                            return;
-                                                                        }
-                                                                        peerIdxs[k] = peer_idx;
+                                                                    // Tags reservadas en esta batch: si la batch no completa (excepción
+                                                                    // de I/O en writeCommandToServer, throw inesperado), se rollbackean
+                                                                    // para que el host pueda reintentar legítimamente el mismo
+                                                                    // (phase, peer_idx) en lugar de quedarse colgado por "duplicate tag".
+                                                                    // Sin rollback, un fallo transitorio dejaba el tag consumido sin
+                                                                    // respuesta enviada → cascade muerta.
+                                                                    String[] addedTags = new String[count];
+                                                                    int addedTagCount = 0;
+                                                                    boolean batchCompleted = false;
+                                                                    try {
+                                                                        for (int k = 0; k < count; k++) {
+                                                                            int peer_idx;
+                                                                            byte[] cards;
+                                                                            try {
+                                                                                peer_idx = Integer.parseInt(partes_batch[6 + 2 * k]);
+                                                                                cards = Base64.getDecoder().decode(partes_batch[7 + 2 * k]);
+                                                                            } catch (Exception e) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} malformed — refusing", k);
+                                                                                return;
+                                                                            }
+                                                                            peerIdxs[k] = peer_idx;
 
-                                                                        if (cards == null || (cards.length != 32 && cards.length != 64 && cards.length != 96)) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} illegal payload length ({1}) — refusing", new Object[]{k, (cards == null ? -1 : cards.length)});
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                            return;
-                                                                        }
+                                                                            if (cards == null || (cards.length != 32 && cards.length != 64 && cards.length != 96)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} illegal payload length ({1}) — refusing", new Object[]{k, (cards == null ? -1 : cards.length)});
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                return;
+                                                                            }
 
-                                                                        if (!crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} (phase={1}, peer_idx={2}, len={3}) rejected by state machine — host out of order or replayed tag",
-                                                                                    new Object[]{k, phase, peer_idx, cards.length});
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
-                                                                            return;
-                                                                        }
+                                                                            if (!crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} (phase={1}, peer_idx={2}, len={3}) rejected by state machine — host out of order or replayed tag",
+                                                                                        new Object[]{k, phase, peer_idx, cards.length});
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                                return;
+                                                                            }
 
-                                                                        if (!CryptoSRA.arePointsOnCurve(cards)) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} payload has non-curve points — refusing", k);
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                            return;
-                                                                        }
+                                                                            if (!CryptoSRA.arePointsOnCurve(cards)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} payload has non-curve points — refusing", k);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                return;
+                                                                            }
 
-                                                                        String tagKey = Crupier.sraUnlockTagKey(phase, peer_idx);
-                                                                        if (!crupier.getSra_unlock_tags_served().add(tagKey)) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH duplicate tag {0} — refusing", tagKey);
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
-                                                                            return;
-                                                                        }
+                                                                            String tagKey = Crupier.sraUnlockTagKey(phase, peer_idx);
+                                                                            if (!crupier.getSra_unlock_tags_served().add(tagKey)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH duplicate tag {0} — refusing", tagKey);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                                return;
+                                                                            }
+                                                                            addedTags[addedTagCount++] = tagKey;
 
-                                                                        byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, myUnlock);
+                                                                            byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, myUnlock);
 
-                                                                        // GATE 6 (any-genesis → lockdown). En v3 los recipients
-                                                                        // (POCKET y comunitaria) son los últimos en su cadena;
-                                                                        // ningún helper debería ver genesis tras su unlock. Cualquier
-                                                                        // chunk en genesis indica extracción o smuggling.
-                                                                        if (unlocked != null) {
-                                                                            int numChunks = unlocked.length / 32;
-                                                                            for (int c = 0; c < numChunks; c++) {
-                                                                                byte[] chunk = Arrays.copyOfRange(unlocked, c * 32, (c + 1) * 32);
-                                                                                if (CryptoSRA.resolveCardIndex(chunk) >= 0) {
-                                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} chunk {1} resolves to genesis after my unlock (phase={2}, peer_idx={3}) — extraction or smuggling, refusing",
-                                                                                            new Object[]{k, c, phase, peer_idx});
-                                                                                    crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                                    return;
+                                                                            // GATE 6 (any-genesis → lockdown). En v3 los recipients
+                                                                            // (POCKET y comunitaria) son los últimos en su cadena;
+                                                                            // ningún helper debería ver genesis tras su unlock. Cualquier
+                                                                            // chunk en genesis indica extracción o smuggling.
+                                                                            if (unlocked != null) {
+                                                                                int numChunks = unlocked.length / 32;
+                                                                                for (int c = 0; c < numChunks; c++) {
+                                                                                    byte[] chunk = Arrays.copyOfRange(unlocked, c * 32, (c + 1) * 32);
+                                                                                    if (CryptoSRA.resolveCardIndex(chunk) >= 0) {
+                                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} chunk {1} resolves to genesis after my unlock (phase={2}, peer_idx={3}) — extraction or smuggling, refusing",
+                                                                                                new Object[]{k, c, phase, peer_idx});
+                                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                        return;
+                                                                                    }
                                                                                 }
                                                                             }
+
+                                                                            unlockedPayloads[k] = unlocked;
                                                                         }
 
-                                                                        unlockedPayloads[k] = unlocked;
+                                                                        // Construir la respuesta con todos los items unlockeados
+                                                                        // en el mismo orden recibido.
+                                                                        StringBuilder respSb = new StringBuilder();
+                                                                        int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                        String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+                                                                        respSb.append("GAME#").append(respId2).append("#RESP_SRA_UNLOCK_BATCH#")
+                                                                                .append(myNickB64).append('#').append(count);
+                                                                        for (int k = 0; k < count; k++) {
+                                                                            respSb.append('#').append(peerIdxs[k]);
+                                                                            respSb.append('#').append(Base64.getEncoder().encodeToString(unlockedPayloads[k]));
+                                                                        }
+                                                                        writeCommandToServer(Helpers.encryptCommand(respSb.toString(), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                        batchCompleted = true;
+                                                                    } finally {
+                                                                        if (!batchCompleted) {
+                                                                            for (int i = 0; i < addedTagCount; i++) {
+                                                                                crupier.getSra_unlock_tags_served().remove(addedTags[i]);
+                                                                            }
+                                                                        }
                                                                     }
-
-                                                                    // Construir la respuesta con todos los items unlockeados
-                                                                    // en el mismo orden recibido.
-                                                                    StringBuilder respSb = new StringBuilder();
-                                                                    int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
-                                                                    respSb.append("GAME#").append(respId2).append("#RESP_SRA_UNLOCK_BATCH#")
-                                                                            .append(myNickB64).append('#').append(count);
-                                                                    for (int k = 0; k < count; k++) {
-                                                                        respSb.append('#').append(peerIdxs[k]);
-                                                                        respSb.append('#').append(Base64.getEncoder().encodeToString(unlockedPayloads[k]));
-                                                                    }
-                                                                    writeCommandToServer(Helpers.encryptCommand(respSb.toString(), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_BATCH; host will time out and abort the hand", e);
                                                                 }

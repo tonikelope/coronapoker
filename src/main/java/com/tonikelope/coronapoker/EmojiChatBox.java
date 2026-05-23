@@ -38,6 +38,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
 import javax.swing.JTextPane;
+import javax.swing.UIManager;
 import javax.swing.plaf.TextUI;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
@@ -317,6 +318,16 @@ public class EmojiChatBox extends JTextPane {
      * height, centered vertically within the cursor's natural rectangle.
      */
     private static final class ShortCaret extends DefaultCaret {
+
+        ShortCaret() {
+            // setCaret() bypasses BasicTextUI's caret install, which is what
+            // normally applies TextPane.caretBlinkRate from the L&F. Without
+            // this, the inherited Blinker timer is never created and the
+            // caret never blinks.
+            super();
+            int rate = UIManager.getInt("TextPane.caretBlinkRate");
+            setBlinkRate(rate > 0 ? rate : 500);
+        }
 
         @Override
         public void paint(Graphics g) {

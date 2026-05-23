@@ -467,8 +467,9 @@ public class CryptoSRACascadeTest {
 
     /**
      * Showdown zero-trust (PHASE A.1): un peer que MIENTE al showdown enviando
-     * un k_pocket_unlock fabricado es detectado deterministicamente vía
-     * resolveCardIndex == -1.
+     * un k_pocket_unlock fabricado NO puede convencer a nadie de cartas falsas.
+     * Detección por la propia matemática SRA, sin necesidad de un lockdown
+     * "punitivo" inventado encima.
      *
      * Si k_real * pocket_piece = G_y (genesis point de la carta real), un
      * k_fake arbitrario produce un punto random de la curva. La probabilidad
@@ -482,8 +483,15 @@ public class CryptoSRACascadeTest {
      *   2) Cheating: 50 claves fabricadas random sobre el mismo pocket SIEMPRE
      *      dan -1.
      *
-     * Si pasa, el host puede activar SECURITY_LOCKDOWN del peer cada vez que
-     * vea resolveCardIndex == -1 al verificar su SHOWCARDS al showdown.
+     * Consecuencia operativa: clave mala → resolveCardIndex==-1 →
+     * unlockPlayerCardsWithSRAKey devuelve false → las cartas del cheater
+     * se quedan tapada en la UI de todos, no se emite SHOWCARDS para él, no
+     * se añade a POTCARDS. El cheater no consigue ventaja porque el pot ya
+     * se resuelve por acciones (no por claims de cartas); como mucho se
+     * esconde sus propias cartas a otros — algo que en poker no es per se
+     * cheating sino un muck que el motor ya cubre. NO disparamos lockdown
+     * en este flujo: el SRA es la verificación, no hace falta castigo extra
+     * que abra flanco a falsos positivos por red mala / bug transitorio.
      */
     @Test
     public void testShowdownCheaterDetectedByResolveCardIndex() {

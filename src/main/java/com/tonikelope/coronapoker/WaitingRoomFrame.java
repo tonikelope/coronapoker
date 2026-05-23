@@ -1155,6 +1155,51 @@ public class WaitingRoomFrame extends JFrame {
                         net_client.setLocal_client_buffer_read_is(new BufferedReader(
                                 new InputStreamReader(newSock.getInputStream())));
 
+                        // Esperar ack explícito del server: RECONNECT_OK acepta, cualquier
+                        // RECONNECT_DENIED#<reason> o cierre limpio del socket significa
+                        // que el server NO nos aceptó como reconnect. Sin este ack el
+                        // cliente marcaba ok_rec=true en base solo a que el handshake
+                        // criptográfico terminase sin excepción; cuando el server cerraba
+                        // el socket inmediatamente (rama "DENIED" en el handler — caso
+                        // típico tras halt-and-recover del server donde nuestro nick ya no
+                        // está en participantes), el reader leía null al instante y
+                        // volvía a llamar a reconectarCliente() en bucle sin pausa (la
+                        // pausa de 5s solo aplica con ok_rec=false). Cada iteración
+                        // creaba un Socket nuevo y un ECDH key exchange completo —
+                        // freeze de UI y CPU al 100% reportado por yxmgl en issue#9 20.59.
+                        //
+                        // Usamos SO_TIMEOUT acotado para no quedarnos esperando un ack que
+                        // no va a llegar (server muy lento o socket muerto silenciosamente).
+                        // El finally restaura el timeout a 0 (blocking sin límite) para que
+                        // las lecturas posteriores del runSocketReaderClientThread sigan
+                        // siendo bloqueantes normales.
+                        String ackLine;
+                        int oldTimeout = newSock.getSoTimeout();
+                        try {
+                            newSock.setSoTimeout(GameFrame.CLIENT_RECEPTION_TIMEOUT);
+                            ackLine = net_client.getLocal_client_buffer_read_is().readLine();
+                        } catch (java.net.SocketTimeoutException ste) {
+                            LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
+                            ackLine = null;
+                        } finally {
+                            try {
+                                newSock.setSoTimeout(oldTimeout);
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        if (ackLine == null) {
+                            throw new IOException("Server closed socket without sending reconnect ack");
+                        }
+
+                        String ackDecrypted = Helpers.decryptCommand(ackLine,
+                                net_client.getLocal_client_aes_key(),
+                                net_client.getLocal_client_hmac_key());
+                        if (ackDecrypted == null || !ackDecrypted.startsWith("RECONNECT_OK")) {
+                            LOGGER.log(Level.WARNING, "Server denied reconnect: {0}", ackDecrypted);
+                            throw new IOException("Server denied reconnect: " + ackDecrypted);
+                        }
+
                         LOGGER.log(Level.INFO, "RECONNECTED SUCCESSFULLY TO SERVER");
 
                         // Reset de contadores del PING/PONG defensivo cliente: si llevaban
@@ -2921,6 +2966,21 @@ public class WaitingRoomFrame extends JFrame {
 
                                     LOGGER.log(Level.WARNING, "CLIENT {0} HAS RECONNECTED SUCCESSFULLY.", client_nick);
 
+                                    // Ack explícito al cliente para que su reconectarCliente sepa
+                                    // que el reconnect fue aceptado de verdad. Sin este ack el
+                                    // cliente marcaba ok_rec=true en base solo a que el handshake
+                                    // criptográfico terminase sin excepción, y si el server cerraba
+                                    // el socket inmediatamente (cualquiera de las ramas DENIED),
+                                    // el reader cliente leía null y volvía a llamar a
+                                    // reconectarCliente() sin pausa — busy-loop con ECDH en cada
+                                    // iteración que freezaba la UI y disparaba el CPU al 100%.
+                                    try {
+                                        participantes.get(client_nick).writeCommandFromServer(
+                                                Helpers.encryptCommand("RECONNECT_OK", aes_key, hmac_key));
+                                    } catch (Exception ackEx) {
+                                        LOGGER.log(Level.WARNING, "Failed to send RECONNECT_OK ack to " + client_nick, ackEx);
+                                    }
+
                                     rec_error = false;
 
                                     if (WaitingRoomFrame.getInstance().isPartida_empezada()
@@ -2938,6 +2998,14 @@ public class WaitingRoomFrame extends JFrame {
 
                                 } else {
                                     LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT", client_nick);
+                                    // Ack explícito de denegación antes de cerrar (ver nota en
+                                    // la rama OK más arriba sobre por qué hace falta el ack).
+                                    try {
+                                        writeCommandFromServer(
+                                                Helpers.encryptCommand("RECONNECT_DENIED#RESET_FAIL", aes_key, hmac_key),
+                                                client_socket);
+                                    } catch (Exception ackEx) {
+                                    }
                                     try {
                                         if (!client_socket.isClosed()) {
                                             client_socket.close();
@@ -2954,10 +3022,17 @@ public class WaitingRoomFrame extends JFrame {
                                 // del cliente intenta automáticamente cada pocos
                                 // segundos. NO disparamos popup al host: cada
                                 // intento generaría un popup nuevo y se acumulan
-                                // hasta inutilizar el server. El cliente acabará
-                                // viendo "imposible reconectar" en su propio
-                                // dialog. El log queda como rastro auditable.
+                                // hasta inutilizar el server. El cliente verá la
+                                // denegación explícita (RECONNECT_DENIED) en su
+                                // reconectarCliente y caerá en su propio dialog
+                                // con pausa entre intentos.
                                 LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT (BAD HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
+                                try {
+                                    writeCommandFromServer(
+                                            Helpers.encryptCommand("RECONNECT_DENIED#BAD_HMAC", aes_key, hmac_key),
+                                            client_socket);
+                                } catch (Exception ackEx) {
+                                }
                                 try {
                                     if (!client_socket.isClosed()) {
                                         client_socket.close();
@@ -2974,6 +3049,18 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         } else {
                             LOGGER.log(Level.WARNING, "User {0} TRYING TO RECONNECT TO PREVIOUS GAME -> DENIED", client_nick);
+                            // Ack explícito de denegación antes de cerrar el socket. Sin esto el
+                            // cliente cree que reconectó (su handshake terminó OK), su reader
+                            // lee null inmediatamente al cerrar el server, llama a
+                            // reconectarCliente() de nuevo en busy-loop sin pausa (la pausa de
+                            // 5s solo aplica si ok_rec=false) — bug yxmgl 20.59 issue 1:
+                            // freeze + CPU spike tras "recover" del server.
+                            try {
+                                writeCommandFromServer(
+                                        Helpers.encryptCommand("RECONNECT_DENIED#UNKNOWN_NICK", aes_key, hmac_key),
+                                        client_socket);
+                            } catch (Exception ackEx) {
+                            }
                             try {
                                 if (!client_socket.isClosed()) {
                                     client_socket.close();

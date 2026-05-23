@@ -2530,21 +2530,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 String sraKeyB64 = getShowdownPocketKey(nick);
                 String sigB64 = signShowdownRevealForBroadcast(nick, sraKeyB64);
 
-                String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64 + "#" + sigB64;
-                if (GameFrame.getInstance().isPartida_local()) {
-                    broadcastGAMECommandFromServer(comando, nick);
-                } else if (isLocal) {
-                    // ZERO-TRUST: SHOWCARDS lleva nuestra sra_unlock; si el
-                    // cliente ya entró en lockdown por una incidencia previa,
-                    // la promesa "no se envía ninguna clave criptográfica más
-                    // al servidor en esta sesión" debe cubrir también la
-                    // muestra voluntaria. Suprimimos el envío.
-                    if (Crupier.SECURITY_LOCKDOWN) {
-                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: SHOWCARDS suppressed — security lockdown active");
-                    } else {
-                        // CRÍTICO: el host necesita la clave SRA para descifrar y mostrar las cartas. Esperamos ACK.
-                        sendGAMECommandToServer(comando, true);
+                // PHASE A.1 sig sanity: NO emitir SHOWCARDS si la sig no se
+                // pudo generar — los receptores tratarían sig="*" como host
+                // stripping → lockdown self-induced. Si vamos a mostrar key
+                // pero NO podemos firmarla, mejor abortar el envío. Las
+                // cartas se muestran localmente (destaparCartas abajo) pero
+                // no se broadcastean ahora; si era IWTSTH forzado, se reintentará.
+                boolean canSend = !"*".equals(sraKeyB64) && !"*".equals(sigB64);
+                if (canSend) {
+                    String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64 + "#" + sigB64;
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        broadcastGAMECommandFromServer(comando, nick);
+                    } else if (isLocal) {
+                        // ZERO-TRUST: SHOWCARDS lleva nuestra sra_unlock; si el
+                        // cliente ya entró en lockdown por una incidencia previa,
+                        // la promesa "no se envía ninguna clave criptográfica más
+                        // al servidor en esta sesión" debe cubrir también la
+                        // muestra voluntaria. Suprimimos el envío.
+                        if (Crupier.SECURITY_LOCKDOWN) {
+                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: SHOWCARDS suppressed — security lockdown active");
+                        } else {
+                            // CRÍTICO: el host necesita la clave SRA para descifrar y mostrar las cartas. Esperamos ACK.
+                            sendGAMECommandToServer(comando, true);
+                        }
                     }
+                } else {
+                    LOGGER.log(Level.WARNING,
+                            "showAndBroadcastPlayerCards: cannot send SHOWCARDS for {0} — key=\"{1}\", sig=\"{2}\". Cards stay local-only.",
+                            new Object[]{nick, sraKeyB64, sigB64});
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Error sending SHOWCARDS for " + nick, ex);
@@ -8169,6 +8182,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (local_sra_unlock / Participant.received_token). Broadcast SHOWCARDS
         // a los clientes con sig Ed25519 — el host firma para sí mismo y para
         // sus bots; los clientes verifican con resolveShowdownSignerPubkey.
+        //
+        // Si signShowdownRevealForBroadcast devuelve "*" (edge case: hand_id
+        // null, identity unloaded, sign failure), NO emitir el SHOWCARDS — los
+        // receptores tratarían `key + sig="*"` como host stripped → lockdown
+        // self-induced de toda la mesa. Saltar silenciosamente; las cartas
+        // de ese nick quedan tapada para los clientes pero la mesa sigue.
         String hostNick = GameFrame.getInstance().getNick_local();
         for (Player p : resisten) {
             if (p.isExit()) continue;
@@ -8179,9 +8198,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (isHost || isBot) {
                 String localKey = getShowdownPocketKey(nick);
                 if (!"*".equals(localKey)) {
+                    String sigB64 = signShowdownRevealForBroadcast(nick, localKey);
+                    if ("*".equals(sigB64)) {
+                        LOGGER.log(Level.WARNING,
+                                "solicitarYRecibirCartasVisuales: cannot sign SHOWCARDS for {0} — skipping broadcast (would trigger receiver lockdown).",
+                                nick);
+                        continue;
+                    }
                     try {
                         String nickB64 = Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                        String sigB64 = signShowdownRevealForBroadcast(nick, localKey);
                         broadcastGAMECommandFromServer("SHOWCARDS#" + nickB64 + "#" + localKey + "#" + sigB64, null);
                     } catch (Exception ex) {
                         LOGGER.log(Level.WARNING, "Error broadcasting SHOWCARDS for local nick " + nick, ex);

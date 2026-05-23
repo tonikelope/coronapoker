@@ -28,10 +28,12 @@ package com.tonikelope.coronapoker.sra;
 import com.tonikelope.coronapoker.CryptoSRA;
 import com.tonikelope.coronapoker.Helpers;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CryptoSRACascadeTest {
@@ -227,5 +229,239 @@ public class CryptoSRACascadeTest {
             assertTrue(resolved.add(idx), "Duplicate card index " + idx + " at position " + i);
         }
         assertEquals(52, resolved.size(), "Final deck must be a 52-card permutation");
+    }
+
+    /**
+     * Dual-lock cascade with rotation (Opción G). Cada peer tiene DOS scalars
+     * por mano: k_pocket y k_community. Flujo:
+     *
+     *   1. Cascade normal con k_pocket (sin cambios respecto al protocolo actual).
+     *   2. Slice: posiciones 0..N*2-1 = pocket pieces, N*2..51 = community pieces.
+     *   3. Rotación sobre community pieces: cada peer aplica k_pocket_inverse
+     *      (quita su lock pocket) + k_community (añade lock community). Tras
+     *      pasar por todos los peers, las community pieces tienen SOLO locks
+     *      de k_community.
+     *   4. Pocket dealing: per-recipient cascade con k_pocket (sin cambios).
+     *   5. Community dealing: per-recipient cascade con k_community.
+     *
+     * El test verifica el round-trip completo: todas las pocket cards resuelven
+     * a índices válidos 0-51, todas las community cards también, y no hay
+     * colisiones (ninguna carta aparece dos veces).
+     */
+    @Test
+    public void testDualLockCascadeWithRotation() {
+        if (Helpers.CSPRNG_GENERATOR == null) {
+            Helpers.CSPRNG_GENERATOR = new SecureRandom();
+        }
+
+        int numPlayers = 6;
+        int pocketSlots = numPlayers * POCKET_PER_PLAYER;
+        int communitySlots = 52 - pocketSlots;
+
+        // Per-peer secrets: dos scalars (pocket y community) + un shuffle seed.
+        byte[][] kPocket = new byte[numPlayers][];
+        byte[][] uPocket = new byte[numPlayers][];
+        byte[][] kCommunity = new byte[numPlayers][];
+        byte[][] uCommunity = new byte[numPlayers][];
+        byte[][] seeds = new byte[numPlayers][];
+        for (int i = 0; i < numPlayers; i++) {
+            kPocket[i] = CryptoSRA.generateLockScalar();
+            uPocket[i] = CryptoSRA.getUnlockScalar(kPocket[i]);
+            kCommunity[i] = CryptoSRA.generateLockScalar();
+            uCommunity[i] = CryptoSRA.getUnlockScalar(kCommunity[i]);
+            seeds[i] = new byte[48];
+            Helpers.CSPRNG_GENERATOR.nextBytes(seeds[i]);
+        }
+
+        // 1) Cascade con k_pocket.
+        byte[] deck = CryptoSRA.getGenesisDeck();
+        for (int i = 0; i < numPlayers; i++) {
+            deck = CryptoSRA.applyCommutativeLock(deck, kPocket[i]);
+            deck = CryptoSRA.shuffleDeck(deck, seeds[i]);
+        }
+
+        // 2) Slice.
+        byte[][] pocketPieces = new byte[pocketSlots][];
+        byte[][] communityPiecesRaw = new byte[communitySlots][];
+        for (int j = 0; j < pocketSlots; j++) {
+            pocketPieces[j] = Arrays.copyOfRange(deck, j * CARD_BYTES, (j + 1) * CARD_BYTES);
+        }
+        for (int j = 0; j < communitySlots; j++) {
+            int src = (pocketSlots + j) * CARD_BYTES;
+            communityPiecesRaw[j] = Arrays.copyOfRange(deck, src, src + CARD_BYTES);
+        }
+
+        // 3) Rotación: cada peer hace uPocket + kCommunity sobre cada community piece.
+        byte[][] communityPieces = new byte[communitySlots][];
+        for (int j = 0; j < communitySlots; j++) {
+            byte[] piece = Arrays.copyOf(communityPiecesRaw[j], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                piece = CryptoSRA.applyCommutativeLock(piece, uPocket[i]);
+                piece = CryptoSRA.applyCommutativeLock(piece, kCommunity[i]);
+            }
+            communityPieces[j] = piece;
+        }
+
+        // 4) Pocket dealing — cada owner descifra aplicando todos los uPocket.
+        Set<Integer> resolvedIndices = new HashSet<>();
+        for (int player = 0; player < numPlayers; player++) {
+            for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+                int pieceIdx = player * POCKET_PER_PLAYER + slot;
+                byte[] card = Arrays.copyOf(pocketPieces[pieceIdx], CARD_BYTES);
+                // Per-recipient: otros peers aplican su uPocket, owner aplica el suyo último.
+                for (int i = 0; i < numPlayers; i++) {
+                    if (i == player) continue;
+                    card = CryptoSRA.applyCommutativeLock(card, uPocket[i]);
+                }
+                card = CryptoSRA.applyCommutativeLock(card, uPocket[player]);
+
+                int idx = CryptoSRA.resolveCardIndex(card);
+                assertTrue(idx >= 0 && idx < 52,
+                        "Pocket player=" + player + " slot=" + slot + " resolved to " + idx);
+                assertTrue(resolvedIndices.add(idx),
+                        "Pocket player=" + player + " slot=" + slot + " duplicated card index " + idx);
+            }
+        }
+
+        // 5) Community dealing — cualquier recipient descifra aplicando todos los uCommunity.
+        for (int j = 0; j < communitySlots; j++) {
+            byte[] card = Arrays.copyOf(communityPieces[j], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                card = CryptoSRA.applyCommutativeLock(card, uCommunity[i]);
+            }
+            int idx = CryptoSRA.resolveCardIndex(card);
+            assertTrue(idx >= 0 && idx < 52,
+                    "Community slot=" + j + " resolved to " + idx);
+            assertTrue(resolvedIndices.add(idx),
+                    "Community slot=" + j + " duplicated card index " + idx);
+        }
+
+        assertEquals(52, resolvedIndices.size(),
+                "Dual-lock dealt cards must form a 52-card permutation (no missing, no duplicates)");
+    }
+
+    /**
+     * Test de seguridad: testamento dual-lock NO leakea pockets.
+     *
+     * Escenario: peer X hace EXIT mid-hand. El testamento le da al host SOLO
+     * el scalar uCommunity_X. Aunque TODOS los demás peers cooperen con el
+     * host y le entreguen sus uPocket y uCommunity (worst-case adversarial
+     * cooperation), el host NO debe ser capaz de recuperar la identidad de
+     * las cartas privadas de X.
+     *
+     * Concretamente verificamos que, tras aplicar a la pocket piece de X
+     * todos los uPocket de los OTROS peers, el punto resultante NO resuelve
+     * a un card index — porque sigue cifrado con kPocket_X y solo X tiene
+     * uPocket_X.
+     *
+     * Esto es la propiedad clave que justifica el refactor dual-lock vs el
+     * esquema single-lock previo (donde testamento exponía la única clave).
+     */
+    @Test
+    public void testTestamentCommunityDoesNotLeakExitedPlayerPocket() {
+        if (Helpers.CSPRNG_GENERATOR == null) {
+            Helpers.CSPRNG_GENERATOR = new SecureRandom();
+        }
+
+        int numPlayers = 6;
+        int victim = 2;             // peer X que va a hacer EXIT
+        int pocketSlots = numPlayers * POCKET_PER_PLAYER;
+        int communitySlots = 52 - pocketSlots;
+
+        byte[][] kPocket = new byte[numPlayers][];
+        byte[][] uPocket = new byte[numPlayers][];
+        byte[][] kCommunity = new byte[numPlayers][];
+        byte[][] uCommunity = new byte[numPlayers][];
+        byte[][] seeds = new byte[numPlayers][];
+        for (int i = 0; i < numPlayers; i++) {
+            kPocket[i] = CryptoSRA.generateLockScalar();
+            uPocket[i] = CryptoSRA.getUnlockScalar(kPocket[i]);
+            kCommunity[i] = CryptoSRA.generateLockScalar();
+            uCommunity[i] = CryptoSRA.getUnlockScalar(kCommunity[i]);
+            seeds[i] = new byte[48];
+            Helpers.CSPRNG_GENERATOR.nextBytes(seeds[i]);
+        }
+
+        // Cascade + slice + rotación (idéntico al test anterior).
+        byte[] deck = CryptoSRA.getGenesisDeck();
+        for (int i = 0; i < numPlayers; i++) {
+            deck = CryptoSRA.applyCommutativeLock(deck, kPocket[i]);
+            deck = CryptoSRA.shuffleDeck(deck, seeds[i]);
+        }
+
+        byte[][] pocketPieces = new byte[pocketSlots][];
+        for (int j = 0; j < pocketSlots; j++) {
+            pocketPieces[j] = Arrays.copyOfRange(deck, j * CARD_BYTES, (j + 1) * CARD_BYTES);
+        }
+
+        // El attacker (host malicioso) tiene:
+        //   - uPocket[i] de TODOS los peers menos X (worst-case cooperation).
+        //   - uCommunity[i] de TODOS los peers menos X.
+        //   - uCommunity[X] vía testamento (X lo entrega al hacer EXIT).
+        //   - NO tiene uPocket[X].
+        //
+        // Intento de ataque #1: aplicar todos los uPocket conocidos a las pocket pieces de X.
+        for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+            byte[] target = Arrays.copyOf(pocketPieces[victim * POCKET_PER_PLAYER + slot], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                if (i == victim) continue;
+                target = CryptoSRA.applyCommutativeLock(target, uPocket[i]);
+            }
+            // En este punto: target = kPocket[victim] * G_y (sigue bloqueado por la clave que
+            // SOLO tiene el peer X). resolveCardIndex debe devolver -1.
+            int idx = CryptoSRA.resolveCardIndex(target);
+            assertEquals(-1, idx,
+                    "LEAK: pocket de peer X resolvió a card index " + idx
+                    + " sin uPocket[X]. El testamento community-only NO está protegiendo pocket.");
+        }
+
+        // Intento de ataque #2: aplicar testamento (uCommunity[X]) sobre las pocket pieces de X.
+        // Esto no tiene sentido criptográfico (las pocket pieces no llevan kCommunity), pero el
+        // test verifica explícitamente que un atacante naive no obtiene nada por probarlo.
+        for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+            byte[] target = Arrays.copyOf(pocketPieces[victim * POCKET_PER_PLAYER + slot], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                if (i == victim) continue;
+                target = CryptoSRA.applyCommutativeLock(target, uPocket[i]);
+            }
+            target = CryptoSRA.applyCommutativeLock(target, uCommunity[victim]);
+            int idx = CryptoSRA.resolveCardIndex(target);
+            assertEquals(-1, idx,
+                    "LEAK: pocket de peer X resolvió a card index " + idx
+                    + " tras aplicar testamento community (ataque naive). El testamento NO debe afectar a pockets.");
+        }
+
+        // Intento de ataque #3: aplicar uCommunity de TODOS los peers (incluyendo testamento) a las
+        // pocket pieces. Sigue sin tener sentido criptográfico, pero verificamos que no hay colisión
+        // accidental.
+        for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+            byte[] target = Arrays.copyOf(pocketPieces[victim * POCKET_PER_PLAYER + slot], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                if (i == victim) continue;
+                target = CryptoSRA.applyCommutativeLock(target, uPocket[i]);
+            }
+            for (int i = 0; i < numPlayers; i++) {
+                target = CryptoSRA.applyCommutativeLock(target, uCommunity[i]);
+            }
+            int idx = CryptoSRA.resolveCardIndex(target);
+            assertEquals(-1, idx,
+                    "LEAK: pocket de peer X resolvió a card index " + idx
+                    + " tras aplicar todos los uCommunity + testamento + uPocket de los demás.");
+        }
+
+        // Sanity check: el victim sí puede descifrar sus pockets con uPocket[victim].
+        for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+            byte[] target = Arrays.copyOf(pocketPieces[victim * POCKET_PER_PLAYER + slot], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                if (i == victim) continue;
+                target = CryptoSRA.applyCommutativeLock(target, uPocket[i]);
+            }
+            target = CryptoSRA.applyCommutativeLock(target, uPocket[victim]);
+            int idx = CryptoSRA.resolveCardIndex(target);
+            assertTrue(idx >= 0 && idx < 52,
+                    "Sanity: peer X debe poder descifrar su propia pocket con uPocket[X]; got " + idx);
+            assertNotEquals(-1, idx,
+                    "Sanity: peer X aplicando su propia uPocket no debe dar -1");
+        }
     }
 }

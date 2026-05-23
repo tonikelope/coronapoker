@@ -2499,8 +2499,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                                     String sraKeyB64 = partes_comando[4];
-                                                                    // El cliente descifra las cartas localmente con la SRA key recibida
-                                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
+                                                                    // PHASE A.1: SHOWCARDS lleva ahora una sig Ed25519 al final.
+                                                                    // Si vino sin sig (cliente pre-20.65 o host stripping), pasamos
+                                                                    // null → showPlayerCards rechaza sin destapar.
+                                                                    String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
+                                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Error processing SHOWCARDS on client", e);
                                                                 }

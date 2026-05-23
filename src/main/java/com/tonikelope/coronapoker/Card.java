@@ -644,6 +644,13 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return this.valor + "_" + this.palo;
     }
 
+    public static String shortStringFromIndex(int id) {
+        if (id < 0 || id > 51) {
+            return null;
+        }
+        return VALORES[id % 13] + "_" + PALOS[id / 13];
+    }
+
     public void iniciarConValorPalo(String valor, String palo) {
 
         iniciarConValorPalo(valor, palo, true);

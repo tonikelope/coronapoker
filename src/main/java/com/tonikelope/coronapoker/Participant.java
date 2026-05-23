@@ -916,9 +916,10 @@ public class Participant implements Runnable {
                                                     if (p != null && !partes_comando[offset].equals("*")) {
                                                         try {
                                                             byte[] testament = Base64.getDecoder().decode(partes_comando[offset]);
-                                                            // El testament es la clave SRA Unlock (32 bytes).
+                                                            // Dual-lock: el testamento entrega SOLO la mitad community.
+                                                            // La mitad pocket del peer que sale permanece secreta.
                                                             if (testament.length == 32) {
-                                                                p.setSra_unlock(testament);
+                                                                p.setSra_unlock_community(testament);
                                                             }
                                                         } catch (Exception e) {
                                                         }

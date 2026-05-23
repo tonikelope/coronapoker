@@ -54,16 +54,16 @@ public class ReceiptSignatureTest {
     public void signAndVerifyRoundtrip() {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] sig = peerA.signReceipt(handId, hFinal);
-        assertTrue(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, sig));
+        byte[] sig = peerA.signReceipt(handId, hFinal, (byte) 0);
+        assertTrue(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, sig));
     }
 
     @Test
     public void receiptSigNotVerifiableUnderOtherPubkey() {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] sigA = peerA.signReceipt(handId, hFinal);
-        assertFalse(IdentityManager.verifyReceipt(peerBPub, handId, hFinal, sigA),
+        byte[] sigA = peerA.signReceipt(handId, hFinal, (byte) 0);
+        assertFalse(IdentityManager.verifyReceipt(peerBPub, handId, hFinal, (byte) 0, sigA),
                 "peer A's receipt sig must NOT verify under peer B's pubkey");
     }
 
@@ -71,22 +71,22 @@ public class ReceiptSignatureTest {
     public void mutatedHandIdInvalidates() {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] sig = peerA.signReceipt(handId, hFinal);
+        byte[] sig = peerA.signReceipt(handId, hFinal, (byte) 0);
 
         byte[] tampered = handId.clone();
         tampered[3] ^= 0x01;
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, tampered, hFinal, sig));
+        assertFalse(IdentityManager.verifyReceipt(peerAPub, tampered, hFinal, (byte) 0, sig));
     }
 
     @Test
     public void mutatedHFinalInvalidates() {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] sig = peerA.signReceipt(handId, hFinal);
+        byte[] sig = peerA.signReceipt(handId, hFinal, (byte) 0);
 
         byte[] tampered = hFinal.clone();
         tampered[15] ^= 0x80;
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, tampered, sig));
+        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, tampered, (byte) 0, sig));
     }
 
     @Test
@@ -97,14 +97,14 @@ public class ReceiptSignatureTest {
         // and assert verifyReceipt rejects it.
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] payload = IdentityManager.receiptPayload(handId, hFinal);
+        byte[] payload = IdentityManager.receiptPayload(handId, hFinal, (byte) 0);
 
         Method sign = IdentityManager.class.getDeclaredMethod("sign", byte[].class, byte[].class);
         sign.setAccessible(true);
         byte[] actionDomain = "ACTION_V1\0".getBytes("UTF-8");
         byte[] actionSig = (byte[]) sign.invoke(peerA, actionDomain, payload);
 
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, actionSig),
+        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, actionSig),
                 "ACTION_V1 sig must NOT pass as a RECEIPT_V1 sig");
     }
 
@@ -112,14 +112,14 @@ public class ReceiptSignatureTest {
     public void rejectsMalformedInputs() {
         byte[] handId = sampleHandId(0x10);
         byte[] hFinal = sampleHFinal(0x20);
-        byte[] sig = peerA.signReceipt(handId, hFinal);
+        byte[] sig = peerA.signReceipt(handId, hFinal, (byte) 0);
 
         // Wrong-length pubkey is rejected by verifyAction's argument validation
         // and surfaces as false (not as an exception).
-        assertFalse(IdentityManager.verifyReceipt(new byte[31], handId, hFinal, sig));
+        assertFalse(IdentityManager.verifyReceipt(new byte[31], handId, hFinal, (byte) 0, sig));
         // Wrong-length sig is also rejected by Ed25519.verify itself.
         byte[] shortSig = new byte[63];
         System.arraycopy(sig, 0, shortSig, 0, 63);
-        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, shortSig));
+        assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, shortSig));
     }
 }

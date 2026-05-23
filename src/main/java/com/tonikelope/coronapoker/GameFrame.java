@@ -640,7 +640,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().setEnabled(true);
 
             if (!Init.DEV_MODE && fullscreen) {
-                full_screen_menu.doClick();
+                // Llamada directa al toggle unificado; antes era full_screen_menu.doClick()
+                // que disparaba el listener del JMenuItem como evento sintetico —
+                // antipatron Swing que acoplaba init al comportamiento del UI.
+                triggerFullScreenToggle();
             } else {
                 GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
                 GameFrame.getInstance().setVisible(true);
@@ -650,14 +653,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
 
         if (!Init.DEV_MODE && fullscreen) {
-            int t = 0;
-
-            while (!full_screen && t < AUTO_ZOOM_TIMEOUT) {
-
+            // Deadline wall-clock para evitar drift por wakeups espurios del wait.
+            // Antes el contador t se incrementaba ciegamente en 1000 ms por iteracion
+            // asumiendo que wait(1000) habia esperado el periodo completo; un notify
+            // (o un spurious wakeup) violaba esa premisa.
+            long deadline = System.currentTimeMillis() + AUTO_ZOOM_TIMEOUT;
+            while (!full_screen) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    break;
+                }
                 synchronized (full_screen_lock) {
                     try {
-                        full_screen_lock.wait(1000);
-                        t += 1000;
+                        full_screen_lock.wait(remaining);
                     } catch (InterruptedException ex) {
                         Helpers.logCooperativeCancellation(Logger.getLogger(GameFrame.class.getName()),
                                 "fullscreen wait", ex);
@@ -803,9 +811,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void toggleFullScreen() {
 
         Helpers.GUIRun(() -> {
-            full_screen = !full_screen;
+            // Calcular el target en local primero. El commit del flag se hace al
+            // final, de forma que si alguna operacion del cambio (setUndecorated,
+            // setFullScreenWindow, etc.) lanza, el flag no queda divergente del
+            // estado real de la ventana.
+            boolean entering_full_screen = !full_screen;
 
-            if (full_screen) {
+            if (entering_full_screen) {
 
                 if (Helpers.OSValidator.isWindows()) {
                     setVisible(false);
@@ -864,6 +876,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     pausa_dialog.setVisible(true);
                 }
             }
+
+            // Commit del flag DESPUES de que las operaciones de cambio hayan
+            // terminado, para que un fallo a mitad (excepcion en setUndecorated,
+            // setVisible, setFullScreenWindow) no deje full_screen divergente
+            // del estado real de la ventana.
+            full_screen = entering_full_screen;
 
             full_screen_menu.setEnabled(true);
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(true);
@@ -3529,27 +3547,29 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }//GEN-LAST:event_jugadas_menuActionPerformed
 
     private void full_screen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_full_screen_menuActionPerformed
-        // TODO add your handling code here:
+        triggerFullScreenToggle();
+    }//GEN-LAST:event_full_screen_menuActionPerformed
 
+    /**
+     * Punto de entrada unificado para alternar pantalla completa, desde el
+     * listener del menu o desde rutas de inicializacion (autoZoomFullScreen).
+     * Antes autoZoomFullScreen llamaba a full_screen_menu.doClick() para
+     * disparar este flujo via el listener del JMenuItem; el doClick era un
+     * antipatron de Swing porque acoplaba la inicializacion al UI y simulaba
+     * eventos sinteticos. Ahora ambas rutas llaman directamente aqui.
+     */
+    public void triggerFullScreenToggle() {
         if (full_screen_menu.isEnabled() && !isGame_over_dialog()) {
-
             full_screen_menu.setEnabled(false);
-
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
-
             if (!Helpers.OSValidator.isMac() || !GameFrame.MAC_NATIVE_FULLSCREEN) {
-
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(!full_screen);
-
                 toggleFullScreen();
-
             } else {
-
                 toggleMacNativeFullScreen(GameFrame.getInstance());
             }
         }
-
-    }//GEN-LAST:event_full_screen_menuActionPerformed
+    }
 
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:

@@ -2931,10 +2931,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         p.setSra_unlock(sraKey);
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
-                                    // Si decrypted=false aquí: sig estaba OK pero SRA da -1.
-                                    // Eso es el peer firmando honestamente una key que no
-                                    // resuelve — bug propio del peer o suicide-hide. Sus
-                                    // cartas se quedan tapada, SIN lockdown.
+                                    if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
+                                        // Sig OK + tenemos pocket data del nick + SRA no resuelve.
+                                        // Estado inconsistente real:
+                                        //   - Peer firmó honestamente una clave que NO desbloquea
+                                        //     su pocket piece almacenado aquí.
+                                        //   - O el pocket piece local está corrupto (posible fork
+                                        //     attack del host en POCKET_CARDS distribution, distinto
+                                        //     piece para cada cliente).
+                                        //   - O bug del protocolo.
+                                        // No es cheating del peer (su sig es válida sobre la key).
+                                        // Acción: si soy el host → MISDEAL (cancelar mano, devolver
+                                        // apuestas, propagar a clientes). Si soy cliente → log
+                                        // SEVERE y esperar que el host propague MISDEAL.
+                                        LOGGER.log(Level.SEVERE,
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK but SRA resolveCardIndex == -1. Protocol inconsistency (corruption / fork attack at POCKET_CARDS / bug).",
+                                                nick);
+                                        if (GameFrame.getInstance().isPartida_local()) {
+                                            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                                        }
+                                    }
                                 }
                             }
                         } catch (Exception e) {
@@ -8351,9 +8367,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id1 = CryptoSRA.resolveCardIndex(c1);
             int id2 = CryptoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
-                LOGGER.log(Level.WARNING,
-                        "verifyAndBroadcastShowdownKey: clave de {0} no resuelve pocket cards (ids={1},{2}) — sus cartas se quedan tapada en la UI",
+                // Sig Ed25519 ya verificó arriba — el peer firmó esta clave de
+                // buena fe. Que aún así no resuelva el pocket = bug / corrupción
+                // / fork attack interno. No es cheating del peer, es estado
+                // inconsistente del protocolo. MISDEAL: cancelamos la mano y
+                // devolvemos apuestas. Los clientes reciben el comando MISDEAL
+                // del host y abortan localmente.
+                LOGGER.log(Level.SEVERE,
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Estado inconsistente, MISDEAL.",
                         new Object[]{nick, id1, id2});
+                cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
                 return false;
             }
 

@@ -838,6 +838,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         System.arraycopy(workingDeck, pocketBytesEnd, communityPieces, 0, communityBytesLen);
 
         boolean rotationOk = true;
+        String rotationFailMotivo = null;
         for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
             String currNick = currentRing[i];
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
@@ -862,24 +863,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (rotated != null) {
                         communityPieces = rotated;
                     } else {
+                        // Peer está vivo (no exit) pero no respondió — REFUSAL.
+                        // Aplica la regla "no entrega secreto" → para la timba.
                         LOGGER.log(Level.WARNING,
-                                "Peer {0} dropped or returned invalid during rotation — aborting hand",
+                                "Peer {0} refused rotation (alive but no response) — aborting hand and stopping game",
                                 currNick);
                         rotationOk = false;
+                        rotationFailMotivo = "zero_trust.rotation_refused";
                         break;
                     }
                 } else {
+                    // Peer está exit (se fue). Trata como "left without testament":
+                    // misdeal pero la timba continúa (excepción del user).
                     LOGGER.log(Level.WARNING,
-                            "Peer {0} not available for rotation (null or exit) — aborting hand",
+                            "Peer {0} not available for rotation (null or exit) — aborting hand, game continues",
                             currNick);
                     rotationOk = false;
+                    rotationFailMotivo = "peer.dropped_during_rotation";
                     break;
                 }
             }
         }
 
         if (!rotationOk) {
-            cancelarManoYDevolverApuestas("peer.dropped_during_rotation");
+            cancelarManoYDevolverApuestas(rotationFailMotivo != null ? rotationFailMotivo : "peer.dropped_during_rotation");
             return false;
         }
 
@@ -974,7 +981,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         pockets[slot] = CryptoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
                     }
                 } else {
-                    cancelarManoYDevolverApuestas("peer.unlock_no_testament");
+                    // Peer vivo, NO respondió, no testament local. REFUSAL → para la timba.
+                    cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
                     return false;
                 }
             } else if (ph.getSra_unlock() != null) {
@@ -982,6 +990,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     pockets[slot] = CryptoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
                 }
             } else {
+                // Peer ya salió y no dejó testament. "Se fue sin dar testamento" —
+                // excepción del usuario: misdeal pero la timba continúa.
                 cancelarManoYDevolverApuestas("peer.unlock_no_testament");
                 return false;
             }
@@ -7117,8 +7127,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
                     }
                 } else {
+                    // Peer vivo, NO respondió, no testament. REFUSAL → para la timba.
                     if (abortOnFail) {
-                        cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
+                        cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
                     }
                     return null;
                 }
@@ -7127,6 +7138,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
                 }
             } else {
+                // Peer ya salió sin dejar testament community. "Se fue sin dar testamento"
+                // — excepción del usuario: misdeal pero la timba continúa.
                 if (abortOnFail) {
                     cancelarManoYDevolverApuestas("peer.community_unlock_no_testament");
                 }

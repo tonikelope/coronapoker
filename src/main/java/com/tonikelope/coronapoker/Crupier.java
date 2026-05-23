@@ -1190,6 +1190,59 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return "*";
     }
 
+    /**
+     * Dual-lock (Opción G): la clave que viaja en SHOWCARDS al revelar
+     * voluntariamente las cartas privadas de un jugador al showdown. Es la
+     * mitad POCKET — el receptor la usa con applyCommutativeLock sobre el
+     * pocket piece cifrado para destapar las cartas. NUNCA debe confundirse
+     * con getTestamentoCriptografico (que es la mitad community para EXIT):
+     * mezclar las dos rompe el showdown (pocket pieces no se descifran con
+     * community) o filtra cartas privadas del peer que sale (community
+     * pieces no son sensibles a la pocket).
+     *
+     * Self vs others: el host tiene p.getReceived_token() para sus bots; para
+     * un humano remoto solo se tiene su pocket key si ya envió un SHOWCARDS
+     * propio antes en esta mano y se guardó en p.sra_unlock (línea 2757).
+     */
+    public String getShowdownPocketKey(String nick) {
+        if (Crupier.SECURITY_LOCKDOWN && nick.equals(GameFrame.getInstance().getNick_local())) {
+            return "*";
+        }
+        try {
+            byte[] pocketKey = null;
+            if (nick.equals(GameFrame.getInstance().getNick_local())) {
+                pocketKey = this.local_sra_unlock;
+                if (pocketKey == null) {
+                    // Fallback para cliente remoto: el Crupier puede no haber
+                    // copiado todavía el unlock desde el Participant (el copy
+                    // ocurre al procesar POCKET_CARDS, línea ~1084).
+                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                    if (p != null) {
+                        pocketKey = p.getSra_unlock();
+                    }
+                }
+            } else {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                if (p != null) {
+                    if (p.isCpu()) {
+                        pocketKey = p.getReceived_token();
+                    } else {
+                        // Humano remoto: solo conocemos su pocket key si ya hizo
+                        // SHOWCARDS propio antes en esta mano y la guardamos en
+                        // sra_unlock al procesar la respuesta (línea 2757).
+                        pocketKey = p.getSra_unlock();
+                    }
+                }
+            }
+            if (pocketKey != null && pocketKey.length == 32) {
+                return Base64.getEncoder().encodeToString(pocketKey);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error generating showdown pocket key for " + nick, e);
+        }
+        return "*";
+    }
+
     public boolean unlockPlayerCardsWithSRAKey(Player target) {
         Participant p = GameFrame.getInstance().getParticipantes().get(target.getNickname());
         if (p != null && p.getSra_unlock() != null) {
@@ -2395,8 +2448,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             // ZERO-TRUST SRA: Enviamos la clave de desbloqueo en vez de las cartas en texto plano.
             // Cada receptor descifra localmente desde su propia copia del mega_packet.
+            //
+            // Dual-lock (Opción G): SHOWCARDS revela cartas PRIVADAS, así que la clave que viaja
+            // es la mitad POCKET (no la community que entrega EXIT). El receptor la guarda en
+            // Participant.sra_unlock y unlockPlayerCardsWithSRAKey la aplica sobre el pocket
+            // piece almacenado en single_locked_pocket_cards.
             try {
-                String sraKeyB64 = getTestamentoCriptografico(nick);
+                String sraKeyB64 = getShowdownPocketKey(nick);
 
                 String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64;
                 if (GameFrame.getInstance().isPartida_local()) {
@@ -6736,7 +6794,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
         java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA street unlock: {0}", street);
 
-        if (this.local_sra_unlock == null || this.active_crypto_ring == null) {
+        // Dual-lock: ambas mitades son load-bearing. La pocket sigue siendo
+        // necesaria para resolver el resto de la mano y la community es la
+        // que descifra los pieces post-rotación; faltar cualquiera es un
+        // estado inconsistente (típicamente recovery de un fósil legacy
+        // sin SRAKEYS_COMMUNITY@).
+        if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             cancelarManoYDevolverApuestas("peer.state_inconsistent");
             return false;
         }
@@ -6994,6 +7057,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Player myPlayer = GameFrame.getInstance().getLocalPlayer();
         final boolean iAmObserver = !inRing
                 || this.local_sra_unlock == null
+                || this.local_sra_unlock_community == null
                 || (myPlayer != null && (myPlayer.isCalentando() || myPlayer.isSpectator()));
         if (iAmObserver) {
             piece_ok = true;
@@ -7892,7 +7956,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarRabbitComunitarias(int targetStreet) {
-        if (this.local_sra_unlock == null || this.active_crypto_ring == null) {
+        // Dual-lock: rabbit hunting usa cascadeAndDealCommunityPieces que aplica
+        // el unlock community local. Sin community-half no podemos revelar las
+        // cartas no jugadas; salida silenciosa (el rabbit es no crítico, no
+        // disparamos abort de mano).
+        if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             return false;
         }
 

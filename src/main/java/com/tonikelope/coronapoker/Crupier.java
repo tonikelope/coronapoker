@@ -3025,12 +3025,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // cliente quedaba esperando datos de una mano inexistente mientras
             // el host ya habia llamado sqlNewHand() -> cuelgue indefinido y
             // stack 0 en GUI (de ahi el "ESPECTADOR no calentando").
+            //
+            // Joiner pasivo (humano nuevo que entra antes de un recover de timba):
+            // no tiene fosil local (su SQLite es virgen) -> local_mega_packet/
+            // active_crypto_ring quedan null -> cae en saltar=true. Pero si el
+            // host SI esta replayando (hand_end == 0L en el map), el joiner debe
+            // observar pasivamente: game_recovered=1 codifica "no replay local
+            // mio, pero el host esta jugando una mano recuperada en la que yo
+            // no estaba". El observer queda calentando (su setSpectator se hizo
+            // arriba en el loop balance) y el rescate posterior en NUEVA_MANO
+            // se gatea con game_recovered==0 para no sacarlo del calentando.
+            // Sin esto, el unsetSpectator y la rama !isCalentando del repartir
+            // forzaban al joiner a llamar recibirMisCartas esperando POCKET_CARDS
+            // que el host no envia para manos en game_recovered=1 -> cuelgue
+            // indefinido del hilo principal y bloqueo global tras la mano
+            // recuperada (el host pide ACTION del joiner para la mano siguiente
+            // y el joiner sigue stuck en recibirMisCartas de la anterior).
+            boolean hostReplayingHand = map != null
+                    && map.get("hand_end") != null
+                    && (Long) map.get("hand_end") == 0L;
             if (map == null
                     || map.get("hand_end") == null
                     || (Long) map.get("hand_end") != 0L
                     || this.local_mega_packet == null
                     || this.active_crypto_ring == null) {
                 saltar_primera_mano = true;
+                if (hostReplayingHand) {
+                    this.game_recovered = 1;
+                }
             } else {
                 this.game_recovered = 1;
             }
@@ -4369,7 +4391,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // INIT (warming-up). Sin este unsetSpectator, isActivo()=false
                 // -> getJugadoresActivos()=0 -> NUEVA_MANO no arranca, timba
                 // muere. Solo rescatamos players con stack > 0.
-                if (saltar_primera_mano) {
+                //
+                // Gateado por game_recovered==0: el rescate sirve para el caso
+                // genuino "no hay replay en ningun peer" (fosil corrupto del
+                // host o hand_end!=0). Pero un joiner pasivo que llega antes
+                // de un recover ve saltar=true porque no tiene fosil propio,
+                // aunque el host SI esta replayando — recuperarDatosClavePartida
+                // marca game_recovered=1 en ese sub-caso. Sacarlo del calentando
+                // aqui le forzaba a entrar como jugador activo en la mano
+                // recuperada, llamar recibirMisCartas esperando POCKET_CARDS
+                // que nunca llegan (el host no los reparte en game_recovered=1)
+                // y bloquear el hilo principal. La siguiente NUEVA_MANO
+                // (game_recovered=0 ya, mano fresca) le rescata en linea 4214
+                // de forma natural y entra normal.
+                if (saltar_primera_mano && this.game_recovered == 0) {
                     try {
                         for (Player j : GameFrame.getInstance().getJugadores()) {
                             if (j != null && !j.isExit() && j.isSpectator()

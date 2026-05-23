@@ -10318,22 +10318,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // Condición de exit única: POTCARDS aplicado. El showdown es un único
-            // broadcast atómico, válido para todos los roles. Las cartas quedan
-            // con valores correctos pero todavía tapadas — showdown() las destapará
-            // con su timing dramático (pivote → resto secuencial, winner marking).
+            // Condiciones de exit:
+            //   - POTCARDS aplicado: showdown propiamente dicho, ya tenemos
+            //     valores de cartas.
+            //   - resistencia no contiene a NADIE remoto/no-exit: caso
+            //     fold-to-win (resisten=[] o solo localPlayer). No hay nada
+            //     que esperar — el server NO emite POTCARDS porque no hay
+            //     entries; salimos inmediato igual que el código antiguo
+            //     (cuyo for sobre resistencia salía con doneWaiting=true si
+            //     la lista no iteraba).
             if (potcardsApplied) {
-                // Limpiamos los flags que ANTES limpiaba el showPlayerCards al
-                // recibir cada SHOWCARDS individual en el showdown. Sin esto la
-                // barra entre manos del cliente queda congelada (pausaConBarra
-                // no decrementa si isIwtsthing()) hasta que algo más los limpie.
-                synchronized (lock_iwtsth) {
-                    if (this.iwtsthing) {
-                        this.iwtsthing = false;
-                        lock_iwtsth.notifyAll();
-                    }
-                    this.iwtsthing_request = false;
+                break;
+            }
+            boolean hasRemoteToWaitFor = false;
+            for (Player jugador : resistencia) {
+                if (!jugador.getNickname().equals(localNick) && !jugador.isExit()) {
+                    hasRemoteToWaitFor = true;
+                    break;
                 }
+            }
+            if (!hasRemoteToWaitFor) {
                 break;
             }
 

@@ -328,6 +328,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_sra_lock_community = null;
     public volatile byte[] local_sra_unlock_community = null;
+    // Locks community de los bots que orquesta este host. La mitad UNLOCK la
+    // guarda el Participant (sra_unlock_community); el LOCK solo es necesario
+    // localmente en la fase de rotación, así que vive en este Map keyed por
+    // nick del bot. Limpiado en los mismos sitios que el resto de scalars.
+    public final java.util.concurrent.ConcurrentHashMap<String, byte[]> bot_community_locks = new java.util.concurrent.ConcurrentHashMap<>();
     public volatile byte[] local_mega_packet = null;
 
     // --- TOKENS DEL HOST ---
@@ -609,8 +614,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
                 p.setReceived_token(null); // Usado para guardar la llave de los Bots
+                p.setSra_unlock_community(null); // Dual-lock: par community del bot
             }
         }
+        this.bot_community_locks.clear();
 
         // EC-Identity v1: fresh per-hand 16-byte HAND_ID that the host broadcasts to
         // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
@@ -637,8 +644,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
                 if (p != null) {
                     p.setReceived_token(null);
+                    p.setSra_unlock_community(null);
                 }
             }
+            this.bot_community_locks.clear();
 
             java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
             int numPlayers = ringCriptografico.size();
@@ -688,6 +697,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
                         }
                         p.setReceived_token(botUnlock);
+                        // Dual-lock: scalars community del bot. El lock se usará
+                        // durante la rotación; el unlock se guarda en el Participant
+                        // para que cascadeAndDealCommunityPieces pueda aplicarlo.
+                        byte[] botCommunityLock = CryptoSRA.generateLockScalar();
+                        byte[] botCommunityUnlock = CryptoSRA.getUnlockScalar(botCommunityLock);
+                        this.bot_community_locks.put(currNick, botCommunityLock);
+                        p.setSra_unlock_community(botCommunityUnlock);
                         workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
                     } else if (p != null && !p.isExit()) {

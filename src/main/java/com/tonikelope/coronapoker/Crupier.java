@@ -2932,23 +2932,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
-                                        // Sig OK + tenemos pocket data del nick + SRA no resuelve.
-                                        // Estado inconsistente real:
-                                        //   - Peer firmó honestamente una clave que NO desbloquea
-                                        //     su pocket piece almacenado aquí.
-                                        //   - O el pocket piece local está corrupto (posible fork
-                                        //     attack del host en POCKET_CARDS distribution, distinto
-                                        //     piece para cada cliente).
-                                        //   - O bug del protocolo.
-                                        // No es cheating del peer (su sig es válida sobre la key).
-                                        // Acción: si soy el host → MISDEAL (cancelar mano, devolver
-                                        // apuestas, propagar a clientes). Si soy cliente → log
-                                        // SEVERE y esperar que el host propague MISDEAL.
+                                        // Sig OK + tenemos pocket data + SRA no resuelve.
+                                        // El peer firmó una clave que NO es la real que destapa
+                                        // su pocket. Como TODOS los clientes corren la misma
+                                        // versión, esto no debería pasar por bug — y si pasa solo
+                                        // a este peer es probablemente intento deliberado de
+                                        // provocar fallo para evitar pagar el pot.
+                                        //
+                                        // NO MISDEAL: sería exactamente el exploit. En su lugar,
+                                        // el peer FORFEIT — sus cartas no se revelan, pierde la
+                                        // opción de ganar este pot. El engine sigue resolviendo
+                                        // con los jugadores que sí mostraron.
                                         LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK but SRA resolveCardIndex == -1. Protocol inconsistency (corruption / fork attack at POCKET_CARDS / bug).",
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer FORFEIT del pot.",
                                                 nick);
-                                        if (GameFrame.getInstance().isPartida_local()) {
-                                            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                                        try {
+                                            GameFrame.getInstance().getRegistro().print(
+                                                    nick + " — clave de showdown firmada pero no resuelve cartas. "
+                                                    + "Sus cartas no se revelan; pierde la opción de ganar este pot.");
+                                        } catch (Exception ignored) {
                                         }
                                     }
                                 }
@@ -8368,15 +8370,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id2 = CryptoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
                 // Sig Ed25519 ya verificó arriba — el peer firmó esta clave de
-                // buena fe. Que aún así no resuelva el pocket = bug / corrupción
-                // / fork attack interno. No es cheating del peer, es estado
-                // inconsistente del protocolo. MISDEAL: cancelamos la mano y
-                // devolvemos apuestas. Los clientes reciben el comando MISDEAL
-                // del host y abortan localmente.
+                // buena fe. Que aún así no resuelva el pocket = el peer firmó
+                // una clave que NO es la suya real. Posibilidades:
+                //   - Bug del cliente (todos corren misma versión, así que esto
+                //     debería pasar a todos por igual, no a uno solo).
+                //   - El cliente está deliberadamente firmando una clave fake
+                //     para provocar fallo y evitar pagar el pot.
+                //
+                // NO hacemos MISDEAL: sería exactamente el ataque que el
+                // cheater quiere — bets devueltas, no paga. En su lugar el
+                // peer FORFEIT: sus cartas se quedan tapada, no se muestra
+                // (auto-muck), pierde la opción del pot. El engine resuelve
+                // el resto con los jugadores que sí mostraron.
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Estado inconsistente, MISDEAL.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer FORFEIT del pot.",
                         new Object[]{nick, id1, id2});
-                cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                try {
+                    GameFrame.getInstance().getRegistro().print(
+                            nick + " — clave de showdown firmada pero no resuelve cartas. "
+                            + "Sus cartas no se revelan; pierde la opción de ganar este pot.");
+                } catch (Exception ignored) {
+                }
                 return false;
             }
 

@@ -1140,13 +1140,47 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if ((GameFrame.getInstance().getCrupier().getLast_aggressor() == null || !nickname.equals(GameFrame.getInstance().getCrupier().getLast_aggressor().getNickname())) && GameFrame.getInstance().getCrupier().puedenApostar(GameFrame.getInstance().getJugadores()) > 1 && ((Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0 && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0)
                         || (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) < 0 && Helpers.float1DSecureCompare(call_required + min_raise, stack) < 0))) {
 
+                    // Step y rango del spinner alineados a la sb ACTUAL del
+                    // Crupier (no GameFrame.CIEGA_PEQUEÑA estática, que sería
+                    // la sb inicial y queda obsoleta tras doblarCiegas o tras
+                    // un recovery con blinds doblados). Sin esto el humano
+                    // podía seleccionar incrementos múltiplos de la sb vieja
+                    // que sumados al call generaban totales fraccionarios
+                    // respecto a la sb nueva — el mismo síntoma "fractional
+                    // chip bets" del fix de Bot.java pero por la ruta del
+                    // jugador local.
+                    //
+                    // El RAISE TOTAL committed = spinner_val + bet + call_required
+                    //                          = spinner_val + apuesta_actual.
+                    // Para que ese total sea múltiplo de la sb actual cuando
+                    // apuesta_actual viene fraccionario (caso típico: all-in
+                    // previo con stack residual no alineado), spinner_min se
+                    // ajusta a (aligned_min_total - apuesta_actual) y spinner_max
+                    // a (aligned_max_total - apuesta_actual). Con step = sb
+                    // todos los valores intermedios spinner_min + k*sb mantienen
+                    // total alineado.
+                    float current_sb = GameFrame.getInstance().getCrupier().getCiega_pequeña();
+                    if (current_sb <= 0f) {
+                        current_sb = GameFrame.CIEGA_PEQUEÑA;
+                    }
+                    BigDecimal sb_step = new BigDecimal(current_sb).setScale(1, RoundingMode.HALF_UP);
+                    BigDecimal apuesta_actual_bd = new BigDecimal(GameFrame.getInstance().getCrupier().getApuesta_actual()).setScale(1, RoundingMode.HALF_UP);
+
                     //Actualizamos el spinner y el botón de apuestas
                     BigDecimal spinner_min;
-                    BigDecimal spinner_max = new BigDecimal(stack - call_required).setScale(1, RoundingMode.HALF_UP);
+                    // aligned_max_total = floor((bet + stack) / sb) * sb,
+                    // que es el mayor total committed múltiplo de sb que cabe
+                    // en lo que el jugador tiene disponible. spinner_max =
+                    // aligned_max_total - apuesta_actual.
+                    BigDecimal bet_plus_stack = new BigDecimal(bet + stack).setScale(1, RoundingMode.HALF_UP);
+                    BigDecimal aligned_max_total = bet_plus_stack.divide(sb_step, 0, RoundingMode.FLOOR).multiply(sb_step);
+                    BigDecimal spinner_max = aligned_max_total.subtract(apuesta_actual_bd);
 
                     Helpers.setScaledIconButton(player_bet_button, getClass().getResource("/images/action/bet.png"), Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()));
 
                     if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
+                        // Apertura: bb es 2*sb por construcción de CIEGAS, así
+                        // que el mínimo legal coincide con un múltiplo de sb.
                         spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
                         player_bet_button.setText(Translator.translate("action.apostar_2"));
@@ -1155,7 +1189,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_bet_button.setForeground(Color.BLACK);
 
                     } else {
-                        spinner_min = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
+                        // Raise: aligned_min_total = ceil((apuesta_actual +
+                        // min_raise) / sb) * sb. spinner_min = aligned_min_total
+                        // - apuesta_actual. Puede no ser múltiplo de sb a secas
+                        // (si apuesta_actual viene fraccionario), pero spinner_min
+                        // + k*sb sumado a apuesta_actual SÍ produce total
+                        // alineado por construcción.
+                        BigDecimal min_raise_bd = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
+                        BigDecimal aligned_min_total = apuesta_actual_bd.add(min_raise_bd).divide(sb_step, 0, RoundingMode.CEILING).multiply(sb_step);
+                        spinner_min = aligned_min_total.subtract(apuesta_actual_bd);
                         player_bet_button.setEnabled(true);
                         String actionKey = GameFrame.getInstance().getCrupier().getConta_raise() > 0 ? "action.resubir" : "action.subir";
                         player_bet_button.setText(Translator.translate(actionKey));
@@ -1172,7 +1214,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (spinner_min.compareTo(spinner_max) < 0) {
 
-                        SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, new BigDecimal(GameFrame.CIEGA_PEQUEÑA).setScale(1, RoundingMode.HALF_UP)) {
+                        SpinnerNumberModel nummodel = new SpinnerNumberModel(spinner_min, spinner_min, spinner_max, sb_step) {
                             public Object getNextValue() {
                                 BigDecimal current = (BigDecimal) super.getValue();
 

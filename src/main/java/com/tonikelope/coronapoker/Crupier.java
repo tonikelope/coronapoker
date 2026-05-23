@@ -6687,6 +6687,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean piece_ok = false;
         boolean reveal_ok = false;
 
+        // Observer mode: peers que no estan en active_crypto_ring de esta
+        // mano (joiner pasivo durante recover-timba, calentando o spectator)
+        // no tienen sra_unlock para ella. El host NO les direcciona
+        // FLOP_PIECE/TURN_PIECE/RIVER_PIECE (cascadeAndDealCommunityPieces
+        // itera solo el ring para los recipients), asi que esperar la
+        // pieza colgaria el hilo principal indefinidamente. El observer
+        // pinta el board en cleartext leyendo los indices del propio
+        // COMM_REVEAL firmado por el host (mismo patron que
+        // recibirCartasResistencia ya usa para POTCARDS cuando isCalentando
+        // /isSpectator). Sin dinero en la mano, fiarse de la palabra del
+        // host es seguro — el observer no participa de la criptografia.
+        String localNick = GameFrame.getInstance().getNick_local();
+        boolean inRing = false;
+        if (this.active_crypto_ring != null && localNick != null) {
+            for (String ringNick : this.active_crypto_ring) {
+                if (localNick.equals(ringNick)) {
+                    inRing = true;
+                    break;
+                }
+            }
+        }
+        Player myPlayer = GameFrame.getInstance().getLocalPlayer();
+        final boolean iAmObserver = !inRing
+                || this.local_sra_unlock == null
+                || (myPlayer != null && (myPlayer.isCalentando() || myPlayer.isSpectator()));
+        if (iAmObserver) {
+            piece_ok = true;
+        }
+
         // EC-Identity v1 (Phase 3): client also waits for the host's signed
         // COMM_REVEAL announcement of these community cards, verifies the sig
         // with the host's pubkey, compares the announced indices against the
@@ -6696,8 +6725,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (legacy interop or recovery without restore) the client falls back
         // to PIECE-only verification (pre-Phase-3 behaviour) so the hand
         // still plays out.
+        //
+        // Observer: necesita el COMM_REVEAL aunque su chain sea null porque
+        // de ahi extrae los indices del board para el UI (no tiene piece
+        // que decodificar).
         final boolean chainRequiresReveal = (this.hand_state_chain != null);
-        if (!chainRequiresReveal) {
+        if (!chainRequiresReveal && !iAmObserver) {
             reveal_ok = true;
         }
 
@@ -6712,7 +6745,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // y clientes lentos. El cliente espera indefinidamente — TCP nos garantiza
         // que la pieza llega o el socket muere. MISDEAL del host es la única señal
         // de que la mano se cancela legítimamente.
-        String localNick = GameFrame.getInstance().getNick_local();
         int[] pieceIndices = null;
         byte[] revealRecord = null;
         byte[] revealSig = null;
@@ -6728,6 +6760,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         String expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
                                 : (street == Crupier.TURN) ? "TURN_PIECE"
                                         : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
+                        if (iAmObserver && expectedCmd != null && partes.length >= 5
+                                && partes[2].equals(expectedCmd)) {
+                            // Observer no esta en el ring: ninguna pieza es para
+                            // el. Drop silencioso para no contaminar la cola de
+                            // rejected con piezas inservibles del resto de streets.
+                            continue;
+                        }
                         if (expectedCmd != null && partes.length >= 5 && partes[2].equals(expectedCmd) && !piece_ok) {
                             String targetNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (!targetNick.equals(localNick)) {
@@ -6818,6 +6857,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (!piece_ok) {
             return false;
+        }
+
+        // Observer mode: el board se pinta a partir de los indices anunciados
+        // en el COMM_REVEAL firmado por el host. No hay PIECE que decodificar
+        // ni chain que absorber. Validacion minima de la forma del record
+        // (longitud, action_type, street) — si esta corrupto, log warning y
+        // se sigue observando sin pintar este street (no abortamos la mano,
+        // que el observer no tiene poder para decidir misdeal). No se aplica
+        // lockdown porque el observer no tiene state critico que proteger;
+        // los peers reales del ring tienen su propia verificacion en el
+        // bloque chainRequiresReveal mas abajo.
+        if (iAmObserver) {
+            if (revealRecord == null) {
+                return true;
+            }
+            try {
+                if (revealRecord.length != CanonicalActionRecord.RECORD_BYTES
+                        || CanonicalActionRecord.readActionType(revealRecord) != CanonicalActionRecord.ACTION_COMMUNITY
+                        || CanonicalActionRecord.readStreet(revealRecord) != mapJavaStreetToWire(street)) {
+                    LOGGER.log(Level.WARNING,
+                            "Observer: COMM_REVEAL for street {0} malformed — board not painted, hand continues",
+                            street);
+                    return true;
+                }
+                long packed = CanonicalActionRecord.readAmountCents(revealRecord);
+                pieceIndices = CanonicalActionRecord.unpackCommunityCards(packed, expectedNumCards);
+            } catch (RuntimeException ex) {
+                LOGGER.log(Level.WARNING,
+                        "Observer: COMM_REVEAL unpack failed for street " + street
+                        + " — board not painted, hand continues",
+                        ex);
+                return true;
+            }
         }
 
         // EC-Identity v1 (Phase 3): cross-check the announce against the piece.

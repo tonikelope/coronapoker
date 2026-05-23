@@ -2951,11 +2951,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 orderMap = part.substring("ORDER@".length());
                             } else if (part.startsWith("FULLMEGAPACKET@")) {
                                 megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                            } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
+                                // Dual-lock: la mitad community se guardó en SRAKEYS_COMMUNITY@
+                                // por guardarFosilSRA. Recuperarla es lo que permite que
+                                // cascadeAndDealCommunityPieces siga funcionando post-recovery.
+                                this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
+                                Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                                if (myP != null) {
+                                    myP.setSra_unlock_community(this.local_sra_unlock_community);
+                                }
                             } else if (part.startsWith("SRAKEYS@")) {
                                 this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
                                 Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                                 if (myP != null) {
                                     myP.setSra_unlock(this.local_sra_unlock);
+                                }
+                            } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
+                                // Dual-lock: unlocks community de cada bot. Sin esto, la
+                                // contribución community del bot quedaría sin invertir y
+                                // las community pieces no se podrían descifrar tras recovery.
+                                String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
+                                for (String bk : bKeys) {
+                                    if (bk.isEmpty()) {
+                                        continue;
+                                    }
+                                    String[] pair = bk.split(":");
+                                    try {
+                                        String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        byte[] bUnlockCommunity = Base64.getDecoder().decode(pair[1]);
+                                        Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                        if (pBot != null) {
+                                            pBot.setSra_unlock_community(bUnlockCommunity);
+                                        }
+                                    } catch (Exception e) {
+                                    }
                                 }
                             } else if (part.startsWith("BOTKEYS@")) {
                                 String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
@@ -3097,11 +3126,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             orderMap = part.substring("ORDER@".length());
                         } else if (part.startsWith("FULLMEGAPACKET@")) {
                             megaPacket = Base64.getDecoder().decode(part.substring("FULLMEGAPACKET@".length()));
+                        } else if (part.startsWith("SRAKEYS_COMMUNITY@")) {
+                            // Dual-lock: la mitad community persistida por guardarFosilSRA.
+                            this.local_sra_unlock_community = Base64.getDecoder().decode(part.substring("SRAKEYS_COMMUNITY@".length()));
+                            Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                            if (myP != null) {
+                                myP.setSra_unlock_community(this.local_sra_unlock_community);
+                            }
                         } else if (part.startsWith("SRAKEYS@")) {
                             this.local_sra_unlock = Base64.getDecoder().decode(part.substring("SRAKEYS@".length()));
                             Participant myP = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
                             if (myP != null) {
                                 myP.setSra_unlock(this.local_sra_unlock);
+                            }
+                        } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
+                            String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
+                            for (String bk : bKeys) {
+                                if (bk.isEmpty()) {
+                                    continue;
+                                }
+                                String[] pair = bk.split(":");
+                                try {
+                                    String bNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                    byte[] bUnlockCommunity = Base64.getDecoder().decode(pair[1]);
+                                    Participant pBot = GameFrame.getInstance().getParticipantes().get(bNick);
+                                    if (pBot != null) {
+                                        pBot.setSra_unlock_community(bUnlockCommunity);
+                                    }
+                                } catch (Exception e) {
+                                }
                             }
                         } else if (part.startsWith("BOTKEYS@")) {
                             String[] bKeys = part.substring("BOTKEYS@".length()).split(",");
@@ -7750,7 +7803,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS@").append(java.util.Base64.getEncoder().encodeToString(unlockToSave));
             }
 
+            // Dual-lock (Opción G): además del unlock pocket guardamos el unlock
+            // community. Sin esto, una recuperación post-rotación dejaría las
+            // community pieces sin descifrar y la mano se atascaría en FLOP.
+            byte[] unlockCommunityToSave = this.local_sra_unlock_community;
+            if (unlockCommunityToSave == null) {
+                Participant p = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local());
+                if (p != null) {
+                    unlockCommunityToSave = p.getSra_unlock_community();
+                }
+            }
+            if (unlockCommunityToSave != null) {
+                fosil.append("#SRAKEYS_COMMUNITY@").append(java.util.Base64.getEncoder().encodeToString(unlockCommunityToSave));
+            }
+
             StringBuilder botKeys = new StringBuilder();
+            StringBuilder botKeysCommunity = new StringBuilder();
             StringBuilder botVisuals = new StringBuilder();
             for (String nick : this.active_crypto_ring) {
                 Participant p = GameFrame.getInstance().getParticipantes().get(nick);
@@ -7763,6 +7831,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 .append(java.util.Base64.getEncoder().encodeToString(p.getReceived_token()))
                                 .append(",");
                     }
+                    if (p.getSra_unlock_community() != null) {
+                        botKeysCommunity.append(java.util.Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
+                                .append(":")
+                                .append(java.util.Base64.getEncoder().encodeToString(p.getSra_unlock_community()))
+                                .append(",");
+                    }
                     if (botPlayer != null && botPlayer.getHoleCard1().getCartaComoEntero() >= 0) {
                         botVisuals.append(java.util.Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
                                 .append(":")
@@ -7773,6 +7847,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (botKeys.length() > 0) {
                 fosil.append("#BOTKEYS@").append(botKeys.toString());
+            }
+            if (botKeysCommunity.length() > 0) {
+                fosil.append("#BOTKEYS_COMMUNITY@").append(botKeysCommunity.toString());
             }
             if (botVisuals.length() > 0) {
                 fosil.append("#BOTVISUAL@").append(botVisuals.toString());

@@ -87,7 +87,16 @@ public class Participant implements Runnable {
     private volatile long grace_deadline_floor = 0L;
 
     // --- SRA ZERO-TRUST VARIABLES ---
-    private volatile byte[] sra_unlock = null; // Master key to remove player lock
+    // sra_unlock: scalar para POCKET pieces. Antes era la única clave del peer;
+    // tras el refactor dual-lock (Opción G) sigue siendo válido para pockets
+    // pero NUNCA debe entregarse vía testamento — su exposición permitiría al
+    // host descifrar las pocket cards del peer que sale.
+    private volatile byte[] sra_unlock = null;
+    // sra_unlock_community: scalar para community pieces tras la fase de
+    // rotación. Es la única mitad que se incluye en el testamento al hacer
+    // EXIT, así el juego puede continuar revelando comunitarias sin exponer
+    // pockets.
+    private volatile byte[] sra_unlock_community = null;
 
     public byte[] getSra_unlock() {
         return sra_unlock;
@@ -95,6 +104,14 @@ public class Participant implements Runnable {
 
     public void setSra_unlock(byte[] sra_unlock) {
         this.sra_unlock = sra_unlock;
+    }
+
+    public byte[] getSra_unlock_community() {
+        return sra_unlock_community;
+    }
+
+    public void setSra_unlock_community(byte[] sra_unlock_community) {
+        this.sra_unlock_community = sra_unlock_community;
     }
 
     // --- EC-Identity v1 ---

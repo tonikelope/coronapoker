@@ -3557,7 +3557,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    start_time = System.currentTimeMillis();
+                    LOGGER.log(Level.WARNING, "recibirPosiciones timeout — POSITIONS never arrived from host. Breaking wait to avoid indefinite block.");
+                    break;
                 } else {
 
                     synchronized (this.getReceived_commands()) {
@@ -5928,7 +5929,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    start_time = System.currentTimeMillis();
+                    LOGGER.log(Level.WARNING, "recibirDatosClaveRecuperados timeout — RECOVERDATA never arrived from host (host may not be in recovery mode). Breaking wait, returning null so caller can fall back to saltar_primera_mano.");
+                    break;
                 } else {
                     synchronized (this.getReceived_commands()) {
                         try {
@@ -6007,7 +6009,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    start_time = System.currentTimeMillis();
+                    LOGGER.log(Level.WARNING, "recibirAccionesRecuperadas timeout — ACTIONDATA never arrived from host. Breaking wait so the dragon recovery dialog closes via the empty-queue branch in recuperarDatosClavePartida.");
+                    break;
                 } else {
                     synchronized (this.getReceived_commands()) {
                         try {
@@ -9208,7 +9211,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                        start_time = System.currentTimeMillis();
+                        LOGGER.log(Level.WARNING, "sortearSitios timeout — SEATS never arrived from host. Breaking wait; permutados stays null and the caller's iteration will fail fast via the existing CRUPIER FATAL ERROR catch in Crupier.run() instead of hanging indefinitely.");
+                        break;
                     } else {
                         synchronized (this.getReceived_commands()) {
 
@@ -9504,7 +9508,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                    start_time = System.currentTimeMillis();
+                    LOGGER.log(Level.WARNING, "recibirCartasResistencia timeout — POTCARDS never arrived from host. Breaking wait; showdown UI may render without revealed hole cards but the hand still settles via the host's authoritative payout.");
+                    break;
                 } else {
                     synchronized (this.getReceived_commands()) {
                         try {

@@ -3704,18 +3704,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // la única salida del bucle es que estén ready o que su socket muera
             // (isExit() lo refleja, gestionado por su propio Participant.run()).
             //
-            // Excluidos del wait, además de bots (isCpu) y peers caídos (isExit):
-            // jugadores en WARMING UP (joiners que entraron tras un recover y aún
-            // no participan en la cascada SRA) y espectadores normales (bust o sin
-            // buy-in para esta mano). Ninguno de los dos está en active_crypto_ring
-            // ni dispara su propio readyForNextHand para esta mano, así que su
-            // Participant.new_hand_ready se queda en el valor anterior y el host
-            // se quedaba esperando un HAND_READY que jamás llega — bloqueo
-            // observado por el reporter cuando se unía un cliente mid-pausa con
-            // bots y la siguiente mano nunca arrancaba ("server stuck on
-            // settlement screen, client stuck on warming up"). Es el mismo patrón
-            // que ya filtra computeExpectedConsensusSigners; aquí faltaba la
-            // protección simétrica.
+            // Se espera a TODOS los humanos no exitados, incluidos joiners pasivos
+            // (calentando) y espectadores (bust). Aunque no participen de la
+            // cascada SRA ni de la cadena de hash, su Crupier sigue corriendo
+            // NUEVA_MANO y la rama cliente de este mismo readyForNextHand envia
+            // HAND_READY incondicionalmente, asi que el HAND_READY llega siempre.
+            // No filtrarlos garantiza que el host nunca arranque la mano siguiente
+            // antes de que un peer pasivo haya cerrado su mano previa.
             boolean ready;
             do {
                 ready = true;
@@ -3723,10 +3718,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Participant p = entry.getValue();
                     if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())
                             && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
-                        Player jp = nick2player.get(p.getNick());
-                        if (jp != null && (jp.isCalentando() || jp.isSpectator())) {
-                            continue;
-                        }
                         ready = false;
                         break;
                     }

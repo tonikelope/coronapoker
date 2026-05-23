@@ -316,8 +316,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // --- LLAVES EC-SRA DEL JUGADOR LOCAL ---
+    // Dual-lock (Opción G): cada peer genera DOS pares de scalars por mano.
+    //   - local_sra_lock / local_sra_unlock se usan en la cascade principal y
+    //     siguen siendo la clave de las pocket pieces.
+    //   - local_sra_lock_community / local_sra_unlock_community se usan en la
+    //     fase de rotación que transforma las community pieces y luego para
+    //     desbloquearlas en cada calle. El testamento criptográfico al hacer
+    //     EXIT entrega SOLO la mitad community; las pocket cards del peer
+    //     que sale permanecen ininteligibles para el host.
     public volatile byte[] local_sra_lock = null;
     public volatile byte[] local_sra_unlock = null;
+    public volatile byte[] local_sra_lock_community = null;
+    public volatile byte[] local_sra_unlock_community = null;
     public volatile byte[] local_mega_packet = null;
 
     // --- TOKENS DEL HOST ---
@@ -655,6 +665,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Candado fresco del Host por intento.
             this.local_sra_lock = CryptoSRA.generateLockScalar();
             this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
+            // Dual-lock (Opción G): segundo par para community. Generado por
+            // adelantado para que la fase de rotación que vendrá después de la
+            // cascade tenga el scalar listo. Hasta que se cablee la rotación
+            // este par queda inerte (no se aplica a nada).
+            this.local_sra_lock_community = CryptoSRA.generateLockScalar();
+            this.local_sra_unlock_community = CryptoSRA.getUnlockScalar(this.local_sra_lock_community);
 
             workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
@@ -3465,6 +3481,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_mega_packet = null;
         this.active_crypto_ring = null;
         this.local_sra_unlock = null;
+        this.local_sra_lock_community = null;
+        this.local_sra_unlock_community = null;
         this.local_original_cards = new byte[2];
     }
 
@@ -4197,6 +4215,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.local_sra_lock = null;
         this.local_sra_unlock = null;
+        this.local_sra_lock_community = null;
+        this.local_sra_unlock_community = null;
         this.local_mega_packet = null;
 
         this.active_crypto_ring = null;
@@ -4406,6 +4426,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.active_crypto_ring = null;
                     this.local_sra_unlock = null;
                     this.local_sra_lock = null;
+                    this.local_sra_lock_community = null;
+                    this.local_sra_unlock_community = null;
                     this.local_original_cards = new byte[2];
                     // setPositions solo en el fresh-start genuino (game_recovered==0):
                     // host calcula y broadcastea POSITIONS, clientes esperan POSITIONS.

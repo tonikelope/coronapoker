@@ -2876,49 +2876,70 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (jugador.getHoleCard1().isTapada()) {
-                    // PHASE A.1: SHOWCARDS lleva ahora una firma Ed25519 del nick
-                    // que reveló (humano firma con su privkey; el host firma para
-                    // sus bots). Verificamos la sig ANTES de aplicar SRA: sin sig
-                    // válida, un host MitM podría haber substituido o atribuido
-                    // la clave a otro jugador. resolveShowdownSignerPubkey ya
-                    // hace el lookup adecuado (humano → suya; bot → host).
+                    // PHASE A.1: SHOWCARDS lleva firma Ed25519 sobre
+                    // (HAND_ID || nick || pocketKey). Verificamos la sig
+                    // ANTES de aplicar SRA.
                     //
-                    // ZERO-TRUST SRA después: applyCommutativeLock con la clave;
-                    // si la clave es errónea (improbable si sig OK pero por
-                    // defense-in-depth), resolveCardIndex devuelve -1 y las
-                    // cartas se quedan tapada. NO disparamos lockdown — el SRA
-                    // y la sig juntos son la verificación.
+                    // Asimetría de reacciones:
+                    //   - Sig MISSING / sig VERIFY FAIL → el host (que es quien
+                    //     transporta el broadcast) modificó la payload o no
+                    //     propagó una sig que el peer firmó. El host queda
+                    //     detectado como HOSTIL → LOCKDOWN. Sin esto, host
+                    //     puede WITHHOLD o SUBSTITUIR las cartas de un peer.
+                    //   - Sig OK pero SRA resolveCardIndex == -1 → el peer firmó
+                    //     una key que no resuelve (bug propio o suicide hide).
+                    //     Sus cartas se quedan tapada, sin lockdown — el peer
+                    //     buggy no debería matar la mesa.
+                    //   - Signer pubkey aún no resuelta (TOFU race) → no
+                    //     dispara lockdown (puede ser legítimo race durante JOIN
+                    //     reciente), simplemente cartas tapada.
                     boolean decrypted = false;
-                    boolean sigOk = false;
-                    if (sraKeyB64 != null && !sraKeyB64.equals("*")
-                            && sigB64 != null && !sigB64.equals("*")) {
+                    boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
+                    boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
+                    if (keyProvided && !sigProvided) {
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST: SHOWCARDS for {0} arrived WITHOUT sig — host stripped or legacy client. Host marked hostile, lockdown.",
+                                nick);
+                        triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                    } else if (keyProvided && sigProvided) {
                         try {
                             byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
                             byte[] sig = Base64.getDecoder().decode(sigB64);
-                            if (sraKey.length == 32 && sig.length == 64) {
+                            if (sraKey.length != 32 || sig.length != 64) {
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST: SHOWCARDS for {0} has bad lengths (key={1}, sig={2}) — host wire malformado, lockdown.",
+                                        new Object[]{nick, sraKey.length, sig.length});
+                                triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                            } else {
                                 byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
-                                if (signerPubkey != null
-                                        && this.current_hand_id != null
-                                        && IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
-                                    sigOk = true;
+                                if (signerPubkey == null || this.current_hand_id == null) {
+                                    // Pubkey no resuelta aún (TOFU race) o hand_id null —
+                                    // no podemos verificar todavía. NO lockdown (puede ser
+                                    // race legítimo). Cartas tapada hasta poder verificar.
+                                    LOGGER.log(Level.WARNING,
+                                            "SHOWCARDS for {0}: signer pubkey or hand_id not resolved yet — card stays tapada (no lockdown, possible TOFU race)",
+                                            nick);
+                                } else if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: SHOWCARDS sig verify FAILED for {0} — host substituting key on the wire. Host hostile, lockdown.",
+                                            nick);
+                                    triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                } else {
+                                    // Sig OK: aplicar SRA.
                                     Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                                     if (p != null) {
                                         p.setSra_unlock(sraKey);
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
-                                } else {
-                                    LOGGER.log(Level.SEVERE,
-                                            "SHOWCARDS sig verify FAILED for {0} — host substituting key or signer pubkey unavailable. Card stays tapada.",
-                                            nick);
+                                    // Si decrypted=false aquí: sig estaba OK pero SRA da -1.
+                                    // Eso es el peer firmando honestamente una key que no
+                                    // resuelve — bug propio del peer o suicide-hide. Sus
+                                    // cartas se quedan tapada, SIN lockdown.
                                 }
                             }
                         } catch (Exception e) {
                             LOGGER.log(Level.WARNING, "Error decrypting SRA SHOWCARDS for " + nick, e);
                         }
-                    } else if (sraKeyB64 != null && !sraKeyB64.equals("*")) {
-                        LOGGER.log(Level.SEVERE,
-                                "SHOWCARDS for {0} arrived WITHOUT sig — host stripped or pre-sig client. Card stays tapada.",
-                                nick);
                     }
 
                     if (decrypted) {

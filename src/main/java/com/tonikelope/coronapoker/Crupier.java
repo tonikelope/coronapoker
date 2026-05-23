@@ -3168,7 +3168,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.small_blind_nick = (String) map.get("sb");
             this.big_blind_nick = (String) map.get("bb");
 
-            if (!saltar_primera_mano) {
+            // Calcular utg_nick localmente cuando hay datos de recovery utiles:
+            // cubre tanto el caso clasico (saltar=false, peer con replay completo)
+            // como el caso del joiner pasivo observer (saltar=true pero el host
+            // SI tiene una mano en curso en el map -> map.hand_end == 0L).
+            // En ambos casos dealer/sb/bb se setearon arriba desde el map de
+            // recovery y nicks_permutados contiene la lista completa de
+            // participantes; basta el calculo local desde bb_pos.
+            //
+            // El else (no hay mano-en-curso en el map) es el fresh-start
+            // genuino donde el host calcula y broadcastea POSITIONS via
+            // setPositions y los clientes esperan a recibirlo.
+            //
+            // Antes este if se gateaba con !saltar_primera_mano, lo cual
+            // metia al joiner observer en la rama else -> recibirPosiciones
+            // -> timeout porque el host (en saltar=false) jamas envia
+            // POSITIONS en este punto. Sin utg_nick, la siguiente
+            // rondaApuestas iteraba infinitamente comparando nicks contra
+            // null hasta IndexOutOfBoundsException en getJugadores().get().
+            //
+            // No uso this.game_recovered como discriminador porque su
+            // asignacion final ocurre mas abajo (linea ~3296) y aqui aun no
+            // refleja el estado de recovery del peer. map.hand_end == 0L es
+            // el invariante real "hay una mano-en-curso en el snapshot de
+            // recovery" y esta accesible directamente.
+            boolean hostHasInProgressHand = (map != null
+                    && map.get("hand_end") != null
+                    && (Long) map.get("hand_end") == 0L);
+            if (!saltar_primera_mano || hostHasInProgressHand) {
                 int bb_pos = permutadoNick2Pos(this.big_blind_nick);
                 if (bb_pos != -1) {
                     if (getJugadoresActivos() == 2) {
@@ -4380,7 +4407,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.local_sra_unlock = null;
                     this.local_sra_lock = null;
                     this.local_original_cards = new byte[2];
-                    this.setPositions();
+                    // setPositions solo en el fresh-start genuino (game_recovered==0):
+                    // host calcula y broadcastea POSITIONS, clientes esperan POSITIONS.
+                    // El joiner pasivo observer (saltar=true + game_recovered=1) ya
+                    // tiene dealer/sb/bb/utg desde el map de recovery procesado en
+                    // recuperarDatosClavePartida (donde el if ahora gateado por
+                    // game_recovered==1 calcula utg localmente sin esperar POSITIONS).
+                    // Sin este gate, el observer caia en recibirPosiciones a timeout.
+                    if (this.game_recovered == 0) {
+                        this.setPositions();
+                    }
                 }
                 // Rescate de spectator: tras saltar=true y balance vacio del
                 // recovery, los players quedan marcados spectator desde el

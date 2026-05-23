@@ -2847,14 +2847,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
-                    // PHASE A.1 (showdown zero-trust): si vino una clave NO trivial pero
-                    // resolveCardIndex devolvió -1 dentro de unlockPlayerCardsWithSRAKey,
-                    // el peer está mintiendo: ha enviado un k_pocket_unlock que NO desbloquea
-                    // su pocket piece a un genesis point válido. Probabilidad de colisión
-                    // accidental sobre uno de los 52 genesis: ~52/2^256, intratable. Único
-                    // explicación: cheat deliberado. Lockdown sin reconciliación posible
-                    // — la mano se pudre porque un peer ha intentado mentir sus cartas.
-                    if (keyWasProvided && !decrypted) {
+                    // PHASE A.1 (showdown zero-trust): lockdown SOLO si tenía data
+                    // local con la que cruzar (single_locked_pocket_cards[nick]) Y
+                    // la verificación falló. Sin data — caso típico del espectador
+                    // calentando que no participó en la cascade — no es cheating,
+                    // es estado normal: el spectator no puede verificar SHOWCARDS,
+                    // se entera por POTCARDS. Disparar lockdown ahí sería romper a
+                    // los espectadores sin razón.
+                    if (keyWasProvided && !decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
                         LOGGER.log(Level.SEVERE,
                                 "ZERO-TRUST: SHOWCARDS for {0} carries a key that does NOT resolve to valid card indices — peer cheating at showdown, lockdown",
                                 nick);

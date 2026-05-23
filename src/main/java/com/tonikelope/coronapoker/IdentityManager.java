@@ -532,12 +532,66 @@ public final class IdentityManager {
     private static void applyOwnerOnlyPermissions(Path path) {
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.contains("win")) {
+            applyWindowsAclOwnerOnly(path);
             return;
         }
         try {
             Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Could not set 0600 permissions on {0}: {1}",
+                    new Object[]{path, ex.getMessage()});
+        }
+    }
+
+    /**
+     * Restringir el privkey Ed25519 al usuario actual en Windows usando icacls.
+     *   /inheritance:r  → quita las ACEs heredadas del padre (el archivo deja
+     *                     de heredar permisos genéricos como "Users:(RX)" o
+     *                     "Authenticated Users:(M)").
+     *   /grant:r USER:F → otorga FULL control al usuario actual, R reemplaza
+     *                     cualquier entrada previa para ese mismo usuario.
+     *
+     * Resultado: solo el owner puede leer/escribir el fichero. Si la operación
+     * falla (icacls no disponible, permisos insuficientes), log WARNING — el
+     * fichero queda con permisos por defecto de Windows (peor pero no roto).
+     * En POSIX el equivalente es 0600 via setPosixFilePermissions.
+     */
+    private static void applyWindowsAclOwnerOnly(Path path) {
+        String username = System.getProperty("user.name");
+        if (username == null || username.trim().isEmpty()) {
+            LOGGER.log(Level.WARNING,
+                    "applyWindowsAclOwnerOnly: user.name is empty — leaving default ACL on {0}", path);
+            return;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder(
+                    "icacls",
+                    path.toAbsolutePath().toString(),
+                    "/inheritance:r",
+                    "/grant:r", username + ":(F)"
+            );
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            // Drenar stdout/stderr para evitar que el proceso bloquee por buffer lleno.
+            // No nos importa el output, solo el exit code.
+            try (java.io.InputStream is = p.getInputStream()) {
+                byte[] buf = new byte[4096];
+                while (is.read(buf) != -1) {
+                    // discard
+                }
+            }
+            int exit = p.waitFor();
+            if (exit != 0) {
+                LOGGER.log(Level.WARNING,
+                        "icacls returned exit code {0} on {1} — ACL may not be restricted",
+                        new Object[]{exit, path});
+            } else {
+                LOGGER.log(Level.INFO,
+                        "Windows ACL restricted to user \"{0}\" on {1}",
+                        new Object[]{username, path});
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Could not apply Windows ACL on {0}: {1}",
                     new Object[]{path, ex.getMessage()});
         }
     }

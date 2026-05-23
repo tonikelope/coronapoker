@@ -8161,6 +8161,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         } while (!pendientes.isEmpty() && !isFin_de_la_transmision());
+
+        // PHASE A.1: broadcast POTCARDS plaintext SOLO tras haber SRA-verificado
+        // cada peer del crypto-ring. Los espectadores/calentando no participan
+        // en la cascade y por tanto no tienen single_locked_pocket_cards: para
+        // ellos POTCARDS es la única forma de ver las cartas reveladas.
+        // Crypto-ring clients lo reciben también, pero el handler client-side
+        // solo aplica el plaintext si la carta sigue tapada (fallback cosmético
+        // si su decryption SRA SHOWCARDS no se completó por alguna razón).
+        //
+        // Garantía de zero-trust: si CUALQUIER peer mintió en su RESP_SHOWDOWN_KEY,
+        // verifyAndBroadcastShowdownKey ya disparó SECURITY_LOCKDOWN arriba y
+        // hemos abandonado con un return temprano — el POTCARDS abajo SOLO se
+        // emite cuando todos los keys verificaron limpio (o timeout, en cuyo
+        // caso algunos peers tendrán cartas tapadas legítimamente). Un host
+        // que intentara forjar POTCARDS también necesitaría forjar SHOWCARDS
+        // consistentes, y ahí los crypto-ring clients lo cazan.
+        if (!Crupier.SECURITY_LOCKDOWN) {
+            StringBuilder potcards = new StringBuilder("POTCARDS");
+            boolean anyCard = false;
+            for (Player jugador : resisten) {
+                if (jugador.isExit()) {
+                    continue;
+                }
+                try {
+                    String c1 = jugador.getHoleCard1().toShortString();
+                    String c2 = jugador.getHoleCard2().toShortString();
+                    if (c1 == null || c1.isEmpty() || c2 == null || c2.isEmpty()) {
+                        continue;
+                    }
+                    potcards.append("#")
+                            .append(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8")))
+                            .append("#").append(c1)
+                            .append("#").append(c2);
+                    anyCard = true;
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Error encoding POTCARDS entry for " + jugador.getNickname(), ex);
+                }
+            }
+            if (anyCard) {
+                broadcastGAMECommandFromServer(potcards.toString(), null);
+            }
+        }
     }
 
     // PHASE A.1: helper del host para verificar SRA + broadcast SHOWCARDS de una
@@ -9903,24 +9945,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().getRegistro().print("RIVER -> " + Card.collection2String(com));
     }
 
-    // PHASE A.1 (showdown zero-trust): el client espera a que el host le mande
-    // SHOWCARDS por cada peer en showdown — esos broadcasts llegan al handler
-    // de WaitingRoomFrame que llama showPlayerCards y verifica vía SRA con
-    // resolveCardIndex. Aquí solo orquestamos dos cosas:
-    //   (a) si el host nos pide REQ_SHOWDOWN_KEY, respondemos con nuestra
-    //       k_pocket_unlock (Crupier.local_sra_unlock / Participant.sra_unlock).
-    //   (b) bloqueamos hasta que TODOS los peers no-self del resistencia
-    //       hayan reveladas sus cartas (HoleCard1.isTapada()==false) o se
-    //       agote el timeout / dispare lockdown.
+    // PHASE A.1 (showdown zero-trust): comportamiento del cliente al showdown.
     //
-    // Reemplaza el path plaintext POTCARDS/REQ_VISUAL_CARDS/VISUAL_UPDATE que
-    // existía: ahora el revelado va por SHOWCARDS con verificación criptográfica
-    // en cada cliente (en showPlayerCards), así que un host malicioso que
-    // intentara broadcastear una clave fabricada también es cazado por el
-    // cliente.
+    // Crypto-ring clients reciben SHOWCARDS#nick#key del host por cada peer al
+    // showdown — el handler async de WaitingRoomFrame:SHOWCARDS llama
+    // showPlayerCards que aplica la clave a single_locked_pocket_cards[nick]
+    // y verifica resolveCardIndex (lockdown si resolveCardIndex==-1).
+    //
+    // ESPECTADORES (isCalentando / isSpectator) NO están en el crypto-ring y
+    // NO tienen single_locked_pocket_cards. Para ellos el host emite también
+    // POTCARDS plaintext, que solo se envía tras haber SRA-verificado a todos
+    // los peers (si alguien mintió, lockdown disparó y POTCARDS nunca sale).
+    //
+    // Esta función:
+    //   (a) responde a REQ_SHOWDOWN_KEY enviando local_sra_unlock.
+    //   (b) procesa POTCARDS (plaintext fallback para espectadores y para
+    //       crypto-ring clients cuyas cartas SHOWCARDS aún están tapadas).
+    //   (c) bloquea hasta que se cumpla la condición de exit según rol:
+    //         - calentando: POTCARDS ha llegado (única forma de ver cartas).
+    //         - crypto-ring: todos los peers no-self tienen HoleCard destapada
+    //           (vía SHOWCARDS) o se aplicó plaintext POTCARDS como fallback.
     private void recibirCartasResistencia(ArrayList<Player> resistencia) {
         long start_time = System.currentTimeMillis();
         String localNick = GameFrame.getInstance().getNick_local();
+        boolean iAmCalentando = GameFrame.getInstance().getLocalPlayer().isCalentando()
+                || GameFrame.getInstance().getLocalPlayer().isSpectator();
+        boolean potcardsApplied = false;
 
         do {
             synchronized (this.getReceived_commands()) {
@@ -9954,6 +10004,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 });
                                 break;
 
+                            case "POTCARDS":
+                                // Plaintext con todas las cartas del showdown. Lo emite el
+                                // host SOLO tras haber SRA-verificado a cada peer crypto-ring.
+                                // Para espectadores es la única forma de ver; para crypto-ring
+                                // es fallback si su SHOWCARDS aún no completó.
+                                int total = (int) ((float) (partes.length - 3) / 3);
+                                for (int i = 0; i < total; i++) {
+                                    try {
+                                        String nick = new String(Base64.getDecoder().decode(partes[3 + 3 * i]), "UTF-8");
+                                        Player jugador = nick2player.get(nick);
+                                        if (jugador != null
+                                                && !jugador.getNickname().equals(localNick)
+                                                && !jugador.isExit()) {
+                                            String c1_str = partes[4 + 3 * i];
+                                            String c2_str = partes[5 + 3 * i];
+                                            if (c1_str != null && c1_str.length() >= 3 && c1_str.contains("_")
+                                                    && c2_str != null && c2_str.length() >= 3 && c2_str.contains("_")) {
+                                                // BLINDAJE: solo aplicar plaintext si soy espectador
+                                                // O la carta sigue tapada (SHOWCARDS no llegó / no
+                                                // desencriptó). Crypto-ring con SHOWCARDS limpio NO
+                                                // se sobrescribe — la SRA-verificada es autoritativa.
+                                                if (iAmCalentando || jugador.getHoleCard1().isTapada()) {
+                                                    String[] carta1 = c1_str.split("_");
+                                                    String[] carta2 = c2_str.split("_");
+                                                    jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
+                                                    jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
+                                                }
+                                            }
+                                        }
+                                    } catch (Exception ex) {
+                                        LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
+                                    }
+                                }
+                                potcardsApplied = true;
+                                break;
+
                             case "MISDEAL":
                                 String motivo = "";
                                 try {
@@ -9976,20 +10062,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            // ¿Todos los peers no-self del resistencia tienen cartas reveladas?
-            // (La WaitingRoomFrame SHOWCARDS handler async-actualiza HoleCard
-            // cuando llegan los broadcasts del host.)
-            boolean allRevealed = true;
-            for (Player jugador : resistencia) {
-                if (jugador.getNickname().equals(localNick) || jugador.isExit()) {
-                    continue;
-                }
-                if (jugador.getHoleCard1().isTapada()) {
-                    allRevealed = false;
-                    break;
+            // Condición de exit depende del rol:
+            //   - calentando/spectator: necesita POTCARDS para ver cartas (no
+            //     tiene scalars para descifrar SHOWCARDS).
+            //   - crypto-ring: cartas se revelan via SHOWCARDS (HoleCard.isTapada
+            //     vuelve a false cuando showPlayerCards las destapa); POTCARDS
+            //     es bonus si el SHOWCARDS no completó.
+            boolean doneWaiting;
+            if (iAmCalentando) {
+                doneWaiting = potcardsApplied;
+            } else {
+                doneWaiting = true;
+                for (Player jugador : resistencia) {
+                    if (jugador.getNickname().equals(localNick) || jugador.isExit()) {
+                        continue;
+                    }
+                    if (jugador.getHoleCard1().isTapada()) {
+                        doneWaiting = false;
+                        break;
+                    }
                 }
             }
-            if (allRevealed) {
+            if (doneWaiting) {
                 break;
             }
 
@@ -10000,7 +10094,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.getInstance().checkPause()) {
                 start_time = System.currentTimeMillis();
             } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                LOGGER.log(Level.WARNING, "recibirCartasResistencia timeout — algunos SHOWCARDS no llegaron. UI muestra cartas tapadas; el host resuelve el pot por acciones.");
+                LOGGER.log(Level.WARNING, "recibirCartasResistencia timeout — showdown reveals incompletos. UI muestra cartas tapadas; el host resuelve el pot por acciones.");
                 break;
             } else {
                 synchronized (this.getReceived_commands()) {

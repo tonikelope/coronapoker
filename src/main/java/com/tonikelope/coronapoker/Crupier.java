@@ -1259,6 +1259,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return "*";
     }
 
+    /**
+     * PHASE A.1: firma (HAND_ID || nick || pocketKey) con la privkey LOCAL bajo
+     * el dominio SHOWDOWN_V1, para acompañar la pocketKey en el wire SHOWCARDS
+     * / RESP_SHOWDOWN_KEY. La sig demuestra que la clave fue autorizada por
+     * quien la posee:
+     *
+     *   - Si el local nick es el revelador (humano local): firma con su Ed25519.
+     *   - Si revelaNick es un bot que el host orquesta: el host firma con SU
+     *     propia Ed25519. Los bots no tienen identity y los receptores los
+     *     verifican con la pubkey del host (ver resolveShowdownSignerPubkey).
+     *
+     * Devuelve "*" si pocketKey="*" (lockdown) o si la identity no está lista
+     * (TOFU race / no signer); los receptores rechazan ese caso.
+     */
+    public String signShowdownRevealForBroadcast(String revealNick, String pocketKeyB64) {
+        if (pocketKeyB64 == null || pocketKeyB64.equals("*")) {
+            return "*";
+        }
+        if (this.current_hand_id == null) {
+            LOGGER.log(Level.WARNING, "signShowdownRevealForBroadcast: current_hand_id is null — cannot sign");
+            return "*";
+        }
+        try {
+            byte[] pocketKey = Base64.getDecoder().decode(pocketKeyB64);
+            if (pocketKey.length != 32) {
+                return "*";
+            }
+            IdentityManager im = IdentityManager.getInstance();
+            if (!im.isReady()) {
+                return "*";
+            }
+            byte[] sig = im.signShowdownReveal(this.current_hand_id, revealNick, pocketKey);
+            if (sig == null) {
+                return "*";
+            }
+            return Base64.getEncoder().encodeToString(sig);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "signShowdownRevealForBroadcast failed for " + revealNick, e);
+            return "*";
+        }
+    }
+
     public boolean unlockPlayerCardsWithSRAKey(Player target) {
         Participant p = GameFrame.getInstance().getParticipantes().get(target.getNickname());
         if (p != null && p.getSra_unlock() != null) {
@@ -2469,10 +2511,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // es la mitad POCKET (no la community que entrega EXIT). El receptor la guarda en
             // Participant.sra_unlock y unlockPlayerCardsWithSRAKey la aplica sobre el pocket
             // piece almacenado en single_locked_pocket_cards.
+            //
+            // PHASE A.1 (sig): firmamos (HAND_ID || nick || pocketKey) con Ed25519 antes de
+            // enviarla. El host no puede substituir la clave porque no tiene la privkey de este
+            // nick (para humanos = su propia privkey, para bots = host firma él mismo y los
+            // receptores verifican con la pubkey del host).
             try {
                 String sraKeyB64 = getShowdownPocketKey(nick);
+                String sigB64 = signShowdownRevealForBroadcast(nick, sraKeyB64);
 
-                String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64;
+                String comando = "SHOWCARDS#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#" + sraKeyB64 + "#" + sigB64;
                 if (GameFrame.getInstance().isPartida_local()) {
                     broadcastGAMECommandFromServer(comando, nick);
                 } else if (isLocal) {
@@ -2810,7 +2858,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return false;
     }
 
-    public void showPlayerCards(String nick, String sraKeyB64) {
+    public void showPlayerCards(String nick, String sraKeyB64, String sigB64) {
         synchronized (lock_mostrar) {
             // Nota: ya no gateamos con show_time. El SHOWCARDS puede llegar en la cola de drenaje
             // del IWTSTH cuando show_time ya está cerrado por la temporización del showdown.
@@ -2828,31 +2876,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (jugador.getHoleCard1().isTapada()) {
-                    // ZERO-TRUST SRA: aplicamos la clave recibida sobre nuestro
-                    // single_locked_pocket_cards[nick]. La protección es la propia
-                    // matemática SRA: si la clave es errónea, applyCommutativeLock
-                    // produce un punto random que resolveCardIndex no reconoce y
-                    // devuelve -1 → unlockPlayerCardsWithSRAKey devuelve false →
-                    // las cartas siguen tapada. El cheater no consigue convencer
-                    // a nadie de cartas falsas; el peor caso es que él esconda las
-                    // suyas, lo cual no le da ventaja porque el pot ya se resuelve
-                    // por acciones. NO disparamos lockdown: el SRA es suficiente,
-                    // un lockdown extra abre flanco de falsos positivos (red mala,
-                    // bug transitorio) que reventarían la mesa sin razón.
+                    // PHASE A.1: SHOWCARDS lleva ahora una firma Ed25519 del nick
+                    // que reveló (humano firma con su privkey; el host firma para
+                    // sus bots). Verificamos la sig ANTES de aplicar SRA: sin sig
+                    // válida, un host MitM podría haber substituido o atribuido
+                    // la clave a otro jugador. resolveShowdownSignerPubkey ya
+                    // hace el lookup adecuado (humano → suya; bot → host).
+                    //
+                    // ZERO-TRUST SRA después: applyCommutativeLock con la clave;
+                    // si la clave es errónea (improbable si sig OK pero por
+                    // defense-in-depth), resolveCardIndex devuelve -1 y las
+                    // cartas se quedan tapada. NO disparamos lockdown — el SRA
+                    // y la sig juntos son la verificación.
                     boolean decrypted = false;
-                    if (sraKeyB64 != null && !sraKeyB64.equals("*")) {
+                    boolean sigOk = false;
+                    if (sraKeyB64 != null && !sraKeyB64.equals("*")
+                            && sigB64 != null && !sigB64.equals("*")) {
                         try {
                             byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
-                            if (sraKey.length == 32) {
-                                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
-                                if (p != null) {
-                                    p.setSra_unlock(sraKey);
+                            byte[] sig = Base64.getDecoder().decode(sigB64);
+                            if (sraKey.length == 32 && sig.length == 64) {
+                                byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
+                                if (signerPubkey != null
+                                        && this.current_hand_id != null
+                                        && IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
+                                    sigOk = true;
+                                    Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                                    if (p != null) {
+                                        p.setSra_unlock(sraKey);
+                                    }
+                                    decrypted = unlockPlayerCardsWithSRAKey(jugador);
+                                } else {
+                                    LOGGER.log(Level.SEVERE,
+                                            "SHOWCARDS sig verify FAILED for {0} — host substituting key or signer pubkey unavailable. Card stays tapada.",
+                                            nick);
                                 }
-                                decrypted = unlockPlayerCardsWithSRAKey(jugador);
                             }
                         } catch (Exception e) {
                             LOGGER.log(Level.WARNING, "Error decrypting SRA SHOWCARDS for " + nick, e);
                         }
+                    } else if (sraKeyB64 != null && !sraKeyB64.equals("*")) {
+                        LOGGER.log(Level.SEVERE,
+                                "SHOWCARDS for {0} arrived WITHOUT sig — host stripped or pre-sig client. Card stays tapada.",
+                                nick);
                     }
 
                     if (decrypted) {
@@ -8049,8 +8115,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // PASO 1: para self + bots el host ya tiene la pocket key local
         // (local_sra_unlock / Participant.received_token). Broadcast SHOWCARDS
-        // a los clientes para que vean las cartas con verificación criptográfica
-        // local en cada cliente (showPlayerCards via WaitingRoomFrame handler).
+        // a los clientes con sig Ed25519 — el host firma para sí mismo y para
+        // sus bots; los clientes verifican con resolveShowdownSignerPubkey.
         String hostNick = GameFrame.getInstance().getNick_local();
         for (Player p : resisten) {
             if (p.isExit()) continue;
@@ -8063,7 +8129,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!"*".equals(localKey)) {
                     try {
                         String nickB64 = Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                        broadcastGAMECommandFromServer("SHOWCARDS#" + nickB64 + "#" + localKey, null);
+                        String sigB64 = signShowdownRevealForBroadcast(nick, localKey);
+                        broadcastGAMECommandFromServer("SHOWCARDS#" + nickB64 + "#" + localKey + "#" + sigB64, null);
                     } catch (Exception ex) {
                         LOGGER.log(Level.WARNING, "Error broadcasting SHOWCARDS for local nick " + nick, ex);
                     }
@@ -8111,12 +8178,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             String nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (pendientes.contains(nick)) {
                                 String keyB64 = partes[4];
-                                if (verifyAndBroadcastShowdownKey(nick, keyB64)) {
-                                    // OK — verificado y broadcasteado.
-                                }
-                                // Si la verificación falla, verifyAndBroadcastShowdownKey ya
-                                // disparó el lockdown. Igualmente quitamos de pendientes para
-                                // no quedarnos colgados intentando re-procesar.
+                                // PHASE A.1: la sig Ed25519 acompaña la key. Si no vino
+                                // (cliente pre-20.65 o stripping), pasamos "*" y el verify
+                                // rechaza con log SEVERE (las cartas del peer quedan tapada).
+                                String sigB64 = (partes.length >= 6) ? partes[5] : "*";
+                                verifyAndBroadcastShowdownKey(nick, keyB64, sigB64);
                                 pendientes.remove(nick);
                             } else {
                                 rejected.add(comando);
@@ -8199,16 +8265,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    // PHASE A.1: helper del host para verificar SRA + broadcast SHOWCARDS de una
-    // sola entrega per-peer. Aplica la clave al single_locked_pocket_cards
-    // almacenado durante el pocket dealing. Si resolveCardIndex devuelve -1
-    // para alguna de las dos cartas, la clave es errónea: sus cartas se quedan
-    // tapada en la UI de todos (no se emite SHOWCARDS, no entran en POTCARDS)
-    // y el peer no convence a nadie de cartas falsas. NO lockdown: el SRA es
-    // la verificación, no hace falta castigo extra que pueda dispararse por
-    // bugs transitorios o redes malas. Devuelve true si la verificación pasó.
-    private boolean verifyAndBroadcastShowdownKey(String nick, String keyB64) {
+    // PHASE A.1: helper del host para verificar firma Ed25519 + SRA + broadcast
+    // SHOWCARDS per-peer. Doble check:
+    //
+    //   1. Sig Ed25519: la clave debe estar firmada por la privkey del nick
+    //      (resolveShowdownSignerPubkey: humano → suya; bot → host). Sin sig
+    //      válida el host MitM podría haber substituido la key — RECHAZAMOS.
+    //   2. SRA matemática: aplicar la clave al single_locked_pocket_cards[nick]
+    //      y verificar que resolveCardIndex devuelve 0-51 en ambas cartas.
+    //      Si -1, la key es errónea — sus cartas no se revelan.
+    //
+    // En cualquier fail: devolvemos false, no broadcasteamos SHOWCARDS para
+    // ese nick, no se añade a POTCARDS — sus cartas se quedan tapada en la
+    // UI de todos. NO lockdown: el cheater no benefica al esconder sus cartas
+    // (pot se resuelve por acciones) y un lockdown abriría false-positives.
+    private boolean verifyAndBroadcastShowdownKey(String nick, String keyB64, String sigB64) {
         if (keyB64 == null || keyB64.equals("*")) {
+            return false;
+        }
+        if (sigB64 == null || sigB64.equals("*")) {
+            LOGGER.log(Level.SEVERE,
+                    "verifyAndBroadcastShowdownKey: RESP_SHOWDOWN_KEY from {0} arrived WITHOUT sig — refusing",
+                    nick);
             return false;
         }
         try {
@@ -8217,6 +8295,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.WARNING,
                         "verifyAndBroadcastShowdownKey: RESP_SHOWDOWN_KEY from {0} has wrong length {1} — sus cartas no se revelan",
                         new Object[]{nick, key.length});
+                return false;
+            }
+            byte[] sig = Base64.getDecoder().decode(sigB64);
+            if (sig.length != 64) {
+                LOGGER.log(Level.SEVERE,
+                        "verifyAndBroadcastShowdownKey: RESP_SHOWDOWN_KEY sig from {0} has wrong length {1} — refusing",
+                        new Object[]{nick, sig.length});
+                return false;
+            }
+            byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
+            if (signerPubkey == null || this.current_hand_id == null) {
+                LOGGER.log(Level.SEVERE,
+                        "verifyAndBroadcastShowdownKey: no signer pubkey or hand_id for {0} — refusing",
+                        nick);
+                return false;
+            }
+            if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, key, sig)) {
+                LOGGER.log(Level.SEVERE,
+                        "verifyAndBroadcastShowdownKey: Ed25519 sig FAILED for {0} — host may be substituting key or peer fabricated sig. Sus cartas no se revelan.",
+                        nick);
                 return false;
             }
             byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
@@ -8254,7 +8352,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // host malicioso que enviara una clave fabricada también es cazado.
             try {
                 String nickB64 = Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"));
-                broadcastGAMECommandFromServer("SHOWCARDS#" + nickB64 + "#" + keyB64, nick);
+                // PHASE A.1: forwardamos la sig INTACTA — el host no la modifica
+                // (no tiene privkey del peer), así que los receptores la verifican
+                // con la misma pubkey y obtienen el mismo OK que conseguimos aquí.
+                broadcastGAMECommandFromServer("SHOWCARDS#" + nickB64 + "#" + keyB64 + "#" + sigB64, nick);
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Error broadcasting verified SHOWCARDS for " + nick, ex);
             }
@@ -8583,6 +8684,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
         return hostPar != null ? hostPar.getIdentity_pubkey() : null;
+    }
+
+    /**
+     * PHASE A.1 (showdown sig): resolver la pubkey del firmante esperado de un
+     * SHOWCARDS / RESP_SHOWDOWN_KEY para nick. La identidad del firmante depende
+     * de si el nick es un humano o un bot:
+     *
+     *   - Humano (local o remoto): firma con su propia Ed25519 privkey. Su
+     *     pubkey vive en Participant.identity_pubkey (poblado vía TOFU/JOIN).
+     *   - Bot: el host firma en su nombre (los bots viven en el proceso host,
+     *     no tienen identity propia). La pubkey del verificador es entonces
+     *     la del host.
+     *
+     * Devuelve null si la pubkey no está disponible (TOFU race / hand without
+     * identity). El caller trata null como "no se puede verificar" — rechaza.
+     */
+    private byte[] resolveShowdownSignerPubkey(String revealNick) {
+        Participant par = GameFrame.getInstance().getParticipantes().get(revealNick);
+        if (par == null) {
+            return null;
+        }
+        if (par.isCpu()) {
+            // Bot — el firmante es el host.
+            if (GameFrame.getInstance().isPartida_local()) {
+                IdentityManager im = IdentityManager.getInstance();
+                return im.isReady() ? im.getPublicKey() : null;
+            }
+            String hostNick = GameFrame.getInstance().getSala_espera().getServer_nick();
+            if (hostNick == null) {
+                return null;
+            }
+            Participant hostPar = GameFrame.getInstance().getParticipantes().get(hostNick);
+            return hostPar != null ? hostPar.getIdentity_pubkey() : null;
+        }
+        return par.getIdentity_pubkey();
     }
 
     /**
@@ -9977,8 +10113,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "REQ_SHOWDOWN_KEY":
-                                // Responder con nuestra pocket-unlock. Asíncrono para no
-                                // bloquear el polling de received_commands.
+                                // PHASE A.1: respondemos con nuestra pocket-unlock + sig Ed25519.
+                                // La sig demuestra al host (y al resto via rebroadcast) que la
+                                // clave fue autorizada por NUESTRA privkey — el host no la
+                                // puede substituir. Asíncrono para no bloquear el polling.
                                 Helpers.threadRun(() -> {
                                     try {
                                         byte[] myKey = this.local_sra_unlock;
@@ -9992,7 +10130,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         String keyB64 = (myKey != null && myKey.length == 32)
                                                 ? Base64.getEncoder().encodeToString(myKey)
                                                 : "*";
-                                        sendGAMECommandToServer("RESP_SHOWDOWN_KEY#" + myNickB64 + "#" + keyB64, false);
+                                        String sigB64 = signShowdownRevealForBroadcast(localNick, keyB64);
+                                        sendGAMECommandToServer("RESP_SHOWDOWN_KEY#" + myNickB64 + "#" + keyB64 + "#" + sigB64, false);
                                     } catch (Exception e) {
                                         LOGGER.log(Level.SEVERE, "Error responding to REQ_SHOWDOWN_KEY", e);
                                     }

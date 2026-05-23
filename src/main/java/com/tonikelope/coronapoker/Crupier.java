@@ -3279,9 +3279,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (getJugadoresActivos() > 1 && !saltar_primera_mano) {
             this.game_recovered = 1;
             GameFrame.getInstance().refresh();
-        } else {
-            this.game_recovered = 0;
         }
+        // NO else { game_recovered = 0 }: NUEVA_MANO ya resetea
+        // game_recovered=0 al inicio (linea ~4172). Si la rama "joiner
+        // pasivo observer" mas arriba (saltar=true + hostReplayingHand)
+        // ya seteo game_recovered=1, ese valor debe sobrevivir. Un else
+        // que lo bajaba a 0 piso ese fix y reintroducia el bug del joiner
+        // colgado en recibirMisCartas durante la mano recuperada.
     }
 
     private void cancelarManoYDevolverApuestas(String motivo) {

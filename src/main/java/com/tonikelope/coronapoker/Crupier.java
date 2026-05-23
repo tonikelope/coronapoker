@@ -457,20 +457,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // única señal real de "este peer no va a responder" es que su propio thread
         // de Participant lo marca exit por inactividad de PING/PONG; usamos eso.
         boolean ok = false;
+        boolean fatalError = false;
         byte[] newDeck = null;
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
-                while (!ok && !this.getReceived_commands().isEmpty()) {
+                while (!ok && !fatalError && !this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
                     if (partes.length >= 5 && partes[2].equals("DECK_CASCADE_RESP")) {
                         try {
                             String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                             if (senderNick.equals(nick)) {
-                                newDeck = Base64.getDecoder().decode(partes[4]);
-                                if (newDeck.length == 1664) {
+                                byte[] candidate = Base64.getDecoder().decode(partes[4]);
+                                // ZERO-TRUST host-side: el peer responde con un deck que
+                                // vamos a propagar al siguiente en la cascada y, al final,
+                                // a TODOS via MEGAPACKET. Si el peer (malicioso o comprometido)
+                                // devuelve bytes que no son puntos de Curve25519, no podemos
+                                // contaminar la cascada — aborta la mano antes de propagar.
+                                if (candidate.length == 1664 && CryptoSRA.arePointsOnCurve(candidate)) {
+                                    newDeck = candidate;
                                     ok = true;
+                                } else {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid deck (len={1}, on_curve={2}) — refusing cascade",
+                                            new Object[]{nick, candidate.length,
+                                                candidate.length == 1664 ? CryptoSRA.arePointsOnCurve(candidate) : false});
+                                    fatalError = true;
                                 }
                             } else {
                                 rejected.add(cmd);
@@ -485,6 +498,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!rejected.isEmpty()) {
                     this.getReceived_commands().addAll(rejected);
                 }
+            }
+            if (fatalError) {
+                return null;
             }
             if (!ok) {
                 synchronized (this.getReceived_commands()) {
@@ -2499,7 +2515,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         switch (phase) {
             case UNLOCK_PHASE_POCKET:
-                return length == 64;
+                // Una vez se ha revelado cualquier carta comunitaria, la phase POCKET
+                // está cerrada para esta mano: cualquier petición POCKET posterior es
+                // un host intentando downgrade del state machine para extraer pockets
+                // ya entregados (re-uso de tags ya está cortado por sra_unlock_tags_served,
+                // pero esto cierra además el flanco de "tag nueva para mismo peer_idx").
+                return length == 64
+                        && !this.flop_revealed
+                        && !this.turn_revealed
+                        && !this.river_revealed;
             // Para TURN/RIVER usamos sra_unlock_tags_served (lo que YO he servido)
             // en lugar de los flags flop_revealed/turn_revealed (que se setean al
             // recibir el broadcast del host). Si dependiéramos del broadcast, un

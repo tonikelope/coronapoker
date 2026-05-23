@@ -872,14 +872,18 @@ public class Participant implements Runnable {
                                                 try {
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                     String sraKeyB64 = partes_comando[4];
+                                                    // PHASE A.1: la sig Ed25519 acompaña a la SRA key. El host NO puede
+                                                    // modificarla — es la prueba de que viene de la privkey del nick.
+                                                    String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
 
-                                                    // 1. El servidor descifra las cartas localmente con la SRA key recibida
-                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64);
+                                                    // 1. El servidor verifica firma + descifra localmente
+                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
 
-                                                    // 2. Efecto Espejo: Si somos el Host, rebotamos la clave al resto de la red
+                                                    // 2. Efecto Espejo: rebotamos el SHOWCARDS al resto incluyendo la sig
+                                                    // intacta. El host NO la altera — los receptores re-verifican.
                                                     if (GameFrame.getInstance().isPartida_local()) {
-                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64;
-                                                        // Le pasamos 'shNick' al final para excluir al jugador que originalmente envió el comando
+                                                        String sigPart = (sigB64 != null) ? sigB64 : "*";
+                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64 + "#" + sigPart;
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
                                                     }
                                                 } catch (Exception e) {

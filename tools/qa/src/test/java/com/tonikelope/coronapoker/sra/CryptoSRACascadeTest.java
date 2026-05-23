@@ -464,4 +464,98 @@ public class CryptoSRACascadeTest {
                     "Sanity: peer X aplicando su propia uPocket no debe dar -1");
         }
     }
+
+    /**
+     * Showdown zero-trust (PHASE A.1): un peer que MIENTE al showdown enviando
+     * un k_pocket_unlock fabricado NO puede convencer a nadie de cartas falsas.
+     * Detección por la propia matemática SRA, sin necesidad de un lockdown
+     * "punitivo" inventado encima.
+     *
+     * Si k_real * pocket_piece = G_y (genesis point de la carta real), un
+     * k_fake arbitrario produce un punto random de la curva. La probabilidad
+     * de que ese punto caiga sobre uno de los 52 genesis (52/2^256) es
+     * astronómicamente cero. Para que un cheater consiga apuntar a una carta
+     * DIFERENTE válida G_y' tendría que resolver
+     * k_fake = (k_real * G_y') / G_y — DLP, intratable.
+     *
+     * Este test ejercita:
+     *   1) Honest: aplicando uPocket[X] real resuelve a 0-51.
+     *   2) Cheating: 50 claves fabricadas random sobre el mismo pocket SIEMPRE
+     *      dan -1.
+     *
+     * Consecuencia operativa: clave mala → resolveCardIndex==-1 →
+     * unlockPlayerCardsWithSRAKey devuelve false → las cartas del cheater
+     * se quedan tapada en la UI de todos, no se emite SHOWCARDS para él, no
+     * se añade a POTCARDS. El cheater no consigue ventaja porque el pot ya
+     * se resuelve por acciones (no por claims de cartas); como mucho se
+     * esconde sus propias cartas a otros — algo que en poker no es per se
+     * cheating sino un muck que el motor ya cubre. NO disparamos lockdown
+     * en este flujo: el SRA es la verificación, no hace falta castigo extra
+     * que abra flanco a falsos positivos por red mala / bug transitorio.
+     */
+    @Test
+    public void testShowdownCheaterDetectedByResolveCardIndex() {
+        if (Helpers.CSPRNG_GENERATOR == null) {
+            Helpers.CSPRNG_GENERATOR = new SecureRandom();
+        }
+
+        int numPlayers = 4;
+        int cheater = 1;
+        int pocketSlots = numPlayers * POCKET_PER_PLAYER;
+
+        byte[][] kPocket = new byte[numPlayers][];
+        byte[][] uPocket = new byte[numPlayers][];
+        byte[][] seeds = new byte[numPlayers][];
+        for (int i = 0; i < numPlayers; i++) {
+            kPocket[i] = CryptoSRA.generateLockScalar();
+            uPocket[i] = CryptoSRA.getUnlockScalar(kPocket[i]);
+            seeds[i] = new byte[48];
+            Helpers.CSPRNG_GENERATOR.nextBytes(seeds[i]);
+        }
+
+        byte[] deck = CryptoSRA.getGenesisDeck();
+        for (int i = 0; i < numPlayers; i++) {
+            deck = CryptoSRA.applyCommutativeLock(deck, kPocket[i]);
+            deck = CryptoSRA.shuffleDeck(deck, seeds[i]);
+        }
+
+        byte[][] pocketPieces = new byte[pocketSlots][];
+        for (int j = 0; j < pocketSlots; j++) {
+            pocketPieces[j] = Arrays.copyOfRange(deck, j * CARD_BYTES, (j + 1) * CARD_BYTES);
+        }
+
+        // Estado del host al showdown: cada pocket tiene solo el lock del
+        // owner (los otros peers ya removieron los suyos en el per-recipient
+        // cascade durante el pocket dealing).
+        byte[][] cheaterPocketSingleLocked = new byte[POCKET_PER_PLAYER][];
+        for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+            byte[] piece = Arrays.copyOf(pocketPieces[cheater * POCKET_PER_PLAYER + slot], CARD_BYTES);
+            for (int i = 0; i < numPlayers; i++) {
+                if (i == cheater) continue;
+                piece = CryptoSRA.applyCommutativeLock(piece, uPocket[i]);
+            }
+            cheaterPocketSingleLocked[slot] = piece;
+        }
+
+        // Caso 1 — HONEST: clave real resuelve a 0-51.
+        for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+            byte[] unlocked = CryptoSRA.applyCommutativeLock(cheaterPocketSingleLocked[slot], uPocket[cheater]);
+            int idx = CryptoSRA.resolveCardIndex(unlocked);
+            assertTrue(idx >= 0 && idx < 52,
+                    "Honest: la clave real del cheater debe resolver a card index válido; got " + idx);
+        }
+
+        // Caso 2 — CHEATING: 50 claves fabricadas random NO resuelven.
+        int cheatAttempts = 50;
+        for (int attempt = 0; attempt < cheatAttempts; attempt++) {
+            byte[] fakeKey = CryptoSRA.generateLockScalar();
+            for (int slot = 0; slot < POCKET_PER_PLAYER; slot++) {
+                byte[] unlocked = CryptoSRA.applyCommutativeLock(cheaterPocketSingleLocked[slot], fakeKey);
+                int idx = CryptoSRA.resolveCardIndex(unlocked);
+                assertEquals(-1, idx,
+                        "Cheating attempt #" + attempt + " slot " + slot
+                        + ": una clave random NO debería resolver a card index válido (got " + idx + ")");
+            }
+        }
+    }
 }

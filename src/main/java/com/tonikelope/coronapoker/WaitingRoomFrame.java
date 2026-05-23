@@ -2069,9 +2069,19 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                     Crupier crupierRot = GameFrame.getInstance().getCrupier();
                                                                     if (crupierRot == null
-                                                                            || crupierRot.local_sra_unlock == null
                                                                             || crupierRot.local_sra_lock_community == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without active scalars (Crupier or scalars null) — refusing");
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
+                                                                        return;
+                                                                    }
+                                                                    // El unlock pocket del cliente vive en el Participant local (la cascade
+                                                                    // handler lo guarda ahí, no en el Crupier — la mitad pocket no se
+                                                                    // "publica" en Crupier hasta que el MEGAPACKET llega y el cliente
+                                                                    // lo copia desde Participant). Para la rotación necesitamos uPocket
+                                                                    // (quitar nuestro lock pocket) + kCommunity (añadir nuestro lock
+                                                                    // community), así que leemos uPocket del Participant directamente.
+                                                                    byte[] myPocketUnlock = this.participantes.get(local_nick).getSra_unlock();
+                                                                    if (myPocketUnlock == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without local pocket unlock (Participant.sra_unlock null) — refusing");
                                                                         return;
                                                                     }
                                                                     if (partes_rotation.length < 4) {
@@ -2096,7 +2106,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // Rotación: aplicar uPocket + kCommunity en ese orden. El resultado
                                                                     // mantiene la longitud y sigue siendo válido en la curva (el output
                                                                     // de scalar mult sobre puntos en la curva permanece en la curva).
-                                                                    byte[] rotated = CryptoSRA.applyCommutativeLock(incomingPieces, crupierRot.local_sra_unlock);
+                                                                    byte[] rotated = CryptoSRA.applyCommutativeLock(incomingPieces, myPocketUnlock);
                                                                     rotated = CryptoSRA.applyCommutativeLock(rotated, crupierRot.local_sra_lock_community);
 
                                                                     String b64Rot = Base64.getEncoder().encodeToString(rotated);

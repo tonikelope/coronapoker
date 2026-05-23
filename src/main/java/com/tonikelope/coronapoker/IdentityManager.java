@@ -398,6 +398,58 @@ public final class IdentityManager {
         }
     }
 
+    // ===== SHOWDOWN_REVEAL helpers (PHASE A.1: showdown zero-trust + sig) =====
+
+    private static final byte[] SHOWDOWN_DOMAIN = "SHOWDOWN_V1\0".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Canonical payload signed dentro de un SHOWCARDS / RESP_SHOWDOWN_KEY:
+     * {@code HAND_ID || nick_utf8 || pocketKey(32)}. La sig demuestra que la
+     * pocket-key específica del nick fue autoriza por su Ed25519 privkey, así
+     * un host MitM no puede substituirla ni atribuirla al peer equivocado. El
+     * dominio "SHOWDOWN_V1\0" se aplica en sign/verify, no se embebe aquí.
+     */
+    public static byte[] showdownPayload(byte[] handId, String nick, byte[] pocketKey) {
+        if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+            throw new IllegalArgumentException("handId must be "
+                    + CanonicalActionRecord.HAND_ID_BYTES + " bytes");
+        }
+        if (nick == null || nick.isEmpty()) {
+            throw new IllegalArgumentException("nick must be non-empty");
+        }
+        if (pocketKey == null || pocketKey.length != 32) {
+            throw new IllegalArgumentException("pocketKey must be 32 bytes");
+        }
+        byte[] nickBytes = nick.getBytes(StandardCharsets.UTF_8);
+        byte[] payload = new byte[handId.length + nickBytes.length + pocketKey.length];
+        System.arraycopy(handId, 0, payload, 0, handId.length);
+        System.arraycopy(nickBytes, 0, payload, handId.length, nickBytes.length);
+        System.arraycopy(pocketKey, 0, payload, handId.length + nickBytes.length, pocketKey.length);
+        return payload;
+    }
+
+    /**
+     * Firma una SHOWCARDS reveal {@code (HAND_ID || nick || pocketKey)} con la
+     * privkey de esta instalación bajo el dominio SHOWDOWN_V1. Devuelve la sig
+     * Ed25519 de 64 bytes que viaja en RESP_SHOWDOWN_KEY y SHOWCARDS.
+     */
+    public byte[] signShowdownReveal(byte[] handId, String nick, byte[] pocketKey) {
+        return sign(SHOWDOWN_DOMAIN, showdownPayload(handId, nick, pocketKey));
+    }
+
+    /**
+     * Verifica una sig de SHOWCARDS contra la pubkey raw Ed25519 del nick
+     * propietario. Devuelve false en cualquier fallo.
+     */
+    public static boolean verifyShowdownReveal(byte[] rawPubKey, byte[] handId, String nick, byte[] pocketKey, byte[] sig) {
+        try {
+            return verify(rawPubKey, SHOWDOWN_DOMAIN, showdownPayload(handId, nick, pocketKey), sig);
+        } catch (IllegalArgumentException ex) {
+            LOGGER.log(Level.WARNING, "verifyShowdownReveal rejected by argument validation: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
     // ===== JOIN_IDENTITY helpers (commit 2b) =====
 
     private static final byte[] JOIN_DOMAIN = "JOIN_V1\0".getBytes(StandardCharsets.UTF_8);

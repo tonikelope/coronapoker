@@ -1454,11 +1454,19 @@ public class Helpers {
 
                 config.enforceForeignKeys(true);
                 // Modo journal clásico (rollback journal) — el original. WAL
-                // se probó pero introducia 2 ficheros visibles en el dir de
-                // config (.db-wal + .db-shm) que confundian al autor sin
-                // beneficio practico real (CoronaPoker es single-user
+                // se probó pero introducía 2 ficheros visibles en el dir de
+                // config (.db-wal + .db-shm) que confundían al autor sin
+                // beneficio práctico (CoronaPoker es single-user
                 // single-instance, no hay lectores concurrentes que se
                 // beneficien de WAL).
+                //
+                // OJO: el journal_mode se almacena PERSISTENTEMENTE en el
+                // header de la BD. Si la BD ya estaba en WAL, simplemente
+                // omitir setJournalMode NO la cambia — sigue en WAL. Por
+                // eso ponemos DELETE explícito: la próxima vez que se abra
+                // la conexión, SQLite migra la BD a journal clásico y
+                // borra los ficheros .db-wal y .db-shm automáticamente.
+                config.setJournalMode(org.sqlite.SQLiteConfig.JournalMode.DELETE);
                 // 50 MB de cache (negativo = KB). Default es ~2MB, insuficiente
                 // para los JOINs de StatsDialog cuando hay miles de manos.
                 config.setCacheSize(-50_000);

@@ -1447,89 +1447,86 @@ public class StatsDialog extends JDialog {
             game_combo_blocked = true;
         });
 
-        try {
-
-            PreparedStatement statement;
-
-            statement = Helpers.getSQLITE().prepareStatement("SELECT * FROM game ORDER BY start DESC");
-
+        // try-with-resources: si GUIRunAndWait lanza no-SQLException dentro
+        // de su Runnable (e.g. UnsupportedEncodingException convertida a
+        // RuntimeException por el EDT), el flujo original saltaba al catch
+        // SQLException externo y NUNCA llegaba al statement.close() — leak
+        // del PreparedStatement + ResultSet. try-with-resources garantiza
+        // close en cualquier rama de salida.
+        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("SELECT * FROM game ORDER BY start DESC")) {
             statement.setQueryTimeout(30);
+            try (ResultSet rs = statement.executeQuery()) {
+                Helpers.GUIRunAndWait(() -> {
+                    game.clear();
 
-            ResultSet rs = statement.executeQuery();
+                    game_combo.removeAllItems();
 
-            Helpers.GUIRunAndWait(() -> {
-                game.clear();
+                    game_combo.addItem(Translator.translate("game.todas_las_timbas"));
 
-                game_combo.removeAllItems();
+                    String filtro = null;
 
-                game_combo.addItem(Translator.translate("game.todas_las_timbas"));
+                    if (!game_combo_filter.getText().isBlank() && game_combo_filter.getBackground() != Color.RED) {
+                        filtro = game_combo_filter.getText().trim().toUpperCase();
+                    }
 
-                String filtro = null;
+                    try {
+                        int i = 0;
 
-                if (!game_combo_filter.getText().isBlank() && game_combo_filter.getBackground() != Color.RED) {
-                    filtro = game_combo_filter.getText().trim().toUpperCase();
-                }
+                        while (rs.next()) {
 
-                try {
-                    int i = 0;
+                            boolean ok = false;
 
-                    while (rs.next()) {
+                            if (filtro != null) {
 
-                        boolean ok = false;
+                                String players[] = rs.getString("players").split("#");
 
-                        if (filtro != null) {
+                                ArrayList<String> decoded_players = new ArrayList<>();
 
-                            String players[] = rs.getString("players").split("#");
+                                for (String p : players) {
 
-                            ArrayList<String> decoded_players = new ArrayList<>();
+                                    decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
+                                }
 
-                            for (String p : players) {
+                                ok = decoded_players.contains(filtro);
 
-                                decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
+                            } else {
+                                ok = true;
                             }
 
-                            ok = decoded_players.contains(filtro);
+                            if (ok) {
 
-                        } else {
-                            ok = true;
+                                i++;
+                                // read the result set
+
+                                Timestamp ts = new Timestamp(rs.getLong("start"));
+                                DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+                                Date date = new Date(ts.getTime());
+
+                                HashMap<String, Object> map = new HashMap<>();
+                                map.put("id", rs.getInt("id"));
+                                map.put("start_timestamp", rs.getLong("start"));
+
+                                String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
+                                game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
+                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length);
+                            }
                         }
 
-                        if (ok) {
+                        if (filtro != null && i == 0) {
 
-                            i++;
-                            // read the result set
+                            game_combo_filter.setBackground(Color.RED);
 
-                            Timestamp ts = new Timestamp(rs.getLong("start"));
-                            DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                            Date date = new Date(ts.getTime());
-
-                            HashMap<String, Object> map = new HashMap<>();
-                            map.put("id", rs.getInt("id"));
-                            map.put("start_timestamp", rs.getLong("start"));
-
-                            String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
-                            game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
-                            game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length);
                         }
+
+                        purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (UnsupportedEncodingException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
-                    if (filtro != null && i == 0) {
-
-                        game_combo_filter.setBackground(Color.RED);
-
-                    }
-
-                    purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
-
-                } catch (SQLException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (UnsupportedEncodingException ex) {
-                    Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            });
-
-            statement.close();
-
+                });
+            }
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }

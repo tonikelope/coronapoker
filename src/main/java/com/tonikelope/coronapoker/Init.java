@@ -92,7 +92,6 @@ public class Init extends JFrame {
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";
     public static final String GIFSICLE_DIR = CORONA_DIR + "/gifsicle";
-    public static final String SETDPI_DIR = CORONA_DIR + "/setdpi";
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
     public static final String CHAT_IMAGE_CACHE = CORONA_DIR + "/ChatImagesCache";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";

@@ -207,7 +207,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-import static com.tonikelope.coronapoker.Init.SETDPI_DIR;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.FocusTraversalPolicy;
@@ -280,8 +279,6 @@ public class Helpers {
     public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
     public volatile static String GIFSICLE_CACHE_ZOOM = "";
     public volatile static long GIFSICLE_CACHE_THREAD;
-    public volatile static String WINDOWS_ORIG_DPI = null;
-
     static {
         if (!isDesignTime()) {
 
@@ -534,15 +531,28 @@ public class Helpers {
         Process process = null;
         try {
             ProcessBuilder processbuilder = new ProcessBuilder(command);
-            // Sprint deferred 🟡-25: redirectErrorStream(true) une stderr en
-            // stdout. Sin esto, si el binario escribe a stderr y llena el
-            // buffer del OS pipe (~64KB típico), el process se bloquea
-            // esperando lectura → waitFor() también se cuelga indefinido.
-            processbuilder.redirectErrorStream(true);
-
+            // NO redirectErrorStream(true) — rompe los callers que parsean
+            // output[1] esperando stdout limpio del binario. En su lugar,
+            // drenamos stderr en un thread daemon paralelo para evitar el
+            // pipe-full hang sin contaminar stdout.
             process = processbuilder.start();
 
             long pid = process.pid();
+
+            // Stderr drain thread (daemon) — evita el bloqueo cuando el
+            // binario escribe a stderr más que el buffer del OS pipe.
+            final Process pRef = process;
+            Thread stderrDrainer = new Thread(() -> {
+                try (BufferedReader err = new BufferedReader(
+                        new InputStreamReader(pRef.getErrorStream()))) {
+                    while (err.readLine() != null) {
+                        // descartar
+                    }
+                } catch (Exception ignored) {
+                }
+            }, "runProcess-stderr-drain");
+            stderrDrainer.setDaemon(true);
+            stderrDrainer.start();
 
             StringBuilder sb = new StringBuilder();
 
@@ -659,35 +669,6 @@ public class Helpers {
         }
 
         return updater_path;
-
-    }
-
-    public static String getSetdpiBinaryPath() {
-
-        String path = null;
-
-        if (Helpers.OSValidator.isWindows()) {
-
-            path = SETDPI_DIR + "/setdpi.exe";
-
-            if (!Files.isReadable(Paths.get(path))) {
-
-                try {
-
-                    Files.createDirectories(Paths.get(SETDPI_DIR));
-
-                    Files.copy(Helpers.class.getResourceAsStream("/setdpi/setdpi.exe"), Paths.get(path), REPLACE_EXISTING);
-
-                } catch (Exception ex) {
-                    Logger.getLogger(Helpers.class
-                            .getName()).log(Level.SEVERE, null, ex);
-                    path = null;
-                }
-            }
-
-        }
-
-        return path;
 
     }
 
@@ -864,28 +845,6 @@ public class Helpers {
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, null, ex);
         }
-    }
-
-    public static void resetWindowsGlobalZoom() {
-
-        String[] output = Helpers.runProcess(new String[]{Helpers.getSetdpiBinaryPath(), "value"});
-
-        try {
-            Helpers.WINDOWS_ORIG_DPI = output[1].trim();
-            Helpers.runProcess(new String[]{Helpers.getSetdpiBinaryPath(), "100"});
-
-        } catch (Exception ex) {
-        }
-    }
-
-    public static void restoreWindowsGlobalZoom() {
-
-        if (Helpers.WINDOWS_ORIG_DPI != null) {
-
-            Helpers.runProcess(new String[]{Helpers.getSetdpiBinaryPath(), Helpers.WINDOWS_ORIG_DPI});
-
-        }
-
     }
 
     //card_id es baraja_valor_palo, por ejemplo "coronapoker_7_P"
@@ -2105,17 +2064,52 @@ public class Helpers {
                 action.run();
                 return;
             }
-            java.awt.event.ComponentListener[] holder = new java.awt.event.ComponentListener[1];
-            holder[0] = new java.awt.event.ComponentAdapter() {
+            // Triple cobertura para no quedarnos esperando un evento que no
+            // llega: ComponentListener (cuando el componente se resize y
+            // pasa a tener height > 0), HierarchyListener (cuando se hace
+            // visible/displayable), y un Timer de seguridad de 2s que
+            // ejecuta la action de todas formas si ninguno de los anteriores
+            // disparó. Mejor late than never; sin el timer, un componente
+            // que nace con tamaño 0×0 y nunca se layoutea dejaría la action
+            // colgada para siempre.
+            java.util.concurrent.atomic.AtomicBoolean done =
+                    new java.util.concurrent.atomic.AtomicBoolean(false);
+            java.awt.event.ComponentListener[] cl = new java.awt.event.ComponentListener[1];
+            java.awt.event.HierarchyListener[] hl = new java.awt.event.HierarchyListener[1];
+            javax.swing.Timer[] timer = new javax.swing.Timer[1];
+
+            Runnable fireOnce = () -> {
+                if (done.compareAndSet(false, true)) {
+                    if (cl[0] != null) {
+                        c.removeComponentListener(cl[0]);
+                    }
+                    if (hl[0] != null) {
+                        c.removeHierarchyListener(hl[0]);
+                    }
+                    if (timer[0] != null) {
+                        timer[0].stop();
+                    }
+                    action.run();
+                }
+            };
+            cl[0] = new java.awt.event.ComponentAdapter() {
                 @Override
                 public void componentResized(java.awt.event.ComponentEvent e) {
                     if (c.getHeight() > 0) {
-                        c.removeComponentListener(holder[0]);
-                        action.run();
+                        fireOnce.run();
                     }
                 }
             };
-            c.addComponentListener(holder[0]);
+            hl[0] = (java.awt.event.HierarchyEvent e) -> {
+                if (c.getHeight() > 0) {
+                    fireOnce.run();
+                }
+            };
+            timer[0] = new javax.swing.Timer(2000, ae -> fireOnce.run());
+            timer[0].setRepeats(false);
+            c.addComponentListener(cl[0]);
+            c.addHierarchyListener(hl[0]);
+            timer[0].start();
         });
     }
 
@@ -2133,27 +2127,48 @@ public class Helpers {
             return;
         }
         java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        java.awt.event.ComponentListener[] holder = new java.awt.event.ComponentListener[1];
-        holder[0] = new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                if (c.getHeight() > 0 && latch.getCount() > 0) {
-                    latch.countDown();
-                    c.removeComponentListener(holder[0]);
+        java.awt.event.ComponentListener[] cl = new java.awt.event.ComponentListener[1];
+        java.awt.event.HierarchyListener[] hl = new java.awt.event.HierarchyListener[1];
+        Runnable release = () -> {
+            if (latch.getCount() > 0) {
+                latch.countDown();
+                if (cl[0] != null) {
+                    c.removeComponentListener(cl[0]);
+                }
+                if (hl[0] != null) {
+                    c.removeHierarchyListener(hl[0]);
                 }
             }
         };
+        cl[0] = new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (c.getHeight() > 0) {
+                    release.run();
+                }
+            }
+        };
+        hl[0] = (java.awt.event.HierarchyEvent e) -> {
+            if (c.getHeight() > 0) {
+                release.run();
+            }
+        };
         GUIRun(() -> {
-            c.addComponentListener(holder[0]);
+            c.addComponentListener(cl[0]);
+            c.addHierarchyListener(hl[0]);
             // Re-check post-install para cubrir la race en la que el layout
-            // se aplicó entre el check inicial y addComponentListener (otro
-            // evento EDT pendiente que dispara setBounds).
-            if (c.getHeight() > 0 && latch.getCount() > 0) {
-                latch.countDown();
-                c.removeComponentListener(holder[0]);
+            // se aplicó entre el check inicial y addComponentListener.
+            if (c.getHeight() > 0) {
+                release.run();
             }
         });
-        latch.await();
+        // Safety timeout: 2s. Si tras esto sigue sin layoutearse, salimos
+        // igualmente para no bloquear el caller indefinido. action que
+        // depende del height tendrá que tolerarlo (igual que tolera el
+        // caso del valor inicial del runWhenLaidOut).
+        if (!latch.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+            GUIRun(release);
+        }
     }
 
     /**

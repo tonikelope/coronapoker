@@ -102,11 +102,10 @@ public class InitPanel extends javax.swing.JLayeredPane {
                         }
                     }
 
-                    // Sprint deferred 🟡-32: liberar el tile anterior antes
-                    // de sustituirlo (ver TablePanel para más detalle).
-                    if (this.tp != null && this.tp.getImage() != null) {
-                        this.tp.getImage().flush();
-                    }
+                    // Sprint deferred 🟡-32: snapshot del tile anterior para
+                    // flush diferido post-repaint (ver TablePanel para detalle
+                    // del race con EDT).
+                    final java.awt.Image oldImage = (this.tp != null) ? this.tp.getImage() : null;
                     Rectangle2D anchor = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
                     this.tp = new TexturePaint(tile, anchor);
 
@@ -116,7 +115,12 @@ public class InitPanel extends javax.swing.JLayeredPane {
                     }
 
                     this.invalidate = false;
-                    Helpers.GUIRun(this::repaint);
+                    Helpers.GUIRun(() -> {
+                        this.repaint();
+                        if (oldImage != null) {
+                            javax.swing.SwingUtilities.invokeLater(oldImage::flush);
+                        }
+                    });
 
                 } catch (Exception ex) {
                     Logger.getLogger(InitPanel.class.getName()).log(Level.SEVERE, "Error loading texture", ex);

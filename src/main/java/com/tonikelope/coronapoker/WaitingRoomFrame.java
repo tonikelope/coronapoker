@@ -1890,7 +1890,7 @@ public class WaitingRoomFrame extends JFrame {
                             try {
                                 if (server_avatar_base64.length() > 0) {
                                     int file_id = Math.abs(Helpers.CSPRNG_GENERATOR.nextInt());
-                                    server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + server_nick + "_avatar" + file_id);
+                                    server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(server_nick) + "_avatar" + file_id);
                                     try (FileOutputStream os = new FileOutputStream(server_avatar)) {
                                         os.write(Base64.getDecoder().decode(server_avatar_base64));
                                     }
@@ -2789,7 +2789,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     file_id *= -1;
                                                                 }
                                                                 if (partes_comando.length >= 6 && !"*".equals(partes_comando[5])) {
-                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nickNew + "_avatar" + String.valueOf(file_id));
+                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(nickNew) + "_avatar" + String.valueOf(file_id));
                                                                     try (FileOutputStream os = new FileOutputStream(avatarNew)) {
                                                                         os.write(Base64.getDecoder().decode(partes_comando[5]));
                                                                     } catch (Exception e) {
@@ -2852,7 +2852,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         if (fid < 0) {
                                                                             fid *= -1;
                                                                         }
-                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + list_nick + "_avatar" + String.valueOf(fid));
+                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(list_nick) + "_avatar" + String.valueOf(fid));
                                                                         try (FileOutputStream os = new FileOutputStream(list_avatar)) {
                                                                             os.write(Base64.getDecoder().decode(user_parts[2]));
                                                                         } catch (Exception e) {
@@ -3337,7 +3337,7 @@ public class WaitingRoomFrame extends JFrame {
                                 if (file_id < 0) {
                                     file_id *= -1;
                                 }
-                                client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + client_nick
+                                client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(client_nick)
                                         + "_avatar" + String.valueOf(file_id));
 
                                 try (FileOutputStream os = new FileOutputStream(client_avatar)) {

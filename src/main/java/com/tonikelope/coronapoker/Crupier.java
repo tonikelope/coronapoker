@@ -37,6 +37,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
@@ -78,6 +79,55 @@ import javax.swing.JLabel;
 public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
+
+    /**
+     * Whitelist de tipos permitidos en la deserialización Java del payload
+     * RECOVERDATA recibido del host. Sin este filtro, ObjectInputStream.readObject
+     * acepta cualquier clase Serializable del classpath, lo que permite a un host
+     * hostil enviar un gadget chain (jna, jaxb, sqlite-jdbc, soundlibs…) y obtener
+     * RCE en cualquier cliente que pida recovery.
+     *
+     * Tipos legítimos del map (ver Crupier.sqlRecoverGameInfo* y sqlRecoverHand*):
+     *   HashMap (root) → String keys → values de tipo
+     *   String, Integer, Long, Float, Double, Boolean.
+     *
+     * Limits añadidos: 10 MB total, profundidad 20, 10k refs/array. El payload
+     * legítimo más grande observado ronda decenas de KB (balances + metadatos).
+     *
+     * Cualquier clase no listada — incluyendo java.io.File, java.lang.Runtime,
+     * gadgets de Apache Commons, jaxb, etc. — provoca rechazo del payload.
+     */
+    static final ObjectInputFilter RECOVERY_OBJECT_FILTER = ObjectInputFilter.Config.createFilter(
+            "maxbytes=" + (10 * 1024 * 1024) + ";"
+            + "maxdepth=20;maxrefs=10000;maxarray=10000;"
+            // HashMap root + nested classes internas (Node, Set views, etc.)
+            + "java.util.HashMap$**;"
+            + "java.util.HashMap;"
+            // Map.Entry (y su array) lo emite HashMap.writeObject como bucket internamente.
+            + "java.util.Map$Entry;"
+            + "java.util.Map$**;"
+            // Wrappers numéricos y String — los únicos values legítimos del map.
+            + "java.lang.String;"
+            + "java.lang.Number;"
+            + "java.lang.Integer;"
+            + "java.lang.Long;"
+            + "java.lang.Float;"
+            + "java.lang.Double;"
+            + "java.lang.Boolean;"
+            // Tipos primitivos (cuando se deserializan campos `int` etc. dentro de
+            // los wrappers — Java los referencia por nombre primitivo).
+            + "int;long;float;double;boolean;byte;char;short;void;"
+            // DENY everything else (gadgets en jna, jaxb, sqlite-jdbc, soundlibs...).
+            + "!*"
+    );
+
+    /**
+     * Exposed for the AAA test that verifies the filter accepts legitimate
+     * RECOVERY payloads and rejects everything else (RecoveryObjectFilterSmoke).
+     */
+    public static ObjectInputFilter getRecoveryObjectFilter() {
+        return RECOVERY_OBJECT_FILTER;
+    }
 
     public static final boolean ALLIN_BOT_TEST = false; // TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
@@ -6342,6 +6392,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 ByteArrayInputStream byteIn = new ByteArrayInputStream(
                                         Base64.getDecoder().decode(partes[3]));
                                 in = new ObjectInputStream(byteIn);
+                                // ANTI-RCE: instalar whitelist ANTES de readObject. Sin esto,
+                                // un host hostil podría enviar un gadget chain en el classpath
+                                // y ejecutar código arbitrario en el cliente que pide recovery.
+                                in.setObjectInputFilter(RECOVERY_OBJECT_FILTER);
                                 map = (HashMap<String, Object>) in.readObject();
 
                                 Integer hand_id = this.getHandIdFromUGI(GameFrame.UGI);

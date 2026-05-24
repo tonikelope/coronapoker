@@ -253,6 +253,12 @@ public class Helpers {
     public static final boolean INFINITE_DECK_SHUFFLE = false;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+    // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).
+    // Cubre con margen el mensaje más grande que el protocolo legítimo puede generar
+    // (MEGAPACKET SRA con 52*32 = 1664 bytes + AES padding + IV + HMAC + Base64 ronda
+    // los 2-4 KB; RECOVERDATA serializado ronda decenas de KB). 16 MB es ~1000× más
+    // que cualquier comando real y corta la vía OOM por línea infinita en readLine.
+    public static final int MAX_COMMAND_LINE_CHARS = 16 * 1024 * 1024;
     public static final int DECK_ELEMENTS = 52;
     public static final int MIN_GIF_FRAME_DELAY = 3;
     public static final int DIALOG_ICON_SIZE = 70;
@@ -525,17 +531,23 @@ public class Helpers {
     }
 
     public static String[] runProcess(String[] command) {
+        Process process = null;
         try {
             ProcessBuilder processbuilder = new ProcessBuilder(command);
+            // Sprint deferred 🟡-25: redirectErrorStream(true) une stderr en
+            // stdout. Sin esto, si el binario escribe a stderr y llena el
+            // buffer del OS pipe (~64KB típico), el process se bloquea
+            // esperando lectura → waitFor() también se cuelga indefinido.
+            processbuilder.redirectErrorStream(true);
 
-            Process process = processbuilder.start();
+            process = processbuilder.start();
 
             long pid = process.pid();
 
             StringBuilder sb = new StringBuilder();
 
-            try {
-                BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            // try-with-resources: el BufferedReader anterior nunca se cerraba.
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
 
                 String line;
 
@@ -551,6 +563,14 @@ public class Helpers {
             return new String[]{String.valueOf(pid), sb.toString()};
 
         } catch (Exception ex) {
+            // Si el process arrancó pero falló después (e.g. InterruptedException
+            // en waitFor), destruir para evitar zombi.
+            if (process != null && process.isAlive()) {
+                try {
+                    process.destroy();
+                } catch (Exception ignored) {
+                }
+            }
         }
 
         return null;
@@ -654,7 +674,7 @@ public class Helpers {
 
                 try {
 
-                    Files.createDirectory(Paths.get(SETDPI_DIR));
+                    Files.createDirectories(Paths.get(SETDPI_DIR));
 
                     Files.copy(Helpers.class.getResourceAsStream("/setdpi/setdpi.exe"), Paths.get(path), REPLACE_EXISTING);
 
@@ -677,7 +697,7 @@ public class Helpers {
 
         if (!Files.isDirectory(Paths.get(CACHE_DIR))) {
             try {
-                Files.createDirectory(Paths.get(CACHE_DIR));
+                Files.createDirectories(Paths.get(CACHE_DIR));
 
             } catch (IOException ex) {
                 Logger.getLogger(Helpers.class
@@ -693,7 +713,7 @@ public class Helpers {
             if (!Files.isReadable(Paths.get(path))) {
                 try {
 
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
+                    Files.createDirectories(Paths.get(GIFSICLE_DIR));
 
                     Files
                             .copy(Helpers.class
@@ -725,7 +745,7 @@ public class Helpers {
 
                 try {
 
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
+                    Files.createDirectories(Paths.get(GIFSICLE_DIR));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
                         Files.copy(Helpers.class
@@ -752,7 +772,7 @@ public class Helpers {
 
                 try {
                     //(Extract gifsicle from jar to cache dir)
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
+                    Files.createDirectories(Paths.get(GIFSICLE_DIR));
 
                     Files
                             .copy(Helpers.class
@@ -792,6 +812,16 @@ public class Helpers {
             try {
                 Files.deleteIfExists(Paths.get(f));
             } catch (Exception ex) {
+                // Sprint 6 deferred 🟡-35: Defender / AV puede tener bloqueado
+                // el .gif justo cuando intentamos borrarlo. En lugar de
+                // silenciar (acumulación monotónica en %TEMP%), marcar el
+                // fichero para borrado al exit del JVM — la mayoría de los
+                // antivirus liberan el handle antes que la JVM termine.
+                try {
+                    Paths.get(f).toFile().deleteOnExit();
+                } catch (Exception markEx) {
+                    // best-effort, ya nada más que hacer.
+                }
             }
 
         }
@@ -800,8 +830,22 @@ public class Helpers {
             Files.walk(Paths.get(CACHE_DIR), FileVisitOption.FOLLOW_LINKS)
                     .filter(Files::isRegularFile)
                     .filter(a -> (a.getFileName().toString().startsWith("gifsicle_") && !a.getFileName().toString().startsWith("gifsicle_" + String.valueOf(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) + "_")))
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+                    .forEach(p -> {
+                        // forEach delete con fallback a deleteOnExit. File.delete()
+                        // devuelve boolean — el original ignoraba. Aquí también lo
+                        // tratamos como best-effort pero marcamos exit-cleanup en
+                        // caso de fallo (típicamente AV holding).
+                        try {
+                            if (!p.toFile().delete()) {
+                                p.toFile().deleteOnExit();
+                            }
+                        } catch (Exception ex) {
+                            try {
+                                p.toFile().deleteOnExit();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    });
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class
@@ -855,14 +899,25 @@ public class Helpers {
 
             String filename_new = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif";
 
+            Process proc = null;
             try {
-                Runtime rt = Runtime.getRuntime();
-
-                Files.copy(url.openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
+                // Files.copy(InputStream,...) NO cierra el InputStream
+                // (contrato JDK). Sin try-with-resources, el handle del URL
+                // quedaba colgado tras la copia.
+                try (InputStream src = url.openStream()) {
+                    Files.copy(src, Paths.get(filename_orig), REPLACE_EXISTING);
+                }
 
                 String[] command = {Helpers.getGifsicleBinaryPath(), filename_orig, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
-                Process proc = rt.exec(command);
+                // Sprint deferred 🟡-26: ProcessBuilder con redirectErrorStream
+                // + redirectOutput DISCARD para evitar OS pipe buffer fill →
+                // waitFor cuelga. Sin esto, gifsicle podía bloquearse en stderr
+                // si --careful generaba warnings.
+                ProcessBuilder pb = new ProcessBuilder(command);
+                pb.redirectErrorStream(true);
+                pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                proc = pb.start();
 
                 proc.waitFor();
 
@@ -875,6 +930,14 @@ public class Helpers {
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class
                         .getName()).log(Level.SEVERE, null, ex);
+                // Si excepción salta entre exec y waitFor (e.g. InterruptedException),
+                // destruir el process para evitar zombi.
+                if (proc != null && proc.isAlive()) {
+                    try {
+                        proc.destroy();
+                    } catch (Exception ignored) {
+                    }
+                }
             }
 
             return null;
@@ -930,14 +993,21 @@ public class Helpers {
 
                             if (!Files.isReadable(Paths.get(filename_new))) {
 
+                                Process proc = null;
                                 try {
-                                    Runtime rt = Runtime.getRuntime();
-
-                                    Files.copy(new URL(base_url + v + "_" + p + ".gif").openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
+                                    try (InputStream src = new URL(base_url + v + "_" + p + ".gif").openStream()) {
+                                        Files.copy(src, Paths.get(filename_orig), REPLACE_EXISTING);
+                                    }
 
                                     String[] command = {gifsicle_bin_path, filename_orig, "--scale", zoom_str, "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
-                                    Process proc = rt.exec(command);
+                                    // Sprint deferred 🟡-26: ProcessBuilder con redirectErrorStream
+                                    // + redirectOutput DISCARD. Sin esto, gifsicle podía colgarse
+                                    // en stderr (--careful genera warnings que llenan el pipe).
+                                    ProcessBuilder pb = new ProcessBuilder(command);
+                                    pb.redirectErrorStream(true);
+                                    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                                    proc = pb.start();
 
                                     proc.waitFor();
 
@@ -946,6 +1016,13 @@ public class Helpers {
                                 } catch (Exception ex) {
                                     Logger.getLogger(Helpers.class
                                             .getName()).log(Level.SEVERE, null, ex);
+                                    // Defensa: destruir process si quedó vivo tras excepción.
+                                    if (proc != null && proc.isAlive()) {
+                                        try {
+                                            proc.destroy();
+                                        } catch (Exception ignored) {
+                                        }
+                                    }
                                     break;
                                 }
                             }
@@ -1059,7 +1136,13 @@ public class Helpers {
 
     public static int getGIFLength(URL url) throws IOException, ImageProcessingException {
 
-        Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
+        // try-with-resources sobre el InputStream del URL: ImageMetadataReader
+        // NO cierra el stream que recibe. Cada call (uno por GIF de chat o
+        // animación allin) filtraba el handle hasta GC.
+        Metadata metadata;
+        try (InputStream s = url.openStream()) {
+            metadata = ImageMetadataReader.readMetadata(s);
+        }
         List<GifControlDirectory> gifControlDirectories
                 = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class
                 );
@@ -1085,7 +1168,10 @@ public class Helpers {
 
     public static int getGIFFramesCount(URL url) throws IOException, ImageProcessingException {
 
-        Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
+        Metadata metadata;
+        try (InputStream s = url.openStream()) {
+            metadata = ImageMetadataReader.readMetadata(s);
+        }
 
         List<GifControlDirectory> gifControlDirectories
                 = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class
@@ -1105,9 +1191,16 @@ public class Helpers {
 
                 ImageReader read = readers.next();
 
-                if ("gif".equals(read.getFormatName().toLowerCase())) {
-                    return true;
-
+                try {
+                    if ("gif".equals(read.getFormatName().toLowerCase())) {
+                        return true;
+                    }
+                } finally {
+                    // Contrato ImageIO: todo ImageReader obtenido vía
+                    // getImageReaders DEBE dispose() para liberar buffers
+                    // nativos. Función llamada por cada mensaje con imagen
+                    // en el chat (centenares por sesión).
+                    read.dispose();
                 }
             }
 
@@ -1323,9 +1416,9 @@ public class Helpers {
 
         THREAD_POOL.shutdown();
 
-        LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
-
         THREAD_POOL.shutdownNow();
+
+        LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
     }
 
     public static void CREATE_THREAD_POOL() {
@@ -1343,12 +1436,12 @@ public class Helpers {
             if ((ret = UPnP.closePortTCP(port))) {
 
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                        .getName()).log(Level.INFO, "UPnP unmap OK for TCP port {0}", String.valueOf(port));
 
             } else {
 
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                        .getName()).log(Level.SEVERE, "UPnP unmap FAILED for TCP port {0}", String.valueOf(port));
             }
         }
 
@@ -1365,24 +1458,24 @@ public class Helpers {
                 if (UPnP.openPortTCP(port)) {
 
                     Logger.getLogger(Helpers.class
-                            .getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                            .getName()).log(Level.INFO, "UPnP map OK for TCP port {0}", String.valueOf(port));
 
                 } else {
                     Logger.getLogger(Helpers.class
-                            .getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                            .getName()).log(Level.SEVERE, "UPnP map FAILED for TCP port {0}", String.valueOf(port));
                     upnp = false;
 
                 }
 
             } else {
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
+                        .getName()).log(Level.WARNING, "UPnP port already mapped: TCP {0}", String.valueOf(port));
 
             }
 
         } else {
             Logger.getLogger(Helpers.class
-                    .getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
+                    .getName()).log(Level.WARNING, "UPnP not available");
         }
 
         return upnp;
@@ -1401,6 +1494,23 @@ public class Helpers {
                 SQLiteConfig config = new SQLiteConfig();
 
                 config.enforceForeignKeys(true);
+                // WAL: writers no bloquean a readers (StatsDialog puede leer
+                // mientras Crupier escribe acciones de la mano en curso).
+                config.setJournalMode(org.sqlite.SQLiteConfig.JournalMode.WAL);
+                // NORMAL es seguro con WAL: solo se hace fsync en commits y al
+                // checkpoint, no por cada page write. Reduce 3-5× el coste de
+                // sqlNewAction/sqlNewHand/sqlNewHandBalance que el Crupier hace
+                // varias veces por mano.
+                config.setSynchronous(org.sqlite.SQLiteConfig.SynchronousMode.NORMAL);
+                // 50 MB de cache (negativo = KB). Default es ~2MB, insuficiente
+                // para los JOINs de StatsDialog cuando hay miles de manos.
+                config.setCacheSize(-50_000);
+                // Defender / antivirus toma share-lock momentáneo en .db-wal
+                // durante COMMIT. Sin busy_timeout, SQLITE_BUSY se devuelve
+                // instantáneamente y el INSERT/UPDATE se pierde (catch genérico
+                // del Crupier lo loguea SEVERE pero no reintenta). 5s cubre
+                // share-locks transitorios sin colgar la UI.
+                config.setBusyTimeout(5000);
 
                 SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE, config.toProperties());
 
@@ -1499,6 +1609,15 @@ public class Helpers {
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS known_identities(nick TEXT PRIMARY KEY, pubkey BLOB NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, sessions_count INTEGER NOT NULL DEFAULT 0, verified_oob INTEGER NOT NULL DEFAULT 0)");
+                // Índices secundarios sobre las FKs que StatsDialog usa en self-joins.
+                // SQLite NO auto-indexa FKs. Sin estos, queries como rendimiento /
+                // subidasRonda / balance hacen full table scan: O(rows_action *
+                // rows_hand). Con miles de manos, segundos → milisegundos.
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_hand_game ON hand(id_game)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_action_hand ON action(id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_hand ON showdown(id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_balance_hand ON balance(id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_showcards_hand ON showcards(id_hand)");
                 // EC-Identity v1 (commit 6): forensic log of hands whose end-of-hand consensus
                 // did not check out unanimously. The hand is paid out regardless — this table is
                 // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of
@@ -1658,15 +1777,11 @@ public class Helpers {
 
                 byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
-                int i;
-
-                for (i = 0; i < iv.length; i++) {
-                    iv_cmsg[i] = iv[i];
-                }
-
-                for (i = 0; i < cmsg.length; i++) {
-                    iv_cmsg[i + iv.length] = cmsg[i];
-                }
+                // System.arraycopy → memcpy nativo; sustituye 4 bucles for byte-a-byte
+                // del código anterior. Cada comando GAME del Crupier (decenas por mano)
+                // y cada MEGAPACKET (52*32 = 1664 bytes) pasaba por aquí.
+                System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
+                System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
 
                 if (hmac_key != null) {
 
@@ -1678,13 +1793,8 @@ public class Helpers {
 
                     byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
 
-                    for (i = 0; i < hmac.length; i++) {
-                        full_msg[i] = hmac[i];
-                    }
-
-                    for (i = 0; i < iv_cmsg.length; i++) {
-                        full_msg[i + hmac.length] = iv_cmsg[i];
-                    }
+                    System.arraycopy(hmac, 0, full_msg, 0, hmac.length);
+                    System.arraycopy(iv_cmsg, 0, full_msg, hmac.length, iv_cmsg.length);
                 } else {
                     full_msg = iv_cmsg;
                 }
@@ -1714,33 +1824,20 @@ public class Helpers {
 
                 byte[] cmsg;
 
-                int i;
-
                 if (hmac_key != null) {
 
                     cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
-                    for (i = 0; i < hmac.length; i++) {
-                        hmac[i] = full_msg[i];
-                    }
-
-                    for (i = 0; i < iv.length; i++) {
-                        iv[i] = full_msg[i + hmac.length];
-                    }
-
-                    for (i = 0; i < cmsg.length; i++) {
-                        cmsg[i] = full_msg[i + hmac.length + iv.length];
-                    }
+                    // System.arraycopy → memcpy nativo; sustituye 5 bucles
+                    // for byte-a-byte del código anterior.
+                    System.arraycopy(full_msg, 0, hmac, 0, hmac.length);
+                    System.arraycopy(full_msg, hmac.length, iv, 0, iv.length);
+                    System.arraycopy(full_msg, hmac.length + iv.length, cmsg, 0, cmsg.length);
 
                     byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
-                    for (i = 0; i < iv.length; i++) {
-                        iv_cmsg[i] = iv[i];
-                    }
-
-                    for (i = 0; i < cmsg.length; i++) {
-                        iv_cmsg[i + iv.length] = cmsg[i];
-                    }
+                    System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
+                    System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
 
                     Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
@@ -1755,13 +1852,8 @@ public class Helpers {
 
                     cmsg = new byte[full_msg.length - iv.length];
 
-                    for (i = 0; i < iv.length; i++) {
-                        iv[i] = full_msg[i];
-                    }
-
-                    for (i = 0; i < cmsg.length; i++) {
-                        cmsg[i] = full_msg[i + iv.length];
-                    }
+                    System.arraycopy(full_msg, 0, iv, 0, iv.length);
+                    System.arraycopy(full_msg, iv.length, cmsg, 0, cmsg.length);
 
                 }
 
@@ -1800,6 +1892,346 @@ public class Helpers {
     public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
         return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
+    }
+
+    /**
+     * Escribe {@code data} atómicamente en {@code target}: primero a un tempfile
+     * vecino del target, luego {@code Files.move} con ATOMIC_MOVE + REPLACE_EXISTING.
+     *
+     * Resuelve el problema de Files.writeString por defecto (CREATE +
+     * TRUNCATE_EXISTING + WRITE): abre el fichero, lo trunca a 0, y luego
+     * escribe. Si el proceso muere entre TRUNCATE y la primera write (corte
+     * de luz, BSOD, JVM kill, OS lock por AV), el fichero queda VACÍO en
+     * disco — datos perdidos.
+     *
+     * Con write-tmp + atomic-move, en cualquier instante el target apunta
+     * a un fichero COMPLETO (viejo o nuevo, nunca parcial). Si el proceso
+     * muere durante el writeString al tmp, el tmp queda parcial pero el
+     * target sigue intacto con su valor anterior.
+     *
+     * Fallback no-atómico en FS que no soportan ATOMIC_MOVE (FAT32 entre
+     * volúmenes, casos raros): Files.move sin ATOMIC_MOVE. Aún preserva
+     * el invariante "tmp escrito completo antes del move", solo la ventana
+     * entre delete-target y rename-tmp puede dejar sistema sin target
+     * (mucho más corta que la ventana TRUNCATE-then-write del original).
+     *
+     * Si el move falla por cualquier motivo, limpia el tmp huérfano.
+     */
+    public static void writeStringAtomic(java.nio.file.Path target, CharSequence data) throws IOException {
+        if (target == null) {
+            throw new IllegalArgumentException("target must not be null");
+        }
+        java.nio.file.Path tmp = target.resolveSibling(
+                target.getFileName().toString() + ".tmp-" + Long.toHexString(System.nanoTime()));
+        try {
+            java.nio.file.Files.writeString(tmp, data);
+            try {
+                java.nio.file.Files.move(tmp, target,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                // Fallback no-atómico (FAT32, etc). Aún strictly mejor que
+                // writeString directo porque el tmp ya está completo en disco.
+                java.nio.file.Files.move(tmp, target,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException moveEx) {
+            // Si algo falla, limpia el tmp huérfano antes de propagar.
+            try {
+                java.nio.file.Files.deleteIfExists(tmp);
+            } catch (Exception cleanupEx) {
+                // best-effort; el tmp queda para una limpieza posterior.
+            }
+            throw moveEx;
+        }
+    }
+
+    /**
+     * Sprint 7 telemetría: payload de una snapshot de latencia/reconexiones
+     * que el host emite periódicamente a todos los clientes. Inmutable.
+     */
+    public static final class TelemetryFrame {
+
+        /** Timestamp del host al emitir (System.currentTimeMillis). */
+        public final long serverTimestampMs;
+        /** nick (canonical, NFC) → [lat1_ms, lat2_ms, reconnection_count]. */
+        public final java.util.Map<String, int[]> perPeer;
+
+        public TelemetryFrame(long serverTimestampMs, java.util.Map<String, int[]> perPeer) {
+            this.serverTimestampMs = serverTimestampMs;
+            this.perPeer = java.util.Collections.unmodifiableMap(new java.util.HashMap<>(perPeer));
+        }
+    }
+
+    /**
+     * Codifica un TelemetryFrame al wire format usado por el broadcast
+     * TELEMETRY del Sprint 7. Formato:
+     *
+     *   <ts>#<b64nick>|<lat1>/<lat2>/<recon>@<b64nick>|<lat1>/<lat2>/<recon>@...
+     *
+     * - ts es System.currentTimeMillis del host al emitir.
+     * - nick va Base64-encoded en UTF-8 para evitar conflictos con los
+     *   separadores #/@/| (los nicks pueden contener cualquier char).
+     *   IMPORTANTE: el separador nick/valores es '|' (NO '='), porque '='
+     *   es padding válido de Base64 y mezclarlo confundiría al parser.
+     * - lat1, lat2 son ms. -1 = no medido / timeout.
+     * - recon es el contador acumulado de reconexiones de ese peer.
+     *
+     * El caller envolverá el resultado en "GAME#<id>#TELEMETRY#<payload>"
+     * antes del encryptCommand habitual.
+     */
+    public static String encodeTelemetry(Helpers.TelemetryFrame frame) {
+        if (frame == null) {
+            throw new IllegalArgumentException("frame must not be null");
+        }
+        StringBuilder sb = new StringBuilder(64 + frame.perPeer.size() * 32);
+        sb.append(frame.serverTimestampMs);
+        sb.append('#');
+        boolean first = true;
+        for (java.util.Map.Entry<String, int[]> e : frame.perPeer.entrySet()) {
+            int[] v = e.getValue();
+            if (v == null || v.length < 3) {
+                continue;
+            }
+            if (!first) {
+                sb.append('@');
+            }
+            first = false;
+            try {
+                sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")));
+            } catch (java.io.UnsupportedEncodingException uee) {
+                // UTF-8 está garantizado por Java; este catch es defensivo.
+                sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes()));
+            }
+            sb.append('|');
+            sb.append(v[0]).append('/').append(v[1]).append('/').append(v[2]);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Decodifica el wire format del Sprint 7 TELEMETRY. Tolera entradas
+     * mal formadas (skip silencioso de entries con campos faltantes o
+     * sin parsear como int) para que un peer hostil no pueda romper el
+     * cliente con un payload corrupto.
+     *
+     * Devuelve null si el payload no tiene al menos el ts inicial.
+     */
+    public static Helpers.TelemetryFrame decodeTelemetry(String payload) {
+        if (payload == null || payload.isEmpty()) {
+            return null;
+        }
+        int firstHash = payload.indexOf('#');
+        long ts;
+        String entries;
+        if (firstHash < 0) {
+            // Solo ts sin entries (broadcast vacío).
+            try {
+                ts = Long.parseLong(payload);
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+            return new TelemetryFrame(ts, new java.util.HashMap<>());
+        }
+        try {
+            ts = Long.parseLong(payload.substring(0, firstHash));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+        entries = payload.substring(firstHash + 1);
+        java.util.Map<String, int[]> map = new java.util.HashMap<>();
+        if (!entries.isEmpty()) {
+            String[] tuples = entries.split("@");
+            for (String t : tuples) {
+                // Separador nick/valores es '|', NO '='. Razón: '=' es padding
+                // de Base64 y mezclarlo confundiría al parser.
+                int pipe = t.indexOf('|');
+                if (pipe <= 0 || pipe >= t.length() - 1) {
+                    continue;
+                }
+                String b64nick = t.substring(0, pipe);
+                String numbers = t.substring(pipe + 1);
+                String[] parts = numbers.split("/");
+                if (parts.length < 3) {
+                    continue;
+                }
+                String nick;
+                try {
+                    nick = new String(java.util.Base64.getDecoder().decode(b64nick), "UTF-8");
+                } catch (Exception ex) {
+                    continue;
+                }
+                if (nick.isEmpty()) {
+                    continue;
+                }
+                int lat1;
+                int lat2;
+                int recon;
+                try {
+                    lat1 = Integer.parseInt(parts[0]);
+                    lat2 = Integer.parseInt(parts[1]);
+                    recon = Integer.parseInt(parts[2]);
+                } catch (NumberFormatException ex) {
+                    continue;
+                }
+                map.put(nick, new int[]{lat1, lat2, recon});
+            }
+        }
+        return new TelemetryFrame(ts, map);
+    }
+
+    /**
+     * Ejecuta {@code action} en EDT en cuanto {@code c} tenga altura > 0
+     * (layout aplicado). Si ya está laid out, ejecuta inmediatamente. Si no,
+     * instala un ComponentListener one-shot que se auto-remueve tras el primer
+     * resize con altura > 0.
+     *
+     * Reemplaza el anti-patrón {@code Helpers.threadRun(() -> { while (c.getHeight() == 0)
+     * Helpers.pausar(125); Helpers.GUIRun(action); })} que polleaba con sleep
+     * el estado event-driven de Swing — cero CPU mientras se espera, cero
+     * latencia al despertar.
+     *
+     * Apto solo cuando {@code action} no requiere mantener un lock externo
+     * durante su ejecución (corre directamente en EDT). Si se necesita lock
+     * + GUIRunAndWait, usar {@link #awaitFirstLayout(javax.swing.JComponent)}
+     * desde un thread off-EDT.
+     */
+    public static void runWhenLaidOut(javax.swing.JComponent c, Runnable action) {
+        if (c == null || action == null) {
+            return;
+        }
+        GUIRun(() -> {
+            if (c.getHeight() > 0) {
+                action.run();
+                return;
+            }
+            java.awt.event.ComponentListener[] holder = new java.awt.event.ComponentListener[1];
+            holder[0] = new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    if (c.getHeight() > 0) {
+                        c.removeComponentListener(holder[0]);
+                        action.run();
+                    }
+                }
+            };
+            c.addComponentListener(holder[0]);
+        });
+    }
+
+    /**
+     * Bloquea el thread actual (que NO debe ser EDT) hasta que {@code c} tenga
+     * altura > 0. Usar cuando el caller necesita mantener un lock externo
+     * durante el subsiguiente GUIRunAndWait — el lock no puede tomarse desde
+     * EDT porque otro thread non-EDT puede estar reteniéndolo y bloqueado
+     * esperando a EDT, lo que produciría deadlock.
+     *
+     * Si ya está laid out, retorna sin bloquear.
+     */
+    public static void awaitFirstLayout(javax.swing.JComponent c) throws InterruptedException {
+        if (c == null || c.getHeight() > 0) {
+            return;
+        }
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        java.awt.event.ComponentListener[] holder = new java.awt.event.ComponentListener[1];
+        holder[0] = new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (c.getHeight() > 0 && latch.getCount() > 0) {
+                    latch.countDown();
+                    c.removeComponentListener(holder[0]);
+                }
+            }
+        };
+        GUIRun(() -> {
+            c.addComponentListener(holder[0]);
+            // Re-check post-install para cubrir la race en la que el layout
+            // se aplicó entre el check inicial y addComponentListener (otro
+            // evento EDT pendiente que dispara setBounds).
+            if (c.getHeight() > 0 && latch.getCount() > 0) {
+                latch.countDown();
+                c.removeComponentListener(holder[0]);
+            }
+        });
+        latch.await();
+    }
+
+    /**
+     * Sanea un nick para uso seguro como SEGMENTO de filename en disco.
+     * Defensa contra path traversal cuando el nick proviene de un peer remoto
+     * (host hostil enviando NEWUSER/USERSLIST con nick "../../../../foo") y
+     * contra nombres reservados de Windows ("CON", "NUL", etc.) que harían
+     * fallar FileOutputStream silenciosamente.
+     *
+     * Reglas:
+     *   - Solo conserva [A-Za-z0-9_-]. Cualquier otro char (incluido '.', '/',
+     *     '\', ':', control chars, Unicode) se sustituye por '_'.
+     *   - Trunca a 32 chars máximo (los logs y avatares no necesitan más).
+     *   - Nombres reservados Windows (CON/PRN/AUX/NUL/COM[1-9]/LPT[1-9],
+     *     case-insensitive) se prefijan con '_' para evitar AccessDeniedException.
+     *   - null o cadena vacía tras sanitización devuelven "user".
+     *
+     * NOTA: el resultado NO es un identificador único (dos nicks distintos
+     * pueden colisionar tras la sanitización). Los call sites que necesitan
+     * unicidad deben añadir su propio sufijo (file_id aleatorio, hash, etc.)
+     * — el helper solo garantiza que el segmento sea filesystem-safe.
+     */
+    public static String safeNickForFilename(String nick) {
+        if (nick == null || nick.isEmpty()) {
+            return "user";
+        }
+        String safe = nick.replaceAll("[^A-Za-z0-9_-]", "_");
+        if (safe.isEmpty()) {
+            return "user";
+        }
+        if (safe.length() > 32) {
+            safe = safe.substring(0, 32);
+        }
+        // Trim leading dashes (cosmético — los nombres tipo "-rf" parecen flags)
+        while (safe.startsWith("-")) {
+            safe = safe.length() > 1 ? safe.substring(1) : "";
+        }
+        if (safe.isEmpty()) {
+            return "user";
+        }
+        String upper = safe.toUpperCase();
+        if (upper.equals("CON") || upper.equals("PRN") || upper.equals("AUX")
+                || upper.equals("NUL") || upper.matches("COM[1-9]") || upper.matches("LPT[1-9]")) {
+            return "_" + safe;
+        }
+        return safe;
+    }
+
+    /**
+     * Reemplazo acotado de {@link java.io.BufferedReader#readLine()}. Mismo
+     * contrato (null si EOF antes de leer nada, trim de CR-LF) pero ABORTA con
+     * IOException si la línea acumula más de {@code maxChars} caracteres antes
+     * del salto de línea. Defensa contra un peer que abre canal y envía bytes
+     * sin '\n' hasta forzar OOM en el receptor (readLine estándar crece el
+     * buffer interno sin límite).
+     *
+     * El cap se mide en caracteres del Reader (post-decode UTF-8). La aproximación
+     * char≈byte es válida para nuestro wire format (Base64 + dígitos + '#'),
+     * todo ASCII.
+     */
+    public static String readBoundedLine(java.io.BufferedReader reader, int maxChars) throws IOException {
+        StringBuilder sb = new StringBuilder(256);
+        int c;
+        boolean readAnything = false;
+        while ((c = reader.read()) != -1) {
+            readAnything = true;
+            if (c == '\n') {
+                return sb.toString();
+            }
+            if (c == '\r') {
+                continue;
+            }
+            sb.append((char) c);
+            if (sb.length() > maxChars) {
+                throw new IOException("Line exceeds " + maxChars + " char cap (DoS guard tripped)");
+            }
+        }
+        return readAnything ? sb.toString() : null;
     }
 
     /**
@@ -1875,7 +2307,12 @@ public class Helpers {
             }
 
             BufferedImage image = robot.createScreenCapture(rectangle);
-            ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+            try {
+                ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+            } finally {
+                // Captura 4K = ~33 MB de pixel data nativa. Sin flush, espera al GC.
+                image.flush();
+            }
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class
@@ -1890,7 +2327,7 @@ public class Helpers {
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {
                 try {
-                    Files.createDirectory(Paths.get(d));
+                    Files.createDirectories(Paths.get(d));
 
                 } catch (IOException ex) {
                     Logger.getLogger(Helpers.class
@@ -1986,19 +2423,24 @@ public class Helpers {
         BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = output.createGraphics();
 
-        // Habilitar antialiasing para bordes suaves
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        try {
+            // Habilitar antialiasing para bordes suaves
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Dibujar un rectángulo redondeado blanco como máscara
-        g2d.setColor(Color.WHITE);
-        g2d.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
+            // Dibujar un rectángulo redondeado blanco como máscara
+            g2d.setColor(Color.WHITE);
+            g2d.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
 
-        // Configurar el modo de composición para aplicar la máscara
-        g2d.setComposite(AlphaComposite.SrcIn);
-        g2d.drawImage(image, 0, 0, null);
-
-        // Liberar recursos
-        g2d.dispose();
+            // Configurar el modo de composición para aplicar la máscara
+            g2d.setComposite(AlphaComposite.SrcIn);
+            g2d.drawImage(image, 0, 0, null);
+        } finally {
+            // Liberar recursos nativos del Graphics2D. SIEMPRE — sin try/finally,
+            // un OOM o IllegalArgumentException entre createGraphics y dispose
+            // dejaba colgado el contexto nativo. Llamada en TODA carga de carta
+            // (~104 invocaciones por cambio de zoom/baraja).
+            g2d.dispose();
+        }
 
         return output;
     }
@@ -2237,9 +2679,14 @@ public class Helpers {
 
         Font font = null;
 
-        try {
+        // Toma ownership del stream para garantizar close incluso si
+        // Font.createFont o registerFont lanzan. Los dos callers
+        // (Init.java:1072 con getResourceAsStream y :1106 con
+        // FileInputStream) pasan el stream y descartan la referencia,
+        // así que cerrarlo aquí es semánticamente correcto.
+        try (InputStream s = stream) {
 
-            font = Font.createFont(Font.TRUETYPE_FONT, stream);
+            font = Font.createFont(Font.TRUETYPE_FONT, s);
 
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 
@@ -2373,8 +2820,12 @@ public class Helpers {
 
     public synchronized static void savePropertiesFile() {
 
-        try {
-            PROPERTIES.store(new FileOutputStream(PROPERTIES_FILE), null);
+        try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
+            // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
+            // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
+            // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
+            // acumulativos llegaba a ser visible en lsof.
+            PROPERTIES.store(fos, null);
 
         } catch (IOException ex) {
             Logger.getLogger(Helpers.class

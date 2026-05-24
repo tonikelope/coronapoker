@@ -2328,7 +2328,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
                 Date date = new Date(ts.getTime());
                 String fecha = timeZoneFormat.format(date);
-                String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+                // Sprint deferred 🟠-24: nick saneado para uso como segmento de
+                // filename. Antes solo se reemplazaba el espacio; nicks como CON,
+                // NUL, AUX o con caracteres :/*? rompían FileOutputStream silenciosamente
+                // y el log de la timba se perdía. Reader (StatsDialog) usa el mismo
+                // saneo para encontrar el fichero — coordinación crítica.
+                String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".log";
 
                 try {
 
@@ -2348,7 +2353,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (!this.getSala_espera().getChat_text().toString().isEmpty()) {
 
-                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".html";
+                    // Sprint deferred 🟠-24: nick saneado igual que log_file arriba.
+                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".html";
 
                     try {
 
@@ -2501,6 +2507,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         TTSWatchdog();
 
+        // Sprint 7 telemetría: broadcaster periódico server-side (1 thread).
+        // Solo activo en el host (isPartida_local). Loop sale al final de la
+        // transmisión (mismo signal que TTSWatchdog y el resto de threads
+        // del Crupier — SHUTDOWN_THREAD_POOL al cerrar el juego también
+        // los corta de raíz). Best-effort: cualquier fallo se loguea
+        // pero NO afecta al game flow.
+        if (isPartida_local()) {
+            telemetryBroadcasterWatchdog();
+        }
+
         Helpers.threadRun(crupier);
 
         // javax.swing.Timer already executes in the EDT. Removed redundant GUIRun context switch.
@@ -2516,6 +2532,40 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         tiempo_juego.start();
 
         getRegistro().print(Translator.translate("game.comienza_la_timba") + " " + Helpers.getFechaHoraActual());
+    }
+
+    /**
+     * Sprint 7 telemetría: thread server-side que dispara
+     * Crupier.broadcastTelemetryFrame() cada PING_INTERVAL_MS para que los
+     * clientes mantengan su latest_telemetry fresco.
+     *
+     * Cycle:
+     *   1. pausar PING_INTERVAL_MS al inicio (los datos de latency necesitan
+     *      al menos UNA ronda de ping/pong antes de tener algo que reportar).
+     *   2. broadcast.
+     *   3. loop hasta crupier.isFin_de_la_transmision().
+     *
+     * El thread vive en Helpers.THREAD_POOL — al cerrar el juego,
+     * SHUTDOWN_THREAD_POOL lo corta junto con TTSWatchdog y los demás.
+     * Si broadcast lanza, log + continuar (telemetría es best-effort,
+     * no debe abortar la cadena).
+     */
+    private void telemetryBroadcasterWatchdog() {
+        Helpers.threadRun(() -> {
+            while (crupier != null && !crupier.isFin_de_la_transmision()) {
+                try {
+                    Helpers.pausar(WaitingRoomFrame.PING_INTERVAL_MS);
+                    if (crupier != null && !crupier.isFin_de_la_transmision()) {
+                        crupier.broadcastTelemetryFrame();
+                    }
+                } catch (Exception ex) {
+                    Logger.getLogger(GameFrame.class.getName()).log(
+                            Level.WARNING,
+                            "TelemetryBroadcasterWatchdog iteration failed (telemetry is best-effort)",
+                            ex);
+                }
+            }
+        });
     }
 
     private void TTSWatchdog() {
@@ -2568,7 +2618,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
                                     Helpers.GUIRun(() -> {
-                                        notify_dialog.setVisible(false);
+                                        // Dispose + null antes de soltar la referencia: el
+                                        // setVisible(false) anterior NO libera el peer nativo del
+                                        // dialog ni nada más. Sin esto, las notificaciones TTS
+                                        // acumulaban dialogs zombi en partidas largas (🟠-22 v2).
+                                        if (notify_dialog != null) {
+                                            notify_dialog.setVisible(false);
+                                            notify_dialog.dispose();
+                                            notify_dialog = null;
+                                        }
                                     });
 
                                 }

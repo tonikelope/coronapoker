@@ -111,6 +111,26 @@ public class WaitingRoomFrame extends JFrame {
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
+    // Read deadline aplicado al socket durante el handshake (magic bytes + ECDH +
+    // session_id + JOIN_V1 + NICKOK/intro/chat-history). Un peer legitimo completa
+    // este intercambio en <1s; el unico caso real que se aproxima al limite es una
+    // primera generacion de Ed25519 keypair en CPU muy lenta. Damos 30s de margen.
+    //
+    // Critico para defender contra peers que abren socket pero NUNCA mandan bytes
+    // (DoS local con sockets mudos) o que mandan bytes goteando uno-a-uno (eternizan
+    // el thread del handshake). El timeout se RESETEA a 0 (sin limite) en cuanto el
+    // handshake completa con exito y antes de que el reader normal del Participant
+    // tome control, asi las pausas legitimas inter-mano nunca lo disparan.
+    public static final int HANDSHAKE_TIMEOUT_MS = 30000;
+    // Cap del int de longitud que el peer envía en cada read del handshake.
+    // El pubkey EC X.509 (P-256) real son ~91 bytes; permitimos 256 de margen
+    // por si alguna vez se sube de curva. Sin este cap un peer hostil puede
+    // mandar Integer.MAX_VALUE y forzar new byte[2GB] → OOM instantáneo.
+    public static final int HANDSHAKE_MAX_PUBKEY_BYTES = 256;
+    // session_id que el server emite tiene tamaño fijo 16 (ver línea 712:
+    // this.session_id = new byte[16];). Cap a 64 da margen futuro sin
+    // permitir abuso.
+    public static final int HANDSHAKE_MAX_SESSIONID_BYTES = 64;
 
     // Pre-compiled patterns used per chat message in txtChat2HTML and its helpers.
     // Hot path: avoid String.replaceAll which recompiles the regex on every call.
@@ -159,6 +179,10 @@ public class WaitingRoomFrame extends JFrame {
     private volatile int server_port = 0;
     private volatile boolean booting = false;
     private volatile boolean partida_empezada = false;
+    // Sprint 7 telemetría: última snapshot recibida desde el host. Actualizada
+    // en la rama "TELEMETRY" del GAME sub-switch de cliente(). Lectores
+    // (futuro LatencyDot, F7 label) acceden via getLatest_telemetry().
+    private volatile Helpers.TelemetryFrame latest_telemetry = null;
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private volatile boolean exit = false;
@@ -1177,7 +1201,15 @@ public class WaitingRoomFrame extends JFrame {
                         int oldTimeout = newSock.getSoTimeout();
                         try {
                             newSock.setSoTimeout(GameFrame.CLIENT_RECEPTION_TIMEOUT);
-                            ackLine = net_client.getLocal_client_buffer_read_is().readLine();
+                            // Cap defensivo igual que el resto de readers del transporte
+                            // (NetServer/NetClient/Participant). Si el server hipotético
+                            // mandase bytes sin '\n' tras el handshake de reconexion,
+                            // este readLine sin cap consumiría memoria hasta OOM. La
+                            // protección de SoTimeout cubre hangs pero NO OOM por líneas
+                            // largas.
+                            ackLine = Helpers.readBoundedLine(
+                                    net_client.getLocal_client_buffer_read_is(),
+                                    Helpers.MAX_COMMAND_LINE_CHARS);
                         } catch (java.net.SocketTimeoutException ste) {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
                             ackLine = null;
@@ -1309,6 +1341,12 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 if (ok_rec) {
+                    // Sprint 7 telemetría: contador de reconexiones exitosas
+                    // del cliente. Se incrementa SÓLO en la rama positiva
+                    // (la rama de fallo no entra a este if). Mirror del
+                    // Participant.reconnection_count del lado servidor.
+                    net_client.incrementReconnectionCount();
+
                     Audio.playWavResource("misc/yahoo.wav");
 
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
@@ -1679,6 +1717,23 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
 
+                    // Sprint 7 telemetría: actualizar también el LatencyDot del
+                    // LocalPlayer del cliente con su propia medición al server
+                    // + su contador de reconexiones. Esto da feedback INMEDIATO
+                    // (no espera al TELEMETRY broadcast del host) sobre la
+                    // calidad del enlace local.
+                    try {
+                        if (GameFrame.getInstance() != null
+                                && GameFrame.getInstance().getLocalPlayer() instanceof LocalPlayer) {
+                            ((LocalPlayer) GameFrame.getInstance().getLocalPlayer()).applyTelemetry(
+                                    net_client.getRemote_server_latency(),
+                                    net_client.getRemote_server_latency2(),
+                                    net_client.getReconnectionCount());
+                        }
+                    } catch (Exception ex) {
+                        // Best-effort visualization; no afecta lógica de juego.
+                    }
+
                     Helpers.pausar(PING_INTERVAL_MS);
                 }
 
@@ -1706,6 +1761,12 @@ public class WaitingRoomFrame extends JFrame {
                     net_client.setLocal_client_socket(sock);
                     sock.setTcpNoDelay(true);
                     sock.setKeepAlive(true);
+                    // Cerrojo anti-DoS: si el servidor NO termina el handshake en
+                    // HANDSHAKE_TIMEOUT_MS, los reads bloqueados (pubkey server, session_id,
+                    // NICKOK/intro/chat-history) lanzan SocketTimeoutException y caemos al
+                    // catch en lugar de eternizar el thread. Se RESETEA a 0 mas abajo en
+                    // cuanto el NICKOK ha sido procesado y nuevoParticipante creado.
+                    sock.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
 
                     sock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
                     sock.getOutputStream().flush();
@@ -1727,10 +1788,18 @@ public class WaitingRoomFrame extends JFrame {
 
                     DataInputStream dIn = new DataInputStream(sock.getInputStream());
                     int length = dIn.readInt();
+                    if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
+                        throw new IOException("Handshake: invalid server pubkey length " + length
+                                + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
+                    }
                     byte[] serverPubKeyEnc = new byte[length];
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
                     // EC-Identity v1: capture session_id sent right after the server pubkey.
                     int sidLen = dIn.readInt();
+                    if (sidLen <= 0 || sidLen > HANDSHAKE_MAX_SESSIONID_BYTES) {
+                        throw new IOException("Handshake: invalid session_id length " + sidLen
+                                + " (cap " + HANDSHAKE_MAX_SESSIONID_BYTES + ")");
+                    }
                     byte[] receivedSessionId = new byte[sidLen];
                     dIn.readFully(receivedSessionId, 0, sidLen);
                     this.session_id = receivedSessionId;
@@ -1767,7 +1836,7 @@ public class WaitingRoomFrame extends JFrame {
                     IdentityManager im = IdentityManager.getInstance();
                     if (!im.isReady()) {
                         exit = true;
-                        mostrarMensajeError(THIS, "Identity not ready: " + im.getLoadError());
+                        mostrarMensajeError(THIS, Translator.translate("ui.error.identity_not_ready", im.getLoadError()));
                         throw new IOException("Identity not ready, refusing to JOIN");
                     }
                     String pubkeyB64 = Base64.getEncoder().encodeToString(im.getPublicKey());
@@ -1856,7 +1925,7 @@ public class WaitingRoomFrame extends JFrame {
                             try {
                                 if (server_avatar_base64.length() > 0) {
                                     int file_id = Math.abs(Helpers.CSPRNG_GENERATOR.nextInt());
-                                    server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + server_nick + "_avatar" + file_id);
+                                    server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(server_nick) + "_avatar" + file_id);
                                     try (FileOutputStream os = new FileOutputStream(server_avatar)) {
                                         os.write(Base64.getDecoder().decode(server_avatar_base64));
                                     }
@@ -1893,6 +1962,18 @@ public class WaitingRoomFrame extends JFrame {
 
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
+
+                            // Handshake completado: los reads subsiguientes del cliente (GAME,
+                            // PING/PONG, chat) deben poder esperar indefinido. Quitamos el deadline
+                            // de handshake. La reconexion gestiona su propio timeout en su flujo.
+                            try {
+                                Socket localSock = net_client.getLocal_client_socket();
+                                if (localSock != null && !localSock.isClosed()) {
+                                    localSock.setSoTimeout(0);
+                                }
+                            } catch (Exception ex) {
+                                LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on client post-NICKOK", ex);
+                            }
 
                             // EC-Identity v1: apply the host's identity to the freshly-created
                             // Participant. Verify self_sig against current session_id; on success,
@@ -1948,7 +2029,7 @@ public class WaitingRoomFrame extends JFrame {
                                             break;
                                         case "EXIT":
                                             exit = true;
-                                            mostrarMensajeError(THIS, "The server cancelled the game before starting.");
+                                            mostrarMensajeError(THIS, Translator.translate("game.el_servidor_ha_cancelado_la"));
                                             break;
                                         case "KICKED":
                                             exit = true;
@@ -2342,6 +2423,40 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                             } catch (Exception e) {
                                                                 // Debug-only command: never tear down the socket thread.
+                                                            }
+                                                            break;
+                                                        case "TELEMETRY":
+                                                            // Sprint 7 telemetría. El wire-format del payload contiene '#'
+                                                            // como separador interno (timestamp#entries), así que si el
+                                                            // split('#') del comando GAME generó más de 4 partes, hay que
+                                                            // recomponer partes[3..end] con '#' para reconstruir el payload
+                                                            // original antes de decodificar.
+                                                            try {
+                                                                if (partes_comando.length >= 4) {
+                                                                    String payload;
+                                                                    if (partes_comando.length == 4) {
+                                                                        payload = partes_comando[3];
+                                                                    } else {
+                                                                        StringBuilder sb = new StringBuilder();
+                                                                        for (int i = 3; i < partes_comando.length; i++) {
+                                                                            if (i > 3) {
+                                                                                sb.append('#');
+                                                                            }
+                                                                            sb.append(partes_comando[i]);
+                                                                        }
+                                                                        payload = sb.toString();
+                                                                    }
+                                                                    Helpers.TelemetryFrame frame = Helpers.decodeTelemetry(payload);
+                                                                    if (frame != null) {
+                                                                        this.latest_telemetry = frame;
+                                                                        if (GameFrame.getInstance() != null
+                                                                                && GameFrame.getInstance().getCrupier() != null) {
+                                                                            GameFrame.getInstance().getCrupier().applyTelemetryFrameLocally(frame);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } catch (Exception e) {
+                                                                LOGGER.log(Level.WARNING, "Bad TELEMETRY payload — ignored", e);
                                                             }
                                                             break;
                                                         case "TIMEOUT":
@@ -2743,7 +2858,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     file_id *= -1;
                                                                 }
                                                                 if (partes_comando.length >= 6 && !"*".equals(partes_comando[5])) {
-                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + nickNew + "_avatar" + String.valueOf(file_id));
+                                                                    avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(nickNew) + "_avatar" + String.valueOf(file_id));
                                                                     try (FileOutputStream os = new FileOutputStream(avatarNew)) {
                                                                         os.write(Base64.getDecoder().decode(partes_comando[5]));
                                                                     } catch (Exception e) {
@@ -2806,7 +2921,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         if (fid < 0) {
                                                                             fid *= -1;
                                                                         }
-                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + list_nick + "_avatar" + String.valueOf(fid));
+                                                                        list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(list_nick) + "_avatar" + String.valueOf(fid));
                                                                         try (FileOutputStream os = new FileOutputStream(list_avatar)) {
                                                                             os.write(Base64.getDecoder().decode(user_parts[2]));
                                                                         } catch (Exception e) {
@@ -2929,7 +3044,7 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         }
                     } else {
-                        mostrarMensajeError(THIS, "SOMETHING FAILED. You have lost connection with the server.");
+                        mostrarMensajeError(THIS, Translator.translate("conn.algo_ha_fallado_has_perdido"));
                     }
                 }
             } while (!exit && net_client.getLocal_client_socket() == null);
@@ -3006,6 +3121,11 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 client_socket.setTcpNoDelay(true);
                 client_socket.setKeepAlive(true);
+                // Cerrojo anti-DoS: si el peer NO termina el handshake en HANDSHAKE_TIMEOUT_MS,
+                // el read bloqueado lanza SocketTimeoutException y caemos al catch que cierra
+                // el socket y libera el thread. Se RESETEA a 0 mas abajo en las dos ramas de
+                // exito (nuevoParticipante para JOIN limpio y resetSocket para reconexion).
+                client_socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
                 byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
                 client_socket.getInputStream().read(magic);
                 if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
@@ -3013,6 +3133,10 @@ public class WaitingRoomFrame extends JFrame {
                     /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
                     DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
                     int length = dIn.readInt();
+                    if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
+                        throw new IOException("Handshake: invalid client pubkey length " + length
+                                + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
+                    }
                     byte[] clientPubKeyEnc = new byte[length];
                     dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
                     KeyFactory serverKeyFac = KeyFactory.getInstance("EC");
@@ -3085,6 +3209,14 @@ public class WaitingRoomFrame extends JFrame {
 
                                 LOGGER.log(Level.WARNING, "Resetting client socket...");
 
+                                // Handshake completado: el Participant toma control del socket
+                                // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
+                                // el deadline del handshake.
+                                try {
+                                    client_socket.setSoTimeout(0);
+                                } catch (Exception ex) {
+                                    LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on reconnect", ex);
+                                }
                                 if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
                                     if (WaitingRoomFrame.getInstance().isPartida_empezada()
@@ -3274,7 +3406,7 @@ public class WaitingRoomFrame extends JFrame {
                                 if (file_id < 0) {
                                     file_id *= -1;
                                 }
-                                client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + client_nick
+                                client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(client_nick)
                                         + "_avatar" + String.valueOf(file_id));
 
                                 try (FileOutputStream os = new FileOutputStream(client_avatar)) {
@@ -3330,6 +3462,14 @@ public class WaitingRoomFrame extends JFrame {
                                 if (participantes.size() < MAX_PARTICIPANTES
                                         && !WaitingRoomFrame.getInstance().isPartida_empezando()
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                    // Handshake completado: el Participant toma control del socket
+                                    // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
+                                    // el deadline del handshake.
+                                    try {
+                                        client_socket.setSoTimeout(0);
+                                    } catch (Exception ex) {
+                                        LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
+                                    }
                                     nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
                                     // EC-Identity v1: cache pubkey+self_sig on the new Participant
@@ -3433,7 +3573,7 @@ public class WaitingRoomFrame extends JFrame {
                                 server_address_label.setText(stat + " (UPnP ERROR)");
                             });
                             mostrarMensajeError(THIS,
-                                    "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
+                                    Translator.translate("conn.upnp_mapping_failed"));
                         }
                     }
                     Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
@@ -3450,7 +3590,7 @@ public class WaitingRoomFrame extends JFrame {
                     if (net_server.getServer_socket() == null) {
                         exit = true;
                         mostrarMensajeError(THIS,
-                                "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
+                                Translator.translate("conn.server_socket_bind_failed"));
                     }
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
@@ -3548,6 +3688,16 @@ public class WaitingRoomFrame extends JFrame {
 
     public boolean isPartida_empezada() {
         return partida_empezada;
+    }
+
+    /**
+     * Sprint 7 telemetría: última snapshot recibida del host (lat1/lat2/recon
+     * por peer). Puede ser null si aún no se ha recibido ninguna. Lectores
+     * deben tolerar null y campos faltantes en el map (peer recién entrado
+     * todavía no medido).
+     */
+    public Helpers.TelemetryFrame getLatest_telemetry() {
+        return latest_telemetry;
     }
 
     public void enviarMensajeChat(String nick, String msg) {

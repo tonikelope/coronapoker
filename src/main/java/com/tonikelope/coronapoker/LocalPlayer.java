@@ -168,7 +168,48 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (hurryup_timer != null) {
                 hurryup_timer.stop();
             }
+            // icon_zoom_timer también — sin esto, queda registrado en la
+            // TimerQueue global de Swing reteniendo el LocalPlayer (y por
+            // captura, el GameFrame entero) hasta su próximo fire. En
+            // resetInstance bloquea el GC del frame viejo.
+            if (icon_zoom_timer != null && icon_zoom_timer.isRunning()) {
+                icon_zoom_timer.stop();
+            }
         });
+    }
+
+    // Sprint 7 telemetría: el widget LatencyDot lo coloca el autor en el
+    // .form (NetBeans visual editor) y lo enlaza llamando setLatencyDot.
+    private volatile LatencyDot latency_dot = null;
+
+    public LatencyDot getLatencyDot() {
+        return latency_dot;
+    }
+
+    public void setLatencyDot(LatencyDot dot) {
+        this.latency_dot = dot;
+    }
+
+    /**
+     * Sprint 7 telemetría: actualiza la bolita LatencyDot. No-op si aún no
+     * se ha enlazado vía setLatencyDot.
+     */
+    public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
+        LatencyDot dot = this.latency_dot;
+        if (dot == null) {
+            return;
+        }
+        int best;
+        if (lat1 < 0 && lat2 < 0) {
+            best = -1;
+        } else if (lat1 < 0) {
+            best = lat2;
+        } else if (lat2 < 0) {
+            best = lat1;
+        } else {
+            best = Math.min(lat1, lat2);
+        }
+        dot.setLatency(best, reconnectionCount);
     }
 
     @Override
@@ -688,18 +729,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 disablePlayerAction();
             });
 
-            Helpers.threadRun(() -> {
-                while (player_name.getHeight() == 0) {
-                    Helpers.pausar(125);
+            Helpers.runWhenLaidOut(player_name, () -> {
+                if (isSpectator()) {
+                    player_action.setText(msg != null ? msg : Translator.translate("player.espectador"));
+                    setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                 }
-                Helpers.GUIRun(() -> {
-                    if (isSpectator()) {
-                        player_action.setText(msg != null ? msg : Translator.translate("player.espectador"));
-                        setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
-                    }
-
-                });
-
             });
 
         }
@@ -910,6 +944,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
+            // Sprint 7: wire opcional al latency_dot_widget del .form (si existe).
+            try {
+                java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
+                f.setAccessible(true);
+                Object widget = f.get(this);
+                if (widget instanceof LatencyDot) {
+                    setLatencyDot((LatencyDot) widget);
+                }
+            } catch (NoSuchFieldException nsfe) {
+                // OK: aún no se ha añadido en el .form.
+            } catch (Exception ex) {
+                Logger.getLogger(LocalPlayer.class.getName()).log(Level.WARNING, "Could not wire latency_dot_widget", ex);
+            }
             hands_win.setVisible(false);
             sec_pot_win_label.setVisible(false);
             sec_pot_win_label.setHorizontalAlignment(JLabel.CENTER);
@@ -2071,6 +2118,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_name = new javax.swing.JLabel();
         utg_icon = new javax.swing.JLabel();
         hands_win = new javax.swing.JLabel();
+        latency_dot_widget = new com.tonikelope.coronapoker.LatencyDot();
         botonera = new javax.swing.JPanel();
         player_allin_button = new javax.swing.JButton();
         player_fold_button = new javax.swing.JButton();
@@ -2095,6 +2143,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         avatar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/avatar_null.png"))); // NOI18N
         avatar.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
         avatar.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -2131,7 +2180,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
+        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setFocusable(false);
@@ -2186,6 +2235,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setText("123456789012345");
         player_name.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_name.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
@@ -2195,12 +2245,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         utg_icon.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         utg_icon.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        utg_icon.setDoubleBuffered(true);
         utg_icon.setFocusable(false);
 
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
-        Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
+        hands_win.setToolTipText("MANOS GANADAS");
+        hands_win.setDoubleBuffered(true);
 
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
         nick_panel.setLayout(nick_panelLayout);
@@ -2209,21 +2261,28 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(nick_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(player_name)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(utg_icon)
-                .addGap(5, 5, 5)
+                .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(nick_panelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(utg_icon)
+                        .addGap(5, 5, 5))
+                    .addGroup(nick_panelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(latency_dot_widget)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addComponent(hands_win)
                 .addGap(0, 0, 0))
         );
         nick_panelLayout.setVerticalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(player_name)
+                .addComponent(utg_icon)
+                .addComponent(hands_win))
             .addGroup(nick_panelLayout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(player_name)
-                    .addComponent(utg_icon)
-                    .addComponent(hands_win))
-                .addGap(0, 0, 0))
+                .addContainerGap()
+                .addComponent(latency_dot_widget)
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout indicadores_arribaLayout = new javax.swing.GroupLayout(indicadores_arriba);
@@ -2251,8 +2310,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_allin_button.setBackground(new java.awt.Color(0, 0, 0));
         player_allin_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_allin_button.setForeground(new java.awt.Color(255, 255, 255));
-        Helpers.setTranslatedText(player_allin_button, "action.label.allin");
+        player_allin_button.setText("ALL IN");
         player_allin_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_allin_button.setDoubleBuffered(true);
         player_allin_button.setFocusable(false);
         player_allin_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2263,8 +2323,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_fold_button.setBackground(new java.awt.Color(255, 0, 0));
         player_fold_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         player_fold_button.setForeground(new java.awt.Color(255, 255, 255));
-        Helpers.setTranslatedText(player_fold_button, "action.label.fold");
+        player_fold_button.setText("NO IR");
         player_fold_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_fold_button.setDoubleBuffered(true);
         player_fold_button.setFocusable(false);
         player_fold_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2273,8 +2334,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_check_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        Helpers.setTranslatedText(player_check_button, "action.label.check");
+        player_check_button.setText("PASAR");
         player_check_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_check_button.setDoubleBuffered(true);
         player_check_button.setFocusable(false);
         player_check_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2283,8 +2345,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
 
         player_bet_button.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
-        Helpers.setTranslatedText(player_bet_button, "action.label.bet");
+        player_bet_button.setText("APOSTAR");
         player_bet_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        player_bet_button.setDoubleBuffered(true);
         player_bet_button.setFocusable(false);
         player_bet_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -2296,12 +2359,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         bet_spinner.setModel(new javax.swing.SpinnerNumberModel());
         bet_spinner.setBorder(null);
         bet_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        bet_spinner.setDoubleBuffered(true);
 
         javax.swing.GroupLayout botoneraLayout = new javax.swing.GroupLayout(botonera);
         botonera.setLayout(botoneraLayout);
         botoneraLayout.setHorizontalGroup(
             botoneraLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(player_bet_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 258, Short.MAX_VALUE)
+            .addComponent(player_bet_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 257, Short.MAX_VALUE)
             .addComponent(player_allin_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(player_check_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(player_fold_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2323,6 +2387,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addContainerGap())
         );
 
+        panel_cartas.setDoubleBuffered(true);
 
         panel_cartas.setLayer(holeCard1, javax.swing.JLayeredPane.DEFAULT_LAYER);
         panel_cartas.setLayer(holeCard2, javax.swing.JLayeredPane.DEFAULT_LAYER);
@@ -2336,7 +2401,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 .addComponent(holeCard1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(holeCard2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 12, Short.MAX_VALUE))
+                .addGap(0, 13, Short.MAX_VALUE))
         );
         panel_cartasLayout.setVerticalGroup(
             panel_cartasLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -2350,8 +2415,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         player_action.setFont(new java.awt.Font("Dialog", 1, 26)); // NOI18N
         player_action.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        player_action.setText("");
+        player_action.setText("ESCALERA DE COLOR");
         player_action.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.setMinimumSize(new Dimension(Math.round(LocalPlayer.MIN_ACTION_WIDTH*(1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP)), Math.round(LocalPlayer.MIN_ACTION_HEIGHT * (1f + com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL * com.tonikelope.coronapoker.GameFrame.ZOOM_STEP))));
 
@@ -2796,6 +2862,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private com.tonikelope.coronapoker.Card holeCard1;
     private com.tonikelope.coronapoker.Card holeCard2;
     private javax.swing.JPanel indicadores_arriba;
+    private javax.swing.JLabel latency_dot_widget;
     private javax.swing.JPanel nick_panel;
     private javax.swing.JLayeredPane panel_cartas;
     private javax.swing.JLabel player_action;

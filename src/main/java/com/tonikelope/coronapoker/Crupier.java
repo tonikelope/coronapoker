@@ -37,6 +37,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
@@ -78,6 +79,97 @@ import javax.swing.JLabel;
 public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context.DealerView {
 
     private static final Logger LOGGER = Logger.getLogger(Crupier.class.getName());
+
+    /**
+     * Whitelist de tipos permitidos en la deserialización Java del payload
+     * RECOVERDATA recibido del host. Sin este filtro, ObjectInputStream.readObject
+     * acepta cualquier clase Serializable del classpath, lo que permite a un host
+     * hostil enviar un gadget chain (jna, jaxb, sqlite-jdbc, soundlibs…) y obtener
+     * RCE en cualquier cliente que pida recovery.
+     *
+     * Tipos legítimos del map (ver Crupier.sqlRecoverGameInfo* y sqlRecoverHand*):
+     *   HashMap (root) → String keys → values de tipo
+     *   String, Integer, Long, Float, Double, Boolean.
+     *
+     * Limits añadidos: 10 MB total, profundidad 20, 10k refs/array. El payload
+     * legítimo más grande observado ronda decenas de KB (balances + metadatos).
+     *
+     * Cualquier clase no listada — incluyendo java.io.File, java.lang.Runtime,
+     * gadgets de Apache Commons, jaxb, etc. — provoca rechazo del payload.
+     */
+    static final ObjectInputFilter RECOVERY_OBJECT_FILTER = ObjectInputFilter.Config.createFilter(
+            "maxbytes=" + (10 * 1024 * 1024) + ";"
+            + "maxdepth=20;maxrefs=10000;maxarray=10000;"
+            // HashMap root + nested classes internas (Node, Set views, etc.)
+            + "java.util.HashMap$**;"
+            + "java.util.HashMap;"
+            // Map.Entry (y su array) lo emite HashMap.writeObject como bucket internamente.
+            + "java.util.Map$Entry;"
+            + "java.util.Map$**;"
+            // Wrappers numéricos y String — los únicos values legítimos del map.
+            + "java.lang.String;"
+            + "java.lang.Number;"
+            + "java.lang.Integer;"
+            + "java.lang.Long;"
+            + "java.lang.Float;"
+            + "java.lang.Double;"
+            + "java.lang.Boolean;"
+            // Tipos primitivos (cuando se deserializan campos `int` etc. dentro de
+            // los wrappers — Java los referencia por nombre primitivo).
+            + "int;long;float;double;boolean;byte;char;short;void;"
+            // DENY everything else (gadgets en jna, jaxb, sqlite-jdbc, soundlibs...).
+            + "!*"
+    );
+
+    /**
+     * Exposed for the AAA test that verifies the filter accepts legitimate
+     * RECOVERY payloads and rejects everything else (RecoveryObjectFilterSmoke).
+     */
+    public static ObjectInputFilter getRecoveryObjectFilter() {
+        return RECOVERY_OBJECT_FILTER;
+    }
+
+    /**
+     * Sprint deferred 🟠-2: muta action[] in-place a FOLD voluntario sintético.
+     * Usado en DOS situaciones simétricas:
+     *   1. El peer (sender de la ACTION) ya está marcado isExit() — su decisión
+     *      no llegó; sintetizamos fold para que la rueda de apuestas avance.
+     *      (caso existente desde antes, líneas 6926-6931)
+     *   2. La firma Ed25519 de la ACTION recibida del wire es inválida — un
+     *      peer (o host hostil con clave robada) intentó falsificar la
+     *      decisión. NO debemos aplicar la decisión/bet falsificados al state
+     *      del juego — se desplaza al peer perdiendo posiblemente fichas.
+     *      Sintetizamos fold para que el peor caso sea "ese peer pierde su
+     *      turno". (NUEVO en este commit)
+     *
+     * action[] post-call (mismo contrato que el exit-synth existente):
+     *   action[0] = Player.FOLD     // decision sintética
+     *   action[1] = 0f              // bet=0
+     *   action[2] = null            // sin cinematic
+     *   action[3] = null            // sin record para absorber en el chain
+     *   action[4] = null            // sin sig
+     *   action[5] = Boolean.FALSE   // NO voluntario (rondaApuestas keys off
+     *                                 esto para saltar absorbActionIntoChain
+     *                                 y broadcast — la cadena converge por
+     *                                 omisión mutua: si todos los peers
+     *                                 detectan el mismo bad sig, todos
+     *                                 absorben nothing y H_t avanza igual)
+     *
+     * El array debe tener length >= 6 (contrato del action[] del Sprint
+     * EC-Identity v1, comentado en readActionFromRemotePlayer).
+     */
+    static void synthesizeFoldAction(Object[] action) {
+        if (action == null || action.length < 6) {
+            throw new IllegalArgumentException(
+                    "action must have length >= 6 (slots [decision, bet, cinematic, record, sig, voluntary])");
+        }
+        action[0] = Player.FOLD;
+        action[1] = 0f;
+        action[2] = null;
+        action[3] = null;
+        action[4] = null;
+        action[5] = Boolean.FALSE;
+    }
 
     public static final boolean ALLIN_BOT_TEST = false; // TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
@@ -1151,7 +1243,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     break;
                 }
-                Helpers.pausar(100);
+                // Patrón estándar del Crupier (15+ receive* loops lo usan):
+                // espera sobre received_commands para que un notifyAll de
+                // los productores (Participant reader, WaitingRoomFrame.cliente)
+                // nos despierte inmediatamente al llegar el próximo comando.
+                // El timeout WAIT_QUEUES es safety net consistente con el resto
+                // del fichero — sustituye el Helpers.pausar(100) anterior que
+                // polleaba sin escuchar al notifier real.
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
         } while (!ok && !isFin_de_la_transmision());
 
@@ -2922,14 +3028,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
+                                        // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó
+                                        // clave mala intencionalmente o tiene cliente corrupto —
+                                        // no podemos distinguir, terminamos.
                                         LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer FORFEIT.",
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer maligno o bug. Lockdown.",
                                                 nick);
-                                        try {
-                                            GameFrame.getInstance().getRegistro().print(
-                                                    nick + " — clave de showdown firmada pero no resuelve cartas. Sus cartas no se revelan; pierde la opción de ganar este pot.");
-                                        } catch (Exception ignored) {
-                                        }
+                                        triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
                                     }
                                 }
                             }
@@ -5395,7 +5500,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String balanceFileName = Init.DEV_MODE ? "/balance_backup_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt" : "/balance_backup.txt";
 
             try {
-                Files.writeString(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
+                // writeStringAtomic en lugar del Files.writeString directo
+                // (Sprint deferred 🟠-26): garantiza que tras un crash mid-write
+                // el balance_backup.txt queda CON SU VALOR ANTERIOR INTACTO en
+                // lugar de un fichero vacío. Backup forense por mano: la
+                // pérdida de UN backup parcial era recuperable pero la pérdida
+                // de TODA la historia (writeString truncate+crash) no.
+                Helpers.writeStringAtomic(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
@@ -6342,6 +6453,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 ByteArrayInputStream byteIn = new ByteArrayInputStream(
                                         Base64.getDecoder().decode(partes[3]));
                                 in = new ObjectInputStream(byteIn);
+                                // ANTI-RCE: instalar whitelist ANTES de readObject. Sin esto,
+                                // un host hostil podría enviar un gadget chain en el classpath
+                                // y ejecutar código arbitrario en el cliente que pide recovery.
+                                in.setObjectInputFilter(RECOVERY_OBJECT_FILTER);
                                 map = (HashMap<String, Object>) in.readObject();
 
                                 Integer hand_id = this.getHandIdFromUGI(GameFrame.UGI);
@@ -6805,13 +6920,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                     } else if (!IdentityManager.verifyAction(signerPubkey, wireRecord, wireSig)) {
                                                         LOGGER.log(Level.SEVERE,
-                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — absorbed anyway, flagged in receipt",
+                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — SYNTHESIZING FOLD instead of applying falsified decision",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
                                                         // EC-Identity v1 (Opción A): mark the hand as having seen
-                                                        // an invalid signature so the receipt carries the bit and
+                                                        // an invalid signature so the receipt carries the bit y
                                                         // consensus refuses to report OK at hand close.
                                                         this.saw_invalid_action_sig = true;
+                                                        // Sprint deferred 🟠-2: NO aplicar la decision/bet
+                                                        // falsificados al state del juego (cambio vs
+                                                        // comportamiento anterior "absorbed anyway"). En su lugar
+                                                        // sintetizamos fold voluntary=FALSE simétrico al exit-synth
+                                                        // existente más abajo. Todos los peers que reciben este
+                                                        // mismo ACTION wire verán el mismo sig inválido (Ed25519
+                                                        // es determinista) y harán el mismo synth → chain converge
+                                                        // por omisión mutua. El receipt mantiene el bit
+                                                        // saw_invalid_action_sig, así que el consensus de cierre
+                                                        // de mano DIVERGENT detectará el incidente offline para
+                                                        // forenses, pero el dinero NO se mueve por la falsificación.
+                                                        synthesizeFoldAction(action);
                                                     }
                                                 }
                                             } catch (Exception parseEx) {
@@ -6855,12 +6982,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // converges without needing a host-signed synth absorbed in order.
             // rondaApuestas keys off action[5]==FALSE to skip both the wire
             // broadcast and the absorb call.
-            action[0] = Player.FOLD;
-            action[1] = 0f;
-            action[2] = null;
-            action[3] = null;
-            action[4] = null;
-            action[5] = Boolean.FALSE;
+            //
+            // Sprint deferred 🟠-2: extraído al helper synthesizeFoldAction
+            // (mismo patrón que el branch invalid-sig en el switch ACTION arriba).
+            synthesizeFoldAction(action);
         } else {
             jugador.setTimeout(false);
         }
@@ -8360,15 +8485,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (id1 < 0 || id2 < 0) {
                 // Sig OK pero clave firmada no resuelve. Peer FORFEIT (no MISDEAL
                 // — sería exploit).
+                // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó clave mala
+                // intencionalmente o tiene cliente corrupto — no podemos distinguir,
+                // terminamos.
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer FORFEIT del pot.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer maligno o bug. Lockdown.",
                         new Object[]{nick, id1, id2});
-                try {
-                    GameFrame.getInstance().getRegistro().print(
-                            nick + " — clave de showdown firmada pero no resuelve cartas. "
-                            + "Sus cartas no se revelan; pierde la opción de ganar este pot.");
-                } catch (Exception ignored) {
-                }
+                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
                 return false;
             }
 
@@ -8993,6 +9116,105 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         broadcastGAMECommandFromServer(command, skip_nick, true);
     }
 
+    /**
+     * Sprint 7 telemetría: construye una TelemetryFrame con las métricas
+     * actuales de TODOS los Participants (latencias del ping/pong del
+     * servidor + reconnection_count acumulado) y la broadcasta a todos
+     * los clientes vía "GAME#id#TELEMETRY#payload".
+     *
+     * Sólo callable en partida iniciada. Si Crupier o GameFrame no están
+     * listos, no-op silencioso. NO inicia ningún thread propio — el caller
+     * decide la frecuencia (típicamente cada PING_INTERVAL_MS desde un
+     * Timer o thread externo).
+     *
+     * Llamada idempotente: el payload de salida es fresco snapshot del
+     * estado actual; no muta estado.
+     */
+    public void broadcastTelemetryFrame() {
+        try {
+            if (GameFrame.getInstance() == null) {
+                return;
+            }
+            java.util.Map<String, com.tonikelope.coronapoker.Participant> parts =
+                    GameFrame.getInstance().getParticipantes();
+            if (parts == null || parts.isEmpty()) {
+                return;
+            }
+            java.util.Map<String, int[]> perPeer = new java.util.HashMap<>(parts.size() + 1);
+            // Iteración protegida — participantes es synchronizedMap.
+            synchronized (parts) {
+                for (java.util.Map.Entry<String, com.tonikelope.coronapoker.Participant> e : parts.entrySet()) {
+                    com.tonikelope.coronapoker.Participant p = e.getValue();
+                    if (p == null) {
+                        continue;
+                    }
+                    if (p.isCpu()) {
+                        // Bots: locales al host, sin RTT → entrada verde 0/0/0.
+                        perPeer.put(e.getKey(), new int[]{0, 0, 0});
+                    } else {
+                        perPeer.put(e.getKey(),
+                                new int[]{p.getLatency(), p.getLatency2(), p.getReconnectionCount()});
+                    }
+                }
+            }
+            // El propio host se incluye con latencia 0 (es su propia perspectiva
+            // — no se hace ping a sí mismo). recon=0 también para el host.
+            String localNick = GameFrame.getInstance().getNick_local();
+            if (localNick != null && !localNick.isEmpty()) {
+                perPeer.put(localNick, new int[]{0, 0, 0});
+            }
+            Helpers.TelemetryFrame frame = new Helpers.TelemetryFrame(
+                    System.currentTimeMillis(), perPeer);
+            String payload = Helpers.encodeTelemetry(frame);
+            // OJO: broadcastGAMECommandFromServer YA envuelve el comando como
+            // "GAME#<id>#" + command — solo pasamos "TELEMETRY#<payload>".
+            // Antes el comando salía doblemente envuelto
+            // (GAME#id#GAME#id#TELEMETRY#payload) y el cliente lo veía como
+            // un GAME#GAME — partes[2]="GAME" en lugar de "TELEMETRY" → no
+            // entraba al case y la telemetría nunca se aplicaba en el cliente.
+            String cmd = "TELEMETRY#" + payload;
+            // skip_nick=null y confirmation=false: broadcast fire-and-forget
+            // sin esperar ACK; la telemetría es best-effort, no necesita confirm.
+            broadcastGAMECommandFromServer(cmd, null, false);
+            // El host NO recibe su propio broadcast (broadcastGAMECommandFromServer
+            // envía a clientes remotos, no se procesa a sí mismo). Aplicamos el
+            // frame localmente para que el host vea las bolitas de sus clientes
+            // con su latencia real + las suyas propias en verde.
+            applyTelemetryFrameLocally(frame);
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "broadcastTelemetryFrame failed (telemetry is best-effort, no game impact)", ex);
+        }
+    }
+
+    /**
+     * Sprint 7 telemetría: aplica un TelemetryFrame a los Player locales.
+     * Usado por:
+     *   - broadcastTelemetryFrame() del host (auto-aplicación, ya que el host
+     *     no recibe su propio broadcast).
+     *   - case "TELEMETRY" del cliente (al recibir broadcast del host).
+     */
+    public void applyTelemetryFrameLocally(Helpers.TelemetryFrame frame) {
+        if (frame == null || frame.perPeer == null) {
+            return;
+        }
+        java.util.Map<String, Player> n2p = getNick2player();
+        if (n2p == null) {
+            return;
+        }
+        for (java.util.Map.Entry<String, int[]> en : frame.perPeer.entrySet()) {
+            Player p = n2p.get(en.getKey());
+            int[] v = en.getValue();
+            if (p == null || v == null || v.length < 3) {
+                continue;
+            }
+            if (p instanceof RemotePlayer) {
+                ((RemotePlayer) p).applyTelemetry(v[0], v[1], v[2]);
+            } else if (p instanceof LocalPlayer) {
+                ((LocalPlayer) p).applyTelemetry(v[0], v[1], v[2]);
+            }
+        }
+    }
+
     private int permutadoNick2Pos(String nick) {
 
         int i = 0;
@@ -9009,19 +9231,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private String permutadoPos2Nick(int i) {
-
-        if (i < 0) {
-
-            while (i < 0) {
-                i += nicks_permutados.length;
-            }
-
-        } else if (i >= nicks_permutados.length) {
-            i = i % nicks_permutados.length;
-        }
-
-        return nicks_permutados[i];
-
+        // Modulo positivo, robusto contra Integer.MIN_VALUE. El bucle anterior
+        // "while (i < 0) i += length" entraría en loop infinito si i == MIN_VALUE
+        // porque sumar length nunca cruza el 0 antes del overflow (los valores
+        // negativos rebotan). Fórmula equivalente para inputs típicos pero safe
+        // en todos los rangos.
+        int n = nicks_permutados.length;
+        int mod = ((i % n) + n) % n;
+        return nicks_permutados[mod];
     }
 
     // DEAD BUTTON STRATEGY
@@ -9537,12 +9754,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
+                            // REPLACE_EXISTING: si una recuperación previa dejó un
+                            // balance_used huérfano (Sprint 6 🟡-36 v2), el move fallaba
+                            // con FileAlreadyExistsException, el catch lo logueaba SEVERE
+                            // pero el balance original quedaba en disco para una eventual
+                            // tercera recuperación con datos viejos. REPLACE_EXISTING
+                            // garantiza marca-como-usado idempotente.
                             Files.move(Paths.get(Init.CORONA_DIR + "/balance"),
-                                    Paths.get(Init.CORONA_DIR + "/balance_used"));
+                                    Paths.get(Init.CORONA_DIR + "/balance_used"),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
                             map.put("balance", balance.trim());
 
-                            LOGGER.log(Level.WARNING, "Balance recuperado forzado");
+                            LOGGER.log(Level.WARNING, "Forced recovered balance applied");
 
                             LOGGER.log(Level.WARNING, balance);
 
@@ -10177,7 +10401,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // → showdown las dejará tapadas).
                                 {
                                     int total = (partes.length - 3) / 5;
-                                    for (int i = 0; i < total; i++) {
+                                    boolean lockdownTriggered = false;
+                                    for (int i = 0; i < total && !lockdownTriggered; i++) {
                                         try {
                                             int base = 3 + 5 * i;
                                             String nick = new String(Base64.getDecoder().decode(partes[base]), "UTF-8");
@@ -10205,7 +10430,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 continue;
                                             }
 
-                                            // Crypto-ring: verificar sig + descifrar + comparar.
+                                            // Mapping zero-trust de violaciones (ver Sprint 7 audit):
+                                            //   sig/key missing, bad lengths, sig verify FAILED,
+                                            //   Set mismatch (cartas distintas) → 🔴 LOCKDOWN (terminamos).
+                                            //   sig OK pero SRA no resuelve → 🟢 FORFEIT del peer + popup.
+                                            //   Orden swap (mismas cartas) → silencioso (bug benigno).
                                             boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
                                             boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
                                             if (!keyProvided || !sigProvided) {
@@ -10213,6 +10442,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         "ZERO-TRUST: POTCARDS for {0} arrived WITHOUT sig/key — host stripped. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
 
@@ -10223,6 +10453,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         "ZERO-TRUST: POTCARDS for {0} has bad lengths — host wire malformado. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
                                             byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
@@ -10237,20 +10468,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         "ZERO-TRUST: POTCARDS sig verify FAILED for {0} — host substituting key. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
 
-                                            // Sig OK. Descifrar y comparar con plaintext.
+                                            // Sig OK. Descifrar y poblar holeCards desde el SRA.
+                                            // El SRA-decrypt es la ÚNICA fuente de verdad para peers
+                                            // con cipher local (activos). El plaintext se compara como
+                                            // Set (no tupla) para tolerar reordenamiento UI del host.
                                             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
                                             if (pp != null) {
                                                 pp.setSra_unlock(sraKey);
                                             }
                                             byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
                                             if (pocketCards == null || pocketCards.length != 64) {
-                                                // Sin cipher local no podemos verificar.
-                                                // Aceptamos el plaintext del host (es el caso
-                                                // de un cliente que no recibió la cascade
-                                                // completa para este peer).
+                                                // Espectador (calentando, sin cipher local) → confiamos
+                                                // en el plaintext firmado del host.
                                                 String[] carta1 = c1_str.split("_");
                                                 String[] carta2 = c2_str.split("_");
                                                 jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
@@ -10263,31 +10496,47 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             int id1 = CryptoSRA.resolveCardIndex(cb1);
                                             int id2 = CryptoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
+                                                // LOCKDOWN: sig firmada por el peer es genuina pero
+                                                // la SRA no resuelve cartas → el peer firmó una clave
+                                                // MALA intencionalmente o tiene cliente corrupto. No
+                                                // podemos distinguir, terminamos por seguridad.
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve. Peer FORFEIT.",
-                                                        nick);
+                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug. Lockdown.",
+                                                        new Object[]{nick, id1, id2});
                                                 try {
                                                     GameFrame.getInstance().getRegistro().print(
-                                                            nick + " — clave de showdown firmada pero no resuelve cartas. Sus cartas no se revelan; pierde la opción de ganar este pot.");
+                                                            nick + " — clave de showdown firmada pero no resuelve cartas. Posible cheat o bug del cliente.");
                                                 } catch (Exception ignored) {
                                                 }
-                                                continue;
+                                                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                                lockdownTriggered = true;
+                                                break;
                                             }
 
-                                            // Validar que el plaintext del host coincide con el SRA.
-                                            // Discordancia → host miente. Lockdown.
+                                            // Validar plaintext vs SRA-decrypt como SET (no tupla):
+                                            // pockets son intercambiables en Hold'em; el host puede
+                                            // legítimamente reordenarlas para visualización. Pero si
+                                            // las CARTAS son DISTINTAS → cheat real → LOCKDOWN.
                                             String expected1 = Card.shortStringFromIndex(id1);
                                             String expected2 = Card.shortStringFromIndex(id2);
-                                            if (!c1_str.equals(expected1) || !c2_str.equals(expected2)) {
+                                            java.util.Set<String> received = new java.util.HashSet<>(
+                                                    java.util.Arrays.asList(c1_str, c2_str));
+                                            java.util.Set<String> expected = new java.util.HashSet<>(
+                                                    java.util.Arrays.asList(expected1, expected2));
+                                            if (!received.equals(expected)) {
                                                 LOGGER.log(Level.SEVERE,
                                                         "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) discrepa con SRA-decrypt ({3},{4}). Host miente. Lockdown.",
                                                         new Object[]{nick, c1_str, c2_str, expected1, expected2});
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
 
                                             jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
                                             jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
+                                            // Mismo reordenamiento que el host (carta mayor a la
+                                            // izquierda) para visualización consistente entre peers.
+                                            jugador.ordenarCartas();
                                         } catch (Exception ex) {
                                             LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
                                         }

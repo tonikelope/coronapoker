@@ -123,7 +123,9 @@ public class NetServer {
         try {
             synchronized (socket.getInputStream()) {
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                return Helpers.decryptCommand(in.readLine(), key, hmac_key);
+                return Helpers.decryptCommand(
+                        Helpers.readBoundedLine(in, Helpers.MAX_COMMAND_LINE_CHARS),
+                        key, hmac_key);
             }
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, null, ex);

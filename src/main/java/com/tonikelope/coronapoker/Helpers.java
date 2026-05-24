@@ -253,6 +253,12 @@ public class Helpers {
     public static final boolean INFINITE_DECK_SHUFFLE = false;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
+    // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).
+    // Cubre con margen el mensaje más grande que el protocolo legítimo puede generar
+    // (MEGAPACKET SRA con 52*32 = 1664 bytes + AES padding + IV + HMAC + Base64 ronda
+    // los 2-4 KB; RECOVERDATA serializado ronda decenas de KB). 16 MB es ~1000× más
+    // que cualquier comando real y corta la vía OOM por línea infinita en readLine.
+    public static final int MAX_COMMAND_LINE_CHARS = 16 * 1024 * 1024;
     public static final int DECK_ELEMENTS = 52;
     public static final int MIN_GIF_FRAME_DELAY = 3;
     public static final int DIALOG_ICON_SIZE = 70;
@@ -1800,6 +1806,38 @@ public class Helpers {
     public static String decryptCommand(String command, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
 
         return (command != null && command.charAt(0) == '*') ? Helpers.decryptString(command.trim().substring(1), aes_key, hmac_key) : command;
+    }
+
+    /**
+     * Reemplazo acotado de {@link java.io.BufferedReader#readLine()}. Mismo
+     * contrato (null si EOF antes de leer nada, trim de CR-LF) pero ABORTA con
+     * IOException si la línea acumula más de {@code maxChars} caracteres antes
+     * del salto de línea. Defensa contra un peer que abre canal y envía bytes
+     * sin '\n' hasta forzar OOM en el receptor (readLine estándar crece el
+     * buffer interno sin límite).
+     *
+     * El cap se mide en caracteres del Reader (post-decode UTF-8). La aproximación
+     * char≈byte es válida para nuestro wire format (Base64 + dígitos + '#'),
+     * todo ASCII.
+     */
+    public static String readBoundedLine(java.io.BufferedReader reader, int maxChars) throws IOException {
+        StringBuilder sb = new StringBuilder(256);
+        int c;
+        boolean readAnything = false;
+        while ((c = reader.read()) != -1) {
+            readAnything = true;
+            if (c == '\n') {
+                return sb.toString();
+            }
+            if (c == '\r') {
+                continue;
+            }
+            sb.append((char) c);
+            if (sb.length() > maxChars) {
+                throw new IOException("Line exceeds " + maxChars + " char cap (DoS guard tripped)");
+            }
+        }
+        return readAnything ? sb.toString() : null;
     }
 
     /**

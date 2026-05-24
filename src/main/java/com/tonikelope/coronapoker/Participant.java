@@ -640,7 +640,9 @@ public class Participant implements Runnable {
         }
         synchronized (getInput_stream_reader()) {
             try {
-                return Helpers.decryptCommand(getInput_stream_reader().readLine(), getAes_key(), getHmac_key());
+                return Helpers.decryptCommand(
+                        Helpers.readBoundedLine(getInput_stream_reader(), Helpers.MAX_COMMAND_LINE_CHARS),
+                        getAes_key(), getHmac_key());
             } catch (Exception ex) {
             }
         }

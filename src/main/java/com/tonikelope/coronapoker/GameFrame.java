@@ -1643,14 +1643,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void setTapeteBote(float bote, Float beneficio) {
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(Translator.translate("game.bote_2") + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
+            tapete.getCommunityCards().getPot_label().setText(Translator.translate("game.bote_2") + " " + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
         });
     }
 
     public void setTapeteBote(String bote) {
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(Translator.translate("game.bote_2") + bote);
+            tapete.getCommunityCards().getPot_label().setText(Translator.translate("game.bote_2") + " " + bote);
         });
     }
 
@@ -2309,9 +2309,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
 
                             if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                                ganancia_msg += Translator.translate("ui.pierde_2") + Helpers.float2String(ganancia * -1f);
+                                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.float2String(ganancia * -1f);
                             } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                                ganancia_msg += Translator.translate("ui.gana_4") + Helpers.float2String(ganancia);
+                                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.float2String(ganancia);
                             } else {
                                 ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
                             }

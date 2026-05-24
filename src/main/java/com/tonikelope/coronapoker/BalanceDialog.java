@@ -75,10 +75,10 @@ public class BalanceDialog extends JDialog {
             float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
 
             if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                ganancia_msg += Translator.translate("ui.pierde_2") + Helpers.float2String(ganancia * -1f);
+                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.float2String(ganancia * -1f);
                 label.setForeground(Color.RED);
             } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                ganancia_msg += Translator.translate("ui.gana_4") + Helpers.float2String(ganancia);
+                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.float2String(ganancia);
                 label.setForeground(new Color(0, 130, 0));
             } else {
                 ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");

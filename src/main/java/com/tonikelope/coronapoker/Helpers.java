@@ -1424,6 +1424,23 @@ public class Helpers {
                 SQLiteConfig config = new SQLiteConfig();
 
                 config.enforceForeignKeys(true);
+                // WAL: writers no bloquean a readers (StatsDialog puede leer
+                // mientras Crupier escribe acciones de la mano en curso).
+                config.setJournalMode(org.sqlite.SQLiteConfig.JournalMode.WAL);
+                // NORMAL es seguro con WAL: solo se hace fsync en commits y al
+                // checkpoint, no por cada page write. Reduce 3-5× el coste de
+                // sqlNewAction/sqlNewHand/sqlNewHandBalance que el Crupier hace
+                // varias veces por mano.
+                config.setSynchronous(org.sqlite.SQLiteConfig.SynchronousMode.NORMAL);
+                // 50 MB de cache (negativo = KB). Default es ~2MB, insuficiente
+                // para los JOINs de StatsDialog cuando hay miles de manos.
+                config.setCacheSize(-50_000);
+                // Defender / antivirus toma share-lock momentáneo en .db-wal
+                // durante COMMIT. Sin busy_timeout, SQLITE_BUSY se devuelve
+                // instantáneamente y el INSERT/UPDATE se pierde (catch genérico
+                // del Crupier lo loguea SEVERE pero no reintenta). 5s cubre
+                // share-locks transitorios sin colgar la UI.
+                config.setBusyTimeout(5000);
 
                 SQLITE = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE, config.toProperties());
 
@@ -1522,6 +1539,15 @@ public class Helpers {
                 statement.execute("CREATE TABLE IF NOT EXISTS permutationkey(id INTEGER PRIMARY KEY, hash TEXT, key TEXT)");
                 statement.execute("CREATE TABLE IF NOT EXISTS hand_state(id_game INTEGER PRIMARY KEY, payload TEXT, FOREIGN KEY(id_game) REFERENCES game(id) ON DELETE CASCADE)");
                 statement.execute("CREATE TABLE IF NOT EXISTS known_identities(nick TEXT PRIMARY KEY, pubkey BLOB NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, sessions_count INTEGER NOT NULL DEFAULT 0, verified_oob INTEGER NOT NULL DEFAULT 0)");
+                // Índices secundarios sobre las FKs que StatsDialog usa en self-joins.
+                // SQLite NO auto-indexa FKs. Sin estos, queries como rendimiento /
+                // subidasRonda / balance hacen full table scan: O(rows_action *
+                // rows_hand). Con miles de manos, segundos → milisegundos.
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_hand_game ON hand(id_game)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_action_hand ON action(id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_hand ON showdown(id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_balance_hand ON balance(id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_showcards_hand ON showcards(id_hand)");
                 // EC-Identity v1 (commit 6): forensic log of hands whose end-of-hand consensus
                 // did not check out unanimously. The hand is paid out regardless — this table is
                 // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of

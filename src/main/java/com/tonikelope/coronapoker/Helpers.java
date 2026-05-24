@@ -1809,6 +1809,82 @@ public class Helpers {
     }
 
     /**
+     * Ejecuta {@code action} en EDT en cuanto {@code c} tenga altura > 0
+     * (layout aplicado). Si ya está laid out, ejecuta inmediatamente. Si no,
+     * instala un ComponentListener one-shot que se auto-remueve tras el primer
+     * resize con altura > 0.
+     *
+     * Reemplaza el anti-patrón {@code Helpers.threadRun(() -> { while (c.getHeight() == 0)
+     * Helpers.pausar(125); Helpers.GUIRun(action); })} que polleaba con sleep
+     * el estado event-driven de Swing — cero CPU mientras se espera, cero
+     * latencia al despertar.
+     *
+     * Apto solo cuando {@code action} no requiere mantener un lock externo
+     * durante su ejecución (corre directamente en EDT). Si se necesita lock
+     * + GUIRunAndWait, usar {@link #awaitFirstLayout(javax.swing.JComponent)}
+     * desde un thread off-EDT.
+     */
+    public static void runWhenLaidOut(javax.swing.JComponent c, Runnable action) {
+        if (c == null || action == null) {
+            return;
+        }
+        GUIRun(() -> {
+            if (c.getHeight() > 0) {
+                action.run();
+                return;
+            }
+            java.awt.event.ComponentListener[] holder = new java.awt.event.ComponentListener[1];
+            holder[0] = new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    if (c.getHeight() > 0) {
+                        c.removeComponentListener(holder[0]);
+                        action.run();
+                    }
+                }
+            };
+            c.addComponentListener(holder[0]);
+        });
+    }
+
+    /**
+     * Bloquea el thread actual (que NO debe ser EDT) hasta que {@code c} tenga
+     * altura > 0. Usar cuando el caller necesita mantener un lock externo
+     * durante el subsiguiente GUIRunAndWait — el lock no puede tomarse desde
+     * EDT porque otro thread non-EDT puede estar reteniéndolo y bloqueado
+     * esperando a EDT, lo que produciría deadlock.
+     *
+     * Si ya está laid out, retorna sin bloquear.
+     */
+    public static void awaitFirstLayout(javax.swing.JComponent c) throws InterruptedException {
+        if (c == null || c.getHeight() > 0) {
+            return;
+        }
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        java.awt.event.ComponentListener[] holder = new java.awt.event.ComponentListener[1];
+        holder[0] = new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (c.getHeight() > 0 && latch.getCount() > 0) {
+                    latch.countDown();
+                    c.removeComponentListener(holder[0]);
+                }
+            }
+        };
+        GUIRun(() -> {
+            c.addComponentListener(holder[0]);
+            // Re-check post-install para cubrir la race en la que el layout
+            // se aplicó entre el check inicial y addComponentListener (otro
+            // evento EDT pendiente que dispara setBounds).
+            if (c.getHeight() > 0 && latch.getCount() > 0) {
+                latch.countDown();
+                c.removeComponentListener(holder[0]);
+            }
+        });
+        latch.await();
+    }
+
+    /**
      * Sanea un nick para uso seguro como SEGMENTO de filename en disco.
      * Defensa contra path traversal cuando el nick proviene de un peer remoto
      * (host hostil enviando NEWUSER/USERSLIST con nick "../../../../foo") y

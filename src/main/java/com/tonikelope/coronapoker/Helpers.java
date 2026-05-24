@@ -1848,6 +1848,140 @@ public class Helpers {
     }
 
     /**
+     * Sprint 7 telemetría: payload de una snapshot de latencia/reconexiones
+     * que el host emite periódicamente a todos los clientes. Inmutable.
+     */
+    public static final class TelemetryFrame {
+
+        /** Timestamp del host al emitir (System.currentTimeMillis). */
+        public final long serverTimestampMs;
+        /** nick (canonical, NFC) → [lat1_ms, lat2_ms, reconnection_count]. */
+        public final java.util.Map<String, int[]> perPeer;
+
+        public TelemetryFrame(long serverTimestampMs, java.util.Map<String, int[]> perPeer) {
+            this.serverTimestampMs = serverTimestampMs;
+            this.perPeer = java.util.Collections.unmodifiableMap(new java.util.HashMap<>(perPeer));
+        }
+    }
+
+    /**
+     * Codifica un TelemetryFrame al wire format usado por el broadcast
+     * TELEMETRY del Sprint 7. Formato:
+     *
+     *   <ts>#<b64nick>|<lat1>/<lat2>/<recon>@<b64nick>|<lat1>/<lat2>/<recon>@...
+     *
+     * - ts es System.currentTimeMillis del host al emitir.
+     * - nick va Base64-encoded en UTF-8 para evitar conflictos con los
+     *   separadores #/@/| (los nicks pueden contener cualquier char).
+     *   IMPORTANTE: el separador nick/valores es '|' (NO '='), porque '='
+     *   es padding válido de Base64 y mezclarlo confundiría al parser.
+     * - lat1, lat2 son ms. -1 = no medido / timeout.
+     * - recon es el contador acumulado de reconexiones de ese peer.
+     *
+     * El caller envolverá el resultado en "GAME#<id>#TELEMETRY#<payload>"
+     * antes del encryptCommand habitual.
+     */
+    public static String encodeTelemetry(Helpers.TelemetryFrame frame) {
+        if (frame == null) {
+            throw new IllegalArgumentException("frame must not be null");
+        }
+        StringBuilder sb = new StringBuilder(64 + frame.perPeer.size() * 32);
+        sb.append(frame.serverTimestampMs);
+        sb.append('#');
+        boolean first = true;
+        for (java.util.Map.Entry<String, int[]> e : frame.perPeer.entrySet()) {
+            int[] v = e.getValue();
+            if (v == null || v.length < 3) {
+                continue;
+            }
+            if (!first) {
+                sb.append('@');
+            }
+            first = false;
+            try {
+                sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")));
+            } catch (java.io.UnsupportedEncodingException uee) {
+                // UTF-8 está garantizado por Java; este catch es defensivo.
+                sb.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes()));
+            }
+            sb.append('|');
+            sb.append(v[0]).append('/').append(v[1]).append('/').append(v[2]);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Decodifica el wire format del Sprint 7 TELEMETRY. Tolera entradas
+     * mal formadas (skip silencioso de entries con campos faltantes o
+     * sin parsear como int) para que un peer hostil no pueda romper el
+     * cliente con un payload corrupto.
+     *
+     * Devuelve null si el payload no tiene al menos el ts inicial.
+     */
+    public static Helpers.TelemetryFrame decodeTelemetry(String payload) {
+        if (payload == null || payload.isEmpty()) {
+            return null;
+        }
+        int firstHash = payload.indexOf('#');
+        long ts;
+        String entries;
+        if (firstHash < 0) {
+            // Solo ts sin entries (broadcast vacío).
+            try {
+                ts = Long.parseLong(payload);
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+            return new TelemetryFrame(ts, new java.util.HashMap<>());
+        }
+        try {
+            ts = Long.parseLong(payload.substring(0, firstHash));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+        entries = payload.substring(firstHash + 1);
+        java.util.Map<String, int[]> map = new java.util.HashMap<>();
+        if (!entries.isEmpty()) {
+            String[] tuples = entries.split("@");
+            for (String t : tuples) {
+                // Separador nick/valores es '|', NO '='. Razón: '=' es padding
+                // de Base64 y mezclarlo confundiría al parser.
+                int pipe = t.indexOf('|');
+                if (pipe <= 0 || pipe >= t.length() - 1) {
+                    continue;
+                }
+                String b64nick = t.substring(0, pipe);
+                String numbers = t.substring(pipe + 1);
+                String[] parts = numbers.split("/");
+                if (parts.length < 3) {
+                    continue;
+                }
+                String nick;
+                try {
+                    nick = new String(java.util.Base64.getDecoder().decode(b64nick), "UTF-8");
+                } catch (Exception ex) {
+                    continue;
+                }
+                if (nick.isEmpty()) {
+                    continue;
+                }
+                int lat1;
+                int lat2;
+                int recon;
+                try {
+                    lat1 = Integer.parseInt(parts[0]);
+                    lat2 = Integer.parseInt(parts[1]);
+                    recon = Integer.parseInt(parts[2]);
+                } catch (NumberFormatException ex) {
+                    continue;
+                }
+                map.put(nick, new int[]{lat1, lat2, recon});
+            }
+        }
+        return new TelemetryFrame(ts, map);
+    }
+
+    /**
      * Ejecuta {@code action} en EDT en cuanto {@code c} tenga altura > 0
      * (layout aplicado). Si ya está laid out, ejecuta inmediatamente. Si no,
      * instala un ComponentListener one-shot que se auto-remueve tras el primer

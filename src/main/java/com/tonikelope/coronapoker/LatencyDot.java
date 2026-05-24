@@ -68,7 +68,7 @@ public class LatencyDot extends JLabel {
     /** Umbrales (ms) para clasificar latencia → color. */
     public static final int THRESHOLD_GREEN_MS = 100;
     public static final int THRESHOLD_YELLOW_MS = 250;
-    public static final int THRESHOLD_ORANGE_MS = 550;
+    public static final int THRESHOLD_ORANGE_MS = 400;
 
     public static final Color COLOR_GREEN = new Color(0x4C, 0xAF, 0x50);
     public static final Color COLOR_YELLOW = new Color(0xFF, 0xC1, 0x07);

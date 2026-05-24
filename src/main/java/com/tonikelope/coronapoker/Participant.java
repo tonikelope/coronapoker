@@ -74,6 +74,11 @@ public class Participant implements Runnable {
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
     private volatile int pong2_timeout_counter = 0;
+    // Sprint 7 telemetría: cuenta de reconexiones exitosas del peer al server.
+    // Incrementado en resetSocket() tras setear reset_socket=true. Cubre tanto
+    // reconexiones naturales (peer cae + vuelve) como las forzadas vía menú
+    // "FORZAR RECONEXIÓN" — ambas indican inestabilidad de enlace observable.
+    private volatile int reconnection_count = 0;
     private volatile byte[] received_token = null;
     private volatile int new_hand_ready = 0;
 
@@ -159,6 +164,15 @@ public class Participant implements Runnable {
 
     public int getLatency() {
         return latency;
+    }
+
+    /**
+     * Sprint 7 telemetría: nº de reconexiones exitosas de este peer al server
+     * desde que se creó el Participant (inicio de partida o entrada a la sala).
+     * Sólo cuenta reconexiones que llegaron hasta reset_socket=true.
+     */
+    public int getReconnectionCount() {
+        return reconnection_count;
     }
 
     public Participant(WaitingRoomFrame espera, String nick, File avatar, Socket socket, SecretKeySpec aes_k, SecretKeySpec hmac_k, boolean cpu) {
@@ -726,6 +740,12 @@ public class Participant implements Runnable {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
                 this.reset_socket = true;
+                // Sprint 7 telemetría: contador por peer de reconexiones exitosas.
+                // Sólo se incrementa cuando llegamos aquí (reset_socket=true ya
+                // garantiza que el socket nuevo está instalado y los streams
+                // listos). El TELEMETRY broadcast del host expone este valor
+                // a todos los clientes para mostrar inestabilidad de enlace.
+                this.reconnection_count++;
                 // Reseteo de contadores ping defensivo: si llevaban fallos acumulados
                 // contra el socket viejo, el primer fail contra el nuevo (que puede
                 // ser legitimo por jitter post-reconexion) no debe alcanzar el

@@ -1337,6 +1337,12 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 if (ok_rec) {
+                    // Sprint 7 telemetría: contador de reconexiones exitosas
+                    // del cliente. Se incrementa SÓLO en la rama positiva
+                    // (la rama de fallo no entra a este if). Mirror del
+                    // Participant.reconnection_count del lado servidor.
+                    net_client.incrementReconnectionCount();
+
                     Audio.playWavResource("misc/yahoo.wav");
 
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {

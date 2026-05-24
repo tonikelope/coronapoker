@@ -78,6 +78,12 @@ public class NetClient {
     // (potencialmente legitimo por jitter post-reconexion) no debe alcanzar
     // el threshold ni cerrar el socket recien instalado.
     private volatile boolean reset_ping_counters = false;
+    // Sprint 7 telemetría: cuenta de reconexiones EXITOSAS del cliente al
+    // server desde el arranque. Mirror del contador per-peer en Participant
+    // (que cuenta en el servidor las reconexiones recibidas de cada peer).
+    // El cliente puede comparar su propio valor con el broadcast TELEMETRY
+    // del server para detectar divergencias.
+    private volatile int reconnection_count = 0;
 
     public NetClient(WaitingRoomFrame waiting_room) {
         this.waiting_room = waiting_room;
@@ -222,6 +228,23 @@ public class NetClient {
 
     public void setReset_ping_counters(boolean v) {
         this.reset_ping_counters = v;
+    }
+
+    /**
+     * Sprint 7 telemetría: nº de reconexiones EXITOSAS de este cliente al
+     * server desde el arranque del NetClient.
+     */
+    public int getReconnectionCount() {
+        return reconnection_count;
+    }
+
+    /**
+     * Incrementa el contador. Debe llamarse desde reconectarCliente()
+     * únicamente cuando la reconexión completa con éxito (ok_rec == true,
+     * antes del return de la rama positiva).
+     */
+    public void incrementReconnectionCount() {
+        this.reconnection_count++;
     }
 
     // --- Helpers de ciclo de vida ---

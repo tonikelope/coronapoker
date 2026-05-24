@@ -1201,7 +1201,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (isFin_de_la_transmision()) {
                     break;
                 }
-                Helpers.pausar(100);
+                // Patrón estándar del Crupier (15+ receive* loops lo usan):
+                // espera sobre received_commands para que un notifyAll de
+                // los productores (Participant reader, WaitingRoomFrame.cliente)
+                // nos despierte inmediatamente al llegar el próximo comando.
+                // El timeout WAIT_QUEUES es safety net consistente con el resto
+                // del fichero — sustituye el Helpers.pausar(100) anterior que
+                // polleaba sin escuchar al notifier real.
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(WAIT_QUEUES);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
         } while (!ok && !isFin_de_la_transmision());
 

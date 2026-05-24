@@ -65,10 +65,11 @@ class CoronaParserDelegator extends Parser {
     }
 
     protected static DTD createDTD(DTD dtd, String name) {
-        InputStream in = null;
-        try {
-            String path = name + ".bdtd";
-            in = ParserDelegator.class.getResourceAsStream(path);
+        String path = name + ".bdtd";
+        // try-with-resources: el InputStream del JAR resource queda colgando
+        // (handle a la entrada del JAR) si no se cierra explícito. Cada
+        // CoronaHTMLEditorKit (chat de partida, log de timba) crea uno.
+        try (InputStream in = ParserDelegator.class.getResourceAsStream(path)) {
             if (in != null) {
                 dtd.read(new DataInputStream(new BufferedInputStream(in)));
                 DTD.putDTDHash(name, dtd);

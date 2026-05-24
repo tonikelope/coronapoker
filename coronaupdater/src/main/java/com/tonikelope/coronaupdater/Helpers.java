@@ -181,9 +181,11 @@ public class Helpers {
 
         Font font = null;
 
-        try {
+        // Paridad con el fix del CoronaPoker principal (Sprint 5 v2 🟠-20):
+        // toma ownership del stream para garantizar close.
+        try (InputStream s = stream) {
 
-            font = Font.createFont(Font.TRUETYPE_FONT, stream);
+            font = Font.createFont(Font.TRUETYPE_FONT, s);
 
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 

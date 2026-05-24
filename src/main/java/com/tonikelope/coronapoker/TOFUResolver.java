@@ -93,12 +93,18 @@ public final class TOFUResolver {
         long now = System.currentTimeMillis() / 1000L;
 
         synchronized (Helpers.class) {
+            // Declared outside try so the catch (Exception) below can propagate the
+            // CORRECT outcome (CHANGED / MATCH / NEW) even if the SQL UPDATE/INSERT
+            // throws AFTER the SELECT already established what we know. The previous
+            // catch returned Outcome.NEW unconditionally, which silently downgraded
+            // a CHANGED identity (a MITM rotating pubkeys under a known nick) to
+            // "first time we see this nick" when SQL hiccupped mid-operation.
+            byte[] existingPubkey = null;
+            boolean existingVerified = false;
+            int existingSessionsCount = 0;
+            boolean found = false;
             try {
                 Connection conn = Helpers.getSQLITE();
-                byte[] existingPubkey = null;
-                boolean existingVerified = false;
-                int existingSessionsCount = 0;
-                boolean found = false;
 
                 try (PreparedStatement ps = conn.prepareStatement(
                         "SELECT pubkey, verified_oob, sessions_count FROM known_identities WHERE nick = ?")) {
@@ -154,6 +160,22 @@ public final class TOFUResolver {
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, "TOFU resolve failed for nick " + nick, ex);
+                // Defensa: si el SELECT inicial alcanzó a leer un pubkey existente
+                // y NO matchea con el presentado, propagamos CHANGED — no NEW —
+                // aunque el UPDATE/INSERT posterior haya fallado. Devolver NEW aquí
+                // ocultaría un MITM exitoso al usuario (su única señal visual de
+                // CHANGED es el identicon, que no se actualiza si el outcome es NEW).
+                if (found && existingPubkey != null
+                        && !java.security.MessageDigest.isEqual(existingPubkey, pubkey)) {
+                    return new Resolution(Outcome.CHANGED, false, existingSessionsCount + 1);
+                }
+                // SELECT vio el mismo pubkey y el UPDATE de last_seen falló: behave
+                // as MATCH para no resetear la confianza por un fallo I/O transitorio.
+                if (found) {
+                    return new Resolution(Outcome.MATCH, existingVerified, existingSessionsCount + 1);
+                }
+                // No alcanzamos a ver al peer (SELECT o INSERT falló): NEW es la única
+                // respuesta honesta — no tenemos info para decir otra cosa.
                 return new Resolution(Outcome.NEW, false, 0);
             }
         }

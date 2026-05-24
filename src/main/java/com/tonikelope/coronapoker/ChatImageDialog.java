@@ -98,7 +98,7 @@ public class ChatImageDialog extends JDialog {
 
         historial_panel.setFocusTraversalPolicyProvider(true);
 
-        Helpers.setTranslatedTitle(this, "Enviar imagen");
+        Helpers.setTranslatedTitle(this, "ui.enviar_imagen");
 
         Helpers.JTextFieldRegularPopupMenu.addTo(image_url);
 

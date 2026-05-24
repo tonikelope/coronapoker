@@ -111,6 +111,17 @@ public class WaitingRoomFrame extends JFrame {
     public static final String MAGIC_BYTES = "5c1f158dd9855cc9";
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
+    // Read deadline aplicado al socket durante el handshake (magic bytes + ECDH +
+    // session_id + JOIN_V1 + NICKOK/intro/chat-history). Un peer legitimo completa
+    // este intercambio en <1s; el unico caso real que se aproxima al limite es una
+    // primera generacion de Ed25519 keypair en CPU muy lenta. Damos 30s de margen.
+    //
+    // Critico para defender contra peers que abren socket pero NUNCA mandan bytes
+    // (DoS local con sockets mudos) o que mandan bytes goteando uno-a-uno (eternizan
+    // el thread del handshake). El timeout se RESETEA a 0 (sin limite) en cuanto el
+    // handshake completa con exito y antes de que el reader normal del Participant
+    // tome control, asi las pausas legitimas inter-mano nunca lo disparan.
+    public static final int HANDSHAKE_TIMEOUT_MS = 30000;
 
     // Pre-compiled patterns used per chat message in txtChat2HTML and its helpers.
     // Hot path: avoid String.replaceAll which recompiles the regex on every call.
@@ -1706,6 +1717,12 @@ public class WaitingRoomFrame extends JFrame {
                     net_client.setLocal_client_socket(sock);
                     sock.setTcpNoDelay(true);
                     sock.setKeepAlive(true);
+                    // Cerrojo anti-DoS: si el servidor NO termina el handshake en
+                    // HANDSHAKE_TIMEOUT_MS, los reads bloqueados (pubkey server, session_id,
+                    // NICKOK/intro/chat-history) lanzan SocketTimeoutException y caemos al
+                    // catch en lugar de eternizar el thread. Se RESETEA a 0 mas abajo en
+                    // cuanto el NICKOK ha sido procesado y nuevoParticipante creado.
+                    sock.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
 
                     sock.getOutputStream().write(Helpers.toByteArray(MAGIC_BYTES));
                     sock.getOutputStream().flush();
@@ -1893,6 +1910,18 @@ public class WaitingRoomFrame extends JFrame {
 
                             nuevoParticipante(server_nick, server_avatar, null, null, null, false, THIS.isUnsecure_server());
                             nuevoParticipante(local_nick, local_avatar, null, null, null, false, false);
+
+                            // Handshake completado: los reads subsiguientes del cliente (GAME,
+                            // PING/PONG, chat) deben poder esperar indefinido. Quitamos el deadline
+                            // de handshake. La reconexion gestiona su propio timeout en su flujo.
+                            try {
+                                Socket localSock = net_client.getLocal_client_socket();
+                                if (localSock != null && !localSock.isClosed()) {
+                                    localSock.setSoTimeout(0);
+                                }
+                            } catch (Exception ex) {
+                                LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on client post-NICKOK", ex);
+                            }
 
                             // EC-Identity v1: apply the host's identity to the freshly-created
                             // Participant. Verify self_sig against current session_id; on success,
@@ -3006,6 +3035,11 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 client_socket.setTcpNoDelay(true);
                 client_socket.setKeepAlive(true);
+                // Cerrojo anti-DoS: si el peer NO termina el handshake en HANDSHAKE_TIMEOUT_MS,
+                // el read bloqueado lanza SocketTimeoutException y caemos al catch que cierra
+                // el socket y libera el thread. Se RESETEA a 0 mas abajo en las dos ramas de
+                // exito (nuevoParticipante para JOIN limpio y resetSocket para reconexion).
+                client_socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
                 byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
                 client_socket.getInputStream().read(magic);
                 if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
@@ -3085,6 +3119,14 @@ public class WaitingRoomFrame extends JFrame {
 
                                 LOGGER.log(Level.WARNING, "Resetting client socket...");
 
+                                // Handshake completado: el Participant toma control del socket
+                                // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
+                                // el deadline del handshake.
+                                try {
+                                    client_socket.setSoTimeout(0);
+                                } catch (Exception ex) {
+                                    LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on reconnect", ex);
+                                }
                                 if (participantes.get(client_nick).resetSocket(client_socket, aes_key, hmac_key)) {
 
                                     if (WaitingRoomFrame.getInstance().isPartida_empezada()
@@ -3330,6 +3372,14 @@ public class WaitingRoomFrame extends JFrame {
                                 if (participantes.size() < MAX_PARTICIPANTES
                                         && !WaitingRoomFrame.getInstance().isPartida_empezando()
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                    // Handshake completado: el Participant toma control del socket
+                                    // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
+                                    // el deadline del handshake.
+                                    try {
+                                        client_socket.setSoTimeout(0);
+                                    } catch (Exception ex) {
+                                        LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on new join", ex);
+                                    }
                                     nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
                                     // EC-Identity v1: cache pubkey+self_sig on the new Participant

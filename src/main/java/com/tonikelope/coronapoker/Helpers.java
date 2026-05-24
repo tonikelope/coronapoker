@@ -864,7 +864,12 @@ public class Helpers {
             try {
                 Runtime rt = Runtime.getRuntime();
 
-                Files.copy(url.openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
+                // Files.copy(InputStream,...) NO cierra el InputStream
+                // (contrato JDK). Sin try-with-resources, el handle del URL
+                // quedaba colgado tras la copia.
+                try (InputStream src = url.openStream()) {
+                    Files.copy(src, Paths.get(filename_orig), REPLACE_EXISTING);
+                }
 
                 String[] command = {Helpers.getGifsicleBinaryPath(), filename_orig, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
@@ -939,7 +944,9 @@ public class Helpers {
                                 try {
                                     Runtime rt = Runtime.getRuntime();
 
-                                    Files.copy(new URL(base_url + v + "_" + p + ".gif").openStream(), Paths.get(filename_orig), REPLACE_EXISTING);
+                                    try (InputStream src = new URL(base_url + v + "_" + p + ".gif").openStream()) {
+                                        Files.copy(src, Paths.get(filename_orig), REPLACE_EXISTING);
+                                    }
 
                                     String[] command = {gifsicle_bin_path, filename_orig, "--scale", zoom_str, "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
@@ -1065,7 +1072,13 @@ public class Helpers {
 
     public static int getGIFLength(URL url) throws IOException, ImageProcessingException {
 
-        Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
+        // try-with-resources sobre el InputStream del URL: ImageMetadataReader
+        // NO cierra el stream que recibe. Cada call (uno por GIF de chat o
+        // animación allin) filtraba el handle hasta GC.
+        Metadata metadata;
+        try (InputStream s = url.openStream()) {
+            metadata = ImageMetadataReader.readMetadata(s);
+        }
         List<GifControlDirectory> gifControlDirectories
                 = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class
                 );
@@ -1091,7 +1104,10 @@ public class Helpers {
 
     public static int getGIFFramesCount(URL url) throws IOException, ImageProcessingException {
 
-        Metadata metadata = ImageMetadataReader.readMetadata(url.openStream());
+        Metadata metadata;
+        try (InputStream s = url.openStream()) {
+            metadata = ImageMetadataReader.readMetadata(s);
+        }
 
         List<GifControlDirectory> gifControlDirectories
                 = (List<GifControlDirectory>) metadata.getDirectoriesOfType(GifControlDirectory.class
@@ -1111,9 +1127,16 @@ public class Helpers {
 
                 ImageReader read = readers.next();
 
-                if ("gif".equals(read.getFormatName().toLowerCase())) {
-                    return true;
-
+                try {
+                    if ("gif".equals(read.getFormatName().toLowerCase())) {
+                        return true;
+                    }
+                } finally {
+                    // Contrato ImageIO: todo ImageReader obtenido vía
+                    // getImageReaders DEBE dispose() para liberar buffers
+                    // nativos. Función llamada por cada mensaje con imagen
+                    // en el chat (centenares por sesión).
+                    read.dispose();
                 }
             }
 

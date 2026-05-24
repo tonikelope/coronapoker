@@ -9077,19 +9077,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private String permutadoPos2Nick(int i) {
-
-        if (i < 0) {
-
-            while (i < 0) {
-                i += nicks_permutados.length;
-            }
-
-        } else if (i >= nicks_permutados.length) {
-            i = i % nicks_permutados.length;
-        }
-
-        return nicks_permutados[i];
-
+        // Modulo positivo, robusto contra Integer.MIN_VALUE. El bucle anterior
+        // "while (i < 0) i += length" entraría en loop infinito si i == MIN_VALUE
+        // porque sumar length nunca cruza el 0 antes del overflow (los valores
+        // negativos rebotan). Fórmula equivalente para inputs típicos pero safe
+        // en todos los rangos.
+        int n = nicks_permutados.length;
+        int mod = ((i % n) + n) % n;
+        return nicks_permutados[mod];
     }
 
     // DEAD BUTTON STRATEGY

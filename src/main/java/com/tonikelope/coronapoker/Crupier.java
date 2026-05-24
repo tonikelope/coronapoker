@@ -129,6 +129,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return RECOVERY_OBJECT_FILTER;
     }
 
+    /**
+     * Sprint deferred 🟠-2: muta action[] in-place a FOLD voluntario sintético.
+     * Usado en DOS situaciones simétricas:
+     *   1. El peer (sender de la ACTION) ya está marcado isExit() — su decisión
+     *      no llegó; sintetizamos fold para que la rueda de apuestas avance.
+     *      (caso existente desde antes, líneas 6926-6931)
+     *   2. La firma Ed25519 de la ACTION recibida del wire es inválida — un
+     *      peer (o host hostil con clave robada) intentó falsificar la
+     *      decisión. NO debemos aplicar la decisión/bet falsificados al state
+     *      del juego — se desplaza al peer perdiendo posiblemente fichas.
+     *      Sintetizamos fold para que el peor caso sea "ese peer pierde su
+     *      turno". (NUEVO en este commit)
+     *
+     * action[] post-call (mismo contrato que el exit-synth existente):
+     *   action[0] = Player.FOLD     // decision sintética
+     *   action[1] = 0f              // bet=0
+     *   action[2] = null            // sin cinematic
+     *   action[3] = null            // sin record para absorber en el chain
+     *   action[4] = null            // sin sig
+     *   action[5] = Boolean.FALSE   // NO voluntario (rondaApuestas keys off
+     *                                 esto para saltar absorbActionIntoChain
+     *                                 y broadcast — la cadena converge por
+     *                                 omisión mutua: si todos los peers
+     *                                 detectan el mismo bad sig, todos
+     *                                 absorben nothing y H_t avanza igual)
+     *
+     * El array debe tener length >= 6 (contrato del action[] del Sprint
+     * EC-Identity v1, comentado en readActionFromRemotePlayer).
+     */
+    static void synthesizeFoldAction(Object[] action) {
+        if (action == null || action.length < 6) {
+            throw new IllegalArgumentException(
+                    "action must have length >= 6 (slots [decision, bet, cinematic, record, sig, voluntary])");
+        }
+        action[0] = Player.FOLD;
+        action[1] = 0f;
+        action[2] = null;
+        action[3] = null;
+        action[4] = null;
+        action[5] = Boolean.FALSE;
+    }
+
     public static final boolean ALLIN_BOT_TEST = false; // TRUE FOR TESTING (Init.DEV_MODE MUST BE TRUE)
 
     public static final String[] STREETS = new String[]{"Preflop", "Flop", "Turn", "River"};
@@ -6873,13 +6915,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                     } else if (!IdentityManager.verifyAction(signerPubkey, wireRecord, wireSig)) {
                                                         LOGGER.log(Level.SEVERE,
-                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — absorbed anyway, flagged in receipt",
+                                                                "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — SYNTHESIZING FOLD instead of applying falsified decision",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
                                                         // EC-Identity v1 (Opción A): mark the hand as having seen
-                                                        // an invalid signature so the receipt carries the bit and
+                                                        // an invalid signature so the receipt carries the bit y
                                                         // consensus refuses to report OK at hand close.
                                                         this.saw_invalid_action_sig = true;
+                                                        // Sprint deferred 🟠-2: NO aplicar la decision/bet
+                                                        // falsificados al state del juego (cambio vs
+                                                        // comportamiento anterior "absorbed anyway"). En su lugar
+                                                        // sintetizamos fold voluntary=FALSE simétrico al exit-synth
+                                                        // existente más abajo. Todos los peers que reciben este
+                                                        // mismo ACTION wire verán el mismo sig inválido (Ed25519
+                                                        // es determinista) y harán el mismo synth → chain converge
+                                                        // por omisión mutua. El receipt mantiene el bit
+                                                        // saw_invalid_action_sig, así que el consensus de cierre
+                                                        // de mano DIVERGENT detectará el incidente offline para
+                                                        // forenses, pero el dinero NO se mueve por la falsificación.
+                                                        synthesizeFoldAction(action);
                                                     }
                                                 }
                                             } catch (Exception parseEx) {
@@ -6923,12 +6977,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // converges without needing a host-signed synth absorbed in order.
             // rondaApuestas keys off action[5]==FALSE to skip both the wire
             // broadcast and the absorb call.
-            action[0] = Player.FOLD;
-            action[1] = 0f;
-            action[2] = null;
-            action[3] = null;
-            action[4] = null;
-            action[5] = Boolean.FALSE;
+            //
+            // Sprint deferred 🟠-2: extraído al helper synthesizeFoldAction
+            // (mismo patrón que el branch invalid-sig en el switch ACTION arriba).
+            synthesizeFoldAction(action);
         } else {
             jugador.setTimeout(false);
         }

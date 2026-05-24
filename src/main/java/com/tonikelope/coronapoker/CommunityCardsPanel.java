@@ -222,22 +222,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             setVisible(false);
         });
 
-        Helpers.threadRun(() -> {
-            while (pot_label.getHeight() == 0) {
-                Helpers.pausar(125);
-            }
-            Helpers.GUIRun(() -> {
-                sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-                Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
-                panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
-                Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
-                Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
-                Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
-                Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
-                Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
+        Helpers.runWhenLaidOut(pot_label, () -> {
+            sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
+            Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
+            panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
+            Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
+            Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+            Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+            Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
+            Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
-                ready = true;
-            });
+            ready = true;
         });
 
     }
@@ -945,8 +940,16 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         Helpers.threadRun(() -> {
 
-            while (pot_label.getHeight() == 0) {
-                Helpers.pausar(125);
+            // awaitFirstLayout (no while-pausar polling): se bloquea off-EDT con
+            // un ComponentListener one-shot hasta que pot_label tenga altura > 0.
+            // Mantenemos el threadRun + lock pattern porque zoom_lock también lo
+            // toma zoom() (línea ~987) que llama GUIRunAndWait — tomar el lock
+            // desde EDT aquí podría deadlockear con esa ruta.
+            try {
+                Helpers.awaitFirstLayout(pot_label);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return;
             }
 
             synchronized (zoom_lock) {

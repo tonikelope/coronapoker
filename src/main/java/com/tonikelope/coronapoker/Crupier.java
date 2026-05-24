@@ -9061,6 +9061,61 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         broadcastGAMECommandFromServer(command, skip_nick, true);
     }
 
+    /**
+     * Sprint 7 telemetría: construye una TelemetryFrame con las métricas
+     * actuales de TODOS los Participants (latencias del ping/pong del
+     * servidor + reconnection_count acumulado) y la broadcasta a todos
+     * los clientes vía "GAME#id#TELEMETRY#payload".
+     *
+     * Sólo callable en partida iniciada. Si Crupier o GameFrame no están
+     * listos, no-op silencioso. NO inicia ningún thread propio — el caller
+     * decide la frecuencia (típicamente cada PING_INTERVAL_MS desde un
+     * Timer o thread externo).
+     *
+     * Llamada idempotente: el payload de salida es fresco snapshot del
+     * estado actual; no muta estado.
+     */
+    public void broadcastTelemetryFrame() {
+        try {
+            if (GameFrame.getInstance() == null) {
+                return;
+            }
+            java.util.Map<String, com.tonikelope.coronapoker.Participant> parts =
+                    GameFrame.getInstance().getParticipantes();
+            if (parts == null || parts.isEmpty()) {
+                return;
+            }
+            java.util.Map<String, int[]> perPeer = new java.util.HashMap<>(parts.size() + 1);
+            // Iteración protegida — participantes es synchronizedMap.
+            synchronized (parts) {
+                for (java.util.Map.Entry<String, com.tonikelope.coronapoker.Participant> e : parts.entrySet()) {
+                    com.tonikelope.coronapoker.Participant p = e.getValue();
+                    if (p == null || p.isCpu()) {
+                        continue; // bots no tienen socket ⇒ telemetría sin sentido
+                    }
+                    perPeer.put(e.getKey(),
+                            new int[]{p.getLatency(), p.getLatency2(), p.getReconnectionCount()});
+                }
+            }
+            // El propio host se incluye con latencia 0 (es su propia perspectiva
+            // — no se hace ping a sí mismo). recon=0 también para el host.
+            String localNick = GameFrame.getInstance().getNick_local();
+            if (localNick != null && !localNick.isEmpty()) {
+                perPeer.put(localNick, new int[]{0, 0, 0});
+            }
+            Helpers.TelemetryFrame frame = new Helpers.TelemetryFrame(
+                    System.currentTimeMillis(), perPeer);
+            String payload = Helpers.encodeTelemetry(frame);
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            String cmd = "GAME#" + id + "#TELEMETRY#" + payload;
+            // skip_nick=null y confirmation=false: broadcast fire-and-forget
+            // sin esperar ACK; la telemetría es best-effort, no necesita confirm.
+            broadcastGAMECommandFromServer(cmd, null, false);
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "broadcastTelemetryFrame failed (telemetry is best-effort, no game impact)", ex);
+        }
+    }
+
     private int permutadoNick2Pos(String nick) {
 
         int i = 0;

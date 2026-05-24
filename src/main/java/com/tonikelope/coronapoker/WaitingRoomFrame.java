@@ -179,6 +179,10 @@ public class WaitingRoomFrame extends JFrame {
     private volatile int server_port = 0;
     private volatile boolean booting = false;
     private volatile boolean partida_empezada = false;
+    // Sprint 7 telemetría: última snapshot recibida desde el host. Actualizada
+    // en la rama "TELEMETRY" del GAME sub-switch de cliente(). Lectores
+    // (futuro LatencyDot, F7 label) acceden via getLatest_telemetry().
+    private volatile Helpers.TelemetryFrame latest_telemetry = null;
     private volatile boolean partida_empezando = false;
     private volatile String password = null;
     private volatile boolean exit = false;
@@ -2404,6 +2408,26 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // Debug-only command: never tear down the socket thread.
                                                             }
                                                             break;
+                                                        case "TELEMETRY":
+                                                            // Sprint 7 telemetría: broadcast del host con latencias +
+                                                            // reconnection counts de TODOS los peers. Almacenamos en
+                                                            // latest_telemetry para que el futuro LatencyDot (y el
+                                                            // F7 label en RemotePlayer) lo lea sin necesidad de
+                                                            // recablear la cadena ping/pong existente.
+                                                            // El decoder es tolerante a payloads corruptos (devuelve
+                                                            // null o frame parcial), así que no rompe el switch
+                                                            // si el host hostil enviase basura.
+                                                            try {
+                                                                if (partes_comando.length >= 4) {
+                                                                    Helpers.TelemetryFrame frame = Helpers.decodeTelemetry(partes_comando[3]);
+                                                                    if (frame != null) {
+                                                                        this.latest_telemetry = frame;
+                                                                    }
+                                                                }
+                                                            } catch (Exception e) {
+                                                                LOGGER.log(Level.WARNING, "Bad TELEMETRY payload — ignored", e);
+                                                            }
+                                                            break;
                                                         case "TIMEOUT":
                                                             // Process the timeout command directly in the client UI thread
                                                             try {
@@ -3633,6 +3657,16 @@ public class WaitingRoomFrame extends JFrame {
 
     public boolean isPartida_empezada() {
         return partida_empezada;
+    }
+
+    /**
+     * Sprint 7 telemetría: última snapshot recibida del host (lat1/lat2/recon
+     * por peer). Puede ser null si aún no se ha recibido ninguna. Lectores
+     * deben tolerar null y campos faltantes en el map (peer recién entrado
+     * todavía no medido).
+     */
+    public Helpers.TelemetryFrame getLatest_telemetry() {
+        return latest_telemetry;
     }
 
     public void enviarMensajeChat(String nick, String msg) {

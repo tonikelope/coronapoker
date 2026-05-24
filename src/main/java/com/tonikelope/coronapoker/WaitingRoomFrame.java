@@ -1197,7 +1197,15 @@ public class WaitingRoomFrame extends JFrame {
                         int oldTimeout = newSock.getSoTimeout();
                         try {
                             newSock.setSoTimeout(GameFrame.CLIENT_RECEPTION_TIMEOUT);
-                            ackLine = net_client.getLocal_client_buffer_read_is().readLine();
+                            // Cap defensivo igual que el resto de readers del transporte
+                            // (NetServer/NetClient/Participant). Si el server hipotético
+                            // mandase bytes sin '\n' tras el handshake de reconexion,
+                            // este readLine sin cap consumiría memoria hasta OOM. La
+                            // protección de SoTimeout cubre hangs pero NO OOM por líneas
+                            // largas.
+                            ackLine = Helpers.readBoundedLine(
+                                    net_client.getLocal_client_buffer_read_is(),
+                                    Helpers.MAX_COMMAND_LINE_CHARS);
                         } catch (java.net.SocketTimeoutException ste) {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
                             ackLine = null;

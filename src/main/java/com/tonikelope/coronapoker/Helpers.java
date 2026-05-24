@@ -1948,9 +1948,14 @@ public class Helpers {
 
     /**
      * Sprint 7 telemetría: pinta overlay de bola de latencia + badge de
-     * reconexiones en la esquina superior derecha del componente. Se invoca
+     * reconexiones en la esquina superior derecha del Player. Se invoca
      * desde paintChildren() de RemotePlayer y LocalPlayer — sin widget Swing
-     * adicional, sin layouts. Robusto al zoom (tamaño relativo a la anchura).
+     * adicional, sin layouts.
+     *
+     * Tamaño FIJO en píxeles (no proporcional al panel) — todos los Player
+     * muestran la misma bolita aunque LocalPlayer sea más ancho que los
+     * RemotePlayer. Se posiciona en la zona donde está el player_pot
+     * (".../ ----") arriba a la derecha del Player.
      *
      * @param g Graphics del paintChildren del Player.
      * @param panelW ancho del Player JPanel.
@@ -1964,9 +1969,21 @@ public class Helpers {
         if (panelW <= 0 || panelH <= 0) {
             return;
         }
-        // Diámetro proporcional al ancho del panel; con un mínimo legible.
-        int diameter = Math.max(14, Math.round(panelW * 0.08f));
-        int margin = Math.max(4, diameter / 4);
+        // Tamaño fijo en px (no escala con el ancho del Player — así RemotePlayer
+        // y LocalPlayer muestran la bolita del mismo tamaño aunque tengan
+        // anchos muy distintos). Escala discreta al zoom global del GameFrame.
+        int base = 14;
+        int zoom = 0;
+        try {
+            zoom = GameFrame.ZOOM_LEVEL;
+        } catch (Throwable ignored) {
+            // En tests headless GameFrame puede no estar inicializado.
+        }
+        int diameter = base + zoom * 2;
+        if (diameter < 10) {
+            diameter = 10;
+        }
+        int margin = 6;
         int x = panelW - diameter - margin;
         int y = margin;
 

@@ -36,10 +36,12 @@ import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
 import static com.tonikelope.coronapoker.GifLabel.GIF_BARRIER_TIMEOUT;
 import java.awt.BasicStroke;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -951,6 +953,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
+            // Sprint 7: LatencyDot overlay en la esquina superior derecha del avatar.
+            // El JLabel del avatar mantiene su Icon (la imagen del jugador); los
+            // children solo se pintan ENCIMA (no afectan al UI delegate del JLabel).
+            {
+                LatencyDot dot = new LatencyDot();
+                dot.setPreferredSize(new Dimension(16, 16));
+                dot.setMinimumSize(new Dimension(16, 16));
+                JPanel topRightOverlay = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 2));
+                topRightOverlay.setOpaque(false);
+                topRightOverlay.add(dot);
+                avatar.setLayout(new BorderLayout());
+                avatar.add(topRightOverlay, BorderLayout.NORTH);
+                setLatencyDot(dot);
+            }
             hands_win.setVisible(false);
             sec_pot_win_label.setVisible(false);
             sec_pot_win_label.setHorizontalAlignment(JLabel.CENTER);

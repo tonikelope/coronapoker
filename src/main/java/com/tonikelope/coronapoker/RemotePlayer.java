@@ -33,6 +33,7 @@ import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
 import static com.tonikelope.coronapoker.GifLabel.GIF_BARRIER_TIMEOUT;
 import java.awt.BasicStroke;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -1213,7 +1214,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
-            latency_label.setVisible(false);
+            // Sprint 7: latency_label se reutiliza como contenedor del LatencyDot
+            // (la antigua etiqueta de texto "Latencia: * ms | * ms" estaba oculta y
+            // queda sustituida por la bolita de color + badge de reconexiones).
+            LatencyDot dot = new LatencyDot();
+            dot.setPreferredSize(new Dimension(16, 16));
+            dot.setMinimumSize(new Dimension(16, 16));
+            latency_label.setLayout(new BorderLayout());
+            latency_label.setText("");
+            latency_label.setOpaque(false);
+            latency_label.setBackground(null);
+            latency_label.add(dot, BorderLayout.CENTER);
+            latency_label.setVisible(true);
+            setLatencyDot(dot);
             player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             hands_win.setVisible(false);

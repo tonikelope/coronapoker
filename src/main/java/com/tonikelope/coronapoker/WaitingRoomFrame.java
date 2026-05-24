@@ -157,7 +157,7 @@ public class WaitingRoomFrame extends JFrame {
     public static final int MAX_CONSECUTIVE_PING_FAILURES = 3;
     public static final int PRE_GAME_COMMANDS_LOCK = 15000;
     public static final int EC_KEY_LENGTH = 256;
-    public static final int GEN_PASS_LENGTH = 10;
+    public static final int GEN_PASS_LENGTH = 14;
     public static final int CLIENT_REC_WAIT = 5;
     public static final int ANTI_FLOOD_CHAT = 1000;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean
@@ -4467,9 +4467,11 @@ public class WaitingRoomFrame extends JFrame {
 
             if (!expulsado.equals(local_nick)) {
 
-                // Cambiamos la contraseña por una aleatoria
+                // Cambiamos la contraseña por una aleatoria FUERTE (CSPRNG +
+                // alphabet rico) — la anterior genRandomString solo usaba
+                // a-z + Random pseudoaleatorio, 47 bits con length=10.
                 if (password != null && !participantes.get(expulsado).isCpu()) {
-                    password = Helpers.genRandomString(password.length());
+                    password = Helpers.genStrongPassword(Math.max(password.length(), GEN_PASS_LENGTH));
 
                 }
 
@@ -4783,19 +4785,117 @@ public class WaitingRoomFrame extends JFrame {
 
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_pass_iconMouseClicked
 
-        if (server && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
-            if (mostrarMensajeInformativoSINO(this, Translator.translate("auth.generar_contrasena_nueva")) == 0) {
-                password = Helpers.genRandomString(GEN_PASS_LENGTH);
-                pass_icon.setToolTipText(password);
-            }
-
-            if (password != null) {
-                pass_icon.setEnabled(true);
-                Helpers.copyTextToClipboard(password);
-                mostrarMensajeInformativo(this, Translator.translate("auth.password_copiada_en_el_portapapeles"));
-            }
+        if (!server || WaitingRoomFrame.getInstance().isPartida_empezada()) {
+            return;
         }
-    }// GEN-LAST:event_pass_iconMouseClicked
+
+        if (javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+            // Click derecho → menú contextual con 3 opciones.
+            javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+
+            javax.swing.JMenuItem copiarItem = new javax.swing.JMenuItem(
+                    Translator.translate("auth.menu_copiar_password"));
+            copiarItem.setEnabled(password != null);
+            copiarItem.addActionListener(ae -> copyCurrentPasswordToClipboard());
+            menu.add(copiarItem);
+
+            javax.swing.JMenuItem cambiarItem = new javax.swing.JMenuItem(
+                    Translator.translate("auth.menu_cambiar_password"));
+            cambiarItem.addActionListener(ae -> promptAndSetNewPassword());
+            menu.add(cambiarItem);
+
+            javax.swing.JMenuItem generarItem = new javax.swing.JMenuItem(
+                    Translator.translate("auth.menu_generar_password_fuerte"));
+            generarItem.addActionListener(ae -> generateAndShowStrongPassword());
+            menu.add(generarItem);
+
+            menu.show(pass_icon, evt.getX(), evt.getY());
+            return;
+        }
+
+        // Click izquierdo → atajo: copiar la actual al portapapeles
+        // (silencioso, mensaje breve). Si no hay password, genera fuerte.
+        if (password != null) {
+            copyCurrentPasswordToClipboard();
+        } else {
+            generateAndShowStrongPassword();
+        }
+    }
+
+    /**
+     * Atajo del click izquierdo y del item "Copiar contraseña" del menú:
+     * copia la password actual al portapapeles + popup breve.
+     */
+    private void copyCurrentPasswordToClipboard() {
+        if (password == null) {
+            return;
+        }
+        pass_icon.setEnabled(true);
+        pass_icon.setToolTipText(password);
+        Helpers.copyTextToClipboard(password);
+        mostrarMensajeInformativo(this,
+                Translator.translate("auth.password_actual_copiada", password));
+    }
+
+    /**
+     * Item "Cambiar contraseña" del menú: pide al usuario una nueva password
+     * con un JPasswordField que cambia de color (amarillo débil / verde
+     * fuerte) en tiempo real, paridad con NewGameDialog. Si el resultado
+     * tiene <60 bits de entropía, popup informativo (no bloquea).
+     * Input vacío → partida sin password.
+     */
+    private void promptAndSetNewPassword() {
+        javax.swing.JPasswordField field = new javax.swing.JPasswordField(20);
+        Helpers.attachPasswordStrengthHint(field);
+        javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.BorderLayout(0, 6));
+        panel.add(new javax.swing.JLabel(Translator.translate("auth.input_nueva_password")),
+                java.awt.BorderLayout.NORTH);
+        panel.add(field, java.awt.BorderLayout.CENTER);
+
+        int result = javax.swing.JOptionPane.showConfirmDialog(
+                this, panel,
+                Translator.translate("auth.menu_cambiar_password"),
+                javax.swing.JOptionPane.OK_CANCEL_OPTION,
+                javax.swing.JOptionPane.PLAIN_MESSAGE);
+        if (result != javax.swing.JOptionPane.OK_OPTION) {
+            return;
+        }
+        char[] chars = field.getPassword();
+        String trimmed = (chars == null) ? "" : new String(chars).trim();
+        if (trimmed.isEmpty()) {
+            password = null;
+            pass_icon.setEnabled(false);
+            pass_icon.setToolTipText(null);
+            mostrarMensajeInformativo(this,
+                    Translator.translate("auth.password_eliminada"));
+            return;
+        }
+        password = trimmed;
+        pass_icon.setEnabled(true);
+        pass_icon.setToolTipText(password);
+        Helpers.copyTextToClipboard(password);
+        int bits = Helpers.estimatePasswordEntropyBits(password);
+        if (bits < 60) {
+            mostrarMensajeInformativo(this,
+                    Translator.translate("ui.password_debil_aviso", bits));
+        }
+        mostrarMensajeInformativo(this,
+                Translator.translate("auth.password_cambiada", password));
+    }
+
+    /**
+     * Item "Generar contraseña fuerte" del menú (y atajo si no hay
+     * password). Usa CSPRNG + alphabet rico — ~86 bits con length=14.
+     */
+    private void generateAndShowStrongPassword() {
+        password = Helpers.genStrongPassword(GEN_PASS_LENGTH);
+        pass_icon.setEnabled(true);
+        pass_icon.setToolTipText(password);
+        Helpers.copyTextToClipboard(password);
+        mostrarMensajeInformativo(this,
+                Translator.translate("auth.nueva_password_generada", password));
+    }
+    // GEN-LAST:event_pass_iconMouseClicked
 
     private void tts_warningMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_tts_warningMouseClicked
 

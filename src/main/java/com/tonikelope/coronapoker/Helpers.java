@@ -1331,7 +1331,24 @@ public class Helpers {
 
         LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
 
-        THREAD_POOL.shutdownNow();
+        // Patrón JDK estándar (Executors javadoc): primero shutdown() para no
+        // aceptar nuevas tareas y dejar terminar las en curso cooperativamente;
+        // si no termina dentro del grace, shutdownNow() para interrumpirlas;
+        // segundo awaitTermination da margen para que las interrumpidas hagan
+        // cleanup. El código anterior llamaba shutdown() + shutdownNow()
+        // consecutivos sin awaitTermination — el shutdown() era ruido y las
+        // tareas se interrumpían sin opción de terminar limpiamente.
+        try {
+            if (!THREAD_POOL.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                THREAD_POOL.shutdownNow();
+                if (!THREAD_POOL.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                    LOGGER.log(Level.WARNING, "Thread pool did not terminate within grace period");
+                }
+            }
+        } catch (InterruptedException ie) {
+            THREAD_POOL.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     public static void CREATE_THREAD_POOL() {

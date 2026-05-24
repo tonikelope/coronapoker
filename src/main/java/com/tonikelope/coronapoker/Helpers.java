@@ -660,7 +660,7 @@ public class Helpers {
 
                 try {
 
-                    Files.createDirectory(Paths.get(SETDPI_DIR));
+                    Files.createDirectories(Paths.get(SETDPI_DIR));
 
                     Files.copy(Helpers.class.getResourceAsStream("/setdpi/setdpi.exe"), Paths.get(path), REPLACE_EXISTING);
 
@@ -683,7 +683,7 @@ public class Helpers {
 
         if (!Files.isDirectory(Paths.get(CACHE_DIR))) {
             try {
-                Files.createDirectory(Paths.get(CACHE_DIR));
+                Files.createDirectories(Paths.get(CACHE_DIR));
 
             } catch (IOException ex) {
                 Logger.getLogger(Helpers.class
@@ -699,7 +699,7 @@ public class Helpers {
             if (!Files.isReadable(Paths.get(path))) {
                 try {
 
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
+                    Files.createDirectories(Paths.get(GIFSICLE_DIR));
 
                     Files
                             .copy(Helpers.class
@@ -731,7 +731,7 @@ public class Helpers {
 
                 try {
 
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
+                    Files.createDirectories(Paths.get(GIFSICLE_DIR));
 
                     if (System.getenv("ProgramFiles(x86)") != null) {
                         Files.copy(Helpers.class
@@ -758,7 +758,7 @@ public class Helpers {
 
                 try {
                     //(Extract gifsicle from jar to cache dir)
-                    Files.createDirectory(Paths.get(GIFSICLE_DIR));
+                    Files.createDirectories(Paths.get(GIFSICLE_DIR));
 
                     Files
                             .copy(Helpers.class
@@ -2089,7 +2089,7 @@ public class Helpers {
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {
                 try {
-                    Files.createDirectory(Paths.get(d));
+                    Files.createDirectories(Paths.get(d));
 
                 } catch (IOException ex) {
                     Logger.getLogger(Helpers.class

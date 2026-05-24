@@ -531,17 +531,23 @@ public class Helpers {
     }
 
     public static String[] runProcess(String[] command) {
+        Process process = null;
         try {
             ProcessBuilder processbuilder = new ProcessBuilder(command);
+            // Sprint deferred 🟡-25: redirectErrorStream(true) une stderr en
+            // stdout. Sin esto, si el binario escribe a stderr y llena el
+            // buffer del OS pipe (~64KB típico), el process se bloquea
+            // esperando lectura → waitFor() también se cuelga indefinido.
+            processbuilder.redirectErrorStream(true);
 
-            Process process = processbuilder.start();
+            process = processbuilder.start();
 
             long pid = process.pid();
 
             StringBuilder sb = new StringBuilder();
 
-            try {
-                BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            // try-with-resources: el BufferedReader anterior nunca se cerraba.
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
 
                 String line;
 
@@ -557,6 +563,14 @@ public class Helpers {
             return new String[]{String.valueOf(pid), sb.toString()};
 
         } catch (Exception ex) {
+            // Si el process arrancó pero falló después (e.g. InterruptedException
+            // en waitFor), destruir para evitar zombi.
+            if (process != null && process.isAlive()) {
+                try {
+                    process.destroy();
+                } catch (Exception ignored) {
+                }
+            }
         }
 
         return null;
@@ -885,9 +899,8 @@ public class Helpers {
 
             String filename_new = System.getProperty("java.io.tmpdir") + "/gifsicle_fast_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif";
 
+            Process proc = null;
             try {
-                Runtime rt = Runtime.getRuntime();
-
                 // Files.copy(InputStream,...) NO cierra el InputStream
                 // (contrato JDK). Sin try-with-resources, el handle del URL
                 // quedaba colgado tras la copia.
@@ -897,7 +910,14 @@ public class Helpers {
 
                 String[] command = {Helpers.getGifsicleBinaryPath(), filename_orig, "--scale", String.valueOf(Helpers.floatClean(zoom, 2)), "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
-                Process proc = rt.exec(command);
+                // Sprint deferred 🟡-26: ProcessBuilder con redirectErrorStream
+                // + redirectOutput DISCARD para evitar OS pipe buffer fill →
+                // waitFor cuelga. Sin esto, gifsicle podía bloquearse en stderr
+                // si --careful generaba warnings.
+                ProcessBuilder pb = new ProcessBuilder(command);
+                pb.redirectErrorStream(true);
+                pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                proc = pb.start();
 
                 proc.waitFor();
 
@@ -910,6 +930,14 @@ public class Helpers {
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class
                         .getName()).log(Level.SEVERE, null, ex);
+                // Si excepción salta entre exec y waitFor (e.g. InterruptedException),
+                // destruir el process para evitar zombi.
+                if (proc != null && proc.isAlive()) {
+                    try {
+                        proc.destroy();
+                    } catch (Exception ignored) {
+                    }
+                }
             }
 
             return null;
@@ -965,16 +993,21 @@ public class Helpers {
 
                             if (!Files.isReadable(Paths.get(filename_new))) {
 
+                                Process proc = null;
                                 try {
-                                    Runtime rt = Runtime.getRuntime();
-
                                     try (InputStream src = new URL(base_url + v + "_" + p + ".gif").openStream()) {
                                         Files.copy(src, Paths.get(filename_orig), REPLACE_EXISTING);
                                     }
 
                                     String[] command = {gifsicle_bin_path, filename_orig, "--scale", zoom_str, "--resize-method=lanczos3", "--colors", "256", "--careful", "--no-loopcount", "-o", filename_new};
 
-                                    Process proc = rt.exec(command);
+                                    // Sprint deferred 🟡-26: ProcessBuilder con redirectErrorStream
+                                    // + redirectOutput DISCARD. Sin esto, gifsicle podía colgarse
+                                    // en stderr (--careful genera warnings que llenan el pipe).
+                                    ProcessBuilder pb = new ProcessBuilder(command);
+                                    pb.redirectErrorStream(true);
+                                    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+                                    proc = pb.start();
 
                                     proc.waitFor();
 
@@ -983,6 +1016,13 @@ public class Helpers {
                                 } catch (Exception ex) {
                                     Logger.getLogger(Helpers.class
                                             .getName()).log(Level.SEVERE, null, ex);
+                                    // Defensa: destruir process si quedó vivo tras excepción.
+                                    if (proc != null && proc.isAlive()) {
+                                        try {
+                                            proc.destroy();
+                                        } catch (Exception ignored) {
+                                        }
+                                    }
                                     break;
                                 }
                             }

@@ -1453,18 +1453,16 @@ public class Helpers {
                 SQLiteConfig config = new SQLiteConfig();
 
                 config.enforceForeignKeys(true);
-                // WAL: writers no bloquean a readers (StatsDialog puede leer
-                // mientras Crupier escribe acciones de la mano en curso).
-                config.setJournalMode(org.sqlite.SQLiteConfig.JournalMode.WAL);
-                // NORMAL es seguro con WAL: solo se hace fsync en commits y al
-                // checkpoint, no por cada page write. Reduce 3-5× el coste de
-                // sqlNewAction/sqlNewHand/sqlNewHandBalance que el Crupier hace
-                // varias veces por mano.
-                config.setSynchronous(org.sqlite.SQLiteConfig.SynchronousMode.NORMAL);
+                // Modo journal clásico (rollback journal) — el original. WAL
+                // se probó pero introducia 2 ficheros visibles en el dir de
+                // config (.db-wal + .db-shm) que confundian al autor sin
+                // beneficio practico real (CoronaPoker es single-user
+                // single-instance, no hay lectores concurrentes que se
+                // beneficien de WAL).
                 // 50 MB de cache (negativo = KB). Default es ~2MB, insuficiente
                 // para los JOINs de StatsDialog cuando hay miles de manos.
                 config.setCacheSize(-50_000);
-                // Defender / antivirus toma share-lock momentáneo en .db-wal
+                // Defender / antivirus toma share-lock momentáneo en el .db
                 // durante COMMIT. Sin busy_timeout, SQLITE_BUSY se devuelve
                 // instantáneamente y el INSERT/UPDATE se pierde (catch genérico
                 // del Crupier lo loguea SEVERE pero no reintenta). 5s cubre

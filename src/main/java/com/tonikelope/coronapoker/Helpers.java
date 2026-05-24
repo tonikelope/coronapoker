@@ -2074,7 +2074,12 @@ public class Helpers {
             }
 
             BufferedImage image = robot.createScreenCapture(rectangle);
-            ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+            try {
+                ImageIO.write(image, "png", new File(SCREENSHOTS_DIR + "/coronapoker_screenshot_" + String.valueOf(System.currentTimeMillis()) + ".png"));
+            } finally {
+                // Captura 4K = ~33 MB de pixel data nativa. Sin flush, espera al GC.
+                image.flush();
+            }
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class

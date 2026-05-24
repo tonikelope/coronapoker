@@ -798,6 +798,16 @@ public class Helpers {
             try {
                 Files.deleteIfExists(Paths.get(f));
             } catch (Exception ex) {
+                // Sprint 6 deferred 🟡-35: Defender / AV puede tener bloqueado
+                // el .gif justo cuando intentamos borrarlo. En lugar de
+                // silenciar (acumulación monotónica en %TEMP%), marcar el
+                // fichero para borrado al exit del JVM — la mayoría de los
+                // antivirus liberan el handle antes que la JVM termine.
+                try {
+                    Paths.get(f).toFile().deleteOnExit();
+                } catch (Exception markEx) {
+                    // best-effort, ya nada más que hacer.
+                }
             }
 
         }
@@ -806,8 +816,22 @@ public class Helpers {
             Files.walk(Paths.get(CACHE_DIR), FileVisitOption.FOLLOW_LINKS)
                     .filter(Files::isRegularFile)
                     .filter(a -> (a.getFileName().toString().startsWith("gifsicle_") && !a.getFileName().toString().startsWith("gifsicle_" + String.valueOf(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) + "_")))
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+                    .forEach(p -> {
+                        // forEach delete con fallback a deleteOnExit. File.delete()
+                        // devuelve boolean — el original ignoraba. Aquí también lo
+                        // tratamos como best-effort pero marcamos exit-cleanup en
+                        // caso de fallo (típicamente AV holding).
+                        try {
+                            if (!p.toFile().delete()) {
+                                p.toFile().deleteOnExit();
+                            }
+                        } catch (Exception ex) {
+                            try {
+                                p.toFile().deleteOnExit();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    });
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class

@@ -35,6 +35,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
 import javax.swing.text.View;
 import javax.swing.text.html.BlockView;
@@ -56,6 +57,12 @@ public class RoundedBubbleView extends BlockView {
     private static final int CORNER_RADIUS = 12;
     private static final Color BUBBLE_MINE_BG = new Color(0xd9fdd3);
     private static final Color BUBBLE_OTHER_BG = Color.WHITE;
+    // El HTMLEditorKit puede dejar al final del body un view residual que hereda
+    // la class del ultimo bloque insertado: si se pinta, aparece como un punto de
+    // color bajo la ultima burbuja. Una burbuja real tiene siempre al menos el
+    // header (avatar + nick + hora), asi que su rango en el Document supera esta
+    // longitud minima; los phantom suelen tener 0-2 caracteres.
+    private static final int MIN_BUBBLE_TEXT_LEN = 5;
 
     public RoundedBubbleView(Element elem) {
         super(elem, View.Y_AXIS);
@@ -64,7 +71,7 @@ public class RoundedBubbleView extends BlockView {
     @Override
     public void paint(Graphics g, Shape allocation) {
         Color bg = pickColor(getElement().getAttributes());
-        if (bg != null) {
+        if (bg != null && hasBubbleContent()) {
             Rectangle r = (allocation instanceof Rectangle)
                     ? (Rectangle) allocation
                     : allocation.getBounds();
@@ -78,6 +85,20 @@ public class RoundedBubbleView extends BlockView {
             }
         }
         super.paint(g, allocation);
+    }
+
+    private boolean hasBubbleContent() {
+        Element el = getElement();
+        int len = el.getEndOffset() - el.getStartOffset();
+        if (len < MIN_BUBBLE_TEXT_LEN) {
+            return false;
+        }
+        try {
+            String txt = el.getDocument().getText(el.getStartOffset(), len);
+            return !txt.trim().isEmpty();
+        } catch (BadLocationException ex) {
+            return true;
+        }
     }
 
     private static Color pickColor(AttributeSet attrs) {

@@ -573,12 +573,26 @@ public final class IdentityManager {
 
     private static void writeKeypair(File privFile, File pubFile, PrivateKey priv, byte[] pubRaw) throws IdentityException {
         try {
-            Files.write(privFile.toPath(), priv.getEncoded());
+            // ORDEN CRITICO: crear fichero vacio -> restringir ACL -> escribir bytes.
+            // Anteriormente se escribian los bytes PKCS#8 y DESPUES se aplicaba la
+            // ACL via icacls (Windows) o setPosixFilePermissions (Unix), dejando una
+            // ventana en la que el privkey existia en disco con ACL heredada del
+            // padre (legible por Authenticated Users/Users en Windows). Si la
+            // segunda escritura (pubFile) lanzaba IOException, el privkey persistia
+            // con permisos relajados y el catch elevaba IdentityException sin limpiar.
+            //
+            // La ventana ahora es de fichero VACIO: si applyOwnerOnlyPermissions
+            // se ejecuta entre createFile y la escritura de bytes, no hay material
+            // sensible que filtrar.
+            Files.deleteIfExists(privFile.toPath());
+            Files.createFile(privFile.toPath());
+            applyOwnerOnlyPermissions(privFile.toPath());
+            Files.write(privFile.toPath(), priv.getEncoded(), java.nio.file.StandardOpenOption.WRITE);
+            // El pubkey es publico por definicion; no requiere ACL restrictiva.
             Files.write(pubFile.toPath(), pubRaw);
         } catch (IOException ex) {
             throw new IdentityException("Cannot write identity keypair: " + ex.getMessage());
         }
-        applyOwnerOnlyPermissions(privFile.toPath());
     }
 
     private static void applyOwnerOnlyPermissions(Path path) {

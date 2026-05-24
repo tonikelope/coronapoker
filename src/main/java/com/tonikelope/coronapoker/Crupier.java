@@ -2348,7 +2348,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     GameFrame.getInstance().getRegistro()
                             .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                     + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
-                                    + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
+                                    + Translator.translate("ui.sobrante") + " " + Helpers.float2String(this.bote_sobrante));
 
                     if (Helpers.float1DSecureCompare(
                             Helpers.floatClean(stack_sum) + Helpers.floatClean(this.bote_sobrante), buyin_sum) != 0) {
@@ -2362,7 +2362,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     GameFrame.getInstance().getRegistro()
                             .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                     + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
-                                    + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
+                                    + Translator.translate("ui.sobrante") + " " + Helpers.float2String(this.bote_sobrante));
                     GameFrame.getInstance().getRegistro()
                             .print(Translator.translate("ui.ojo_a_esto_no_salen"));
                 }
@@ -2370,7 +2370,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 GameFrame.getInstance().getRegistro()
                         .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                 + Helpers.float2String(stack_sum) + " / BUYIN: " + Helpers.float2String(buyin_sum)
-                                + Translator.translate("ui.sobrante") + Helpers.float2String(this.bote_sobrante));
+                                + Translator.translate("ui.sobrante") + " " + Helpers.float2String(this.bote_sobrante));
             }
         }
     }
@@ -8571,11 +8571,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
                 stats_registro.add(p.getNickname() + " (" + Card.collection2String(p.getHoleCards())
-                        + Translator.translate("ui.multiverso") + stats[0] + Translator.translate("ui.gana")
+                        + Translator.translate("ui.multiverso") + stats[0] + Translator.translate("ui.gana") + " "
                         + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2)
-                        + Translator.translate("ui.pierde")
+                        + Translator.translate("ui.pierde") + " "
                         + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2)
-                        + Translator.translate("ui.empata")
+                        + Translator.translate("ui.empata") + " "
                         + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: "
                         + Helpers.floatClean((float) manoParcial.getFuerza(), 2) + "%)");
             }
@@ -10693,9 +10693,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 float ganancia = Helpers.floatClean(Helpers.floatClean(jugador.getStack()) + Helpers.floatClean(jugador.getPagar())) - Helpers.floatClean(jugador.getBuyin());
                 String ganancia_msg = "";
                 if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                    ganancia_msg += Translator.translate("ui.pierde_2") + Helpers.float2String(ganancia * -1f);
+                    ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.float2String(ganancia * -1f);
                 } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                    ganancia_msg += Translator.translate("ui.gana_4") + Helpers.float2String(ganancia);
+                    ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.float2String(ganancia);
                 } else {
                     ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
                 }

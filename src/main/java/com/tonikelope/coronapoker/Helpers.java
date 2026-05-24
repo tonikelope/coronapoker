@@ -2162,19 +2162,24 @@ public class Helpers {
         BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = output.createGraphics();
 
-        // Habilitar antialiasing para bordes suaves
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        try {
+            // Habilitar antialiasing para bordes suaves
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Dibujar un rectángulo redondeado blanco como máscara
-        g2d.setColor(Color.WHITE);
-        g2d.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
+            // Dibujar un rectángulo redondeado blanco como máscara
+            g2d.setColor(Color.WHITE);
+            g2d.fill(new RoundRectangle2D.Float(0, 0, width, height, cornerRadius, cornerRadius));
 
-        // Configurar el modo de composición para aplicar la máscara
-        g2d.setComposite(AlphaComposite.SrcIn);
-        g2d.drawImage(image, 0, 0, null);
-
-        // Liberar recursos
-        g2d.dispose();
+            // Configurar el modo de composición para aplicar la máscara
+            g2d.setComposite(AlphaComposite.SrcIn);
+            g2d.drawImage(image, 0, 0, null);
+        } finally {
+            // Liberar recursos nativos del Graphics2D. SIEMPRE — sin try/finally,
+            // un OOM o IllegalArgumentException entre createGraphics y dispose
+            // dejaba colgado el contexto nativo. Llamada en TODA carga de carta
+            // (~104 invocaciones por cambio de zoom/baraja).
+            g2d.dispose();
+        }
 
         return output;
     }
@@ -2413,9 +2418,14 @@ public class Helpers {
 
         Font font = null;
 
-        try {
+        // Toma ownership del stream para garantizar close incluso si
+        // Font.createFont o registerFont lanzan. Los dos callers
+        // (Init.java:1072 con getResourceAsStream y :1106 con
+        // FileInputStream) pasan el stream y descartan la referencia,
+        // así que cerrarlo aquí es semánticamente correcto.
+        try (InputStream s = stream) {
 
-            font = Font.createFont(Font.TRUETYPE_FONT, stream);
+            font = Font.createFont(Font.TRUETYPE_FONT, s);
 
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 
@@ -2549,8 +2559,12 @@ public class Helpers {
 
     public synchronized static void savePropertiesFile() {
 
-        try {
-            PROPERTIES.store(new FileOutputStream(PROPERTIES_FILE), null);
+        try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
+            // Properties.store NO cierra el OutputStream que recibe (contrato JDK).
+            // Sin try-with-resources, cada cambio de preferencia (volumen, zoom,
+            // sonidos, etc.) filtraba un FD. En partidas largas con muchos cambios
+            // acumulativos llegaba a ser visible en lsof.
+            PROPERTIES.store(fos, null);
 
         } catch (IOException ex) {
             Logger.getLogger(Helpers.class

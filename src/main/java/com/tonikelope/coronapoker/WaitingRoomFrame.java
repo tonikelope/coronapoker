@@ -1809,7 +1809,7 @@ public class WaitingRoomFrame extends JFrame {
                     IdentityManager im = IdentityManager.getInstance();
                     if (!im.isReady()) {
                         exit = true;
-                        mostrarMensajeError(THIS, "Identity not ready: " + im.getLoadError());
+                        mostrarMensajeError(THIS, Translator.translate("ui.error.identity_not_ready", im.getLoadError()));
                         throw new IOException("Identity not ready, refusing to JOIN");
                     }
                     String pubkeyB64 = Base64.getEncoder().encodeToString(im.getPublicKey());
@@ -2002,7 +2002,7 @@ public class WaitingRoomFrame extends JFrame {
                                             break;
                                         case "EXIT":
                                             exit = true;
-                                            mostrarMensajeError(THIS, "The server cancelled the game before starting.");
+                                            mostrarMensajeError(THIS, Translator.translate("game.el_servidor_ha_cancelado_la"));
                                             break;
                                         case "KICKED":
                                             exit = true;
@@ -2983,7 +2983,7 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         }
                     } else {
-                        mostrarMensajeError(THIS, "SOMETHING FAILED. You have lost connection with the server.");
+                        mostrarMensajeError(THIS, Translator.translate("conn.algo_ha_fallado_has_perdido"));
                     }
                 }
             } while (!exit && net_client.getLocal_client_socket() == null);
@@ -3512,7 +3512,7 @@ public class WaitingRoomFrame extends JFrame {
                                 server_address_label.setText(stat + " (UPnP ERROR)");
                             });
                             mostrarMensajeError(THIS,
-                                    "NO HA SIDO POSIBLE MAPEAR AUTOMÁTICAMENTE EL PUERTO USANDO UPnP\n\n(Si quieres compartir la timba por Internet deberás activar UPnP en tu router o mapear el puerto de forma manual)");
+                                    Translator.translate("conn.upnp_mapping_failed"));
                         }
                     }
                     Helpers.PROPERTIES.setProperty("upnp", String.valueOf(upnp));
@@ -3529,7 +3529,7 @@ public class WaitingRoomFrame extends JFrame {
                     if (net_server.getServer_socket() == null) {
                         exit = true;
                         mostrarMensajeError(THIS,
-                                "ALGO HA FALLADO. (Probablemente ya hay una timba creada en el mismo puerto).");
+                                Translator.translate("conn.server_socket_bind_failed"));
                     }
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);

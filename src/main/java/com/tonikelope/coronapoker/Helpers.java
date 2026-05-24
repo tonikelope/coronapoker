@@ -1389,12 +1389,12 @@ public class Helpers {
             if ((ret = UPnP.closePortTCP(port))) {
 
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.INFO, "(Des)mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                        .getName()).log(Level.INFO, "UPnP unmap OK for TCP port {0}", String.valueOf(port));
 
             } else {
 
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.SEVERE, "ERROR al (Des)mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                        .getName()).log(Level.SEVERE, "UPnP unmap FAILED for TCP port {0}", String.valueOf(port));
             }
         }
 
@@ -1411,24 +1411,24 @@ public class Helpers {
                 if (UPnP.openPortTCP(port)) {
 
                     Logger.getLogger(Helpers.class
-                            .getName()).log(Level.INFO, "Mapeado correctamente por UPnP el puerto TCP {0}", String.valueOf(port));
+                            .getName()).log(Level.INFO, "UPnP map OK for TCP port {0}", String.valueOf(port));
 
                 } else {
                     Logger.getLogger(Helpers.class
-                            .getName()).log(Level.SEVERE, "ERROR al intentar mapear por UPnP el puerto TCP {0}", String.valueOf(port));
+                            .getName()).log(Level.SEVERE, "UPnP map FAILED for TCP port {0}", String.valueOf(port));
                     upnp = false;
 
                 }
 
             } else {
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.WARNING, "Ya estaba mapeado por UPnP el puerto TCP {0}", String.valueOf(port));
+                        .getName()).log(Level.WARNING, "UPnP port already mapped: TCP {0}", String.valueOf(port));
 
             }
 
         } else {
             Logger.getLogger(Helpers.class
-                    .getName()).log(Level.WARNING, "UPnP NO DISPONIBLE");
+                    .getName()).log(Level.WARNING, "UPnP not available");
         }
 
         return upnp;

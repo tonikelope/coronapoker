@@ -1947,6 +1947,71 @@ public class Helpers {
     }
 
     /**
+     * Sprint 7 telemetría: pinta overlay de bola de latencia + badge de
+     * reconexiones en la esquina superior derecha del componente. Se invoca
+     * desde paintChildren() de RemotePlayer y LocalPlayer — sin widget Swing
+     * adicional, sin layouts. Robusto al zoom (tamaño relativo a la anchura).
+     *
+     * @param g Graphics del paintChildren del Player.
+     * @param panelW ancho del Player JPanel.
+     * @param panelH alto del Player JPanel.
+     * @param latencyMs última latencia (-1 = unknown).
+     * @param recon contador acumulado de reconexiones del peer.
+     * @param lastUpdateMs timestamp del último update (0 = nunca).
+     */
+    public static void paintLatencyDotOverlay(java.awt.Graphics g, int panelW, int panelH,
+            int latencyMs, int recon, long lastUpdateMs) {
+        if (panelW <= 0 || panelH <= 0) {
+            return;
+        }
+        // Diámetro proporcional al ancho del panel; con un mínimo legible.
+        int diameter = Math.max(14, Math.round(panelW * 0.08f));
+        int margin = Math.max(4, diameter / 4);
+        int x = panelW - diameter - margin;
+        int y = margin;
+
+        long age = lastUpdateMs == 0 ? Long.MAX_VALUE : (System.currentTimeMillis() - lastUpdateMs);
+        java.awt.Color dotColor = LatencyDot.colorFor(latencyMs, age);
+
+        java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+        try {
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            // Sombra suave para contraste sobre cualquier fondo
+            g2.setColor(new java.awt.Color(0, 0, 0, 100));
+            g2.fillOval(x + 1, y + 1, diameter, diameter);
+            // Bolita
+            g2.setColor(dotColor);
+            g2.fillOval(x, y, diameter, diameter);
+            // Borde
+            g2.setColor(new java.awt.Color(0, 0, 0, 140));
+            g2.setStroke(new java.awt.BasicStroke(1.2f));
+            g2.drawOval(x, y, diameter, diameter);
+
+            // Badge numérico con contador de reconexiones si > 0
+            if (recon > 0) {
+                String txt = recon > 9 ? "9+" : String.valueOf(recon);
+                int badge = Math.max(10, diameter / 2 + 2);
+                int bx = panelW - badge - 1;
+                int by = y + diameter - badge / 2;
+                g2.setColor(java.awt.Color.WHITE);
+                g2.fillOval(bx, by, badge, badge);
+                g2.setColor(new java.awt.Color(0, 0, 0, 200));
+                g2.drawOval(bx, by, badge, badge);
+                g2.setColor(java.awt.Color.BLACK);
+                g2.setFont(new java.awt.Font(java.awt.Font.DIALOG,
+                        java.awt.Font.BOLD, Math.max(9, badge - 4)));
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                int tx = bx + (badge - fm.stringWidth(txt)) / 2;
+                int ty = by + (badge + fm.getAscent() - fm.getDescent()) / 2;
+                g2.drawString(txt, tx, ty);
+            }
+        } finally {
+            g2.dispose();
+        }
+    }
+
+    /**
      * Sprint 7 telemetría: payload de una snapshot de latencia/reconexiones
      * que el host emite periódicamente a todos los clientes. Inmutable.
      */

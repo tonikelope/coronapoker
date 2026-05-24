@@ -66,9 +66,9 @@ public class LatencyDot extends JLabel {
     public static final long STALE_THRESHOLD_MS = 15_000;
 
     /** Umbrales (ms) para clasificar latencia → color. */
-    public static final int THRESHOLD_GREEN_MS = 80;
-    public static final int THRESHOLD_YELLOW_MS = 200;
-    public static final int THRESHOLD_ORANGE_MS = 400;
+    public static final int THRESHOLD_GREEN_MS = 100;
+    public static final int THRESHOLD_YELLOW_MS = 250;
+    public static final int THRESHOLD_ORANGE_MS = 550;
 
     public static final Color COLOR_GREEN = new Color(0x4C, 0xAF, 0x50);
     public static final Color COLOR_YELLOW = new Color(0xFF, 0xC1, 0x07);
@@ -144,18 +144,7 @@ public class LatencyDot extends JLabel {
     }
 
     private void updateTooltip() {
-        long age = System.currentTimeMillis() - last_update_ms;
-        String latStr = latency_ms < 0 ? "?" : (latency_ms + " ms");
-        String ageStr;
-        if (last_update_ms == 0) {
-            ageStr = "sin datos";
-        } else if (age < 1000) {
-            ageStr = "ahora";
-        } else {
-            ageStr = "hace " + (age / 1000) + "s";
-        }
-        String reconStr = reconnection_count > 0 ? " · ↻" + reconnection_count : "";
-        setToolTipText(latStr + reconStr + " · " + ageStr);
+        setToolTipText(latency_ms < 0 ? "? ms" : (latency_ms + " ms"));
     }
 
     @Override

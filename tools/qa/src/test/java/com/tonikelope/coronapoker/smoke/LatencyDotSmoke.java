@@ -37,39 +37,39 @@ class LatencyDotSmoke {
     }
 
     @Test
-    @DisplayName("Latencia justo en boundary GREEN (80) → GREEN")
+    @DisplayName("Latencia justo en boundary GREEN (100) → GREEN")
     void boundaryGreen() {
-        assertEquals(LatencyDot.COLOR_GREEN, LatencyDot.colorFor(80, 0));
+        assertEquals(LatencyDot.COLOR_GREEN, LatencyDot.colorFor(100, 0));
     }
 
     @Test
-    @DisplayName("Latencia 81 → YELLOW")
+    @DisplayName("Latencia 101 → YELLOW")
     void crossesIntoYellow() {
-        assertEquals(LatencyDot.COLOR_YELLOW, LatencyDot.colorFor(81, 0));
+        assertEquals(LatencyDot.COLOR_YELLOW, LatencyDot.colorFor(101, 0));
     }
 
     @Test
-    @DisplayName("Latencia 200 → YELLOW (boundary)")
+    @DisplayName("Latencia 250 → YELLOW (boundary)")
     void boundaryYellow() {
-        assertEquals(LatencyDot.COLOR_YELLOW, LatencyDot.colorFor(200, 0));
+        assertEquals(LatencyDot.COLOR_YELLOW, LatencyDot.colorFor(250, 0));
     }
 
     @Test
-    @DisplayName("Latencia 201 → ORANGE")
+    @DisplayName("Latencia 251 → ORANGE")
     void crossesIntoOrange() {
-        assertEquals(LatencyDot.COLOR_ORANGE, LatencyDot.colorFor(201, 0));
+        assertEquals(LatencyDot.COLOR_ORANGE, LatencyDot.colorFor(251, 0));
     }
 
     @Test
-    @DisplayName("Latencia 400 → ORANGE (boundary)")
+    @DisplayName("Latencia 550 → ORANGE (boundary)")
     void boundaryOrange() {
-        assertEquals(LatencyDot.COLOR_ORANGE, LatencyDot.colorFor(400, 0));
+        assertEquals(LatencyDot.COLOR_ORANGE, LatencyDot.colorFor(550, 0));
     }
 
     @Test
-    @DisplayName("Latencia 401 → RED")
+    @DisplayName("Latencia 551 → RED")
     void crossesIntoRed() {
-        assertEquals(LatencyDot.COLOR_RED, LatencyDot.colorFor(401, 0));
+        assertEquals(LatencyDot.COLOR_RED, LatencyDot.colorFor(551, 0));
     }
 
     @Test

@@ -923,8 +923,8 @@ public class StatsDialog extends JDialog {
                                 String[] parts = item.split("@");
                                 String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log")));
-                                chat_game_button.setEnabled((Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log")) > 0L));
+                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log")));
+                                chat_game_button.setEnabled((Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log")) > 0L));
                                 game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
 
                                 String[] jugadores = rs.getString("players").split("#");
@@ -2322,7 +2322,7 @@ public class StatsDialog extends JDialog {
 
             Helpers.threadRun(() -> {
                 try {
-                    String log1 = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll(">>>>>>>>>>>>>>>>>>>>>>>>>>>>", "&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;").replaceAll("<<<<<<<<<<<<<<<<<<<<<<<<<<<<", "&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;").replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>");
+                    String log1 = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll(">>>>>>>>>>>>>>>>>>>>>>>>>>>>", "&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;").replaceAll("<<<<<<<<<<<<<<<<<<<<<<<<<<<<", "&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;").replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>");
                     Helpers.GUIRun(() -> {
                         game_textarea.setText("<html><body style='color:white;background-color:rgb(102,102,102)'>" + log1 + "</body></html>");
                         game_textarea_scrollpane.setVisible(true);
@@ -2332,7 +2332,7 @@ public class StatsDialog extends JDialog {
                         cargando.setVisible(false);
                     });
                 } catch (IOException ex) {
-                    Helpers.mostrarMensajeError(getContentPane(), Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + parts[0].trim() + "_" + fecha + ".log");
+                    Helpers.mostrarMensajeError(getContentPane(), Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log");
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     Helpers.GUIRun(() -> {
                         chat_game_button.setEnabled(true);
@@ -2425,10 +2425,10 @@ public class StatsDialog extends JDialog {
             Helpers.threadRun(() -> {
                 try {
                     String chat_log;
-                    if (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"))) {
-                        chat_log = Helpers.updateJarImgSrc(Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".html"), StandardCharsets.UTF_8)).replaceAll("<img *?id *?= *?'avatar[^<>]+>", "");
+                    if (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html"))) {
+                        chat_log = Helpers.updateJarImgSrc(Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html"), StandardCharsets.UTF_8)).replaceAll("<img *?id *?= *?'avatar[^<>]+>", "");
                     } else {
-                        chat_log = "<html><body style='background-color:rgb(0,102,153);color:white'>" + Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("\n", "<br><br>") + "</body></html>";
+                        chat_log = "<html><body style='background-color:rgb(0,102,153);color:white'>" + Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll("\n", "<br><br>") + "</body></html>";
                     }
                     Helpers.GUIRun(() -> {
                         game_textarea.setText(chat_log);
@@ -2444,7 +2444,7 @@ public class StatsDialog extends JDialog {
                         cargando.setVisible(false);
                     });
                 } catch (IOException ex) {
-                    Helpers.mostrarMensajeError(getContentPane(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + parts[0].trim() + "_" + fecha + ".log");
+                    Helpers.mostrarMensajeError(getContentPane(), Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log");
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     Helpers.GUIRun(() -> {
                         chat_game_button.setEnabled(true);

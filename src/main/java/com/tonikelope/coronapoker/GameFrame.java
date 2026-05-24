@@ -2568,7 +2568,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
                                     Helpers.GUIRun(() -> {
-                                        notify_dialog.setVisible(false);
+                                        // Dispose + null antes de soltar la referencia: el
+                                        // setVisible(false) anterior NO libera el peer nativo del
+                                        // dialog ni nada más. Sin esto, las notificaciones TTS
+                                        // acumulaban dialogs zombi en partidas largas (🟠-22 v2).
+                                        if (notify_dialog != null) {
+                                            notify_dialog.setVisible(false);
+                                            notify_dialog.dispose();
+                                            notify_dialog = null;
+                                        }
                                     });
 
                                 }

@@ -166,6 +166,13 @@ public class Init extends JFrame {
 
     public static void setupConsoleLogger() {
         try {
+            // Garantizar que DEBUG_DIR existe ANTES de abrir el FileOutputStream.
+            // Antes, el orden se sostenía por accidente vía static init de Helpers
+            // (loadPropertiesFile → createIfNoExistsCoronaDirs). Si esa cadena se
+            // alterase (cualquier import o método antes que no toque Helpers),
+            // DEBUG_DIR no existiría y el debug-log se perdería silenciosamente.
+            Helpers.createIfNoExistsCoronaDirs();
+
             // Define the path for the debug log file (append mode = true)
             java.io.File logFile = new java.io.File(DEBUG_DIR + "/coronapoker_debug_" + Helpers.genRandomString(10) + ".log");
             java.io.FileOutputStream fileOut = new java.io.FileOutputStream(logFile, true);
@@ -1173,7 +1180,11 @@ public class Init extends JFrame {
                         });
                         try {
                             String current_jar_path = Helpers.getCurrentJarPath();
-                            String new_jar_path = current_jar_path.replaceAll(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
+                            // replace (literal) en vez de replaceAll (regex) — el '.' en
+                            // "20.66.jar" es metacaracter regex y matchearía cualquier char
+                            // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
+                            // hace substring literal, que es lo correcto aquí.
+                            String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
                             String updater_jar = Helpers.downloadUpdater();
 
                             if (updater_jar != null) {

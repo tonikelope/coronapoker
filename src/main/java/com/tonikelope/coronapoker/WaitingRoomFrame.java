@@ -472,6 +472,10 @@ public class WaitingRoomFrame extends JFrame {
             try {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
                 chat.setCaretPosition(chat.getDocument().getLength());
+                // Forzar repintado completo: el clip parcial que dispara el append deja a veces
+                // el fillRoundRect de RoundedBubbleView recortado.
+                chat.revalidate();
+                chat.repaint();
             } catch (Exception ex) {
             }
         });

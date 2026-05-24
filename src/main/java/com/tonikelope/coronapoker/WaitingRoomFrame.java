@@ -2428,38 +2428,36 @@ public class WaitingRoomFrame extends JFrame {
                                                         case "TELEMETRY":
                                                             // Sprint 7 telemetría: broadcast del host con latencias +
                                                             // reconnection counts de TODOS los peers. Hace DOS cosas:
-                                                            //   1. Guarda el frame entero en latest_telemetry (acceso
-                                                            //      público para consumers futuros).
-                                                            //   2. Actualiza la bolita LatencyDot de cada Player
-                                                            //      llamando applyTelemetry — no-op si el widget aún
-                                                            //      no está enchufado.
-                                                            // El decoder es tolerante a payloads corruptos (devuelve
-                                                            // null o frame parcial), así que no rompe el switch si
-                                                            // el host hostil enviase basura.
+                                                            //   1. Guarda el frame entero en latest_telemetry.
+                                                            //   2. Aplica el frame a todos los Player locales via
+                                                            //      Crupier.applyTelemetryFrameLocally.
+                                                            //
+                                                            // OJO: el wire-format del payload contiene '#' como
+                                                            // separador interno (timestamp#entries). El split("#")
+                                                            // global del comando GAME ya lo descompuso, así que hay
+                                                            // que recomponer partes_comando[3..end] con '#' para
+                                                            // tener el payload original.
                                                             try {
                                                                 if (partes_comando.length >= 4) {
-                                                                    Helpers.TelemetryFrame frame = Helpers.decodeTelemetry(partes_comando[3]);
+                                                                    String payload;
+                                                                    if (partes_comando.length == 4) {
+                                                                        payload = partes_comando[3];
+                                                                    } else {
+                                                                        StringBuilder sb = new StringBuilder();
+                                                                        for (int i = 3; i < partes_comando.length; i++) {
+                                                                            if (i > 3) {
+                                                                                sb.append('#');
+                                                                            }
+                                                                            sb.append(partes_comando[i]);
+                                                                        }
+                                                                        payload = sb.toString();
+                                                                    }
+                                                                    Helpers.TelemetryFrame frame = Helpers.decodeTelemetry(payload);
                                                                     if (frame != null) {
                                                                         this.latest_telemetry = frame;
-                                                                        // Iterar peers + actualizar dots.
                                                                         if (GameFrame.getInstance() != null
                                                                                 && GameFrame.getInstance().getCrupier() != null) {
-                                                                            java.util.Map<String, Player> n2p =
-                                                                                    GameFrame.getInstance().getCrupier().getNick2player();
-                                                                            if (n2p != null) {
-                                                                                for (java.util.Map.Entry<String, int[]> en : frame.perPeer.entrySet()) {
-                                                                                    Player p = n2p.get(en.getKey());
-                                                                                    int[] v = en.getValue();
-                                                                                    if (p == null || v == null || v.length < 3) {
-                                                                                        continue;
-                                                                                    }
-                                                                                    if (p instanceof RemotePlayer) {
-                                                                                        ((RemotePlayer) p).applyTelemetry(v[0], v[1], v[2]);
-                                                                                    } else if (p instanceof LocalPlayer) {
-                                                                                        ((LocalPlayer) p).applyTelemetry(v[0], v[1], v[2]);
-                                                                                    }
-                                                                                }
-                                                                            }
+                                                                            GameFrame.getInstance().getCrupier().applyTelemetryFrameLocally(frame);
                                                                         }
                                                                     }
                                                                 }

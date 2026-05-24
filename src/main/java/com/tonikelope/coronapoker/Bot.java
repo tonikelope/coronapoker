@@ -309,9 +309,22 @@ public class Bot {
     }
 
     /**
-     * Verbose Logger for Debugging BOT Decisions
+     * Verbose Logger for Debugging BOT Decisions.
+     *
+     * Gate isLoggable evita el String.format (parseo del patrón + substitución)
+     * cuando INFO está apagado — caso normal en producción. Se llama 5-15 veces
+     * por decisión × N bots × manos; sin el gate, el coste era visible en perfilados
+     * incluso con el handler de fichero deshabilitado (ver 🟡-1 del informe v2).
+     *
+     * NOTA: la concatenación del 'message' en los call sites (e.g. logVerbose(
+     * "Overcard Penalty: Pair crushed by " + overcards + " cards.")) sigue
+     * ejecutándose. Para evitarla completamente habría que migrar los 87
+     * callsites a Supplier<String> — deferred.
      */
     private void logVerbose(String message) {
+        if (!LOGGER.isLoggable(Level.INFO)) {
+            return;
+        }
         String botId = cpuPlayer != null ? cpuPlayer.getNickname() : "UnknownBot";
 
         String formattedMessage = String.format("[BOT AI] [%s] [%s-%s] %s",

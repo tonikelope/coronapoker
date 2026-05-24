@@ -2328,7 +2328,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 DateFormat timeZoneFormat = new SimpleDateFormat("dd_MM_yyyy__HH_mm_ss");
                 Date date = new Date(ts.getTime());
                 String fecha = timeZoneFormat.format(date);
-                String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".log";
+                // Sprint deferred 🟠-24: nick saneado para uso como segmento de
+                // filename. Antes solo se reemplazaba el espacio; nicks como CON,
+                // NUL, AUX o con caracteres :/*? rompían FileOutputStream silenciosamente
+                // y el log de la timba se perdía. Reader (StatsDialog) usa el mismo
+                // saneo para encontrar el fichero — coordinación crítica.
+                String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".log";
 
                 try {
 
@@ -2348,7 +2353,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (!this.getSala_espera().getChat_text().toString().isEmpty()) {
 
-                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + sala_espera.getServer_nick().replace(" ", "_") + "_" + fecha + ".html";
+                    // Sprint deferred 🟠-24: nick saneado igual que log_file arriba.
+                    String chat_file = Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".html";
 
                     try {
 

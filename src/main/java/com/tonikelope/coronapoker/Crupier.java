@@ -3028,14 +3028,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
+                                        // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó
+                                        // clave mala intencionalmente o tiene cliente corrupto —
+                                        // no podemos distinguir, terminamos.
                                         LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer FORFEIT.",
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer maligno o bug. Lockdown.",
                                                 nick);
-                                        try {
-                                            GameFrame.getInstance().getRegistro().print(
-                                                    nick + " — clave de showdown firmada pero no resuelve cartas. Sus cartas no se revelan; pierde la opción de ganar este pot.");
-                                        } catch (Exception ignored) {
-                                        }
+                                        triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
                                     }
                                 }
                             }
@@ -8486,15 +8485,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (id1 < 0 || id2 < 0) {
                 // Sig OK pero clave firmada no resuelve. Peer FORFEIT (no MISDEAL
                 // — sería exploit).
+                // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó clave mala
+                // intencionalmente o tiene cliente corrupto — no podemos distinguir,
+                // terminamos.
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer FORFEIT del pot.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer maligno o bug. Lockdown.",
                         new Object[]{nick, id1, id2});
-                try {
-                    GameFrame.getInstance().getRegistro().print(
-                            nick + " — clave de showdown firmada pero no resuelve cartas. "
-                            + "Sus cartas no se revelan; pierde la opción de ganar este pot.");
-                } catch (Exception ignored) {
-                }
+                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
                 return false;
             }
 
@@ -9169,8 +9166,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.TelemetryFrame frame = new Helpers.TelemetryFrame(
                     System.currentTimeMillis(), perPeer);
             String payload = Helpers.encodeTelemetry(frame);
-            int id = Helpers.CSPRNG_GENERATOR.nextInt();
-            String cmd = "GAME#" + id + "#TELEMETRY#" + payload;
+            // OJO: broadcastGAMECommandFromServer YA envuelve el comando como
+            // "GAME#<id>#" + command — solo pasamos "TELEMETRY#<payload>".
+            // Antes el comando salía doblemente envuelto
+            // (GAME#id#GAME#id#TELEMETRY#payload) y el cliente lo veía como
+            // un GAME#GAME — partes[2]="GAME" en lugar de "TELEMETRY" → no
+            // entraba al case y la telemetría nunca se aplicaba en el cliente.
+            String cmd = "TELEMETRY#" + payload;
             // skip_nick=null y confirmation=false: broadcast fire-and-forget
             // sin esperar ACK; la telemetría es best-effort, no necesita confirm.
             broadcastGAMECommandFromServer(cmd, null, false);
@@ -10399,7 +10401,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // → showdown las dejará tapadas).
                                 {
                                     int total = (partes.length - 3) / 5;
-                                    for (int i = 0; i < total; i++) {
+                                    boolean lockdownTriggered = false;
+                                    for (int i = 0; i < total && !lockdownTriggered; i++) {
                                         try {
                                             int base = 3 + 5 * i;
                                             String nick = new String(Base64.getDecoder().decode(partes[base]), "UTF-8");
@@ -10427,7 +10430,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 continue;
                                             }
 
-                                            // Crypto-ring: verificar sig + descifrar + comparar.
+                                            // Mapping zero-trust de violaciones (ver Sprint 7 audit):
+                                            //   sig/key missing, bad lengths, sig verify FAILED,
+                                            //   Set mismatch (cartas distintas) → 🔴 LOCKDOWN (terminamos).
+                                            //   sig OK pero SRA no resuelve → 🟢 FORFEIT del peer + popup.
+                                            //   Orden swap (mismas cartas) → silencioso (bug benigno).
                                             boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
                                             boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
                                             if (!keyProvided || !sigProvided) {
@@ -10435,6 +10442,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         "ZERO-TRUST: POTCARDS for {0} arrived WITHOUT sig/key — host stripped. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
 
@@ -10445,6 +10453,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         "ZERO-TRUST: POTCARDS for {0} has bad lengths — host wire malformado. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
                                             byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
@@ -10459,20 +10468,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         "ZERO-TRUST: POTCARDS sig verify FAILED for {0} — host substituting key. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
 
-                                            // Sig OK. Descifrar y comparar con plaintext.
+                                            // Sig OK. Descifrar y poblar holeCards desde el SRA.
+                                            // El SRA-decrypt es la ÚNICA fuente de verdad para peers
+                                            // con cipher local (activos). El plaintext se compara como
+                                            // Set (no tupla) para tolerar reordenamiento UI del host.
                                             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
                                             if (pp != null) {
                                                 pp.setSra_unlock(sraKey);
                                             }
                                             byte[] pocketCards = this.single_locked_pocket_cards.get(nick);
                                             if (pocketCards == null || pocketCards.length != 64) {
-                                                // Sin cipher local no podemos verificar.
-                                                // Aceptamos el plaintext del host (es el caso
-                                                // de un cliente que no recibió la cascade
-                                                // completa para este peer).
+                                                // Espectador (calentando, sin cipher local) → confiamos
+                                                // en el plaintext firmado del host.
                                                 String[] carta1 = c1_str.split("_");
                                                 String[] carta2 = c2_str.split("_");
                                                 jugador.getHoleCard1().actualizarValorPalo(carta1[0], carta1[1]);
@@ -10485,31 +10496,47 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             int id1 = CryptoSRA.resolveCardIndex(cb1);
                                             int id2 = CryptoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
+                                                // LOCKDOWN: sig firmada por el peer es genuina pero
+                                                // la SRA no resuelve cartas → el peer firmó una clave
+                                                // MALA intencionalmente o tiene cliente corrupto. No
+                                                // podemos distinguir, terminamos por seguridad.
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve. Peer FORFEIT.",
-                                                        nick);
+                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug. Lockdown.",
+                                                        new Object[]{nick, id1, id2});
                                                 try {
                                                     GameFrame.getInstance().getRegistro().print(
-                                                            nick + " — clave de showdown firmada pero no resuelve cartas. Sus cartas no se revelan; pierde la opción de ganar este pot.");
+                                                            nick + " — clave de showdown firmada pero no resuelve cartas. Posible cheat o bug del cliente.");
                                                 } catch (Exception ignored) {
                                                 }
-                                                continue;
+                                                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                                lockdownTriggered = true;
+                                                break;
                                             }
 
-                                            // Validar que el plaintext del host coincide con el SRA.
-                                            // Discordancia → host miente. Lockdown.
+                                            // Validar plaintext vs SRA-decrypt como SET (no tupla):
+                                            // pockets son intercambiables en Hold'em; el host puede
+                                            // legítimamente reordenarlas para visualización. Pero si
+                                            // las CARTAS son DISTINTAS → cheat real → LOCKDOWN.
                                             String expected1 = Card.shortStringFromIndex(id1);
                                             String expected2 = Card.shortStringFromIndex(id2);
-                                            if (!c1_str.equals(expected1) || !c2_str.equals(expected2)) {
+                                            java.util.Set<String> received = new java.util.HashSet<>(
+                                                    java.util.Arrays.asList(c1_str, c2_str));
+                                            java.util.Set<String> expected = new java.util.HashSet<>(
+                                                    java.util.Arrays.asList(expected1, expected2));
+                                            if (!received.equals(expected)) {
                                                 LOGGER.log(Level.SEVERE,
                                                         "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) discrepa con SRA-decrypt ({3},{4}). Host miente. Lockdown.",
                                                         new Object[]{nick, c1_str, c2_str, expected1, expected2});
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
+                                                lockdownTriggered = true;
                                                 break;
                                             }
 
                                             jugador.getHoleCard1().iniciarConValorNumerico(id1 + 1);
                                             jugador.getHoleCard2().iniciarConValorNumerico(id2 + 1);
+                                            // Mismo reordenamiento que el host (carta mayor a la
+                                            // izquierda) para visualización consistente entre peers.
+                                            jugador.ordenarCartas();
                                         } catch (Exception ex) {
                                             LOGGER.log(Level.WARNING, "Error processing POTCARDS entry " + i, ex);
                                         }

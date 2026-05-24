@@ -115,12 +115,12 @@ class LatencyDotSmoke {
     }
 
     @Test
-    @DisplayName("Constructor: preferredSize 16x16 por defecto, sin update inicial")
+    @DisplayName("Constructor: preferredSize 22x22 por defecto, sin update inicial")
     void initialState() {
         LatencyDot d = new LatencyDot();
         assertNotNull(d.getPreferredSize());
-        assertEquals(16, d.getPreferredSize().width);
-        assertEquals(16, d.getPreferredSize().height);
+        assertEquals(22, d.getPreferredSize().width);
+        assertEquals(22, d.getPreferredSize().height);
         // last_update_ms inicial = 0 → primera consulta de color va a STALE
         // (porque age = now - 0 = enorme, > STALE_THRESHOLD_MS)
         assertEquals(0L, d.getLastUpdateMs());

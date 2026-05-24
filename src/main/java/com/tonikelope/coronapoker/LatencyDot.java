@@ -15,7 +15,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import javax.swing.JComponent;
+import javax.swing.JLabel;
 
 /**
  * Sprint 7 telemetría — componente UI standalone para mostrar latencia + nº
@@ -49,7 +49,11 @@ import javax.swing.JComponent;
  * solo le falta el wiring visual y el dispatch desde el handler de
  * TELEMETRY entrante.
  */
-public class LatencyDot extends JComponent {
+// extends JLabel (no JComponent) para que NetBeans pueda asignarlo a un
+// campo declarado como JLabel en el .form sin error de tipos. Las pintadas
+// de texto/icon del JLabel base se sobrescriben en paintComponent (sin
+// llamar super.paintComponent), así que el JLabel actúa como contenedor.
+public class LatencyDot extends JLabel {
 
     /** Latencia mostrada (ms). -1 = unknown / timeout / sin medir. */
     private volatile int latency_ms = -1;
@@ -73,9 +77,17 @@ public class LatencyDot extends JComponent {
     public static final Color COLOR_STALE = new Color(0x9E, 0x9E, 0x9E);
 
     public LatencyDot() {
-        setPreferredSize(new Dimension(16, 16));
-        setMinimumSize(new Dimension(8, 8));
+        // Tamaño base 22×22 (suficiente para ver la bola + un badge pequeño
+        // si hay reconexiones). Si el GroupLayout del .form pide otro
+        // tamaño, NetBeans lo aplica encima de estos defaults. Si no, este
+        // es el tamaño que se ve.
+        Dimension size = new Dimension(22, 22);
+        setPreferredSize(size);
+        setMinimumSize(size);
+        setMaximumSize(size);
+        setSize(size);
         setOpaque(false);
+        setText(""); // sobrescribe cualquier text="" del JLabel base.
         setToolTipText("---"); // placeholder hasta primer setLatency
     }
 
@@ -148,7 +160,8 @@ public class LatencyDot extends JComponent {
 
     @Override
     protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
+        // NO llamamos super.paintComponent — JLabel pintaría su texto/icon
+        // y aquí queremos control total del rendering (bola + badge).
         Graphics2D g2 = (Graphics2D) g.create();
         try {
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

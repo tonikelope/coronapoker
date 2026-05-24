@@ -169,22 +169,31 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return latency_label;
     }
 
-    // Sprint 7 telemetría: estado de latencia + reconexiones del peer.
-    // Pintado directamente en paintChildren() — sin widget Swing ni layout.
-    // applyTelemetry guarda estos valores y dispara repaint().
-    private volatile int latency_ms = -1;
-    private volatile int telemetry_reconnection_count = 0;
-    private volatile long last_telemetry_update_ms = 0L;
+    // Sprint 7 telemetría: el widget LatencyDot lo coloca el autor en el
+    // .form (NetBeans visual editor) y lo enlaza llamando setLatencyDot
+    // en el constructor tras initComponents(). Si null → applyTelemetry
+    // es no-op silencioso (telemetría no afecta al game flow).
+    private volatile LatencyDot latency_dot = null;
+
+    public LatencyDot getLatencyDot() {
+        return latency_dot;
+    }
+
+    public void setLatencyDot(LatencyDot dot) {
+        this.latency_dot = dot;
+    }
 
     /**
-     * Sprint 7 telemetría: actualiza el estado de latencia con la última
-     * snapshot recibida del broadcast TELEMETRY del host.
-     *
-     * Si lat1 y lat2 ambos válidos, usa el min (la mejor lectura entre los
-     * dos canales de ping/pong). Si uno es -1 (timeout), usa el otro. Si
-     * ambos -1, pasa -1 → bolita roja "sin datos".
+     * Sprint 7 telemetría: actualiza la bolita con la última snapshot recibida
+     * del broadcast TELEMETRY del host. Si lat1 y lat2 ambos válidos, usa el
+     * min. Si uno es -1, usa el otro. Si ambos -1, -1 → bolita roja.
+     * No-op si latency_dot aún no se ha enlazado vía setLatencyDot.
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
+        LatencyDot dot = this.latency_dot;
+        if (dot == null) {
+            return;
+        }
         int best;
         if (lat1 < 0 && lat2 < 0) {
             best = -1;
@@ -195,10 +204,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } else {
             best = Math.min(lat1, lat2);
         }
-        this.latency_ms = best;
-        this.telemetry_reconnection_count = reconnectionCount;
-        this.last_telemetry_update_ms = System.currentTimeMillis();
-        Helpers.GUIRun(() -> repaint());
+        dot.setLatency(best, reconnectionCount);
     }
 
     @Override
@@ -247,16 +253,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } finally {
             g2d.dispose();
         }
-    }
-
-    @Override
-    protected void paintChildren(Graphics g) {
-        super.paintChildren(g);
-        // Sprint 7: bolita de latencia + badge de reconexiones pintada
-        // directamente encima de todo. Esquina superior derecha. Tamaño
-        // proporcional al zoom.
-        Helpers.paintLatencyDotOverlay(g, getWidth(), getHeight(),
-                latency_ms, telemetry_reconnection_count, last_telemetry_update_ms);
     }
 
     public boolean isRadar_checking() {
@@ -1211,6 +1207,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setOpaque(false);
             setBackground(null);
             latency_label.setVisible(false);
+            // Sprint 7: si el .form contiene un latency_dot_widget colocado
+            // por el autor en NetBeans, lo enlazamos aquí. Si no, no-op.
+            try {
+                java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
+                f.setAccessible(true);
+                Object widget = f.get(this);
+                if (widget instanceof LatencyDot) {
+                    setLatencyDot((LatencyDot) widget);
+                }
+            } catch (NoSuchFieldException nsfe) {
+                // OK: aún no se ha añadido en el .form.
+            } catch (Exception ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.WARNING, "Could not wire latency_dot_widget", ex);
+            }
             player_action.setMinimumSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             player_action.setPreferredSize(new Dimension(Math.round(RemotePlayer.MIN_ACTION_WIDTH * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)), Math.round(RemotePlayer.MIN_ACTION_HEIGHT * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP))));
             hands_win.setVisible(false);
@@ -1367,6 +1377,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name = new javax.swing.JLabel();
         utg_icon = new javax.swing.JLabel();
         hands_win = new javax.swing.JLabel();
+        latency_dot_widget = new com.tonikelope.coronapoker.LatencyDot();
         danger = new javax.swing.JLabel();
         player_action_panel = new RoundedPanel(20);
         player_action = new javax.swing.JLabel();
@@ -1448,7 +1459,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setForeground(new java.awt.Color(255, 255, 255));
         player_stack.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         player_stack.setText("1000");
-        Helpers.setTranslatedToolTip(player_stack, "ui.click_para_ver_su_buyin");
+        player_stack.setToolTipText("CLICK PARA VER SU BUYIN");
         player_stack.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 5, 2, 5));
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setDoubleBuffered(true);
@@ -1520,7 +1531,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         hands_win.setFont(new java.awt.Font("Dialog", 1, 22)); // NOI18N
         hands_win.setForeground(new java.awt.Color(255, 255, 255));
         hands_win.setText("(0)");
-        Helpers.setTranslatedToolTip(hands_win, "stats.manos_ganadas");
+        hands_win.setToolTipText("MANOS GANADAS");
         hands_win.setDoubleBuffered(true);
 
         javax.swing.GroupLayout nick_panelLayout = new javax.swing.GroupLayout(nick_panel);
@@ -1530,19 +1541,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             .addGroup(nick_panelLayout.createSequentialGroup()
                 .addGap(0, 0, 0)
                 .addComponent(player_name)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(utg_icon)
-                .addGap(5, 5, 5)
+                .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(nick_panelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(utg_icon)
+                        .addGap(5, 5, 5))
+                    .addGroup(nick_panelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(latency_dot_widget)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                 .addComponent(hands_win))
         );
         nick_panelLayout.setVerticalGroup(
             nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addComponent(player_name)
+                .addComponent(utg_icon)
+                .addComponent(hands_win))
             .addGroup(nick_panelLayout.createSequentialGroup()
-                .addGroup(nick_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(player_name)
-                    .addComponent(utg_icon)
-                    .addComponent(hands_win))
-                .addGap(0, 0, 0))
+                .addContainerGap()
+                .addComponent(latency_dot_widget)
+                .addContainerGap())
         );
 
         javax.swing.GroupLayout indicadores_arribaLayout = new javax.swing.GroupLayout(indicadores_arriba);
@@ -1745,6 +1764,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private com.tonikelope.coronapoker.Card holeCard1;
     private com.tonikelope.coronapoker.Card holeCard2;
     private javax.swing.JPanel indicadores_arriba;
+    private javax.swing.JLabel latency_dot_widget;
     private javax.swing.JLabel latency_label;
     private javax.swing.JPanel nick_panel;
     private javax.swing.JLayeredPane panel_cartas;

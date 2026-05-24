@@ -2426,17 +2426,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "TELEMETRY":
-                                                            // Sprint 7 telemetría: broadcast del host con latencias +
-                                                            // reconnection counts de TODOS los peers. Hace DOS cosas:
-                                                            //   1. Guarda el frame entero en latest_telemetry.
-                                                            //   2. Aplica el frame a todos los Player locales via
-                                                            //      Crupier.applyTelemetryFrameLocally.
-                                                            //
-                                                            // OJO: el wire-format del payload contiene '#' como
-                                                            // separador interno (timestamp#entries). El split("#")
-                                                            // global del comando GAME ya lo descompuso, así que hay
-                                                            // que recomponer partes_comando[3..end] con '#' para
-                                                            // tener el payload original.
+                                                            // Sprint 7 telemetría. El wire-format del payload contiene '#'
+                                                            // como separador interno (timestamp#entries), así que si el
+                                                            // split('#') del comando GAME generó más de 4 partes, hay que
+                                                            // recomponer partes[3..end] con '#' para reconstruir el payload
+                                                            // original antes de decodificar.
                                                             try {
                                                                 if (partes_comando.length >= 4) {
                                                                     String payload;

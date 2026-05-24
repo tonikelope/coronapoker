@@ -290,7 +290,8 @@ public class NetClient {
         synchronized (local_client_buffer_read_is) {
             try {
                 last_read_hmac_failure = false;
-                return Helpers.decryptCommand(local_client_buffer_read_is.readLine(),
+                return Helpers.decryptCommand(
+                        Helpers.readBoundedLine(local_client_buffer_read_is, Helpers.MAX_COMMAND_LINE_CHARS),
                         local_client_aes_key, local_client_hmac_key);
             } catch (java.security.KeyException ex) {
                 last_read_hmac_failure = true;

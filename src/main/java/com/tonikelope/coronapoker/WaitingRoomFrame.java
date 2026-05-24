@@ -122,6 +122,15 @@ public class WaitingRoomFrame extends JFrame {
     // handshake completa con exito y antes de que el reader normal del Participant
     // tome control, asi las pausas legitimas inter-mano nunca lo disparan.
     public static final int HANDSHAKE_TIMEOUT_MS = 30000;
+    // Cap del int de longitud que el peer envía en cada read del handshake.
+    // El pubkey EC X.509 (P-256) real son ~91 bytes; permitimos 256 de margen
+    // por si alguna vez se sube de curva. Sin este cap un peer hostil puede
+    // mandar Integer.MAX_VALUE y forzar new byte[2GB] → OOM instantáneo.
+    public static final int HANDSHAKE_MAX_PUBKEY_BYTES = 256;
+    // session_id que el server emite tiene tamaño fijo 16 (ver línea 712:
+    // this.session_id = new byte[16];). Cap a 64 da margen futuro sin
+    // permitir abuso.
+    public static final int HANDSHAKE_MAX_SESSIONID_BYTES = 64;
 
     // Pre-compiled patterns used per chat message in txtChat2HTML and its helpers.
     // Hot path: avoid String.replaceAll which recompiles the regex on every call.
@@ -1744,10 +1753,18 @@ public class WaitingRoomFrame extends JFrame {
 
                     DataInputStream dIn = new DataInputStream(sock.getInputStream());
                     int length = dIn.readInt();
+                    if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
+                        throw new IOException("Handshake: invalid server pubkey length " + length
+                                + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
+                    }
                     byte[] serverPubKeyEnc = new byte[length];
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
                     // EC-Identity v1: capture session_id sent right after the server pubkey.
                     int sidLen = dIn.readInt();
+                    if (sidLen <= 0 || sidLen > HANDSHAKE_MAX_SESSIONID_BYTES) {
+                        throw new IOException("Handshake: invalid session_id length " + sidLen
+                                + " (cap " + HANDSHAKE_MAX_SESSIONID_BYTES + ")");
+                    }
                     byte[] receivedSessionId = new byte[sidLen];
                     dIn.readFully(receivedSessionId, 0, sidLen);
                     this.session_id = receivedSessionId;
@@ -3047,6 +3064,10 @@ public class WaitingRoomFrame extends JFrame {
                     /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
                     DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
                     int length = dIn.readInt();
+                    if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
+                        throw new IOException("Handshake: invalid client pubkey length " + length
+                                + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
+                    }
                     byte[] clientPubKeyEnc = new byte[length];
                     dIn.readFully(clientPubKeyEnc, 0, clientPubKeyEnc.length);
                     KeyFactory serverKeyFac = KeyFactory.getInstance("EC");

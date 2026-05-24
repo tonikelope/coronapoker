@@ -102,6 +102,11 @@ public class InitPanel extends javax.swing.JLayeredPane {
                         }
                     }
 
+                    // Sprint deferred 🟡-32: liberar el tile anterior antes
+                    // de sustituirlo (ver TablePanel para más detalle).
+                    if (this.tp != null && this.tp.getImage() != null) {
+                        this.tp.getImage().flush();
+                    }
                     Rectangle2D anchor = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
                     this.tp = new TexturePaint(tile, anchor);
 

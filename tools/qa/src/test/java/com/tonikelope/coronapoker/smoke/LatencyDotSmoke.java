@@ -61,15 +61,15 @@ class LatencyDotSmoke {
     }
 
     @Test
-    @DisplayName("Latencia 550 → ORANGE (boundary)")
+    @DisplayName("Latencia 400 → ORANGE (boundary)")
     void boundaryOrange() {
-        assertEquals(LatencyDot.COLOR_ORANGE, LatencyDot.colorFor(550, 0));
+        assertEquals(LatencyDot.COLOR_ORANGE, LatencyDot.colorFor(400, 0));
     }
 
     @Test
-    @DisplayName("Latencia 551 → RED")
+    @DisplayName("Latencia 401 → RED")
     void crossesIntoRed() {
-        assertEquals(LatencyDot.COLOR_RED, LatencyDot.colorFor(551, 0));
+        assertEquals(LatencyDot.COLOR_RED, LatencyDot.colorFor(401, 0));
     }
 
     @Test

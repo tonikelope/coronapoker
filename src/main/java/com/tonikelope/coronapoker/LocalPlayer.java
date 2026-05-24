@@ -178,34 +178,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Sprint 7 telemetría: opcional LatencyDot widget (visual bolita siempre
-    // visible al lado del avatar). Mismo patrón que RemotePlayer.setLatencyDot
-    // — se inyecta tras initComponents, applyTelemetry es no-op si null.
-    private volatile LatencyDot latency_dot = null;
-
-    public LatencyDot getLatencyDot() {
-        return latency_dot;
-    }
-
-    public void setLatencyDot(LatencyDot dot) {
-        this.latency_dot = dot;
-    }
+    // Sprint 7 telemetría: estado interno + pintado directo en paintChildren.
+    private volatile int latency_ms = -1;
+    private volatile int telemetry_reconnection_count = 0;
+    private volatile long last_telemetry_update_ms = 0L;
 
     /**
-     * Sprint 7 telemetría: actualiza la bolita LatencyDot con la medición
-     * más reciente. Para LocalPlayer hay dos fuentes:
-     *   - Cliente: WaitingRoomFrame ping thread mide latencia al server
-     *     y llama applyTelemetry directamente.
-     *   - Host: el TELEMETRY que se broadcastea a sí mismo incluye una
-     *     entrada con (0, 0, 0) — bolita verde sin badge.
-     *
-     * Mismo helper de "best of lat1/lat2" que RemotePlayer.applyTelemetry.
+     * Sprint 7 telemetría: actualiza el estado de latencia con la medición
+     * más reciente. Fuentes:
+     *   - Cliente: WaitingRoomFrame ping thread mide latencia al server.
+     *   - Host: el TELEMETRY local (auto-aplicado) inyecta (0,0,0) — verde.
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
-        LatencyDot dot = this.latency_dot;
-        if (dot == null) {
-            return;
-        }
         int best;
         if (lat1 < 0 && lat2 < 0) {
             best = -1;
@@ -216,7 +200,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         } else {
             best = Math.min(lat1, lat2);
         }
-        dot.setLatency(best, reconnectionCount);
+        this.latency_ms = best;
+        this.telemetry_reconnection_count = reconnectionCount;
+        this.last_telemetry_update_ms = System.currentTimeMillis();
+        Helpers.GUIRun(() -> repaint());
     }
 
     @Override
@@ -265,6 +252,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         } finally {
             g2d.dispose();
         }
+    }
+
+    @Override
+    protected void paintChildren(Graphics g) {
+        super.paintChildren(g);
+        Helpers.paintLatencyDotOverlay(g, getWidth(), getHeight(),
+                latency_ms, telemetry_reconnection_count, last_telemetry_update_ms);
     }
 
     public void setConta_rabbit(int conta_rabbit) {

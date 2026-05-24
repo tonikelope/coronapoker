@@ -9148,11 +9148,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             synchronized (parts) {
                 for (java.util.Map.Entry<String, com.tonikelope.coronapoker.Participant> e : parts.entrySet()) {
                     com.tonikelope.coronapoker.Participant p = e.getValue();
-                    if (p == null || p.isCpu()) {
-                        continue; // bots no tienen socket ⇒ telemetría sin sentido
+                    if (p == null) {
+                        continue;
                     }
-                    perPeer.put(e.getKey(),
-                            new int[]{p.getLatency(), p.getLatency2(), p.getReconnectionCount()});
+                    if (p.isCpu()) {
+                        // Bots: locales al host, sin RTT → entrada verde 0/0/0.
+                        perPeer.put(e.getKey(), new int[]{0, 0, 0});
+                    } else {
+                        perPeer.put(e.getKey(),
+                                new int[]{p.getLatency(), p.getLatency2(), p.getReconnectionCount()});
+                    }
                 }
             }
             // El propio host se incluye con latencia 0 (es su propia perspectiva
@@ -9169,8 +9174,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // skip_nick=null y confirmation=false: broadcast fire-and-forget
             // sin esperar ACK; la telemetría es best-effort, no necesita confirm.
             broadcastGAMECommandFromServer(cmd, null, false);
+            // El host NO recibe su propio broadcast (broadcastGAMECommandFromServer
+            // envía a clientes remotos, no se procesa a sí mismo). Aplicamos el
+            // frame localmente para que el host vea las bolitas de sus clientes
+            // con su latencia real + las suyas propias en verde.
+            applyTelemetryFrameLocally(frame);
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "broadcastTelemetryFrame failed (telemetry is best-effort, no game impact)", ex);
+        }
+    }
+
+    /**
+     * Sprint 7 telemetría: aplica un TelemetryFrame a los Player locales.
+     * Usado por:
+     *   - broadcastTelemetryFrame() del host (auto-aplicación, ya que el host
+     *     no recibe su propio broadcast).
+     *   - case "TELEMETRY" del cliente (al recibir broadcast del host).
+     */
+    public void applyTelemetryFrameLocally(Helpers.TelemetryFrame frame) {
+        if (frame == null || frame.perPeer == null) {
+            return;
+        }
+        java.util.Map<String, Player> n2p = getNick2player();
+        if (n2p == null) {
+            return;
+        }
+        for (java.util.Map.Entry<String, int[]> en : frame.perPeer.entrySet()) {
+            Player p = n2p.get(en.getKey());
+            int[] v = en.getValue();
+            if (p == null || v == null || v.length < 3) {
+                continue;
+            }
+            if (p instanceof RemotePlayer) {
+                ((RemotePlayer) p).applyTelemetry(v[0], v[1], v[2]);
+            } else if (p instanceof LocalPlayer) {
+                ((LocalPlayer) p).applyTelemetry(v[0], v[1], v[2]);
+            }
         }
     }
 

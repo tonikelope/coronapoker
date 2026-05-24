@@ -145,6 +145,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (auto_action != null && auto_action.isRunning()) {
                 auto_action.stop();
             }
+            // icon_zoom_timer también — sin esto, queda registrado en la
+            // TimerQueue global de Swing reteniendo el RemotePlayer (y por
+            // captura, el GameFrame entero) hasta su próximo fire. En partidas
+            // con 9 jugadores remotos eran hasta 9 timers vivos por cleanup.
+            // iwtsth_blink_timer YA se para en GameFrame.java:2246 explícitamente
+            // (loop de end-of-game) — no se duplica aquí para no romper la
+            // semántica del blink en cleanup parcial.
+            if (icon_zoom_timer != null && icon_zoom_timer.isRunning()) {
+                icon_zoom_timer.stop();
+            }
         });
     }
 

@@ -168,6 +168,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (hurryup_timer != null) {
                 hurryup_timer.stop();
             }
+            // icon_zoom_timer también — sin esto, queda registrado en la
+            // TimerQueue global de Swing reteniendo el LocalPlayer (y por
+            // captura, el GameFrame entero) hasta su próximo fire. En
+            // resetInstance bloquea el GC del frame viejo.
+            if (icon_zoom_timer != null && icon_zoom_timer.isRunning()) {
+                icon_zoom_timer.stop();
+            }
         });
     }
 

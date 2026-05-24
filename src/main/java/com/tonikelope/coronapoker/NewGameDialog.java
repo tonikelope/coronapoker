@@ -130,6 +130,8 @@ public class NewGameDialog extends JDialog {
 
         initComponents();
 
+        Helpers.attachPasswordStrengthHint(pass_text);
+
         update = true;
 
         partida_local = (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isServer());
@@ -305,6 +307,8 @@ public class NewGameDialog extends JDialog {
         super(parent, modal);
 
         initComponents();
+
+        Helpers.attachPasswordStrengthHint(pass_text);
 
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
 

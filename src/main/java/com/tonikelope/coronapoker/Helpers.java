@@ -2375,6 +2375,66 @@ public class Helpers {
     }
 
     /**
+     * Engancha un DocumentListener al JPasswordField que repinta el fondo
+     * según la fuerza estimada de la contraseña en bits de entropía:
+     *   - vacío           → defaultBg (sin password = OK, partida pública).
+     *   - 1..59 bits      → amarillo claro (débil).
+     *   - ≥60 bits        → verde claro (fuerte).
+     * Mismos umbrales que el popup "ui.password_debil_aviso".
+     */
+    public static void attachPasswordStrengthHint(final javax.swing.JPasswordField field) {
+        if (field == null) {
+            return;
+        }
+        final java.awt.Color defaultBg = field.getBackground();
+        final java.awt.Color weakBg = new java.awt.Color(0xFF, 0xF1, 0x76);
+        final java.awt.Color strongBg = new java.awt.Color(0xC8, 0xE6, 0xC9);
+        Runnable update = () -> {
+            char[] chars = field.getPassword();
+            if (chars == null || chars.length == 0) {
+                field.setBackground(defaultBg);
+            } else if (estimatePasswordEntropyBits(new String(chars)) >= 60) {
+                field.setBackground(strongBg);
+            } else {
+                field.setBackground(weakBg);
+            }
+        };
+        field.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { update.run(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { update.run(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { update.run(); }
+        });
+        update.run();
+    }
+
+    /**
+     * Genera una contraseña aleatoria FUERTE con CSPRNG (no Random) usando
+     * un alphabet diseñado para ser FÁCIL DE DICTAR / TIPEAR a mano:
+     * solo minúsculas + dígitos (36 chars). Sin mayúsculas (evita confusión
+     * mayús/minús al dictar) y sin símbolos (evita problemas de teclado
+     * internacional, dictado, y mezcla con caracteres de wire format).
+     *
+     * Entropía: log2(36^length). Para length=14, ≈ 72 bits — por encima
+     * del umbral de 60 bits del aviso "password débil" del juego.
+     *
+     * Ejemplo típico: "k7m3p2n8qjz5xv".
+     *
+     * NO confundir con genRandomString (que también es a-z pero usa
+     * java.util.Random pseudoaleatorio, NO CSPRNG — sigue valiendo para
+     * tokens legacy de uso no sensible — nicks de tempfile, ids efímeros).
+     */
+    public static String genStrongPassword(int length) {
+        // a-z + 0-9 = 36 chars. Fácil de dictar y tipear; ~2.8 bits/char.
+        final String alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            // SecureRandom.nextInt — uniforme, sin bias.
+            sb.append(alphabet.charAt(CSPRNG_GENERATOR.nextInt(alphabet.length())));
+        }
+        return sb.toString();
+    }
+
+    /**
      * Converts a given Image into a BufferedImage
      * https://stackoverflow.com/a/13605411
      *

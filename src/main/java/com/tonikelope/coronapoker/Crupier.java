@@ -5501,7 +5501,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             String balanceFileName = Init.DEV_MODE ? "/balance_backup_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt" : "/balance_backup.txt";
 
             try {
-                Files.writeString(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
+                // writeStringAtomic en lugar del Files.writeString directo
+                // (Sprint deferred 🟠-26): garantiza que tras un crash mid-write
+                // el balance_backup.txt queda CON SU VALOR ANTERIOR INTACTO en
+                // lugar de un fichero vacío. Backup forense por mano: la
+                // pérdida de UN backup parcial era recuperable pero la pérdida
+                // de TODA la historia (writeString truncate+crash) no.
+                Helpers.writeStringAtomic(Paths.get(Init.CORONA_DIR + balanceFileName), String.join("@", balance_float));
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }

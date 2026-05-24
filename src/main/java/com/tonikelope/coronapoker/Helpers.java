@@ -1848,6 +1848,58 @@ public class Helpers {
     }
 
     /**
+     * Escribe {@code data} atómicamente en {@code target}: primero a un tempfile
+     * vecino del target, luego {@code Files.move} con ATOMIC_MOVE + REPLACE_EXISTING.
+     *
+     * Resuelve el problema de Files.writeString por defecto (CREATE +
+     * TRUNCATE_EXISTING + WRITE): abre el fichero, lo trunca a 0, y luego
+     * escribe. Si el proceso muere entre TRUNCATE y la primera write (corte
+     * de luz, BSOD, JVM kill, OS lock por AV), el fichero queda VACÍO en
+     * disco — datos perdidos.
+     *
+     * Con write-tmp + atomic-move, en cualquier instante el target apunta
+     * a un fichero COMPLETO (viejo o nuevo, nunca parcial). Si el proceso
+     * muere durante el writeString al tmp, el tmp queda parcial pero el
+     * target sigue intacto con su valor anterior.
+     *
+     * Fallback no-atómico en FS que no soportan ATOMIC_MOVE (FAT32 entre
+     * volúmenes, casos raros): Files.move sin ATOMIC_MOVE. Aún preserva
+     * el invariante "tmp escrito completo antes del move", solo la ventana
+     * entre delete-target y rename-tmp puede dejar sistema sin target
+     * (mucho más corta que la ventana TRUNCATE-then-write del original).
+     *
+     * Si el move falla por cualquier motivo, limpia el tmp huérfano.
+     */
+    public static void writeStringAtomic(java.nio.file.Path target, CharSequence data) throws IOException {
+        if (target == null) {
+            throw new IllegalArgumentException("target must not be null");
+        }
+        java.nio.file.Path tmp = target.resolveSibling(
+                target.getFileName().toString() + ".tmp-" + Long.toHexString(System.nanoTime()));
+        try {
+            java.nio.file.Files.writeString(tmp, data);
+            try {
+                java.nio.file.Files.move(tmp, target,
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                // Fallback no-atómico (FAT32, etc). Aún strictly mejor que
+                // writeString directo porque el tmp ya está completo en disco.
+                java.nio.file.Files.move(tmp, target,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException moveEx) {
+            // Si algo falla, limpia el tmp huérfano antes de propagar.
+            try {
+                java.nio.file.Files.deleteIfExists(tmp);
+            } catch (Exception cleanupEx) {
+                // best-effort; el tmp queda para una limpieza posterior.
+            }
+            throw moveEx;
+        }
+    }
+
+    /**
      * Sprint 7 telemetría: payload de una snapshot de latencia/reconexiones
      * que el host emite periódicamente a todos los clientes. Inmutable.
      */

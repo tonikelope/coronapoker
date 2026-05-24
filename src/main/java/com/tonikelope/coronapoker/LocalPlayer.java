@@ -168,13 +168,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (hurryup_timer != null) {
                 hurryup_timer.stop();
             }
-            // icon_zoom_timer también — sin esto, queda registrado en la
-            // TimerQueue global de Swing reteniendo el LocalPlayer (y por
-            // captura, el GameFrame entero) hasta su próximo fire. En
-            // resetInstance bloquea el GC del frame viejo.
-            if (icon_zoom_timer != null && icon_zoom_timer.isRunning()) {
-                icon_zoom_timer.stop();
-            }
+            // NO matar icon_zoom_timer aquí: stopActionTimer se llama entre
+            // manos y matar el timer del zoom dejaba la siguiente mano sin
+            // setAvatar (timer ya parado → zoomIcons no dispara → avatar
+            // invisible). El leak GC que justificaba el stop es preferible
+            // a un bug visible.
         });
     }
 
@@ -1785,6 +1783,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void nuevaMano() {
 
+        // Garantizar avatar pintado al inicio de cada mano (paridad con
+        // RemotePlayer.nuevaMano — fix bug primera mano post-RECOVER).
+        setAvatar();
+
         desPrePulsarAutoTodo();
 
         this.decision = Player.NODEC;
@@ -3124,6 +3126,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void setAvatar() {
 
         int h = player_pot.getHeight();
+        if (h <= 0) {
+            java.awt.Dimension prefDim = player_pot.getPreferredSize();
+            if (prefDim != null && prefDim.height > 0) {
+                h = prefDim.height;
+            }
+        }
+        if (h <= 0 && avatar.getIcon() != null) {
+            int iconH = avatar.getIcon().getIconHeight();
+            if (iconH > 0) {
+                h = iconH;
+            }
+        }
+        if (h <= 0) {
+            h = 64;
+        }
 
         ImageIcon avatar;
 
@@ -3135,8 +3152,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             avatar = new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH)).getImage(), 20));
         }
 
+        final int finalH = h;
         Helpers.GUIRun(() -> {
-            getAvatar().setPreferredSize(new Dimension(h, h));
+            getAvatar().setPreferredSize(new Dimension(finalH, finalH));
 
             getAvatar().setIcon(avatar);
 

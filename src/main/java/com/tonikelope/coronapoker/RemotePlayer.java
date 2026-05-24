@@ -145,16 +145,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             if (auto_action != null && auto_action.isRunning()) {
                 auto_action.stop();
             }
-            // icon_zoom_timer también — sin esto, queda registrado en la
-            // TimerQueue global de Swing reteniendo el RemotePlayer (y por
-            // captura, el GameFrame entero) hasta su próximo fire. En partidas
-            // con 9 jugadores remotos eran hasta 9 timers vivos por cleanup.
-            // iwtsth_blink_timer YA se para en GameFrame.java:2246 explícitamente
-            // (loop de end-of-game) — no se duplica aquí para no romper la
-            // semántica del blink en cleanup parcial.
-            if (icon_zoom_timer != null && icon_zoom_timer.isRunning()) {
-                icon_zoom_timer.stop();
-            }
+            // NO matar icon_zoom_timer aquí — entre manos / al inicio del
+            // recover dejaba la siguiente mano sin setAvatar y el avatar
+            // quedaba invisible. Revertido el cambio del sprint-5 b173ccf9.
         });
     }
 
@@ -2116,6 +2109,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void nuevaMano() {
 
+        // Garantizar que el avatar esté pintado al inicio de CADA mano.
+        // En el flow normal el zoom inicial dispara setAvatar vía
+        // icon_zoom_timer, pero en RECOVER esa cadena no se ejecuta
+        // (el SHUTDOWN_THREAD_POOL entre partidas mata el thread spawnado
+        // del zoom inicial) → primera mano post-recover queda sin avatar.
+        // Llamarlo aquí es idempotente y barato.
+        setAvatar();
+
         this.decision = Player.NODEC;
 
         this.notify_blocked = false;
@@ -2444,7 +2445,25 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public void setAvatar() {
 
+        // Fallback robusto si player_pot aún no está layouted: usa
+        // preferredSize, luego iconHeight del avatar actual, finalmente
+        // un default razonable. Evita BufferedImage(0,0) -> exception.
         int h = player_pot.getHeight();
+        if (h <= 0) {
+            java.awt.Dimension prefDim = player_pot.getPreferredSize();
+            if (prefDim != null && prefDim.height > 0) {
+                h = prefDim.height;
+            }
+        }
+        if (h <= 0 && avatar.getIcon() != null) {
+            int iconH = avatar.getIcon().getIconHeight();
+            if (iconH > 0) {
+                h = iconH;
+            }
+        }
+        if (h <= 0) {
+            h = 64;
+        }
 
         ImageIcon avatar;
 
@@ -2463,8 +2482,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             avatar = new ImageIcon(Helpers.makeImageRoundedCorner(new ImageIcon(new ImageIcon(getClass().getResource("/images/avatar_default.png")).getImage().getScaledInstance(h, h, Image.SCALE_SMOOTH)).getImage(), 20));
         }
 
+        final int finalH = h;
         Helpers.GUIRun(() -> {
-            getAvatar().setPreferredSize(new Dimension(h, h));
+            getAvatar().setPreferredSize(new Dimension(finalH, finalH));
 
             getAvatar().setIcon(avatar);
 

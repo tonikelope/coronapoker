@@ -9655,12 +9655,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         try {
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
+                            // REPLACE_EXISTING: si una recuperación previa dejó un
+                            // balance_used huérfano (Sprint 6 🟡-36 v2), el move fallaba
+                            // con FileAlreadyExistsException, el catch lo logueaba SEVERE
+                            // pero el balance original quedaba en disco para una eventual
+                            // tercera recuperación con datos viejos. REPLACE_EXISTING
+                            // garantiza marca-como-usado idempotente.
                             Files.move(Paths.get(Init.CORONA_DIR + "/balance"),
-                                    Paths.get(Init.CORONA_DIR + "/balance_used"));
+                                    Paths.get(Init.CORONA_DIR + "/balance_used"),
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
                             map.put("balance", balance.trim());
 
-                            LOGGER.log(Level.WARNING, "Balance recuperado forzado");
+                            LOGGER.log(Level.WARNING, "Forced recovered balance applied");
 
                             LOGGER.log(Level.WARNING, balance);
 

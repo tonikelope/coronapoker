@@ -271,14 +271,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                                     Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                                 }
                             } else {
-                                try {
+                                // try-with-resources: ImageIO.read(InputStream) NO cierra el
+                                // stream (contrato JDK). Cada cambio de tapete dejaba colgado
+                                // el handle del JAR resource hasta GC.
+                                try (java.io.InputStream is = getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg")) {
 
-                                    tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg"));
+                                    tile = ImageIO.read(is);
 
                                 } catch (Exception ex) {
 
-                                    try {
-                                        tile = ImageIO.read(getClass().getResourceAsStream("/images/tapete_verde.jpg"));
+                                    try (java.io.InputStream isf = getClass().getResourceAsStream("/images/tapete_verde.jpg")) {
+                                        tile = ImageIO.read(isf);
                                     } catch (IOException ex1) {
                                         Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                                     }

@@ -1809,6 +1809,52 @@ public class Helpers {
     }
 
     /**
+     * Sanea un nick para uso seguro como SEGMENTO de filename en disco.
+     * Defensa contra path traversal cuando el nick proviene de un peer remoto
+     * (host hostil enviando NEWUSER/USERSLIST con nick "../../../../foo") y
+     * contra nombres reservados de Windows ("CON", "NUL", etc.) que harían
+     * fallar FileOutputStream silenciosamente.
+     *
+     * Reglas:
+     *   - Solo conserva [A-Za-z0-9_-]. Cualquier otro char (incluido '.', '/',
+     *     '\', ':', control chars, Unicode) se sustituye por '_'.
+     *   - Trunca a 32 chars máximo (los logs y avatares no necesitan más).
+     *   - Nombres reservados Windows (CON/PRN/AUX/NUL/COM[1-9]/LPT[1-9],
+     *     case-insensitive) se prefijan con '_' para evitar AccessDeniedException.
+     *   - null o cadena vacía tras sanitización devuelven "user".
+     *
+     * NOTA: el resultado NO es un identificador único (dos nicks distintos
+     * pueden colisionar tras la sanitización). Los call sites que necesitan
+     * unicidad deben añadir su propio sufijo (file_id aleatorio, hash, etc.)
+     * — el helper solo garantiza que el segmento sea filesystem-safe.
+     */
+    public static String safeNickForFilename(String nick) {
+        if (nick == null || nick.isEmpty()) {
+            return "user";
+        }
+        String safe = nick.replaceAll("[^A-Za-z0-9_-]", "_");
+        if (safe.isEmpty()) {
+            return "user";
+        }
+        if (safe.length() > 32) {
+            safe = safe.substring(0, 32);
+        }
+        // Trim leading dashes (cosmético — los nombres tipo "-rf" parecen flags)
+        while (safe.startsWith("-")) {
+            safe = safe.length() > 1 ? safe.substring(1) : "";
+        }
+        if (safe.isEmpty()) {
+            return "user";
+        }
+        String upper = safe.toUpperCase();
+        if (upper.equals("CON") || upper.equals("PRN") || upper.equals("AUX")
+                || upper.equals("NUL") || upper.matches("COM[1-9]") || upper.matches("LPT[1-9]")) {
+            return "_" + safe;
+        }
+        return safe;
+    }
+
+    /**
      * Reemplazo acotado de {@link java.io.BufferedReader#readLine()}. Mismo
      * contrato (null si EOF antes de leer nada, trim de CR-LF) pero ABORTA con
      * IOException si la línea acumula más de {@code maxChars} caracteres antes

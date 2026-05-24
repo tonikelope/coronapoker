@@ -96,7 +96,10 @@ public class InitPanel extends javax.swing.JLayeredPane {
                         tile = Helpers.toBufferedImage(scaled);
                     } else {
                         String resPath = "/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg";
-                        tile = ImageIO.read(getClass().getResourceAsStream(resPath));
+                        // try-with-resources: ImageIO.read no cierra el stream.
+                        try (java.io.InputStream is = getClass().getResourceAsStream(resPath)) {
+                            tile = ImageIO.read(is);
+                        }
                     }
 
                     Rectangle2D anchor = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());

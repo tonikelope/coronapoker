@@ -287,14 +287,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                                     }
                                 }
                             }
-                            // Sprint deferred 🟡-32: liberar el tile anterior antes de
-                            // sustituirlo. Una captura 4K (2560×1440) en TYPE_INT_ARGB
-                            // son ~14 MB de pixel data nativa. Sin flush(), espera al GC
-                            // que puede tardar minutos. Con zoom-in/out repetido se
-                            // acumulan varios tiles muertos en memoria.
-                            if (tp != null && tp.getImage() != null) {
-                                tp.getImage().flush();
-                            }
+                            // Sprint deferred 🟡-32: snapshot del tile anterior para
+                            // flush DIFERIDO post-repaint. El EDT lee tp sin
+                            // sincronización (no toma paint_lock), así que si
+                            // hiciéramos flush() aquí mientras paintComponent del EDT
+                            // pinta con el mismo tp, render inconsistente. invokeLater
+                            // garantiza que el flush corra después de que la pintura
+                            // con el tp viejo haya terminado.
+                            final java.awt.Image oldImage = (tp != null) ? tp.getImage() : null;
                             Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
                             tp = new TexturePaint(tile, tr);
                             invalidate = false;
@@ -302,6 +302,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                                 revalidate();
                                 repaint();
+                                if (oldImage != null) {
+                                    javax.swing.SwingUtilities.invokeLater(oldImage::flush);
+                                }
                             });
                         }
                     });

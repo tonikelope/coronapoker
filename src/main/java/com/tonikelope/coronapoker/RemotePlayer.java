@@ -169,6 +169,51 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return latency_label;
     }
 
+    // Sprint 7 telemetría: opcional LatencyDot widget (visual bolita siempre
+    // visible al lado del avatar). Se inyecta vía setLatencyDot tras
+    // initComponents (típicamente desde una customización post-construcción
+    // del RemotePlayer.form o vía código añadido manualmente — ver
+    // docs/sprint-7-latencydot-integration.md).
+    //
+    // Si latency_dot==null, applyTelemetry es no-op silencioso — el código
+    // compila y funciona aunque el widget aún no esté visualmente integrado.
+    private volatile LatencyDot latency_dot = null;
+
+    public LatencyDot getLatencyDot() {
+        return latency_dot;
+    }
+
+    public void setLatencyDot(LatencyDot dot) {
+        this.latency_dot = dot;
+    }
+
+    /**
+     * Sprint 7 telemetría: actualiza la bolita LatencyDot con la última
+     * snapshot recibida del broadcast TELEMETRY del host. No-op si el
+     * widget aún no se ha inyectado vía setLatencyDot.
+     *
+     * Si lat1 y lat2 ambos válidos, usa el min (la mejor lectura entre los
+     * dos canales de ping/pong). Si uno es -1 (timeout), usa el otro. Si
+     * ambos -1, pasa -1 → bolita roja "sin datos".
+     */
+    public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
+        LatencyDot dot = this.latency_dot;
+        if (dot == null) {
+            return;
+        }
+        int best;
+        if (lat1 < 0 && lat2 < 0) {
+            best = -1;
+        } else if (lat1 < 0) {
+            best = lat2;
+        } else if (lat2 < 0) {
+            best = lat1;
+        } else {
+            best = Math.min(lat1, lat2);
+        }
+        dot.setLatency(best, reconnectionCount);
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
 

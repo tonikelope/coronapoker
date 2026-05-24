@@ -172,6 +172,26 @@ public class InGameNotifyDialog extends JDialog {
         }
     }//GEN-LAST:event_formComponentShown
 
+    /**
+     * Limpia la static LATEST_NOTIFICATION si apunta a this antes de disponer.
+     * Sin esto, el slot global retiene el dialog (y todo su grafo: panel,
+     * iconos, parent GameFrame) incluso después de dispose; las siguientes
+     * partidas heredan referencias del juego anterior. Leak severo en
+     * sesiones largas con TTS reportado en el informe v2 (🟠-22).
+     */
+    @Override
+    public void dispose() {
+        synchronized (LATEST_LOCK) {
+            if (LATEST_NOTIFICATION == this) {
+                LATEST_NOTIFICATION = null;
+            }
+        }
+        if (timer != null) {
+            timer.stop();
+        }
+        super.dispose();
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private com.tonikelope.coronapoker.InGameNotifyPanel panel;
     // End of variables declaration//GEN-END:variables

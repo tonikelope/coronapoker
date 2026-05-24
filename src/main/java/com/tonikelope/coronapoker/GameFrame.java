@@ -38,6 +38,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GraphicsDevice;
+import java.awt.Rectangle;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
@@ -622,7 +623,31 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    /**
+     * Reposiciona el GameFrame en el monitor donde reside actualmente la
+     * WaitingRoomFrame, para que el (auto)fullscreen / MAXIMIZED_BOTH aterrice
+     * en esa pantalla en vez del monitor por defecto. Necesario en Windows
+     * porque setExtendedState(MAXIMIZED_BOTH) honra el monitor donde esta la
+     * ventana; tambien util en Mac antes del setVisible nativo. La rama X11 de
+     * toggleFullScreen ya usa el device de la sala de espera explicitamente.
+     */
+    private void placeOnWaitingRoomMonitor() {
+        if (sala_espera == null) {
+            return;
+        }
+        Helpers.GUIRunAndWait(() -> {
+            Rectangle r = sala_espera.getGraphicsConfiguration().getBounds();
+            int w = getWidth() > 0 ? getWidth() : Math.min(r.width, 1024);
+            int h = getHeight() > 0 ? getHeight() : Math.min(r.height, 768);
+            int x = r.x + Math.max(0, (r.width - w) / 2);
+            int y = r.y + Math.max(0, (r.height - h) / 2);
+            setLocation(x, y);
+        });
+    }
+
     public void autoZoomFullScreen(boolean fullscreen) {
+
+        placeOnWaitingRoomMonitor();
 
         if (Helpers.OSValidator.isMac()) {
 

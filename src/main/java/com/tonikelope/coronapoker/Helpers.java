@@ -1707,15 +1707,11 @@ public class Helpers {
 
                 byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
-                int i;
-
-                for (i = 0; i < iv.length; i++) {
-                    iv_cmsg[i] = iv[i];
-                }
-
-                for (i = 0; i < cmsg.length; i++) {
-                    iv_cmsg[i + iv.length] = cmsg[i];
-                }
+                // System.arraycopy → memcpy nativo; sustituye 4 bucles for byte-a-byte
+                // del código anterior. Cada comando GAME del Crupier (decenas por mano)
+                // y cada MEGAPACKET (52*32 = 1664 bytes) pasaba por aquí.
+                System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
+                System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
 
                 if (hmac_key != null) {
 
@@ -1727,13 +1723,8 @@ public class Helpers {
 
                     byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
 
-                    for (i = 0; i < hmac.length; i++) {
-                        full_msg[i] = hmac[i];
-                    }
-
-                    for (i = 0; i < iv_cmsg.length; i++) {
-                        full_msg[i + hmac.length] = iv_cmsg[i];
-                    }
+                    System.arraycopy(hmac, 0, full_msg, 0, hmac.length);
+                    System.arraycopy(iv_cmsg, 0, full_msg, hmac.length, iv_cmsg.length);
                 } else {
                     full_msg = iv_cmsg;
                 }
@@ -1763,33 +1754,20 @@ public class Helpers {
 
                 byte[] cmsg;
 
-                int i;
-
                 if (hmac_key != null) {
 
                     cmsg = new byte[full_msg.length - hmac.length - iv.length];
 
-                    for (i = 0; i < hmac.length; i++) {
-                        hmac[i] = full_msg[i];
-                    }
-
-                    for (i = 0; i < iv.length; i++) {
-                        iv[i] = full_msg[i + hmac.length];
-                    }
-
-                    for (i = 0; i < cmsg.length; i++) {
-                        cmsg[i] = full_msg[i + hmac.length + iv.length];
-                    }
+                    // System.arraycopy → memcpy nativo; sustituye 5 bucles
+                    // for byte-a-byte del código anterior.
+                    System.arraycopy(full_msg, 0, hmac, 0, hmac.length);
+                    System.arraycopy(full_msg, hmac.length, iv, 0, iv.length);
+                    System.arraycopy(full_msg, hmac.length + iv.length, cmsg, 0, cmsg.length);
 
                     byte[] iv_cmsg = new byte[iv.length + cmsg.length];
 
-                    for (i = 0; i < iv.length; i++) {
-                        iv_cmsg[i] = iv[i];
-                    }
-
-                    for (i = 0; i < cmsg.length; i++) {
-                        iv_cmsg[i + iv.length] = cmsg[i];
-                    }
+                    System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
+                    System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
 
                     Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
 
@@ -1804,13 +1782,8 @@ public class Helpers {
 
                     cmsg = new byte[full_msg.length - iv.length];
 
-                    for (i = 0; i < iv.length; i++) {
-                        iv[i] = full_msg[i];
-                    }
-
-                    for (i = 0; i < cmsg.length; i++) {
-                        cmsg[i] = full_msg[i + iv.length];
-                    }
+                    System.arraycopy(full_msg, 0, iv, 0, iv.length);
+                    System.arraycopy(full_msg, iv.length, cmsg, 0, cmsg.length);
 
                 }
 

@@ -287,6 +287,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                                     }
                                 }
                             }
+                            // Sprint deferred 🟡-32: liberar el tile anterior antes de
+                            // sustituirlo. Una captura 4K (2560×1440) en TYPE_INT_ARGB
+                            // son ~14 MB de pixel data nativa. Sin flush(), espera al GC
+                            // que puede tardar minutos. Con zoom-in/out repetido se
+                            // acumulan varios tiles muertos en memoria.
+                            if (tp != null && tp.getImage() != null) {
+                                tp.getImage().flush();
+                            }
                             Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
                             tp = new TexturePaint(tile, tr);
                             invalidate = false;

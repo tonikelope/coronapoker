@@ -245,26 +245,45 @@ public class NetClient {
                     local_client_socket_lock.wait(1000);
                 } catch (InterruptedException ex) {
                     Helpers.logCooperativeCancellation(LOGGER, "reconnect wait", ex);
-                    break;
+                    Thread.currentThread().interrupt();
+                    return;
                 }
             }
         }
 
-        try {
+        // Tomamos local_client_socket_lock para leer la volatile + escribir
+        // atómicamente. Sin este lock, reconectarCliente (que tiene el mismo
+        // lock) puede reasignar local_client_socket a un socket nuevo entre
+        // nuestro read del volatile y el uso de getOutputStream(), provocando
+        // que escribamos al socket viejo. El sync sobre s.getOutputStream()
+        // anterior no protegía porque OutputStream del Socket viejo y el nuevo
+        // son monitores distintos.
+        //
+        // Si reconectarCliente está activo cuando llegamos aquí, el lock está
+        // tomado y bloquearemos hasta que termine. Eso es exactamente lo que
+        // queremos — escribir DURANTE el reconnect no tiene sentido. La salida
+        // por wait(1000) interrumpible de arriba es para el caso de espera
+        // controlada por flag; este lock es para la consistencia atómica.
+        synchronized (local_client_socket_lock) {
             Socket s = local_client_socket;
-            synchronized (s.getOutputStream()) {
-                s.getOutputStream().write((command + "\n").getBytes("UTF-8"));
-                s.getOutputStream().flush();
+            if (s == null) {
+                LOGGER.log(Level.WARNING, "Client write skipped — socket not yet available");
+                return;
             }
-        } catch (IOException ex) {
-            // Paridad con Participant.writeCommandFromServer (commit 27fe6906):
-            // si el write falla, el socket esta muerto. Cerramos para forzar
-            // readLine null en runSocketReaderClientThread -> reconectarCliente().
-            // Sin esto el cliente solo detectaba la caida cuando el reader
-            // devolvia null por su cuenta, que en Linux sin keepalive tarda
-            // ~16 min de TCP retransmit.
-            LOGGER.log(Level.WARNING, "Client write failed - socket dead, forcing reconnect", ex);
-            closeClientSocket();
+            try {
+                java.io.OutputStream os = s.getOutputStream();
+                os.write((command + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                os.flush();
+            } catch (IOException ex) {
+                // Paridad con Participant.writeCommandFromServer (commit 27fe6906):
+                // si el write falla, el socket esta muerto. Cerramos para forzar
+                // readLine null en runSocketReaderClientThread -> reconectarCliente().
+                // Sin esto el cliente solo detectaba la caida cuando el reader
+                // devolvia null por su cuenta, que en Linux sin keepalive tarda
+                // ~16 min de TCP retransmit.
+                LOGGER.log(Level.WARNING, "Client write failed - socket dead, forcing reconnect", ex);
+                closeClientSocket();
+            }
         }
     }
 

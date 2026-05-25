@@ -53,7 +53,7 @@ public class RebuyDialog extends JDialog {
 
         Helpers.GUIRun(() -> {
             barra.setVisible(true);
-            Helpers.resetBarra(barra, tiempo);
+            Helpers.smoothCountdown(barra, tiempo);
             pack();
         });
 
@@ -65,16 +65,20 @@ public class RebuyDialog extends JDialog {
 
             if (!GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !rebuy && !touched) {
 
-                final int v = --t;
+                --t;
 
-                Helpers.GUIRun(() -> {
-                    barra.setValue(v);
-                });
+                // setValue(t) redundante: smoothCountdown tiene su Timer interno
+                // repintando la barra cada 50ms en escala ms. Solo decrementamos
+                // t para que el loop sepa cuando salir por timeout.
             }
 
         }
 
         Helpers.GUIRun(() -> {
+            // Cancela el Timer interno del smoothCountdown antes de ocultar la
+            // barra — evita que el Timer siga corriendo en background tras
+            // dispose del dialog.
+            Helpers.resetBarra(barra, 0);
             barra.setVisible(false);
         });
     }

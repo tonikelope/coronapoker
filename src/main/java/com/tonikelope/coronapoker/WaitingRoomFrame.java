@@ -473,9 +473,13 @@ public class WaitingRoomFrame extends JFrame {
                 editor.read(reader, chat.getDocument(), chat.getDocument().getLength());
                 chat.setCaretPosition(chat.getDocument().getLength());
                 // Forzar repintado completo: el clip parcial que dispara el append deja a veces
-                // el fillRoundRect de RoundedBubbleView recortado.
-                chat.revalidate();
-                chat.repaint();
+                // el fillRoundRect de RoundedBubbleView recortado. Sin sentido cuando el
+                // componente no esta mostrando (chat oculto durante la partida): el deferred
+                // setSize en formComponentShown se encarga del relayout al reabrir.
+                if (chat.isShowing()) {
+                    chat.revalidate();
+                    chat.repaint();
+                }
             } catch (Exception ex) {
             }
         });
@@ -5107,6 +5111,40 @@ public class WaitingRoomFrame extends JFrame {
         revalidate();
 
         repaint();
+
+        if (isPartida_empezada()) {
+            // Durante el juego el JTextPane sigue recibiendo HTMLEditorKitAppend
+            // mientras la ventana esta oculta. Los <img> resuelven su bitmap via
+            // ImageObserver y disparan preferenceChanged, pero al no ser
+            // displayable el componente la cascada de relayout no recalcula las
+            // allocations de los RoundedBubbleView -> burbujas con imagen quedan
+            // con geometria stale al reabrir el chat desde el menu in-game.
+            //
+            // Mimica exacta de lo que hace chatMouseClicked (el evento que el
+            // usuario disparaba a mano para "arreglar" el pintado): cambiar
+            // brevemente la policy del scrollpane de NEVER a AS_NEEDED fuerza
+            // a JScrollPane a recalcular layout, el viewport reentrega un
+            // setSize al chat con potencial cambio de width al mostrar/ocultar
+            // la scrollbar, y el HTMLDocument relaya el view tree con los
+            // tamanos reales ya resueltos. Tras un segundo invokeLater
+            // restauramos la policy original para no dejar barras visibles si
+            // chatFocusLost no las cubre. setSize sobre chat directamente no
+            // funciona aqui: dentro de un JScrollPane el viewport sobreescribe
+            // el size desde su extent y el HTMLDocument no se invalida.
+            final int v_policy = chat_scroll.getVerticalScrollBarPolicy();
+            final int h_policy = chat_scroll.getHorizontalScrollBarPolicy();
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (!chat_scroll.isDisplayable()) {
+                    return;
+                }
+                chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+                chat_scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    chat_scroll.setVerticalScrollBarPolicy(v_policy);
+                    chat_scroll.setHorizontalScrollBarPolicy(h_policy);
+                });
+            });
+        }
     }// GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_max_min_labelMouseClicked

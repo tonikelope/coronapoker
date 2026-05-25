@@ -2508,7 +2508,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -2556,7 +2556,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -2612,7 +2612,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         desactivarControles();
 
-                        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                         if (auto_action != null) {
                             auto_action.stop();
@@ -2687,7 +2687,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -2732,7 +2732,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     if (auto_action != null) {
                         auto_action.stop();

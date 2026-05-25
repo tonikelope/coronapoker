@@ -223,6 +223,12 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         });
 
         Helpers.runWhenLaidOut(pot_label, () -> {
+            // Guard: el Timer interno de runWhenLaidOut (2s safety net) puede dispararse
+            // tras GameFrame.resetInstance() — getCapa_brillo() lanzaria NPE. En cleanup
+            // simplemente no hay nada que pintar.
+            if (GameFrame.getInstance() == null) {
+                return;
+            }
             sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
             Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
             panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));

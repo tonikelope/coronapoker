@@ -3303,6 +3303,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     } catch (Exception e) {
                                     }
                                 }
+                            } else if (part.startsWith("POCKETS@")) {
+                                // Repoblar single_locked_pocket_cards: imprescindible para que
+                                // verifyAndStoreShowdownKey pueda aplicar el sraKey de cada
+                                // peer al residuo single-locked y validar el plaintext de
+                                // POTCARDS. Sin esto, todos los humanos remotos caen al
+                                // path "no single_locked_pocket_cards ... skipping" y
+                                // calcularJugadas los muckea.
+                                String[] entries = part.substring("POCKETS@".length()).split(",");
+                                for (String entry : entries) {
+                                    if (entry.isEmpty()) {
+                                        continue;
+                                    }
+                                    String[] pair = entry.split(":");
+                                    if (pair.length != 2) {
+                                        continue;
+                                    }
+                                    try {
+                                        String pNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                        byte[] pBytes = Base64.getDecoder().decode(pair[1]);
+                                        if (pBytes.length == 64) {
+                                            this.single_locked_pocket_cards.put(pNick, pBytes);
+                                        }
+                                    } catch (Exception e) {
+                                    }
+                                }
                             } else if (part.startsWith("VISUAL@")) {
                                 String[] vis = part.substring("VISUAL@".length()).split(",");
                                 try {
@@ -3469,6 +3494,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         botPlayer.getHoleCard1().iniciarConValorNumerico(Integer.parseInt(cards[0]));
                                         botPlayer.getHoleCard2().iniciarConValorNumerico(Integer.parseInt(cards[1]));
 
+                                    }
+                                } catch (Exception e) {
+                                }
+                            }
+                        } else if (part.startsWith("POCKETS@")) {
+                            // Repoblar single_locked_pocket_cards del cliente: imprescindible
+                            // para que recibirCartasResistencia pueda descifrar el residuo
+                            // single-locked con el sraKey que llega en POTCARDS y verificar
+                            // contra el plaintext del host. Sin esto el cliente cae al
+                            // fallback de espectador y acepta plaintext sin verificación SRA.
+                            String[] entries = part.substring("POCKETS@".length()).split(",");
+                            for (String entry : entries) {
+                                if (entry.isEmpty()) {
+                                    continue;
+                                }
+                                String[] pair = entry.split(":");
+                                if (pair.length != 2) {
+                                    continue;
+                                }
+                                try {
+                                    String pNick = new String(Base64.getDecoder().decode(pair[0]), "UTF-8");
+                                    byte[] pBytes = Base64.getDecoder().decode(pair[1]);
+                                    if (pBytes.length == 64) {
+                                        this.single_locked_pocket_cards.put(pNick, pBytes);
                                     }
                                 } catch (Exception e) {
                                 }
@@ -8162,6 +8211,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (botVisuals.length() > 0) {
                 fosil.append("#BOTVISUAL@").append(botVisuals.toString());
+            }
+
+            // POCKETS@ persiste la cache single_locked_pocket_cards. Sin esto,
+            // un RESET_GAME+recover deja al host sin el residuo cifrado por target,
+            // verifyAndStoreShowdownKey rechaza cada RESP_SHOWDOWN_KEY de humanos
+            // remotos y calcularJugadas los muckea por "disconnection".
+            // Cada entry está single-locked (solo el lock del target queda); el
+            // host no posee los scalars de humanos remotos, ergo no puede
+            // descifrarlos aunque lea el fosil — no introduce leakeo nuevo.
+            StringBuilder pockets = new StringBuilder();
+            for (java.util.Map.Entry<String, byte[]> e : this.single_locked_pocket_cards.entrySet()) {
+                byte[] pc = e.getValue();
+                if (pc != null && pc.length == 64) {
+                    try {
+                        pockets.append(java.util.Base64.getEncoder().encodeToString(e.getKey().getBytes("UTF-8")))
+                                .append(":")
+                                .append(java.util.Base64.getEncoder().encodeToString(pc))
+                                .append(",");
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+            if (pockets.length() > 0) {
+                fosil.append("#POCKETS@").append(pockets.toString());
             }
 
             // VISUAL@ guarda los índices 0..51 que resuelven a una carta

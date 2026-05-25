@@ -16,9 +16,5 @@ Outstanding tester. Their systematic stress-testing of corner-case
 scenarios — abrupt process kills mid-hand, network disconnections,
 mid-game joiners, repeated recovery flows — and the quality of the debug
 logs attached to every report were essential to pinpoint root causes that
-would otherwise have been extremely hard to reproduce. The fixes shipped
-in releases 20.78–20.82 (see
-[issue #9](https://github.com/tonikelope/coronapoker/issues/9)) are
-directly the result of that work.
-
+would otherwise have been extremely hard to reproduce. 
 Thanks for caring about the project at this level.

@@ -3040,14 +3040,17 @@ public class WaitingRoomFrame extends JFrame {
                         booting = false;
                         Helpers.GUIRunAndWait(() -> {
                             status.setForeground(Color.red);
-                            Helpers.resetBarra(barra, CLIENT_REC_WAIT);
+                            Helpers.smoothCountdown(barra, CLIENT_REC_WAIT);
                         });
                         for (int i = CLIENT_REC_WAIT; i > 0 && !exit; i--) {
                             int j = i;
                             Helpers.GUIRun(() -> {
                                 status.setIcon(new ImageIcon(getClass().getResource("/images/gears.gif")));
                                 status.setText(Translator.translate("status.error_reconectando") + " " + j + " " + Translator.translate("status.segs"));
-                                barra.setValue(j);
+                                // setValue(j) redundante: smoothCountdown ya repinta
+                                // cada 50ms via Timer interno. El loop sigue para
+                                // actualizar el texto del status cada segundo y para
+                                // detectar exit.
                             });
                             if (!exit) {
                                 synchronized (net_client.getLock_client_reconnect()) {
@@ -3058,6 +3061,10 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                             }
                         }
+                        // Cancela el Timer interno tras el loop — si exit=true se
+                        // dispone WaitingRoomFrame justo despues, evitamos Timer
+                        // huerfano en background.
+                        Helpers.GUIRun(() -> Helpers.resetBarra(barra, 0));
                     } else {
                         mostrarMensajeError(THIS, Translator.translate("conn.algo_ha_fallado_has_perdido"));
                     }

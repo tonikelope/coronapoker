@@ -30,10 +30,12 @@ package com.tonikelope.coronapoker;
 
 import static com.tonikelope.coronapoker.GameFrame.ZOOM_LEVEL;
 import static com.tonikelope.coronapoker.GameFrame.ZOOM_STEP;
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.event.ActionEvent;
 import java.net.URL;
 import javax.swing.JDialog;
+import javax.swing.JProgressBar;
 import javax.swing.Timer;
 
 /**
@@ -43,6 +45,7 @@ import javax.swing.Timer;
 public class InGameNotifyDialog extends JDialog {
 
     public static final int NOTIFICATION_TIMEOUT = 5000;
+    private static final int COUNTDOWN_TICK_MS = 50;
     public static volatile InGameNotifyDialog LATEST_NOTIFICATION = null;
     public static final Object LATEST_LOCK = new Object();
     private volatile Timer timer = null;
@@ -51,6 +54,10 @@ public class InGameNotifyDialog extends JDialog {
      * Creates new form ChatNotifyDialog
      */
     public InGameNotifyDialog(java.awt.Frame parent, boolean modal, String message, Color bg, Color fg, URL icon_path, Integer timeout) {
+        this(parent, modal, message, bg, fg, icon_path, timeout, false);
+    }
+
+    public InGameNotifyDialog(java.awt.Frame parent, boolean modal, String message, Color bg, Color fg, URL icon_path, Integer timeout, boolean withCountdownBar) {
         super(parent, modal);
 
         initComponents();
@@ -74,7 +81,37 @@ public class InGameNotifyDialog extends JDialog {
             pack();
         }
 
-        if (timeout != null) {
+        if (timeout != null && withCountdownBar) {
+            // Countdown visual: barra que arranca al 100% y baja hasta 0 sincronizada
+            // con el timeout. Layout: BorderLayout sobrescribe el GroupLayout que
+            // initComponents() deja puesto (panel queda al CENTER, barra al SOUTH),
+            // sin tocar initComponents (autogenerado por NetBeans).
+            JProgressBar countdown = new JProgressBar(0, timeout);
+            countdown.setValue(timeout);
+            countdown.setStringPainted(false);
+            countdown.setBorderPainted(false);
+            countdown.setForeground(fg);
+            countdown.setBackground(bg);
+            getContentPane().setLayout(new BorderLayout());
+            getContentPane().add(panel, BorderLayout.CENTER);
+            getContentPane().add(countdown, BorderLayout.SOUTH);
+            pack();
+
+            final long deadline = System.currentTimeMillis() + timeout;
+            final int totalMs = timeout;
+            timer = new Timer(COUNTDOWN_TICK_MS, (ActionEvent ae) -> {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    countdown.setValue(0);
+                    timer.stop();
+                    dispose();
+                } else {
+                    countdown.setValue((int) Math.min(remaining, totalMs));
+                }
+            });
+            timer.setRepeats(true);
+            timer.setCoalesce(true);
+        } else if (timeout != null) {
             timer = new Timer(timeout, (ActionEvent ae) -> {
                 timer.stop();
 

@@ -790,7 +790,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                                 response_counter--;
 
-                                GameFrame.getInstance().getBarra_tiempo().setValue(response_counter);
+                                // setValue(response_counter) redundante: smoothCountdown
+                                // ya repinta la barra en escala ms via Timer interno.
+                                // Hacer setValue aqui en escala segundos generaba parpadeo.
 
                                 if (response_counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
                                     Audio.playWavResource("misc/hurryup.wav");
@@ -830,9 +832,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setDecisionFromRemotePlayer(int decision, float bet) {
         Helpers.threadRun(() -> {
+            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getBarra_tiempo().setValue(Crupier.TIEMPO_PENSAR);
-
                 if (auto_action != null) {
                     auto_action.stop();
                 }

@@ -1915,7 +1915,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         synchronized (lock_pausa_barra) {
             this.tiempo_pausa = tiempo;
 
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), tiempo);
+            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), tiempo);
         }
 
     }
@@ -2133,7 +2133,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     gif_dialog.dispose();
                                 }
 
-                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                                Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
                             });
 
                             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
@@ -2159,7 +2159,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         current_remote_cinematic_b64 = null;
 
-                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -2183,7 +2183,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     current_remote_cinematic_b64 = null;
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                         GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -2515,7 +2515,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
     }
 
     public synchronized void remotePlayerQuit(String nick, String testamento) {
@@ -5209,7 +5209,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             repartir();
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
@@ -5223,7 +5223,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     jugador.pagar(jugador.getBet(), null);
                 }
             }
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
@@ -8304,6 +8304,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void procesarCartasComunesRestantes() {
+        // Sin rabbit que destapar (caso tipico: showdown llego al river con todo
+        // ya revelado) no tocamos la barra — antes meter barraIndeterminada +
+        // resetBarra(0) en sucesion microscopica provocaba un parpadeo visible
+        // en el final del showdown.
+        boolean willRabbit = (street <= PREFLOP && GameFrame.getInstance().getFlop1().isTapada())
+                || (street <= FLOP && GameFrame.getInstance().getTurn().isTapada())
+                || (street <= TURN && GameFrame.getInstance().getRiver().isTapada());
+        if (!willRabbit) {
+            return;
+        }
         Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
         try {
             if (street <= PREFLOP && GameFrame.getInstance().getFlop1().isTapada()) {
@@ -10903,11 +10913,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         tiempo_pausa--;
 
-                        int val = tiempo_pausa;
-
-                        Helpers.GUIRun(() -> {
-                            GameFrame.getInstance().getBarra_tiempo().setValue(val);
-                        });
+                        // setValue(tiempo_pausa) redundante: el Timer interno de
+                        // smoothCountdown (lanzado por setTiempo_pausa) ya repinta
+                        // la barra cada 50ms en escala ms. Sin esta nota, el setValue
+                        // en escala segundos pisaba la barra (max=tiempo*1000) y
+                        // generaba parpadeo entre los dos repaints.
                     }
 
                 } catch (InterruptedException ex) {
@@ -11170,7 +11180,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     @Override
     public void run() {
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();

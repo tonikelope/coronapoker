@@ -1023,6 +1023,7 @@ public class Helpers {
     public static void barraIndeterminada(JProgressBar barra) {
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
+                cancelSmoothCountdownEDT(barra);
                 barra.setMaximum(1);
                 barra.setValue(1);
                 barra.setIndeterminate(true);
@@ -1034,12 +1035,68 @@ public class Helpers {
 
         Helpers.GUIRunAndWait(new Runnable() {
             public void run() {
+                cancelSmoothCountdownEDT(barra);
                 barra.setIndeterminate(false);
                 barra.setMinimum(0);
                 barra.setMaximum(max);
                 barra.setValue(max);
             }
         });
+    }
+
+    private static final String SMOOTH_TIMER_KEY = "coronapoker.smoothCountdown.timer";
+    private static final int SMOOTH_TICK_MS = 50;
+
+    /**
+     * Countdown visual fluido para JProgressBar: arranca llena y baja a 0 en
+     * `seconds` segundos. Usa escala ms (max = seconds * 1000) y un Timer de
+     * 50 ms basado en deadline-now (sin drift acumulativo). El Timer queda
+     * asociado a la barra via clientProperty, así una segunda llamada o un
+     * resetBarra/barraIndeterminada lo cancelan limpiamente. seconds <= 0
+     * deja la barra a 0 sin arrancar Timer.
+     */
+    public static void smoothCountdown(JProgressBar barra, int seconds) {
+        Helpers.GUIRunAndWait(new Runnable() {
+            public void run() {
+                cancelSmoothCountdownEDT(barra);
+                barra.setIndeterminate(false);
+                barra.setMinimum(0);
+                if (seconds <= 0) {
+                    barra.setMaximum(0);
+                    barra.setValue(0);
+                    return;
+                }
+                final int totalMs = seconds * 1000;
+                barra.setMaximum(totalMs);
+                barra.setValue(totalMs);
+                final long deadline = System.currentTimeMillis() + totalMs;
+                javax.swing.Timer t = new javax.swing.Timer(SMOOTH_TICK_MS, (java.awt.event.ActionEvent ae) -> {
+                    long remaining = deadline - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        barra.setValue(0);
+                        javax.swing.Timer self = (javax.swing.Timer) barra.getClientProperty(SMOOTH_TIMER_KEY);
+                        if (self != null) {
+                            self.stop();
+                        }
+                        barra.putClientProperty(SMOOTH_TIMER_KEY, null);
+                    } else {
+                        barra.setValue((int) Math.min(remaining, totalMs));
+                    }
+                });
+                t.setRepeats(true);
+                t.setCoalesce(true);
+                barra.putClientProperty(SMOOTH_TIMER_KEY, t);
+                t.start();
+            }
+        });
+    }
+
+    private static void cancelSmoothCountdownEDT(JProgressBar barra) {
+        Object prev = barra.getClientProperty(SMOOTH_TIMER_KEY);
+        if (prev instanceof javax.swing.Timer) {
+            ((javax.swing.Timer) prev).stop();
+            barra.putClientProperty(SMOOTH_TIMER_KEY, null);
+        }
     }
 
     public static String updateJarImgSrc(String html) {

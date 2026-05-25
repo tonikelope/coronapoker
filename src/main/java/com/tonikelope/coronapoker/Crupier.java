@@ -333,13 +333,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // un loop de MISDEAL+recover. Con timeout duro el host aborta la mano rapido
     // y vuelve a un estado consistente.
     public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 30000;
-    // Maximo de MISDEALs cripto-relacionados consecutivos antes de escalar de
-    // abortAndRecover (loop -> sala de espera) a abortAndExit (BalanceDialog
-    // final). Issue#9: si un peer rota indefinidamente la cascade post-reconnect,
-    // abortAndRecover se dispara y la sigueinte mano vuelve a fallar -> loop
-    // infinito de MISDEALs. Tras N intentos consecutivos cerramos la timba
-    // limpiamente para que el host humano decida si reabre o no.
-    public static final int MAX_CONSECUTIVE_CRYPTO_MISDEALS = 3;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int TIEMPO_PENSAR = 40; // Segundos
@@ -545,10 +538,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
-    // Contador inter-mano de MISDEALs cripto consecutivos. Se incrementa en
-    // cancelarManoYDevolverApuestas con motivo crypto-related; se resetea
-    // cuando una mano se cierra OK en sqlUpdateHandEnd. Ver MAX_CONSECUTIVE_CRYPTO_MISDEALS.
-    private volatile int consecutive_crypto_misdeal_count = 0;
     public volatile String[] active_crypto_ring = null;
 
     // EC-Identity v1: hand-state chain (H_t ratchet) for the current hand. Initialized
@@ -4020,31 +4009,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Violacion zero-trust = ataque o protocolo roto: la timba acaba,
             // BalanceDialog final, NO se vuelve a sala de espera. Cualquier otro
             // motivo (peer caido normal, etc.) sigue por el flujo de recover.
-            //
-            // Issue#9 mitigacion: si los MISDEALs son crypto-related (peer no
-            // responde a SRA reqs, no deja testamento, etc.) y se acumulan
-            // consecutivamente, el loop abortAndRecover -> reconnect -> mismo
-            // MISDEAL es probable. Tras MAX_CONSECUTIVE_CRYPTO_MISDEALS escalamos
-            // a abortAndExit para que el host humano decida en lugar de bucear
-            // indefinidamente. El contador se resetea cuando una mano se cierra OK.
-            boolean cryptoRelated = motivo != null && (
-                    motivo.startsWith("zero_trust.")
-                    || motivo.startsWith("peer.community_unlock")
-                    || motivo.startsWith("peer.unlock_no_testament")
-                    || motivo.startsWith("peer.pocket_unlock")
-                    || motivo.startsWith("peer.dropped_during_rotation")
-                    || motivo.startsWith("peer.rotation_refused"));
-            if (cryptoRelated) {
-                consecutive_crypto_misdeal_count++;
-            }
-            boolean zeroTrust = motivo != null && motivo.startsWith("zero_trust.");
-            boolean loopBreaker = cryptoRelated && consecutive_crypto_misdeal_count >= MAX_CONSECUTIVE_CRYPTO_MISDEALS;
-            if (loopBreaker && !zeroTrust) {
-                LOGGER.log(Level.WARNING,
-                        "Escalating to abortAndExit: {0} consecutive crypto MISDEALs detected (last motivo={1}) — recovery loop probable, ending game",
-                        new Object[]{consecutive_crypto_misdeal_count, motivo});
-            }
-            if (zeroTrust || loopBreaker) {
+            if (motivo != null && motivo.startsWith("zero_trust.")) {
                 abortAndExit();
             } else {
                 abortAndRecover();
@@ -5589,13 +5554,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             }
-
-            // Issue#9 mitigacion: una mano que llega a sqlUpdateHandEnd se considera
-            // cerrada limpiamente (no fue MISDEAL — esos no llegan aqui). Reset del
-            // contador de MISDEALs cripto consecutivos para que el escalador a
-            // abortAndExit solo se dispare ante rachas reales, no de manera
-            // acumulada a lo largo de una partida sana.
-            consecutive_crypto_misdeal_count = 0;
 
             String[] balance_float = new String[auditor.size()];
 

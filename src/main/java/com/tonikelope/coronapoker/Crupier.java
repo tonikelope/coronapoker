@@ -9123,39 +9123,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 .log(Level.INFO, "{0}*********************\n", new Object[]{sentados_msg
         });
 
-        // Late-joiner buyin sync (HOST-side fuente de verdad).
-        // Los Player objects de RemotePlayer/LocalPlayer capturan
-        // `buyin = GameFrame.BUYIN` en su field initialiser, valor que se fija
-        // cuando la JVM del cliente construye el slot. Si un late-joiner llega
-        // antes de que su JVM procese el INIT, su Player object queda con
-        // buyin = default (10) y ese valor llega al host por reutilizacion del
-        // slot pre-instanciado en TablePanel. El host lo persiste en SQL via
-        // sqlNewHandBalance y los recoveries siguientes propagan el 10.
-        //
-        // Aqui — solo en HOST, que es la fuente de verdad — forzamos buyin =
-        // GameFrame.BUYIN para Players no-CPU sin balance recordado en auditor
-        // (es decir, no tenian row de balance previo: late-joiners frescos).
-        // Players con balance recordado conservan su buyin (cubre rebuys
-        // legitimos donde buyin > BUYIN base).
-        if (GameFrame.getInstance().isPartida_local()) {
-            for (Player p : GameFrame.getInstance().getJugadores()) {
-                if (p == null) {
-                    continue;
-                }
-                Participant part = GameFrame.getInstance().getParticipantes().get(p.getNickname());
-                boolean isCpu = (part != null && part.isCpu());
-                if (isCpu) {
-                    continue;
-                }
-                if (!auditor.containsKey(p.getNickname()) && p.getBuyin() != GameFrame.BUYIN) {
-                    LOGGER.log(Level.INFO,
-                            "Late-joiner buyin sync: {0} slot buyin {1} -> {2} (BUYIN actual)",
-                            new Object[]{p.getNickname(), p.getBuyin(), GameFrame.BUYIN});
-                    p.setBuyin(GameFrame.BUYIN);
-                }
-            }
-        }
-
     }
 
     public void disableAllPlayersTimeout() {

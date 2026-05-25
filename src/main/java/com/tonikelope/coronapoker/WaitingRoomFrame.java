@@ -2714,12 +2714,19 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "LASTHAND":
+                                                            // Guard: el reader thread puede tener LASTHAND en buffer cuando
+                                                            // RESET_GAME ya hizo GameFrame.resetInstance() — sin guard, NPE en
+                                                            // getInstance().getCrupier(). Race rara pero barata de cubrir.
+                                                            GameFrame inst_lasthand = GameFrame.getInstance();
+                                                            if (inst_lasthand == null) {
+                                                                break;
+                                                            }
                                                             if (partes_comando[3].equals("0")) {
-                                                                GameFrame.getInstance().getCrupier().setForce_recover(false);
-                                                                GameFrame.getInstance().getTapete().getCommunityCards().last_hand_off();
+                                                                inst_lasthand.getCrupier().setForce_recover(false);
+                                                                inst_lasthand.getTapete().getCommunityCards().last_hand_off();
                                                             } else {
                                                                 if (partes_comando[3].equals("2")) {
-                                                                    GameFrame.getInstance().getCrupier().setForce_recover(true);
+                                                                    inst_lasthand.getCrupier().setForce_recover(true);
                                                                     if (partes_comando.length > 4) {
                                                                         try {
                                                                             password = new String(Base64.getDecoder().decode(partes_comando[4]), "UTF-8");
@@ -2727,7 +2734,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         }
                                                                     }
                                                                 }
-                                                                GameFrame.getInstance().getTapete().getCommunityCards().last_hand_on();
+                                                                inst_lasthand.getTapete().getCommunityCards().last_hand_on();
                                                             }
                                                             break;
                                                         case "MAXHANDS":

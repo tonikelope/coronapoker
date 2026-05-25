@@ -2108,8 +2108,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         //Metemos la pasta a todos (el BUY IN se podría parametrizar)
+        // Issue#9: el campo buyin de RemotePlayer/LocalPlayer se inicializa con
+        // un field initializer (= GameFrame.BUYIN) en el momento de instanciar
+        // el slot, lo que puede capturar un valor stale en escenarios de hot-join
+        // o recovery. Aqui — donde la mesa se inicializa con el BUYIN actual de
+        // la partida (fuente de verdad) — seteamos tanto stack como buyin de cada
+        // slot para que ambos reflejen el valor configurado. En RECOVER esto
+        // queda machacado luego por recuperarDatosClavePartida para los jugadores
+        // que tengan row de balance en SQL (preserva rebuys legitimos); los
+        // late-joiners sin row mantienen el buyin que aqui se asigna.
         for (Player jugador : jugadores) {
             jugador.setStack(GameFrame.BUYIN);
+            jugador.setBuyin(GameFrame.BUYIN);
         }
 
         // Initialize the debounce timer for mouse wheel zooming

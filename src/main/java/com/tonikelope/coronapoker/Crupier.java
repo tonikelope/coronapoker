@@ -5037,12 +5037,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // NUEVA del host disparaba DECK_CASCADE_REQ en cliente y
                     // el handler veia hasMegaPacket()=true (de la mano vieja)
                     // -> lockdown falso positivo "MEGAPACKET already locked".
+                    //
+                    // Issue#9 root cause: el handler DECK_CASCADE_REQ corre en
+                    // threadRun async (WaitingRoomFrame:2110-2122) y setea
+                    // local_sra_lock_community + local_sra_unlock_community
+                    // DIRECTAMENTE en el Crupier. Cuando el host avanza rapido
+                    // tras su propio recovery y envia DECK_CASCADE_REQ antes de
+                    // que este bloque corra, el handler async genera los scalars
+                    // validos para la nueva mano — pero este cleanup defensivo
+                    // los SOBREESCRIBIA a null. Luego el siguiente
+                    // DECK_ROTATION_REQ rechazaba silencioso (community lock
+                    // null) y el host se quedaba 60-90s sin respuesta -> MISDEAL.
+                    //
+                    // Solo limpiamos local_mega_packet y active_crypto_ring (los
+                    // que el handler chequea via hasMegaPacket()). Los scalars
+                    // pocket (local_sra_lock / local_sra_unlock) ya estan null
+                    // desde NUEVA_MANO arriba y el handler nunca los pone en el
+                    // Crupier (vive en Participant.sra_unlock); los scalars
+                    // community NO se tocan aqui — si el handler ya los genero
+                    // para la nueva mano, no los pisamos; si no, siguen null
+                    // desde NUEVA_MANO y el handler los rellenara cuando llegue.
                     this.local_mega_packet = null;
                     this.active_crypto_ring = null;
-                    this.local_sra_unlock = null;
-                    this.local_sra_lock = null;
-                    this.local_sra_lock_community = null;
-                    this.local_sra_unlock_community = null;
                     this.local_original_cards = new byte[2];
                     // setPositions solo en el fresh-start genuino (game_recovered==0):
                     // host calcula y broadcastea POSITIONS, clientes esperan POSITIONS.

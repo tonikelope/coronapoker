@@ -35,9 +35,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.swing.JDialog;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -52,7 +54,22 @@ public final class GameLogDialog extends JDialog {
     private volatile boolean fin_transmision = false;
     private final Object log_lock = new Object();
     private JTextArea debug_textarea;
+    private JScrollPane debug_scroll;
     private Consumer<String> debug_log_listener;
+
+    // Margen en pixeles para "casi al fondo": si el viewport esta a menos de
+    // AT_BOTTOM_TOLERANCE_PX del fondo, lo consideramos "al fondo" para smart
+    // autoscroll (un usuario que esta a 1-2 lineas del final no ha "subido a
+    // leer", esta esperando el proximo mensaje).
+    private static final int AT_BOTTOM_TOLERANCE_PX = 30;
+
+    private static boolean isAtBottom(JScrollPane sp) {
+        if (sp == null) {
+            return true;
+        }
+        JScrollBar vbar = sp.getVerticalScrollBar();
+        return vbar.getValue() + vbar.getVisibleAmount() >= vbar.getMaximum() - AT_BOTTOM_TOLERANCE_PX;
+    }
 
     public static void resetLOG() {
         LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
@@ -92,6 +109,27 @@ public final class GameLogDialog extends JDialog {
 
         setupDebugTab();
 
+        // Cada vez que el dialog se hace visible (apertura o reapertura tras
+        // dispose) seteamos caret al final en ambas textareas — asi el usuario
+        // siempre ve los mensajes mas recientes al abrir. invokeLater para que
+        // el setCaretPosition se ejecute DESPUES del layout del viewport (si se
+        // ejecutara antes, el scroll no se aplica por race con el primer paint).
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                SwingUtilities.invokeLater(() -> {
+                    try {
+                        getTextArea().setCaretPosition(getTextArea().getDocument().getLength());
+                        if (debug_textarea != null) {
+                            debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
+                        }
+                    } catch (Throwable t) {
+                        // Dialog could be disposed concurrently — ignore.
+                    }
+                });
+            }
+        });
+
         pack();
 
     }
@@ -107,7 +145,7 @@ public final class GameLogDialog extends JDialog {
         debug_textarea.setWrapStyleWord(false);
         Helpers.JTextFieldRegularPopupMenu.addTo(debug_textarea);
 
-        JScrollPane debug_scroll = new JScrollPane(debug_textarea);
+        debug_scroll = new JScrollPane(debug_textarea);
 
         JTabbedPane tabs = new JTabbedPane();
         tabs.setFont(new Font("Dialog", Font.BOLD, 16));
@@ -123,9 +161,14 @@ public final class GameLogDialog extends JDialog {
 
         debug_log_listener = (String record) -> Helpers.GUIRun(() -> {
             try {
+                // Smart autoscroll: comprobar si el viewport esta cerca del
+                // fondo ANTES del append. Si si, dejar que el caret vaya al
+                // final tras append (scroll baja). Si NO (usuario subio a leer
+                // arriba), restaurar caret para no scrollear.
                 int caret_pos = debug_textarea.getCaretPosition();
+                boolean atBottom = isAtBottom(debug_scroll);
                 debug_textarea.append(record);
-                if (auto_scroll) {
+                if (auto_scroll && atBottom) {
                     debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
                 } else {
                     debug_textarea.setCaretPosition(caret_pos);
@@ -191,11 +234,15 @@ public final class GameLogDialog extends JDialog {
                     String message = utf8_cards ? translateNormalCards2UTF8(Translator.translate(msg)) : Translator.translate(msg);
                     GameLogDialog.LOG_TEXT += message + "\n\n";
                     Helpers.GUIRun(() -> {
+                        // Smart autoscroll: solo bajar si el usuario ya estaba
+                        // cerca del fondo (no esta leyendo arriba). Mismo
+                        // patron que el debug log listener.
                         int caret_pos = getTextArea().getCaretPosition();
+                        boolean atBottom = isAtBottom(jScrollPane1);
 
                         getTextArea().append(message + "\n\n");
 
-                        if (auto_scroll) {
+                        if (auto_scroll && atBottom) {
                             getTextArea().setCaretPosition(getTextArea().getText().length());
                         } else {
                             getTextArea().setCaretPosition(caret_pos);

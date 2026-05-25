@@ -2133,7 +2133,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     gif_dialog.dispose();
                                 }
 
-                                Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
                             });
 
                             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
@@ -2159,7 +2159,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         current_remote_cinematic_b64 = null;
 
-                        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -2183,7 +2183,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     current_remote_cinematic_b64 = null;
 
-                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                     synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                         GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -2515,7 +2515,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
     }
 
     public synchronized void remotePlayerQuit(String nick, String testamento) {
@@ -5209,7 +5209,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             repartir();
-            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
@@ -5223,7 +5223,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     jugador.pagar(jugador.getBet(), null);
                 }
             }
-            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
@@ -11180,7 +11180,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     @Override
     public void run() {
-        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();

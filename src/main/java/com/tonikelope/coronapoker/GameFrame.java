@@ -1712,7 +1712,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 frame_layer = new JLayer<>(tapete, capa_brillo);
                 GameFrame.getInstance().getContentPane().add(frame_layer);
 
-                Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
                 updateSoundIcon();
 
@@ -2090,7 +2090,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         updateSoundIcon();
 
-        Helpers.smoothCountdown(tapete.getCommunityCards().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(tapete.getCommunityCards().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
         server_separator_menu.setVisible(partida_local);
 

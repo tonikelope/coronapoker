@@ -767,7 +767,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerActionIcon("action/thinking.png");
 
-                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 
             });
 
@@ -832,7 +832,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setDecisionFromRemotePlayer(int decision, float bet) {
         Helpers.threadRun(() -> {
-            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
                 if (auto_action != null) {
                     auto_action.stop();

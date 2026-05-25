@@ -324,6 +324,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
+    // Timeout duro para las fases SRA peer-a-peer en las que el host espera la
+    // respuesta de un cliente concreto (DECK_ROTATION_REQ y REQ_SRA_UNLOCK_BATCH).
+    // Reproducido en issue#9: un peer reconectado mid-cascade no tiene los scalars
+    // SRA generados (los crea solo en el handler DECK_CASCADE_REQ); su Crupier
+    // rechaza silenciosamente -> el host esperaba hasta que el socket del peer
+    // moria naturalmente (60-90s), provocando shuffling animation infinito y
+    // un loop de MISDEAL+recover. Con timeout duro el host aborta la mano rapido
+    // y vuelve a un estado consistente.
+    public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 30000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int TIEMPO_PENSAR = 40; // Segundos
@@ -645,6 +654,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean ok = false;
         boolean fatalError = false;
         byte[] newPieces = null;
+        // Timeout duro: si el peer no responde en REMOTE_SRA_PEER_TIMEOUT_MS, abortamos
+        // la rotacion. Sin esto un peer reconectado mid-cascade (sin scalars SRA) deja
+        // al host esperando hasta que el socket muera naturalmente (60-90s) — issue#9.
+        long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -686,15 +699,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
             if (!ok) {
+                long remainingMs = deadlineMs - System.currentTimeMillis();
+                if (remainingMs <= 0) {
+                    LOGGER.log(Level.WARNING,
+                            "DECK_ROTATION_REQ to {0} timed out after {1}ms — peer alive but unresponsive (likely reconnected mid-cascade without SRA scalars)",
+                            new Object[]{nick, REMOTE_SRA_PEER_TIMEOUT_MS});
+                    return null;
+                }
                 synchronized (this.getReceived_commands()) {
                     try {
-                        this.getReceived_commands().wait(WAIT_QUEUES);
+                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision() && !p.isExit());
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         if (!ok) {
             return null;
         }
@@ -731,6 +751,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean ok = false;
         ArrayList<byte[]> unlocked = null;
+        // Timeout duro: ver nota en requestRemoteRotation. Mismo issue#9 — un peer
+        // reconectado sin scalars SRA rechaza silenciosamente REQ_SRA_UNLOCK_BATCH
+        // y el host se queda bloqueado hasta que el socket muere naturalmente.
+        long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -779,15 +803,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!ok) {
+                long remainingMs = deadlineMs - System.currentTimeMillis();
+                if (remainingMs <= 0) {
+                    LOGGER.log(Level.WARNING,
+                            "REQ_SRA_UNLOCK_BATCH to {0} (phase {1}) timed out after {2}ms — peer alive but unresponsive (likely reconnected mid-cascade without SRA scalars)",
+                            new Object[]{nick, phase, REMOTE_SRA_PEER_TIMEOUT_MS});
+                    return null;
+                }
                 synchronized (this.getReceived_commands()) {
                     try {
-                        this.getReceived_commands().wait(WAIT_QUEUES);
+                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision() && !p.isExit());
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         if (!ok) {
             return null;
         }

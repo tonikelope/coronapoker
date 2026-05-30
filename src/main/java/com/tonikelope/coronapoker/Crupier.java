@@ -3648,6 +3648,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 saltar_primera_mano = true;
                 if (hostReplayingHand) {
                     this.game_recovered = 1;
+                    // Issue#9: el cliente local es observer pasivo de la mano
+                    // en curso (sin fosil propio porque no estaba en ella —
+                    // p.ej. dejo el juego limpio en una mano anterior y el
+                    // host le invita a rejoin mientras esta mid-hand de una
+                    // mano siguiente sin "wait for hand end"). En la rama del
+                    // host (cryptoRingList != null, mas abajo) este caso se
+                    // marca calentando: !inRing + stack>0 -> setSpectator. En
+                    // el cliente cryptoRingList es null (active_crypto_ring=null
+                    // -> Arrays.asList ni se evalua, queda como null) asi que
+                    // ese loop no le entra y mi slot local queda activo.
+                    // Resultado visible: repartir() lo dealea con
+                    // local_original_cards={0,0} (init por defecto del byte[])
+                    // -> ambas hole cards iniciarConValorNumerico(1) -> AA del
+                    // mismo palo phantom; ademas el host no le manda accion
+                    // (lo tiene como spectator) pero la GUI del cliente cree
+                    // que juega. Espejamos aqui el calentando del host.
+                    Player myPlayer = GameFrame.getInstance().getLocalPlayer();
+                    if (myPlayer != null && !myPlayer.isExit() && !myPlayer.isSpectator()) {
+                        myPlayer.setSpectator(Translator.translate("game.calentando"));
+                    }
                 }
             } else {
                 this.game_recovered = 1;

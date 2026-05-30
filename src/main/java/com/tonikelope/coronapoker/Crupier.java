@@ -7108,6 +7108,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 action[3] = null;
                                                 action[4] = null;
                                             }
+                                        } else if (this.hand_state_chain != null) {
+                                            // ZERO-TRUST: with the hand-state chain active EVERY action must
+                                            // carry a verifiable record+sig. A stripped (*/*) or absent one
+                                            // means a malicious host (or peer) is trying to apply a decision
+                                            // nobody signed — without this guard the plaintext decision/bet
+                                            // (action[0]/[1], already read above) would move money while the
+                                            // action stays out of the chain, so a uniform strip would pass
+                                            // consensus undetected. Handle it exactly like an invalid sig:
+                                            // synthesize a fold (symmetric on every receiver → chains stay in
+                                            // lockstep by omission) and flag the hand so the closing consensus
+                                            // records the incident. Genuine v1 actions always carry record+sig
+                                            // (see the broadcast path) and exit-synths never hit the wire, so
+                                            // this never fires on a healthy hand.
+                                            LOGGER.log(Level.SEVERE,
+                                                    "ZERO-TRUST: ACTION by {0} carries no record/sig while the chain is active — SYNTHESIZING FOLD instead of applying an unsigned decision",
+                                                    jugador.getNickname());
+                                            printInvalidActionSigToRegistro(jugador.getNickname());
+                                            this.saw_invalid_action_sig = true;
+                                            synthesizeFoldAction(action);
                                         }
                                     }
                                 }

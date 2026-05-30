@@ -3450,8 +3450,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean handInProgress = map != null
                     && map.get("hand_end") != null
                     && (Long) map.get("hand_end") == 0L;
+
+            // Issue#9: si el local NO esta en preflop_players de la mano en
+            // curso del host, somos observer pasivo — la mano que el host
+            // esta replayando NO es nuestra (p.ej. salimos limpios en una
+            // mano anterior y el host nos reinvita mid-N+1 sin "wait for
+            // hand end"). Sin este guard, loadHandFossil devuelve el fosil
+            // STALE de la ultima mano en la que SI participamos (hand N),
+            // poblando local_mega_packet+active_crypto_ring con datos
+            // viejos. Luego el guard observer de mas abajo ve ambos != null
+            // y NO entra en el branch que marca calentando — repartir() nos
+            // dealea con local_original_cards del fosil viejo (cartas de
+            // hand N reveladas como nuestras, o AA mismo palo del init
+            // {0,0} si VISUAL@ no estaba). cleanHandCrupierTempFiles se
+            // skipea en NUEVA_MANO cuando GameFrame.RECOVER, asi que el
+            // fosil stale sobrevive entre sesiones del cliente cuando este
+            // se va con Leave Game antes de que arranque la mano siguiente.
+            //
+            // preflop_players es String "b64nick#b64nick#..." (ver
+            // sqlNewHand+sqlUpdateHandResistencia). split+contains evita
+            // falso positivo si un b64 fuera substring de otro.
+            //
+            // Si preflop_players viene null (no deberia: sqlNewHand siempre
+            // lo escribe en PREFLOP) caemos al path legacy con fosil para
+            // no romper recoveries en estados intermedios desconocidos.
+            boolean shouldLoadFossil = handInProgress;
+            if (handInProgress && map.get("preflop_players") instanceof String) {
+                String preflopStr = (String) map.get("preflop_players");
+                try {
+                    String myNickB64 = Base64.getEncoder().encodeToString(
+                            GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
+                    shouldLoadFossil = java.util.Arrays.asList(preflopStr.split("#")).contains(myNickB64);
+                } catch (Exception e) {
+                    shouldLoadFossil = false;
+                }
+            }
             try {
-                String fosil = handInProgress ? Helpers.loadHandFossil(this.sqlite_id_game) : null;
+                String fosil = shouldLoadFossil ? Helpers.loadHandFossil(this.sqlite_id_game) : null;
                 if (fosil != null && fosil.contains("#")) {
                     String orderMap = null;
                     String[] sraFossilParts = fosil.split("#");

@@ -29,8 +29,8 @@ The deck is shuffled and locked **collectively**. No single peer ever sees a car
 
 The 52 cards are mapped deterministically to Curve25519 points:
 
-- For each card, the y-coordinate seed is `SHA-256("CORONAPOKER_CARD_" || index)`.
-- The seed is hashed-to-curve with cofactor scaling so the point lies in the prime-order subgroup ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `getGenesisDeck`).
+- For each card, an x-coordinate candidate is seeded as `SHA-256("CORONAPOKER_CARD_" || index) mod p`, then incremented (try-and-increment) until it lands on the curve.
+- The resulting point is multiplied by the cofactor (×8) so it lands in the prime-order subgroup ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `getGenesisDeck`).
 - The 52 points are the genesis deck. Every peer derives the same deck independently — nothing has to be sent.
 
 ### 2.2 Lock-permute-rotate
@@ -38,7 +38,7 @@ The 52 cards are mapped deterministically to Curve25519 points:
 Each peer holds two ephemeral scalars per hand: a **pocket** scalar `k_pocket` and a **community** scalar `k_community`. The cascade walks around the ring:
 
 1. **Pocket lock pass.** Player 1 multiplies every card by their `k_pocket`, permutes the deck with a deterministic AES-256-CTR shuffle (see §2.4), and forwards. Player 2 does the same on top of player 1's output. By the time the deck returns to the dealer, every card has been locked once per ring member with their `k_pocket`, in a permutation nobody fully knows. This becomes the `MEGAPACKET`.
-2. **Community rotation pass.** A separate pass rotates the community-card slots into a second lock under each peer's `k_community`. Pocket cards keep only the `k_pocket` chain; community cards carry both. ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) `cascadeAndDealCommunityPieces`.)
+2. **Community rotation pass.** A separate pass walks the community-card slots and *rotates* each peer's lock: every peer strips its own `k_pocket` from the slot and re-locks it under its `k_community`. Pocket cards keep the full `k_pocket` chain untouched; community cards end up locked **only** under each peer's `k_community` — the pocket locks are gone. ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) `cascadeAndDealCommunityPieces`.)
 3. **Pocket dealing.** Each pocket card travels to its owner with all *other* peers' `k_pocket` already inverted — only the owner's own `k_pocket` remains. The owner inverts it locally and learns the card; nobody else can.
 4. **Community reveal per street.** When the host needs to expose flop / turn / river, every peer hands the host the `k_community` inverse for the relevant slot, signed under the host's request. The host collects the unlocks, peels the community lock, exposes the card to the table and absorbs the announcement into every peer's `H_t` (see §5).
 
@@ -57,7 +57,7 @@ Any mismatch — bad signature, unknown point, conflicting announcement — trig
 
 ### 2.4 Deterministic shuffle
 
-The permutation each peer applies is generated with **AES-256-CTR** seeded by a per-hand key, then converted to a Fisher-Yates shuffle using **rejection sampling** to eliminate modulo bias ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `cryptoShuffleIndices`). The seed is fresh per hand, so reordering carries no information across hands.
+The permutation each peer applies is generated with **AES-256-CTR** seeded by a per-hand key, then converted to a Fisher-Yates shuffle using **rejection sampling** to eliminate modulo bias ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `shuffleDeck`, with the unbiased index draw in `DeterministicStream.getUnbiasedInt`). The seed is fresh per hand, so reordering carries no information across hands.
 
 ---
 
@@ -69,7 +69,7 @@ When a client connects:
 
 1. The two endpoints exchange ephemeral Curve25519 pubkeys and run ECDH to derive a raw 32-byte shared secret.
 2. The shared secret is passed through `Helpers.deriveChannelSecret` ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) — `deriveChannelSecret`), which HMAC-SHA512s it together with the table password (empty string when no password). The output is split into a 32-byte AES key and a 32-byte HMAC key.
-3. If the password is configured but weak (`< 60 bits` Shannon entropy estimate) the client raises a warning before joining.
+3. If the password is configured but weak (`< 60 bits` entropy estimate) the host is warned before the table is created.
 
 A passive MITM cannot complete the handshake without the password: the shared secret is sealed by HMAC-SHA512(`password \|\| dh_secret`), and a wrong password yields a wrong key on both sides — every subsequent command fails HMAC verification on receipt.
 
@@ -78,10 +78,10 @@ A passive MITM cannot complete the handshake without the password: the shared se
 Every game command on the wire is wrapped as:
 
 ```
-IV(16) || AES-256-CBC(plaintext, key_aes, IV) || HMAC-SHA256(IV || ciphertext, key_hmac)
+Base64( HMAC-SHA256(IV || ciphertext, key_hmac)(32) || IV(16) || AES-256-CBC(plaintext, key_aes, IV) )
 ```
 
-PKCS5 padding for the CBC layer. The HMAC is verified **first**; a bad HMAC raises `KeyException` and the receiver drops the frame ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) — `decryptCommand`). This blocks ciphertext tampering and replay of frames with mutated IVs.
+PKCS5 padding for the CBC layer; the MAC covers `IV || ciphertext` (encrypt-then-MAC) and is prepended to the frame. On receipt the HMAC is verified **first**; a bad HMAC raises `KeyException` and the receiver drops the frame ([`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) — `decryptCommand`). This blocks ciphertext tampering and replay of frames with mutated IVs.
 
 ### 3.3 Session-key identicon
 
@@ -108,7 +108,7 @@ Identity binding is per-nick, not per-machine: re-using the same nick on the sam
 
 ### 4.2 Domain-separated signing contexts
 
-Three application-level contexts are signed under distinct prefixes so a signature collected in one context cannot be replayed in another:
+Four application-level contexts are signed under distinct prefixes so a signature collected in one context cannot be replayed in another:
 
 | Context | What it signs |
 |---|---|
@@ -141,6 +141,8 @@ Offset Size  Field           Notes
  82     8    AMOUNT_CENTS    int64 BE, cents (host-independent)
  90     2    FLAGS           bit0 is_allin, bit1 is_voluntary
 ```
+
+For an `ACTION_COMMUNITY` record (a host-signed community-card reveal, §5.3) the `AMOUNT_CENTS` field is repurposed to carry the revealed card ordinals: each card is packed into one byte (`packCommunityCards` / `unpackCommunityCards` in [`CanonicalActionRecord.java`](../src/main/java/com/tonikelope/coronapoker/CanonicalActionRecord.java)), up to 3 cards for the flop. The layout is otherwise identical.
 
 Cross-platform reproducibility relies on:
 
@@ -242,7 +244,7 @@ On `continue-last-game`:
 
 ## 8. SECURITY_LOCKDOWN
 
-A single atomic boolean ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `triggerSecurityLockdown`) ends the hand the moment any of the following fires:
+A single `volatile` boolean flag ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `triggerSecurityLockdown`) ends the hand the moment any of the following fires:
 
 - A received Curve25519 point is invalid (not on curve, small-order).
 - A genesis-deck card resolution fails — somebody returned a point the deck does not contain.

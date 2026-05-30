@@ -24,7 +24,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 CoronaPoker was built with one non-negotiable principle: **nobody should ever be able to cheat, spy or tamper — including the host.**
 
 ### Zero-trust deck protocol
-Every card is shuffled and locked collectively by **every player at the table** through a Mental Poker EC-SRA protocol implemented from scratch over **Curve25519** (with X25519 clamping and a radix-16 scalar-mult core). The deck uses a **dual-lock architecture**: pocket cards stay sealed end-to-end until showdown, community cards rotate to a separate lock that the host can partially unlock per street. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed. Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
+Every card is shuffled and locked collectively by **every player at the table** through a Mental Poker EC-SRA protocol implemented from scratch over **Curve25519** (X25519-clamped ephemeral scalars on a constant-time, BigInteger-free Montgomery-ladder core derived from TweetNaCl). The deck uses a **dual-lock architecture**: pocket cards stay sealed end-to-end until showdown, community cards rotate to a separate lock that the host can partially unlock per street. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed. Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
 
 ### Per-nick cryptographic identity & signed actions
 Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history. After the hand, peers exchange short **receipts** (`HAND_ID || H_final || flags || sig`); divergent receipts surface as a logged dispute. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band (TOFU).
@@ -55,7 +55,7 @@ Pure P2P, no central servers, no accounts and no telemetry. Your game exists onl
 - **Late-joiner observer mode** — a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
 - **Recent-server list** — persisted history of past tables; browse it with ↑/↓ in the Join dialog to reconnect to anyone you've played with before.
 - **Per-peer link telemetry** — host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
-- **Anti-flood chat** — 1-second minimum between chat messages enforced server-side.
+- **Anti-flood chat** — 1-second minimum between chat messages (client-side throttle on the sender's input).
 
 ---
 

@@ -99,7 +99,7 @@ Each install carries an `Ed25519` keypair per nick, stored at:
 ~/.coronapoker/identity_<player_id_hex>.ed25519
 ```
 
-Where `player_id_hex` is the first 8 bytes of `SHA-256(NFC(nick) UTF-8)` ([`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java) — `playerIdFromNick`). The file is created with:
+Where `player_id_hex` is the first 8 bytes of `SHA-256(NFC(nick) UTF-8)` ([`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java) — `playerIdHex`). The file is created with:
 
 - **POSIX**: `Files.setPosixFilePermissions(rw-------)` (read/write owner only).
 - **Windows**: ICACLS reset → grant FULL CONTROL only to the current SID → strip inheritance.
@@ -112,7 +112,7 @@ Four application-level contexts are signed under distinct prefixes so a signatur
 
 | Context | What it signs |
 |---|---|
-| `"ACTION_V1"` | A `CanonicalActionRecord` (see §5) — every bet, call, fold, raise, all-in, community announce |
+| `"ACTION_V1"` | A `CanonicalActionRecord` (see §5) — every bet, check, call, fold, raise, all-in, community announce |
 | `"RECEIPT_V2"` | `HAND_ID \|\| H_final \|\| flags` — the final receipt sent to every peer at the end of the hand |
 | `"SHOWDOWN_V1"` | `HAND_ID \|\| nick \|\| k_pocket` — releasing one's pocket key at showdown |
 | `"JOIN_V1"` | The join handshake commitment that pins the pubkey on first contact |
@@ -136,7 +136,7 @@ Offset Size  Field           Notes
   0    32    PREV_H          H_{t-1}
  32    16    HAND_ID         16 random bytes from host at hand start
  48    32    PLAYER_ID       SHA-256(NFC(nick) UTF-8)
- 80     1    STREET          preflop/flop/turn/river/community
+ 80     1    STREET          preflop/flop/turn/river/showdown
  81     1    ACTION_TYPE     bet/call/raise/fold/check/all-in/community
  82     8    AMOUNT_CENTS    int64 BE, cents (host-independent)
  90     2    FLAGS           bit0 is_allin, bit1 is_voluntary
@@ -170,7 +170,7 @@ H_{t+1} = SHA-256(record_t || sig_t)
 
 The deck commitment `SHA-256(cascaded_deck)` makes the chain bind to the *exact* permutation produced by the cascade — peers that walked a different cascade end up with a different `H_0` and their chains diverge on the very first absorb.
 
-Signatures land **inside** the ratchet from commit 5 onwards: tampering with a record OR with the signature breaks `H_{t+1}` for every observer.
+Signatures land **inside** the ratchet: tampering with a record OR with the signature breaks `H_{t+1}` for every observer.
 
 ### 5.3 Host-signed community announcements
 

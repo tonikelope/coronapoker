@@ -364,6 +364,51 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Issue#9: en modo recover, NewGameDialog deja BUYIN/CIEGAS al valor por
+    // defecto del spinner (BUYIN=10, ciegas 0.10/0.20) porque los controles del
+    // form se deshabilitan pero nunca se cargan desde SQL — el form mantiene
+    // sus valores iniciales del constructor. Mas tarde recuperarDatosClavePartida
+    // arregla GameFrame.BUYIN/CIEGAS desde la fila game/hand, pero el
+    // constructor de GameFrame ya corrio antes y los slots de los Player
+    // (field initializer = GameFrame.BUYIN y el loop simetrico de seteo de
+    // stack/buyin) capturaron el BUYIN stale = 10. Para los participantes
+    // originales recuperarDatosClavePartida machaca su stack/buyin desde la
+    // fila de balance en SQL, pero para un late-joiner sin fila previa el
+    // valor stale persiste: aparece sentado con stack=10 y buyin=10 en una
+    // mesa configurada a 100. Este helper resuelve la causa raiz cargando
+    // BUYIN/CIEGAS desde la fila game antes de que GameFrame se construya.
+    public static void applyRecoveredGameStats(int gameId) {
+        if (gameId <= 0) {
+            return;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            String sql = "SELECT buyin, round(sb,2) AS sb, blinds_time, blinds_time_type, rebuy FROM game WHERE id=?";
+            try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(sql)) {
+                st.setQueryTimeout(30);
+                st.setInt(1, gameId);
+                try (java.sql.ResultSet rs = st.executeQuery()) {
+                    if (rs.next()) {
+                        int b = rs.getInt("buyin");
+                        if (b > 0) {
+                            BUYIN = b;
+                        }
+                        float sb = rs.getFloat("sb");
+                        if (sb > 0f) {
+                            CIEGA_PEQUEÑA = sb;
+                            CIEGA_GRANDE = sb * 2f;
+                        }
+                        CIEGAS_DOUBLE = rs.getInt("blinds_time");
+                        int bt = rs.getInt("blinds_time_type");
+                        CIEGAS_DOUBLE_TYPE = bt > 0 ? bt : 1;
+                        REBUY = rs.getBoolean("rebuy");
+                    }
+                }
+            } catch (SQLException ex) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "Failed to load recovered game stats", ex);
+            }
+        }
+    }
+
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
     private final Object exit_now_lock = new Object();

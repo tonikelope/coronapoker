@@ -370,8 +370,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // sus valores iniciales del constructor. Mas tarde recuperarDatosClavePartida
     // arregla GameFrame.BUYIN/CIEGAS desde la fila game/hand, pero el
     // constructor de GameFrame ya corrio antes y los slots de los Player
-    // (field initializer = GameFrame.BUYIN y el loop simetrico de seteo de
-    // stack/buyin) capturaron el BUYIN stale = 10. Para los participantes
+    // (field initializer = GameFrame.BUYIN y el loop simetrico de setStack/
+    // setBuyin) capturaron el BUYIN stale = 10. Para los participantes
     // originales recuperarDatosClavePartida machaca su stack/buyin desde la
     // fila de balance en SQL, pero para un late-joiner sin fila previa el
     // valor stale persiste: aparece sentado con stack=10 y buyin=10 en una

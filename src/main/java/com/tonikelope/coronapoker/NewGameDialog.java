@@ -1412,7 +1412,8 @@ public class NewGameDialog extends JDialog {
                 // Cargar la verdad desde la fila game antes de WaitingRoomFrame +
                 // GameFrame para que un late-joiner que se siente en la mesa
                 // capture el BUYIN correcto en su slot (RemotePlayer field
-                // initializer + loop simetrico en GameFrame:2120-2122).
+                // initializer + loop simetrico setStack/setBuyin en GameFrame
+                // constructor).
                 if (GameFrame.RECOVER) {
                     GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
                 }

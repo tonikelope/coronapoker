@@ -188,3 +188,9 @@ The runnable jar is generated at `target/CoronaPoker-<version>-jar-with-dependen
 ```bash
 java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 ```
+
+---
+
+## 🙌 Contributors
+
+CoronaPoker is developed by [@tonikelope](https://github.com/tonikelope), with a heartfelt thank-you to the bug reporters and testers whose detailed reports keep the project moving forward. The full list lives in **[`CONTRIBUTORS.md`](CONTRIBUTORS.md)**.

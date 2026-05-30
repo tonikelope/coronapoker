@@ -3653,17 +3653,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // p.ej. dejo el juego limpio en una mano anterior y el
                     // host le invita a rejoin mientras esta mid-hand de una
                     // mano siguiente sin "wait for hand end"). En la rama del
-                    // host (cryptoRingList != null, mas abajo) este caso se
-                    // marca calentando: !inRing + stack>0 -> setSpectator. En
-                    // el cliente cryptoRingList es null (active_crypto_ring=null
-                    // -> Arrays.asList ni se evalua, queda como null) asi que
-                    // ese loop no le entra y mi slot local queda activo.
+                    // host (cryptoRingList != null) este caso se marca calentando
+                    // via !inRing + stack>0 -> setSpectator. En el cliente
+                    // cryptoRingList es null (no hay fosil -> active_crypto_ring
+                    // null -> cryptoRingList null por el ternario de arriba), el
+                    // loop cae en el else que solo maneja !inBalance + stack>0.
+                    // Pero el local player SI esta in balance (su row de la
+                    // ultima mano cerrada anterior), asi que ese else lo
+                    // skippea -> spectator=false -> isActivo()=true.
                     // Resultado visible: repartir() lo dealea con
                     // local_original_cards={0,0} (init por defecto del byte[])
                     // -> ambas hole cards iniciarConValorNumerico(1) -> AA del
                     // mismo palo phantom; ademas el host no le manda accion
                     // (lo tiene como spectator) pero la GUI del cliente cree
-                    // que juega. Espejamos aqui el calentando del host.
+                    // que juega. Espejamos aqui el calentando del host. El
+                    // rescate de NUEVA_MANO (gateado por !exit + isSpectator +
+                    // stack>0) le saca del calentando al arrancar la siguiente
+                    // mano, asi que juega normal sin pasos extra.
                     Player myPlayer = GameFrame.getInstance().getLocalPlayer();
                     if (myPlayer != null && !myPlayer.isExit() && !myPlayer.isSpectator()) {
                         myPlayer.setSpectator(Translator.translate("game.calentando"));

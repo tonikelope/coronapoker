@@ -1406,6 +1406,17 @@ public class NewGameDialog extends JDialog {
                     GameFrame.CIEGAS_DOUBLE = 0;
                 }
 
+                // Issue#9: en recover, BUYIN/CIEGAS/CIEGAS_DOUBLE/REBUY del spinner
+                // son los valores por defecto del form (no se cargan desde la timba
+                // a continuar — los controles solo se deshabilitan visualmente).
+                // Cargar la verdad desde la fila game antes de WaitingRoomFrame +
+                // GameFrame para que un late-joiner que se siente en la mesa
+                // capture el BUYIN correcto en su slot (RemotePlayer field
+                // initializer + loop simetrico en GameFrame:2120-2122).
+                if (GameFrame.RECOVER) {
+                    GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
+                }
+
                 commitBotDifficultyFromCombo();
 
                 this.dialog_ok = true;

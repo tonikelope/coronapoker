@@ -1069,9 +1069,27 @@ public class Helpers {
                 final int totalMs = seconds * 1000;
                 barra.setMaximum(totalMs);
                 barra.setValue(totalMs);
-                final long deadline = System.currentTimeMillis() + totalMs;
+                // Issue#9: deadline mutable + lastTick para soportar pausa.
+                // Cuando GameFrame.timba_pausada esta activo, el contador logico
+                // (response_counter en Local/RemotePlayer) ya no decrementa,
+                // pero esta barra visual seguia drenando porque usa wall-clock.
+                // Al despausar, la barra estaba a 0 mientras response_counter
+                // aun tenia decenas de segundos -> desincronizacion visible.
+                // Empujamos el deadline hacia delante por el tiempo transcurrido
+                // mientras la timba esta pausada, asi la barra se "congela"
+                // visualmente y reanuda exactamente donde quedo.
+                final long[] deadline = {System.currentTimeMillis() + totalMs};
+                final long[] lastTick = {System.currentTimeMillis()};
                 javax.swing.Timer t = new javax.swing.Timer(SMOOTH_TICK_MS, (java.awt.event.ActionEvent ae) -> {
-                    long remaining = deadline - System.currentTimeMillis();
+                    long now = System.currentTimeMillis();
+                    long elapsed = now - lastTick[0];
+                    lastTick[0] = now;
+                    GameFrame gf = GameFrame.getInstance();
+                    if (gf != null && gf.isTimba_pausada()) {
+                        deadline[0] += elapsed;
+                        return;
+                    }
+                    long remaining = deadline[0] - now;
                     if (remaining <= 0) {
                         barra.setValue(0);
                         javax.swing.Timer self = (javax.swing.Timer) barra.getClientProperty(SMOOTH_TIMER_KEY);

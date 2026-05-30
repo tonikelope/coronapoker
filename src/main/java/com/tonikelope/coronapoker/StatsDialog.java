@@ -55,7 +55,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
-import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
@@ -64,7 +64,7 @@ import javax.swing.table.TableRowSorter;
  *
  * @author tonikelope
  */
-public class StatsDialog extends JDialog {
+public class StatsDialog extends JFrame {
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
     private final HashMap<String, HashMap<String, Object>> hand = new HashMap<>();
@@ -79,8 +79,8 @@ public class StatsDialog extends JDialog {
     /**
      * Creates new form Stats
      */
-    public StatsDialog(java.awt.Frame parent, boolean modal) {
-        super(parent, modal);
+    public StatsDialog() {
+        super();
 
         init = true;
 
@@ -146,11 +146,14 @@ public class StatsDialog extends JDialog {
 
         purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
 
-        setSize(Toolkit.getDefaultToolkit().getScreenSize());
-
-        setPreferredSize(Toolkit.getDefaultToolkit().getScreenSize());
-
         pack();
+
+        // Ventana redimensionable con barra de título completa (min/max/cerrar).
+        // Tamaño de restauración al 85% de la pantalla; se abre maximizada.
+        java.awt.Dimension stats_screen = Toolkit.getDefaultToolkit().getScreenSize();
+        setSize(Math.round(stats_screen.width * 0.85f), Math.round(stats_screen.height * 0.85f));
+
+        setExtendedState(getExtendedState() | java.awt.Frame.MAXIMIZED_BOTH);
 
         Helpers.threadRun(this::loadGames);
 
@@ -2460,20 +2463,11 @@ public class StatsDialog extends JDialog {
     }//GEN-LAST:event_chat_game_buttonActionPerformed
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
-        // TODO add your handling code here:
-        if (isModal()) {
-            Init.CURRENT_MODAL_DIALOG.add(this);
-        }
+        // Non-modal JFrame: it does not participate in the modal-dialog stack.
     }//GEN-LAST:event_formWindowActivated
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
-        // TODO add your handling code here:
-        if (isModal()) {
-            try {
-                Init.CURRENT_MODAL_DIALOG.removeLast();
-            } catch (Exception ex) {
-            }
-        }
+        // Non-modal JFrame: it does not participate in the modal-dialog stack.
     }//GEN-LAST:event_formWindowDeactivated
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened

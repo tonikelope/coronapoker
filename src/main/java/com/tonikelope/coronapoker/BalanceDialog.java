@@ -301,7 +301,7 @@ public class BalanceDialog extends JDialog {
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
-        StatsDialog dialog = new StatsDialog(GameFrame.getInstance(), true);
+        StatsDialog dialog = new StatsDialog();
 
         dialog.setLocationRelativeTo(this);
 

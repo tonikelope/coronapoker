@@ -6154,9 +6154,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             try {
                                 String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
                                 byte[] receipt = Base64.getDecoder().decode(partes[4]);
-                                receipts.put(senderNick, receipt);
-                                if (isHost) {
-                                    pendingRelays.add(new String[]{partes[3], partes[4], senderNick});
+                                // First receipt per nick wins — a later frame cannot
+                                // overwrite (and thus cannot invalidate) an already
+                                // collected receipt, not even the local self-receipt.
+                                if (!receipts.containsKey(senderNick)) {
+                                    receipts.put(senderNick, receipt);
+                                    if (isHost) {
+                                        pendingRelays.add(new String[]{partes[3], partes[4], senderNick});
+                                    }
                                 }
                             } catch (Exception ex) {
                                 LOGGER.log(Level.SEVERE, "Failed to parse HANDVERIFY receipt", ex);

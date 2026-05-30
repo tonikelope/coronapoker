@@ -971,11 +971,7 @@ public class Init extends JFrame {
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
         // TODO add your handling code here:
-        StatsDialog dialog = new StatsDialog();
-
-        dialog.setLocationRelativeTo(this);
-
-        dialog.setVisible(true);
+        StatsDialog.showStats(this);
     }//GEN-LAST:event_stats_buttonActionPerformed
 
     private void join_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_join_buttonActionPerformed

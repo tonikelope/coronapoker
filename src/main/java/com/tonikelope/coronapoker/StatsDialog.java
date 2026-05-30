@@ -76,6 +76,26 @@ public class StatsDialog extends JFrame {
     private volatile boolean backup = false;
     private volatile int last_button = 0;
 
+    private static StatsDialog INSTANCE;
+
+    /**
+     * Opens the stats window, or — if one is already open — brings the existing
+     * one to the front (restoring it if minimized). Single-instance: only one
+     * StatsDialog can exist at a time.
+     */
+    public static synchronized void showStats(java.awt.Component locationRelativeTo) {
+        if (INSTANCE != null && INSTANCE.isDisplayable()) {
+            INSTANCE.setExtendedState(INSTANCE.getExtendedState() & ~java.awt.Frame.ICONIFIED);
+            INSTANCE.toFront();
+            INSTANCE.requestFocus();
+            return;
+        }
+
+        INSTANCE = new StatsDialog();
+        INSTANCE.setLocationRelativeTo(locationRelativeTo);
+        INSTANCE.setVisible(true);
+    }
+
     /**
      * Creates new form Stats
      */
@@ -2217,6 +2237,8 @@ public class StatsDialog extends JFrame {
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
+        INSTANCE = null;
+
         Audio.stopLoopMp3("misc/stats_music.mp3");
 
         if (last_mp3_loop != null) {

@@ -65,6 +65,11 @@ public class LatencyDot extends JLabel {
     /** Tras este umbral sin update, la bolita se pinta gris "sin datos". */
     public static final long STALE_THRESHOLD_MS = 15_000;
 
+    /** Lado base (px) de la bolita a zoom 1.0. La escala de la mesa lo
+     *  multiplica vía applyZoom(...) para que la bola crezca/encoja con el
+     *  resto de la celda del jugador (avatar, iconos, fuentes). */
+    public static final int BASE_SIZE = 22;
+
     /** Umbrales (ms) para clasificar latencia → color. */
     public static final int THRESHOLD_GREEN_MS = 100;
     public static final int THRESHOLD_YELLOW_MS = 250;
@@ -77,11 +82,11 @@ public class LatencyDot extends JLabel {
     public static final Color COLOR_STALE = new Color(0x9E, 0x9E, 0x9E);
 
     public LatencyDot() {
-        // Tamaño base 22×22 (suficiente para ver la bola + un badge pequeño
-        // si hay reconexiones). Si el GroupLayout del .form pide otro
-        // tamaño, NetBeans lo aplica encima de estos defaults. Si no, este
-        // es el tamaño que se ve.
-        Dimension size = new Dimension(22, 22);
+        // Tamaño base BASE_SIZE×BASE_SIZE (suficiente para ver la bola + un
+        // badge pequeño si hay reconexiones). Si el GroupLayout del .form pide
+        // otro tamaño, NetBeans lo aplica encima de estos defaults. Si no,
+        // este es el tamaño que se ve. applyZoom(...) lo reescala con la mesa.
+        Dimension size = new Dimension(BASE_SIZE, BASE_SIZE);
         setPreferredSize(size);
         setMinimumSize(size);
         setMaximumSize(size);
@@ -89,6 +94,24 @@ public class LatencyDot extends JLabel {
         setOpaque(false);
         setText(""); // sobrescribe cualquier text="" del JLabel base.
         setToolTipText("---"); // placeholder hasta primer setLatency
+    }
+
+    /**
+     * Reescala la bolita a BASE_SIZE * factor para que acompañe al zoom de la
+     * mesa (igual que avatar/iconos/fuentes del jugador). Debe invocarse en el
+     * EDT; revalida el contenedor para que el GroupLayout reubique la celda.
+     *
+     * @param factor escala absoluta de la mesa (1f == zoom neutro).
+     */
+    public void applyZoom(float factor) {
+        int side = Math.max(BASE_SIZE / 4, Math.round(BASE_SIZE * factor));
+        Dimension size = new Dimension(side, side);
+        setPreferredSize(size);
+        setMinimumSize(size);
+        setMaximumSize(size);
+        setSize(size);
+        revalidate();
+        repaint();
     }
 
     /**

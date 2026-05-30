@@ -1209,6 +1209,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Object widget = f.get(this);
                 if (widget instanceof LatencyDot) {
                     setLatencyDot((LatencyDot) widget);
+                    ((LatencyDot) widget).applyZoom(1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
                 }
             } catch (NoSuchFieldException nsfe) {
                 // OK: aún no se ha añadido en el .form.
@@ -1828,6 +1829,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_name.setIcon(null);
 
                     chip_label.setVisible(false);
+
+                    LatencyDot dot = latency_dot;
+                    if (dot != null) {
+                        dot.applyZoom(zoom_factor);
+                    }
                 });
 
                 Helpers.zoomFonts(this, zoom_factor, null);

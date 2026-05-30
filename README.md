@@ -24,16 +24,24 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 CoronaPoker was built with one non-negotiable principle: **nobody should ever be able to cheat, spy or tamper — including the host.**
 
 ### Zero-trust deck protocol
-Every card is shuffled and locked collectively by **every player at the table** through a Mental Poker EC-SRA protocol implemented from scratch over **Curve25519** (with X25519 clamping and a radix-16 scalar-mult core). No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed. Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
+Every card is shuffled and locked collectively by **every player at the table** through a Mental Poker EC-SRA protocol implemented from scratch over **Curve25519** (with X25519 clamping and a radix-16 scalar-mult core). The deck uses a **dual-lock architecture**: pocket cards stay sealed end-to-end until showdown, community cards rotate to a separate lock that the host can partially unlock per street. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed. Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
+
+### Per-nick cryptographic identity & signed actions
+Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history. After the hand, peers exchange short **receipts** (`HAND_ID || H_final || flags || sig`); divergent receipts surface as a logged dispute. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band (TOFU).
 
 ### End-to-end encrypted channels
-All traffic between players is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. Anyone on the network path sees only opaque blocks — game state, chat messages and player actions are unreadable.
+All traffic between players is encrypted with **AES-256-CBC + HMAC-SHA256** over keys negotiated via **ECDH key exchange**. Anyone on the network path sees only opaque blocks — game state, chat messages and player actions are unreadable. The recovery payload reader installs a strict **`ObjectInputFilter` whitelist** (HashMap / String / numeric boxes only, 10 MB cap, 20-deep) so a malicious host cannot exploit Java deserialization gadgets.
 
 ### Password-bound keys
 In password-protected games the symmetric channel keys are derived from the password with **HMAC-SHA512** over the raw ECDH shared secret. A passive MITM cannot complete the handshake without the password.
 
+### Atomic security lockdown
+Any cryptographic anomaly — an off-curve point, a bad Ed25519 signature, a mismatched community reveal, an early-cascade attack — flips an atomic lockdown flag that immediately aborts the hand and refuses further commands from the offending peer, logged with a precise reason.
+
 ### Fully decentralised
-Pure P2P, no central servers, no accounts, no telemetry and no third parties logging anything. Your game exists only between the machines at the table.
+Pure P2P, no central servers, no accounts and no telemetry. Your game exists only between the machines at the table. (The optional text-to-speech reads fast-chat messages via Google Translate's public TTS endpoint — disable it if you want zero outbound traffic.)
+
+> Full cryptographic spec (cascade flow, key schedule, HandStateChain seed, receipt format, recovery fossil layout) lives in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 
 ---
 
@@ -42,9 +50,12 @@ Pure P2P, no central servers, no accounts, no telemetry and no third parties log
 - **Automatic UPnP port mapping** — when you host a game, CoronaPoker tries to open the listening port on your router and cleans it up when the table closes. Manual port forwarding works as a fallback.
 - **Adjustable listening port** — defaults to 7234, configurable per game.
 - **Optional password protection** for the table itself, on top of channel encryption.
-- **Automatic reconnection** — if a player drops, the client tries to rejoin and pick up exactly where it left off; the table waits during a configurable grace window before asking the host whether to remove them.
-- **Crash recovery** — every hand is checkpointed to a local **SQLite** database, so a game can resume from the exact stop point after a crash, power loss or reboot.
-- **Recent-server list** — quick rejoin to tables you have already connected to.
+- **Smart reconnection** — if a player drops, a 40-second base grace window holds their seat; once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
+- **Crash recovery** — every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot — both host and clients.
+- **Late-joiner observer mode** — a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
+- **Recent-server list** — persisted history of past tables; browse it with ↑/↓ in the Join dialog to reconnect to anyone you've played with before.
+- **Per-peer link telemetry** — host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
+- **Anti-flood chat** — 1-second minimum between chat messages enforced server-side.
 
 ---
 
@@ -64,7 +75,9 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **IWTSTH** | "I Want To See That Hand" — force showdown after an uncalled all-in, toggleable |
 | **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable |
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
-| **Hand generator** | Build specific board / hole-card scenarios for study or practice |
+| **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (high card → royal flush) so newcomers learn how rankings form, browsed with up/down keys |
+| **Crash recovery** | Continue last game from the local SQLite checkpoint, including mid-hand state, signed action history and crypto fossil |
+| **Recent-server list** | Persisted history of past tables for one-click reconnect (browse with ↑/↓ in the Join dialog) |
 
 ---
 
@@ -99,8 +112,8 @@ Full chat while the game is being set up, with a built-in **emoji picker (~1.800
 ### In-game fast chat
 A side panel for sending quick messages mid-hand without leaving the action, with **text-to-speech readout** of incoming messages and inline GIFs.
 
-### Player identity
-Each player gets a deterministic **identicon avatar** derived from their cryptographic key, so the same player is visually recognisable from session to session without any central account system.
+### Player avatars
+Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative — identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** can be opened against any peer to compare a deterministic mosaic derived from their session AES key or their Ed25519 pubkey out-of-band, with a TOFU "mark verified" button to remember future connections.
 
 ### Action sounds & character voices
 Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdown, winner) plus comedy voice clips that can be triggered on common actions. Everything is toggleable and replaceable.
@@ -175,3 +188,9 @@ The runnable jar is generated at `target/CoronaPoker-<version>-jar-with-dependen
 ```bash
 java -jar target/CoronaPoker-<version>-jar-with-dependencies.jar
 ```
+
+---
+
+## 🙌 Contributors
+
+CoronaPoker is developed by [@tonikelope](https://github.com/tonikelope), with a heartfelt thank-you to the bug reporters and testers whose detailed reports keep the project moving forward. The full list lives in **[`CONTRIBUTORS.md`](CONTRIBUTORS.md)**.

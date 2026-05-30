@@ -959,6 +959,26 @@ public class Participant implements Runnable {
                                                 exit = true;
                                             }
                                             break;
+                                        case "HANDVERIFY":
+                                            // ZERO-TRUST: a closing receipt must belong to the nick that
+                                            // owns THIS authenticated connection. Otherwise a peer could
+                                            // submit (and have the host relay) a receipt on behalf of
+                                            // another player, forging a false DIVERGENT / framing them.
+                                            try {
+                                                if (partes_comando.length >= 5
+                                                        && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
+                                                    synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                        GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                    }
+                                                } else {
+                                                    LOGGER.log(Level.SEVERE,
+                                                            "ZERO-TRUST: dropping HANDVERIFY receipt with nick mismatch on connection {0}", this.nick);
+                                                }
+                                            } catch (Exception ex) {
+                                                LOGGER.log(Level.SEVERE, "Dropping malformed HANDVERIFY receipt", ex);
+                                            }
+                                            break;
                                         default:
                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);

@@ -274,6 +274,9 @@ public class CryptoSRA {
         for (int i = 0; i < 16; i++) {
             out[i] = (in[2 * i] & 0xff) | ((in[2 * i + 1] & 0xff) << 8);
         }
+        // Canonical X25519: ignore bit 255 on decode, matching isPointOnCurve's
+        // masking so the validated point and the operated-on point are identical.
+        out[15] &= 0x7fff;
     }
 
     private static void pack(byte[] o, long[] a) {
@@ -357,7 +360,9 @@ public class CryptoSRA {
     }
 
     private static void cswap(long swap, long[] a, long[] b) {
-        long mask = swap == 1 ? -1L : 0L;
+        // swap is always 0 or 1: branchless mask (0 or all-ones) — no data-dependent
+        // branch on a scalar bit, matching the constant-time TweetNaCl source.
+        long mask = -swap;
         for (int i = 0; i < 16; i++) {
             long t = mask & (a[i] ^ b[i]);
             a[i] ^= t;

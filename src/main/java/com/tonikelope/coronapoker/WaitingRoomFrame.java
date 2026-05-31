@@ -80,6 +80,8 @@ import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -464,6 +466,64 @@ public class WaitingRoomFrame extends JFrame {
         return net_client != null ? net_client.getLocal_client_socket_lock() : null;
     }
 
+    /**
+     * Handles a right-click anywhere inside the participant list (including empty
+     * space below the rows). The opened dialog does not depend on where the click
+     * lands: a host always gets the mosaic of every channel, a client always gets
+     * its single channel with the host.
+     *
+     * For now the dialog opens directly. The popup menu in
+     * {@link #buildSessionIdenticonMenu()} is intentionally kept but not shown, ready
+     * for when more than one per-list action is needed.
+     */
+    private void handleParticipantListRightClick(java.awt.event.MouseEvent evt) {
+        if (!evt.isPopupTrigger()) {
+            return;
+        }
+
+        openSessionIdenticon();
+    }
+
+    /**
+     * Reserved: per-row right-click menu for the participant list. Currently unused
+     * because a single action ("view session identicon") opens directly, but kept so
+     * extra actions can be added later by showing this menu instead of opening the
+     * dialog directly in {@link #handleParticipantListRightClick(java.awt.event.MouseEvent)}.
+     */
+    private JPopupMenu buildSessionIdenticonMenu() {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem ver = new JMenuItem(Translator.translate("ui.identicon.popup_ver"));
+        ver.addActionListener(e -> openSessionIdenticon());
+        menu.add(ver);
+        return menu;
+    }
+
+    /**
+     * Opens the session-key identicon dialog. The host gets the mosaic of every
+     * per-client channel ({@link SessionIdenticonMosaicDialog}); a client gets the
+     * single AES identicon of its channel with the host.
+     */
+    private void openSessionIdenticon() {
+        SessionIdenticonMosaicDialog mosaic = SessionIdenticonMosaicDialog.buildForHost(this, this);
+
+        if (mosaic != null) {
+            mosaic.setLocationRelativeTo(this);
+            mosaic.setVisible(true);
+            return;
+        }
+
+        SecretKeySpec my_key = getLocal_client_aes_key();
+
+        if (my_key == null) {
+            return;
+        }
+
+        String title = server_nick != null ? local_nick + " ↔ " + server_nick : local_nick;
+        IdenticonDialog dialog = new IdenticonDialog(this, true, title, my_key);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
     private void HTMLEditorKitAppend(String text) {
 
         Helpers.GUIRun(() -> {
@@ -744,6 +804,22 @@ public class WaitingRoomFrame extends JFrame {
         initComponents();
 
         setTitle(Init.WINDOW_TITLE + Translator.translate("game.sala_de_espera") + nick + ")");
+
+        // Session-key identicon access (anti-MITM): right-click any participant in the
+        // list. A client opens the AES identicon of its single channel with the host;
+        // the host opens the mosaic of every per-client session identicon.
+        Helpers.setTranslatedToolTip(conectados, "ui.identicon.tooltip_lista");
+        conectados.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                handleParticipantListRightClick(evt);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                handleParticipantListRightClick(evt);
+            }
+        });
 
         class SendButtonListener implements DocumentListener {
 

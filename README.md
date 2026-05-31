@@ -113,7 +113,7 @@ Full chat while the game is being set up, with a built-in **emoji picker (~1.800
 A side panel for sending quick messages mid-hand without leaving the action, with **text-to-speech readout** of incoming messages and inline GIFs.
 
 ### Player avatars
-Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative — identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** can be opened against any peer to compare a deterministic mosaic derived from their session AES key or their Ed25519 pubkey out-of-band, with a TOFU "mark verified" button to remember future connections.
+Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative — identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections); in the waiting room, right-click your own nick for the **session-key (AES channel)** identicon used to detect a network MITM.
 
 ### Action sounds & character voices
 Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdown, winner) plus comedy voice clips that can be triggered on common actions. Everything is toggleable and replaceable.

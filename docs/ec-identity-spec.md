@@ -17,7 +17,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 |---|---|
 | Hostile host substituting another player's identity | Ed25519 long-term keys + silent TOFU pinning + optional OOB fingerprint comparison via identicons |
 | Hostile host rewriting hand history (action injection, reordering) | Per-action Ed25519 signatures + `H_t` hash chain with `PREV_H` binding |
-| Network MITM on the ECDH handshake | `Helpers.deriveChannelSecret` (HMAC-SHA512 binding with the shared password) + session-key identicon for OOB compare |
+| Network MITM on the ECDH handshake | `Helpers.deriveChannelSecret` (HMAC-SHA512 binding with the shared password) + session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Cross-recipient board fork (host announces different community cards to different peers) | Per-recipient encrypted community pieces decoded locally, cross-checked against a host-signed `ACTION_COMMUNITY` reveal absorbed into every peer's `H_t` |
 | Post-game disputes about what actions occurred | Final receipts signed with Ed25519 identity keys, archivable as evidence |
 
@@ -72,7 +72,7 @@ The nick identifies a **player**; the keypair is bound to that nick **on a speci
 Implications, all expected and correct:
 
 - Two players sharing one machine: two nicks, two distinct keypair files. `known_identities` has one row per nick.
-- One player using two machines: the same nick yields a different keypair on each machine, so peers see the pubkey change when the player switches devices. The shield reverts to grey (unverified) silently.
+- One player using two machines: the same nick yields a different keypair on each machine, so peers see the pubkey change when the player switches devices. `verified_oob` resets to 0 (unverified) silently.
 - An impostor claiming another player's nick is accepted silently into TOFU, but per-action signatures expose them at their first action: they cannot produce a signature matching the genuine pinned pubkey.
 
 ### 2.3 Fingerprint format
@@ -88,8 +88,8 @@ Exposed via `getShortFingerprint()` / `getFullFingerprint()`.
 
 Two distinct identicons exist, both rendered by [`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) on a `SHA-256` hash over a `7×7` grid with horizontal symmetry, two foreground colors drawn from disjoint hash bytes and a transparent background:
 
-- **Session identicon** — hashes the negotiated session **AES key**; for network-MITM detection. The host's grid view of all per-client session identicons lives in [`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java).
-- **Identity identicon** — hashes the peer's **Ed25519 pubkey**; for identity OOB verification, with the full fingerprint hex shown in the title and a "Verify identity" button.
+- **Session identicon** — hashes the negotiated session **AES key**; for network-MITM detection. Reachable from the waiting room by **right-clicking your own nick** in the participant list: a **client** opens the AES identicon of its single channel with the host; the **host** opens the per-client mosaic of every channel ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)).
+- **Identity identicon** — hashes the peer's **Ed25519 pubkey**; for identity OOB verification, with the full fingerprint hex shown in the title and a "Verify identity" button. Reachable at the table by clicking a human player's avatar.
 
 ---
 
@@ -128,17 +128,17 @@ Compatibility is enforced by **strict equality** of the client's `version` field
 
 After verifying the self-sig, each peer resolves `(nick, pubkey)` against its local `known_identities` ([`TOFUResolver.java`](../src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)):
 
-| Case | DB operation | Shield |
+| Case | DB operation | `verified_oob` |
 |---|---|---|
-| `NEW` — unknown nick | `INSERT` row, `sessions_count=1`, `verified_oob=0` | Grey |
-| `MATCH` — known nick, pubkey byte-identical | `UPDATE last_seen`, `sessions_count++`; `verified_oob` untouched | Grey or green |
-| `CHANGED` — known nick, pubkey differs | `UPDATE pubkey`, `last_seen`, `sessions_count++`, **`verified_oob = 0`** (last-write-wins) | Grey |
+| `NEW` — unknown nick | `INSERT` row, `sessions_count=1`, `verified_oob=0` | 0 (unverified) |
+| `MATCH` — known nick, pubkey byte-identical | `UPDATE last_seen`, `sessions_count++`; `verified_oob` untouched | unchanged (0 or 1) |
+| `CHANGED` — known nick, pubkey differs | `UPDATE pubkey`, `last_seen`, `sessions_count++`, **`verified_oob = 0`** (last-write-wins) | reset to 0 |
 
-**No blocking modal.** On `CHANGED` the new pubkey silently replaces the old one (a `WARNING` is logged); the user only discovers it by inspecting the shield or the identicon.
+**No blocking modal.** On `CHANGED` the new pubkey silently replaces the old one (a `WARNING` is logged); the user only discovers it by opening the identity identicon dialog, which reflects the current verification state. There is no passive at-a-glance indicator.
 
 ### Manual verification
 
-The identity identicon dialog offers a **"Verify identity"** button. Clicking it runs `UPDATE known_identities SET verified_oob = 1 WHERE nick = ?` (guarded by a byte-exact check that the stored pubkey still matches the one being verified). `markVerified` / `isVerified` persist and read this flag; the shield turns green and stays green across sessions until the pubkey changes (which resets it to 0).
+The identity identicon dialog offers a **"Verify identity"** button. Clicking it runs `UPDATE known_identities SET verified_oob = 1 WHERE nick = ?` (guarded by a byte-exact check that the stored pubkey still matches the one being verified). `markVerified` / `isVerified` persist and read this flag; the dialog then shows "✓ Identity verified" instead of the button, and the flag stays set across sessions until the pubkey changes (which resets it to 0).
 
 ---
 
@@ -394,10 +394,10 @@ Wire-incompatible changes are gated by the strict `AboutDialog.VERSION` equality
 
 | Where | Element | Behavior |
 |---|---|---|
-| Waiting room, per participant | Shield | Client view opens the session-AES identicon; host view opens the per-client session-identicon grid (`SessionIdenticonMosaicDialog`). |
-| Table, `LocalPlayer` (human) | Shield (grey/green per `verified_oob`) | Identity identicon of own pubkey + full fingerprint + "Verify identity". |
-| Table, `RemotePlayer` (human) | Shield (grey/green) | Identity identicon of the peer's pubkey + fingerprint + "Verify identity" (sets `verified_oob=1` for that `(nick, pubkey)`). |
-| Table, `RemotePlayer` (bot) | **No shield** | Bots have no identity; the absent shield distinguishes bot from human. |
+| Table, `LocalPlayer` (human) | Clickable avatar | Opens the identity identicon of own pubkey + full fingerprint + "Verify identity". No passive verification indicator on the table. |
+| Table, `RemotePlayer` (human) | Clickable avatar | Opens the identity identicon of the peer's pubkey + fingerprint + "Verify identity" (sets `verified_oob=1` for that `(nick, pubkey)`). No passive verification indicator on the table. |
+| Table, `RemotePlayer` (bot) | Avatar click is a no-op | Bots have no identity; the avatar click does nothing for them. |
+| Waiting room, own nick (right-click) | Session-key identicon | Client opens the AES identicon of its channel with the host; host opens the per-client session-identicon mosaic (`SessionIdenticonMosaicDialog`). |
 | `NewGameDialog` (host) | Non-blocking warning | If estimated password entropy `< 60 bits`, warn; the host may proceed. |
 | Crupier log / modal at hand close | Verification outcome | `✓ verified` / `⚠ divergent` / `⚠ missing`; modal only on a non-OK outcome. |
 
@@ -405,7 +405,7 @@ Wire-incompatible changes are gated by the strict `AboutDialog.VERSION` equality
 
 ## 10. Bot identity
 
-**Bots have no cryptographic identity of their own.** The host operates each bot and **signs bot actions with the host's own Ed25519 private key**. Receivers therefore verify a bot's actions against the **host's** pinned pubkey (the signer resolution maps any `Participant.isCpu()` actor to the host's identity). Bots are not inserted into `known_identities` and carry no shield in the UI.
+**Bots have no cryptographic identity of their own.** The host operates each bot and **signs bot actions with the host's own Ed25519 private key**. Receivers therefore verify a bot's actions against the **host's** pinned pubkey (the signer resolution maps any `Participant.isCpu()` actor to the host's identity). Bots are not inserted into `known_identities` and expose no identity affordance in the UI (their avatar click is a no-op).
 
 A malicious host can of course abuse the bots it operates, but every bot action still carries the host's signature and lands in `H_t` like any other action, so it is independently verifiable and attributable to the host in the chain.
 

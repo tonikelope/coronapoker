@@ -1322,22 +1322,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             player_name.setText(nickname);
 
-            if (GameFrame.getInstance().isPartida_local() && !GameFrame.getInstance().getParticipantes().get(nickname).isCpu()) {
-
-                Helpers.setTranslatedToolTip(avatar, "ui.click_aes_key");
-                avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-            } else if (!GameFrame.getInstance().isPartida_local()) {
-
-                if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
-
-                    player_name.setForeground(Color.YELLOW);
-
-                }
+            // Server's nick highlighted on the client view.
+            if (!GameFrame.getInstance().isPartida_local()
+                    && GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
+                player_name.setForeground(Color.YELLOW);
             }
 
+            // "$" marks a bot (no identity, nothing clickable) — same convention the
+            // anticheat-log affordance below already uses, and null-safe (no lookup
+            // in participantes, which may not hold this nick yet on the client).
             if (!nickname.contains("$")) {
+                // Human peer: name opens the anticheat log; right-clicking the avatar
+                // opens the identicon of this peer's Ed25519 public identity key.
+                // Shown for both host and client views.
                 Helpers.setTranslatedToolTip(player_name, "ui.click_anticheat_log");
+                Helpers.setTranslatedToolTip(avatar, "ui.click_identity_identicon");
+                avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
             } else {
                 player_name.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
                 avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
@@ -1703,7 +1703,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_actionMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        // EC-Identity v1: clicking a remote human avatar opens the identicon of that
+        if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+            return;
+        }
+        // EC-Identity v1: right-clicking a remote human avatar opens the identicon of that
         // peer's Ed25519 public identity. The dialog includes a "Verificar identidad"
         // button that marks (nick, pubkey) as verified_oob if the user has compared
         // the fingerprint with the peer through an external secure channel.

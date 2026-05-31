@@ -20,6 +20,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.awt.Toolkit;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,12 +49,15 @@ import javax.swing.SwingConstants;
  */
 public class SessionIdenticonMosaicDialog extends JDialog {
 
-    private static final int TILE_PX = 128;
+    private static final int TILE_PX = 192;
     private static final int MAX_COLS = 3;
 
+    private final String hostNick;
+
     public SessionIdenticonMosaicDialog(java.awt.Frame parent, boolean modal,
-            List<MosaicEntry> entries) {
+            String hostNick, List<MosaicEntry> entries) {
         super(parent, modal);
+        this.hostNick = hostNick;
         setTitle(Translator.translate("ui.identicon.mosaico_title"));
         setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
@@ -80,11 +84,30 @@ public class SessionIdenticonMosaicDialog extends JDialog {
         }
 
         JScrollPane scroll = new JScrollPane(grid);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+
+        // Auto-size to the grid's natural content so the common case (up to 3x3
+        // human channels) needs no scrolling. Cap to 90% of the screen as a
+        // defensive limit for unusually small displays; the scrollbars stay as
+        // the fallback when the cap bites.
+        Dimension content = grid.getPreferredSize();
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
         scroll.setPreferredSize(new Dimension(
-                Math.min(900, 32 + cols * (TILE_PX + 32)),
-                Math.min(700, 64 + rows * (TILE_PX + 56))));
+                Math.min(content.width + 24, Math.round(screen.width * 0.9f)),
+                Math.min(content.height + 24, Math.round(screen.height * 0.9f))));
+
+        JLabel explanation = new JLabel(
+                "<html><body style='width: 520px; text-align: center; "
+                + "font-family: sans-serif; font-size: 13pt; padding: 10px;'>"
+                + Translator.translate("ui.identicon.session_explicacion")
+                + "</body></html>", SwingConstants.CENTER);
+        explanation.setOpaque(true);
+        explanation.setBackground(Color.WHITE);
+        explanation.setHorizontalAlignment(SwingConstants.CENTER);
 
         getContentPane().setLayout(new BorderLayout());
+        getContentPane().setBackground(Color.WHITE);
+        getContentPane().add(explanation, BorderLayout.NORTH);
         getContentPane().add(scroll, BorderLayout.CENTER);
 
         pack();
@@ -97,8 +120,9 @@ public class SessionIdenticonMosaicDialog extends JDialog {
                 BorderFactory.createLineBorder(new Color(180, 180, 180), 1),
                 BorderFactory.createEmptyBorder(6, 6, 6, 6)));
 
-        JLabel nickLabel = new JLabel(e.nick, SwingConstants.CENTER);
-        nickLabel.setFont(nickLabel.getFont().deriveFont(java.awt.Font.BOLD));
+        String channelLabel = hostNick != null ? e.nick + " ↔ " + hostNick : e.nick;
+        JLabel nickLabel = new JLabel(channelLabel, SwingConstants.CENTER);
+        nickLabel.setFont(nickLabel.getFont().deriveFont(java.awt.Font.BOLD, 22f));
         tile.add(nickLabel, BorderLayout.NORTH);
 
         try {
@@ -110,7 +134,7 @@ public class SessionIdenticonMosaicDialog extends JDialog {
 
             JLabel fp = new JLabel(IdenticonDialog.formatFullFingerprint(hash),
                     SwingConstants.CENTER);
-            fp.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 11));
+            fp.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 14));
             tile.add(fp, BorderLayout.SOUTH);
         } catch (Exception ex) {
             tile.add(new JLabel("?", SwingConstants.CENTER), BorderLayout.CENTER);
@@ -139,7 +163,7 @@ public class SessionIdenticonMosaicDialog extends JDialog {
                 entries.add(new MosaicEntry(p.getNick(), p.getAes_key()));
             }
         }
-        return new SessionIdenticonMosaicDialog(parent, true, entries);
+        return new SessionIdenticonMosaicDialog(parent, true, waitingRoom.getLocal_nick(), entries);
     }
 
     public static final class MosaicEntry {

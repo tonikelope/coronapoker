@@ -10,7 +10,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 |---|---|---|
 | Hostile host trying to peek at a peer's pocket cards | Yes | EC-SRA dual-lock — pockets stay multi-locked until the owner releases their key at showdown |
 | Hostile host or peer rewriting hand history | Yes | Per-action Ed25519 signatures + `H_t` ratchet committed by every peer in a signed receipt |
-| Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password; identicon for OOB session-key compare |
+| Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password; session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Replay or tampering of game commands on the wire | Yes | AES-256-CBC with per-command IV + HMAC-SHA256 over `IV \|\| ciphertext` |
 | Java deserialization gadgets via RECOVERDATA | Yes | Strict `ObjectInputFilter` whitelist (HashMap / String / numeric boxes only, 10 MB cap, depth 20) |
 | Off-curve / weak-point attacks on the SRA cascade | Yes | Curve25519 validation on every received point, atomic security lockdown on failure |
@@ -85,7 +85,7 @@ PKCS5 padding for the CBC layer; the MAC covers `IV || ciphertext` (encrypt-then
 
 ### 3.3 Session-key identicon
 
-Two peers can open an "identicon" dialog ([`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) `Mode.SESSION`) that renders a deterministic mosaic from `SHA-256(AES key)`. Both peers can compare the mosaic visually out-of-band (voice call, in-person glance). Different mosaics mean the handshake was MITM'd — both sides should disconnect.
+An "identicon" dialog ([`IdenticonDialog.java`](../src/main/java/com/tonikelope/coronapoker/IdenticonDialog.java) `Mode.SESSION`) renders a deterministic mosaic from `SHA-256(AES key)`, reachable from the waiting room by **right-clicking your own nick** in the participant list. A client opens the mosaic of its single channel with the host; the host opens the per-client grid of all channels ([`SessionIdenticonMosaicDialog.java`](../src/main/java/com/tonikelope/coronapoker/SessionIdenticonMosaicDialog.java)). Peers compare the mosaic visually out-of-band (voice call, in-person glance) — different mosaics mean the handshake was MITM'd, and both sides should disconnect.
 
 ---
 

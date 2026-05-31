@@ -164,6 +164,10 @@ public class IdenticonDialog extends JDialog {
                 // so the user knows what this dialog is for and how to use the
                 // copy-to-clipboard button below.
                 southPanel.add(buildSelfHintPanel(), BorderLayout.CENTER);
+            } else {
+                // Session channel: explain that this is the AES-channel fingerprint
+                // and that both ends must see the same image (anti-MITM OOB compare).
+                southPanel.add(buildSessionHintPanel(), BorderLayout.CENTER);
             }
 
             // Copy-to-clipboard row sits at the very bottom for all modes and roles,
@@ -199,6 +203,27 @@ public class IdenticonDialog extends JDialog {
         String hintHtml = "<html><body style='width: 380px; text-align: justify; "
                 + "font-family: sans-serif; font-size: 13pt;'>"
                 + Translator.translate("ui.identicon.self_explicacion")
+                + "</body></html>";
+        JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
+        hintLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        panel.add(hintLabel, BorderLayout.CENTER);
+        return panel;
+    }
+
+    /**
+     * Explanatory hint panel shown on a session-channel identicon (Mode.SESSION).
+     * Tells the user that the image is the fingerprint of the encrypted AES channel
+     * and that comparing it out-of-band with the other end detects a network MITM.
+     */
+    private JPanel buildSessionHintPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(true);
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 14, 6, 14));
+
+        String hintHtml = "<html><body style='width: 380px; text-align: justify; "
+                + "font-family: sans-serif; font-size: 13pt;'>"
+                + Translator.translate("ui.identicon.session_explicacion")
                 + "</body></html>";
         JLabel hintLabel = new JLabel(hintHtml, SwingConstants.CENTER);
         hintLabel.setHorizontalAlignment(SwingConstants.CENTER);

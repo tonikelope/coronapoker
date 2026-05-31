@@ -864,13 +864,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             player_name.setText(nickname);
 
-            if (!GameFrame.getInstance().isPartida_local()) {
-
-                Helpers.setTranslatedToolTip(avatar, "ui.click_aes_key");
-            } else {
+            if (GameFrame.getInstance().isPartida_local()) {
                 player_name.setForeground(Color.YELLOW);
-                avatar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
             }
+
+            // Own identity identicon (Ed25519 public key): right-click the avatar.
+            // The handler works in both roles, so the affordance (tooltip + hand
+            // cursor) is shown for host and client alike.
+            Helpers.setTranslatedToolTip(avatar, "ui.click_identity_identicon");
+            avatar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         });
     }
 
@@ -2840,7 +2842,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
-        // EC-Identity v1: clicking own avatar opens the identicon of THIS installation's
+        if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+            return;
+        }
+        // EC-Identity v1: right-clicking own avatar opens the identicon of THIS installation's
         // Ed25519 public identity. The dialog shows the visual icon and the 128-bit
         // fingerprint in 8 groups of 4, ready to be shared with a peer through an
         // out-of-band channel (WhatsApp, Telegram, voice).

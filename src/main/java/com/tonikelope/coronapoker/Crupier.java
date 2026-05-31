@@ -1152,7 +1152,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     int id2 = CryptoSRA.resolveCardIndex(c2);
                     if (id1 >= 0 && id2 >= 0) {
                         Player botPlayer = nick2player.get(targetNick);
-                        if (botPlayer != null) {
+                        // Un espectador entra al anillo criptográfico (contribuye su lock)
+                        // pero NO juega la mano: jamás se le reparten cartas, conserva su
+                        // JOKER. Sin este guard se le tapaban las cartas y se persistían en
+                        // BOTVISUAL@, reapareciendo boca abajo al recuperar.
+                        if (botPlayer != null && botPlayer.isActivo()) {
                             botPlayer.getHoleCard1().iniciarConValorNumerico(id1 + 1);
                             botPlayer.getHoleCard2().iniciarConValorNumerico(id2 + 1);
                         }

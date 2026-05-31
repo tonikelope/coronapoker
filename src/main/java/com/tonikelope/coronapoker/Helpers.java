@@ -1092,6 +1092,9 @@ public class Helpers {
                     long remaining = deadline[0] - now;
                     if (remaining <= 0) {
                         barra.setValue(0);
+                        // Forzar repintado completo: el delta value pequeño->0 a veces
+                        // no limpia el ultimo pixel de relleno y deja una "rayita".
+                        barra.repaint();
                         javax.swing.Timer self = (javax.swing.Timer) barra.getClientProperty(SMOOTH_TIMER_KEY);
                         if (self != null) {
                             self.stop();

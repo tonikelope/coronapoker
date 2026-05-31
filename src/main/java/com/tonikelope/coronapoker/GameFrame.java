@@ -791,10 +791,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Programa {@link #forceForeground()} en un ciclo posterior del EDT, de modo
-     * que corra despues de que se hayan despachado los eventos de activacion
-     * asincronos derivados de mostrar/recrear la ventana. Seguro de llamar desde
-     * cualquier hilo.
+     * Programa {@link #forceForeground()} en un ciclo posterior del EDT, para que
+     * corra despues de que se hayan despachado los eventos de activacion
+     * asincronos derivados de mostrar/recrear la ventana (el switch a borderless
+     * recrea el peer nativo y la activacion del SO llega de forma diferida).
+     * Seguro de llamar desde cualquier hilo.
      */
     private void forceForegroundDeferred() {
         SwingUtilities.invokeLater(this::forceForeground);

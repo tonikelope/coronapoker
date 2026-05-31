@@ -81,6 +81,7 @@ import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT;
 import java.io.UnsupportedEncodingException;
@@ -757,14 +758,46 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().setEnabled(true);
             full_screen_menu.setEnabled(!GameFrame.isRECOVER());
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
-
-            // La sala de espera acaba de ocultarse y este frame es el nuevo
-            // foreground del juego; toFront() antes de requestFocus() para que la
-            // ventana quede activa sin que el usuario tenga que clicar.
-            GameFrame.getInstance().toFront();
-            GameFrame.getInstance().requestFocus();
         });
 
+        // La sala de espera acaba de ocultarse y este frame es el nuevo foreground
+        // del juego. La captura se difiere a un ciclo posterior del EDT para que
+        // corra DESPUES de que el SO haya despachado los eventos de activacion
+        // asincronos del setVisible y la recreacion del peer nativo (switch a
+        // borderless); asi el pulso de foreground no compite con un WM_ACTIVATE
+        // tardio. No es una espera arbitraria: es ordenar el grab tras la
+        // realizacion de la ventana en la cola del EDT.
+        forceForegroundDeferred();
+
+    }
+
+    /**
+     * Captura el foreground de forma fiable. toFront()/requestFocus() estan
+     * sujetos al foreground-lock de Windows (SPI_GETFOREGROUNDLOCKTIMEOUT) y
+     * activan la ventana de forma no determinista — a veces el SO solo parpadea
+     * el boton de la taskbar y no concede el foco. Un pulso a alwaysOnTop emite
+     * un SetWindowPos(HWND_TOPMOST) que NO esta sujeto a esa restriccion: fuerza
+     * la activacion y arrastra el foco. Se restaura de inmediato el estado previo
+     * (normalmente false) para no dejar la ventana clavada por encima del resto
+     * — por eso no afecta a dialogos posteriores (GIFs de chat, etc.): el pulso
+     * es instantaneo y la ventana NO queda topmost. Debe invocarse en el EDT.
+     */
+    private void forceForeground() {
+        boolean was_on_top = isAlwaysOnTop();
+        setAlwaysOnTop(true);
+        toFront();
+        requestFocus();
+        setAlwaysOnTop(was_on_top);
+    }
+
+    /**
+     * Programa {@link #forceForeground()} en un ciclo posterior del EDT, de modo
+     * que corra despues de que se hayan despachado los eventos de activacion
+     * asincronos derivados de mostrar/recrear la ventana. Seguro de llamar desde
+     * cualquier hilo.
+     */
+    private void forceForegroundDeferred() {
+        SwingUtilities.invokeLater(this::forceForeground);
     }
 
     public ConcurrentHashMap<String, String> getNick2avatar() {
@@ -966,7 +999,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 full_screen_lock.notifyAll();
             }
 
-            GameFrame.getInstance().requestFocus();
+            // Diferido: el dispose()/setVisible() del switch recrea el peer nativo
+            // y un requestFocus() sincrono aqui compite con el WM_ACTIVATE del SO.
+            forceForegroundDeferred();
         });
 
     }

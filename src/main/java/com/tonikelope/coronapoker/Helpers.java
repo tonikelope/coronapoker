@@ -1542,6 +1542,13 @@ public class Helpers {
                 // la conexión, SQLite migra la BD a journal clásico y
                 // borra los ficheros .db-wal y .db-shm automáticamente.
                 config.setJournalMode(org.sqlite.SQLiteConfig.JournalMode.DELETE);
+                // synchronous=FULL: fsync del rollback journal antes de tocar la
+                // BD, y de la BD antes de borrar el journal. Es el default de
+                // SQLite, pero lo fijamos explícito para no depender del default
+                // del driver/versión: garantiza que ni un corte de luz corrompa
+                // el fichero (a lo sumo se pierde la última transacción no
+                // commiteada, nunca la BD entera).
+                config.setSynchronous(org.sqlite.SQLiteConfig.SynchronousMode.FULL);
                 // 50 MB de cache (negativo = KB). Default es ~2MB, insuficiente
                 // para los JOINs de StatsDialog cuando hay miles de manos.
                 config.setCacheSize(-50_000);
@@ -1558,7 +1565,7 @@ public class Helpers {
 
             } catch (SQLException ex) {
                 Logger.getLogger(Helpers.class
-                        .getName()).log(Level.SEVERE, null, ex);
+                        .getName()).log(Level.SEVERE, "Could not open the SQLite connection", ex);
             }
 
             return null;
@@ -1638,6 +1645,11 @@ public class Helpers {
         try {
             Class.forName("org.sqlite.JDBC");
 
+            // Integridad + backup/restore antes de que ningún hilo de juego toque
+            // la BD. Si está sana, refresca el snapshot .autobak; si está corrupta,
+            // aparta el fichero y restaura el último backup (o arranca limpia).
+            verifyAndBackupDatabase();
+
             try (Statement statement = getSQLITE().createStatement()) {
                 statement.setQueryTimeout(30);  // set timeout to 30 sec.
                 statement.execute("CREATE TABLE IF NOT EXISTS game(id INTEGER PRIMARY KEY, start INTEGER, end INTEGER, play_time INTEGER, server TEXT, players TEXT, buyin INTEGER, sb REAL, blinds_time INTEGER, rebuy INTEGER, last_deck TEXT, blinds_time_type INTEGER)");
@@ -1709,6 +1721,113 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    /**
+     * Startup integrity gate. Runs single-threaded before any game thread touches
+     * the DB, so it is free of the Connection-sharing / lock-ordering hazards that a
+     * close-time backup would face.
+     *
+     * <ul>
+     * <li>If the main DB passes {@code PRAGMA quick_check}, refresh the {@code .autobak}
+     * snapshot — it then always holds a state already proven healthy.</li>
+     * <li>If it fails (corrupt / unreadable), set the corrupt file aside (never deleted,
+     * for forensics) and restore the last {@code .autobak}. If there is no usable backup,
+     * start fresh: the {@code CREATE TABLE IF NOT EXISTS} block rebuilds an empty schema.</li>
+     * </ul>
+     *
+     * Doing it at launch (not at close) also captures data after an unclean previous
+     * shutdown and never overwrites a good backup with a corrupt source.
+     */
+    private static void verifyAndBackupDatabase() {
+        if (SQL_FILE == null || SQL_FILE.isBlank()) {
+            // Defensa en profundidad: nunca operar sobre una ruta nula/vacia (no
+            // generar "null"/".autobak" basura). Init garantiza que no pasa, pero
+            // si alguna ruta futura dejara SQL_FILE sin fijar, salimos sin tocar nada.
+            LOGGER.log(Level.SEVERE, "SQL_FILE is not set; skipping integrity check and backup");
+            return;
+        }
+
+        if (isSQLiteHealthy()) {
+            backupSQLite();
+            return;
+        }
+
+        LOGGER.log(Level.WARNING, "coronapoker.db failed its integrity check; attempting recovery from backup");
+
+        java.nio.file.Path db = java.nio.file.Paths.get(SQL_FILE);
+        java.nio.file.Path bak = java.nio.file.Paths.get(SQL_FILE + ".autobak");
+
+        try {
+            if (java.nio.file.Files.exists(db)) {
+                java.nio.file.Path aside = java.nio.file.Paths.get(SQL_FILE + ".corrupt_" + System.currentTimeMillis());
+                java.nio.file.Files.move(db, aside, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                LOGGER.log(Level.WARNING, "Corrupt DB set aside as {0}", aside);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, "Could not set the corrupt DB aside", ex);
+        }
+
+        if (java.nio.file.Files.exists(bak)) {
+            try {
+                java.nio.file.Files.copy(bak, db, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                if (isSQLiteHealthy()) {
+                    LOGGER.log(Level.INFO, "Restored coronapoker.db from {0}", bak);
+                    return;
+                }
+                LOGGER.log(Level.SEVERE, "Backup {0} also failed its integrity check; starting fresh", bak);
+                if (java.nio.file.Files.exists(db)) {
+                    java.nio.file.Files.move(db, java.nio.file.Paths.get(SQL_FILE + ".corrupt_bak_" + System.currentTimeMillis()),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Could not restore the DB from backup", ex);
+            }
+        }
+
+        // No usable backup: the CREATE TABLE IF NOT EXISTS block rebuilds a fresh schema.
+        LOGGER.log(Level.WARNING, "Starting with a fresh stats database");
+    }
+
+    /**
+     * @return true only if {@code PRAGMA quick_check} reports "ok". A SQLException
+     * (e.g. "database disk image is malformed") or any other result is treated as
+     * unhealthy. Opens the connection lazily through {@link #getSQLITE()}.
+     */
+    private static boolean isSQLiteHealthy() {
+        // Self-contained probe on its OWN short-lived connection, not the shared
+        // getSQLITE one. An open/read failure here is EXPECTED when the file is
+        // corrupt and is the signal that triggers recovery — routing it through
+        // getSQLITE would log it as a SEVERE "could not open" stack trace and look
+        // like a crash. The connection is closed (try-with-resources) before we
+        // return, leaving the file unlocked for the move/restore that follows.
+        try (java.sql.Connection conn = DriverManager.getConnection("jdbc:sqlite:" + SQL_FILE);
+                Statement st = conn.createStatement()) {
+            st.setQueryTimeout(60);
+            try (ResultSet rs = st.executeQuery("PRAGMA quick_check")) {
+                return rs.next() && "ok".equalsIgnoreCase(rs.getString(1));
+            }
+        } catch (SQLException ex) {
+            LOGGER.log(Level.WARNING, "SQLite integrity probe failed, treating DB as corrupt: {0}", ex.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Copies the main DB over the {@code .autobak} snapshot. Called only after the DB
+     * has just passed its integrity check and the connection is closed, so the backup
+     * is taken from a file at rest and is never poisoned by a corrupt source.
+     */
+    private static void backupSQLite() {
+        try {
+            java.nio.file.Path db = java.nio.file.Paths.get(SQL_FILE);
+            if (java.nio.file.Files.exists(db)) {
+                java.nio.file.Files.copy(db, java.nio.file.Paths.get(SQL_FILE + ".autobak"),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Could not write the SQLite backup", ex);
         }
     }
 

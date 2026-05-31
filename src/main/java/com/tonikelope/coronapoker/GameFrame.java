@@ -757,6 +757,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             GameFrame.getInstance().setEnabled(true);
             full_screen_menu.setEnabled(!GameFrame.isRECOVER());
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(!GameFrame.isRECOVER());
+
+            // La sala de espera acaba de ocultarse y este frame es el nuevo
+            // foreground del juego; toFront() antes de requestFocus() para que la
+            // ventana quede activa sin que el usuario tenga que clicar.
+            GameFrame.getInstance().toFront();
+            GameFrame.getInstance().requestFocus();
         });
 
     }

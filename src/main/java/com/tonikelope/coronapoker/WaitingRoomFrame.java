@@ -5190,6 +5190,13 @@ public class WaitingRoomFrame extends JFrame {
             refreshChatPanel();
         }
 
+        // Durante la partida el juego esta en borderless fullscreen; mantener la
+        // sala de espera siempre-encima mientras es visible evita que se vaya
+        // detras al clicar el juego. Es solo z-order: NO roba el foco (eso era el
+        // hide/show reclaim de formWindowDeactivated, ya eliminado). En el lobby
+        // (sin partida) queda normal para no tapar sus dialogos modales.
+        setAlwaysOnTop(isPartida_empezada());
+
         main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
 
         chat_box.requestFocus();

@@ -1401,6 +1401,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 }
 
                                 if (response_counter == 0 || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
+
+                                    if (response_counter == 0) {
+                                        // Vaciar la barra del todo en el instante del timeout (estamos
+                                        // en el EDT del Timer). La barra visual y response_counter pueden
+                                        // quedar desfasados al final y dejarla atascada en una rayita
+                                        // mientras suena la bocina, antes de disparar el auto fold/check.
+                                        Helpers.emptyBarra(GameFrame.getInstance().getBarra_tiempo());
+                                    }
+
                                     Helpers.threadRun(() -> {
                                         if (response_counter == 0) {
                                             Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir

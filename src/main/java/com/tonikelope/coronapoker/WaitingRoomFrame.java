@@ -192,7 +192,6 @@ public class WaitingRoomFrame extends JFrame {
     private final String background_chat_src;
     private volatile String local_avatar_chat_src;
     private volatile Border chat_scroll_border = null;
-    private volatile boolean protect_focus = false;
 
     // Uno u otro será no-null según el rol (server flag).
     private final NetServer net_server;
@@ -313,7 +312,6 @@ public class WaitingRoomFrame extends JFrame {
         if (THIS.net_client != null) {
             THIS.net_client.getLate_clients_warning().clear();
         }
-        THIS.protect_focus = false;
         THIS.setVisible(false);
         THIS.dispose();
         THIS = null;
@@ -1487,113 +1485,49 @@ public class WaitingRoomFrame extends JFrame {
 
     private void mostrarMensajeInformativo(Container container, String msg) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
         Helpers.mostrarMensajeInformativo(container, msg, "center", null, null);
-
-        this.protect_focus = focus_protection;
     }
 
     private void mostrarMensajeInformativo(Container container, String msg, String align, Integer width) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
         Helpers.mostrarMensajeInformativo(container, msg, align, width, null);
-
-        this.protect_focus = focus_protection;
     }
 
     private int mostrarMensajeInformativoSINO(Container container, String msg) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
-        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, null);
-
-        this.protect_focus = focus_protection;
-
-        return r;
+        return Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, null);
     }
 
     private int mostrarMensajeInformativoSINO(Container container, String msg, ImageIcon icon) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
-        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, icon);
-
-        this.protect_focus = focus_protection;
-
-        return r;
+        return Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, icon);
     }
 
     private int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
-        int r = Helpers.mostrarMensajeInformativoSINO(container, msg, align, width, null);
-
-        this.protect_focus = focus_protection;
-
-        return r;
+        return Helpers.mostrarMensajeInformativoSINO(container, msg, align, width, null);
     }
 
     private void mostrarMensajeError(Container container, String msg) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
         Helpers.mostrarMensajeError(container, msg, "center", null);
-
-        this.protect_focus = focus_protection;
 
     }
 
     private void mostrarMensajeError(Container container, String msg, String align, Integer width) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
         Helpers.mostrarMensajeError(container, msg, align, width);
-
-        this.protect_focus = focus_protection;
 
     }
 
     private int mostrarMensajeErrorSINO(Container container, String msg) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
-        int r = Helpers.mostrarMensajeErrorSINO(container, msg, "center", null);
-
-        this.protect_focus = focus_protection;
-
-        return r;
+        return Helpers.mostrarMensajeErrorSINO(container, msg, "center", null);
     }
 
     private int mostrarMensajeErrorSINO(Container container, String msg, String align, Integer width) {
 
-        boolean focus_protection = this.protect_focus;
-
-        this.protect_focus = false;
-
-        int r = Helpers.mostrarMensajeErrorSINO(container, msg, align, width);
-
-        this.protect_focus = focus_protection;
-
-        return r;
+        return Helpers.mostrarMensajeErrorSINO(container, msg, align, width);
     }
 
     private void runSocketReaderClientThread() {
@@ -4725,7 +4659,6 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_empezar_timbaActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowClosing
-        protect_focus = false;
 
         if (!barra.isVisible() || !booting) {
 
@@ -4821,17 +4754,11 @@ public class WaitingRoomFrame extends JFrame {
 
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_logoMouseClicked
 
-        boolean auto_f = protect_focus;
-
-        protect_focus = false;
-
         AboutDialog dialog = new AboutDialog(this, true);
 
         dialog.setLocationRelativeTo(this);
 
         dialog.setVisible(true);
-
-        protect_focus = auto_f;
     }// GEN-LAST:event_logoMouseClicked
 
     private void new_bot_buttonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_new_bot_buttonActionPerformed
@@ -5138,15 +5065,9 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_chat_boxActionPerformed
 
     private void image_buttonActionPerformed(java.awt.event.ActionEvent evt) {// GEN-FIRST:event_image_buttonActionPerformed
-        boolean auto_f = protect_focus;
-
-        protect_focus = false;
         ChatImageDialog chat_image_dialog = new ChatImageDialog(this, true, (int) Math.round(this.getHeight() * 0.9f));
         chat_image_dialog.setLocationRelativeTo(this);
         chat_image_dialog.setVisible(true);
-
-        protect_focus = auto_f;
-
     }// GEN-LAST:event_image_buttonActionPerformed
 
     private void chatFocusLost(java.awt.event.FocusEvent evt) {// GEN-FIRST:event_chatFocusLost
@@ -5186,7 +5107,7 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.setScaledIconLabel(sound_icon,
                 getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
 
-        if (!chat_text.toString().isEmpty() && !protect_focus) {
+        if (!chat_text.toString().isEmpty()) {
             refreshChatPanel();
         }
 
@@ -5259,10 +5180,8 @@ public class WaitingRoomFrame extends JFrame {
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {// GEN-FIRST:event_formComponentHidden
 
-        if (!protect_focus) {
-            chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
-            chat_box.requestFocus();
-        }
+        chat.setText("<html><body style='background-image: url(" + background_chat_src + ")'></body></html>");
+        chat_box.requestFocus();
 
         if (partida_empezando) {
             partida_empezando = false;

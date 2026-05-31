@@ -1120,31 +1120,6 @@ public class Helpers {
         }
     }
 
-    /**
-     * Empties a countdown bar immediately and definitively: cancels any running
-     * smoothCountdown timer and pins the value to its minimum (0% fill). Used when a
-     * turn times out, so the bar does not sit frozen on a residual sliver while the
-     * timeout horn plays before the auto fold/check fires — the visual bar
-     * (wall-clock) and the logical response counter can drift apart at the very end
-     * (skipped decrements on timeout/pause/turn-change ticks) and leave the bar a
-     * hair short of empty when the trigger fires.
-     */
-    public static void emptyBarra(JProgressBar barra) {
-        Runnable r = () -> {
-            cancelSmoothCountdownEDT(barra);
-            barra.setIndeterminate(false);
-            barra.setValue(barra.getMinimum());
-            // Repintado completo: asegura que el ultimo relleno desaparece y no
-            // queda una "rayita" dibujada al vaciar.
-            barra.repaint();
-        };
-        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-            r.run();
-        } else {
-            Helpers.GUIRun(r);
-        }
-    }
-
     public static String updateJarImgSrc(String html) {
 
         String msg = html;

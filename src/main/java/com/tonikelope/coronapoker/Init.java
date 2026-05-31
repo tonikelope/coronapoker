@@ -1033,14 +1033,20 @@ public class Init extends JFrame {
         if (!Init.DEV_MODE) {
             SQL_FILE = CORONA_DIR + "/coronapoker.db";
         } else {
-            if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {
-                try {
-                    File db = File.createTempFile("coronapoker_" + Helpers.genRandomString(WIDTH), ".db");
+            // DEV_MODE: trabajamos sobre una copia temporal desechable para no
+            // mutar la BD real. Blindaje: SQL_FILE NUNCA debe quedar en null (si
+            // no, se abriria "jdbc:sqlite:null" y se crearia un fichero "null").
+            // Si la BD real no existe, usamos un temporal vacio; si la copia falla,
+            // caemos a la ruta real.
+            try {
+                File db = File.createTempFile("coronapoker_" + Helpers.genRandomString(WIDTH), ".db");
+                if (Files.exists(Paths.get(CORONA_DIR + "/coronapoker.db"))) {
                     Files.copy(Paths.get(CORONA_DIR + "/coronapoker.db"), db.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    SQL_FILE = db.getAbsolutePath();
-                } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
                 }
+                SQL_FILE = db.getAbsolutePath();
+            } catch (IOException ex) {
+                LOGGER.log(Level.SEVERE, "DEV_MODE temp DB copy failed; falling back to the real DB", ex);
+                SQL_FILE = CORONA_DIR + "/coronapoker.db";
             }
         }
 

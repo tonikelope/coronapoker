@@ -5190,10 +5190,6 @@ public class WaitingRoomFrame extends JFrame {
             refreshChatPanel();
         }
 
-        protect_focus = isPartida_empezada();
-
-        setAlwaysOnTop(protect_focus);
-
         main_scroll_panel.getVerticalScrollBar().setValue(main_scroll_panel.getVerticalScrollBar().getMaximum());
 
         chat_box.requestFocus();
@@ -5288,23 +5284,13 @@ public class WaitingRoomFrame extends JFrame {
     }// GEN-LAST:event_chatMouseClicked
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowDeactivated
-        if (protect_focus) {
-
-            setVisible(false);
-
-            Helpers.threadRun(() -> {
-                Helpers.GUIRun(() -> {
-                    setVisible(true);
-                });
-            });
-        }
+        // La sala de espera es una ventana normal: no se aferra al foco. Durante
+        // la partida el foco lo gestiona el GameFrame; el chat in-game es el chat
+        // rapido. (Antes aqui se ocultaba y re-mostraba para robar el foco de
+        // vuelta, lo que peleaba con el GameFrame y causaba focos erraticos.)
     }// GEN-LAST:event_formWindowDeactivated
 
     private void formWindowDeiconified(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowDeiconified
-        if (protect_focus) {
-            protect_focus = false;
-            setVisible(false);
-        }
     }// GEN-LAST:event_formWindowDeiconified
 
     private void game_info_blindsMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_game_info_blindsMouseClicked

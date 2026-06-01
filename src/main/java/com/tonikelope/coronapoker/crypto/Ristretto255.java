@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 
 /**
  * Ristretto255 encode/decode (RFC 9496 §4.3) over the edwards25519 point group.
@@ -135,5 +136,53 @@ public final class Ristretto255 {
             return null;
         }
         return EdwardsPoint.fromAffine(x, y);
+    }
+
+    /**
+     * The ristretto255 one-way MAP from a field element to a group element
+     * (RFC 9496 §4.3.4). Used by {@link #hashToGroup} to build the genesis deck:
+     * the resulting points have unknown mutual discrete logs (unlike s*B), which
+     * is required so a locked deck cannot be de-permuted by matching card ratios.
+     */
+    static EdwardsPoint map(Fe25519 t) {
+        Fe25519 r = SQRT_M1.mul(t.sqr());
+        Fe25519 u = r.add(Fe25519.ONE).mul(ONE_MINUS_D_SQ);
+        Fe25519 v = Fe25519.ONE.negate().sub(r.mul(D)).mul(r.add(D)); // (-1 - r*d)(r + d)
+
+        Fe25519.SqrtRatioResult sr = Fe25519.sqrtRatioM1(u, v);
+        boolean wasSquare = sr.wasSquare;
+        Fe25519 s = sr.r;
+        Fe25519 sPrime = s.mul(t).abs().negate(); // -CT_ABS(s*t)
+        if (!wasSquare) {
+            s = sPrime;
+        }
+        Fe25519 c = wasSquare ? Fe25519.ONE.negate() : r;
+
+        Fe25519 n = c.mul(r.sub(Fe25519.ONE)).mul(D_MINUS_ONE_SQ).sub(v);
+        Fe25519 w0 = s.add(s).mul(v);          // 2*s*v
+        Fe25519 w1 = n.mul(SQRT_AD_MINUS_ONE);
+        Fe25519 w2 = Fe25519.ONE.sub(s.sqr());
+        Fe25519 w3 = Fe25519.ONE.add(s.sqr());
+
+        return new EdwardsPoint(w0.mul(w3), w2.mul(w1), w1.mul(w3), w0.mul(w2));
+    }
+
+    /**
+     * Maps 64 uniform bytes to a ristretto255 group element (RFC 9496): each
+     * 32-byte half decodes to a field element (high bit ignored) and is mapped;
+     * the two points are added. Feed it a wide hash (e.g. SHA-512) of a seed.
+     */
+    public static EdwardsPoint hashToGroup(byte[] uniform64) {
+        if (uniform64 == null || uniform64.length != 64) {
+            throw new IllegalArgumentException("hashToGroup requires 64 bytes");
+        }
+        Fe25519 t0 = Fe25519.fromBytes(Arrays.copyOfRange(uniform64, 0, 32));
+        Fe25519 t1 = Fe25519.fromBytes(Arrays.copyOfRange(uniform64, 32, 64));
+        return map(t0).add(map(t1));
+    }
+
+    /** Convenience: canonical 32-byte encoding of {@link #hashToGroup}. */
+    public static byte[] hashToGroupEncoded(byte[] uniform64) {
+        return encode(hashToGroup(uniform64));
     }
 }

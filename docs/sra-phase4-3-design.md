@@ -106,6 +106,25 @@ cerraba en el pocket): el residual cegado no es genesis. Inútil.
 Tras 4 y 6, el objetivo no-negociable queda cumplido: el host no descifra ninguna carta
 (pocket ni community) antes de tiempo, ni siquiera combinando rotación + testamento.
 
+## Mapeo completo de puertas (6ª pasada — confirma cobertura)
+
+El oráculo es UN patrón: *el cliente aplica su unlock a datos del host*. Enumeradas TODAS sus
+apariciones (grep de `applyCommutativeLock` con un unlock de cliente, lado WaitingRoom):
+
+| Puerta | Dónde | Estado |
+|---|---|---|
+| POCKET unlock | `REQ_SRA_UNLOCK_CHAIN` / batch(POCKET) | **cerrada** (4.2 + cabos 4/5) |
+| COMMUNITY unlock (FLOP/TURN/RIVER) | `REQ_SRA_UNLOCK_BATCH` (2386) | diseño **A** |
+| RABBIT_* unlock (helpers) | **mismo** handler batch, phases `RABBIT_*` | diseño **A** (mismas pieces) |
+| ROTACIÓN pocket-unlock | `DECK_ROTATION_REQ` (2228) | diseño **B** (cabo 6) |
+
+No-oráculos confirmados: la cascada (2138) aplica **lock** (no unlock); el target abriendo su
+propia copia (pocket 1407, community/host 7712, rabbit 2815) es apertura legítima de lo que ya
+es suyo; el showdown (`SHOWCARDS`) revela el unlock pero va **firmado** (Ed25519). **No hay
+quinta puerta.** → A (community **+ rabbit**, todas las phases `community`/`RABBIT_*`) + B
+(rotación) cubren el 100% del patrón. A2 debe migrar `cascadeAndDealCommunityPieces` para los
+DOS caminos (community y rabbit comparten el método vía `unlockPhase`).
+
 ## Nota de honestidad
 
 Hasta completar (A) **y** (B), el objetivo NO está cumplido para pockets en el caso "H sale".

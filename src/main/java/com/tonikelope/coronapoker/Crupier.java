@@ -478,7 +478,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /** Parsea el campo de commitments del MEGAPACKET y puebla los mapas locales. */
-    private void parseCommitments(String field) {
+    public void parseCommitments(String field) {
         if (field == null || field.isEmpty()) {
             return;
         }
@@ -1324,11 +1324,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 java.util.List<UnlockChainWire.RespItem> resp =
                         requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET, reqItems);
                 if (resp != null) {
+                    java.util.Set<Integer> covered = new java.util.HashSet<>();
                     for (UnlockChainWire.RespItem ri : resp) {
                         if (ri.peerIdx >= 0 && ri.peerIdx < ringLen && ri.peerIdx != h && ri.chains.size() == 2) {
                             pocketChains[ri.peerIdx][0] = ri.chains.get(0);
                             pocketChains[ri.peerIdx][1] = ri.chains.get(1);
+                            covered.add(ri.peerIdx);
                         }
+                    }
+                    // El helper debe haber extendido TODOS los slots != h. Un RESP incompleto
+                    // dejaria un residuo aun lockeado por el helper (paridad con el batch viejo
+                    // que validaba count). Tratarlo como rechazo.
+                    boolean allCovered = true;
+                    for (int i = 0; i < ringLen && allCovered; i++) {
+                        if (i != h && !covered.contains(i)) {
+                            allCovered = false;
+                        }
+                    }
+                    if (!allCovered) {
+                        cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
+                        return false;
                     }
                 } else if (ph.getSra_unlock() != null) {
                     byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
@@ -3537,6 +3552,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 if (myP != null) {
                                     myP.setSra_unlock(this.local_sra_unlock);
                                 }
+                            } else if (part.startsWith("COMMITMENTS@")) {
+                                // Fase 4 (recovery): repoblar los K del ring (HAND_V2) para que
+                                // initHandStateChain reconstruya el MISMO H_0 que la mano original.
+                                this.peer_k_pocket.clear();
+                                this.peer_k_community.clear();
+                                parseCommitments(part.substring("COMMITMENTS@".length()));
                             } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
                                 // Dual-lock: unlocks community de cada bot. Sin esto, la
                                 // contribución community del bot quedaría sin invertir y
@@ -3770,6 +3791,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (myP != null) {
                                 myP.setSra_unlock(this.local_sra_unlock);
                             }
+                        } else if (part.startsWith("COMMITMENTS@")) {
+                            // Fase 4 (recovery): repoblar los K del ring (HAND_V2) para que
+                            // initHandStateChain reconstruya el MISMO H_0 que la mano original.
+                            this.peer_k_pocket.clear();
+                            this.peer_k_community.clear();
+                            parseCommitments(part.substring("COMMITMENTS@".length()));
                         } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
                             String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
                             for (String bk : bKeys) {
@@ -8565,6 +8592,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (unlockCommunityToSave != null) {
                 fosil.append("#SRAKEYS_COMMUNITY@").append(java.util.Base64.getEncoder().encodeToString(unlockCommunityToSave));
+            }
+
+            // Fase 4: persistir los commitments K del ring para que el recovery
+            // reconstruya el MISMO H_0 (HAND_V2). Sin esto, initHandStateChain en
+            // recovery cae a HAND_V1 (peer_k_pocket vacío) y diverge del H_0 original,
+            // rompiendo la verificación de la cadena de acciones recuperadas.
+            String commitmentsFossil = serializeCommitments();
+            if (!commitmentsFossil.isEmpty()) {
+                fosil.append("#COMMITMENTS@").append(commitmentsFossil);
             }
 
             StringBuilder botKeys = new StringBuilder();

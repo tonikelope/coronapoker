@@ -74,6 +74,12 @@ public final class HandStateChain {
      */
     public static final byte[] DOMAIN_HAND_V1 = "HAND_V1\0".getBytes(StandardCharsets.UTF_8);
 
+    /**
+     * Domain separator for HAND_V2, which additionally binds every peer's per-hand
+     * public key commitments (K_pocket, K_community) into H_0 for verifiable dealing.
+     */
+    public static final byte[] DOMAIN_HAND_V2 = "HAND_V2\0".getBytes(StandardCharsets.UTF_8);
+
     /** Length in bytes of {@code H_t}. */
     public static final int HASH_BYTES = 32;
 
@@ -149,6 +155,84 @@ public final class HandStateChain {
         for (byte[] pid : sorted) {
             System.arraycopy(pid, 0, preimage, p, HASH_BYTES);
             p += HASH_BYTES;
+        }
+        System.arraycopy(deckCommitment, 0, preimage, p, HASH_BYTES);
+
+        return new HandStateChain(handId, sha256(preimage));
+    }
+
+    /**
+     * HAND_V2 initial state: like {@link #start} but additionally binds every peer's
+     * per-hand public commitments K_pocket = k_pocket*B and K_community =
+     * k_community*B (Ristretto255 encodings, 32 bytes each) into H_0, so the
+     * verifiable-dealing chain (Phase 4) can be checked against keys no party can
+     * forge after the fact. The three lists are parallel (index i belongs to
+     * playerIds[i]); peers are sorted by player id so join order does not affect H_0.
+     *
+     * <pre>
+     *   H_0 = SHA-256( "HAND_V2\0" || HAND_ID || uint8(N)
+     *                  || for each peer (sorted by id): id(32) || K_pocket(32) || K_community(32)
+     *                  || SHA-256(cascaded_deck) )
+     * </pre>
+     */
+    public static HandStateChain startV2(byte[] handId, List<byte[]> playerIds,
+            List<byte[]> kPocketCommits, List<byte[]> kCommunityCommits, byte[] cascadedDeck) {
+        if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
+            throw new IllegalArgumentException("handId must be "
+                    + CanonicalActionRecord.HAND_ID_BYTES + " bytes");
+        }
+        if (playerIds == null || playerIds.isEmpty()) {
+            throw new IllegalArgumentException("playerIds required");
+        }
+        int n = playerIds.size();
+        if (n > 255) {
+            throw new IllegalArgumentException("num_players exceeds uint8: " + n);
+        }
+        if (kPocketCommits == null || kCommunityCommits == null
+                || kPocketCommits.size() != n || kCommunityCommits.size() != n) {
+            throw new IllegalArgumentException("commitment lists must match playerIds size");
+        }
+        if (cascadedDeck == null || cascadedDeck.length == 0) {
+            throw new IllegalArgumentException("cascadedDeck required");
+        }
+
+        // Pack each peer as id(32) || K_pocket(32) || K_community(32) and sort by the
+        // leading id bytes (ids are unique, so the id prefix decides the order).
+        byte[][] packed = new byte[n][];
+        for (int i = 0; i < n; i++) {
+            byte[] pid = playerIds.get(i);
+            byte[] kp = kPocketCommits.get(i);
+            byte[] kc = kCommunityCommits.get(i);
+            if (pid == null || pid.length != HASH_BYTES
+                    || kp == null || kp.length != HASH_BYTES
+                    || kc == null || kc.length != HASH_BYTES) {
+                throw new IllegalArgumentException(
+                        "peer " + i + ": id and commitments must be " + HASH_BYTES + " bytes");
+            }
+            byte[] row = new byte[HASH_BYTES * 3];
+            System.arraycopy(pid, 0, row, 0, HASH_BYTES);
+            System.arraycopy(kp, 0, row, HASH_BYTES, HASH_BYTES);
+            System.arraycopy(kc, 0, row, HASH_BYTES * 2, HASH_BYTES);
+            packed[i] = row;
+        }
+        Arrays.sort(packed, (x, y) -> Arrays.compareUnsigned(x, y));
+
+        byte[] deckCommitment = sha256(cascadedDeck);
+        int totalLen = DOMAIN_HAND_V2.length
+                + CanonicalActionRecord.HAND_ID_BYTES
+                + 1
+                + (HASH_BYTES * 3 * n)
+                + HASH_BYTES;
+        byte[] preimage = new byte[totalLen];
+        int p = 0;
+        System.arraycopy(DOMAIN_HAND_V2, 0, preimage, p, DOMAIN_HAND_V2.length);
+        p += DOMAIN_HAND_V2.length;
+        System.arraycopy(handId, 0, preimage, p, CanonicalActionRecord.HAND_ID_BYTES);
+        p += CanonicalActionRecord.HAND_ID_BYTES;
+        preimage[p++] = (byte) (n & 0xFF);
+        for (byte[] row : packed) {
+            System.arraycopy(row, 0, preimage, p, row.length);
+            p += row.length;
         }
         System.arraycopy(deckCommitment, 0, preimage, p, HASH_BYTES);
 

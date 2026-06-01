@@ -69,6 +69,14 @@ public final class RistrettoSRA {
     }
 
     /**
+     * Public commitment K = k*B (32-byte encoding) for a lock scalar k. Published
+     * in H_0 so peers can verify, via DLEQ, that an unlock used this committed key.
+     */
+    public static byte[] commitment(byte[] lockScalar) {
+        return Ristretto255.encode(EdwardsPoint.BASE.scalarMul(bytesToScalar(lockScalar)));
+    }
+
+    /**
      * Applies a commutative lock (scalar multiplication) to every 32-byte point in
      * a flat deck. Returns null if the deck is malformed or any point fails to
      * decode (off-group) — the caller treats null as a zero-trust rejection.

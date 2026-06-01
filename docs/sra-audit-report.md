@@ -60,6 +60,32 @@ ambas ramas de recovery (host y cliente) los repueblan (`parseCommitments`) ante
 - **community dealing sigue sin binding** (usa el batch viejo) — migración incremental
   pendiente (rama `sra-phase4-3`) + colisión-check global (4.3).
 
+## Segunda pasada (doble check, mente fresca)
+
+Re-auditoría centrada en (a) que los tres fixes no introdujeran regresiones y (b) lo que los
+tests **no** pueden cazar. Sin cabos nuevos; dos confirmaciones de peso:
+
+- **Fix 3 (recovery) verificado correcto:** los únicos `peer_k_pocket.clear()` están en
+  `enviarCartasJugadoresRemotos` (dealing de mano nueva, **no** se ejecuta en recovery) y en
+  el propio fix, **justo antes** de `parseCommitments`. `readyForNextHand` **no** toca
+  `peer_k_pocket`. Por tanto el repoblado de recovery persiste intacto hasta
+  `initHandStateChain` → `H_0` V2 reconstruido.
+- **Coherencia `lock ↔ K` en los cuatro caminos** (host, bot, helper-testamento,
+  helper-vivo): un mismatch lock/unlock sería **invisible** a los 80 tests (usan el lock de
+  forma consistente) pero rompería toda verificación DLEQ en producción. Confirmado que cada
+  `extend` recibe el escalar cuyo `commitment` es exactamente el `K` registrado en
+  `peer_k_pocket` (host `local_sra_lock`; bot `getUnlockScalar(received_token)`; helper
+  `getUnlockScalar(sra_unlock)`; `getUnlockScalar` es involutivo). Coinciden los cuatro.
+- **Paridad con el batch viejo:** la política vivo/exit/testamento/fallback del caller pocket
+  es **idéntica** a la del batch (diff `e6cc936e`); solo cambió el mecanismo (chain+DLEQ vs
+  `applyCommutativeLock` directo), matemáticamente equivalente. El caso "vivo sin respuesta →
+  `sra_unlock`" es heredado y ya validado, no un camino nuevo.
+
+Observaciones menores nuevas (no bloqueantes): el handler chain no replica el anti-reuse de
+tags del batch viejo (irrelevante con el binding: la cadena es determinista, no extrae info);
+el cliente no limpia `peer_k_pocket` entre manos (inocuo: `parseCommitments` sobrescribe los
+`K` de los nicks del ring; los residuos de nicks ausentes no se iteran).
+
 ## Estado tras la auditoría
 
 80–85 tests verdes, compila. Los 3 fixes están en `sra-phase4-2`. Smoke recomendado, por

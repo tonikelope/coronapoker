@@ -29,6 +29,7 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
+import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
@@ -913,6 +914,80 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         return unlocked;
+    }
+
+    /**
+     * Fase 4.2: variante verificable del unlock batch. Envia, por item, las cadenas
+     * DealChain por punto (no el residuo desnudo); el peer las verifica contra su
+     * MEGAPACKET comprometido y devuelve las cadenas extendidas con su prueba. El
+     * host nunca le manda el punto a descifrar — solo el offset y las pruebas previas
+     * — asi que el cegado es imposible. Devuelve los RespItem por nick o null.
+     */
+    private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(
+            String nick, Participant p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        byte[] iv = new byte[16];
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        String payload = UnlockChainWire.serializeReq(items);
+        try {
+            String cmd = "GAME#" + id + "#REQ_SRA_UNLOCK_CHAIN#" + phase + "#" + this.conta_mano + "#" + payload;
+            p.writeCommandFromServer(Helpers.encryptCommand(cmd, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            return null;
+        }
+
+        boolean ok = false;
+        java.util.List<UnlockChainWire.RespItem> result = null;
+        long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
+        do {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                while (!ok && !this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("RESP_SRA_UNLOCK_CHAIN")) {
+                        try {
+                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (senderNick.equals(nick)) {
+                                java.util.List<UnlockChainWire.RespItem> parsed = UnlockChainWire.parseResp(partes[4]);
+                                if (parsed != null) {
+                                    result = parsed;
+                                    ok = true;
+                                } else {
+                                    rejected.add(cmd);
+                                }
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            rejected.add(cmd);
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+            if (!ok) {
+                long remainingMs = deadlineMs - System.currentTimeMillis();
+                if (remainingMs <= 0) {
+                    LOGGER.log(Level.WARNING,
+                            "REQ_SRA_UNLOCK_CHAIN to {0} (phase {1}) timed out after {2}ms",
+                            new Object[]{nick, phase, REMOTE_SRA_PEER_TIMEOUT_MS});
+                    return null;
+                }
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
+        return ok ? result : null;
     }
 
     private boolean enviarCartasJugadoresRemotos() {

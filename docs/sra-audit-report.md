@@ -116,6 +116,57 @@ migración (4.3).
 **Lección:** el binding cierra el cegado *del punto*, pero un oráculo tiene más puertas —
 *qué* punto se pela (cabo 4) y *por qué comando* (cabo 5). Ambas ahora cerradas.
 
+## Cuarta pasada — gate de orden POCKET (evaluado y DESCARTADO)
+
+El batch viejo cerraba la fase POCKET tras revelar cualquier comunitaria
+(`isSraUnlockRequestLegitimate`); el handler chain no lo replica (`isUnlockPhaseStateSafe`
+→ POCKET siempre `true`). **Descartado a propósito:** con el self-strip guard (cabo 4) el
+helper nunca pela su propio pocket, y todos los pockets se reparten al inicio, así que pedir
+pocket-chains tarde no da información nueva. Añadir el gate sería defensa-en-profundidad
+redundante con **riesgo de regresión por timing** (el handler es async; un `lockdown` que
+dependa de `flop_revealed` puede dispararse en un camino honesto con lag). Sin valor de
+seguridad real → no se toca. Verificado además que los fixes de la 3ª pasada son **guards
+defensivos puros** (no-ops en tráfico honesto): el caller honesto nunca pide pelar el pocket
+propio (excluye `i==h`), y `phaseForStreet` nunca devuelve POCKET (el batch sólo recibe
+community). Sin regresión.
+
+## Quinta pasada (adversarial) — 🔴 CRÍTICO: el oráculo sigue abierto por la rotación
+
+**El hallazgo más importante de la auditoría.** El pocket binding de hoy (cabos 4/5) cierra
+el oráculo por `REQ_SRA_UNLOCK_CHAIN` y `REQ_SRA_UNLOCK_BATCH`, pero **NO es suficiente por
+sí solo**: hay una tercera puerta.
+
+### 🔴 6 (crítico, VIVO, NO corregido — requiere fase 4.3) — oráculo por `DECK_ROTATION_REQ`
+En la rotación dual-lock (FASE 1.5 del reparto, se ejecuta en cada mano), el cliente aplica
+su **pocket-unlock** a `incomingPieces` que envía el host, validando sólo que sean puntos en
+curva (`arePointsValid`) — **sin anclaje**. Ataque de un host hostil:
+1. Envía `DECK_ROTATION_REQ` con `incomingPieces = r·P` (cegado; pasa la validación de curva).
+   El helper devuelve `r·P·k_Hpocket⁻¹·k_Hcommunity`.
+2. En el flop, envía ese resultado por `REQ_SRA_UNLOCK_BATCH` (community, sin binding — GATE 6
+   lo evade el cegado). El helper quita `k_Hcommunity` → `r·P·k_Hpocket⁻¹`.
+3. El host descega (`·r⁻¹`) → `P·k_Hpocket⁻¹`, para **cualquier** `P`.
+
+Encadenando todos los helpers, el host pela todos los pocket-locks de un pocket y, con
+`k_host`/`k_bots` que ya tiene, **lee las hole cards de un helper en claro**. Es la vuln
+original reabierta por una tercera puerta. Afecta sólo a helpers humanos (los bots los rota
+el host localmente, ya conoce sus secretos).
+
+**Por qué no se corrige ahora:** el cliente **no tiene** el megapacket cuando rota (la
+rotación precede a su ensamblado), así que el anclaje exige comprometer las community pieces
+pre-rotación (commitment en H_0 / cascade) — es exactamente el **binding community de la fase
+4.3**. Tocar el dual-lock a ciegas, sin smoke, es justo la regresión a evitar. **Decisión:
+documentado y elevado de "mejora" a requisito.**
+
+**Diseño del fix (4.3):** comprometer las community pieces pre-rotación (p. ej. su hash en
+`H_0`, junto a los `K`), y que el handler de rotación verifique que `incomingPieces` coincide
+byte-a-byte con ese compromiso antes de aplicar el pocket-unlock — análogo a cómo el pocket
+chain ancla al MEGAPACKET. Cierra el cegado igual que en el pocket.
+
+**Conclusión honesta:** hasta cerrar la 4.3, el objetivo "el host no ve ninguna carta antes
+de tiempo" **no está cumplido para pockets**; el binding de hoy es un paso necesario pero el
+pocket sigue extraíble vía rotación. Esto NO es un regreso del trabajo de hoy — es un flanco
+preexistente del dual-lock que la auditoría adversarial ha sacado a la luz.
+
 ## Estado tras la auditoría
 
 80–85 tests verdes, compila. Los 3 fixes están en `sra-phase4-2`. Smoke recomendado, por

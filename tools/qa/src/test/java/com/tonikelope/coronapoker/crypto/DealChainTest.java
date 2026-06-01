@@ -123,6 +123,55 @@ public class DealChainTest {
     }
 
     @Test
+    public void extendChainsHonestlyAcrossPeersAndRevealsCard() {
+        // Models the real flow: each peer takes the incoming chain, verifies it against
+        // its OWN committed MEGAPACKET point, strips its lock and appends its proof.
+        Setup s = new Setup();
+        String wire = "";
+        for (int i = 0; i < N; i++) {
+            DealChain.Extended ext = DealChain.extend(
+                    s.megapacketPoint, wire, s.commitments, "p" + i, s.locks[i]);
+            assertTrue(ext != null, "honest extend must succeed at peer " + i);
+            wire = ext.wire;
+        }
+        List<DealChain.Entry> finalChain = DealChain.parse(wire);
+        assertTrue(DealChain.verify(s.megapacketPoint, finalChain, s.commitments),
+                "fully-extended chain must verify");
+        assertEquals(s.cardIdx, RistrettoSRA.resolveCardIndex(DealChain.tail(s.megapacketPoint, finalChain)),
+                "tail of fully-extended chain reveals the card");
+    }
+
+    @Test
+    public void extendRejectsChainNotAnchoredToOurPoint() {
+        // A peer anchors to its OWN committed point. A chain built from a different
+        // point must be refused — this is what stops a host from feeding a blinded
+        // residual: the peer never trusts a host-supplied point, only its MEGAPACKET.
+        Setup s = new Setup();
+        String wire = DealChain.serialize(s.honestChain());
+        byte[] genesis = RistrettoSRA.getGenesisDeck();
+        byte[] otherPoint = new byte[32];
+        System.arraycopy(genesis, 40 * 32, otherPoint, 0, 32);
+        for (byte[] lk : s.locks) {
+            otherPoint = RistrettoSRA.applyCommutativeLock(otherPoint, lk);
+        }
+        assertNull(DealChain.extend(otherPoint, wire, s.commitments, "pX", RistrettoSRA.generateLockScalar()),
+                "extend must reject a chain that does not start at our committed point");
+    }
+
+    @Test
+    public void extendRejectsTamperedIncomingChain() {
+        Setup s = new Setup();
+        List<DealChain.Entry> chain = s.honestChain();
+        chain.get(1).proof[0] ^= 0x01; // tamper a proof
+        String wire = DealChain.serialize(chain);
+        assertNull(DealChain.extend(s.megapacketPoint, wire, s.commitments, "pX", RistrettoSRA.generateLockScalar()),
+                "extend must reject a chain with a tampered proof");
+        // Malformed wire too.
+        assertNull(DealChain.extend(s.megapacketPoint, "garbage", s.commitments, "pX", RistrettoSRA.generateLockScalar()),
+                "extend must reject malformed incoming wire");
+    }
+
+    @Test
     public void malformedWireParsesToNull() {
         assertNull(DealChain.parse("not-three-fields"), "wrong field count must parse to null");
         assertNull(DealChain.parse("YQ==:YQ==:YQ=="), "out-of-spec lengths must parse to null");

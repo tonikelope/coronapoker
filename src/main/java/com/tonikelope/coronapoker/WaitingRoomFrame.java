@@ -29,6 +29,8 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
+import com.tonikelope.coronapoker.crypto.DealChain;
+import com.tonikelope.coronapoker.crypto.UnlockChainWire;
 
 import java.awt.Color;
 import java.awt.Container;
@@ -2416,6 +2418,106 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_BATCH; host will time out and abort the hand", e);
+                                                                }
+                                                            });
+                                                            break;
+                                                        case "REQ_SRA_UNLOCK_CHAIN":
+                                                            // Fase 4.2: unlock batch VERIFICABLE. Por cada punto, el host envia la
+                                                            // cadena DealChain de los peers previos; este peer la verifica contra SU
+                                                            // MEGAPACKET comprometido y, si es valida, aplica su unlock con prueba
+                                                            // DLEQ y extiende la cadena. El host nunca le manda el punto a descifrar
+                                                            // (solo offset + pruebas), asi que el cegado es imposible.
+                                                            final String[] partes_chain = partes_comando;
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    if (Crupier.SECURITY_LOCKDOWN) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN refused — security lockdown active");
+                                                                        return;
+                                                                    }
+                                                                    if (partes_chain.length < 6) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed wire (parts={0}) — refusing", partes_chain.length);
+                                                                        return;
+                                                                    }
+                                                                    int phase;
+                                                                    int hand_id;
+                                                                    try {
+                                                                        phase = Integer.parseInt(partes_chain[3]);
+                                                                        hand_id = Integer.parseInt(partes_chain[4]);
+                                                                    } catch (NumberFormatException nfe) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN non-numeric phase/hand_id — refusing");
+                                                                        return;
+                                                                    }
+                                                                    String payloadChain = partes_chain[5];
+                                                                    Crupier crupier = GameFrame.getInstance().getCrupier();
+                                                                    if (crupier == null) {
+                                                                        return;
+                                                                    }
+                                                                    Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
+                                                                    if (waitResult != Crupier.UnlockWaitResult.READY) {
+                                                                        if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order, refusing", phase);
+                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                        }
+                                                                        return;
+                                                                    }
+                                                                    if (hand_id != crupier.getMano()) {
+                                                                        LOGGER.log(Level.INFO, "REQ_SRA_UNLOCK_CHAIN: hand advanced — dropping");
+                                                                        return;
+                                                                    }
+                                                                    byte[] myUnlock = (phase == Crupier.UNLOCK_PHASE_POCKET)
+                                                                            ? this.participantes.get(local_nick).getSra_unlock()
+                                                                            : this.participantes.get(local_nick).getSra_unlock_community();
+                                                                    if (myUnlock == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN no local unlock for phase {0} — refusing", phase);
+                                                                        return;
+                                                                    }
+                                                                    byte[] myLock = RistrettoSRA.getUnlockScalar(myUnlock); // k = (k^-1)^-1
+                                                                    java.util.Map<String, byte[]> commitments = (phase == Crupier.UNLOCK_PHASE_POCKET)
+                                                                            ? crupier.peer_k_pocket : crupier.peer_k_community;
+                                                                    byte[] megapacket = crupier.local_mega_packet;
+                                                                    String[] ring = crupier.active_crypto_ring;
+                                                                    if (megapacket == null || ring == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
+                                                                        return;
+                                                                    }
+                                                                    java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
+                                                                    if (items == null) {
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed items — refusing");
+                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                        return;
+                                                                    }
+                                                                    java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
+                                                                    for (UnlockChainWire.ReqItem it : items) {
+                                                                        if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to unlock my own slot — extraction, refusing");
+                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                            return;
+                                                                        }
+                                                                        java.util.List<String> outChains = new java.util.ArrayList<>();
+                                                                        for (int j = 0; j < it.chains.size(); j++) {
+                                                                            int pointIdx = it.offsetBase + j;
+                                                                            if (pointIdx < 0 || (pointIdx + 1) * 32 > megapacket.length) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                return;
+                                                                            }
+                                                                            byte[] point = java.util.Arrays.copyOfRange(megapacket, pointIdx * 32, (pointIdx + 1) * 32);
+                                                                            DealChain.Extended ext = DealChain.extend(point, it.chains.get(j), commitments, local_nick, myLock);
+                                                                            if (ext == null) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN chain not anchored/invalid (offset {0}) — extraction or tampering, refusing", pointIdx);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                                return;
+                                                                            }
+                                                                            outChains.add(ext.wire);
+                                                                        }
+                                                                        resp.add(new UnlockChainWire.RespItem(it.peerIdx, outChains));
+                                                                    }
+                                                                    String respPayload = UnlockChainWire.serializeResp(resp);
+                                                                    int respIdChain = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                    String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdChain + "#RESP_SRA_UNLOCK_CHAIN#" + myNickB64 + "#" + respPayload, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                } catch (Exception e) {
+                                                                    LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_CHAIN; host will time out and abort", e);
                                                                 }
                                                             });
                                                             break;

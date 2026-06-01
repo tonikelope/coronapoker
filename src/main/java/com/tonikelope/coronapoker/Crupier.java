@@ -30,6 +30,7 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.crypto.RistrettoSRA;
 import com.tonikelope.coronapoker.crypto.UnlockChainWire;
+import com.tonikelope.coronapoker.crypto.DealChain;
 
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
@@ -990,6 +991,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ok ? result : null;
     }
 
+    /**
+     * Fase 4.2: extiende localmente (en nombre de signerNick, con su lock) la cadena
+     * DealChain de cada slot del pocket salvo el del propio signer (skipSlot). Usado
+     * por el host para su propio paso, el de los bots y el testamento de un peer que
+     * salió (el host deriva el lock del unlock entregado). Devuelve false si algún
+     * extend falla (no debería con datos honestos).
+     */
+    private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot,
+            String signerNick, byte[] signerLock) {
+        for (int i = 0; i < ring.length; i++) {
+            if (i == skipSlot) {
+                continue;
+            }
+            for (int j = 0; j < 2; j++) {
+                int pointIdx = i * 2 + j;
+                byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                DealChain.Extended ext = DealChain.extend(point, chains[i][j], peer_k_pocket, signerNick, signerLock);
+                if (ext == null) {
+                    return false;
+                }
+                chains[i][j] = ext.wire;
+            }
+        }
+        return true;
+    }
+
     private boolean enviarCartasJugadoresRemotos() {
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
@@ -1230,28 +1257,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (target=H mantiene el lock del propio H para que su client lo abra).
         // Si un humano H ha hecho EXIT con testamento, aplicamos su unlock
         // localmente para esos mismos slots; sin testamento abortamos la mano.
+        // FASE 4.2: dealing pocket VERIFICABLE. Cada peer que quita su lock adjunta una
+        // prueba DLEQ encadenada desde el MEGAPACKET comprometido; el host (sus propios
+        // locks, los de bots y los testamentos de exits) extiende localmente, y los
+        // helpers vivos vía REQ_SRA_UNLOCK_CHAIN. El residuo single-locked de cada slot
+        // es el tail de su cadena. Ningún peer descifra bytes sin probar su procedencia.
         String hostNick = GameFrame.getInstance().getNick_local();
-        byte[][] pockets = new byte[currentRing.length][];
-        for (int i = 0; i < currentRing.length; i++) {
-            String targetNick = currentRing[i];
-            byte[] pocketCards = new byte[64];
-            System.arraycopy(local_mega_packet, i * 64, pocketCards, 0, 64);
-
-            if (!targetNick.equals(hostNick)) {
-                pocketCards = RistrettoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
-            }
-
-            for (String bNick : currentRing) {
-                Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
-                if (pb != null && pb.isCpu() && !bNick.equals(targetNick)) {
-                    pocketCards = RistrettoSRA.applyCommutativeLock(pocketCards, pb.getReceived_token());
-                }
-            }
-            pockets[i] = pocketCards;
+        int ringLen = currentRing.length;
+        String[][] pocketChains = new String[ringLen][2];
+        for (int i = 0; i < ringLen; i++) {
+            pocketChains[i][0] = "";
+            pocketChains[i][1] = "";
         }
 
-        // Recorrido de helpers humanos remotos en orden del ring (determinista).
-        for (int h = 0; h < currentRing.length; h++) {
+        // Paso 1: el host quita su lock (con prueba) de cada slot salvo el suyo.
+        int hostSlot = -1;
+        for (int i = 0; i < ringLen; i++) {
+            if (currentRing[i].equals(hostNick)) {
+                hostSlot = i;
+                break;
+            }
+        }
+        if (!extendPocketChainsForSigner(pocketChains, currentRing, hostSlot, hostNick, this.local_sra_lock)) {
+            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+            return false;
+        }
+        // Bots: el host quita el lock de cada bot (con prueba) de cada slot salvo el del bot.
+        for (String bNick : currentRing) {
+            Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
+            if (pb != null && pb.isCpu() && pb.getReceived_token() != null) {
+                int botSlot = -1;
+                for (int i = 0; i < ringLen; i++) {
+                    if (currentRing[i].equals(bNick)) {
+                        botSlot = i;
+                        break;
+                    }
+                }
+                byte[] botLock = RistrettoSRA.getUnlockScalar(pb.getReceived_token());
+                if (!extendPocketChainsForSigner(pocketChains, currentRing, botSlot, bNick, botLock)) {
+                    cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    return false;
+                }
+            }
+        }
+
+        // Paso 2: helpers humanos remotos en orden del ring (vivos vía comando; exit
+        // con testamento extendido localmente por el host derivando el lock del unlock).
+        for (int h = 0; h < ringLen; h++) {
             String hNick = currentRing[h];
             if (hNick.equals(hostNick)) {
                 continue;
@@ -1261,42 +1313,63 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 continue;
             }
 
-            ArrayList<Integer> peerIdxs = new ArrayList<>();
-            ArrayList<byte[]> payloads = new ArrayList<>();
-            ArrayList<Integer> slotsForH = new ArrayList<>();
-            for (int i = 0; i < currentRing.length; i++) {
-                if (i != h) {
-                    peerIdxs.add(i);
-                    payloads.add(pockets[i]);
-                    slotsForH.add(i);
-                }
-            }
-
             if (!ph.isExit()) {
-                ArrayList<byte[]> response = requestRemoteUnlockBatch(hNick, ph, UNLOCK_PHASE_POCKET, peerIdxs, payloads);
-                if (response != null) {
-                    for (int k = 0; k < slotsForH.size(); k++) {
-                        pockets[slotsForH.get(k)] = response.get(k);
+                java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
+                for (int i = 0; i < ringLen; i++) {
+                    if (i != h) {
+                        reqItems.add(new UnlockChainWire.ReqItem(i, i * 2,
+                                java.util.Arrays.asList(pocketChains[i][0], pocketChains[i][1])));
+                    }
+                }
+                java.util.List<UnlockChainWire.RespItem> resp =
+                        requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET, reqItems);
+                if (resp != null) {
+                    for (UnlockChainWire.RespItem ri : resp) {
+                        if (ri.peerIdx >= 0 && ri.peerIdx < ringLen && ri.peerIdx != h && ri.chains.size() == 2) {
+                            pocketChains[ri.peerIdx][0] = ri.chains.get(0);
+                            pocketChains[ri.peerIdx][1] = ri.chains.get(1);
+                        }
                     }
                 } else if (ph.getSra_unlock() != null) {
-                    for (int slot : slotsForH) {
-                        pockets[slot] = RistrettoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
+                    byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
+                    if (!extendPocketChainsForSigner(pocketChains, currentRing, h, hNick, hLock)) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                        return false;
                     }
                 } else {
-                    // Peer vivo, NO respondió, no testament local. REFUSAL → para la timba.
                     cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
                     return false;
                 }
             } else if (ph.getSra_unlock() != null) {
-                for (int slot : slotsForH) {
-                    pockets[slot] = RistrettoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
+                byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
+                if (!extendPocketChainsForSigner(pocketChains, currentRing, h, hNick, hLock)) {
+                    cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    return false;
                 }
             } else {
-                // Peer ya salió y no dejó testament. "Se fue sin dar testamento" —
-                // excepción del usuario: misdeal pero la timba continúa.
                 cancelarManoYDevolverApuestas("peer.unlock_no_testament");
                 return false;
             }
+        }
+
+        // Paso 3: el host verifica cada cadena final y toma el tail (residuo single-locked
+        // por el target). Una cadena que no verifica = un peer devolvió algo no probado.
+        byte[][] pockets = new byte[ringLen][];
+        for (int i = 0; i < ringLen; i++) {
+            byte[] pc = new byte[64];
+            for (int j = 0; j < 2; j++) {
+                int pointIdx = i * 2 + j;
+                byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                java.util.List<DealChain.Entry> ch = DealChain.parse(pocketChains[i][j]);
+                if (ch == null || !DealChain.verify(point, ch, peer_k_pocket)) {
+                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: pocket chain for slot {0} point {1} failed verification", new Object[]{i, j});
+                    cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    return false;
+                }
+                byte[] tail = DealChain.tail(point, ch);
+                System.arraycopy(tail, 0, pc, j * 32, 32);
+            }
+            pockets[i] = pc;
         }
 
         // Broadcast y resolución local por target.

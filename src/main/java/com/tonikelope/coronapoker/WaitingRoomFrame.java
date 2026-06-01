@@ -2160,7 +2160,11 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
                                                                     int respId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    // Fase 4: enviar los commitments K=k*B (pocket y community) junto al
+                                                                    // deck cascadeado, para que el host los agregue y se anclen en H_0.
+                                                                    String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
+                                                                    String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
                                                                 }

@@ -436,6 +436,71 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // localmente en la fase de rotación, así que vive en este Map keyed por
     // nick del bot. Limpiado en los mismos sitios que el resto de scalars.
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> bot_community_locks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // Fase 4 (verifiable dealing): commitments publicos K=k*B de cada peer del ring
+    // (nick -> encoding Ristretto 32B), para K_pocket y K_community. Se recolectan
+    // durante la cascade (propios + bots localmente, remotos via DECK_CASCADE_RESP),
+    // se difunden en el MEGAPACKET y se anclan en H_0 (HAND_V2) para que la cadena
+    // DLEQ del dealing se verifique contra claves que nadie puede falsificar.
+    public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_pocket = new java.util.concurrent.ConcurrentHashMap<>();
+    public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_community = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Serializa los commitments del ring para el MEGAPACKET, en orden del ring:
+     * "nickB64:KpocketB64:KcommunityB64;...". Base64 no usa ':' ni ';' ni '#',
+     * asi que son separadores seguros frente al split('#') del wire.
+     */
+    private String serializeCommitments() {
+        StringBuilder sb = new StringBuilder();
+        if (this.active_crypto_ring == null) {
+            return "";
+        }
+        for (String nick : this.active_crypto_ring) {
+            byte[] kp = peer_k_pocket.get(nick);
+            byte[] kc = peer_k_community.get(nick);
+            if (kp == null || kc == null) {
+                continue;
+            }
+            try {
+                if (sb.length() > 0) {
+                    sb.append(';');
+                }
+                sb.append(Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
+                        .append(':').append(Base64.getEncoder().encodeToString(kp))
+                        .append(':').append(Base64.getEncoder().encodeToString(kc));
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error serializing commitment for " + nick, e);
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Parsea el campo de commitments del MEGAPACKET y puebla los mapas locales. */
+    private void parseCommitments(String field) {
+        if (field == null || field.isEmpty()) {
+            return;
+        }
+        for (String entry : field.split(";")) {
+            if (entry.isEmpty()) {
+                continue;
+            }
+            String[] parts = entry.split(":");
+            if (parts.length != 3) {
+                continue;
+            }
+            try {
+                String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
+                byte[] kp = Base64.getDecoder().decode(parts[1]);
+                byte[] kc = Base64.getDecoder().decode(parts[2]);
+                if (kp.length == 32 && kc.length == 32) {
+                    peer_k_pocket.put(nick, kp);
+                    peer_k_community.put(nick, kc);
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error parsing commitment entry", e);
+            }
+        }
+    }
     public volatile byte[] local_mega_packet = null;
 
     // --- TOKENS DEL HOST ---
@@ -596,6 +661,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
                                     newDeck = candidate;
                                     ok = true;
+                                    // Fase 4: capturar los commitments K del peer (partes[5]=K_pocket,
+                                    // partes[6]=K_community) para anclarlos en H_0 (HAND_V2).
+                                    if (partes.length >= 7) {
+                                        try {
+                                            byte[] kp = Base64.getDecoder().decode(partes[5]);
+                                            byte[] kc = Base64.getDecoder().decode(partes[6]);
+                                            if (kp.length == 32 && kc.length == 32
+                                                    && RistrettoSRA.arePointsValid(kp) && RistrettoSRA.arePointsValid(kc)) {
+                                                peer_k_pocket.put(nick, kp);
+                                                peer_k_community.put(nick, kc);
+                                            } else {
+                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid commitments — refusing", nick);
+                                                fatalError = true;
+                                                ok = false;
+                                            }
+                                        } catch (Exception ex) {
+                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_RESP from {0} commitment parse failed — refusing", nick);
+                                            fatalError = true;
+                                            ok = false;
+                                        }
+                                    } else {
+                                        LOGGER.log(Level.WARNING, "DECK_CASCADE_RESP from {0} without commitments (legacy peer) — H_0 will fall back to HAND_V1", nick);
+                                    }
                                 } else {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid deck (len={1}, on_curve={2}) — refusing cascade",
@@ -835,6 +923,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         this.bot_community_locks.clear();
+            this.peer_k_pocket.clear();
+            this.peer_k_community.clear();
 
         // EC-Identity v1: fresh per-hand 16-byte HAND_ID that the host broadcasts to
         // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
@@ -865,6 +955,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             this.bot_community_locks.clear();
+            this.peer_k_pocket.clear();
+            this.peer_k_community.clear();
 
             java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
             int numPlayers = ringCriptografico.size();
@@ -898,6 +990,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
             this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(this.local_sra_lock_community);
 
+            // Fase 4: commitments K=k*B del host para H_0 (HAND_V2).
+            String hostNickForCommit = GameFrame.getInstance().getNick_local();
+            peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
+            peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
+
             workingDeck = RistrettoSRA.applyCommutativeLock(RistrettoSRA.getGenesisDeck(), this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
 
@@ -921,6 +1018,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         byte[] botCommunityUnlock = RistrettoSRA.getUnlockScalar(botCommunityLock);
                         this.bot_community_locks.put(currNick, botCommunityLock);
                         p.setSra_unlock_community(botCommunityUnlock);
+                        // Fase 4: commitments K del bot para H_0 (HAND_V2).
+                        peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
+                        peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
                     } else if (p != null && !p.isExit()) {
@@ -1034,7 +1134,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // a fourth field. Old clients (pre-v1) just stop parsing at the third field;
         // new clients pick it up to seed their HandStateChain.
         String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
-        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64, null, true);
+        // Fase 4: 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0 (HAND_V2).
+        String commitmentsField = serializeCommitments();
+        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
 
         // EC-Identity v1: now that MEGAPACKET is finalised and every peer (in theory)
         // sees the same active_crypto_ring + cascadedDeck + handId, seed our own
@@ -1222,6 +1324,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     LOGGER.log(Level.WARNING, "Error parsing HAND_ID of MEGAPACKET", e);
                                     this.current_hand_id = null;
                                 }
+                            }
+                            // Fase 4: parsear los commitments K (5º campo) antes de sembrar H_0.
+                            if (partes.length >= 7) {
+                                parseCommitments(partes[6]);
                             }
                             initHandStateChain();
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length >= 5) {
@@ -8857,9 +8963,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String nick : this.active_crypto_ring) {
             playerIds.add(CanonicalActionRecord.playerIdFromNick(nick));
         }
+        // Fase 4: si tenemos los commitments K de todos los miembros del ring, sembramos
+        // H_0 con HAND_V2 (los ancla); si falta alguno (peer legacy), caemos a HAND_V1.
+        // La decisión es coherente host<->cliente porque los K llegan del mismo MEGAPACKET.
+        java.util.List<byte[]> kPockets = new java.util.ArrayList<>();
+        java.util.List<byte[]> kCommunities = new java.util.ArrayList<>();
+        boolean allCommitmentsPresent = true;
+        for (String nick : this.active_crypto_ring) {
+            byte[] kp = this.peer_k_pocket.get(nick);
+            byte[] kc = this.peer_k_community.get(nick);
+            if (kp == null || kc == null) {
+                allCommitmentsPresent = false;
+                break;
+            }
+            kPockets.add(kp);
+            kCommunities.add(kc);
+        }
         try {
-            this.hand_state_chain = HandStateChain.start(
-                    this.current_hand_id, playerIds, this.local_mega_packet);
+            if (allCommitmentsPresent) {
+                this.hand_state_chain = HandStateChain.startV2(
+                        this.current_hand_id, playerIds, kPockets, kCommunities, this.local_mega_packet);
+            } else {
+                LOGGER.log(Level.WARNING, "Missing K commitments — seeding H_0 with HAND_V1 (legacy fallback)");
+                this.hand_state_chain = HandStateChain.start(
+                        this.current_hand_id, playerIds, this.local_mega_packet);
+            }
             LOGGER.log(Level.INFO, "Hand state chain initialized: H_0={0}",
                     Base64.getEncoder().encodeToString(this.hand_state_chain.getCurrentHash()));
             // EC-Identity v1 (recovery): persist HAND_ID on the SQL hand row so

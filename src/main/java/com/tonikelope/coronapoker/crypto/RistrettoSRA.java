@@ -127,6 +127,25 @@ public final class RistrettoSRA {
         return flat;
     }
 
+    /**
+     * Validates that a flat array is a whole number of 32-byte points and that every
+     * one decodes as a canonical Ristretto255 element. Replaces the old
+     * arePointsOnCurve gate: in a prime-order group a valid decode IS the membership
+     * proof, and it additionally rejects non-canonical encodings.
+     */
+    public static boolean arePointsValid(byte[] data) {
+        if (data == null || data.length == 0 || data.length % POINT_BYTES != 0) {
+            return false;
+        }
+        int n = data.length / POINT_BYTES;
+        for (int i = 0; i < n; i++) {
+            if (Ristretto255.decode(Arrays.copyOfRange(data, i * POINT_BYTES, (i + 1) * POINT_BYTES)) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Resolves a fully-unlocked 32-byte point to its card index 0-51, or -1. */
     public static int resolveCardIndex(byte[] unlockedCard) {
         if (unlockedCard == null || unlockedCard.length != POINT_BYTES) {

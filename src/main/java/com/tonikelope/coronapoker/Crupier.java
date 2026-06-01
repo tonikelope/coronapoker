@@ -28,6 +28,8 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.crypto.RistrettoSRA;
+
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
@@ -591,14 +593,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // a TODOS via MEGAPACKET. Si el peer (malicioso o comprometido)
                                 // devuelve bytes que no son puntos de Curve25519, no podemos
                                 // contaminar la cascada — aborta la mano antes de propagar.
-                                if (candidate.length == 1664 && CryptoSRA.arePointsOnCurve(candidate)) {
+                                if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
                                     newDeck = candidate;
                                     ok = true;
                                 } else {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid deck (len={1}, on_curve={2}) — refusing cascade",
                                             new Object[]{nick, candidate.length,
-                                                candidate.length == 1664 ? CryptoSRA.arePointsOnCurve(candidate) : false});
+                                                candidate.length == 1664 ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
                             } else {
@@ -671,14 +673,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
                                 // El bloque rotado debe conservar exactamente la misma longitud
                                 // (mismas N posiciones) y seguir siendo puntos de la curva.
-                                if (candidate.length == expectedLength && CryptoSRA.arePointsOnCurve(candidate)) {
+                                if (candidate.length == expectedLength && RistrettoSRA.arePointsValid(candidate)) {
                                     newPieces = candidate;
                                     ok = true;
                                 } else {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_ROTATION_RESP from {0} carries invalid pieces (len={1}, on_curve={2}) — refusing rotation",
                                             new Object[]{nick, candidate.length,
-                                                candidate.length == expectedLength ? CryptoSRA.arePointsOnCurve(candidate) : false});
+                                                candidate.length == expectedLength ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
                             } else {
@@ -887,16 +889,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.active_crypto_ring = currentRing;
 
             // Candado fresco del Host por intento.
-            this.local_sra_lock = CryptoSRA.generateLockScalar();
-            this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
+            this.local_sra_lock = RistrettoSRA.generateLockScalar();
+            this.local_sra_unlock = RistrettoSRA.getUnlockScalar(this.local_sra_lock);
             // Dual-lock (Opción G): segundo par para community. Generado por
             // adelantado para que la fase de rotación que vendrá después de la
             // cascade tenga el scalar listo. Hasta que se cablee la rotación
             // este par queda inerte (no se aplica a nada).
-            this.local_sra_lock_community = CryptoSRA.generateLockScalar();
-            this.local_sra_unlock_community = CryptoSRA.getUnlockScalar(this.local_sra_lock_community);
+            this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
+            this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(this.local_sra_lock_community);
 
-            workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock);
+            workingDeck = RistrettoSRA.applyCommutativeLock(RistrettoSRA.getGenesisDeck(), this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
 
             boolean restart = false;
@@ -905,8 +907,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
                     Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                     if (p != null && p.isCpu()) {
-                        byte[] botLock = CryptoSRA.generateLockScalar();
-                        byte[] botUnlock = CryptoSRA.getUnlockScalar(botLock);
+                        byte[] botLock = RistrettoSRA.generateLockScalar();
+                        byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
                         byte[] botSeed = new byte[48];
                         if (Helpers.CSPRNG_GENERATOR != null) {
                             Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
@@ -915,11 +917,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Dual-lock: scalars community del bot. El lock se usará
                         // durante la rotación; el unlock se guarda en el Participant
                         // para que cascadeAndDealCommunityPieces pueda aplicarlo.
-                        byte[] botCommunityLock = CryptoSRA.generateLockScalar();
-                        byte[] botCommunityUnlock = CryptoSRA.getUnlockScalar(botCommunityLock);
+                        byte[] botCommunityLock = RistrettoSRA.generateLockScalar();
+                        byte[] botCommunityUnlock = RistrettoSRA.getUnlockScalar(botCommunityLock);
                         this.bot_community_locks.put(currNick, botCommunityLock);
                         p.setSra_unlock_community(botCommunityUnlock);
-                        workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
+                        workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
                     } else if (p != null && !p.isExit()) {
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
@@ -965,8 +967,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
             String currNick = currentRing[i];
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
-                communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
-                communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
+                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
+                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                 if (p != null && p.isCpu()) {
@@ -979,8 +981,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         rotationOk = false;
                         break;
                     }
-                    communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, botUnlock);
-                    communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
+                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botUnlock);
+                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
                 } else if (p != null && !p.isExit()) {
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
@@ -1059,13 +1061,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             System.arraycopy(local_mega_packet, i * 64, pocketCards, 0, 64);
 
             if (!targetNick.equals(hostNick)) {
-                pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
+                pocketCards = RistrettoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
             }
 
             for (String bNick : currentRing) {
                 Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
                 if (pb != null && pb.isCpu() && !bNick.equals(targetNick)) {
-                    pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, pb.getReceived_token());
+                    pocketCards = RistrettoSRA.applyCommutativeLock(pocketCards, pb.getReceived_token());
                 }
             }
             pockets[i] = pocketCards;
@@ -1101,7 +1103,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } else if (ph.getSra_unlock() != null) {
                     for (int slot : slotsForH) {
-                        pockets[slot] = CryptoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
+                        pockets[slot] = RistrettoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
                     }
                 } else {
                     // Peer vivo, NO respondió, no testament local. REFUSAL → para la timba.
@@ -1110,7 +1112,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else if (ph.getSra_unlock() != null) {
                 for (int slot : slotsForH) {
-                    pockets[slot] = CryptoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
+                    pockets[slot] = RistrettoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
                 }
             } else {
                 // Peer ya salió y no dejó testament. "Se fue sin dar testamento" —
@@ -1137,19 +1139,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (targetNick.equals(hostNick)) {
-                byte[] myPocket = CryptoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
+                byte[] myPocket = RistrettoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
                 byte[] c1 = Arrays.copyOfRange(myPocket, 0, 32);
                 byte[] c2 = Arrays.copyOfRange(myPocket, 32, 64);
-                this.local_original_cards[0] = (byte) CryptoSRA.resolveCardIndex(c1);
-                this.local_original_cards[1] = (byte) CryptoSRA.resolveCardIndex(c2);
+                this.local_original_cards[0] = (byte) RistrettoSRA.resolveCardIndex(c1);
+                this.local_original_cards[1] = (byte) RistrettoSRA.resolveCardIndex(c2);
             } else {
                 Participant pTarget = GameFrame.getInstance().getParticipantes().get(targetNick);
                 if (pTarget != null && pTarget.isCpu()) {
-                    byte[] botPocket = CryptoSRA.applyCommutativeLock(pocketCards, pTarget.getReceived_token());
+                    byte[] botPocket = RistrettoSRA.applyCommutativeLock(pocketCards, pTarget.getReceived_token());
                     byte[] c1 = Arrays.copyOfRange(botPocket, 0, 32);
                     byte[] c2 = Arrays.copyOfRange(botPocket, 32, 64);
-                    int id1 = CryptoSRA.resolveCardIndex(c1);
-                    int id2 = CryptoSRA.resolveCardIndex(c2);
+                    int id1 = RistrettoSRA.resolveCardIndex(c1);
+                    int id2 = RistrettoSRA.resolveCardIndex(c2);
                     if (id1 >= 0 && id2 >= 0) {
                         Player botPlayer = nick2player.get(targetNick);
                         // Un espectador entra al anillo criptográfico (contribuye su lock)
@@ -1237,12 +1239,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
 
                                         // Quitamos nuestro propio candado (El último de la capa de cifrado)
-                                        byte[] myPocket = CryptoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
+                                        byte[] myPocket = RistrettoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
                                         byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
                                         byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
 
-                                        int id1 = CryptoSRA.resolveCardIndex(c1);
-                                        int id2 = CryptoSRA.resolveCardIndex(c2);
+                                        int id1 = RistrettoSRA.resolveCardIndex(c1);
+                                        int id2 = RistrettoSRA.resolveCardIndex(c2);
 
                                         if (id1 >= 0 && id2 >= 0) {
                                             this.local_original_cards[0] = (byte) id1;
@@ -1458,12 +1460,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] pocketCards = this.single_locked_pocket_cards.get(target.getNickname());
             if (pocketCards != null && pocketCards.length == 64) {
                 try {
-                    byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, p.getSra_unlock());
+                    byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, p.getSra_unlock());
                     byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
                     byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
 
-                    int id1 = CryptoSRA.resolveCardIndex(c1);
-                    int id2 = CryptoSRA.resolveCardIndex(c2);
+                    int id1 = RistrettoSRA.resolveCardIndex(c1);
+                    int id2 = RistrettoSRA.resolveCardIndex(c2);
                     if (id1 >= 0 && id2 >= 0) {
                         target.getHoleCard1().actualizarConValorNumerico(id1 + 1);
                         target.getHoleCard2().actualizarConValorNumerico(id2 + 1);
@@ -7351,7 +7353,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     return null;
                 }
-                copyHost = CryptoSRA.applyCommutativeLock(copyHost, pp.getSra_unlock_community());
+                copyHost = RistrettoSRA.applyCommutativeLock(copyHost, pp.getSra_unlock_community());
             }
         }
         copies.put(hostNick, copyHost);
@@ -7360,11 +7362,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String r : remoteHumans) {
             byte[] copyR = new byte[numCards * 32];
             System.arraycopy(this.local_mega_packet, offset * 32, copyR, 0, numCards * 32);
-            copyR = CryptoSRA.applyCommutativeLock(copyR, this.local_sra_unlock_community);
+            copyR = RistrettoSRA.applyCommutativeLock(copyR, this.local_sra_unlock_community);
             for (String nick : this.active_crypto_ring) {
                 Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
                 if (pp != null && pp.isCpu() && pp.getSra_unlock_community() != null) {
-                    copyR = CryptoSRA.applyCommutativeLock(copyR, pp.getSra_unlock_community());
+                    copyR = RistrettoSRA.applyCommutativeLock(copyR, pp.getSra_unlock_community());
                 }
             }
             copies.put(r, copyR);
@@ -7402,7 +7404,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // Dual-lock: el testamento entrega SOLO la mitad community, así
                     // que el fallback usa sra_unlock_community.
                     for (String r : recipientsForH) {
-                        copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
+                        copies.put(r, RistrettoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
                     }
                 } else {
                     // Peer vivo, NO respondió, no testament. REFUSAL → para la timba.
@@ -7413,7 +7415,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else if (ph.getSra_unlock_community() != null) {
                 for (String r : recipientsForH) {
-                    copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
+                    copies.put(r, RistrettoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
                 }
             } else {
                 // Peer ya salió sin dejar testament community. "Se fue sin dar testamento"
@@ -7426,11 +7428,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // Resolver la copia del host (queda sólo el lock community propio del host).
-        byte[] hostFinal = CryptoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock_community);
+        byte[] hostFinal = RistrettoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock_community);
         int[] hostIndices = new int[numCards];
         for (int i = 0; i < numCards; i++) {
             byte[] chunk = Arrays.copyOfRange(hostFinal, i * 32, (i + 1) * 32);
-            int idx = CryptoSRA.resolveCardIndex(chunk);
+            int idx = RistrettoSRA.resolveCardIndex(chunk);
             if (idx < 0) {
                 if (abortOnFail) {
                     cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
@@ -7564,11 +7566,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // Dual-lock: tras la rotación, las community pieces están cifradas
                             // con scalars de community. El recipient aplica SU unlock_community
                             // para descifrar.
-                            byte[] unlocked = CryptoSRA.applyCommutativeLock(piece, this.local_sra_unlock_community);
+                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(piece, this.local_sra_unlock_community);
                             int[] indices = new int[expectedNumCards];
                             for (int k = 0; k < expectedNumCards; k++) {
                                 byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
-                                int idx = CryptoSRA.resolveCardIndex(chunk);
+                                int idx = RistrettoSRA.resolveCardIndex(chunk);
                                 if (idx < 0) {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: community piece for street {0} chunk {1} does NOT resolve to genesis — host sent wrong-slot bytes, lockdown",
@@ -8696,11 +8698,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         nick);
                 return false;
             }
-            byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, key);
+            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, key);
             byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
             byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
-            int id1 = CryptoSRA.resolveCardIndex(c1);
-            int id2 = CryptoSRA.resolveCardIndex(c2);
+            int id1 = RistrettoSRA.resolveCardIndex(c1);
+            int id2 = RistrettoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
                 // Sig OK pero clave firmada no resuelve. Peer FORFEIT (no MISDEAL
                 // — sería exploit).
@@ -10709,11 +10711,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
                                                 continue;
                                             }
-                                            byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, sraKey);
+                                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, sraKey);
                                             byte[] cb1 = Arrays.copyOfRange(unlocked, 0, 32);
                                             byte[] cb2 = Arrays.copyOfRange(unlocked, 32, 64);
-                                            int id1 = CryptoSRA.resolveCardIndex(cb1);
-                                            int id2 = CryptoSRA.resolveCardIndex(cb2);
+                                            int id1 = RistrettoSRA.resolveCardIndex(cb1);
+                                            int id2 = RistrettoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
                                                 // LOCKDOWN: sig firmada por el peer es genuina pero
                                                 // la SRA no resuelve cartas → el peer firmó una clave

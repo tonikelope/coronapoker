@@ -28,6 +28,8 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.crypto.RistrettoSRA;
+
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
@@ -2110,28 +2112,28 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // (downgrade del host: enviarnos bytes inválidos para que gastemos
                                                                     // nuestro shuffle/lock sobre datos no recuperables, o smuggling).
                                                                     // Rechazar antes de comprometer nuestro sra_unlock recién generado.
-                                                                    if (incomingDeck == null || incomingDeck.length != 1664 || !CryptoSRA.arePointsOnCurve(incomingDeck)) {
+                                                                    if (incomingDeck == null || incomingDeck.length != 1664 || !RistrettoSRA.arePointsValid(incomingDeck)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_REQ payload is not a valid 52-point curve deck (len={0}) — refusing",
                                                                                 incomingDeck == null ? -1 : incomingDeck.length);
                                                                         crupierCheck.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
 
-                                                                    byte[] lockScalar = CryptoSRA.generateLockScalar();
-                                                                    byte[] unlockScalar = CryptoSRA.getUnlockScalar(lockScalar);
+                                                                    byte[] lockScalar = RistrettoSRA.generateLockScalar();
+                                                                    byte[] unlockScalar = RistrettoSRA.getUnlockScalar(lockScalar);
                                                                     this.participantes.get(local_nick).setSra_unlock(unlockScalar);
 
                                                                     // Dual-lock (Opción G): segundo par de scalars para la rotación de
                                                                     // community pieces que vendrá después de la cascade. Se guardan en
                                                                     // el Crupier para que el handler de DECK_ROTATION_REQ los recupere
                                                                     // sin tener que pedir más entropía nueva entonces.
-                                                                    byte[] communityLockScalar = CryptoSRA.generateLockScalar();
-                                                                    byte[] communityUnlockScalar = CryptoSRA.getUnlockScalar(communityLockScalar);
+                                                                    byte[] communityLockScalar = RistrettoSRA.generateLockScalar();
+                                                                    byte[] communityUnlockScalar = RistrettoSRA.getUnlockScalar(communityLockScalar);
                                                                     crupierCheck.local_sra_lock_community = communityLockScalar;
                                                                     crupierCheck.local_sra_unlock_community = communityUnlockScalar;
                                                                     this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
 
-                                                                    byte[] locked = CryptoSRA.applyCommutativeLock(incomingDeck, lockScalar);
+                                                                    byte[] locked = RistrettoSRA.applyCommutativeLock(incomingDeck, lockScalar);
 
                                                                     // Generate fresh local entropy for THIS shuffle on the spot.
                                                                     // The handler runs on an async thread that may fire before the
@@ -2208,7 +2210,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     if (incomingPieces == null
                                                                             || incomingPieces.length == 0
                                                                             || incomingPieces.length % 32 != 0
-                                                                            || !CryptoSRA.arePointsOnCurve(incomingPieces)) {
+                                                                            || !RistrettoSRA.arePointsValid(incomingPieces)) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ payload not a valid curve-point block (len={0}) — refusing",
                                                                                 incomingPieces == null ? -1 : incomingPieces.length);
                                                                         crupierRot.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
@@ -2217,8 +2219,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // Rotación: aplicar uPocket + kCommunity en ese orden. El resultado
                                                                     // mantiene la longitud y sigue siendo válido en la curva (el output
                                                                     // de scalar mult sobre puntos en la curva permanece en la curva).
-                                                                    byte[] rotated = CryptoSRA.applyCommutativeLock(incomingPieces, myPocketUnlock);
-                                                                    rotated = CryptoSRA.applyCommutativeLock(rotated, crupierRot.local_sra_lock_community);
+                                                                    byte[] rotated = RistrettoSRA.applyCommutativeLock(incomingPieces, myPocketUnlock);
+                                                                    rotated = RistrettoSRA.applyCommutativeLock(rotated, crupierRot.local_sra_lock_community);
 
                                                                     String b64Rot = Base64.getEncoder().encodeToString(rotated);
                                                                     String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
@@ -2352,7 +2354,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 return;
                                                                             }
 
-                                                                            if (!CryptoSRA.arePointsOnCurve(cards)) {
+                                                                            if (!RistrettoSRA.arePointsValid(cards)) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} payload has non-curve points — refusing", k);
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                                 return;
@@ -2366,7 +2368,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             }
                                                                             addedTags[addedTagCount++] = tagKey;
 
-                                                                            byte[] unlocked = CryptoSRA.applyCommutativeLock(cards, myUnlock);
+                                                                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(cards, myUnlock);
 
                                                                             // GATE 6 (any-genesis → lockdown). En v3 los recipients
                                                                             // (POCKET y comunitaria) son los últimos en su cadena;
@@ -2376,7 +2378,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 int numChunks = unlocked.length / 32;
                                                                                 for (int c = 0; c < numChunks; c++) {
                                                                                     byte[] chunk = Arrays.copyOfRange(unlocked, c * 32, (c + 1) * 32);
-                                                                                    if (CryptoSRA.resolveCardIndex(chunk) >= 0) {
+                                                                                    if (RistrettoSRA.resolveCardIndex(chunk) >= 0) {
                                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} chunk {1} resolves to genesis after my unlock (phase={2}, peer_idx={3}) — extraction or smuggling, refusing",
                                                                                                 new Object[]{k, c, phase, peer_idx});
                                                                                         crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
@@ -2668,12 +2670,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                     // Dual-lock: las rabbit pieces son comunitarias, cifradas
                                                                     // con scalars de community tras la rotación.
-                                                                    byte[] unlockedRP = CryptoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock_community());
+                                                                    byte[] unlockedRP = RistrettoSRA.applyCommutativeLock(piece, this.participantes.get(local_nick).getSra_unlock_community());
                                                                     int numCards = "RABBIT_FLOP_PIECE".equals(cmdName) ? 3 : 1;
                                                                     int[] indices = new int[numCards];
                                                                     for (int k = 0; k < numCards; k++) {
                                                                         byte[] chunk = Arrays.copyOfRange(unlockedRP, k * 32, (k + 1) * 32);
-                                                                        int idx = CryptoSRA.resolveCardIndex(chunk);
+                                                                        int idx = RistrettoSRA.resolveCardIndex(chunk);
                                                                         if (idx < 0) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: rabbit piece {0} chunk {1} does NOT resolve to genesis — lockdown", new Object[]{cmdName, k});
                                                                             crupierRP.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));

@@ -148,4 +148,46 @@ public final class DealChain {
         }
         return entries.get(entries.size() - 1).residualAfter;
     }
+
+    /** Result of {@link #extend}: the new chain wire and the residual after our step. */
+    public static final class Extended {
+        public final String wire;
+        public final byte[] residual;
+
+        Extended(String wire, byte[] residual) {
+            this.wire = wire;
+            this.residual = residual;
+        }
+    }
+
+    /**
+     * Peer-side step for one point: verify the incoming chain from the committed
+     * MEGAPACKET point, then strip our lock and append our proven step. This is the
+     * gate that closes the blinded oracle — we refuse (return null) unless the chain
+     * provably descends from the committed deck point.
+     *
+     * @param megapacketPoint the committed deck point this chain must start from
+     * @param incomingWire    the serialized incoming chain (empty string if we are first)
+     * @param commitments     nick -> committed key K (of the peers already in the chain)
+     * @param myNick          our nick (recorded in the appended entry)
+     * @param myLock          our lock scalar k (we derive k^-1 and prove with K=k*B)
+     * @return the extended chain + new residual, or null to reject
+     */
+    public static Extended extend(byte[] megapacketPoint, String incomingWire,
+                                  Map<String, byte[]> commitments, String myNick, byte[] myLock) {
+        List<Entry> chain = parse(incomingWire);
+        if (chain == null) {
+            return null; // malformed incoming chain
+        }
+        if (!verify(megapacketPoint, chain, commitments)) {
+            return null; // not anchored to the committed point / bad proof / uncommitted key
+        }
+        byte[] currentResidual = tail(megapacketPoint, chain);
+        VerifiableUnlock.Step step = VerifiableUnlock.unlockWithProof(currentResidual, myLock);
+        if (step == null) {
+            return null; // off-group residual
+        }
+        chain.add(new Entry(myNick, step.residual, step.proof));
+        return new Extended(serialize(chain), step.residual);
+    }
 }

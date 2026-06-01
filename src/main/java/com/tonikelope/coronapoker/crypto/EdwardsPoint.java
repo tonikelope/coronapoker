@@ -74,6 +74,12 @@ public final class EdwardsPoint {
         return new EdwardsPoint(x, y, Fe25519.ONE, x.mul(y));
     }
 
+    // Package-private extended-coordinate accessors for Ristretto255 encode/decode.
+    Fe25519 extX() { return X; }
+    Fe25519 extY() { return Y; }
+    Fe25519 extZ() { return Z; }
+    Fe25519 extT() { return T; }
+
     public Fe25519 affineX() {
         return X.mul(Z.inv());
     }

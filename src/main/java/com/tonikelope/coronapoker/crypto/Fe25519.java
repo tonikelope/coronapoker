@@ -85,6 +85,27 @@ public final class Fe25519 {
         return new Fe25519(new BigInteger(1, be));
     }
 
+    /**
+     * Decodes a field element from 32 little-endian bytes, REJECTING non-canonical
+     * encodings: the full 256-bit little-endian value (bit 255 included, NOT masked)
+     * must be strictly less than p. Returns null on non-canonical input. Used by
+     * Ristretto255 decode, where non-canonical field encodings must be refused.
+     */
+    public static Fe25519 fromBytesCanonical(byte[] in) {
+        if (in == null || in.length != 32) {
+            return null;
+        }
+        byte[] be = new byte[32];
+        for (int i = 0; i < 32; i++) {
+            be[i] = in[31 - i];
+        }
+        BigInteger value = new BigInteger(1, be); // full 256-bit unsigned, no masking
+        if (value.compareTo(P) >= 0) {
+            return null; // non-canonical
+        }
+        return new Fe25519(value);
+    }
+
     /** Encodes to 32 canonical little-endian bytes (value in [0, P)). */
     public byte[] toBytes() {
         byte[] be = v.toByteArray(); // big-endian, two's complement (v >= 0)

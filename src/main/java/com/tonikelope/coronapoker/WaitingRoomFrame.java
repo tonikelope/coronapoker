@@ -2684,6 +2684,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
                                                                 crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
+                                                                // Fase 4: poblar los commitments K de forma SINCRONA aqui. El handler
+                                                                // REQ_SRA_UNLOCK_CHAIN corre en su propio threadRun y los necesita; si
+                                                                // dependieramos de recibirMisCartas (consumer async de la cola) habria
+                                                                // carrera y el binding verificaria contra un mapa vacio -> lockdown falso.
+                                                                if (partes_comando.length >= 7) {
+                                                                    crupierMP.parseCommitments(partes_comando[6]);
+                                                                }
                                                             } catch (Exception e) {
                                                                 LOGGER.log(Level.SEVERE, "Error pre-parsing MEGAPACKET in WaitingRoomFrame; queue handler will retry", e);
                                                             }

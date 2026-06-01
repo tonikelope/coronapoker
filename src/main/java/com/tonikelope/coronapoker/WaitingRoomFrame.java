@@ -2313,9 +2313,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                     //   FLOP/TURN/RIVER + RABBIT_*: unlock community (sra_unlock_community):
                                                                     //     las community pieces están cifradas con scalars community tras la
                                                                     //     fase de rotación. Aplicar el unlock pocket aquí daría basura.
+                                                                    // Fase 4.2: el pocket dealing migró al chain VERIFICABLE
+                                                                    // (REQ_SRA_UNLOCK_CHAIN). El batch viejo solo tiene GATE 6
+                                                                    // (genesis-check), que el cegado r*P evade — exactamente el
+                                                                    // oráculo que el binding cierra. Servir POCKET por aquí sería el
+                                                                    // mismo oráculo por la puerta de atrás, así que se rechaza: el
+                                                                    // batch solo procesa community (FLOP/TURN/RIVER) hasta su
+                                                                    // migración al chain.
                                                                     byte[] myUnlock;
                                                                     if (phase == Crupier.UNLOCK_PHASE_POCKET) {
-                                                                        myUnlock = this.participantes.get(local_nick).getSra_unlock();
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH for POCKET — pocket is chain-only now, refusing (blinded-oracle bypass attempt)");
+                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
+                                                                        return;
                                                                     } else {
                                                                         myUnlock = this.participantes.get(local_nick).getSra_unlock_community();
                                                                     }
@@ -2486,6 +2495,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                         crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
                                                                         return;
                                                                     }
+                                                                    // Mi propio slot en el ring: NUNCA debo pelar mi lock de MI pocket
+                                                                    // (megapacket[mySlot*2], [mySlot*2+1]). El host controla offsetBase
+                                                                    // independientemente de peerIdx, asi que el guard correcto es sobre el
+                                                                    // PUNTO pelado (pointIdx), no sobre la etiqueta peerIdx: si no, un host
+                                                                    // hostil manda peerIdx=otro + offsetBase=mySlot*2 y me saca mis cartas.
+                                                                    int mySlot = -1;
+                                                                    for (int s = 0; s < ring.length; s++) {
+                                                                        if (ring[s].equals(local_nick)) {
+                                                                            mySlot = s;
+                                                                            break;
+                                                                        }
+                                                                    }
                                                                     java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
                                                                     for (UnlockChainWire.ReqItem it : items) {
                                                                         if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
@@ -2499,6 +2520,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                             if (pointIdx < 0 || (pointIdx + 1) * 32 > megapacket.length) {
                                                                                 LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset out of range — refusing");
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                                return;
+                                                                            }
+                                                                            // Defensa real contra el oraculo por la puerta de atras: aunque el
+                                                                            // anclaje al megapacket sea valido, NUNCA pelo un punto de MI pocket.
+                                                                            if (phase == Crupier.UNLOCK_PHASE_POCKET && mySlot >= 0
+                                                                                    && (pointIdx == mySlot * 2 || pointIdx == mySlot * 2 + 1)) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to strip my OWN pocket (offset {0}) — extraction, refusing", pointIdx);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
                                                                             byte[] point = java.util.Arrays.copyOfRange(megapacket, pointIdx * 32, (pointIdx + 1) * 32);

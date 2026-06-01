@@ -86,6 +86,36 @@ tags del batch viejo (irrelevante con el binding: la cadena es determinista, no 
 el cliente no limpia `peer_k_pocket` entre manos (inocuo: `parseCommitments` sobrescribe los
 `K` de los nicks del ring; los residuos de nicks ausentes no se iteran).
 
+## Tercera pasada (adversarial — host hostil) — 🔴 DOS cabos críticos
+
+Pasada con sombrero de atacante sobre el flujo nuevo. Encontró **dos** caminos que
+**reabrían el oráculo cegado** que todo este trabajo pretende cerrar. Los dos corregidos
+y con test que documenta el ataque.
+
+### 🔴 4 (crítico) — strip del propio pocket por `offsetBase` desacoplado
+El host controla `offsetBase` (qué punto del megapacket pela el helper)
+**independientemente** del `peerIdx` etiquetado. El guard del handler validaba `peerIdx`
+(la etiqueta), no el punto. Un host hostil manda `peerIdx=<otro>` (pasa el guard) +
+`offsetBase=<mi_slot*2>` (mi propio pocket). `DealChain.extend` ancla bien (es un punto real
+del megapacket) y pela el lock → el helper devuelve **sus propias cartas en claro** (el host
+ya tenía ese pocket single-locked tras el reparto normal).
+**Fix:** el handler calcula `mySlot` y **rechaza pelar cualquier punto en
+`[mySlot*2, mySlot*2+1]`** (solo POCKET). Test `PocketSelfStripAttackTest` prueba el leak y
+fija la invariante.
+
+### 🔴 5 (crítico) — bypass por el batch viejo (`REQ_SRA_UNLOCK_BATCH`)
+El handler batch viejo **seguía aceptando `UNLOCK_PHASE_POCKET`**. Su única defensa es GATE 6
+(genesis-check), que el cegado `r·P` **evade** — es exactamente la vuln original. Un host
+hostil ignora el comando chain y pide el pocket por el batch viejo → todo el binding
+bypasseado.
+**Fix:** el batch **rechaza POCKET** (`triggerSecurityLockdown`); el pocket es chain-only.
+Verificado que ningún caller legítimo usa batch con POCKET (el único, `cascadeAndDealCommunityPieces`,
+usa `phaseForStreet` → siempre FLOP/TURN/RIVER). El batch solo sirve community hasta su
+migración (4.3).
+
+**Lección:** el binding cierra el cegado *del punto*, pero un oráculo tiene más puertas —
+*qué* punto se pela (cabo 4) y *por qué comando* (cabo 5). Ambas ahora cerradas.
+
 ## Estado tras la auditoría
 
 80–85 tests verdes, compila. Los 3 fixes están en `sra-phase4-2`. Smoke recomendado, por

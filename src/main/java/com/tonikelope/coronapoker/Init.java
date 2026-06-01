@@ -87,7 +87,7 @@ public class Init extends JFrame {
 
     private static final Logger LOGGER = Logger.getLogger(Init.class.getName());
 
-    public static final boolean DEV_MODE = false;
+    public static final boolean DEV_MODE = true;
     public static final String CORONA_DIR = System.getProperty("user.home") + "/.coronapoker";
     public static final String LOGS_DIR = CORONA_DIR + "/Logs";
     public static final String DEBUG_DIR = CORONA_DIR + "/Debug";

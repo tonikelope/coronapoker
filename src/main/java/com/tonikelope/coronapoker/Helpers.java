@@ -5299,6 +5299,9 @@ public class Helpers {
                                 GameFrame.RUN_IT_TWICE = RUN_IT_TWICE_MENU.isSelected();
                                 GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (GameFrame.RUN_IT_TWICE ? "1" : "0"), null);
                                 if (GameFrame.getInstance().isPartida_local()) {
+                                    // Persiste la regla para que sobreviva a un detener+recuperar
+                                    // de la timba (igual que IWTSTH/rabbit).
+                                    GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
                                     Helpers.GUIRun(() -> {
                                         RUN_IT_TWICE_MENU.setEnabled(true);
                                     });

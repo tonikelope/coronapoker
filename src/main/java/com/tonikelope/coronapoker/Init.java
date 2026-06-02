@@ -534,6 +534,7 @@ public class Init extends JFrame {
             setVisible(true);
             GameFrame.IWTSTH_RULE_RECOVER = null;
             GameFrame.RABBIT_HUNTING_RECOVER = null;
+            GameFrame.RUN_IT_TWICE_RECOVER = null;
             GameFrame.PASSWORD_RECOVER = null;
         } else {
             setVisible(false);

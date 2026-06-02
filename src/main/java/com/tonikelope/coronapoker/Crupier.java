@@ -8038,7 +8038,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!ok) {
                 return false;
             }
-            actualizarContadoresTapete();
+            // NO actualizarContadoresTapete aquí: re-mostraría la bet_label de
+            // calle ("River") vía setTapeteApuestas. En CARA-B solo queremos la
+            // label del bote total (ya fijada antes del reparto).
             destaparCartaComunitaria(s, resisten);
         }
         return true;
@@ -8058,6 +8060,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Cartas ya reveladas en el all-in; mirror del showdown normal (idempotente).
         requestShowdownKeys(resisten);
         procesarCartasResistencia(resisten, false);
+
+        // Bote total (antes de pagar nada) para mostrarlo en la pot_label durante
+        // el reparto de CARA-B (solo la label del bote total arriba, sin bet_label).
+        final float fullPot = this.bote_total;
 
         // conta_win: snapshot para corregir el doble incremento de showdown().
         HashMap<Player, Integer> contaWinSnapshot = new HashMap<>();
@@ -8087,10 +8093,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             cc.getPot_label().setHorizontalAlignment(JLabel.LEADING);
             cc.restoreBetLabelicon();
             cc.getPot_label().setForeground(cc.getBet_label().getForeground());
-            cc.getPot_label().setText("---");
             cc.getHand_label().setVisible(false);
             cc.getBet_label().setVisible(false);
         });
+        // Solo la label del bote TOTAL arriba durante CARA-B (sin bet_label de calle).
+        GameFrame.getInstance().setTapeteBote(fullPot, null);
         // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
         // Rewind: tapar comunitarias corridas + re-pintar última acción.

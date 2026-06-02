@@ -134,6 +134,33 @@ ya sirven para AMBOS sub-pasos:
    NPE análogo al de A2 — derivar locks de unlocks que sí se restauran).
 4. Smoke: reparto completo con helpers, EXIT antes/después de rotar.
 
+### ⚠️ B — el reto REAL no es el motor, es el anclaje de `H_pre` (hallazgo de integración)
+`RotationChain` ancla la cadena a `H_pre`, PERO **`H_pre` lo provee el host** y la rotación
+ocurre ANTES del MEGAPACKET y del H_0 (Crupier.java:1149 vs 1226/1247) — antes de cualquier
+compromiso. Si el host elige `H_pre`, el binding del motor **no cierra el ataque**: pone
+`H_pre = r·pocket_H` y el cliente lo rota igual. **El motor es necesario pero NO suficiente:
+hace falta comprometer `H_pre` de forma que el host no pueda cegarlo, ANTES de rotar.**
+
+El cliente no puede derivar `H_pre`: las community pieces post-rotación del MEGAPACKET
+(`genesis·community-locks`) no permiten recuperar las pre-rotación (`genesis·pocket-locks`)
+sin las claves. Así que `H_pre` debe venir comprometido. Opciones:
+
+- **C1 (robusta) — sembrar el handstate ANTES de rotar.** Mover/añadir un compromiso del deck
+  post-cascada (`H_pre`) al H_0 *antes* de la FASE 1.5, firmado y sujeto al consenso de fin de
+  mano (como el MEGAPACKET). El cliente ancla la rotación a ese `H_pre` consensuado. Cierra el
+  ataque, pero toca el orden del handstate/EC-Identity (mayor, delicado).
+- **C2 (pragmática) — binding por el board + anti-replay.** El cliente rota SOLO el `H_pre` que
+  el host difunde, UNA vez por mano, y ese `H_pre` ES el que produce el board (comunitarias).
+  Colar `r·pocket_H` en `H_pre` rompe el board → detectable; pedir una rotación extra → anti-
+  replay. **Gap residual:** el host puede *sacrificar una mano* (meter `pocket_H`, leer la
+  rotación, el board falla → misdeal) para leer 1 punto del pocket de un jugador que ya salió.
+  Ruidoso y costoso, pero es "una forma".
+- **C3 — no cerrar B.** Aceptar el caso H-sale (el jugador ya foldeó/salió; A cierra el resto).
+
+→ Decisión de diseño del autor (seguridad vs complejidad). El motor (`RotationChain`) queda
+listo para C1 o C2. NO improvisar el anclaje: uno débil deja el oráculo abierto creyéndolo
+cerrado — peor que documentarlo.
+
 ## A2 — detalle de implementación (estudiado, listo para ejecutar)
 
 `cascadeAndDealCommunityPieces` (Crupier.java:7600). Matices confirmados leyendo el método:

@@ -28,6 +28,10 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import com.tonikelope.coronapoker.crypto.RistrettoSRA;
+import com.tonikelope.coronapoker.crypto.UnlockChainWire;
+import com.tonikelope.coronapoker.crypto.DealChain;
+
 import com.drew.imaging.ImageProcessingException;
 import static com.tonikelope.coronapoker.Card.BARAJAS;
 import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
@@ -349,6 +353,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
+    private volatile boolean suspicious_host_warned = false;
+
+    /**
+     * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
+     * que NO da certeza de manipulación (siempre presumimos buena fe: podría ser un bug del
+     * software). A diferencia de {@link #triggerSecurityLockdown}, NO congela el saldo, NO
+     * cierra el socket ni termina la partida: solo informa al usuario UNA vez por sesión y
+     * recomienda ENCARECIDAMENTE abandonar la mesa, dejando que el juego siga si puede. Se usa
+     * cuando ya hemos neutralizado la anomalía rechazando la operación (p.ej. una segunda
+     * rotación) y congelar sería desproporcionado si resultara ser un bug.
+     */
+    public void warnSuspiciousHost(String reason) {
+        if (suspicious_host_warned) {
+            return;
+        }
+        suspicious_host_warned = true;
+        try {
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
+        } catch (Exception ignored) {
+        }
+        Helpers.threadRun(() -> Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                Translator.translate("zero_trust.suspicious_header")
+                + reason + "\n\n"
+                + Translator.translate("zero_trust.suspicious_body")));
+    }
+
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
@@ -429,11 +459,85 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_sra_lock_community = null;
     public volatile byte[] local_sra_unlock_community = null;
+    // Anti-replay de la rotación (Fase 4.3): el cliente sirve UNA sola rotación por
+    // cascada. Se pone a false al generar los scalars en el handler DECK_CASCADE_REQ
+    // (cada cascada/reintento legítimo permite una rotación) y a true tras servir la
+    // rotación. Una segunda DECK_ROTATION_REQ sin nueva cascada = host hostil intentando
+    // usar la rotación como oráculo de pocket-unlock encubierto → lockdown. Cierra el
+    // sigilo del único resquicio que queda (cartas de un peer que sale): sin rotación
+    // extra, el host tendría que corromper la rotación legítima y eso rompe el board
+    // (misdeal injustificado, detectable).
+    public volatile boolean rotation_served_this_cascade = false;
     // Locks community de los bots que orquesta este host. La mitad UNLOCK la
     // guarda el Participant (sra_unlock_community); el LOCK solo es necesario
     // localmente en la fase de rotación, así que vive en este Map keyed por
     // nick del bot. Limpiado en los mismos sitios que el resto de scalars.
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> bot_community_locks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // Fase 4 (verifiable dealing): commitments publicos K=k*B de cada peer del ring
+    // (nick -> encoding Ristretto 32B), para K_pocket y K_community. Se recolectan
+    // durante la cascade (propios + bots localmente, remotos via DECK_CASCADE_RESP),
+    // se difunden en el MEGAPACKET y se anclan en H_0 (HAND_V2) para que la cadena
+    // DLEQ del dealing se verifique contra claves que nadie puede falsificar.
+    public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_pocket = new java.util.concurrent.ConcurrentHashMap<>();
+    public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_community = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Serializa los commitments del ring para el MEGAPACKET, en orden del ring:
+     * "nickB64:KpocketB64:KcommunityB64;...". Base64 no usa ':' ni ';' ni '#',
+     * asi que son separadores seguros frente al split('#') del wire.
+     */
+    private String serializeCommitments() {
+        StringBuilder sb = new StringBuilder();
+        if (this.active_crypto_ring == null) {
+            return "";
+        }
+        for (String nick : this.active_crypto_ring) {
+            byte[] kp = peer_k_pocket.get(nick);
+            byte[] kc = peer_k_community.get(nick);
+            if (kp == null || kc == null) {
+                continue;
+            }
+            try {
+                if (sb.length() > 0) {
+                    sb.append(';');
+                }
+                sb.append(Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")))
+                        .append(':').append(Base64.getEncoder().encodeToString(kp))
+                        .append(':').append(Base64.getEncoder().encodeToString(kc));
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error serializing commitment for " + nick, e);
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Parsea el campo de commitments del MEGAPACKET y puebla los mapas locales. */
+    public void parseCommitments(String field) {
+        if (field == null || field.isEmpty()) {
+            return;
+        }
+        for (String entry : field.split(";")) {
+            if (entry.isEmpty()) {
+                continue;
+            }
+            String[] parts = entry.split(":");
+            if (parts.length != 3) {
+                continue;
+            }
+            try {
+                String nick = new String(Base64.getDecoder().decode(parts[0]), "UTF-8");
+                byte[] kp = Base64.getDecoder().decode(parts[1]);
+                byte[] kc = Base64.getDecoder().decode(parts[2]);
+                if (kp.length == 32 && kc.length == 32) {
+                    peer_k_pocket.put(nick, kp);
+                    peer_k_community.put(nick, kc);
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error parsing commitment entry", e);
+            }
+        }
+    }
     public volatile byte[] local_mega_packet = null;
 
     // --- TOKENS DEL HOST ---
@@ -591,14 +695,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // a TODOS via MEGAPACKET. Si el peer (malicioso o comprometido)
                                 // devuelve bytes que no son puntos de Curve25519, no podemos
                                 // contaminar la cascada — aborta la mano antes de propagar.
-                                if (candidate.length == 1664 && CryptoSRA.arePointsOnCurve(candidate)) {
+                                if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
                                     newDeck = candidate;
                                     ok = true;
+                                    // Fase 4: capturar los commitments K del peer (partes[5]=K_pocket,
+                                    // partes[6]=K_community) para anclarlos en H_0 (HAND_V2).
+                                    if (partes.length >= 7) {
+                                        try {
+                                            byte[] kp = Base64.getDecoder().decode(partes[5]);
+                                            byte[] kc = Base64.getDecoder().decode(partes[6]);
+                                            if (kp.length == 32 && kc.length == 32
+                                                    && RistrettoSRA.arePointsValid(kp) && RistrettoSRA.arePointsValid(kc)) {
+                                                peer_k_pocket.put(nick, kp);
+                                                peer_k_community.put(nick, kc);
+                                            } else {
+                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid commitments — refusing", nick);
+                                                fatalError = true;
+                                                ok = false;
+                                            }
+                                        } catch (Exception ex) {
+                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_RESP from {0} commitment parse failed — refusing", nick);
+                                            fatalError = true;
+                                            ok = false;
+                                        }
+                                    } else {
+                                        LOGGER.log(Level.WARNING, "DECK_CASCADE_RESP from {0} without commitments (legacy peer) — H_0 will fall back to HAND_V1", nick);
+                                    }
                                 } else {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid deck (len={1}, on_curve={2}) — refusing cascade",
                                             new Object[]{nick, candidate.length,
-                                                candidate.length == 1664 ? CryptoSRA.arePointsOnCurve(candidate) : false});
+                                                candidate.length == 1664 ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
                             } else {
@@ -671,14 +798,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 byte[] candidate = Base64.getDecoder().decode(partes[4]);
                                 // El bloque rotado debe conservar exactamente la misma longitud
                                 // (mismas N posiciones) y seguir siendo puntos de la curva.
-                                if (candidate.length == expectedLength && CryptoSRA.arePointsOnCurve(candidate)) {
+                                if (candidate.length == expectedLength && RistrettoSRA.arePointsValid(candidate)) {
                                     newPieces = candidate;
                                     ok = true;
                                 } else {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_ROTATION_RESP from {0} carries invalid pieces (len={1}, on_curve={2}) — refusing rotation",
                                             new Object[]{nick, candidate.length,
-                                                candidate.length == expectedLength ? CryptoSRA.arePointsOnCurve(candidate) : false});
+                                                candidate.length == expectedLength ? RistrettoSRA.arePointsValid(candidate) : false});
                                     fatalError = true;
                                 }
                             } else {
@@ -825,6 +952,134 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return unlocked;
     }
 
+    /**
+     * Fase 4.2: variante verificable del unlock batch. Envia, por item, las cadenas
+     * DealChain por punto (no el residuo desnudo); el peer las verifica contra su
+     * MEGAPACKET comprometido y devuelve las cadenas extendidas con su prueba. El
+     * host nunca le manda el punto a descifrar — solo el offset y las pruebas previas
+     * — asi que el cegado es imposible. Devuelve los RespItem por nick o null.
+     */
+    private java.util.List<UnlockChainWire.RespItem> requestRemoteUnlockChain(
+            String nick, Participant p, int phase, java.util.List<UnlockChainWire.ReqItem> items) {
+        int id = Helpers.CSPRNG_GENERATOR.nextInt();
+        byte[] iv = new byte[16];
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+        String payload = UnlockChainWire.serializeReq(items);
+        try {
+            String cmd = "GAME#" + id + "#REQ_SRA_UNLOCK_CHAIN#" + phase + "#" + this.conta_mano + "#" + payload;
+            p.writeCommandFromServer(Helpers.encryptCommand(cmd, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            return null;
+        }
+
+        boolean ok = false;
+        java.util.List<UnlockChainWire.RespItem> result = null;
+        long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
+        do {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                while (!ok && !this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("RESP_SRA_UNLOCK_CHAIN")) {
+                        try {
+                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            if (senderNick.equals(nick)) {
+                                java.util.List<UnlockChainWire.RespItem> parsed = UnlockChainWire.parseResp(partes[4]);
+                                if (parsed != null) {
+                                    result = parsed;
+                                    ok = true;
+                                } else {
+                                    rejected.add(cmd);
+                                }
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            rejected.add(cmd);
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+            if (!ok) {
+                long remainingMs = deadlineMs - System.currentTimeMillis();
+                if (remainingMs <= 0) {
+                    LOGGER.log(Level.WARNING,
+                            "REQ_SRA_UNLOCK_CHAIN to {0} (phase {1}) timed out after {2}ms",
+                            new Object[]{nick, phase, REMOTE_SRA_PEER_TIMEOUT_MS});
+                    return null;
+                }
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
+        return ok ? result : null;
+    }
+
+    /**
+     * Fase 4.2: extiende localmente (en nombre de signerNick, con su lock) la cadena
+     * DealChain de cada slot del pocket salvo el del propio signer (skipSlot). Usado
+     * por el host para su propio paso, el de los bots y el testamento de un peer que
+     * salió (el host deriva el lock del unlock entregado). Devuelve false si algún
+     * extend falla (no debería con datos honestos).
+     */
+    private boolean extendPocketChainsForSigner(String[][] chains, String[] ring, int skipSlot,
+            String signerNick, byte[] signerLock) {
+        for (int i = 0; i < ring.length; i++) {
+            if (i == skipSlot) {
+                continue;
+            }
+            for (int j = 0; j < 2; j++) {
+                int pointIdx = i * 2 + j;
+                byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                DealChain.Extended ext = DealChain.extend(point, chains[i][j], peer_k_pocket, signerNick, signerLock);
+                if (ext == null) {
+                    return false;
+                }
+                chains[i][j] = ext.wire;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Fase 4.3: análogo community de {@link #extendPocketChainsForSigner}. Extiende, en
+     * nombre de signerNick con su community-lock, la cadena de cada recipient (clave del map)
+     * salvo skipRecipient. A diferencia del pocket, TODAS las copies anclan al MISMO punto
+     * base del MEGAPACKET (offset+j, las community pieces post-rotación), no a slots por
+     * jugador. Usa peer_k_community. skipRecipient==null cuando el signer no es recipient
+     * (los bots: tienen community-lock que pelar pero no reciben pieza propia).
+     */
+    private boolean extendCommunityChainsForSigner(java.util.Map<String, String[]> chains,
+            int offset, int numCards, String skipRecipient, String signerNick, byte[] signerLock) {
+        for (java.util.Map.Entry<String, String[]> e : chains.entrySet()) {
+            if (e.getKey().equals(skipRecipient)) {
+                continue;
+            }
+            String[] recipientChains = e.getValue();
+            for (int j = 0; j < numCards; j++) {
+                int pointIdx = offset + j;
+                byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                DealChain.Extended ext = DealChain.extend(point, recipientChains[j], peer_k_community, signerNick, signerLock);
+                if (ext == null) {
+                    return false;
+                }
+                recipientChains[j] = ext.wire;
+            }
+        }
+        return true;
+    }
+
     private boolean enviarCartasJugadoresRemotos() {
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
@@ -833,6 +1088,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
         this.bot_community_locks.clear();
+            this.peer_k_pocket.clear();
+            this.peer_k_community.clear();
 
         // EC-Identity v1: fresh per-hand 16-byte HAND_ID that the host broadcasts to
         // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
@@ -863,6 +1120,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             this.bot_community_locks.clear();
+            this.peer_k_pocket.clear();
+            this.peer_k_community.clear();
 
             java.util.ArrayList<Player> ringCriptografico = getAnilloCriptografico();
             int numPlayers = ringCriptografico.size();
@@ -887,16 +1146,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.active_crypto_ring = currentRing;
 
             // Candado fresco del Host por intento.
-            this.local_sra_lock = CryptoSRA.generateLockScalar();
-            this.local_sra_unlock = CryptoSRA.getUnlockScalar(this.local_sra_lock);
+            this.local_sra_lock = RistrettoSRA.generateLockScalar();
+            this.local_sra_unlock = RistrettoSRA.getUnlockScalar(this.local_sra_lock);
             // Dual-lock (Opción G): segundo par para community. Generado por
             // adelantado para que la fase de rotación que vendrá después de la
             // cascade tenga el scalar listo. Hasta que se cablee la rotación
             // este par queda inerte (no se aplica a nada).
-            this.local_sra_lock_community = CryptoSRA.generateLockScalar();
-            this.local_sra_unlock_community = CryptoSRA.getUnlockScalar(this.local_sra_lock_community);
+            this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
+            this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(this.local_sra_lock_community);
 
-            workingDeck = CryptoSRA.applyCommutativeLock(CryptoSRA.getGenesisDeck(), this.local_sra_lock);
+            // Fase 4: commitments K=k*B del host para H_0 (HAND_V2).
+            String hostNickForCommit = GameFrame.getInstance().getNick_local();
+            peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
+            peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
+
+            workingDeck = RistrettoSRA.applyCommutativeLock(RistrettoSRA.getGenesisDeck(), this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
 
             boolean restart = false;
@@ -905,8 +1169,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
                     Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                     if (p != null && p.isCpu()) {
-                        byte[] botLock = CryptoSRA.generateLockScalar();
-                        byte[] botUnlock = CryptoSRA.getUnlockScalar(botLock);
+                        byte[] botLock = RistrettoSRA.generateLockScalar();
+                        byte[] botUnlock = RistrettoSRA.getUnlockScalar(botLock);
                         byte[] botSeed = new byte[48];
                         if (Helpers.CSPRNG_GENERATOR != null) {
                             Helpers.CSPRNG_GENERATOR.nextBytes(botSeed);
@@ -915,11 +1179,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Dual-lock: scalars community del bot. El lock se usará
                         // durante la rotación; el unlock se guarda en el Participant
                         // para que cascadeAndDealCommunityPieces pueda aplicarlo.
-                        byte[] botCommunityLock = CryptoSRA.generateLockScalar();
-                        byte[] botCommunityUnlock = CryptoSRA.getUnlockScalar(botCommunityLock);
+                        byte[] botCommunityLock = RistrettoSRA.generateLockScalar();
+                        byte[] botCommunityUnlock = RistrettoSRA.getUnlockScalar(botCommunityLock);
                         this.bot_community_locks.put(currNick, botCommunityLock);
                         p.setSra_unlock_community(botCommunityUnlock);
-                        workingDeck = CryptoSRA.applyCommutativeLock(workingDeck, botLock);
+                        // Fase 4: commitments K del bot para H_0 (HAND_V2).
+                        peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
+                        peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
+                        workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
                     } else if (p != null && !p.isExit()) {
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
@@ -965,8 +1232,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
             String currNick = currentRing[i];
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
-                communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
-                communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
+                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
+                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                 if (p != null && p.isCpu()) {
@@ -979,8 +1246,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         rotationOk = false;
                         break;
                     }
-                    communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, botUnlock);
-                    communityPieces = CryptoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
+                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botUnlock);
+                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
                 } else if (p != null && !p.isExit()) {
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
@@ -1032,7 +1299,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // a fourth field. Old clients (pre-v1) just stop parsing at the third field;
         // new clients pick it up to seed their HandStateChain.
         String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
-        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64, null, true);
+        // Fase 4: 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0 (HAND_V2).
+        String commitmentsField = serializeCommitments();
+        broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
 
         // EC-Identity v1: now that MEGAPACKET is finalised and every peer (in theory)
         // sees the same active_crypto_ring + cascadedDeck + handId, seed our own
@@ -1051,28 +1320,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (target=H mantiene el lock del propio H para que su client lo abra).
         // Si un humano H ha hecho EXIT con testamento, aplicamos su unlock
         // localmente para esos mismos slots; sin testamento abortamos la mano.
+        // FASE 4.2: dealing pocket VERIFICABLE. Cada peer que quita su lock adjunta una
+        // prueba DLEQ encadenada desde el MEGAPACKET comprometido; el host (sus propios
+        // locks, los de bots y los testamentos de exits) extiende localmente, y los
+        // helpers vivos vía REQ_SRA_UNLOCK_CHAIN. El residuo single-locked de cada slot
+        // es el tail de su cadena. Ningún peer descifra bytes sin probar su procedencia.
         String hostNick = GameFrame.getInstance().getNick_local();
-        byte[][] pockets = new byte[currentRing.length][];
-        for (int i = 0; i < currentRing.length; i++) {
-            String targetNick = currentRing[i];
-            byte[] pocketCards = new byte[64];
-            System.arraycopy(local_mega_packet, i * 64, pocketCards, 0, 64);
-
-            if (!targetNick.equals(hostNick)) {
-                pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
-            }
-
-            for (String bNick : currentRing) {
-                Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
-                if (pb != null && pb.isCpu() && !bNick.equals(targetNick)) {
-                    pocketCards = CryptoSRA.applyCommutativeLock(pocketCards, pb.getReceived_token());
-                }
-            }
-            pockets[i] = pocketCards;
+        int ringLen = currentRing.length;
+        String[][] pocketChains = new String[ringLen][2];
+        for (int i = 0; i < ringLen; i++) {
+            pocketChains[i][0] = "";
+            pocketChains[i][1] = "";
         }
 
-        // Recorrido de helpers humanos remotos en orden del ring (determinista).
-        for (int h = 0; h < currentRing.length; h++) {
+        // Paso 1: el host quita su lock (con prueba) de cada slot salvo el suyo.
+        int hostSlot = -1;
+        for (int i = 0; i < ringLen; i++) {
+            if (currentRing[i].equals(hostNick)) {
+                hostSlot = i;
+                break;
+            }
+        }
+        if (!extendPocketChainsForSigner(pocketChains, currentRing, hostSlot, hostNick, this.local_sra_lock)) {
+            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+            return false;
+        }
+        // Bots: el host quita el lock de cada bot (con prueba) de cada slot salvo el del bot.
+        for (String bNick : currentRing) {
+            Participant pb = GameFrame.getInstance().getParticipantes().get(bNick);
+            if (pb != null && pb.isCpu() && pb.getReceived_token() != null) {
+                int botSlot = -1;
+                for (int i = 0; i < ringLen; i++) {
+                    if (currentRing[i].equals(bNick)) {
+                        botSlot = i;
+                        break;
+                    }
+                }
+                byte[] botLock = RistrettoSRA.getUnlockScalar(pb.getReceived_token());
+                if (!extendPocketChainsForSigner(pocketChains, currentRing, botSlot, bNick, botLock)) {
+                    cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    return false;
+                }
+            }
+        }
+
+        // Paso 2: helpers humanos remotos en orden del ring (vivos vía comando; exit
+        // con testamento extendido localmente por el host derivando el lock del unlock).
+        for (int h = 0; h < ringLen; h++) {
             String hNick = currentRing[h];
             if (hNick.equals(hostNick)) {
                 continue;
@@ -1082,42 +1376,78 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 continue;
             }
 
-            ArrayList<Integer> peerIdxs = new ArrayList<>();
-            ArrayList<byte[]> payloads = new ArrayList<>();
-            ArrayList<Integer> slotsForH = new ArrayList<>();
-            for (int i = 0; i < currentRing.length; i++) {
-                if (i != h) {
-                    peerIdxs.add(i);
-                    payloads.add(pockets[i]);
-                    slotsForH.add(i);
-                }
-            }
-
             if (!ph.isExit()) {
-                ArrayList<byte[]> response = requestRemoteUnlockBatch(hNick, ph, UNLOCK_PHASE_POCKET, peerIdxs, payloads);
-                if (response != null) {
-                    for (int k = 0; k < slotsForH.size(); k++) {
-                        pockets[slotsForH.get(k)] = response.get(k);
+                java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
+                for (int i = 0; i < ringLen; i++) {
+                    if (i != h) {
+                        reqItems.add(new UnlockChainWire.ReqItem(i, i * 2,
+                                java.util.Arrays.asList(pocketChains[i][0], pocketChains[i][1])));
+                    }
+                }
+                java.util.List<UnlockChainWire.RespItem> resp =
+                        requestRemoteUnlockChain(hNick, ph, UNLOCK_PHASE_POCKET, reqItems);
+                if (resp != null) {
+                    java.util.Set<Integer> covered = new java.util.HashSet<>();
+                    for (UnlockChainWire.RespItem ri : resp) {
+                        if (ri.peerIdx >= 0 && ri.peerIdx < ringLen && ri.peerIdx != h && ri.chains.size() == 2) {
+                            pocketChains[ri.peerIdx][0] = ri.chains.get(0);
+                            pocketChains[ri.peerIdx][1] = ri.chains.get(1);
+                            covered.add(ri.peerIdx);
+                        }
+                    }
+                    // El helper debe haber extendido TODOS los slots != h. Un RESP incompleto
+                    // dejaria un residuo aun lockeado por el helper (paridad con el batch viejo
+                    // que validaba count). Tratarlo como rechazo.
+                    boolean allCovered = true;
+                    for (int i = 0; i < ringLen && allCovered; i++) {
+                        if (i != h && !covered.contains(i)) {
+                            allCovered = false;
+                        }
+                    }
+                    if (!allCovered) {
+                        cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
+                        return false;
                     }
                 } else if (ph.getSra_unlock() != null) {
-                    for (int slot : slotsForH) {
-                        pockets[slot] = CryptoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
+                    byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
+                    if (!extendPocketChainsForSigner(pocketChains, currentRing, h, hNick, hLock)) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                        return false;
                     }
                 } else {
-                    // Peer vivo, NO respondió, no testament local. REFUSAL → para la timba.
                     cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
                     return false;
                 }
             } else if (ph.getSra_unlock() != null) {
-                for (int slot : slotsForH) {
-                    pockets[slot] = CryptoSRA.applyCommutativeLock(pockets[slot], ph.getSra_unlock());
+                byte[] hLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock());
+                if (!extendPocketChainsForSigner(pocketChains, currentRing, h, hNick, hLock)) {
+                    cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    return false;
                 }
             } else {
-                // Peer ya salió y no dejó testament. "Se fue sin dar testamento" —
-                // excepción del usuario: misdeal pero la timba continúa.
                 cancelarManoYDevolverApuestas("peer.unlock_no_testament");
                 return false;
             }
+        }
+
+        // Paso 3: el host verifica cada cadena final y toma el tail (residuo single-locked
+        // por el target). Una cadena que no verifica = un peer devolvió algo no probado.
+        byte[][] pockets = new byte[ringLen][];
+        for (int i = 0; i < ringLen; i++) {
+            byte[] pc = new byte[64];
+            for (int j = 0; j < 2; j++) {
+                int pointIdx = i * 2 + j;
+                byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                java.util.List<DealChain.Entry> ch = DealChain.parse(pocketChains[i][j]);
+                if (ch == null || !DealChain.verify(point, ch, peer_k_pocket)) {
+                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: pocket chain for slot {0} point {1} failed verification", new Object[]{i, j});
+                    cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    return false;
+                }
+                byte[] tail = DealChain.tail(point, ch);
+                System.arraycopy(tail, 0, pc, j * 32, 32);
+            }
+            pockets[i] = pc;
         }
 
         // Broadcast y resolución local por target.
@@ -1137,19 +1467,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (targetNick.equals(hostNick)) {
-                byte[] myPocket = CryptoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
+                byte[] myPocket = RistrettoSRA.applyCommutativeLock(pocketCards, this.local_sra_unlock);
                 byte[] c1 = Arrays.copyOfRange(myPocket, 0, 32);
                 byte[] c2 = Arrays.copyOfRange(myPocket, 32, 64);
-                this.local_original_cards[0] = (byte) CryptoSRA.resolveCardIndex(c1);
-                this.local_original_cards[1] = (byte) CryptoSRA.resolveCardIndex(c2);
+                this.local_original_cards[0] = (byte) RistrettoSRA.resolveCardIndex(c1);
+                this.local_original_cards[1] = (byte) RistrettoSRA.resolveCardIndex(c2);
             } else {
                 Participant pTarget = GameFrame.getInstance().getParticipantes().get(targetNick);
                 if (pTarget != null && pTarget.isCpu()) {
-                    byte[] botPocket = CryptoSRA.applyCommutativeLock(pocketCards, pTarget.getReceived_token());
+                    byte[] botPocket = RistrettoSRA.applyCommutativeLock(pocketCards, pTarget.getReceived_token());
                     byte[] c1 = Arrays.copyOfRange(botPocket, 0, 32);
                     byte[] c2 = Arrays.copyOfRange(botPocket, 32, 64);
-                    int id1 = CryptoSRA.resolveCardIndex(c1);
-                    int id2 = CryptoSRA.resolveCardIndex(c2);
+                    int id1 = RistrettoSRA.resolveCardIndex(c1);
+                    int id2 = RistrettoSRA.resolveCardIndex(c2);
                     if (id1 >= 0 && id2 >= 0) {
                         Player botPlayer = nick2player.get(targetNick);
                         // Un espectador entra al anillo criptográfico (contribuye su lock)
@@ -1221,6 +1551,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     this.current_hand_id = null;
                                 }
                             }
+                            // Fase 4: parsear los commitments K (5º campo) antes de sembrar H_0.
+                            if (partes.length >= 7) {
+                                parseCommitments(partes[6]);
+                            }
                             initHandStateChain();
                         } else if (partes[2].equals("POCKET_CARDS") && partes.length >= 5) {
                             try {
@@ -1237,12 +1571,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         this.local_sra_unlock = GameFrame.getInstance().getParticipantes().get(GameFrame.getInstance().getNick_local()).getSra_unlock();
 
                                         // Quitamos nuestro propio candado (El último de la capa de cifrado)
-                                        byte[] myPocket = CryptoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
+                                        byte[] myPocket = RistrettoSRA.applyCommutativeLock(unlockedByOthers, this.local_sra_unlock);
                                         byte[] c1 = java.util.Arrays.copyOfRange(myPocket, 0, 32);
                                         byte[] c2 = java.util.Arrays.copyOfRange(myPocket, 32, 64);
 
-                                        int id1 = CryptoSRA.resolveCardIndex(c1);
-                                        int id2 = CryptoSRA.resolveCardIndex(c2);
+                                        int id1 = RistrettoSRA.resolveCardIndex(c1);
+                                        int id2 = RistrettoSRA.resolveCardIndex(c2);
 
                                         if (id1 >= 0 && id2 >= 0) {
                                             this.local_original_cards[0] = (byte) id1;
@@ -1458,12 +1792,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] pocketCards = this.single_locked_pocket_cards.get(target.getNickname());
             if (pocketCards != null && pocketCards.length == 64) {
                 try {
-                    byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, p.getSra_unlock());
+                    byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, p.getSra_unlock());
                     byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
                     byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
 
-                    int id1 = CryptoSRA.resolveCardIndex(c1);
-                    int id2 = CryptoSRA.resolveCardIndex(c2);
+                    int id1 = RistrettoSRA.resolveCardIndex(c1);
+                    int id2 = RistrettoSRA.resolveCardIndex(c2);
                     if (id1 >= 0 && id2 >= 0) {
                         target.getHoleCard1().actualizarConValorNumerico(id1 + 1);
                         target.getHoleCard2().actualizarConValorNumerico(id2 + 1);
@@ -2895,19 +3229,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
     // protocol_state_lock.
     private boolean isUnlockPhaseStateSafe(int phase) {
+        return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time);
+    }
+
+    /**
+     * Pure gating predicate (no Crupier state → unit-testable): may a given unlock phase be
+     * served when the local street machine is at {@code street} and show_time is {@code showTime}?
+     * POCKET is always safe (hand start); FLOP/TURN/RIVER require the LOCAL rondaApuestas to have
+     * reached that street — this is the anti early-cascade gate: a hostile host cannot make us
+     * reveal a future street because our street only advances in lockstep with betting, not by
+     * the host's broadcast. RABBIT_* require show_time. Anything else is refused.
+     */
+    static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime) {
         switch (phase) {
             case UNLOCK_PHASE_POCKET:
                 return true;
             case UNLOCK_PHASE_FLOP:
-                return this.street >= FLOP;
+                return street >= FLOP;
             case UNLOCK_PHASE_TURN:
-                return this.street >= TURN;
+                return street >= TURN;
             case UNLOCK_PHASE_RIVER:
-                return this.street >= RIVER;
+                return street >= RIVER;
             case UNLOCK_PHASE_RABBIT_FLOP:
             case UNLOCK_PHASE_RABBIT_TURN:
             case UNLOCK_PHASE_RABBIT_RIVER:
-                return this.show_time;
+                return showTime;
             default:
                 return false;
         }
@@ -3281,6 +3627,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 if (myP != null) {
                                     myP.setSra_unlock(this.local_sra_unlock);
                                 }
+                            } else if (part.startsWith("COMMITMENTS@")) {
+                                // Fase 4 (recovery): repoblar los K del ring (HAND_V2) para que
+                                // initHandStateChain reconstruya el MISMO H_0 que la mano original.
+                                this.peer_k_pocket.clear();
+                                this.peer_k_community.clear();
+                                parseCommitments(part.substring("COMMITMENTS@".length()));
                             } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
                                 // Dual-lock: unlocks community de cada bot. Sin esto, la
                                 // contribución community del bot quedaría sin invertir y
@@ -3514,6 +3866,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (myP != null) {
                                 myP.setSra_unlock(this.local_sra_unlock);
                             }
+                        } else if (part.startsWith("COMMITMENTS@")) {
+                            // Fase 4 (recovery): repoblar los K del ring (HAND_V2) para que
+                            // initHandStateChain reconstruya el MISMO H_0 que la mano original.
+                            this.peer_k_pocket.clear();
+                            this.peer_k_community.clear();
+                            parseCommitments(part.substring("COMMITMENTS@".length()));
                         } else if (part.startsWith("BOTKEYS_COMMUNITY@")) {
                             String[] bKeys = part.substring("BOTKEYS_COMMUNITY@".length()).split(",");
                             for (String bk : bKeys) {
@@ -7332,16 +7690,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        HashMap<String, byte[]> copies = new HashMap<>();
+        // Fase 4.3: community dealing VERIFICABLE (chain anclado al MEGAPACKET).
+        // Cada copy de recipient X ancla a megapacket[offset+j]; el host y los bots
+        // extienden localmente con prueba DLEQ, los helpers vivos vía REQ_SRA_UNLOCK_CHAIN.
+        // El tail de cada copy es la pieza single-locked por X (formato idéntico al batch
+        // viejo → el cliente y el broadcast no cambian). Cierra el oráculo community: el
+        // helper ancla a SU megapacket por índice (cegado imposible) y GATE 6 rechaza
+        // cualquier strip que revele genesis (extracción de una comunitaria antes de tiempo).
+        java.util.Map<String, String[]> commChains = new java.util.LinkedHashMap<>();
+        String[] hostCommChain = new String[numCards];
+        java.util.Arrays.fill(hostCommChain, "");
+        commChains.put(hostNick, hostCommChain);
+        for (String r : remoteHumans) {
+            String[] arr = new String[numCards];
+            java.util.Arrays.fill(arr, "");
+            commChains.put(r, arr);
+        }
 
-        // Copia del host: NO le quitamos su propio lock todavía.
-        // Dual-lock: tras la rotación, las community pieces tienen SOLO locks de
-        // community. El host aplica unlock_community propio (más abajo) y los
-        // unlock_community de los bots (cada bot tiene su par almacenado en
-        // sra_unlock_community del Participant). Los pocket scalars no aplican
-        // sobre community pieces post-rotación.
-        byte[] copyHost = new byte[numCards * 32];
-        System.arraycopy(this.local_mega_packet, offset * 32, copyHost, 0, numCards * 32);
+        // El host quita su community-lock de cada copy salvo la suya (la abre localmente).
+        // El lock se deriva del unlock (getUnlockScalar es involutivo): local_sra_lock_community
+        // es null tras una recuperación de mano (solo se restaura el unlock vía
+        // SRAKEYS_COMMUNITY@), mientras que local_sra_unlock_community siempre está disponible
+        // aquí (lo garantiza el guard de enviarCartasComunitarias). commitment(lock derivado)
+        // == peer_k_community[host], así que la prueba DLEQ verifica igual.
+        byte[] hostCommunityLock = RistrettoSRA.getUnlockScalar(this.local_sra_unlock_community);
+        if (!extendCommunityChainsForSigner(commChains, offset, numCards, hostNick, hostNick, hostCommunityLock)) {
+            if (abortOnFail) {
+                cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+            }
+            return null;
+        }
+        // Los bots quitan su community-lock de TODAS las copies (no son recipients).
         for (String nick : this.active_crypto_ring) {
             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
             if (pp != null && pp.isCpu()) {
@@ -7351,27 +7730,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     return null;
                 }
-                copyHost = CryptoSRA.applyCommutativeLock(copyHost, pp.getSra_unlock_community());
-            }
-        }
-        copies.put(hostNick, copyHost);
-
-        // Copia de cada humano remoto R: aplicamos host_unlock_community local + bot_unlock_community.
-        for (String r : remoteHumans) {
-            byte[] copyR = new byte[numCards * 32];
-            System.arraycopy(this.local_mega_packet, offset * 32, copyR, 0, numCards * 32);
-            copyR = CryptoSRA.applyCommutativeLock(copyR, this.local_sra_unlock_community);
-            for (String nick : this.active_crypto_ring) {
-                Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
-                if (pp != null && pp.isCpu() && pp.getSra_unlock_community() != null) {
-                    copyR = CryptoSRA.applyCommutativeLock(copyR, pp.getSra_unlock_community());
+                byte[] botCommunityLock = RistrettoSRA.getUnlockScalar(pp.getSra_unlock_community());
+                if (!extendCommunityChainsForSigner(commChains, offset, numCards, null, nick, botCommunityLock)) {
+                    if (abortOnFail) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    }
+                    return null;
                 }
             }
-            copies.put(r, copyR);
         }
 
-        // Cascade total: por cada helper humano remoto H, un único batch con
-        // los items de TODOS los recipients X != H.
+        // Cada helper humano H quita su community-lock de las copies de X != H, con prueba,
+        // vía REQ_SRA_UNLOCK_CHAIN (vivo) o extendido localmente con su testamento (exit).
         for (String h : remoteHumans) {
             Participant ph = GameFrame.getInstance().getParticipantes().get(h);
             if (ph == null) {
@@ -7381,28 +7751,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
 
-            ArrayList<Integer> peerIdxs = new ArrayList<>();
-            ArrayList<byte[]> payloads = new ArrayList<>();
-            ArrayList<String> recipientsForH = new ArrayList<>();
-            for (Map.Entry<String, byte[]> e : copies.entrySet()) {
-                if (!e.getKey().equals(h)) {
-                    peerIdxs.add(nick2idx.get(e.getKey()));
-                    payloads.add(e.getValue());
-                    recipientsForH.add(e.getKey());
-                }
-            }
-
             if (!ph.isExit()) {
-                ArrayList<byte[]> response = requestRemoteUnlockBatch(h, ph, unlockPhase, peerIdxs, payloads);
-                if (response != null) {
-                    for (int i = 0; i < recipientsForH.size(); i++) {
-                        copies.put(recipientsForH.get(i), response.get(i));
+                java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
+                for (java.util.Map.Entry<String, String[]> e : commChains.entrySet()) {
+                    if (!e.getKey().equals(h)) {
+                        reqItems.add(new UnlockChainWire.ReqItem(nick2idx.get(e.getKey()), offset,
+                                java.util.Arrays.asList(e.getValue())));
+                    }
+                }
+                java.util.List<UnlockChainWire.RespItem> resp =
+                        requestRemoteUnlockChain(h, ph, unlockPhase, reqItems);
+                if (resp != null) {
+                    java.util.Set<String> covered = new java.util.HashSet<>();
+                    for (UnlockChainWire.RespItem ri : resp) {
+                        String recip = (ri.peerIdx >= 0 && ri.peerIdx < this.active_crypto_ring.length)
+                                ? this.active_crypto_ring[ri.peerIdx] : null;
+                        if (recip != null && !recip.equals(h) && commChains.containsKey(recip)
+                                && ri.chains.size() == numCards) {
+                            commChains.put(recip, ri.chains.toArray(new String[0]));
+                            covered.add(recip);
+                        }
+                    }
+                    // El helper debe haber cubierto TODOS los recipients != h (paridad cabo 2).
+                    boolean allCovered = true;
+                    for (String recip : commChains.keySet()) {
+                        if (!recip.equals(h) && !covered.contains(recip)) {
+                            allCovered = false;
+                            break;
+                        }
+                    }
+                    if (!allCovered) {
+                        if (abortOnFail) {
+                            cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                        }
+                        return null;
                     }
                 } else if (ph.getSra_unlock_community() != null) {
-                    // Dual-lock: el testamento entrega SOLO la mitad community, así
-                    // que el fallback usa sra_unlock_community.
-                    for (String r : recipientsForH) {
-                        copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
+                    // Testamento: entrega SOLO la mitad community; el host extiende local.
+                    byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
+                    if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
+                        if (abortOnFail) {
+                            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                        }
+                        return null;
                     }
                 } else {
                     // Peer vivo, NO respondió, no testament. REFUSAL → para la timba.
@@ -7412,8 +7803,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return null;
                 }
             } else if (ph.getSra_unlock_community() != null) {
-                for (String r : recipientsForH) {
-                    copies.put(r, CryptoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
+                byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
+                if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
+                    if (abortOnFail) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    }
+                    return null;
                 }
             } else {
                 // Peer ya salió sin dejar testament community. "Se fue sin dar testamento"
@@ -7425,12 +7820,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        // El host verifica cada cadena final contra peer_k_community y toma el tail
+        // (la pieza single-locked por su recipient). Una cadena que no verifica = un peer
+        // devolvió algo no probado.
+        HashMap<String, byte[]> copies = new HashMap<>();
+        for (java.util.Map.Entry<String, String[]> e : commChains.entrySet()) {
+            byte[] copy = new byte[numCards * 32];
+            for (int j = 0; j < numCards; j++) {
+                int pointIdx = offset + j;
+                byte[] point = Arrays.copyOfRange(this.local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                java.util.List<DealChain.Entry> ch = DealChain.parse(e.getValue()[j]);
+                if (ch == null || !DealChain.verify(point, ch, peer_k_community)) {
+                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: community chain for recipient {0} piece {1} failed verification", new Object[]{e.getKey(), j});
+                    if (abortOnFail) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    }
+                    return null;
+                }
+                byte[] tail = DealChain.tail(point, ch);
+                System.arraycopy(tail, 0, copy, j * 32, 32);
+            }
+            copies.put(e.getKey(), copy);
+        }
+
         // Resolver la copia del host (queda sólo el lock community propio del host).
-        byte[] hostFinal = CryptoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock_community);
+        byte[] hostFinal = RistrettoSRA.applyCommutativeLock(copies.get(hostNick), this.local_sra_unlock_community);
         int[] hostIndices = new int[numCards];
         for (int i = 0; i < numCards; i++) {
             byte[] chunk = Arrays.copyOfRange(hostFinal, i * 32, (i + 1) * 32);
-            int idx = CryptoSRA.resolveCardIndex(chunk);
+            int idx = RistrettoSRA.resolveCardIndex(chunk);
             if (idx < 0) {
                 if (abortOnFail) {
                     cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
@@ -7564,11 +7982,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // Dual-lock: tras la rotación, las community pieces están cifradas
                             // con scalars de community. El recipient aplica SU unlock_community
                             // para descifrar.
-                            byte[] unlocked = CryptoSRA.applyCommutativeLock(piece, this.local_sra_unlock_community);
+                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(piece, this.local_sra_unlock_community);
                             int[] indices = new int[expectedNumCards];
                             for (int k = 0; k < expectedNumCards; k++) {
                                 byte[] chunk = Arrays.copyOfRange(unlocked, k * 32, (k + 1) * 32);
-                                int idx = CryptoSRA.resolveCardIndex(chunk);
+                                int idx = RistrettoSRA.resolveCardIndex(chunk);
                                 if (idx < 0) {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: community piece for street {0} chunk {1} does NOT resolve to genesis — host sent wrong-slot bytes, lockdown",
@@ -8311,6 +8729,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS_COMMUNITY@").append(java.util.Base64.getEncoder().encodeToString(unlockCommunityToSave));
             }
 
+            // Fase 4: persistir los commitments K del ring para que el recovery
+            // reconstruya el MISMO H_0 (HAND_V2). Sin esto, initHandStateChain en
+            // recovery cae a HAND_V1 (peer_k_pocket vacío) y diverge del H_0 original,
+            // rompiendo la verificación de la cadena de acciones recuperadas.
+            String commitmentsFossil = serializeCommitments();
+            if (!commitmentsFossil.isEmpty()) {
+                fosil.append("#COMMITMENTS@").append(commitmentsFossil);
+            }
+
             StringBuilder botKeys = new StringBuilder();
             StringBuilder botKeysCommunity = new StringBuilder();
             StringBuilder botVisuals = new StringBuilder();
@@ -8696,11 +9123,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         nick);
                 return false;
             }
-            byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, key);
+            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, key);
             byte[] c1 = Arrays.copyOfRange(unlocked, 0, 32);
             byte[] c2 = Arrays.copyOfRange(unlocked, 32, 64);
-            int id1 = CryptoSRA.resolveCardIndex(c1);
-            int id2 = CryptoSRA.resolveCardIndex(c2);
+            int id1 = RistrettoSRA.resolveCardIndex(c1);
+            int id2 = RistrettoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
                 // Sig OK pero clave firmada no resuelve. Peer FORFEIT (no MISDEAL
                 // — sería exploit).
@@ -8855,9 +9282,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String nick : this.active_crypto_ring) {
             playerIds.add(CanonicalActionRecord.playerIdFromNick(nick));
         }
+        // Fase 4: si tenemos los commitments K de todos los miembros del ring, sembramos
+        // H_0 con HAND_V2 (los ancla); si falta alguno (peer legacy), caemos a HAND_V1.
+        // La decisión es coherente host<->cliente porque los K llegan del mismo MEGAPACKET.
+        java.util.List<byte[]> kPockets = new java.util.ArrayList<>();
+        java.util.List<byte[]> kCommunities = new java.util.ArrayList<>();
+        boolean allCommitmentsPresent = true;
+        for (String nick : this.active_crypto_ring) {
+            byte[] kp = this.peer_k_pocket.get(nick);
+            byte[] kc = this.peer_k_community.get(nick);
+            if (kp == null || kc == null) {
+                allCommitmentsPresent = false;
+                break;
+            }
+            kPockets.add(kp);
+            kCommunities.add(kc);
+        }
         try {
-            this.hand_state_chain = HandStateChain.start(
-                    this.current_hand_id, playerIds, this.local_mega_packet);
+            if (allCommitmentsPresent) {
+                this.hand_state_chain = HandStateChain.startV2(
+                        this.current_hand_id, playerIds, kPockets, kCommunities, this.local_mega_packet);
+            } else {
+                LOGGER.log(Level.WARNING, "Missing K commitments — seeding H_0 with HAND_V1 (legacy fallback)");
+                this.hand_state_chain = HandStateChain.start(
+                        this.current_hand_id, playerIds, this.local_mega_packet);
+            }
             LOGGER.log(Level.INFO, "Hand state chain initialized: H_0={0}",
                     Base64.getEncoder().encodeToString(this.hand_state_chain.getCurrentHash()));
             // EC-Identity v1 (recovery): persist HAND_ID on the SQL hand row so
@@ -10709,11 +11158,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 jugador.getHoleCard2().actualizarValorPalo(carta2[0], carta2[1]);
                                                 continue;
                                             }
-                                            byte[] unlocked = CryptoSRA.applyCommutativeLock(pocketCards, sraKey);
+                                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(pocketCards, sraKey);
                                             byte[] cb1 = Arrays.copyOfRange(unlocked, 0, 32);
                                             byte[] cb2 = Arrays.copyOfRange(unlocked, 32, 64);
-                                            int id1 = CryptoSRA.resolveCardIndex(cb1);
-                                            int id2 = CryptoSRA.resolveCardIndex(cb2);
+                                            int id1 = RistrettoSRA.resolveCardIndex(cb1);
+                                            int id2 = RistrettoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
                                                 // LOCKDOWN: sig firmada por el peer es genuina pero
                                                 // la SRA no resuelve cartas → el peer firmó una clave

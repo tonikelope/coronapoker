@@ -1,0 +1,14 @@
+1,0,com.tonikelope.coronapoker.sra.HandStateChainTest,differentDecksProduceDifferentInitialHashes
+1,0,com.tonikelope.coronapoker.sra.HandStateChainTest,absorbAdvancesTheChain
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,divergentActionsProduceDivergentChains
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,startRejectsMalformedInputs
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,initialHashIs32Bytes
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,startV2IsDeterministicAnd32Bytes
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,startV2DiffersFromV1
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,absorbRejectsRecordWithMismatchedPrevH
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,startV2PeerOrderDoesNotAffectInitialHash
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,startV2IsSensitiveToCommitments
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,startV2RejectsMismatchedListSizes
+1,1,com.tonikelope.coronapoker.sra.HandStateChainTest,differentHandIdsProduceDifferentInitialHashes
+1,2,com.tonikelope.coronapoker.sra.HandStateChainTest,twoIndependentChainsMatchIfActionsMatch
+1,17,com.tonikelope.coronapoker.sra.HandStateChainTest,playerOrderDoesNotAffectInitialHash

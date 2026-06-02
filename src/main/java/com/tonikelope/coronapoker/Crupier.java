@@ -7740,12 +7740,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         HashMap<String, Integer> votes = new HashMap<>();
-        boolean anyNormal = false;
         long deadlineMs = System.currentTimeMillis() + (RIT_VOTE_TIMEOUT + 3) * 1000L;
 
         broadcastRitTally(0, 0, hostDialog);
 
-        while (votes.size() < totalVoters && !anyNormal
+        // Mayoría simple: se espera a que voten todos los implicados o al timeout
+        // (no se cierra al primer NORMAL como en la unanimidad), porque un NORMAL
+        // ya no decide por sí solo.
+        while (votes.size() < totalVoters
                 && !isFin_de_la_transmision() && System.currentTimeMillis() < deadlineMs) {
 
             boolean changed = false;
@@ -7792,12 +7794,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 broadcastRitTally(n, r, hostDialog);
-                if (n > 0) {
-                    anyNormal = true;
-                }
             }
 
-            if (votes.size() < totalVoters && !anyNormal) {
+            if (votes.size() < totalVoters) {
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.getReceived_commands().wait(200);
@@ -7805,17 +7804,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         Thread.currentThread().interrupt();
                         break;
                     }
-                }
-            }
-        }
-
-        // RIT solo si TODOS votaron y todos votaron RUN-IT-TWICE.
-        boolean agreed = !anyNormal && votes.size() == totalVoters;
-        if (agreed) {
-            for (int v : votes.values()) {
-                if (v != RunItTwiceDialog.VOTE_RUN_IT_TWICE) {
-                    agreed = false;
-                    break;
                 }
             }
         }
@@ -7830,6 +7818,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         // Los que no llegaron a votar (timeout/caída) cuentan como NORMAL.
         n += (totalVoters - votes.size());
+
+        // Mayoría simple: RIT solo si los votos RUN-IT-TWICE SUPERAN a los NORMAL.
+        // En caso de empate (o minoría) -> board único (desempate a NORMAL).
+        boolean agreed = r > n;
 
         broadcastRitTally(n, r, hostDialog);
         broadcastRitClose(agreed ? 1 : 0);

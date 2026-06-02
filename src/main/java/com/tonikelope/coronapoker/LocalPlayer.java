@@ -3001,6 +3001,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         reraise = false;
 
+        renderDecisionVisual(dec);
+    }
+
+    // Render visual de una decisión (sin efectos), extraído de setDecision para
+    // poder RE-PINTAR la última acción en el rewind de run-it-twice.
+    private void renderDecisionVisual(int dec) {
         switch (dec) {
             case Player.CHECK:
 
@@ -3078,6 +3084,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
         });
+    }
+
+    // Run-it-twice rewind: re-aplica el render de la última acción guardada y
+    // limpia el verde/rojo de ganador/perdedor de SIDE-A, dejando las hole cards
+    // reveladas. No toca pots ni stacks (el bote persiste entre sides).
+    @Override
+    public void repaintLastAction() {
+        this.winner = false;
+        this.loser = false;
+        renderDecisionVisual(this.decision);
     }
 
     @Override

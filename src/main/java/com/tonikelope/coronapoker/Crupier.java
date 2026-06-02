@@ -8032,15 +8032,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean repartirSideB(ArrayList<Player> resisten) {
         for (int s = rit_allin_street + 1; s <= RIVER && !isFin_de_la_transmision(); s++) {
             setStreetLocal(s);
-            boolean ok = GameFrame.getInstance().isPartida_local()
-                    ? enviarRit2Comunitarias(resisten)
-                    : recibirCartasComunitarias();
+
+            // CLON EXACTO del reparto de comunitarias de rondaApuestas (run-out de
+            // CARA-A): label "decrypting" naranja + barra indeterminada tras 500ms,
+            // y en el finally restaura el foreground de la pot_label y quita la
+            // indeterminada. Así CARA-B se reparte visualmente igual que CARA-A.
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(Translator.translate("zero_trust.decrypting_street"));
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+                });
+            }, 500, TimeUnit.MILLISECONDS);
+
+            boolean ok = false;
+            try {
+                ok = GameFrame.getInstance().isPartida_local()
+                        ? enviarRit2Comunitarias(resisten)
+                        : recibirCartasComunitarias();
+            } finally {
+                loadingTask.cancel(false);
+                scheduler.shutdown();
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
+                            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
+                });
+            }
+
             if (!ok) {
                 return false;
             }
-            // Igual que el run-out normal (rondaApuestas): actualiza pot/bet/
-            // ciegas. La bet_label se ocultará con hideTapeteApuestas antes del
-            // showdown de CARA-B (mismo comportamiento que CARA-A).
+            // Igual que el run-out normal: actualiza pot/bet/ciegas. La bet_label
+            // se ocultará con hideTapeteApuestas antes del showdown de CARA-B.
             actualizarContadoresTapete();
             destaparCartaComunitaria(s, resisten);
         }
@@ -8074,8 +8099,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
 
         if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()) {
-            // Pausa para asimilar SIDE-A = la misma pausa que el showdown normal.
-            this.pausaConBarra(PAUSA_ENTRE_MANOS);
+            // Pausa para asimilar SIDE-A = la MISMA que la pausa de la cola tras
+            // SIDE-B (1.5x con side pots), para que ambas caras esperen igual.
+            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? PAUSA_ENTRE_MANOS : Math.round(1.5f * PAUSA_ENTRE_MANOS));
         }
 
         // ---- SIDE-B: rewind + reparto ----
@@ -8156,7 +8182,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (this.bote.getSidePot() != null) {
                 ganador.marcarBotePot(1);
             }
-            this.bote_total -= cantidad[0];
+            // NO decrementamos bote_total: es UN bote corrido dos veces, ambas
+            // caras muestran el bote TOTAL durante el reparto (la cola lo pone a 0).
             paidThisBoard += cantidad[0];
             GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad[0]) + ") -> " + jugada);
         }
@@ -8191,7 +8218,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Player only = current_pot.getPlayers().get(0);
                     only.pagar(current_pot.getTotal(), null);
                     only.marcarBotePot(sec);
-                    this.bote_total -= current_pot.getTotal();
                     paidThisBoard += current_pot.getTotal();
                     GameFrame.getInstance().getRegistro().print(only.getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
                     this.sqlUpdateShowdownPay(only);
@@ -8208,7 +8234,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     sjugadas.remove(ganador);
                     ganador.pagar(sCantidad[0], null);
                     ganador.marcarBotePot(sec);
-                    this.bote_total -= sCantidad[0];
                     paidThisBoard += sCantidad[0];
                     GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(sCantidad[0]) + ") -> " + jugada);
                     this.sqlUpdateShowdownPay(ganador);

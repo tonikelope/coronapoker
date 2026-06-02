@@ -178,24 +178,15 @@ This encoder is the **single source of truth** for action serialization; any oth
 
 ### 5.2 Chain
 
-For each hand:
+Each hand opens with `H_0`, a SHA-256 commitment that binds: the domain separator, the `HAND_ID`, the player set, **every peer's per-hand key commitments** `K_pocket = k_pocket·B` and `K_community = k_community·B`, and the cascaded-deck hash. Those `K` commitments are exactly what the verifiable dealing checks its DLEQ proofs against (§2.5) — the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. The **exact byte layout** (HAND_V2, with the older HAND_V1 — no `K` commitments — as a legacy fallback; [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start`/`startV2`) is specified once in [`ec-identity-spec.md`](ec-identity-spec.md) §5.1 — the single source of truth for the format.
+
+Then every action ratchets the chain:
 
 ```
-H_0 = SHA-256(
-        "HAND_V2\0"                        // 8-byte domain separator
-        || HAND_ID                         // 16 random bytes from host
-        || uint8(num_players)
-        || for each peer, sorted by id:    // 96 bytes × N
-              player_id(32) || K_pocket(32) || K_community(32)
-        || SHA-256(cascaded_deck)          // deck commitment after SRA
-      )
-
 H_{t+1} = SHA-256(record_t || sig_t)
 ```
 
-**HAND_V2** binds, into `H_0`, every peer's per-hand public commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings). This is what the verifiable dealing checks its DLEQ proofs against (§2.5): the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. (The older **HAND_V1** layout — no `K` commitments — remains only as a legacy fallback when commitments are absent; [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start` / `startV2`.)
-
-The deck commitment `SHA-256(cascaded_deck)` makes the chain bind to the *exact* permutation produced by the cascade — peers that walked a different cascade end up with a different `H_0` and their chains diverge on the very first absorb.
+The deck commitment inside `H_0` binds the chain to the *exact* permutation produced by the cascade — peers that walked a different cascade end up with a different `H_0` and their chains diverge on the very first absorb.
 
 Signatures land **inside** the ratchet: tampering with a record OR with the signature breaks `H_{t+1}` for every observer.
 

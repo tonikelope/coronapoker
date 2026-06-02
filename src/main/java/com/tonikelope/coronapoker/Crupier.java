@@ -7661,7 +7661,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // El host quita su community-lock de cada copy salvo la suya (la abre localmente).
-        if (!extendCommunityChainsForSigner(commChains, offset, numCards, hostNick, hostNick, this.local_sra_lock_community)) {
+        // El lock se deriva del unlock (getUnlockScalar es involutivo): local_sra_lock_community
+        // es null tras una recuperación de mano (solo se restaura el unlock vía
+        // SRAKEYS_COMMUNITY@), mientras que local_sra_unlock_community siempre está disponible
+        // aquí (lo garantiza el guard de enviarCartasComunitarias). commitment(lock derivado)
+        // == peer_k_community[host], así que la prueba DLEQ verifica igual.
+        byte[] hostCommunityLock = RistrettoSRA.getUnlockScalar(this.local_sra_unlock_community);
+        if (!extendCommunityChainsForSigner(commChains, offset, numCards, hostNick, hostNick, hostCommunityLock)) {
             if (abortOnFail) {
                 cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
             }

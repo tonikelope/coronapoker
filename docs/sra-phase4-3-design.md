@@ -161,6 +161,24 @@ sin las claves. Así que `H_pre` debe venir comprometido. Opciones:
 listo para C1 o C2. NO improvisar el anclaje: uno débil deja el oráculo abierto creyéndolo
 cerrado — peor que documentarlo.
 
+### Conclusión (tras comparar con pocket/community): C2 es detección, no prevención
+- **Pocket/community PREVIENEN**: el cliente ancla a SU copia local del MEGAPACKET (comprometida
+  por broadcast + consenso) y el self-strip guard / GATE 6 impiden la lectura. El host no llega
+  a leer la carta.
+- **C2 en la rotación solo DETECTA**: el cliente rota lo que el host le da; si el host cuela
+  `pocket_H`, lo lee en la respuesta de rotación y *luego* el board falla. Gap real: el host
+  sacrifica una mano para leer 1 carta de un jugador que ya salió.
+- **C1 es la única que da prevención** (paridad con pocket/community): el deck pre-rotación
+  debe estar comprometido y verificable por el cliente ANTES de rotar — lo que obliga a
+  comprometer/firmar la cascada o sembrar un compromiso pre-rotación (toca cascada/handstate/
+  EC-Identity). Es un PROYECTO, no enchufar el motor.
+
+**Recomendación:** dado que es "leer la carta de un jugador que ya salió" y C1 toca subsistemas
+sensibles, abordar C1 como proyecto DEDICADO con su diseño + TDD + smoke — con la misma
+disciplina que A — en lugar de improvisarlo. El motor `RotationChain` y el enfoque ya están
+probados y esperando. A cierra ambos ataques para todos los jugadores ACTIVOS; B/C1 es el
+último resquicio (jugador que abandona).
+
 ## A2 — detalle de implementación (estudiado, listo para ejecutar)
 
 `cascadeAndDealCommunityPieces` (Crupier.java:7600). Matices confirmados leyendo el método:

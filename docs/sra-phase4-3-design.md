@@ -116,6 +116,24 @@ pocket): el residual cegado no es genesis. Inútil.
 
 → **B2**, con diseño+TDD previos. NO implementar a ciegas (toca la FASE 1.5 del dual-lock).
 
+### B2 — enfoque VALIDADO por TDD (`RotationChainDesignTest`, verde)
+El test confirma el motor cripto: rotación encadenada de doble op aterriza en community-space,
+cada sub-paso verifica, y el anclaje a `H_pre` cierra el cegado. **Hallazgo que reduce el
+trabajo:** NO hace falta cripto nueva — `VerifiableUnlock.verifyStep`/`unlockWithProof` y `Dleq`
+ya sirven para AMBOS sub-pasos:
+- pocket-unlock: `verifyStep(prevOut, mid, K_pocket, proof)` → `prevOut = k_P·mid` (ya es `unlockWithProof`).
+- community-lock: `verifyStep(out, mid, K_community, proof)` → `out = k_C·mid` (mismo verifyStep,
+  con `before=out, after=mid`); la prueba la genera `Dleq.prove(k_C, BASE, K_C, mid, out)`.
+
+**Implementación de producción de B2 (pendiente, tamaño ≈ fase A, con smoke):**
+1. Motor `RotationChain` (wire + `extend` doble-op + `verify`), análogo a `DealChain`, +
+   un `lockWithProof` (aplica `k`, prueba `Dleq.prove(k,BASE,K,before,after)`). Con tests.
+2. Broadcast del deck post-cascada `H_pre` antes de la rotación (commitment que el cliente ancla).
+3. Reescribir `requestRemoteRotation` (host) + handler `DECK_ROTATION_REQ` (cliente) como chain;
+   el host verifica cada cadena. Recovery: `H_pre`/commitments deben sobrevivir (cuidado con el
+   NPE análogo al de A2 — derivar locks de unlocks que sí se restauran).
+4. Smoke: reparto completo con helpers, EXIT antes/después de rotar.
+
 ## A2 — detalle de implementación (estudiado, listo para ejecutar)
 
 `cascadeAndDealCommunityPieces` (Crupier.java:7600). Matices confirmados leyendo el método:

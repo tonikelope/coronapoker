@@ -7989,22 +7989,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return new float[]{sideA / 100f, sideB / 100f};
     }
 
-    // Run-it-twice rewind (parte comunitaria): blanquea las cartas comunitarias
-    // "corridas" (calles posteriores al all-in run-out) al estado sin repartir
-    // (resetearCarta(false), el mismo de inicio de mano) para que SIDE-B las
-    // re-reparta. Las compartidas (calle del all-in y anteriores) quedan fijas.
+    // Run-it-twice rewind (parte comunitaria): TAPA las cartas comunitarias
+    // "corridas" (calles posteriores al all-in run-out) — iniciarCarta(true) las
+    // deja boca abajo (iniciada+tapada+visible, mostrando el dorso) y limpia el
+    // desenfoque del showdown de SIDE-A, que es justo el estado del que el reparto
+    // vivo revela una comunitaria (actualizarConValorNumerico + destapar). Con
+    // resetearCarta(false) quedaban invisibles y destapar no hacía nada. Las
+    // compartidas (calle del all-in y anteriores) quedan fijas.
     private void rebobinarComunitariasSideB() {
         Helpers.GUIRunAndWait(() -> {
+            // Corridas → boca abajo (iniciarCarta) para que SIDE-B las revele.
+            // Compartidas → enfocar() para deshacer el atenuado del showdown de
+            // SIDE-A, de modo que el board de SIDE-B se vea entero y brillante.
             if (rit_allin_street < FLOP) {
-                GameFrame.getInstance().getFlop1().resetearCarta(false);
-                GameFrame.getInstance().getFlop2().resetearCarta(false);
-                GameFrame.getInstance().getFlop3().resetearCarta(false);
+                GameFrame.getInstance().getFlop1().iniciarCarta(true);
+                GameFrame.getInstance().getFlop2().iniciarCarta(true);
+                GameFrame.getInstance().getFlop3().iniciarCarta(true);
+            } else {
+                GameFrame.getInstance().getFlop1().enfocar();
+                GameFrame.getInstance().getFlop2().enfocar();
+                GameFrame.getInstance().getFlop3().enfocar();
             }
             if (rit_allin_street < TURN) {
-                GameFrame.getInstance().getTurn().resetearCarta(false);
+                GameFrame.getInstance().getTurn().iniciarCarta(true);
+            } else {
+                GameFrame.getInstance().getTurn().enfocar();
             }
             if (rit_allin_street < RIVER) {
-                GameFrame.getInstance().getRiver().resetearCarta(false);
+                GameFrame.getInstance().getRiver().iniciarCarta(true);
+            } else {
+                GameFrame.getInstance().getRiver().enfocar();
             }
         });
     }

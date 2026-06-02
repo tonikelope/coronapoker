@@ -85,21 +85,36 @@ La raíz del ataque 1: en `DECK_ROTATION_REQ` el cliente aplica su **pocket-unlo
 `incomingPieces` del host con sólo `arePointsValid` — sin anclaje. No puede anclar al
 MEGAPACKET porque la rotación (FASE 1.5) **precede** al MEGAPACKET (Crupier.java:1149 vs 1226).
 
-**Opción B1 (recomendada) — deck pre-rotación comprometido.** El host, tras la cascada y
-antes de la rotación, difunde el deck post-cascada/pre-rotación (o sólo su sección community)
-+ su hash; el cliente lo guarda y, al servir `DECK_ROTATION_REQ`, exige que `incomingPieces`
-coincida **byte-a-byte** con la sección community de ese deck comprometido. El cegado `r·P` no
-coincide → rechazo. Coste: un broadcast extra (o reutilizar el primer `MEGAPACKET` como
-"pre-megapacket" y mandar un segundo "rotation delta"). Es un cambio de protocolo acotado.
+**⚠️ Corrección de diseño (6ª revisión):** la rotación es **secuencial-acumulativa** — el
+peer `i` rota el resultado de los peers `1..i-1` (`requestRemoteRotation`, Crupier.java:
+1167-1213: `communityPieces` se reasigna en cada vuelta del ring). Por eso una verificación
+**byte-a-byte** contra un deck pre-rotación NO funciona para `i>1`: su input ya viene rotado.
+Hace falta una **cadena**.
 
-**Opción B2 — rotación verificable con DLEQ.** Igual que el pocket: el cliente prueba (DLEQ)
-que aplicó su `k_Hp⁻¹` committed, encadenando desde el punto pre-rotación comprometido. Más
-trabajo; sólo aporta sobre B1 si se necesita probar la rotación a terceros (no es el caso).
+**Opción B1 (descartada) — deck pre-rotación + byte-a-byte.** Solo valdría si cada peer rotara
+el deck ORIGINAL independientemente. Como es acumulativo, el input del peer `i` no coincide
+byte-a-byte con nada comprometido. Inservible salvo reestructurar la rotación a no-acumulativa
+(cambio mayor, descartado).
 
-**Opción B3 (rechazada) — GATE 6 en la rotación.** No cierra el cegado (igual que no lo
-cerraba en el pocket): el residual cegado no es genesis. Inútil.
+**Opción B2 (la correcta) — rotación VERIFICABLE encadenada.** Reestructurar
+`DECK_ROTATION_REQ` como un chain análogo al dealing:
+1. Tras la cascada y ANTES de rotar, el host difunde el deck post-cascada `H_pre` (o su hash)
+   — punto de anclaje que cada peer compromete.
+2. La rotación de cada pieza `j` es una cadena que arranca en `H_pre[j]`. El paso del peer `i`
+   aplica DOS operaciones: quita `k_Pi` (pocket-unlock) y añade `k_Ci` (community-lock), con
+   **dos pruebas DLEQ** (una bajo `peer_k_pocket[i]`, otra bajo `peer_k_community[i]`).
+3. El peer `i` verifica la cadena desde `H_pre[j]` hasta el paso `i-1` antes de añadir el suyo
+   → un input cegado no ancla a `H_pre` → rechazo. Cierra el oráculo igual que el pocket.
 
-→ **B1**. Necesita smoke del reparto completo (toca la FASE 1.5 del dual-lock).
+Coste: extender la maquinaria cripto a un paso de DOBLE operación (o dos `VerifiableUnlock`
+por paso), un broadcast `H_pre`, y reescribir la rotación. Es el cambio MÁS grande y delicado
+de la 4.3 → diseño + TDD del enfoque (test como `CommunityChainDealingTest`) ANTES de tocar
+producción, y smoke del reparto completo después.
+
+**Opción B3 (rechazada) — GATE 6 en la rotación.** No cierra el cegado (igual que en el
+pocket): el residual cegado no es genesis. Inútil.
+
+→ **B2**, con diseño+TDD previos. NO implementar a ciegas (toca la FASE 1.5 del dual-lock).
 
 ## A2 — detalle de implementación (estudiado, listo para ejecutar)
 

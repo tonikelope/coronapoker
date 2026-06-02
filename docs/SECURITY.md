@@ -8,12 +8,14 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 
 | Adversary | Defended? | How |
 |---|---|---|
-| Hostile host trying to peek at a peer's pocket cards | Yes | EC-SRA dual-lock — pockets stay multi-locked until the owner releases their key at showdown |
+| Hostile host trying to peek at a peer's pocket cards | Yes | EC-SRA over **Ristretto255** + **verifiable dealing**: every de-lock carries a chained DLEQ proof anchored to the committed deck, so the host cannot use a peer as a blinded-decryption oracle (§2.5). Pockets stay multi-locked until the owner releases their key at showdown |
+| Hostile host trying to peek at community cards before their street | Yes | Same verifiable-dealing chain applied to the community deal + GATE-6 genesis check; the street gate only opens in lockstep with local betting (§2.5, §8) |
+| Hostile host reading the pocket of a player who **abandons** mid-hand | Partial (self-delating) | The only residual vector: it requires forging a board (misdeal), which is self-delating since legitimate misdeals are tightly enumerated. The rotation is single-use per cascade (anti-replay) and the client warns + recommends leaving the table. Full closure (signing the shuffle) deferred as not worth the cost — see §9 |
 | Hostile host or peer rewriting hand history | Yes | Per-action Ed25519 signatures + `H_t` ratchet committed by every peer in a signed receipt |
 | Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password; session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Replay or tampering of game commands on the wire | Yes | AES-256-CBC with per-command IV + HMAC-SHA256 over `IV \|\| ciphertext` |
 | Java deserialization gadgets via RECOVERDATA | Yes | Strict `ObjectInputFilter` whitelist (HashMap / String / numeric boxes only, 10 MB cap, depth 20) |
-| Off-curve / weak-point attacks on the SRA cascade | Yes | Curve25519 validation on every received point, atomic security lockdown on failure |
+| Off-curve / weak-point attacks on the SRA cascade | Yes | Ristretto255 canonical-encoding validation on every received point (prime-order group ⇒ no small-order / non-canonical ambiguities), atomic security lockdown on failure |
 | Card substitution at showdown | Yes | Pocket key reveals signed under a domain-separated context; mismatch aborts the hand |
 | Cross-recipient board fork (host announces different community cards to different peers) | Yes | Host signs community-card announcements; signature absorbed into every recipient's `H_t` |
 | Local trojan / Ring-0 attacker on the victim's machine | No | Identity keys live in `~/.coronapoker/identity_<player_id>.ed25519` with restricted ACLs; a sufficiently privileged local attacker reads them |
@@ -27,20 +29,23 @@ The deck is shuffled and locked **collectively**. No single peer ever sees a car
 
 ### 2.1 Genesis deck
 
-The 52 cards are mapped deterministically to Curve25519 points:
+The 52 cards are mapped deterministically to **Ristretto255** group elements:
 
-- For each card, an x-coordinate candidate is seeded as `SHA-256("CORONAPOKER_CARD_" || index) mod p`, then incremented (try-and-increment) until it lands on the curve.
-- The resulting point is multiplied by the cofactor (×8) so it lands in the prime-order subgroup ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `getGenesisDeck`).
-- The 52 points are the genesis deck. Every peer derives the same deck independently — nothing has to be sent.
+- For each card index a 64-byte seed is computed as `SHA-512(CARD_LABEL_PREFIX || index)`.
+- The seed is mapped into the group with the RFC 9496 hash-to-group map (Elligator 2), producing a canonical 32-byte Ristretto encoding ([`RistrettoSRA.java`](../src/main/java/com/tonikelope/coronapoker/crypto/RistrettoSRA.java) — `getGenesisDeck`; [`Ristretto255.java`](../src/main/java/com/tonikelope/coronapoker/crypto/Ristretto255.java) — `hashToGroupEncoded`).
+- Ristretto255 is a **prime-order** group over edwards25519: there is no cofactor to clear and every element has a single canonical encoding, so the off-curve / small-order / non-canonical-encoding ambiguities of the old x-only Curve25519 representation simply do not exist.
+- The 52 encodings are the genesis deck. Every peer derives the same deck independently — nothing has to be sent.
+
+> **Migration note.** The SRA group was migrated from a Montgomery x-only Curve25519 representation to Ristretto255. The new pure-Java engine lives under [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) (`Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`), anchored to the RFC 9496 test vectors. The ECDH **channel** handshake (§3) still uses Curve25519 — only the Mental-Poker group changed.
 
 ### 2.2 Lock-permute-rotate
 
 Each peer holds two ephemeral scalars per hand: a **pocket** scalar `k_pocket` and a **community** scalar `k_community`. The cascade walks around the ring:
 
 1. **Pocket lock pass.** Player 1 multiplies every card by their `k_pocket`, permutes the deck with a deterministic AES-256-CTR shuffle (see §2.4), and forwards. Player 2 does the same on top of player 1's output. By the time the deck returns to the dealer, every card has been locked once per ring member with their `k_pocket`, in a permutation nobody fully knows. This becomes the `MEGAPACKET`.
-2. **Community rotation pass.** A separate pass walks the community-card slots and *rotates* each peer's lock: every peer strips its own `k_pocket` from the slot and re-locks it under its `k_community`. Pocket cards keep the full `k_pocket` chain untouched; community cards end up locked **only** under each peer's `k_community` — the pocket locks are gone. ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) `cascadeAndDealCommunityPieces`.)
-3. **Pocket dealing.** Each pocket card travels to its owner with all *other* peers' `k_pocket` already inverted — only the owner's own `k_pocket` remains. The owner inverts it locally and learns the card; nobody else can.
-4. **Community reveal per street.** When the host needs to expose flop / turn / river, every peer hands the host the `k_community` inverse for the relevant slot, signed under the host's request. The host collects the unlocks, peels the community lock, exposes the card to the table and absorbs the announcement into every peer's `H_t` (see §5).
+2. **Community rotation pass.** A separate pass walks the community-card slots and *rotates* each peer's lock: every peer strips its own `k_pocket` from the slot and re-locks it under its `k_community`. Pocket cards keep the full `k_pocket` chain untouched; community cards end up locked **only** under each peer's `k_community` — the pocket locks are gone. The rotation is **single-use per cascade** (anti-replay): a second rotation request without a fresh cascade is refused, since serving it would turn the rotation into a covert pocket-unlock oracle (§2.5, §8). (`DECK_ROTATION_REQ` handler in [`WaitingRoomFrame.java`](../src/main/java/com/tonikelope/coronapoker/WaitingRoomFrame.java); rotation scalars in [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java).)
+3. **Pocket dealing (verifiable).** Each pocket card travels to its owner with all *other* peers' `k_pocket` already inverted — only the owner's own `k_pocket` remains, which the owner inverts locally. **Every de-lock step carries a Chaum-Pedersen DLEQ proof chained from the committed `MEGAPACKET` point** ([`DealChain.java`](../src/main/java/com/tonikelope/coronapoker/crypto/DealChain.java), [`VerifiableUnlock.java`](../src/main/java/com/tonikelope/coronapoker/crypto/VerifiableUnlock.java)), so a peer refuses to act as a blinded-decryption oracle — the host cannot feed in a blinded `r·P` to de-lock (§2.5).
+4. **Community reveal per street (verifiable).** The community deal runs over the **same proof-chained de-lock** anchored to the `MEGAPACKET`, plus a genesis-check (GATE 6): if stripping our lock would reveal a card, it is extraction and is refused. The street gate only opens once the local betting machine has reached that street (anti early-cascade, §8). The host collects the unlocks, exposes the card to the table and absorbs a host-signed announcement into every peer's `H_t` (see §5).
 
 Pockets never receive community-key unlocks. Community cards never receive pocket-key unlocks. The two locks live in disjoint scalar spaces.
 
@@ -58,6 +63,25 @@ Any mismatch — bad signature, unknown point, conflicting announcement — trig
 ### 2.4 Deterministic shuffle
 
 The permutation each peer applies is generated with **AES-256-CTR** seeded by a per-hand key, then converted to a Fisher-Yates shuffle using **rejection sampling** to eliminate modulo bias ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `shuffleDeck`, with the unbiased index draw in `DeterministicStream.getUnbiasedInt`). The seed is fresh per hand, so reordering carries no information across hands.
+
+### 2.5 Verifiable dealing — closing the blinded-decryption oracle
+
+An SRA cascade has a subtle, devastating weakness if de-locks are unauthenticated: the host can use any peer as a **blinded-decryption oracle**.
+
+**The attack.** The host holds a peer's single-locked pocket point `P = k·G_card` (broadcast as `POCKET_CARDS`). It picks a random blinding scalar `r`, sends the peer `r·P` (relabelled as another slot, fresh tag) and asks it to "unlock". The peer applies `k⁻¹` → `r·G_card`, which is **not** a genesis card (it is blinded), so a genesis-only check passes and the peer returns it. The host multiplies by `r⁻¹` and recovers `G_card` — the hole card. Multiplicative blinding slips straight past a genesis-only check.
+
+**The fix — chained de-locking with DLEQ proofs.** Each peer commits, per hand, to `K = k·B` for both its pocket and community scalars; these commitments travel in the `MEGAPACKET` and are **bound into `H_0`** (HAND_V2, §5.2). When a peer strips its lock it publishes, alongside the result, a Chaum-Pedersen **DLEQ proof** that it used exactly its committed `k` ([`Dleq.java`](../src/main/java/com/tonikelope/coronapoker/crypto/Dleq.java), [`VerifiableUnlock.java`](../src/main/java/com/tonikelope/coronapoker/crypto/VerifiableUnlock.java)). De-locks form a **chain** that must start at the committed `MEGAPACKET` point and where every link carries a valid proof under a committed key ([`DealChain.java`](../src/main/java/com/tonikelope/coronapoker/crypto/DealChain.java)).
+
+A blinded `r·P` cannot anchor: the chain would not start at the committed bytes, and **nobody committed the factor `r`**, so no valid proof exists — the peer refuses. The host can only ask peers to de-lock points that provably descend from the committed deck, i.e. the legitimate dealing.
+
+Two further guards close the back doors found while hardening this:
+
+- **Self-strip guard (pockets).** A peer reads `megapacket[offsetBase]` *locally by index* and never de-locks a point inside its own pocket slot `[mySlot·2, mySlot·2+1]`, so a host that decouples the labelled `peerIdx` from the stripped point cannot make a peer reveal its own cards.
+- **GATE 6 (community).** After a community de-lock, a residual that resolves to a genesis card is extraction (the host presented the "all-locks-but-mine" chain to make us reveal the board early) → refused. With the binding making blinding impossible, this genesis-check can no longer be evaded.
+
+The legacy unauthenticated batch path (`REQ_SRA_UNLOCK_BATCH`) is now **obsolete and refused for every phase**, so the oracle cannot be reached through the old door either.
+
+**Residual (rotation / "exiter").** The dual-lock *rotation* (step 2 of §2.2) is the one de-lock not yet under the verifiable chain — it precedes any committed anchor. It is mitigated by **anti-replay** (one rotation per cascade): abusing it forces a corrupted board, i.e. a self-delating misdeal. The full fix (a verifiable rotation anchored to a signed pre-rotation deck — the `RotationChain` engine is built and tested) is deferred as not worth the cost; see §9.
 
 ---
 
@@ -244,15 +268,27 @@ On `continue-last-game`:
 
 ## 8. SECURITY_LOCKDOWN
 
-A single `volatile` boolean flag ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `triggerSecurityLockdown`) ends the hand the moment any of the following fires:
+The client distinguishes two severities. Both **presume good faith**: an anomaly could be a software bug, not necessarily an attack, so the client never accuses anyone — but it protects the user.
 
-- A received Curve25519 point is invalid (not on curve, small-order).
+### 8.1 Hard lockdown (fatal)
+
+`triggerSecurityLockdown` ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)) ends the hand and **freezes** the moment a *fatal* anomaly fires — one where continuing could move chips against a manipulated state:
+
+- A received deck point is invalid (off-group / non-canonical Ristretto encoding).
 - A genesis-deck card resolution fails — somebody returned a point the deck does not contain.
+- A **verifiable-dealing chain fails**: a de-lock step does not anchor to the committed `MEGAPACKET` point or carries an invalid DLEQ proof (§2.5).
+- A peer is asked to de-lock a point inside its own pocket, or a community de-lock resolves to genesis (extraction — §2.5).
 - An Ed25519 signature on an action, community reveal or showdown reveal does not verify.
 - A community-card announcement disagrees with the value re-derived from the unlocks.
-- An "early cascade" attack is detected (peer trying to advance the cascade out of order).
+- An "early cascade" attack is detected (a peer/host trying to advance the cascade or reveal a street out of order).
 
-Once the flag flips, the offending peer is blacklisted at the command-dispatch layer; no further commands from them are processed. The reason string is logged at SEVERE so post-mortem is trivial.
+It sets a `volatile` flag, blacklists the offending peer at the command-dispatch layer, closes the client socket, shows a critical popup that **recommends leaving the table**, and ends the hand for this peer. The reason string is logged at SEVERE so post-mortem is trivial.
+
+### 8.2 Soft warning (non-fatal — warn but continue)
+
+`warnSuspiciousHost` ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)) is used when the anomaly has **already been neutralised by refusing the operation** and the game can safely continue — freezing would be disproportionate if it turned out to be a bug. It informs the user **once**, presuming good faith, and **strongly recommends leaving the table**, but does **not** freeze, close the socket or end the hand. Current use: a **repeated rotation** in the same cascade (anti-replay, §2.2/§2.5) — the extra rotation is refused (the oracle gets nothing) and play continues with the legitimate one.
+
+**Policy: warn but continue, unless the fault is fatal — then lock down.**
 
 ---
 
@@ -260,6 +296,7 @@ Once the flag flips, the offending peer is blacklisted at the command-dispatch l
 
 For honesty's sake:
 
+- **Reading the pocket of a player who abandons mid-hand (rotation residual).** The dual-lock rotation (§2.2 step 2, §2.5) is the one de-lock not yet under the verifiable chain — it precedes any committed anchor. A hostile host *could* feed a still-locked pocket into the rotation to read it, but only at a steep, self-defeating price: it requires corrupting the board, which produces an **unjustified misdeal** (legitimate misdeals are tightly enumerated, so an unexplained one is a red flag — the client warns and recommends leaving, §8.2); the rotation is **single-use per cascade** (anti-replay); and it only ever yields the cards of a player who has *already left the table*. Net: self-delation + a broken hand for information of marginal value — no rational cheat would do it. Full closure (a verifiable rotation anchored to a signed pre-rotation deck) is designed and the `RotationChain` engine is built and tested, but deferred as not worth the cost — see [`sra-phase4-3-design.md`](sra-phase4-3-design.md).
 - **Local trojan on a peer's machine.** Anyone with read access to `~/.coronapoker/identity_*.ed25519` becomes that peer cryptographically.
 - **Coercion / shoulder-surfing.** A peer who shows their screen to someone behind them is leaking pockets out-of-band.
 - **N-1 collusion.** Pure consensus systems cannot detect this; the victim will see divergent receipts and can choose not to settle.
@@ -272,8 +309,9 @@ For honesty's sake:
 
 If you want to follow any of the above end-to-end:
 
-- Cascade primitives: [`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java)
-- Cascade orchestration, recovery, lockdown: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)
+- SRA group + verifiable-dealing engine (Ristretto255): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) — `Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`, `VerifiableUnlock`, `DealChain`, `RotationChain`
+- Shuffle primitive: [`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) (`shuffleDeck`)
+- Cascade orchestration, recovery, lockdown, soft warning: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)
 - Channel encryption: [`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) (`encryptCommand`, `decryptCommand`, `deriveChannelSecret`)
 - Identity layer: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java), [`TOFUResolver.java`](../src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)
 - Action record format: [`CanonicalActionRecord.java`](../src/main/java/com/tonikelope/coronapoker/CanonicalActionRecord.java)

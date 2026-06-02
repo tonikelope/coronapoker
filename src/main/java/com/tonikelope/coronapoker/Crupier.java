@@ -8214,12 +8214,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<Player, Hand> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
         float mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
         float[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
+        // Beneficio del ganador del pot principal en ESTE board (cosmético, número
+        // verde de la label del tapete): su parte (medio bote / nº ganadores) menos
+        // su mitad de la apuesta de referencia. La apuesta se parte igual que el
+        // bote (mismo split, resto a SIDE-A) → la suma de ambos boards = beneficio
+        // real total. Mismo significado que beneficio_bote_principal del showdown
+        // normal (cantidad - bote.getBet()), pero por board.
+        this.beneficio_bote_principal = cantidad[0] - splitPotForRunItTwice(this.bote.getBet())[board];
         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+        Player unganador = null;
 
         for (Map.Entry<Player, Hand> e : ganadores.entrySet()) {
             Player ganador = e.getKey();
             Hand jugada = e.getValue();
             wonAnySide.add(ganador);
+            unganador = ganador;
             // Highlight de la jugada ganadora (igual que el showdown normal):
             // recoge las cartas usadas y atenúa las hole cards NO usadas del ganador.
             ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
@@ -8252,6 +8261,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
             if (!cartas_usadas_jugadas.contains(carta)) {
                 carta.desenfocar();
+            }
+        }
+
+        // Bad beat de ESTE board (river propio): el perdedor iba ganando en el
+        // turn con trío+ y el river le dio la vuelta. Se fija el campo ANTES del
+        // showdown porque soundWinner/soundLoser (dentro de showdown) lo leen para
+        // sonar badbeat.wav. Reset por board: SIDE-A no contamina SIDE-B.
+        this.badbeat = false;
+        for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
+            if (badbeat(e.getKey(), unganador)) {
+                this.badbeat = true;
             }
         }
 
@@ -8317,7 +8337,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
         });
-        GameFrame.getInstance().setTapeteBote(paidShow, null);
+        GameFrame.getInstance().setTapeteBote(paidShow, this.beneficio_bote_principal);
     }
 
     // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la

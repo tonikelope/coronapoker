@@ -644,6 +644,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean last_hand = false;
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
+    // Run-it-twice: silencia los INSERT/UPDATE del showdown SQL mientras se
+    // liquidan los DOS boards. La tabla showdown lleva UNA fila por jugador/mano;
+    // sin esto cada board insertaría su propia fila y se duplicarían las stats y
+    // (peor) el COUNT(winner) de sqlGetPlayerContaWins, que se recarga la mano
+    // siguiente y desharía la corrección en memoria del conta_win. Tras los dos
+    // boards se escribe UNA fila consolidada (pay total + winner = ganó algún side).
+    private volatile boolean rit_suppress_showdown_sql = false;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String big_blind_nick = null;
@@ -5418,6 +5425,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.rit_vote_done = false;
 
         this.rit_allin_street = -1;
+
+        // Defensivo: si una mano anterior abortó entre los dos boards con el SQL
+        // del showdown silenciado, lo reactivamos al empezar la mano nueva.
+        this.rit_suppress_showdown_sql = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -5952,6 +5963,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateShowdownPay(Player jugador) {
 
+        // Run-it-twice: durante los dos boards no hay fila que actualizar (el
+        // INSERT está suprimido); la fila consolidada se escribe al final.
+        if (this.rit_suppress_showdown_sql) {
+            return;
+        }
+
         synchronized (GameFrame.SQL_LOCK) {
 
             String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
@@ -6002,6 +6019,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void sqlNewShowdown(Player jugador, Hand jugada, boolean win, boolean tapadas) {
+
+        // Run-it-twice: el showdown() de cada board está suprimido; la fila
+        // consolidada (una por jugador/mano) la escribe resolverRunItTwiceShowdown
+        // al final llamando a este método con el flag ya desactivado.
+        if (this.rit_suppress_showdown_sql) {
+            return;
+        }
 
         synchronized (GameFrame.SQL_LOCK) {
 
@@ -8111,6 +8135,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
 
+        // Snapshot de las jugadas de SIDE-A (board en mesa): la tabla showdown
+        // lleva UNA fila por jugador/mano, así que la jugada registrada
+        // (hand_cards/hand_val) es la del primer board. A partir de aquí
+        // silenciamos el SQL del showdown de los dos boards; la fila consolidada
+        // se escribe al final con el pay total y winner = ganó algún side.
+        HashMap<Player, Hand> ritShowdownHands = this.calcularJugadas(resisten);
+        this.rit_suppress_showdown_sql = true;
+
         // ---- SIDE-A (board ya en mesa) ----
         settleRunItTwiceBoard(resisten, 0, wonAnySide);
         GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
@@ -8157,6 +8189,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // conta_win final: +1 solo si ganó algún side (override del doble conteo).
         for (Player p : resisten) {
             p.setContaWin(contaWinSnapshot.get(p) + (wonAnySide.contains(p) ? 1 : 0));
+        }
+
+        // SQL del showdown: UNA fila consolidada por jugador (no una por board),
+        // mismo invariante que el showdown normal. pay/profit salen de getPagar()
+        // final, que acumula lo ganado en ambos boards y todos los (side)pots;
+        // winner = ganó algún side (igual semántica que conta_win). En un all-in
+        // todas las cartas se muestran (destapar_resistencia), por eso tapadas=false.
+        this.rit_suppress_showdown_sql = false;
+        for (Player p : resisten) {
+            this.sqlNewShowdown(p, ritShowdownHands.get(p), wonAnySide.contains(p), false);
         }
     }
 

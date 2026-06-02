@@ -92,6 +92,41 @@ cerraba en el pocket): el residual cegado no es genesis. Inútil.
 
 → **B1**. Necesita smoke del reparto completo (toca la FASE 1.5 del dual-lock).
 
+## A2 — detalle de implementación (estudiado, listo para ejecutar)
+
+`cascadeAndDealCommunityPieces` (Crupier.java:7600). Matices confirmados leyendo el método:
+
+- **Recipients** (tienen `copy` + reciben broadcast): `hostNick` + `remoteHumans`. Los **bots
+  NO** son recipients (el host conoce el board; las pieces solo se difunden a humanos, 7728).
+- **Signers** (tienen community-lock que hay que pelar): `host` + **bots** + `remoteHumans`
+  (todo el ring).
+- Hoy el setup (7618-7654) **aplica los unlocks de host+bots DIRECTAMENTE** sobre cada copy.
+  Para el chain eso **debe convertirse en `extend`s** desde el punto del MEGAPACKET — si no,
+  el punto base deja de ser el MEGAPACKET y el anclaje del helper se rompe. Por eso hay que
+  reescribir el setup, no solo el bucle de helpers.
+
+**Plan A2:**
+1. `extendCommunityChainsForSigner(Map<String,String[]> chains, int offset, int numCards,
+   String skipRecipient, String signerNick, byte[] signerLock)` — análogo a
+   `extendPocketChainsForSigner` pero: itera recipients (claves del map), `pointIdx=offset+j`,
+   `numCards` piezas, `peer_k_community`, salta `skipRecipient`.
+2. `chains` = `Map<recipientNick, String[numCards]>` inicializado a `""` para host + cada
+   humano remoto.
+3. Host extiende (skip=host) con `local_sra_lock_community`; cada bot extiende (skip=null, los
+   bots no son recipients) con su community-lock (derivado de `sra_unlock_community`).
+4. Cada helper humano `H`: `requestRemoteUnlockChain(H, ph, unlockPhase, reqItems)` con un
+   `ReqItem(peerIdx=idx(X), offsetBase=offset, chains=copyX)` por cada recipient `X≠H`.
+   Fallback EXIT: extiende local con `getUnlockScalar(ph.getSra_unlock_community())` (skip=H).
+   Cobertura: verificar que todos los `X≠H` quedaron cubiertos (paridad cabo 2).
+5. Host verifica cada cadena final (`DealChain.verify` contra `peer_k_community`) y toma el
+   `tail` = copyX single-locked por X. **Formato de salida idéntico** → broadcast y
+   `recibirCartasComunitarias` NO cambian.
+6. El handler ya soporta community (offsetBase arbitrario + GATE 6 de A1). El self-strip guard
+   pocket no interfiere (pointIdx community ∉ rango pocket).
+
+Cubre flop/turn/river **y rabbit** (mismo método vía `unlockPhase`/`pieceCommand`). Validado a
+nivel cripto por `CommunityChainDealingTest`. Falta: integración (red) → smoke.
+
 ## Orden de implementación propuesto
 
 1. (A1) Extender `REQ_SRA_UNLOCK_CHAIN` con GATE 6 para phases community. (test)

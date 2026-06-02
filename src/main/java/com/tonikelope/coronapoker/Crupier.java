@@ -626,6 +626,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // cliente: del RIT_VOTE_CLOSE). Ambos lo conocen para que sus bucles run()
     // tomen la misma rama "correr SIDE-B" en lockstep. Reset por mano.
     private volatile boolean rit_agreed = false;
+    // Calle en la que se cerró la acción (all-in run-out). Las comunitarias de
+    // calles POSTERIORES son las "corridas" (se rebobinan para SIDE-B); las de
+    // esta calle y anteriores son compartidas. -1 = no hubo all-in run-out.
+    private volatile int rit_allin_street = -1;
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
@@ -5395,6 +5399,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.run_it_twice_side_b = false;
 
         this.rit_agreed = false;
+
+        this.rit_allin_street = -1;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -7983,6 +7989,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return new float[]{sideA / 100f, sideB / 100f};
     }
 
+    // Run-it-twice rewind (parte comunitaria): blanquea las cartas comunitarias
+    // "corridas" (calles posteriores al all-in run-out) al estado sin repartir
+    // (resetearCarta(false), el mismo de inicio de mano) para que SIDE-B las
+    // re-reparta. Las compartidas (calle del all-in y anteriores) quedan fijas.
+    private void rebobinarComunitariasSideB() {
+        Helpers.GUIRunAndWait(() -> {
+            if (rit_allin_street < FLOP) {
+                GameFrame.getInstance().getFlop1().resetearCarta(false);
+                GameFrame.getInstance().getFlop2().resetearCarta(false);
+                GameFrame.getInstance().getFlop3().resetearCarta(false);
+            }
+            if (rit_allin_street < TURN) {
+                GameFrame.getInstance().getTurn().resetearCarta(false);
+            }
+            if (rit_allin_street < RIVER) {
+                GameFrame.getInstance().getRiver().resetearCarta(false);
+            }
+        });
+    }
+
     // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la
     // calle actual (this.street) del SEGUNDO board desde offsets FRESCOS del
     // MEGAPACKET (las posiciones libres tras el river de SIDE-A: offset vivo +
@@ -9070,6 +9096,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
                 boolean firstResistencia = !this.destapar_resistencia;
+                if (firstResistencia) {
+                    // Calle del all-in run-out: las comunitarias posteriores son
+                    // las "corridas" que SIDE-B rebobina y re-reparte. Host y
+                    // cliente lo registran (ambos corren rondaApuestas en lockstep).
+                    this.rit_allin_street = this.street;
+                }
                 // PRIMERO bloqueamos el toggle (síncrono, justo antes de empezar a
                 // destapar) y LUEGO leemos el flag: así GameFrame.RUN_IT_TWICE ya no
                 // puede cambiar cuando decidimos el voto (race-free). El menú se

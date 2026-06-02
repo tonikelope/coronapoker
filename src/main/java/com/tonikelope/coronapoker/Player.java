@@ -106,7 +106,16 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public void setLoser(String msg);
 
+    // Run-it-twice rewind: re-aplica el render de la última acción y limpia el
+    // estado ganador/perdedor de SIDE-A antes de correr SIDE-B.
+    public void repaintLastAction();
+
     public void pagar(float pasta, Integer sec_pot);
+
+    // Run-it-twice: marca (con dedup) que este jugador se lleva el pot 'sec_pot'
+    // (la "franja negra"), sin pagar — el dinero se paga aparte con pagar(.,null).
+    // Evita el indice duplicado al ganar el mismo pot en los dos boards.
+    public void marcarBotePot(int sec_pot);
 
     public float getBet();
 

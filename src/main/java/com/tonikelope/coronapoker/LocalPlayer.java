@@ -2986,6 +2986,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
+    public void marcarBotePot(int sec_pot) {
+        if (!botes_secundarios.contains(sec_pot)) {
+            botes_secundarios.add(sec_pot);
+        }
+        refreshSecPotLabel();
+    }
+
     public void setUTG() {
 
         this.utg = true;
@@ -3001,6 +3009,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         reraise = false;
 
+        renderDecisionVisual(dec);
+    }
+
+    // Render visual de una decisión (sin efectos), extraído de setDecision para
+    // poder RE-PINTAR la última acción en el rewind de run-it-twice.
+    private void renderDecisionVisual(int dec) {
         switch (dec) {
             case Player.CHECK:
 
@@ -3078,6 +3092,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
         });
+    }
+
+    // Run-it-twice rewind: re-aplica el render de la última acción guardada y
+    // limpia el verde/rojo de ganador/perdedor de SIDE-A, dejando las hole cards
+    // reveladas. No toca pots ni stacks (el bote persiste entre sides).
+    @Override
+    public void repaintLastAction() {
+        this.winner = false;
+        this.loser = false;
+        // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
+        this.botes_secundarios.clear();
+        // Re-enfoca las hole cards: el showdown de SIDE-A atenúa las de los
+        // perdedores; en SIDE-B deben volver a verse brillantes (se reevalúan).
+        Helpers.GUIRun(() -> {
+            holeCard1.enfocar();
+            holeCard2.enfocar();
+            sec_pot_win_label.setVisible(false);
+        });
+        renderDecisionVisual(this.decision);
     }
 
     @Override

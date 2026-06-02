@@ -347,6 +347,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
     public static final int IWTSTH_TIMEOUT = 15000;
+    public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
     public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre
     // velocidad/precisión
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
@@ -614,6 +615,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Player last_aggressor = null;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
+    // Diálogo de votación run-it-twice activo en el CLIENTE (host-driven via RIT_VOTE_*).
+    private volatile RunItTwiceDialog rit_client_dialog = null;
+    // True mientras se reparte el segundo board (SIDE-B) de un run-it-twice. Abre
+    // las fases UNLOCK_PHASE_RIT2_* en el gate; fuera de SIDE-B está a false y esas
+    // fases se rechazan siempre. Se fija localmente (no por el host) en host y
+    // clientes al entrar/salir del reparto de SIDE-B, preservando el anti-early-cascade.
+    private volatile boolean run_it_twice_side_b = false;
+    // Resultado del voto run-it-twice de la mano actual (host: de runRitVote;
+    // cliente: del RIT_VOTE_CLOSE). Ambos lo conocen para que sus bucles run()
+    // tomen la misma rama "correr SIDE-B" en lockstep. Reset por mano.
+    private volatile boolean rit_agreed = false;
+    // True una vez la votación ha terminado esta mano. Persistido al fósil: en un
+    // recovery con el voto ya hecho, el host NO re-vota (usa rit_agreed restaurado);
+    // si el crash fue antes del voto, queda false y la votación corre normal.
+    private volatile boolean rit_vote_done = false;
+    // Calle en la que se cerró la acción (all-in run-out). Las comunitarias de
+    // calles POSTERIORES son las "corridas" (se rebobinan para SIDE-B); las de
+    // esta calle y anteriores son compartidas. -1 = no hubo all-in run-out.
+    private volatile int rit_allin_street = -1;
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
@@ -624,6 +644,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean last_hand = false;
     private volatile int sqlite_id_game = -1;
     private volatile int sqlite_id_hand = -1;
+    // Run-it-twice: silencia los INSERT/UPDATE del showdown SQL mientras se
+    // liquidan los DOS boards. La tabla showdown lleva UNA fila por jugador/mano;
+    // sin esto cada board insertaría su propia fila y se duplicarían las stats y
+    // (peor) el COUNT(winner) de sqlGetPlayerContaWins, que se recarga la mano
+    // siguiente y desharía la corrección en memoria del conta_win. Tras los dos
+    // boards se escribe UNA fila consolidada (pay total + winner = ganó algún side).
+    private volatile boolean rit_suppress_showdown_sql = false;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String big_blind_nick = null;
@@ -3092,6 +3119,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int UNLOCK_PHASE_RABBIT_FLOP = 4;
     public static final int UNLOCK_PHASE_RABBIT_TURN = 5;
     public static final int UNLOCK_PHASE_RABBIT_RIVER = 6;
+    // Run-it-twice SIDE-B: fases dedicadas para repartir el segundo board desde
+    // offsets frescos del MEGAPACKET. Tags propias (disjuntas de las de SIDE-A)
+    // para no chocar con el single-serve del reparto vivo.
+    public static final int UNLOCK_PHASE_RIT2_FLOP = 7;
+    public static final int UNLOCK_PHASE_RIT2_TURN = 8;
+    public static final int UNLOCK_PHASE_RIT2_RIVER = 9;
 
     // Tags ya servidas esta mano (clave compuesta phase:peer_idx para todas
     // las phases en v3 — comunitaria también es per-recipient). Bloquea que
@@ -3229,7 +3262,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
     // protocol_state_lock.
     private boolean isUnlockPhaseStateSafe(int phase) {
-        return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time);
+        return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time, this.run_it_twice_side_b);
+    }
+
+    public void setRunItTwiceSideB(boolean v) {
+        synchronized (protocol_state_lock) {
+            this.run_it_twice_side_b = v;
+            // Despierta a awaitStreetForUnlockPhase para que reevalúe el gate al
+            // entrar/salir de SIDE-B (igual que setStreetLocal con la calle).
+            protocol_state_lock.notifyAll();
+        }
+    }
+
+    public boolean isRunItTwiceSideB() {
+        return this.run_it_twice_side_b;
     }
 
     /**
@@ -3241,6 +3287,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * the host's broadcast. RABBIT_* require show_time. Anything else is refused.
      */
     static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime) {
+        return isUnlockPhaseAllowedForStreet(phase, street, showTime, false);
+    }
+
+    /**
+     * Overload con el flag de reparto run-it-twice SIDE-B. Las fases RIT2_* solo
+     * se sirven MIENTRAS SIDE-B se está repartiendo ({@code ritSideB}), y con el
+     * mismo gate anti early-cascade que el board vivo (la calle local re-avanza
+     * durante SIDE-B). Fuera de SIDE-B se rechazan siempre: de-lockear esos
+     * offsets frescos en una mano normal filtraría cartas aún vivas en el mazo.
+     */
+    static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime, boolean ritSideB) {
         switch (phase) {
             case UNLOCK_PHASE_POCKET:
                 return true;
@@ -3254,6 +3311,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             case UNLOCK_PHASE_RABBIT_TURN:
             case UNLOCK_PHASE_RABBIT_RIVER:
                 return showTime;
+            case UNLOCK_PHASE_RIT2_FLOP:
+                return ritSideB && street >= FLOP;
+            case UNLOCK_PHASE_RIT2_TURN:
+                return ritSideB && street >= TURN;
+            case UNLOCK_PHASE_RIT2_RIVER:
+                return ritSideB && street >= RIVER;
             default:
                 return false;
         }
@@ -3728,6 +3791,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 } catch (NumberFormatException nfe) {
                                     LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
+                                }
+                            } else if (part.startsWith("RIT@")) {
+                                // Run-it-twice: restaura el estado del voto para que
+                                // la mano recuperada corra los dos boards (o uno).
+                                String[] rit = part.substring("RIT@".length()).split(",");
+                                try {
+                                    this.rit_vote_done = Boolean.parseBoolean(rit[0]);
+                                    this.rit_agreed = Boolean.parseBoolean(rit[1]);
+                                    this.rit_allin_street = Integer.parseInt(rit[2]);
+                                } catch (Exception ex) {
+                                    LOGGER.log(Level.WARNING, "RIT@ unparseable: {0}", part);
                                 }
                             }
                         }
@@ -5343,6 +5417,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.sra_unlock_tags_served.clear();
         this.cartas_resistencia = false;
         this.destapar_resistencia = false;
+
+        this.run_it_twice_side_b = false;
+
+        this.rit_agreed = false;
+
+        this.rit_vote_done = false;
+
+        this.rit_allin_street = -1;
+
+        // Defensivo: si una mano anterior abortó entre los dos boards con el SQL
+        // del showdown silenciado, lo reactivamos al empezar la mano nueva.
+        this.rit_suppress_showdown_sql = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -5877,6 +5963,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateShowdownPay(Player jugador) {
 
+        // Run-it-twice: durante los dos boards no hay fila que actualizar (el
+        // INSERT está suprimido); la fila consolidada se escribe al final.
+        if (this.rit_suppress_showdown_sql) {
+            return;
+        }
+
         synchronized (GameFrame.SQL_LOCK) {
 
             String sql = "UPDATE showdown SET pay=?, profit=? WHERE id_hand=? AND player=?";
@@ -5927,6 +6019,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void sqlNewShowdown(Player jugador, Hand jugada, boolean win, boolean tapadas) {
+
+        // Run-it-twice: el showdown() de cada board está suprimido; la fila
+        // consolidada (una por jugador/mano) la escribe resolverRunItTwiceShowdown
+        // al final llamando a este método con el flag ya desactivado.
+        if (this.rit_suppress_showdown_sql) {
+            return;
+        }
 
         synchronized (GameFrame.SQL_LOCK) {
 
@@ -7549,6 +7648,231 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return tot;
     }
 
+    // ---- Run-it-twice: votación host-driven --------------------------------
+    //
+    // Se ejecuta SOLO en el host (isPartida_local) cuando la acción se cierra
+    // con 2+ implicados (puedenApostar(resisten) <= 1) y la regla está activa.
+    // Votan únicamente los humanos implicados (resisten); los bots no votan.
+    // Unanimidad: run-it-twice solo si TODOS los humanos implicados votan RIT;
+    // un solo NORMAL (o timeout) → board único. Devuelve el booleano acordado.
+    //
+    // El host muestra su propio diálogo localmente (si está implicado) y pide a
+    // los humanos remotos vía RIT_VOTE_REQ; recoge respuestas drenando la cola
+    // received_commands (mismo patrón que requestRemoteCascade) y rebroadcasta
+    // RIT_VOTE_TALLY en vivo; al cerrar manda RIT_VOTE_CLOSE.
+
+    private void sendRitVoteReq(Participant p, int timeout, int totalVoters) {
+        try {
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
+        }
+    }
+
+    private void broadcastRitTally(int normal, int rit, RunItTwiceDialog hostDialog) {
+        // confirmation=false: fire-and-forget. No espera ACKs (los tally en vivo
+        // deben ser rápidos) y, crucialmente, NO drena received_commands — si
+        // esperara confirmación robaría los RIT_VOTE_RESP que estamos recogiendo.
+        try {
+            broadcastGAMECommandFromServer("RIT_VOTE_TALLY#" + normal + "#" + rit, null, false);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_TALLY", e);
+        }
+        if (hostDialog != null) {
+            hostDialog.setTally(normal, rit);
+        }
+    }
+
+    private void broadcastRitClose(int result) {
+        // confirmation=false por la misma razón; una CLOSE perdida la cubre el
+        // safety self-dispose del propio diálogo cliente.
+        try {
+            broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, false);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_CLOSE", e);
+        }
+    }
+
+    private boolean runRitVote(ArrayList<Player> resisten) {
+        String localNick = GameFrame.getInstance().getNick_local();
+
+        boolean localIsVoter = false;
+        ArrayList<String> remoteVoterNicks = new ArrayList<>();
+        HashMap<String, Participant> remoteVoterParts = new HashMap<>();
+
+        for (Player pl : resisten) {
+            String nick = pl.getNickname();
+            if (nick == null) {
+                continue;
+            }
+            if (nick.equals(localNick)) {
+                // Asiento del host: humano (el host nunca es bot).
+                localIsVoter = true;
+            } else {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                if (p != null && !p.isCpu() && !p.isExit()) {
+                    remoteVoterNicks.add(nick);
+                    remoteVoterParts.put(nick, p);
+                }
+                // Bots y remotos caídos/exit no votan.
+            }
+        }
+
+        int totalVoters = (localIsVoter ? 1 : 0) + remoteVoterNicks.size();
+        if (totalVoters == 0) {
+            // Todos los implicados son bots: no se ofrece RIT.
+            return false;
+        }
+
+        final int totalVotersFinal = totalVoters;
+        final RunItTwiceDialog[] hd = new RunItTwiceDialog[1];
+        if (localIsVoter) {
+            Helpers.GUIRunAndWait(() -> hd[0] = new RunItTwiceDialog(GameFrame.getInstance(), RIT_VOTE_TIMEOUT, totalVotersFinal));
+            Helpers.GUIRun(() -> hd[0].setVisible(true));
+        }
+        final RunItTwiceDialog hostDialog = hd[0];
+
+        for (String nick : remoteVoterNicks) {
+            sendRitVoteReq(remoteVoterParts.get(nick), RIT_VOTE_TIMEOUT, totalVoters);
+        }
+
+        HashMap<String, Integer> votes = new HashMap<>();
+        long deadlineMs = System.currentTimeMillis() + (RIT_VOTE_TIMEOUT + 3) * 1000L;
+
+        broadcastRitTally(0, 0, hostDialog);
+
+        // Mayoría simple: se espera a que voten todos los implicados o al timeout
+        // (no se cierra al primer NORMAL como en la unanimidad), porque un NORMAL
+        // ya no decide por sí solo.
+        while (votes.size() < totalVoters
+                && !isFin_de_la_transmision() && System.currentTimeMillis() < deadlineMs) {
+
+            boolean changed = false;
+
+            if (localIsVoter && !votes.containsKey(localNick)
+                    && hostDialog != null && hostDialog.getVote() != RunItTwiceDialog.VOTE_PENDING) {
+                votes.put(localNick, hostDialog.getVote());
+                changed = true;
+            }
+
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("RIT_VOTE_RESP")) {
+                        try {
+                            String voterNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            int v = Integer.parseInt(partes[4]);
+                            if (remoteVoterNicks.contains(voterNick) && !votes.containsKey(voterNick)
+                                    && (v == RunItTwiceDialog.VOTE_NORMAL || v == RunItTwiceDialog.VOTE_RUN_IT_TWICE)) {
+                                votes.put(voterNick, v);
+                                changed = true;
+                            }
+                        } catch (Exception e) {
+                            // Voto malformado: se ignora.
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+
+            if (changed) {
+                int n = 0, r = 0;
+                for (int v : votes.values()) {
+                    if (v == RunItTwiceDialog.VOTE_NORMAL) {
+                        n++;
+                    } else {
+                        r++;
+                    }
+                }
+                broadcastRitTally(n, r, hostDialog);
+            }
+
+            if (votes.size() < totalVoters) {
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(200);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        int n = 0, r = 0;
+        for (int v : votes.values()) {
+            if (v == RunItTwiceDialog.VOTE_NORMAL) {
+                n++;
+            } else {
+                r++;
+            }
+        }
+        // Los que no llegaron a votar (timeout/caída) cuentan como NORMAL.
+        n += (totalVoters - votes.size());
+
+        // Mayoría simple: RIT solo si los votos RUN-IT-TWICE SUPERAN a los NORMAL.
+        // En caso de empate (o minoría) -> board único (desempate a NORMAL).
+        boolean agreed = r > n;
+
+        broadcastRitTally(n, r, hostDialog);
+        broadcastRitClose(agreed ? 1 : 0);
+        if (hostDialog != null) {
+            hostDialog.closeDialog();
+        }
+
+        return agreed;
+    }
+
+    // ---- Run-it-twice: lado CLIENTE (reacciona a RIT_VOTE_* del host) -------
+
+    public void showRitClientVoteDialog(int timeout, int totalVoters) {
+        Helpers.GUIRun(() -> {
+            RunItTwiceDialog d = new RunItTwiceDialog(GameFrame.getInstance(), timeout, totalVoters);
+            d.setVoteListener((v) -> Helpers.threadRun(() -> {
+                try {
+                    String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
+                    sendGAMECommandToServer("RIT_VOTE_RESP#" + myNickB64 + "#" + v, false);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_RESP", e);
+                }
+            }));
+            this.rit_client_dialog = d;
+            d.setVisible(true);
+        });
+    }
+
+    public void updateRitClientTally(int normal, int rit) {
+        RunItTwiceDialog d = this.rit_client_dialog;
+        if (d != null) {
+            d.setTally(normal, rit);
+        }
+    }
+
+    public void closeRitClientDialog(boolean agreed) {
+        // El cliente guarda el resultado para que su bucle run() tome la misma
+        // rama SIDE-B que el host (checkpoint 3).
+        this.rit_agreed = agreed;
+        RunItTwiceDialog d = this.rit_client_dialog;
+        if (d != null) {
+            d.closeDialog();
+            this.rit_client_dialog = null;
+        }
+        printRitVoteResult(agreed);
+    }
+
+    public void printRitVoteResult(boolean agreed) {
+        GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
+    }
+
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
 
         GameFrame.getInstance().checkPause();
@@ -7651,6 +7975,464 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (broadcastOk) {
                 // Host absorbs with its own nick (always in active_crypto_ring, so
                 // the isInActiveCryptoRing guard passes).
+                absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
+            }
+        }
+
+        return true;
+    }
+
+    // Span completo del board de SIDE-A en el MEGAPACKET: burn + flop(3) + burn +
+    // turn + burn + river = 8 cartas. SIDE-B arranca justo después.
+    private static final int RIT2_BOARD_SPAN = 8;
+
+    static int rit2PhaseForStreet(int street) {
+        if (street == FLOP) {
+            return UNLOCK_PHASE_RIT2_FLOP;
+        }
+        if (street == TURN) {
+            return UNLOCK_PHASE_RIT2_TURN;
+        }
+        return UNLOCK_PHASE_RIT2_RIVER;
+    }
+
+    static int mapJavaStreetToRit2Wire(int javaStreet) {
+        if (javaStreet == FLOP) {
+            return CanonicalActionRecord.STREET_RIT2_FLOP;
+        }
+        if (javaStreet == TURN) {
+            return CanonicalActionRecord.STREET_RIT2_TURN;
+        }
+        return CanonicalActionRecord.STREET_RIT2_RIVER;
+    }
+
+    /**
+     * Run-it-twice: divide un (side)pot en las mitades de SIDE-A y SIDE-B.
+     * Trabaja en céntimos enteros para evitar mitades no representables en chips
+     * de 2 decimales (p.ej. 0.05 / 2 = 0.025). Regla de la casa: si el total en
+     * céntimos es impar, SIDE-A se queda el céntimo de resto. Invariante:
+     * sideA + sideB == pot exacto (no se crea ni se pierde ningún céntimo).
+     *
+     * @return {@code [sideA_chips, sideB_chips]}
+     */
+    static float[] splitPotForRunItTwice(float pot) {
+        long cents = Math.round((double) pot * 100.0);
+        long sideB = cents / 2;        // floor
+        long sideA = cents - sideB;    // ceil — SIDE-A se lleva el resto
+        return new float[]{sideA / 100f, sideB / 100f};
+    }
+
+    // Run-it-twice rewind (parte comunitaria): TAPA las cartas comunitarias
+    // "corridas" (calles posteriores al all-in run-out) — iniciarCarta(true) las
+    // deja boca abajo (iniciada+tapada+visible, mostrando el dorso) y limpia el
+    // desenfoque del showdown de SIDE-A, que es justo el estado del que el reparto
+    // vivo revela una comunitaria (actualizarConValorNumerico + destapar). Con
+    // resetearCarta(false) quedaban invisibles y destapar no hacía nada. Las
+    // compartidas (calle del all-in y anteriores) quedan fijas.
+    private void rebobinarComunitariasSideB() {
+        Helpers.GUIRunAndWait(() -> {
+            // Corridas → boca abajo (iniciarCarta) para que SIDE-B las revele.
+            // Compartidas → enfocar() para deshacer el atenuado del showdown de
+            // SIDE-A, de modo que el board de SIDE-B se vea entero y brillante.
+            if (rit_allin_street < FLOP) {
+                GameFrame.getInstance().getFlop1().iniciarCarta(true);
+                GameFrame.getInstance().getFlop2().iniciarCarta(true);
+                GameFrame.getInstance().getFlop3().iniciarCarta(true);
+            } else {
+                GameFrame.getInstance().getFlop1().enfocar();
+                GameFrame.getInstance().getFlop2().enfocar();
+                GameFrame.getInstance().getFlop3().enfocar();
+            }
+            if (rit_allin_street < TURN) {
+                GameFrame.getInstance().getTurn().iniciarCarta(true);
+            } else {
+                GameFrame.getInstance().getTurn().enfocar();
+            }
+            if (rit_allin_street < RIVER) {
+                GameFrame.getInstance().getRiver().iniciarCarta(true);
+            } else {
+                GameFrame.getInstance().getRiver().enfocar();
+            }
+        });
+    }
+
+    // Run-it-twice: reparte el SEGUNDO board (SIDE-B). Re-corre el run-out de las
+    // calles posteriores al all-in (rit_allin_street+1 .. RIVER) avanzando la
+    // calle local en lockstep, repartiendo con las fases RIT2 (host enviarRit2 /
+    // cliente recibirCartas con run_it_twice_side_b ya puesto) y revelando cada
+    // calle igual que el board vivo. Devuelve false si el reparto abortó
+    // (lockdown / misdeal / desconexión). Llamar SOLO con setRunItTwiceSideB(true).
+    private boolean repartirSideB(ArrayList<Player> resisten) {
+        for (int s = rit_allin_street + 1; s <= RIVER && !isFin_de_la_transmision(); s++) {
+            setStreetLocal(s);
+
+            // CLON EXACTO del reparto de comunitarias de rondaApuestas (run-out de
+            // CARA-A): label "decrypting" naranja + barra indeterminada tras 500ms,
+            // y en el finally restaura el foreground de la pot_label y quita la
+            // indeterminada. Así CARA-B se reparte visualmente igual que CARA-A.
+            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setText(Translator.translate("zero_trust.decrypting_street"));
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
+                });
+            }, 500, TimeUnit.MILLISECONDS);
+
+            boolean ok = false;
+            try {
+                ok = GameFrame.getInstance().isPartida_local()
+                        ? enviarRit2Comunitarias(resisten)
+                        : recibirCartasComunitarias();
+            } finally {
+                loadingTask.cancel(false);
+                scheduler.shutdown();
+                Helpers.GUIRunAndWait(() -> {
+                    GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
+                            GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
+                    GameFrame.getInstance().getBarra_tiempo().setIndeterminate(false);
+                });
+            }
+
+            if (!ok) {
+                return false;
+            }
+            // Igual que el run-out normal: actualiza pot/bet/ciegas. La bet_label
+            // se ocultará con hideTapeteApuestas antes del showdown de CARA-B.
+            actualizarContadoresTapete();
+            destaparCartaComunitaria(s, resisten);
+        }
+        return true;
+    }
+
+    // Run-it-twice: liquidación de los DOS boards (ruta dedicada; el showdown
+    // normal NO se toca). SIDE-A ya está en la mesa (rondaApuestas la repartió):
+    // se paga la mitad-A de cada (side)pot, pausa para asimilar, rewind, se
+    // reparte SIDE-B y se paga la mitad-B. Cada bote se parte con
+    // splitPotForRunItTwice (conservación exacta; SIDE-A se lleva el céntimo de
+    // resto) y dentro de cada board se reparte entre los ganadores de ESE board
+    // con calcularBoteParaGanador (mismo helper de producción). conta_win cuenta
+    // UNA vez por jugador que gane ≥1 side (snapshot + corrección final, porque
+    // showdown() incrementa por board vía setWinner). 'perdedores' refleja SIDE-B
+    // (el board final en pantalla) para la cola común (actualizarCartasPerdedores).
+    private void resolverRunItTwiceShowdown(ArrayList<Player> resisten) {
+        // Cartas ya reveladas en el all-in; mirror del showdown normal (idempotente).
+        requestShowdownKeys(resisten);
+        procesarCartasResistencia(resisten, false);
+
+        // conta_win: snapshot para corregir el doble incremento de showdown().
+        HashMap<Player, Integer> contaWinSnapshot = new HashMap<>();
+        for (Player p : resisten) {
+            contaWinSnapshot.put(p, p.getContaWin());
+        }
+        java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
+
+        // Snapshot de las jugadas de SIDE-A (board en mesa): la tabla showdown
+        // lleva UNA fila por jugador/mano, así que la jugada registrada
+        // (hand_cards/hand_val) es la del primer board. A partir de aquí
+        // silenciamos el SQL del showdown de los dos boards; la fila consolidada
+        // se escribe al final con el pay total y winner = ganó algún side.
+        HashMap<Player, Hand> ritShowdownHands = this.calcularJugadas(resisten);
+        this.rit_suppress_showdown_sql = true;
+
+        // Conservación del dinero: bote_sobrante (el resto indivisible heredado de
+        // manos anteriores) se CONSUME en el split de los pots (8221). Hay que
+        // recalcularlo tras los dos boards (= lo que no se pudo repartir), no
+        // dejarlo stale: si no, la siguiente NUEVA_MANO lo resembraría en
+        // bote_total (creación de dinero). Mirror del showdown normal, que SIEMPRE
+        // reescribe bote_sobrante (12727 case-1 / 12887 default). Capturamos el
+        // total de TODOS los pots (principal + sobrante + laterales) antes de pagar.
+        float ritPotTotal = this.bote.getTotal() + this.bote_sobrante;
+        for (HandPot sp = this.bote.getSidePot(); sp != null; sp = sp.getSidePot()) {
+            ritPotTotal += sp.getTotal();
+        }
+
+        // ---- SIDE-A (board ya en mesa) ----
+        float paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
+        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
+
+        if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()) {
+            // Pausa para asimilar SIDE-A = la MISMA que la pausa de la cola tras
+            // SIDE-B (1.5x con side pots), para que ambas caras esperen igual.
+            this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? PAUSA_ENTRE_MANOS : Math.round(1.5f * PAUSA_ENTRE_MANOS));
+        }
+
+        // ---- SIDE-B: rewind + reparto ----
+        // Solo deshacemos el coloreado del showdown de SIDE-A (pot_panel opaco
+        // verde, pot_label verde/centrada) para volver al estado de REPARTO. A
+        // partir de ahí CARA-B se comporta IGUAL que CARA-A: el run-out muestra
+        // pot/bet labels vía actualizarContadoresTapete y se ocultan con
+        // hideTapeteApuestas antes del showdown.
+        Helpers.GUIRun(() -> {
+            CommunityCardsPanel cc = GameFrame.getInstance().getTapete().getCommunityCards();
+            cc.getPot_panel().setOpaque(false);
+            cc.getPot_label().setHorizontalAlignment(JLabel.LEADING);
+            cc.getPot_label().setForeground(cc.getBet_label().getForeground());
+            cc.getHand_label().setVisible(false);
+        });
+        // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
+        // Rewind: tapar comunitarias corridas + re-pintar última acción.
+        rebobinarComunitariasSideB();
+        for (Player p : resisten) {
+            p.repaintLastAction();
+        }
+        // Durante el reparto de SIDE-B (repartirSideB → actualizarContadoresTapete)
+        // la label del bote NO debe arrastrar el beneficio de SIDE-A: se limpia
+        // para volver al estado de REPARTO (sin número de beneficio, igual que el
+        // run-out de SIDE-A). settleRunItTwiceBoard(.,1,.) lo recalcula para el
+        // showdown de SIDE-B.
+        this.beneficio_bote_principal = null;
+        setRunItTwiceSideB(true);
+        boolean dealt = repartirSideB(resisten);
+        setRunItTwiceSideB(false);
+
+        // Igual que tras el run-out normal (Crupier ~12232): oculta la bet_label
+        // de calle antes del showdown de CARA-B.
+        GameFrame.getInstance().hideTapeteApuestas();
+
+        float paidB = 0f;
+        if (dealt && !isFin_de_la_transmision()) {
+            paidB = settleRunItTwiceBoard(resisten, 1, wonAnySide);
+            GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_b"));
+        }
+
+        // Resto indivisible no repartido en ninguno de los dos boards → se arrastra
+        // como bote_sobrante a la mano siguiente (conservación exacta del dinero).
+        // Solo si SIDE-B se repartió (si abortó, cancelarManoYDevolverApuestas ya
+        // gestionó el dinero y no debemos tocar el sobrante).
+        if (dealt) {
+            this.bote_sobrante = Math.max(0f, Helpers.floatClean(ritPotTotal - paidA - paidB));
+        }
+
+        // conta_win final: +1 solo si ganó algún side (override del doble conteo).
+        for (Player p : resisten) {
+            p.setContaWin(contaWinSnapshot.get(p) + (wonAnySide.contains(p) ? 1 : 0));
+        }
+
+        // SQL del showdown: UNA fila consolidada por jugador (no una por board),
+        // mismo invariante que el showdown normal. pay/profit salen de getPagar()
+        // final, que acumula lo ganado en ambos boards y todos los (side)pots;
+        // winner = ganó algún side (igual semántica que conta_win). En un all-in
+        // todas las cartas se muestran (destapar_resistencia), por eso tapadas=false.
+        this.rit_suppress_showdown_sql = false;
+        for (Player p : resisten) {
+            this.sqlNewShowdown(p, ritShowdownHands.get(p), wonAnySide.contains(p), false);
+        }
+    }
+
+    // Liquida UN board (el que está en la mesa) para run-it-twice: paga la mitad
+    // (board: 0=SIDE-A, 1=SIDE-B) de cada (side)pot a los ganadores de ESE board.
+    private float settleRunItTwiceBoard(ArrayList<Player> resisten, int board,
+            java.util.HashSet<Player> wonAnySide) {
+        boolean isSideB = (board == 1);
+        float paidThisBoard = 0f;
+
+        // ---- Pot principal (elegibles = resisten); incluye bote_sobrante ----
+        HashMap<Player, Hand> jugadas = this.calcularJugadas(resisten);
+        HashMap<Player, Hand> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+        float mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
+        float[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
+        // Beneficio del ganador del pot principal en ESTE board (cosmético, número
+        // verde de la label del tapete): su parte (medio bote / nº ganadores) menos
+        // su mitad de la apuesta de referencia. La apuesta se parte igual que el
+        // bote (mismo split, resto a SIDE-A) → la suma de ambos boards = beneficio
+        // real total. Mismo significado que beneficio_bote_principal del showdown
+        // normal (cantidad - bote.getBet()), pero por board.
+        this.beneficio_bote_principal = cantidad[0] - splitPotForRunItTwice(this.bote.getBet())[board];
+        ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+        Player unganador = null;
+
+        for (Map.Entry<Player, Hand> e : ganadores.entrySet()) {
+            Player ganador = e.getKey();
+            Hand jugada = e.getValue();
+            wonAnySide.add(ganador);
+            unganador = ganador;
+            // Highlight de la jugada ganadora (igual que el showdown normal):
+            // recoge las cartas usadas y atenúa las hole cards NO usadas del ganador.
+            ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+            for (Card carta : cartas) {
+                if (!cartas_usadas_jugadas.contains(carta)) {
+                    cartas_usadas_jugadas.add(carta);
+                }
+            }
+            if (!cartas.contains(ganador.getHoleCard1())) {
+                ganador.getHoleCard1().desenfocar();
+            }
+            if (!cartas.contains(ganador.getHoleCard2())) {
+                ganador.getHoleCard2().desenfocar();
+            }
+            jugadas.remove(ganador);
+            ganador.pagar(cantidad[0], null);
+            // Franja negra: marca el pot principal como #1 SOLO si hay side pots
+            // (si no, la label de franja ni se muestra). Dedup entre boards.
+            if (this.bote.getSidePot() != null) {
+                ganador.marcarBotePot(1);
+            }
+            // NO decrementamos bote_total: es UN bote corrido dos veces, ambas
+            // caras muestran el bote TOTAL durante el reparto (la cola lo pone a 0).
+            paidThisBoard += cantidad[0];
+            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad[0]) + ") -> " + jugada);
+        }
+
+        // Atenúa las comunitarias que NO forman parte de ninguna jugada ganadora
+        // (mismo highlight que el showdown normal).
+        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+            if (!cartas_usadas_jugadas.contains(carta)) {
+                carta.desenfocar();
+            }
+        }
+
+        // Bad beat de ESTE board (river propio): el perdedor iba ganando en el
+        // turn con trío+ y el river le dio la vuelta. Se fija el campo ANTES del
+        // showdown porque soundWinner/soundLoser (dentro de showdown) lo leen para
+        // sonar badbeat.wav. Reset por board: SIDE-A no contamina SIDE-B.
+        this.badbeat = false;
+        for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
+            if (badbeat(e.getKey(), unganador)) {
+                this.badbeat = true;
+            }
+        }
+
+        // Visual del board (revelar/destacar) con los ganadores+perdedores del pot
+        // principal, ANTES de vaciar 'jugadas'.
+        this.showdown(new HashMap<>(jugadas), ganadores);
+
+        for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
+            GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad[0]) + ")");
+            if (isSideB) {
+                this.perdedores.put(e.getKey(), e.getValue());
+            }
+        }
+
+        // ---- Side pots ----
+        HandPot current_pot = this.bote.getSidePot();
+        int sec = 2;
+        while (current_pot != null) {
+            if (current_pot.getPlayers().size() == 1) {
+                // Pot lateral no disputado: refund íntegro, UNA sola vez (SIDE-A);
+                // no se parte entre boards (no hay competición).
+                if (board == 0) {
+                    Player only = current_pot.getPlayers().get(0);
+                    only.pagar(current_pot.getTotal(), null);
+                    only.marcarBotePot(sec);
+                    paidThisBoard += current_pot.getTotal();
+                    GameFrame.getInstance().getRegistro().print(only.getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
+                    this.sqlUpdateShowdownPay(only);
+                }
+            } else {
+                HashMap<Player, Hand> sjugadas = this.calcularJugadas(current_pot.getPlayers());
+                HashMap<Player, Hand> sganadores = this.calcularGanadores(new HashMap<>(sjugadas));
+                float sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
+                float[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
+                for (Map.Entry<Player, Hand> e : sganadores.entrySet()) {
+                    Player ganador = e.getKey();
+                    Hand jugada = e.getValue();
+                    wonAnySide.add(ganador);
+                    sjugadas.remove(ganador);
+                    ganador.pagar(sCantidad[0], null);
+                    ganador.marcarBotePot(sec);
+                    paidThisBoard += sCantidad[0];
+                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(sCantidad[0]) + ") -> " + jugada);
+                    this.sqlUpdateShowdownPay(ganador);
+                }
+                for (Map.Entry<Player, Hand> e : sjugadas.entrySet()) {
+                    GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(sCantidad[0]) + ")");
+                    if (isSideB) {
+                        perdedores.put(e.getKey(), e.getValue());
+                    }
+                }
+            }
+            current_pot = current_pot.getSidePot();
+            sec++;
+        }
+
+        // Label del bote: muestra lo repartido en ESTE board, con fondo verde y
+        // texto centrado (como el showdown normal). Sin esto la label heredaba
+        // color/alineación de la fase de apuestas y se veía rara.
+        final float paidShow = paidThisBoard;
+        setPotBackground(Color.GREEN);
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
+        });
+        GameFrame.getInstance().setTapeteBote(paidShow, this.beneficio_bote_principal);
+
+        return paidThisBoard;
+    }
+
+    // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la
+    // calle actual (this.street) del SEGUNDO board desde offsets FRESCOS del
+    // MEGAPACKET (las posiciones libres tras el river de SIDE-A: offset vivo +
+    // RIT2_BOARD_SPAN), bajo fases RIT2_* y comandos RIT2_*_PIECE, y emite/absorbe
+    // un COMM_REVEAL con código de calle SIDE-B (STREET_RIT2_*) para cerrar el
+    // cross-recipient fork igual que el board vivo. abortOnFail=true: SIDE-B lleva
+    // dinero (medio bote), no es cosmético como rabbit.
+    private boolean enviarRit2Comunitarias(java.util.ArrayList<Player> resisten) {
+        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA SIDE-B street unlock: {0}", street);
+
+        if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+            return false;
+        }
+
+        int numPlayers = this.active_crypto_ring.length;
+        int numCards = (street == Crupier.FLOP) ? 3 : 1;
+
+        int offset = numPlayers * 2;
+        if (street == Crupier.FLOP) {
+            offset += 1;
+        } else if (street == Crupier.TURN) {
+            offset += 1 + 3 + 1;
+        } else if (street == Crupier.RIVER) {
+            offset += 1 + 3 + 1 + 1 + 1;
+        }
+        offset += RIT2_BOARD_SPAN;
+
+        // El segundo board debe caber en el mazo (52 cartas * 32 bytes). Con el
+        // cap de jugadores del juego siempre cabe, pero abortamos limpio si no.
+        if (this.local_mega_packet == null || (offset + numCards) * 32 > this.local_mega_packet.length) {
+            LOGGER.log(Level.SEVERE, "SIDE-B offset {0}+{1} exceeds deck — aborting hand", new Object[]{offset, numCards});
+            cancelarManoYDevolverApuestas("rit.sideb_offset_overflow");
+            return false;
+        }
+
+        int unlockPhase = rit2PhaseForStreet(street);
+        String pieceCommand = (street == Crupier.FLOP) ? "RIT2_FLOP_PIECE"
+                : (street == Crupier.TURN) ? "RIT2_TURN_PIECE" : "RIT2_RIVER_PIECE";
+
+        int[] hostIndices = cascadeAndDealCommunityPieces(offset, numCards, unlockPhase, pieceCommand, true);
+        if (hostIndices == null) {
+            return false;
+        }
+
+        if (street == Crupier.FLOP) {
+            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(hostIndices[0] + 1);
+            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(hostIndices[1] + 1);
+            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(hostIndices[2] + 1);
+        } else if (street == Crupier.TURN) {
+            GameFrame.getInstance().getTurn().actualizarConValorNumerico(hostIndices[0] + 1);
+        } else if (street == Crupier.RIVER) {
+            GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
+        }
+
+        // COMM_REVEAL con código de calle SIDE-B — idéntico patrón al board vivo
+        // (absorber SOLO si el broadcast tuvo éxito, o host y clientes divergen).
+        Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToRit2Wire(street), hostIndices);
+        if (recsig != null) {
+            byte[] record = (byte[]) recsig[0];
+            byte[] sig = (byte[]) recsig[1];
+            boolean broadcastOk = false;
+            try {
+                String comando = "COMM_REVEAL#"
+                        + Base64.getEncoder().encodeToString(record)
+                        + "#" + Base64.getEncoder().encodeToString(sig);
+                broadcastGAMECommandFromServer(comando, null);
+                broadcastOk = true;
+            } catch (RuntimeException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to broadcast SIDE-B COMM_REVEAL for street " + street, ex);
+            }
+            if (broadcastOk) {
                 absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
             }
         }
@@ -7944,6 +8726,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         byte[] revealRecord = null;
         byte[] revealSig = null;
         int expectedNumCards = (street == Crupier.FLOP) ? 3 : 1;
+        // Run-it-twice SIDE-B: durante el reparto del segundo board esperamos los
+        // comandos RIT2_*_PIECE y el COMM_REVEAL con código de calle SIDE-B
+        // (STREET_RIT2_*), no los del board vivo.
+        final boolean rit2 = this.run_it_twice_side_b;
+        final int expectedWireStreet = rit2 ? mapJavaStreetToRit2Wire(street) : mapJavaStreetToWire(street);
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -7952,9 +8739,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String[] partes = comando.split("#");
 
                     try {
-                        String expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
-                                : (street == Crupier.TURN) ? "TURN_PIECE"
-                                        : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
+                        String expectedCmd;
+                        if (rit2) {
+                            expectedCmd = (street == Crupier.FLOP) ? "RIT2_FLOP_PIECE"
+                                    : (street == Crupier.TURN) ? "RIT2_TURN_PIECE"
+                                            : (street == Crupier.RIVER) ? "RIT2_RIVER_PIECE" : null;
+                        } else {
+                            expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
+                                    : (street == Crupier.TURN) ? "TURN_PIECE"
+                                            : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
+                        }
                         if (iAmObserver && expectedCmd != null && partes.length >= 5
                                 && partes[2].equals(expectedCmd)) {
                             // Observer no esta en el ring: ninguna pieza es para
@@ -8012,7 +8806,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // by sending the wrong reveal early).
                                 if (candidateRecord.length != CanonicalActionRecord.RECORD_BYTES
                                         || CanonicalActionRecord.readActionType(candidateRecord) != CanonicalActionRecord.ACTION_COMMUNITY
-                                        || CanonicalActionRecord.readStreet(candidateRecord) != mapJavaStreetToWire(street)) {
+                                        || CanonicalActionRecord.readStreet(candidateRecord) != expectedWireStreet) {
                                     LOGGER.log(Level.WARNING,
                                             "Dropping stale/foreign COMM_REVEAL during street {0} drain", street);
                                     continue;
@@ -8073,7 +8867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 if (revealRecord.length != CanonicalActionRecord.RECORD_BYTES
                         || CanonicalActionRecord.readActionType(revealRecord) != CanonicalActionRecord.ACTION_COMMUNITY
-                        || CanonicalActionRecord.readStreet(revealRecord) != mapJavaStreetToWire(street)) {
+                        || CanonicalActionRecord.readStreet(revealRecord) != expectedWireStreet) {
                     LOGGER.log(Level.WARNING,
                             "Observer: COMM_REVEAL for street {0} malformed — board not painted, hand continues",
                             street);
@@ -8109,10 +8903,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return false;
                 }
                 int recordStreet = CanonicalActionRecord.readStreet(revealRecord);
-                if (recordStreet != mapJavaStreetToWire(street)) {
+                if (recordStreet != expectedWireStreet) {
                     LOGGER.log(Level.SEVERE,
                             "ZERO-TRUST: COMM_REVEAL street {0} != current street {1} — lockdown",
-                            new Object[]{recordStreet, mapJavaStreetToWire(street)});
+                            new Object[]{recordStreet, expectedWireStreet});
                     triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
                     return false;
                 }
@@ -8653,12 +9447,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().hideTapeteApuestas();
 
             if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
+                boolean firstResistencia = !this.destapar_resistencia;
+                if (firstResistencia) {
+                    // Calle del all-in run-out: las comunitarias posteriores son
+                    // las "corridas" que SIDE-B rebobina y re-reparte. Host y
+                    // cliente lo registran (ambos corren rondaApuestas en lockstep).
+                    this.rit_allin_street = this.street;
+                }
+                // PRIMERO bloqueamos el toggle (síncrono, justo antes de empezar a
+                // destapar) y LUEGO leemos el flag: así GameFrame.RUN_IT_TWICE ya no
+                // puede cambiar cuando decidimos el voto (race-free). El menú se
+                // reactiva al empezar la siguiente mano (ver NUEVA_MANO en run()).
+                if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
+                    Helpers.GUIRunAndWait(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false));
+                }
                 this.destapar_resistencia = true;
                 if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
                     GameFrame.getInstance().getLocalPlayer().desactivarControles();
                 }
                 procesarCartasResistencia(resisten, true);
                 checkJugadasParciales(resisten);
+                // Run-it-twice: votación host-driven al cerrarse la acción con 2+
+                // implicados. Solo si quedan calles por correr (rit_allin_street <
+                // RIVER): un all-in EN el river no tiene nada que correr dos veces,
+                // así que ni se ofrece el voto. En RECOVERY (rit_vote_done restaurado
+                // del fósil) NO se re-vota: se rebroadcasta el resultado para
+                // sincronizar a los clientes y se corre directo. El gate de recovery
+                // es independiente del toggle (el voto pudo hacerse aunque ahora off).
+                if (firstResistencia && GameFrame.getInstance().isPartida_local()
+                        && this.rit_allin_street < Crupier.RIVER) {
+                    if (this.rit_vote_done) {
+                        broadcastRitClose(this.rit_agreed ? 1 : 0);
+                        printRitVoteResult(this.rit_agreed);
+                    } else if (GameFrame.RUN_IT_TWICE) {
+                        boolean agreed = runRitVote(resisten);
+                        this.rit_agreed = agreed;
+                        this.rit_vote_done = true;
+                        // Persiste el voto al fósil: una mano recuperada tras el voto
+                        // corre los dos boards en vez de uno.
+                        this.guardarFosilSRA();
+                        LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0}", agreed);
+                        printRitVoteResult(agreed);
+                    }
+                }
             }
 
             if (this.street == Crupier.PREFLOP) {
@@ -8812,6 +9643,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     && this.local_original_cards[1] >= 0 && this.local_original_cards[1] < 52) {
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
             }
+
+            // Run-it-twice: estado del voto (vote_done, agreed, allin_street) para
+            // que una mano recuperada tras el voto corra los DOS boards en vez de uno.
+            fosil.append("#RIT@").append(this.rit_vote_done).append(",").append(this.rit_agreed).append(",").append(this.rit_allin_street);
 
             Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {
@@ -11714,6 +12549,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             });
 
         }
+
+        // RIT por defecto es ON: en recover solo hay que restaurar (y propagar a
+        // los clientes) si el host lo había dejado en OFF. doClick reutiliza el
+        // handler del toggle (broadcast RUNITWICERULE + persistRecoverSettings),
+        // igual que IWTSTH/rabbit. Si el valor recuperado es ON (default) no hay
+        // nada que hacer: el host y los clientes que reconectan ya arrancan en ON.
+        if (GameFrame.RUN_IT_TWICE_RECOVER != null) {
+            boolean recoveredOff = Boolean.FALSE.equals(GameFrame.RUN_IT_TWICE_RECOVER);
+            Helpers.GUIRun(() -> {
+                if (recoveredOff) {
+                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(true);
+                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.doClick();
+                }
+                GameFrame.RUN_IT_TWICE_RECOVER = null;
+            });
+        }
     }
 
     @Override
@@ -11784,6 +12635,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
                         auditorCuentas();
+                        // Nueva mano: el toggle run-it-twice vuelve a ser cambiable
+                        // (se bloqueó justo antes de destapar en la mano anterior).
+                        // Host-only: en el cliente queda siempre deshabilitado.
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            Helpers.GUIRun(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true));
+                        }
                         GameFrame.getInstance().getRegistro().print(this.big_blind_nick + " " + Translator.translate("blinds.es_la_ciega_grande") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + " " + Translator.translate("blinds.es_la_ciega_pequena") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + " " + Translator.translate("ui.es_el_dealer"));
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
@@ -11851,6 +12708,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             badbeat = false;
                             float sql_bote_total = this.bote_total;
 
+                            // Run-it-twice: si la mano se acordó correr dos veces y
+                            // hubo run-out (calles pendientes tras el all-in) con 2+
+                            // implicados, ruta dedicada que liquida los dos boards
+                            // (cada bote ÷2). El showdown normal de un board queda
+                            // intacto en el else.
+                            if (this.rit_agreed && this.rit_allin_street >= Crupier.PREFLOP
+                                    && this.rit_allin_street < Crupier.RIVER && resisten.size() >= 2) {
+                                resolverRunItTwiceShowdown(resisten);
+                            } else {
                             switch (resisten.size()) {
                                 case 0:
                                     // Math yes, GUI no.
@@ -12051,6 +12917,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     this.bote_sobrante = this.bote_total;
                                     break;
+                            }
                             }
 
                             Helpers.GUIRun(() -> {

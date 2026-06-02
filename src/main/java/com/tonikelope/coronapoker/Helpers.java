@@ -4945,6 +4945,7 @@ public class Helpers {
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem REBUY_NOW_MENU;
         public static JCheckBoxMenuItem IWTSTH_RULE_MENU;
+        public static JCheckBoxMenuItem RUN_IT_TWICE_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
         public static JCheckBoxMenuItem ANIMACION_MENU;
@@ -5288,6 +5289,28 @@ public class Helpers {
                     }
                 };
 
+                Action runItTwiceRuleAction = new AbstractAction(Translator.translate("menu.regla_run_it_twice")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        RUN_IT_TWICE_MENU.setEnabled(false);
+
+                        Helpers.threadRun(() -> {
+                            synchronized (GameFrame.getInstance().getCrupier().getLock_fin_mano()) {
+                                GameFrame.RUN_IT_TWICE = RUN_IT_TWICE_MENU.isSelected();
+                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (GameFrame.RUN_IT_TWICE ? "1" : "0"), null);
+                                if (GameFrame.getInstance().isPartida_local()) {
+                                    // Persiste la regla para que sobreviva a un detener+recuperar
+                                    // de la timba (igual que IWTSTH/rabbit).
+                                    GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
+                                    Helpers.GUIRun(() -> {
+                                        RUN_IT_TWICE_MENU.setEnabled(true);
+                                    });
+                                }
+                            }
+                        });
+                    }
+                };
+
                 Action confirmAction = new AbstractAction(Translator.translate("menu.confirmar_todas_las_acciones")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -5470,6 +5493,11 @@ public class Helpers {
                 IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
                 IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
                 popup.add(IWTSTH_RULE_MENU);
+
+                RUN_IT_TWICE_MENU = new LeftClickCheckBoxMenuItem(runItTwiceRuleAction);
+                RUN_IT_TWICE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
+                RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
+                popup.add(RUN_IT_TWICE_MENU);
 
                 popup.add(RABBIT_MENU);
 

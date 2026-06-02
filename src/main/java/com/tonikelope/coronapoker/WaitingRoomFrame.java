@@ -2608,6 +2608,36 @@ public class WaitingRoomFrame extends JFrame {
                                                                 });
                                                             });
                                                             break;
+                                                        case "RUNITWICERULE":
+                                                            Helpers.threadRun(() -> {
+                                                                GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
+                                                                Helpers.GUIRun(() -> {
+                                                                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
+                                                                });
+                                                            });
+                                                            break;
+                                                        case "RIT_VOTE_REQ":
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    int rit_timeout = Integer.parseInt(partes_comando[3]);
+                                                                    int rit_total = Integer.parseInt(partes_comando[4]);
+                                                                    GameFrame.getInstance().getCrupier().showRitClientVoteDialog(rit_timeout, rit_total);
+                                                                } catch (Exception e) {
+                                                                }
+                                                            });
+                                                            break;
+                                                        case "RIT_VOTE_TALLY":
+                                                            try {
+                                                                GameFrame.getInstance().getCrupier().updateRitClientTally(Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
+                                                            } catch (Exception e) {
+                                                            }
+                                                            break;
+                                                        case "RIT_VOTE_CLOSE":
+                                                            try {
+                                                                GameFrame.getInstance().getCrupier().closeRitClientDialog("1".equals(partes_comando[3]));
+                                                            } catch (Exception e) {
+                                                            }
+                                                            break;
                                                         case "RABBITRULE":
                                                             Helpers.threadRun(() -> {
                                                                 GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);

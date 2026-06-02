@@ -182,15 +182,18 @@ For each hand:
 
 ```
 H_0 = SHA-256(
-        "HAND_V1\0"                   // 8-byte domain separator
-        || HAND_ID                    // 16 random bytes from host
+        "HAND_V2\0"                        // 8-byte domain separator
+        || HAND_ID                         // 16 random bytes from host
         || uint8(num_players)
-        || sorted_player_ids_concat   // 32 × N, lexicographic
-        || SHA-256(cascaded_deck)     // deck commitment after SRA
+        || for each peer, sorted by id:    // 96 bytes × N
+              player_id(32) || K_pocket(32) || K_community(32)
+        || SHA-256(cascaded_deck)          // deck commitment after SRA
       )
 
 H_{t+1} = SHA-256(record_t || sig_t)
 ```
+
+**HAND_V2** binds, into `H_0`, every peer's per-hand public commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings). This is what the verifiable dealing checks its DLEQ proofs against (§2.5): the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. (The older **HAND_V1** layout — no `K` commitments — remains only as a legacy fallback when commitments are absent; [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start` / `startV2`.)
 
 The deck commitment `SHA-256(cascaded_deck)` makes the chain bind to the *exact* permutation produced by the cascade — peers that walked a different cascade end up with a different `H_0` and their chains diverge on the very first absorb.
 
@@ -297,6 +300,7 @@ It sets a `volatile` flag, blacklists the offending peer at the command-dispatch
 For honesty's sake:
 
 - **Reading the pocket of a player who abandons mid-hand (rotation residual).** The dual-lock rotation (§2.2 step 2, §2.5) is the one de-lock not yet under the verifiable chain — it precedes any committed anchor. A hostile host *could* feed a still-locked pocket into the rotation to read it, but only at a steep, self-defeating price: it requires corrupting the board, which produces an **unjustified misdeal** (legitimate misdeals are tightly enumerated, so an unexplained one is a red flag — the client warns and recommends leaving, §8.2); the rotation is **single-use per cascade** (anti-replay); and it only ever yields the cards of a player who has *already left the table*. Net: self-delation + a broken hand for information of marginal value — no rational cheat would do it. Full closure (a verifiable rotation anchored to a signed pre-rotation deck) is designed and the `RotationChain` engine is built and tested, but deferred as not worth the cost. The engine is kept **out of master** (it is unused here) on the **`c1-rotation-chain`** branch; the design lives in [`sra-phase4-3-design.md`](sra-phase4-3-design.md).
+- **Timing side-channels in the SRA engine.** The Ristretto255 engine is pure-Java `BigInteger` and is **not constant-time** — the migration prioritised correctness and verifiability over side-channel hardening (the previous x-only Curve25519 core did have a constant-time hot path). In principle a peer's per-hand lock scalars could leak through operation timing. In practice it is not exploitable in this threat model: the lock scalars are **ephemeral per hand** (no way to average many measurements of the same secret), the multiplications happen locally while only results travel the wire, and microsecond-scale variation is buried under millisecond network jitter. The adversary here is a host recompiling the client, not a co-located side-channel attacker measuring your CPU.
 - **Local trojan on a peer's machine.** Anyone with read access to `~/.coronapoker/identity_*.ed25519` becomes that peer cryptographically.
 - **Coercion / shoulder-surfing.** A peer who shows their screen to someone behind them is leaking pockets out-of-band.
 - **N-1 collusion.** Pure consensus systems cannot detect this; the victim will see divergent receipts and can choose not to settle.

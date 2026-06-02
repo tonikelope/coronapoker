@@ -81,6 +81,17 @@ public final class CanonicalActionRecord {
     public static final int STREET_TURN = 2;
     public static final int STREET_RIVER = 3;
     public static final int STREET_SHOWDOWN = 4;
+    /**
+     * Run-it-twice SIDE-B street identifiers. The second board re-deals the
+     * remaining community streets a second time; its community-reveal records
+     * carry these dedicated codes so they are unambiguous in the H_t ratchet
+     * (a SIDE-A turn reveal and a SIDE-B turn reveal must hash to different
+     * records or host and clients would disagree on the chain). Stable enum,
+     * separate range from the live-board streets.
+     */
+    public static final int STREET_RIT2_FLOP = 11;
+    public static final int STREET_RIT2_TURN = 12;
+    public static final int STREET_RIT2_RIVER = 13;
 
     /**
      * Wire enum: action identifiers. Note the distinction between {@code BET}

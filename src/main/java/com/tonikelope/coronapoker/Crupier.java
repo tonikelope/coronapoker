@@ -8076,6 +8076,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // ---- SIDE-B: rewind + reparto ----
+        // Reset del panel de comunitarias al estado de REPARTO (mismo que el
+        // inicio de mano, Crupier ~5282): quita el fondo opaco y los colores del
+        // showdown de SIDE-A, restaura color/alineación por defecto de la
+        // pot_label y oculta la bet_label ("River" a la derecha) y la hand_label.
+        // Sin esto el panel quedaba en un estado visual raro en CARA-B.
+        Helpers.GUIRun(() -> {
+            CommunityCardsPanel cc = GameFrame.getInstance().getTapete().getCommunityCards();
+            cc.getPot_panel().setOpaque(false);
+            cc.getPot_label().setHorizontalAlignment(JLabel.LEADING);
+            cc.restoreBetLabelicon();
+            cc.getPot_label().setForeground(cc.getBet_label().getForeground());
+            cc.getPot_label().setText("---");
+            cc.getHand_label().setVisible(false);
+            cc.getBet_label().setVisible(false);
+        });
         // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
         // Rewind: tapar comunitarias corridas + re-pintar última acción.
@@ -8103,6 +8118,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void settleRunItTwiceBoard(ArrayList<Player> resisten, int board,
             java.util.HashSet<Player> wonAnySide) {
         boolean isSideB = (board == 1);
+        float paidThisBoard = 0f;
 
         // ---- Pot principal (elegibles = resisten); incluye bote_sobrante ----
         HashMap<Player, Hand> jugadas = this.calcularJugadas(resisten);
@@ -8116,7 +8132,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             wonAnySide.add(ganador);
             jugadas.remove(ganador);
             ganador.pagar(cantidad[0], null);
+            // Franja negra: marca el pot principal como #1 SOLO si hay side pots
+            // (si no, la label de franja ni se muestra). Dedup entre boards.
+            if (this.bote.getSidePot() != null) {
+                ganador.marcarBotePot(1);
+            }
             this.bote_total -= cantidad[0];
+            paidThisBoard += cantidad[0];
             GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad[0]) + ") -> " + jugada);
         }
 
@@ -8140,8 +8162,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // no se parte entre boards (no hay competición).
                 if (board == 0) {
                     Player only = current_pot.getPlayers().get(0);
-                    only.pagar(current_pot.getTotal(), sec);
+                    only.pagar(current_pot.getTotal(), null);
+                    only.marcarBotePot(sec);
                     this.bote_total -= current_pot.getTotal();
+                    paidThisBoard += current_pot.getTotal();
                     GameFrame.getInstance().getRegistro().print(only.getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
                     this.sqlUpdateShowdownPay(only);
                 }
@@ -8155,8 +8179,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Hand jugada = e.getValue();
                     wonAnySide.add(ganador);
                     sjugadas.remove(ganador);
-                    ganador.pagar(sCantidad[0], sec);
+                    ganador.pagar(sCantidad[0], null);
+                    ganador.marcarBotePot(sec);
                     this.bote_total -= sCantidad[0];
+                    paidThisBoard += sCantidad[0];
                     GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(sCantidad[0]) + ") -> " + jugada);
                     this.sqlUpdateShowdownPay(ganador);
                 }
@@ -8170,6 +8196,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             current_pot = current_pot.getSidePot();
             sec++;
         }
+
+        // Label del bote: muestra lo repartido en ESTE board, con fondo verde y
+        // texto centrado (como el showdown normal). Sin esto la label heredaba
+        // color/alineación de la fase de apuestas y se veía rara.
+        final float paidShow = paidThisBoard;
+        setPotBackground(Color.GREEN);
+        Helpers.GUIRun(() -> {
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
+        });
+        GameFrame.getInstance().setTapeteBote(paidShow, null);
     }
 
     // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la

@@ -2986,6 +2986,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    @Override
+    public void marcarBotePot(int sec_pot) {
+        if (!botes_secundarios.contains(sec_pot)) {
+            botes_secundarios.add(sec_pot);
+        }
+        refreshSecPotLabel();
+    }
+
     public void setUTG() {
 
         this.utg = true;
@@ -3093,11 +3101,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void repaintLastAction() {
         this.winner = false;
         this.loser = false;
+        // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
+        this.botes_secundarios.clear();
         // Re-enfoca las hole cards: el showdown de SIDE-A atenúa las de los
         // perdedores; en SIDE-B deben volver a verse brillantes (se reevalúan).
         Helpers.GUIRun(() -> {
             holeCard1.enfocar();
             holeCard2.enfocar();
+            sec_pot_win_label.setVisible(false);
         });
         renderDecisionVisual(this.decision);
     }

@@ -1,4 +1,0 @@
-1,2,com.tonikelope.coronapoker.crypto.HashToGroupTest,matchesOfficialA3Vectors
-1,11,com.tonikelope.coronapoker.crypto.HashToGroupTest,genesisDeckIs52DistinctValidCards
-1,18,com.tonikelope.coronapoker.crypto.HashToGroupTest,hashToGroupRoundTripsAndIsDeterministic
-1,29,com.tonikelope.coronapoker.crypto.HashToGroupTest,mapOutputsAreOnCurve

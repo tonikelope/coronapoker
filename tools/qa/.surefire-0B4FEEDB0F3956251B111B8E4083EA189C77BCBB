@@ -1,4 +1,0 @@
-1,1,com.tonikelope.coronapoker.EarlyCascadeGateTest,futureStreetUnlockIsRefused
-1,22,com.tonikelope.coronapoker.EarlyCascadeGateTest,currentAndPastStreetAllowed_rabbitNeedsShowTime
-1,123,com.tonikelope.coronapoker.crypto.RotationChainTest,chainedRotationReachesCommunitySpaceRevealsCardAndRejectsBlinding
-1,304,com.tonikelope.coronapoker.crypto.CommunityChainDealingTest,communityChainRevealsBoardRejectsBlindingAndGate6CatchesSelfStrip

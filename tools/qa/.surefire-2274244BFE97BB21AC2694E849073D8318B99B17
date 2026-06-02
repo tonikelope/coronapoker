@@ -1,6 +1,0 @@
-1,8,com.tonikelope.coronapoker.crypto.DleqTest,wrongKeyDoesNotVerify
-1,19,com.tonikelope.coronapoker.crypto.DleqTest,blindedOrAlteredTargetDoesNotVerify
-1,23,com.tonikelope.coronapoker.crypto.DleqTest,sraUnlockBindingShape
-1,32,com.tonikelope.coronapoker.crypto.DleqTest,tamperedProofDoesNotVerify
-1,36,com.tonikelope.coronapoker.crypto.DleqTest,differentGeneratorsDoNotVerify
-1,155,com.tonikelope.coronapoker.crypto.DleqTest,validProofVerifies

@@ -1,9 +1,0 @@
-1,30,com.tonikelope.coronapoker.crypto.DealChainTest,extendRejectsTamperedIncomingChain
-1,31,com.tonikelope.coronapoker.crypto.DealChainTest,extendRejectsChainNotAnchoredToOurPoint
-1,140,com.tonikelope.coronapoker.crypto.DealChainTest,extendChainsHonestlyAcrossPeersAndRevealsCard
-2,1,com.tonikelope.coronapoker.crypto.DealChainTest,malformedWireParsesToNull
-2,33,com.tonikelope.coronapoker.crypto.DealChainTest,blindedStartIsRejected
-2,35,com.tonikelope.coronapoker.crypto.DealChainTest,uncommittedOrAlteredKeyIsRejected
-2,35,com.tonikelope.coronapoker.crypto.DealChainTest,tamperedProofIsRejected
-2,43,com.tonikelope.coronapoker.crypto.DealChainTest,serializeParseRoundTrips
-2,44,com.tonikelope.coronapoker.crypto.DealChainTest,honestChainVerifiesAndTailRevealsCard

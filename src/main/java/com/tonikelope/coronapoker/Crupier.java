@@ -3194,19 +3194,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
     // protocol_state_lock.
     private boolean isUnlockPhaseStateSafe(int phase) {
+        return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time);
+    }
+
+    /**
+     * Pure gating predicate (no Crupier state → unit-testable): may a given unlock phase be
+     * served when the local street machine is at {@code street} and show_time is {@code showTime}?
+     * POCKET is always safe (hand start); FLOP/TURN/RIVER require the LOCAL rondaApuestas to have
+     * reached that street — this is the anti early-cascade gate: a hostile host cannot make us
+     * reveal a future street because our street only advances in lockstep with betting, not by
+     * the host's broadcast. RABBIT_* require show_time. Anything else is refused.
+     */
+    static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime) {
         switch (phase) {
             case UNLOCK_PHASE_POCKET:
                 return true;
             case UNLOCK_PHASE_FLOP:
-                return this.street >= FLOP;
+                return street >= FLOP;
             case UNLOCK_PHASE_TURN:
-                return this.street >= TURN;
+                return street >= TURN;
             case UNLOCK_PHASE_RIVER:
-                return this.street >= RIVER;
+                return street >= RIVER;
             case UNLOCK_PHASE_RABBIT_FLOP:
             case UNLOCK_PHASE_RABBIT_TURN:
             case UNLOCK_PHASE_RABBIT_RIVER:
-                return this.show_time;
+                return showTime;
             default:
                 return false;
         }

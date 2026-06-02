@@ -3093,6 +3093,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     public void repaintLastAction() {
         this.winner = false;
         this.loser = false;
+        // Re-enfoca las hole cards: el showdown de SIDE-A atenúa las de los
+        // perdedores; en SIDE-B deben volver a verse brillantes (se reevalúan).
+        Helpers.GUIRun(() -> {
+            holeCard1.enfocar();
+            holeCard2.enfocar();
+        });
         renderDecisionVisual(this.decision);
     }
 

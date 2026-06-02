@@ -2320,111 +2320,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // mismo oráculo por la puerta de atrás, así que se rechaza: el
                                                                     // batch solo procesa community (FLOP/TURN/RIVER) hasta su
                                                                     // migración al chain.
-                                                                    byte[] myUnlock;
-                                                                    if (phase == Crupier.UNLOCK_PHASE_POCKET) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH for POCKET — pocket is chain-only now, refusing (blinded-oracle bypass attempt)");
-                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                        return;
-                                                                    } else {
-                                                                        myUnlock = this.participantes.get(local_nick).getSra_unlock_community();
-                                                                    }
-                                                                    if (myUnlock == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH for phase {0} has no local unlock scalar — refusing", phase);
-                                                                        return;
-                                                                    }
-                                                                    int[] peerIdxs = new int[count];
-                                                                    byte[][] unlockedPayloads = new byte[count][];
-                                                                    // Tags reservadas en esta batch: si la batch no completa (excepción
-                                                                    // de I/O en writeCommandToServer, throw inesperado), se rollbackean
-                                                                    // para que el host pueda reintentar legítimamente el mismo
-                                                                    // (phase, peer_idx) en lugar de quedarse colgado por "duplicate tag".
-                                                                    // Sin rollback, un fallo transitorio dejaba el tag consumido sin
-                                                                    // respuesta enviada → cascade muerta.
-                                                                    String[] addedTags = new String[count];
-                                                                    int addedTagCount = 0;
-                                                                    boolean batchCompleted = false;
-                                                                    try {
-                                                                        for (int k = 0; k < count; k++) {
-                                                                            int peer_idx;
-                                                                            byte[] cards;
-                                                                            try {
-                                                                                peer_idx = Integer.parseInt(partes_batch[6 + 2 * k]);
-                                                                                cards = Base64.getDecoder().decode(partes_batch[7 + 2 * k]);
-                                                                            } catch (Exception e) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} malformed — refusing", k);
-                                                                                return;
-                                                                            }
-                                                                            peerIdxs[k] = peer_idx;
-
-                                                                            if (cards == null || (cards.length != 32 && cards.length != 64 && cards.length != 96)) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} illegal payload length ({1}) — refusing", new Object[]{k, (cards == null ? -1 : cards.length)});
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                                return;
-                                                                            }
-
-                                                                            if (!crupier.isSraUnlockRequestLegitimate(phase, peer_idx, hand_id, cards.length)) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} (phase={1}, peer_idx={2}, len={3}) rejected by state machine — host out of order or replayed tag",
-                                                                                        new Object[]{k, phase, peer_idx, cards.length});
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
-                                                                                return;
-                                                                            }
-
-                                                                            if (!RistrettoSRA.arePointsValid(cards)) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} payload has non-curve points — refusing", k);
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
-                                                                                return;
-                                                                            }
-
-                                                                            String tagKey = Crupier.sraUnlockTagKey(phase, peer_idx);
-                                                                            if (!crupier.getSra_unlock_tags_served().add(tagKey)) {
-                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH duplicate tag {0} — refusing", tagKey);
-                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
-                                                                                return;
-                                                                            }
-                                                                            addedTags[addedTagCount++] = tagKey;
-
-                                                                            byte[] unlocked = RistrettoSRA.applyCommutativeLock(cards, myUnlock);
-
-                                                                            // GATE 6 (any-genesis → lockdown). En v3 los recipients
-                                                                            // (POCKET y comunitaria) son los últimos en su cadena;
-                                                                            // ningún helper debería ver genesis tras su unlock. Cualquier
-                                                                            // chunk en genesis indica extracción o smuggling.
-                                                                            if (unlocked != null) {
-                                                                                int numChunks = unlocked.length / 32;
-                                                                                for (int c = 0; c < numChunks; c++) {
-                                                                                    byte[] chunk = Arrays.copyOfRange(unlocked, c * 32, (c + 1) * 32);
-                                                                                    if (RistrettoSRA.resolveCardIndex(chunk) >= 0) {
-                                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH item {0} chunk {1} resolves to genesis after my unlock (phase={2}, peer_idx={3}) — extraction or smuggling, refusing",
-                                                                                                new Object[]{k, c, phase, peer_idx});
-                                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
-                                                                                        return;
-                                                                                    }
-                                                                                }
-                                                                            }
-
-                                                                            unlockedPayloads[k] = unlocked;
-                                                                        }
-
-                                                                        // Construir la respuesta con todos los items unlockeados
-                                                                        // en el mismo orden recibido.
-                                                                        StringBuilder respSb = new StringBuilder();
-                                                                        int respId2 = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                        String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
-                                                                        respSb.append("GAME#").append(respId2).append("#RESP_SRA_UNLOCK_BATCH#")
-                                                                                .append(myNickB64).append('#').append(count);
-                                                                        for (int k = 0; k < count; k++) {
-                                                                            respSb.append('#').append(peerIdxs[k]);
-                                                                            respSb.append('#').append(Base64.getEncoder().encodeToString(unlockedPayloads[k]));
-                                                                        }
-                                                                        writeCommandToServer(Helpers.encryptCommand(respSb.toString(), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
-                                                                        batchCompleted = true;
-                                                                    } finally {
-                                                                        if (!batchCompleted) {
-                                                                            for (int i = 0; i < addedTagCount; i++) {
-                                                                                crupier.getSra_unlock_tags_served().remove(addedTags[i]);
-                                                                            }
-                                                                        }
-                                                                    }
+                                                                    // A3 (fase 4.3): TODO el dealing (pocket + community + rabbit) usa ahora
+                                                                    // el chain VERIFICABLE (REQ_SRA_UNLOCK_CHAIN), que ancla cada paso al
+                                                                    // MEGAPACKET comprometido y lo prueba con DLEQ. REQ_SRA_UNLOCK_BATCH
+                                                                    // queda OBSOLETO: su única defensa era GATE 6 (genesis-check), que el
+                                                                    // cegado r*P evade — justo el oráculo que el binding cierra. Servir
+                                                                    // CUALQUIER phase por aquí lo reabriría por la puerta de atrás, así que
+                                                                    // se rechaza siempre. El host honesto ya no emite este comando.
+                                                                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_BATCH (phase {0}) is obsolete — all dealing is chain-only now, refusing (blinded-oracle bypass attempt)", phase);
+                                                                    crupier.triggerSecurityLockdown(Translator.translate(
+                                                                            phase == Crupier.UNLOCK_PHASE_POCKET
+                                                                                    ? "zero_trust.host_pocket_extraction"
+                                                                                    : "zero_trust.host_community_extraction"));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process REQ_SRA_UNLOCK_BATCH; host will time out and abort the hand", e);
                                                                 }

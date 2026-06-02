@@ -72,32 +72,6 @@ public final class VerifiableUnlock {
     }
 
     /**
-     * Peer side (rotation, Phase 4.3 / Option G): ADD our lock to {@code residualBefore}
-     * and prove we used our committed key. Mirror of {@link #unlockWithProof}: where unlock
-     * applies k^-1, this applies k. Used by the verifiable rotation's community-lock sub-step.
-     * Returns null if the input point is off-group (zero-trust reject).
-     *
-     * <p>The resulting step satisfies {@code residualAfter = k * residualBefore}, so it is
-     * verified with {@code verifyStep(residualAfter, residualBefore, K, proof)} (note the
-     * argument order: the "before" of verifyStep is our output, its "after" is our input).
-     *
-     * @param residualBefore current 32-byte residual
-     * @param lockScalar     our per-hand lock scalar k (we apply k and prove with K = k*B)
-     */
-    public static Step lockWithProof(byte[] residualBefore, byte[] lockScalar) {
-        EdwardsPoint x = Ristretto255.decode(residualBefore);
-        if (x == null) {
-            return null; // off-group / non-canonical input
-        }
-        BigInteger k = RistrettoSRA.bytesToScalar(lockScalar);
-        EdwardsPoint xPrime = x.scalarMul(k);                  // X' = k * X
-        EdwardsPoint commitK = EdwardsPoint.BASE.scalarMul(k); // K = k*B
-        // Prove log_B(K) = log_X(X') = k, i.e. X' = k * X.
-        byte[] proof = Dleq.prove(k, EdwardsPoint.BASE, commitK, x, xPrime);
-        return new Step(Ristretto255.encode(xPrime), proof);
-    }
-
-    /**
      * Verify a single de-locking step: that {@code residualBefore = k * residualAfter}
      * for the peer whose committed key is {@code committedK}. Used by a peer before it
      * applies its own unlock (to check the incoming chain) and by any observer.

@@ -2537,6 +2537,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                                 return;
                                                                             }
+                                                                            // GATE 6 (community/rabbit): tras pelar MI community-lock el residuo
+                                                                            // NUNCA debe ser genesis — eso significaría que el host me presentó la
+                                                                            // cadena "todos los locks menos el mío" para que revele la carta antes
+                                                                            // de tiempo. Con el binding el cegado es imposible, así que un genesis
+                                                                            // aquí es extracción segura. (En POCKET el self-strip guard ya cubre el
+                                                                            // flanco análogo y el residuo intermedio nunca llega a genesis.)
+                                                                            if (phase != Crupier.UNLOCK_PHASE_POCKET
+                                                                                    && RistrettoSRA.resolveCardIndex(ext.residual) >= 0) {
+                                                                                LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN community strip reveals genesis (offset {0}) — extraction, refusing", pointIdx);
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_extraction"));
+                                                                                return;
+                                                                            }
                                                                             outChains.add(ext.wire);
                                                                         }
                                                                         resp.add(new UnlockChainWire.RespItem(it.peerIdx, outChains));

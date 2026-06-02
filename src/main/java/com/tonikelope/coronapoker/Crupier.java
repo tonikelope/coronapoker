@@ -8129,11 +8129,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<Player, Hand> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
         float mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
         float[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
+        ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
 
         for (Map.Entry<Player, Hand> e : ganadores.entrySet()) {
             Player ganador = e.getKey();
             Hand jugada = e.getValue();
             wonAnySide.add(ganador);
+            // Highlight de la jugada ganadora (igual que el showdown normal):
+            // recoge las cartas usadas y atenúa las hole cards NO usadas del ganador.
+            ArrayList<Card> cartas = ganadores.size() == 1 ? jugada.getWinners() : jugada.getMano();
+            for (Card carta : cartas) {
+                if (!cartas_usadas_jugadas.contains(carta)) {
+                    cartas_usadas_jugadas.add(carta);
+                }
+            }
+            if (!cartas.contains(ganador.getHoleCard1())) {
+                ganador.getHoleCard1().desenfocar();
+            }
+            if (!cartas.contains(ganador.getHoleCard2())) {
+                ganador.getHoleCard2().desenfocar();
+            }
             jugadas.remove(ganador);
             ganador.pagar(cantidad[0], null);
             // Franja negra: marca el pot principal como #1 SOLO si hay side pots
@@ -8144,6 +8159,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.bote_total -= cantidad[0];
             paidThisBoard += cantidad[0];
             GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad[0]) + ") -> " + jugada);
+        }
+
+        // Atenúa las comunitarias que NO forman parte de ninguna jugada ganadora
+        // (mismo highlight que el showdown normal).
+        for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
+            if (!cartas_usadas_jugadas.contains(carta)) {
+                carta.desenfocar();
+            }
         }
 
         // Visual del board (revelar/destacar) con los ganadores+perdedores del pot

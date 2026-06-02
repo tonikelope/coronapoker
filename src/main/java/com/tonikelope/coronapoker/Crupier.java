@@ -12550,20 +12550,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        // RIT por defecto es ON: en recover solo hay que restaurar (y propagar a
-        // los clientes) si el host lo había dejado en OFF. doClick reutiliza el
-        // handler del toggle (broadcast RUNITWICERULE + persistRecoverSettings),
-        // igual que IWTSTH/rabbit. Si el valor recuperado es ON (default) no hay
-        // nada que hacer: el host y los clientes que reconectan ya arrancan en ON.
+        // RIT en recover: restaura el valor recuperado SOLO si difiere del default
+        // actual (al recuperar, el menú arranca en el default). doClick reutiliza el
+        // handler del toggle (broadcast RUNITWICERULE a los clientes que reconectan
+        // + persistRecoverSettings), igual que IWTSTH/rabbit. Default-agnóstico: vale
+        // tanto si el default es OFF (restaura un ON guardado) como ON (restaura OFF).
         if (GameFrame.RUN_IT_TWICE_RECOVER != null) {
-            boolean recoveredOff = Boolean.FALSE.equals(GameFrame.RUN_IT_TWICE_RECOVER);
-            Helpers.GUIRun(() -> {
-                if (recoveredOff) {
-                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(true);
+            final boolean recovered = GameFrame.RUN_IT_TWICE_RECOVER;
+            GameFrame.RUN_IT_TWICE_RECOVER = null;
+            if (recovered != GameFrame.RUN_IT_TWICE) {
+                Helpers.GUIRun(() -> {
+                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(!recovered);
                     Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.doClick();
-                }
-                GameFrame.RUN_IT_TWICE_RECOVER = null;
-            });
+                });
+            }
         }
     }
 

@@ -626,6 +626,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // cliente: del RIT_VOTE_CLOSE). Ambos lo conocen para que sus bucles run()
     // tomen la misma rama "correr SIDE-B" en lockstep. Reset por mano.
     private volatile boolean rit_agreed = false;
+    // True una vez la votación ha terminado esta mano. Persistido al fósil: en un
+    // recovery con el voto ya hecho, el host NO re-vota (usa rit_agreed restaurado);
+    // si el crash fue antes del voto, queda false y la votación corre normal.
+    private volatile boolean rit_vote_done = false;
     // Calle en la que se cerró la acción (all-in run-out). Las comunitarias de
     // calles POSTERIORES son las "corridas" (se rebobinan para SIDE-B); las de
     // esta calle y anteriores son compartidas. -1 = no hubo all-in run-out.
@@ -3781,6 +3785,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } catch (NumberFormatException nfe) {
                                     LOGGER.log(Level.WARNING, "VISUAL@ unparseable: {0}", part);
                                 }
+                            } else if (part.startsWith("RIT@")) {
+                                // Run-it-twice: restaura el estado del voto para que
+                                // la mano recuperada corra los dos boards (o uno).
+                                String[] rit = part.substring("RIT@".length()).split(",");
+                                try {
+                                    this.rit_vote_done = Boolean.parseBoolean(rit[0]);
+                                    this.rit_agreed = Boolean.parseBoolean(rit[1]);
+                                    this.rit_allin_street = Integer.parseInt(rit[2]);
+                                } catch (Exception ex) {
+                                    LOGGER.log(Level.WARNING, "RIT@ unparseable: {0}", part);
+                                }
                             }
                         }
 
@@ -5399,6 +5414,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.run_it_twice_side_b = false;
 
         this.rit_agreed = false;
+
+        this.rit_vote_done = false;
 
         this.rit_allin_street = -1;
         this.ultimo_raise = 0f;
@@ -9361,22 +9378,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
                     Helpers.GUIRunAndWait(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false));
                 }
-                boolean ritForThisAllin = firstResistencia && GameFrame.RUN_IT_TWICE;
                 this.destapar_resistencia = true;
                 if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
                     GameFrame.getInstance().getLocalPlayer().desactivarControles();
                 }
                 procesarCartasResistencia(resisten, true);
                 checkJugadasParciales(resisten);
-                // Run-it-twice (checkpoint 1): votación host-driven al cerrarse la
-                // acción con 2+ implicados. De momento el resultado SOLO se loguea
-                // y se ignora (la mano sigue jugándose a un board) — la mecánica de
-                // los dos boards llega en checkpoints posteriores.
-                if (ritForThisAllin && GameFrame.getInstance().isPartida_local()) {
-                    boolean agreed = runRitVote(resisten);
-                    this.rit_agreed = agreed;
-                    LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0} (checkpoint 1: logged; SIDE-B run wired in checkpoint 3)", agreed);
-                    printRitVoteResult(agreed);
+                // Run-it-twice: votación host-driven al cerrarse la acción con 2+
+                // implicados. En RECOVERY (rit_vote_done restaurado del fósil) NO se
+                // re-vota: se rebroadcasta el resultado para sincronizar a los
+                // clientes y se corre directo. El gate de recovery es independiente
+                // del toggle (el voto pudo hacerse aunque ahora la regla esté off).
+                if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
+                    if (this.rit_vote_done) {
+                        broadcastRitClose(this.rit_agreed ? 1 : 0);
+                        printRitVoteResult(this.rit_agreed);
+                    } else if (GameFrame.RUN_IT_TWICE) {
+                        boolean agreed = runRitVote(resisten);
+                        this.rit_agreed = agreed;
+                        this.rit_vote_done = true;
+                        // Persiste el voto al fósil: una mano recuperada tras el voto
+                        // corre los dos boards en vez de uno.
+                        this.guardarFosilSRA();
+                        LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0}", agreed);
+                        printRitVoteResult(agreed);
+                    }
                 }
             }
 
@@ -9531,6 +9557,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     && this.local_original_cards[1] >= 0 && this.local_original_cards[1] < 52) {
                 fosil.append("#VISUAL@").append(this.local_original_cards[0]).append(",").append(this.local_original_cards[1]);
             }
+
+            // Run-it-twice: estado del voto (vote_done, agreed, allin_street) para
+            // que una mano recuperada tras el voto corra los DOS boards en vez de uno.
+            fosil.append("#RIT@").append(this.rit_vote_done).append(",").append(this.rit_agreed).append(",").append(this.rit_allin_street);
 
             Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {

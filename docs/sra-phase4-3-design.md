@@ -5,8 +5,17 @@ tiempo, (1) las hole cards de otros jugadores ni (2) las comunitarias. El pocket
 (4.2) cierra el oráculo por `REQ_SRA_UNLOCK_CHAIN`/`REQ_SRA_UNLOCK_BATCH(POCKET)`, pero la
 auditoría (cabo 6) encontró dos puertas todavía abiertas. Este documento las diseña.
 
-> **Estado:** diseño. NADA implementado aquí. La rotación es el dual-lock (delicado) y no se
-> toca sin smoke. Rama `sra-phase4-3`, sin merge a master.
+> **Estado (actualizado):** **A IMPLEMENTADO** (A1+A2+A3, commits en `sra-phase4-3`) — cierra
+> el ataque 2 (comunitarias) completo y el ataque 1 para helpers **vivos**. Compila, suite
+> cripto verde (`CommunityChainDealingTest`). **PENDIENTE SMOKE de integración** (flop/turn/
+> river/rabbit/testamento/recovery). **B (rotación) NO implementado**: cierra el caso "H sale
+> con testamento" del ataque 1; es un cambio de protocolo en el dual-lock (máximo riesgo) que
+> requiere smoke. Rama `sra-phase4-3`, sin merge a master.
+>
+> **A — qué falta validar (smoke):** que flop/turn/river reparten bien las comunitarias con
+> helpers humanos, que el rabbit funciona, que un EXIT a media mano (testamento community) no
+> rompe el reparto, y que la recuperación sigue OK. El formato de salida no cambió, así que el
+> cliente no debería notar diferencia salvo que algo del chain falle (→ lockdown).
 
 ## Los dos ataques y qué cierra cada pieza
 

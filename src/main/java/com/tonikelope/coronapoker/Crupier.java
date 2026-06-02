@@ -8009,6 +8009,155 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
+    // Run-it-twice: reparte el SEGUNDO board (SIDE-B). Re-corre el run-out de las
+    // calles posteriores al all-in (rit_allin_street+1 .. RIVER) avanzando la
+    // calle local en lockstep, repartiendo con las fases RIT2 (host enviarRit2 /
+    // cliente recibirCartas con run_it_twice_side_b ya puesto) y revelando cada
+    // calle igual que el board vivo. Devuelve false si el reparto abortó
+    // (lockdown / misdeal / desconexión). Llamar SOLO con setRunItTwiceSideB(true).
+    private boolean repartirSideB(ArrayList<Player> resisten) {
+        for (int s = rit_allin_street + 1; s <= RIVER && !isFin_de_la_transmision(); s++) {
+            setStreetLocal(s);
+            boolean ok = GameFrame.getInstance().isPartida_local()
+                    ? enviarRit2Comunitarias(resisten)
+                    : recibirCartasComunitarias();
+            if (!ok) {
+                return false;
+            }
+            actualizarContadoresTapete();
+            destaparCartaComunitaria(s, resisten);
+        }
+        return true;
+    }
+
+    // Run-it-twice: liquidación de los DOS boards (ruta dedicada; el showdown
+    // normal NO se toca). SIDE-A ya está en la mesa (rondaApuestas la repartió):
+    // se paga la mitad-A de cada (side)pot, pausa para asimilar, rewind, se
+    // reparte SIDE-B y se paga la mitad-B. Cada bote se parte con
+    // splitPotForRunItTwice (conservación exacta; SIDE-A se lleva el céntimo de
+    // resto) y dentro de cada board se reparte entre los ganadores de ESE board
+    // con calcularBoteParaGanador (mismo helper de producción). conta_win cuenta
+    // UNA vez por jugador que gane ≥1 side (snapshot + corrección final, porque
+    // showdown() incrementa por board vía setWinner). 'perdedores' refleja SIDE-B
+    // (el board final en pantalla) para la cola común (actualizarCartasPerdedores).
+    private void resolverRunItTwiceShowdown(ArrayList<Player> resisten) {
+        // Cartas ya reveladas en el all-in; mirror del showdown normal (idempotente).
+        requestShowdownKeys(resisten);
+        procesarCartasResistencia(resisten, false);
+
+        // conta_win: snapshot para corregir el doble incremento de showdown().
+        HashMap<Player, Integer> contaWinSnapshot = new HashMap<>();
+        for (Player p : resisten) {
+            contaWinSnapshot.put(p, p.getContaWin());
+        }
+        java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
+
+        // ---- SIDE-A (board ya en mesa) ----
+        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_side_a"));
+        settleRunItTwiceBoard(resisten, 0, wonAnySide);
+
+        if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()) {
+            // Pausa para asimilar SIDE-A = la misma pausa que el showdown normal.
+            this.pausaConBarra(PAUSA_ENTRE_MANOS);
+        }
+
+        // ---- Rewind: tapar comunitarias corridas + re-pintar última acción ----
+        rebobinarComunitariasSideB();
+        for (Player p : resisten) {
+            p.repaintLastAction();
+        }
+
+        // ---- Reparto de SIDE-B ----
+        setRunItTwiceSideB(true);
+        boolean dealt = repartirSideB(resisten);
+        setRunItTwiceSideB(false);
+
+        if (dealt && !isFin_de_la_transmision()) {
+            // ---- SIDE-B ----
+            GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_side_b"));
+            settleRunItTwiceBoard(resisten, 1, wonAnySide);
+        }
+
+        // conta_win final: +1 solo si ganó algún side (override del doble conteo).
+        for (Player p : resisten) {
+            p.setContaWin(contaWinSnapshot.get(p) + (wonAnySide.contains(p) ? 1 : 0));
+        }
+    }
+
+    // Liquida UN board (el que está en la mesa) para run-it-twice: paga la mitad
+    // (board: 0=SIDE-A, 1=SIDE-B) de cada (side)pot a los ganadores de ESE board.
+    private void settleRunItTwiceBoard(ArrayList<Player> resisten, int board,
+            java.util.HashSet<Player> wonAnySide) {
+        boolean isSideB = (board == 1);
+
+        // ---- Pot principal (elegibles = resisten); incluye bote_sobrante ----
+        HashMap<Player, Hand> jugadas = this.calcularJugadas(resisten);
+        HashMap<Player, Hand> ganadores = this.calcularGanadores(new HashMap<>(jugadas));
+        float mainHalf = splitPotForRunItTwice(this.bote.getTotal() + this.bote_sobrante)[board];
+        float[] cantidad = this.calcularBoteParaGanador(mainHalf, ganadores.size());
+
+        for (Map.Entry<Player, Hand> e : ganadores.entrySet()) {
+            Player ganador = e.getKey();
+            Hand jugada = e.getValue();
+            wonAnySide.add(ganador);
+            jugadas.remove(ganador);
+            ganador.pagar(cantidad[0], null);
+            this.bote_total -= cantidad[0];
+            GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad[0]) + ") -> " + jugada);
+        }
+
+        // Visual del board (revelar/destacar) con los ganadores+perdedores del pot
+        // principal, ANTES de vaciar 'jugadas'.
+        this.showdown(new HashMap<>(jugadas), ganadores);
+
+        for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
+            GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad[0]) + ")");
+            if (isSideB) {
+                this.perdedores.put(e.getKey(), e.getValue());
+            }
+        }
+
+        // ---- Side pots ----
+        HandPot current_pot = this.bote.getSidePot();
+        int sec = 2;
+        while (current_pot != null) {
+            if (current_pot.getPlayers().size() == 1) {
+                // Pot lateral no disputado: refund íntegro, UNA sola vez (SIDE-A);
+                // no se parte entre boards (no hay competición).
+                if (board == 0) {
+                    Player only = current_pot.getPlayers().get(0);
+                    only.pagar(current_pot.getTotal(), sec);
+                    this.bote_total -= current_pot.getTotal();
+                    GameFrame.getInstance().getRegistro().print(only.getNickname() + " " + Translator.translate("game.recupera_bote_sobrante_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(current_pot.getTotal()) + ")");
+                    this.sqlUpdateShowdownPay(only);
+                }
+            } else {
+                HashMap<Player, Hand> sjugadas = this.calcularJugadas(current_pot.getPlayers());
+                HashMap<Player, Hand> sganadores = this.calcularGanadores(new HashMap<>(sjugadas));
+                float sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
+                float[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
+                for (Map.Entry<Player, Hand> e : sganadores.entrySet()) {
+                    Player ganador = e.getKey();
+                    Hand jugada = e.getValue();
+                    wonAnySide.add(ganador);
+                    sjugadas.remove(ganador);
+                    ganador.pagar(sCantidad[0], sec);
+                    this.bote_total -= sCantidad[0];
+                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(sCantidad[0]) + ") -> " + jugada);
+                    this.sqlUpdateShowdownPay(ganador);
+                }
+                for (Map.Entry<Player, Hand> e : sjugadas.entrySet()) {
+                    GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote_secundario") + String.valueOf(sec) + " (" + Helpers.float2String(sCantidad[0]) + ")");
+                    if (isSideB) {
+                        perdedores.put(e.getKey(), e.getValue());
+                    }
+                }
+            }
+            current_pot = current_pot.getSidePot();
+            sec++;
+        }
+    }
+
     // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la
     // calle actual (this.street) del SEGUNDO board desde offsets FRESCOS del
     // MEGAPACKET (las posiciones libres tras el river de SIDE-A: offset vivo +
@@ -12324,6 +12473,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             badbeat = false;
                             float sql_bote_total = this.bote_total;
 
+                            // Run-it-twice: si la mano se acordó correr dos veces y
+                            // hubo run-out (calles pendientes tras el all-in) con 2+
+                            // implicados, ruta dedicada que liquida los dos boards
+                            // (cada bote ÷2). El showdown normal de un board queda
+                            // intacto en el else.
+                            if (this.rit_agreed && this.rit_allin_street >= Crupier.PREFLOP
+                                    && this.rit_allin_street < Crupier.RIVER && resisten.size() >= 2) {
+                                resolverRunItTwiceShowdown(resisten);
+                            } else {
                             switch (resisten.size()) {
                                 case 0:
                                     // Math yes, GUI no.
@@ -12524,6 +12682,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     this.bote_sobrante = this.bote_total;
                                     break;
+                            }
                             }
 
                             Helpers.GUIRun(() -> {

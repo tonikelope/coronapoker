@@ -179,6 +179,27 @@ disciplina que A — en lugar de improvisarlo. El motor `RotationChain` y el enf
 probados y esperando. A cierra ambos ataques para todos los jugadores ACTIVOS; B/C1 es el
 último resquicio (jugador que abandona).
 
+### DECISIÓN: C1 (firmar la cascada), descartado el timing frágil de C1'
+El autor elige C1 por robustez: una propiedad de seguridad no debe descansar en un argumento de
+timing (reorden de red / reconnect / borde lo romperían en silencio). Pendiente como proyecto
+dedicado.
+
+**Sutileza de C1 descubierta en diseño (clave para el proyecto dedicado):** "firmar la cascada"
+NO basta por sí solo. El **host ensambla el mazo y asigna qué posición es pocket de quién y qué
+es comunitaria**; aunque el barajado vaya firmado, podría colocar el pocket de un jugador en una
+posición comunitaria (puntos cifrados indistinguibles para el cliente) y hacérselo rotar. Por
+tanto C1 robusto = **firmar la cascada + comprometer la asignación posición→rol** de forma
+verificable (entrelazado con el barajado/`orderBuilder`). Las vías candidatas:
+- **C1-a:** cadena de firmas por paso de cascada (cada peer firma su deck de salida) + commitment
+  de la asignación, todo anclado antes de la rotación; el cliente rota solo las posiciones
+  comunitarias del deck firmado.
+- **C1-b:** doble compromiso (MEGAPACKET pre-rotación comprometido + post-rotación), rotación
+  anclada al pre vía `RotationChain`. Reutiliza el mecanismo del MEGAPACKET pero también necesita
+  comprometer la asignación (si no, el host cuela pockets en posiciones community igual).
+
+Ambas requieren resolver el compromiso de la asignación pocket/community. Diseño dedicado
+pendiente; el motor `RotationChain` sirve a ambas para el paso de doble-op verificable.
+
 ## A2 — detalle de implementación (estudiado, listo para ejecutar)
 
 `cascadeAndDealCommunityPieces` (Crupier.java:7600). Matices confirmados leyendo el método:

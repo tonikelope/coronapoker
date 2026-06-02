@@ -24,7 +24,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 CoronaPoker was built with one non-negotiable principle: **nobody should ever be able to cheat, spy or tamper — including the host.**
 
 ### Zero-trust deck protocol
-Every card is shuffled and locked collectively by **every player at the table** through a Mental Poker EC-SRA protocol implemented from scratch over **Curve25519** (X25519-clamped ephemeral scalars on a constant-time, BigInteger-free Montgomery-ladder core derived from TweetNaCl). The deck uses a **dual-lock architecture**: pocket cards stay sealed end-to-end until showdown, community cards rotate to a separate lock that the host can partially unlock per street. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed. Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
+Every card is shuffled and locked collectively by **every player at the table** through a Mental Poker EC-SRA protocol implemented from scratch over **Ristretto255** (a prime-order group over edwards25519, pure-Java engine validated against the RFC 9496 test vectors). Every de-lock in the deal carries a non-interactive **DLEQ proof chained to the committed deck**, so the host cannot use a peer as a *blinded-decryption oracle* to peek at cards. The deck uses a **dual-lock architecture**: pocket cards stay sealed end-to-end until showdown, community cards rotate to a separate lock that the host can partially unlock per street. No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed. Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
 
 ### Per-nick cryptographic identity & signed actions
 Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history. After the hand, peers exchange short **receipts** (`HAND_ID || H_final || flags || sig`); divergent receipts surface as a logged dispute. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band (TOFU).
@@ -169,7 +169,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 - **Maven** build, single self-contained shaded jar
 - **Alberta** poker hand evaluator for true equity computation
 - **SQLite** (via `sqlite-jdbc`) for local hand history
-- Pure-Java **EC-SRA / Curve25519** implementation — no native crypto dependencies
+- Pure-Java **EC-SRA / Ristretto255** implementation (RFC 9496) with DLEQ-proof verifiable dealing — no native crypto dependencies
 
 ---
 

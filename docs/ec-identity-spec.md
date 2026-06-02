@@ -268,15 +268,16 @@ Each peer computes locally after `MEGAPACKET` processing — no broadcast:
 
 ```
 H_0 = SHA-256(
-        "HAND_V1\0"                          ||  //  8B domain separator
+        "HAND_V2\0"                          ||  //  8B domain separator
         HAND_ID                              ||  // 16B random from host
         num_players (uint8)                  ||  //  1B
-        sorted_player_ids_concat             ||  // 32B × N (lexicographic)
-        SHA-256(cascaded_deck_bytes)             // 32B deck commitment
+        per peer, sorted by id:                  // 96B × N
+          PLAYER_ID(32) || K_pocket(32) || K_community(32)
+        || SHA-256(cascaded_deck_bytes)          // 32B deck commitment
       )
 ```
 
-`sorted_player_ids_concat` concatenates the `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) values, sorted lexicographically as 32-byte unsigned integers, so `H_0` is identical across peers regardless of join order. The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
+Each peer's block — its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings) — is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here (**HAND_V2**) is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5); the older **HAND_V1** layout without them survives only as a legacy fallback. The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
 
 ### 5.2 Per-action ratchet
 
@@ -436,7 +437,7 @@ No special "host pubkey" exists in the protocol: host == player + extra responsi
 
 - **TOFU** — Trust On First Use. Accept a key the first time, pin it. SSH-style.
 - **PAKE** — Password-Authenticated Key Exchange. Authenticate with a shared password without revealing it.
-- **Domain separator** — Unique string prefix in every signature so a signature for one purpose cannot be replayed in another (`ACTION_V1`, `RECEIPT_V2`, `SHOWDOWN_V1`, `JOIN_V1`, plus the `HAND_V1` chain domain).
+- **Domain separator** — Unique string prefix in every signature so a signature for one purpose cannot be replayed in another (`ACTION_V1`, `RECEIPT_V2`, `SHOWDOWN_V1`, `JOIN_V1`, plus the `HAND_V2` chain domain — `HAND_V1` as legacy fallback).
 - **Ratchet** — One-way state update where each step depends on the previous; reordering is impossible without breaking the chain.
 - **Receipt** — Signed commitment by a peer to a final chain state, archivable as evidence.
 - **OOB (Out-of-Band)** — A channel separate from the system being secured (e.g. a phone call to compare a fingerprint shown in the UI).

@@ -106,6 +106,10 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public void setLoser(String msg);
 
+    // Run-it-twice rewind: re-aplica el render de la última acción y limpia el
+    // estado ganador/perdedor de SIDE-A antes de correr SIDE-B.
+    public void repaintLastAction();
+
     public void pagar(float pasta, Integer sec_pot);
 
     public float getBet();

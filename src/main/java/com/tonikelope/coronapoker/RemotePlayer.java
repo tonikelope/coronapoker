@@ -880,6 +880,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
 
+        renderDecisionVisual(dec);
+    }
+
+    // Render visual de una decisión (etiqueta/borde/icono + fondos), sin mutar
+    // estado. Extraído de setDecision para poder RE-PINTAR la última acción en el
+    // rewind de run-it-twice (restaurar el all-in negro, etc.) sin efectos
+    // colaterales (sonido, bet, finTurno) que sí tiene el flujo normal.
+    private void renderDecisionVisual(int dec) {
         switch (dec) {
             case Player.CHECK:
 
@@ -958,6 +966,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
         });
+    }
+
+    // Run-it-twice rewind: re-aplica el render de la última acción guardada
+    // (decision) y limpia el verde/rojo de ganador/perdedor de SIDE-A, dejando
+    // las hole cards reveladas. No toca pots ni stacks (el bote persiste entre
+    // sides). Si el peer salió, conserva su visual de exit.
+    @Override
+    public void repaintLastAction() {
+        if (this.exit) {
+            return;
+        }
+        this.winner = false;
+        this.loser = false;
+        renderDecisionVisual(this.decision);
     }
 
     public void setActionBackground(Color color) {

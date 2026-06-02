@@ -8038,9 +8038,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!ok) {
                 return false;
             }
-            // NO actualizarContadoresTapete aquí: re-mostraría la bet_label de
-            // calle ("River") vía setTapeteApuestas. En CARA-B solo queremos la
-            // label del bote total (ya fijada antes del reparto).
+            // Igual que el run-out normal (rondaApuestas): actualiza pot/bet/
+            // ciegas. La bet_label se ocultará con hideTapeteApuestas antes del
+            // showdown de CARA-B (mismo comportamiento que CARA-A).
+            actualizarContadoresTapete();
             destaparCartaComunitaria(s, resisten);
         }
         return true;
@@ -8061,10 +8062,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         requestShowdownKeys(resisten);
         procesarCartasResistencia(resisten, false);
 
-        // Bote total (antes de pagar nada) para mostrarlo en la pot_label durante
-        // el reparto de CARA-B (solo la label del bote total arriba, sin bet_label).
-        final float fullPot = this.bote_total;
-
         // conta_win: snapshot para corregir el doble incremento de showdown().
         HashMap<Player, Integer> contaWinSnapshot = new HashMap<>();
         for (Player p : resisten) {
@@ -8082,22 +8079,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // ---- SIDE-B: rewind + reparto ----
-        // Reset del panel de comunitarias al estado de REPARTO (mismo que el
-        // inicio de mano, Crupier ~5282): quita el fondo opaco y los colores del
-        // showdown de SIDE-A, restaura color/alineación por defecto de la
-        // pot_label y oculta la bet_label ("River" a la derecha) y la hand_label.
-        // Sin esto el panel quedaba en un estado visual raro en CARA-B.
+        // Solo deshacemos el coloreado del showdown de SIDE-A (pot_panel opaco
+        // verde, pot_label verde/centrada) para volver al estado de REPARTO. A
+        // partir de ahí CARA-B se comporta IGUAL que CARA-A: el run-out muestra
+        // pot/bet labels vía actualizarContadoresTapete y se ocultan con
+        // hideTapeteApuestas antes del showdown.
         Helpers.GUIRun(() -> {
             CommunityCardsPanel cc = GameFrame.getInstance().getTapete().getCommunityCards();
             cc.getPot_panel().setOpaque(false);
             cc.getPot_label().setHorizontalAlignment(JLabel.LEADING);
-            cc.restoreBetLabelicon();
             cc.getPot_label().setForeground(cc.getBet_label().getForeground());
             cc.getHand_label().setVisible(false);
-            cc.getBet_label().setVisible(false);
         });
-        // Solo la label del bote TOTAL arriba durante CARA-B (sin bet_label de calle).
-        GameFrame.getInstance().setTapeteBote(fullPot, null);
         // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
         // Rewind: tapar comunitarias corridas + re-pintar última acción.
@@ -8108,6 +8101,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         setRunItTwiceSideB(true);
         boolean dealt = repartirSideB(resisten);
         setRunItTwiceSideB(false);
+
+        // Igual que tras el run-out normal (Crupier ~12232): oculta la bet_label
+        // de calle antes del showdown de CARA-B.
+        GameFrame.getInstance().hideTapeteApuestas();
 
         if (dealt && !isFin_de_la_transmision()) {
             settleRunItTwiceBoard(resisten, 1, wonAnySide);

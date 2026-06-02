@@ -2613,17 +2613,6 @@ public class WaitingRoomFrame extends JFrame {
                                                                 GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
                                                                     Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
-                                                                    // Notificacion in-game del cambio de regla hecho por el host
-                                                                    // (mismo patron que TTS_*_POR_EL_SERVIDOR): dialog arriba-izquierda,
-                                                                    // verde=activado / rojo=desactivado, auto-dismiss.
-                                                                    if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
-                                                                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                                                                                Translator.translate(GameFrame.RUN_IT_TWICE ? "runittwice.rule_activated_by_server" : "runittwice.rule_deactivated_by_server"),
-                                                                                GameFrame.RUN_IT_TWICE ? new Color(0, 130, 0) : Color.RED, Color.WHITE,
-                                                                                null, NOTIFICATION_TIMEOUT);
-                                                                        dialog.setLocation(dialog.getParent().getLocation());
-                                                                        dialog.setVisible(true);
-                                                                    }
                                                                 });
                                                             });
                                                             break;

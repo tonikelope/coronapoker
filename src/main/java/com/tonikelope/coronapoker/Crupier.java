@@ -617,6 +617,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean show_time = false;
     // Diálogo de votación run-it-twice activo en el CLIENTE (host-driven via RIT_VOTE_*).
     private volatile RunItTwiceDialog rit_client_dialog = null;
+    // True mientras se reparte el segundo board (SIDE-B) de un run-it-twice. Abre
+    // las fases UNLOCK_PHASE_RIT2_* en el gate; fuera de SIDE-B está a false y esas
+    // fases se rechazan siempre. Se fija localmente (no por el host) en host y
+    // clientes al entrar/salir del reparto de SIDE-B, preservando el anti-early-cascade.
+    private volatile boolean run_it_twice_side_b = false;
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
@@ -3095,6 +3100,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int UNLOCK_PHASE_RABBIT_FLOP = 4;
     public static final int UNLOCK_PHASE_RABBIT_TURN = 5;
     public static final int UNLOCK_PHASE_RABBIT_RIVER = 6;
+    // Run-it-twice SIDE-B: fases dedicadas para repartir el segundo board desde
+    // offsets frescos del MEGAPACKET. Tags propias (disjuntas de las de SIDE-A)
+    // para no chocar con el single-serve del reparto vivo.
+    public static final int UNLOCK_PHASE_RIT2_FLOP = 7;
+    public static final int UNLOCK_PHASE_RIT2_TURN = 8;
+    public static final int UNLOCK_PHASE_RIT2_RIVER = 9;
 
     // Tags ya servidas esta mano (clave compuesta phase:peer_idx para todas
     // las phases en v3 — comunitaria también es per-recipient). Bloquea que
@@ -3232,7 +3243,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // calle correspondiente; los RABBIT_* exigen show_time. Llamado bajo
     // protocol_state_lock.
     private boolean isUnlockPhaseStateSafe(int phase) {
-        return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time);
+        return isUnlockPhaseAllowedForStreet(phase, this.street, this.show_time, this.run_it_twice_side_b);
+    }
+
+    public void setRunItTwiceSideB(boolean v) {
+        synchronized (protocol_state_lock) {
+            this.run_it_twice_side_b = v;
+            // Despierta a awaitStreetForUnlockPhase para que reevalúe el gate al
+            // entrar/salir de SIDE-B (igual que setStreetLocal con la calle).
+            protocol_state_lock.notifyAll();
+        }
+    }
+
+    public boolean isRunItTwiceSideB() {
+        return this.run_it_twice_side_b;
     }
 
     /**
@@ -3244,6 +3268,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * the host's broadcast. RABBIT_* require show_time. Anything else is refused.
      */
     static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime) {
+        return isUnlockPhaseAllowedForStreet(phase, street, showTime, false);
+    }
+
+    /**
+     * Overload con el flag de reparto run-it-twice SIDE-B. Las fases RIT2_* solo
+     * se sirven MIENTRAS SIDE-B se está repartiendo ({@code ritSideB}), y con el
+     * mismo gate anti early-cascade que el board vivo (la calle local re-avanza
+     * durante SIDE-B). Fuera de SIDE-B se rechazan siempre: de-lockear esos
+     * offsets frescos en una mano normal filtraría cartas aún vivas en el mazo.
+     */
+    static boolean isUnlockPhaseAllowedForStreet(int phase, int street, boolean showTime, boolean ritSideB) {
         switch (phase) {
             case UNLOCK_PHASE_POCKET:
                 return true;
@@ -3257,6 +3292,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             case UNLOCK_PHASE_RABBIT_TURN:
             case UNLOCK_PHASE_RABBIT_RIVER:
                 return showTime;
+            case UNLOCK_PHASE_RIT2_FLOP:
+                return ritSideB && street >= FLOP;
+            case UNLOCK_PHASE_RIT2_TURN:
+                return ritSideB && street >= TURN;
+            case UNLOCK_PHASE_RIT2_RIVER:
+                return ritSideB && street >= RIVER;
             default:
                 return false;
         }
@@ -5346,6 +5387,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.sra_unlock_tags_served.clear();
         this.cartas_resistencia = false;
         this.destapar_resistencia = false;
+
+        this.run_it_twice_side_b = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -7891,6 +7934,109 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    // Span completo del board de SIDE-A en el MEGAPACKET: burn + flop(3) + burn +
+    // turn + burn + river = 8 cartas. SIDE-B arranca justo después.
+    private static final int RIT2_BOARD_SPAN = 8;
+
+    static int rit2PhaseForStreet(int street) {
+        if (street == FLOP) {
+            return UNLOCK_PHASE_RIT2_FLOP;
+        }
+        if (street == TURN) {
+            return UNLOCK_PHASE_RIT2_TURN;
+        }
+        return UNLOCK_PHASE_RIT2_RIVER;
+    }
+
+    static int mapJavaStreetToRit2Wire(int javaStreet) {
+        if (javaStreet == FLOP) {
+            return CanonicalActionRecord.STREET_RIT2_FLOP;
+        }
+        if (javaStreet == TURN) {
+            return CanonicalActionRecord.STREET_RIT2_TURN;
+        }
+        return CanonicalActionRecord.STREET_RIT2_RIVER;
+    }
+
+    // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la
+    // calle actual (this.street) del SEGUNDO board desde offsets FRESCOS del
+    // MEGAPACKET (las posiciones libres tras el river de SIDE-A: offset vivo +
+    // RIT2_BOARD_SPAN), bajo fases RIT2_* y comandos RIT2_*_PIECE, y emite/absorbe
+    // un COMM_REVEAL con código de calle SIDE-B (STREET_RIT2_*) para cerrar el
+    // cross-recipient fork igual que el board vivo. abortOnFail=true: SIDE-B lleva
+    // dinero (medio bote), no es cosmético como rabbit.
+    private boolean enviarRit2Comunitarias(java.util.ArrayList<Player> resisten) {
+        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA SIDE-B street unlock: {0}", street);
+
+        if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
+            cancelarManoYDevolverApuestas("peer.state_inconsistent");
+            return false;
+        }
+
+        int numPlayers = this.active_crypto_ring.length;
+        int numCards = (street == Crupier.FLOP) ? 3 : 1;
+
+        int offset = numPlayers * 2;
+        if (street == Crupier.FLOP) {
+            offset += 1;
+        } else if (street == Crupier.TURN) {
+            offset += 1 + 3 + 1;
+        } else if (street == Crupier.RIVER) {
+            offset += 1 + 3 + 1 + 1 + 1;
+        }
+        offset += RIT2_BOARD_SPAN;
+
+        // El segundo board debe caber en el mazo (52 cartas * 32 bytes). Con el
+        // cap de jugadores del juego siempre cabe, pero abortamos limpio si no.
+        if (this.local_mega_packet == null || (offset + numCards) * 32 > this.local_mega_packet.length) {
+            LOGGER.log(Level.SEVERE, "SIDE-B offset {0}+{1} exceeds deck — aborting hand", new Object[]{offset, numCards});
+            cancelarManoYDevolverApuestas("rit.sideb_offset_overflow");
+            return false;
+        }
+
+        int unlockPhase = rit2PhaseForStreet(street);
+        String pieceCommand = (street == Crupier.FLOP) ? "RIT2_FLOP_PIECE"
+                : (street == Crupier.TURN) ? "RIT2_TURN_PIECE" : "RIT2_RIVER_PIECE";
+
+        int[] hostIndices = cascadeAndDealCommunityPieces(offset, numCards, unlockPhase, pieceCommand, true);
+        if (hostIndices == null) {
+            return false;
+        }
+
+        if (street == Crupier.FLOP) {
+            GameFrame.getInstance().getFlop1().actualizarConValorNumerico(hostIndices[0] + 1);
+            GameFrame.getInstance().getFlop2().actualizarConValorNumerico(hostIndices[1] + 1);
+            GameFrame.getInstance().getFlop3().actualizarConValorNumerico(hostIndices[2] + 1);
+        } else if (street == Crupier.TURN) {
+            GameFrame.getInstance().getTurn().actualizarConValorNumerico(hostIndices[0] + 1);
+        } else if (street == Crupier.RIVER) {
+            GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
+        }
+
+        // COMM_REVEAL con código de calle SIDE-B — idéntico patrón al board vivo
+        // (absorber SOLO si el broadcast tuvo éxito, o host y clientes divergen).
+        Object[] recsig = buildCommunityRevealRecordAndSig(mapJavaStreetToRit2Wire(street), hostIndices);
+        if (recsig != null) {
+            byte[] record = (byte[]) recsig[0];
+            byte[] sig = (byte[]) recsig[1];
+            boolean broadcastOk = false;
+            try {
+                String comando = "COMM_REVEAL#"
+                        + Base64.getEncoder().encodeToString(record)
+                        + "#" + Base64.getEncoder().encodeToString(sig);
+                broadcastGAMECommandFromServer(comando, null);
+                broadcastOk = true;
+            } catch (RuntimeException ex) {
+                LOGGER.log(Level.SEVERE, "Failed to broadcast SIDE-B COMM_REVEAL for street " + street, ex);
+            }
+            if (broadcastOk) {
+                absorbActionIntoChain(GameFrame.getInstance().getNick_local(), record, sig);
+            }
+        }
+
+        return true;
+    }
+
     // POCKET-like cascade comunitario (v3): construimos una copia per-recipient
     // (host + cada humano remoto), cada una con todos los locks salvo el del
     // destinatario, y la broadcastamos como *_PIECE. El destinatario aplica
@@ -8177,6 +8323,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         byte[] revealRecord = null;
         byte[] revealSig = null;
         int expectedNumCards = (street == Crupier.FLOP) ? 3 : 1;
+        // Run-it-twice SIDE-B: durante el reparto del segundo board esperamos los
+        // comandos RIT2_*_PIECE y el COMM_REVEAL con código de calle SIDE-B
+        // (STREET_RIT2_*), no los del board vivo.
+        final boolean rit2 = this.run_it_twice_side_b;
+        final int expectedWireStreet = rit2 ? mapJavaStreetToRit2Wire(street) : mapJavaStreetToWire(street);
         do {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
@@ -8185,9 +8336,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String[] partes = comando.split("#");
 
                     try {
-                        String expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
-                                : (street == Crupier.TURN) ? "TURN_PIECE"
-                                        : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
+                        String expectedCmd;
+                        if (rit2) {
+                            expectedCmd = (street == Crupier.FLOP) ? "RIT2_FLOP_PIECE"
+                                    : (street == Crupier.TURN) ? "RIT2_TURN_PIECE"
+                                            : (street == Crupier.RIVER) ? "RIT2_RIVER_PIECE" : null;
+                        } else {
+                            expectedCmd = (street == Crupier.FLOP) ? "FLOP_PIECE"
+                                    : (street == Crupier.TURN) ? "TURN_PIECE"
+                                            : (street == Crupier.RIVER) ? "RIVER_PIECE" : null;
+                        }
                         if (iAmObserver && expectedCmd != null && partes.length >= 5
                                 && partes[2].equals(expectedCmd)) {
                             // Observer no esta en el ring: ninguna pieza es para
@@ -8245,7 +8403,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // by sending the wrong reveal early).
                                 if (candidateRecord.length != CanonicalActionRecord.RECORD_BYTES
                                         || CanonicalActionRecord.readActionType(candidateRecord) != CanonicalActionRecord.ACTION_COMMUNITY
-                                        || CanonicalActionRecord.readStreet(candidateRecord) != mapJavaStreetToWire(street)) {
+                                        || CanonicalActionRecord.readStreet(candidateRecord) != expectedWireStreet) {
                                     LOGGER.log(Level.WARNING,
                                             "Dropping stale/foreign COMM_REVEAL during street {0} drain", street);
                                     continue;
@@ -8306,7 +8464,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 if (revealRecord.length != CanonicalActionRecord.RECORD_BYTES
                         || CanonicalActionRecord.readActionType(revealRecord) != CanonicalActionRecord.ACTION_COMMUNITY
-                        || CanonicalActionRecord.readStreet(revealRecord) != mapJavaStreetToWire(street)) {
+                        || CanonicalActionRecord.readStreet(revealRecord) != expectedWireStreet) {
                     LOGGER.log(Level.WARNING,
                             "Observer: COMM_REVEAL for street {0} malformed — board not painted, hand continues",
                             street);
@@ -8342,10 +8500,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return false;
                 }
                 int recordStreet = CanonicalActionRecord.readStreet(revealRecord);
-                if (recordStreet != mapJavaStreetToWire(street)) {
+                if (recordStreet != expectedWireStreet) {
                     LOGGER.log(Level.SEVERE,
                             "ZERO-TRUST: COMM_REVEAL street {0} != current street {1} — lockdown",
-                            new Object[]{recordStreet, mapJavaStreetToWire(street)});
+                            new Object[]{recordStreet, expectedWireStreet});
                     triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
                     return false;
                 }

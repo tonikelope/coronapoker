@@ -8173,6 +8173,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (Player p : resisten) {
             p.repaintLastAction();
         }
+        // Durante el reparto de SIDE-B (repartirSideB → actualizarContadoresTapete)
+        // la label del bote NO debe arrastrar el beneficio de SIDE-A: se limpia
+        // para volver al estado de REPARTO (sin número de beneficio, igual que el
+        // run-out de SIDE-A). settleRunItTwiceBoard(.,1,.) lo recalcula para el
+        // showdown de SIDE-B.
+        this.beneficio_bote_principal = null;
         setRunItTwiceSideB(true);
         boolean dealt = repartirSideB(resisten);
         setRunItTwiceSideB(false);

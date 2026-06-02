@@ -8143,8 +8143,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         HashMap<Player, Hand> ritShowdownHands = this.calcularJugadas(resisten);
         this.rit_suppress_showdown_sql = true;
 
+        // Conservación del dinero: bote_sobrante (el resto indivisible heredado de
+        // manos anteriores) se CONSUME en el split de los pots (8221). Hay que
+        // recalcularlo tras los dos boards (= lo que no se pudo repartir), no
+        // dejarlo stale: si no, la siguiente NUEVA_MANO lo resembraría en
+        // bote_total (creación de dinero). Mirror del showdown normal, que SIEMPRE
+        // reescribe bote_sobrante (12727 case-1 / 12887 default). Capturamos el
+        // total de TODOS los pots (principal + sobrante + laterales) antes de pagar.
+        float ritPotTotal = this.bote.getTotal() + this.bote_sobrante;
+        for (HandPot sp = this.bote.getSidePot(); sp != null; sp = sp.getSidePot()) {
+            ritPotTotal += sp.getTotal();
+        }
+
         // ---- SIDE-A (board ya en mesa) ----
-        settleRunItTwiceBoard(resisten, 0, wonAnySide);
+        float paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
         GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
 
         if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()) {
@@ -8187,9 +8199,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // de calle antes del showdown de CARA-B.
         GameFrame.getInstance().hideTapeteApuestas();
 
+        float paidB = 0f;
         if (dealt && !isFin_de_la_transmision()) {
-            settleRunItTwiceBoard(resisten, 1, wonAnySide);
+            paidB = settleRunItTwiceBoard(resisten, 1, wonAnySide);
             GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_b"));
+        }
+
+        // Resto indivisible no repartido en ninguno de los dos boards → se arrastra
+        // como bote_sobrante a la mano siguiente (conservación exacta del dinero).
+        // Solo si SIDE-B se repartió (si abortó, cancelarManoYDevolverApuestas ya
+        // gestionó el dinero y no debemos tocar el sobrante).
+        if (dealt) {
+            this.bote_sobrante = Math.max(0f, Helpers.floatClean(ritPotTotal - paidA - paidB));
         }
 
         // conta_win final: +1 solo si ganó algún side (override del doble conteo).
@@ -8210,7 +8231,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Liquida UN board (el que está en la mesa) para run-it-twice: paga la mitad
     // (board: 0=SIDE-A, 1=SIDE-B) de cada (side)pot a los ganadores de ESE board.
-    private void settleRunItTwiceBoard(ArrayList<Player> resisten, int board,
+    private float settleRunItTwiceBoard(ArrayList<Player> resisten, int board,
             java.util.HashSet<Player> wonAnySide) {
         boolean isSideB = (board == 1);
         float paidThisBoard = 0f;
@@ -8344,6 +8365,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
         });
         GameFrame.getInstance().setTapeteBote(paidShow, this.beneficio_bote_principal);
+
+        return paidThisBoard;
     }
 
     // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la

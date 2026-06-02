@@ -8067,29 +8067,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
 
         // ---- SIDE-A (board ya en mesa) ----
-        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_side_a"));
+        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_inicio_a"));
         settleRunItTwiceBoard(resisten, 0, wonAnySide);
+        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
 
         if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()) {
             // Pausa para asimilar SIDE-A = la misma pausa que el showdown normal.
             this.pausaConBarra(PAUSA_ENTRE_MANOS);
         }
 
-        // ---- Rewind: tapar comunitarias corridas + re-pintar última acción ----
+        // ---- SIDE-B: rewind + reparto ----
+        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_inicio_b"));
+        // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
+        // Rewind: tapar comunitarias corridas + re-pintar última acción.
         rebobinarComunitariasSideB();
         for (Player p : resisten) {
             p.repaintLastAction();
         }
-
-        // ---- Reparto de SIDE-B ----
         setRunItTwiceSideB(true);
         boolean dealt = repartirSideB(resisten);
         setRunItTwiceSideB(false);
 
         if (dealt && !isFin_de_la_transmision()) {
-            // ---- SIDE-B ----
-            GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_side_b"));
             settleRunItTwiceBoard(resisten, 1, wonAnySide);
+            GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_b"));
         }
 
         // conta_win final: +1 solo si ganó algún side (override del doble conteo).

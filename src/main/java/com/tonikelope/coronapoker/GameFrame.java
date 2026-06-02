@@ -130,6 +130,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
+    public static volatile boolean RUN_IT_TWICE = true;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean SONIDOS_TTS = true;
@@ -286,6 +287,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
     public static volatile Boolean IWTSTH_RULE_RECOVER = null;
     public static volatile Integer RABBIT_HUNTING_RECOVER = null;
+    public static volatile Boolean RUN_IT_TWICE_RECOVER = null;
     public static volatile String PASSWORD_RECOVER = null;
 
     public static GameFrame getInstance() {
@@ -295,12 +297,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static String serializeRecoverSettings() {
         boolean iwtsth = (IWTSTH_RULE_RECOVER != null ? IWTSTH_RULE_RECOVER : IWTSTH_RULE);
         int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
+        boolean runittwice = (RUN_IT_TWICE_RECOVER != null ? RUN_IT_TWICE_RECOVER : RUN_IT_TWICE);
         return "IWTSTH=" + (iwtsth ? "1" : "0")
                 + "#RABBIT=" + rabbit
                 + "#DIFFICULTY=" + Bot.DIFFICULTY.name()
                 + "#BLIND_CAP=" + BLIND_CAP
                 + "#REBUY_LIMIT=" + REBUY_LIMIT
-                + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0");
+                + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0")
+                + "#RUNITWICE=" + (runittwice ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -344,6 +348,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "BOT_REBUY":
                     BOT_REBUY = "1".equals(val);
+                    break;
+                case "RUNITWICE":
+                    RUN_IT_TWICE_RECOVER = "1".equals(val);
                     break;
             }
         }
@@ -478,6 +485,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.IWTSTH_RULE = false;
 
         GameFrame.RABBIT_HUNTING = 0;
+
+        GameFrame.RUN_IT_TWICE = true;
 
         // Defensivo: sin resetear estos statics, una partida que acaba con
         // force_recover=true deja contaminada la siguiente partida fresh
@@ -2254,6 +2263,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.MAX_HANDS_MENU.setEnabled(false);
             iwtsth_rule_menu.setEnabled(false);
             Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
+            Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
         }
 
         if (!menu_cinematicas.isEnabled()) {
@@ -2568,6 +2578,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             if (GameFrame.getInstance().isPartida_local()) {
                 GameFrame.IWTSTH_RULE_RECOVER = recover ? GameFrame.IWTSTH_RULE : null;
                 GameFrame.RABBIT_HUNTING_RECOVER = recover ? GameFrame.RABBIT_HUNTING : null;
+                GameFrame.RUN_IT_TWICE_RECOVER = recover ? GameFrame.RUN_IT_TWICE : null;
             }
 
             GameFrame.PASSWORD_RECOVER = recover ? WaitingRoomFrame.getInstance().getPassword() : null;

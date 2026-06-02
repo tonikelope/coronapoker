@@ -74,6 +74,7 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Pause & join** | Pause anytime; new players can be added to a running session |
 | **IWTSTH** | "I Want To See That Hand" — force showdown after an uncalled all-in, toggleable |
 | **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable |
+| **Run It Twice** | When the action closes with a multi-way all-in, the involved human players vote whether to deal the remaining board twice. Simple majority decides — a tie (or the 15s vote timeout, counted as a NO) falls back to a single board; bots follow the humans. Each (side)pot is split between the two run-outs. Host-toggleable. |
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
 | **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (high card → royal flush) so newcomers learn how rankings form, browsed with up/down keys |
 | **Crash recovery** | Continue last game from the local SQLite checkpoint, including mid-hand state, signed action history and crypto fossil |

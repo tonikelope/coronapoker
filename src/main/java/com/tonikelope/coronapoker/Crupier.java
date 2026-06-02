@@ -9385,11 +9385,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 procesarCartasResistencia(resisten, true);
                 checkJugadasParciales(resisten);
                 // Run-it-twice: votación host-driven al cerrarse la acción con 2+
-                // implicados. En RECOVERY (rit_vote_done restaurado del fósil) NO se
-                // re-vota: se rebroadcasta el resultado para sincronizar a los
-                // clientes y se corre directo. El gate de recovery es independiente
-                // del toggle (el voto pudo hacerse aunque ahora la regla esté off).
-                if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
+                // implicados. Solo si quedan calles por correr (rit_allin_street <
+                // RIVER): un all-in EN el river no tiene nada que correr dos veces,
+                // así que ni se ofrece el voto. En RECOVERY (rit_vote_done restaurado
+                // del fósil) NO se re-vota: se rebroadcasta el resultado para
+                // sincronizar a los clientes y se corre directo. El gate de recovery
+                // es independiente del toggle (el voto pudo hacerse aunque ahora off).
+                if (firstResistencia && GameFrame.getInstance().isPartida_local()
+                        && this.rit_allin_street < Crupier.RIVER) {
                     if (this.rit_vote_done) {
                         broadcastRitClose(this.rit_agreed ? 1 : 0);
                         printRitVoteResult(this.rit_agreed);

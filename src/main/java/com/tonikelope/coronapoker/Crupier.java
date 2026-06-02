@@ -1017,6 +1017,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
+    /**
+     * Fase 4.3: análogo community de {@link #extendPocketChainsForSigner}. Extiende, en
+     * nombre de signerNick con su community-lock, la cadena de cada recipient (clave del map)
+     * salvo skipRecipient. A diferencia del pocket, TODAS las copies anclan al MISMO punto
+     * base del MEGAPACKET (offset+j, las community pieces post-rotación), no a slots por
+     * jugador. Usa peer_k_community. skipRecipient==null cuando el signer no es recipient
+     * (los bots: tienen community-lock que pelar pero no reciben pieza propia).
+     */
+    private boolean extendCommunityChainsForSigner(java.util.Map<String, String[]> chains,
+            int offset, int numCards, String skipRecipient, String signerNick, byte[] signerLock) {
+        for (java.util.Map.Entry<String, String[]> e : chains.entrySet()) {
+            if (e.getKey().equals(skipRecipient)) {
+                continue;
+            }
+            String[] recipientChains = e.getValue();
+            for (int j = 0; j < numCards; j++) {
+                int pointIdx = offset + j;
+                byte[] point = Arrays.copyOfRange(local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                DealChain.Extended ext = DealChain.extend(point, recipientChains[j], peer_k_community, signerNick, signerLock);
+                if (ext == null) {
+                    return false;
+                }
+                recipientChains[j] = ext.wire;
+            }
+        }
+        return true;
+    }
+
     private boolean enviarCartasJugadoresRemotos() {
         for (Participant p : GameFrame.getInstance().getParticipantes().values()) {
             if (p != null) {
@@ -7615,16 +7643,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        HashMap<String, byte[]> copies = new HashMap<>();
+        // Fase 4.3: community dealing VERIFICABLE (chain anclado al MEGAPACKET).
+        // Cada copy de recipient X ancla a megapacket[offset+j]; el host y los bots
+        // extienden localmente con prueba DLEQ, los helpers vivos vía REQ_SRA_UNLOCK_CHAIN.
+        // El tail de cada copy es la pieza single-locked por X (formato idéntico al batch
+        // viejo → el cliente y el broadcast no cambian). Cierra el oráculo community: el
+        // helper ancla a SU megapacket por índice (cegado imposible) y GATE 6 rechaza
+        // cualquier strip que revele genesis (extracción de una comunitaria antes de tiempo).
+        java.util.Map<String, String[]> commChains = new java.util.LinkedHashMap<>();
+        String[] hostCommChain = new String[numCards];
+        java.util.Arrays.fill(hostCommChain, "");
+        commChains.put(hostNick, hostCommChain);
+        for (String r : remoteHumans) {
+            String[] arr = new String[numCards];
+            java.util.Arrays.fill(arr, "");
+            commChains.put(r, arr);
+        }
 
-        // Copia del host: NO le quitamos su propio lock todavía.
-        // Dual-lock: tras la rotación, las community pieces tienen SOLO locks de
-        // community. El host aplica unlock_community propio (más abajo) y los
-        // unlock_community de los bots (cada bot tiene su par almacenado en
-        // sra_unlock_community del Participant). Los pocket scalars no aplican
-        // sobre community pieces post-rotación.
-        byte[] copyHost = new byte[numCards * 32];
-        System.arraycopy(this.local_mega_packet, offset * 32, copyHost, 0, numCards * 32);
+        // El host quita su community-lock de cada copy salvo la suya (la abre localmente).
+        if (!extendCommunityChainsForSigner(commChains, offset, numCards, hostNick, hostNick, this.local_sra_lock_community)) {
+            if (abortOnFail) {
+                cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+            }
+            return null;
+        }
+        // Los bots quitan su community-lock de TODAS las copies (no son recipients).
         for (String nick : this.active_crypto_ring) {
             Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
             if (pp != null && pp.isCpu()) {
@@ -7634,27 +7677,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     return null;
                 }
-                copyHost = RistrettoSRA.applyCommutativeLock(copyHost, pp.getSra_unlock_community());
-            }
-        }
-        copies.put(hostNick, copyHost);
-
-        // Copia de cada humano remoto R: aplicamos host_unlock_community local + bot_unlock_community.
-        for (String r : remoteHumans) {
-            byte[] copyR = new byte[numCards * 32];
-            System.arraycopy(this.local_mega_packet, offset * 32, copyR, 0, numCards * 32);
-            copyR = RistrettoSRA.applyCommutativeLock(copyR, this.local_sra_unlock_community);
-            for (String nick : this.active_crypto_ring) {
-                Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
-                if (pp != null && pp.isCpu() && pp.getSra_unlock_community() != null) {
-                    copyR = RistrettoSRA.applyCommutativeLock(copyR, pp.getSra_unlock_community());
+                byte[] botCommunityLock = RistrettoSRA.getUnlockScalar(pp.getSra_unlock_community());
+                if (!extendCommunityChainsForSigner(commChains, offset, numCards, null, nick, botCommunityLock)) {
+                    if (abortOnFail) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    }
+                    return null;
                 }
             }
-            copies.put(r, copyR);
         }
 
-        // Cascade total: por cada helper humano remoto H, un único batch con
-        // los items de TODOS los recipients X != H.
+        // Cada helper humano H quita su community-lock de las copies de X != H, con prueba,
+        // vía REQ_SRA_UNLOCK_CHAIN (vivo) o extendido localmente con su testamento (exit).
         for (String h : remoteHumans) {
             Participant ph = GameFrame.getInstance().getParticipantes().get(h);
             if (ph == null) {
@@ -7664,28 +7698,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
 
-            ArrayList<Integer> peerIdxs = new ArrayList<>();
-            ArrayList<byte[]> payloads = new ArrayList<>();
-            ArrayList<String> recipientsForH = new ArrayList<>();
-            for (Map.Entry<String, byte[]> e : copies.entrySet()) {
-                if (!e.getKey().equals(h)) {
-                    peerIdxs.add(nick2idx.get(e.getKey()));
-                    payloads.add(e.getValue());
-                    recipientsForH.add(e.getKey());
-                }
-            }
-
             if (!ph.isExit()) {
-                ArrayList<byte[]> response = requestRemoteUnlockBatch(h, ph, unlockPhase, peerIdxs, payloads);
-                if (response != null) {
-                    for (int i = 0; i < recipientsForH.size(); i++) {
-                        copies.put(recipientsForH.get(i), response.get(i));
+                java.util.List<UnlockChainWire.ReqItem> reqItems = new java.util.ArrayList<>();
+                for (java.util.Map.Entry<String, String[]> e : commChains.entrySet()) {
+                    if (!e.getKey().equals(h)) {
+                        reqItems.add(new UnlockChainWire.ReqItem(nick2idx.get(e.getKey()), offset,
+                                java.util.Arrays.asList(e.getValue())));
+                    }
+                }
+                java.util.List<UnlockChainWire.RespItem> resp =
+                        requestRemoteUnlockChain(h, ph, unlockPhase, reqItems);
+                if (resp != null) {
+                    java.util.Set<String> covered = new java.util.HashSet<>();
+                    for (UnlockChainWire.RespItem ri : resp) {
+                        String recip = (ri.peerIdx >= 0 && ri.peerIdx < this.active_crypto_ring.length)
+                                ? this.active_crypto_ring[ri.peerIdx] : null;
+                        if (recip != null && !recip.equals(h) && commChains.containsKey(recip)
+                                && ri.chains.size() == numCards) {
+                            commChains.put(recip, ri.chains.toArray(new String[0]));
+                            covered.add(recip);
+                        }
+                    }
+                    // El helper debe haber cubierto TODOS los recipients != h (paridad cabo 2).
+                    boolean allCovered = true;
+                    for (String recip : commChains.keySet()) {
+                        if (!recip.equals(h) && !covered.contains(recip)) {
+                            allCovered = false;
+                            break;
+                        }
+                    }
+                    if (!allCovered) {
+                        if (abortOnFail) {
+                            cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
+                        }
+                        return null;
                     }
                 } else if (ph.getSra_unlock_community() != null) {
-                    // Dual-lock: el testamento entrega SOLO la mitad community, así
-                    // que el fallback usa sra_unlock_community.
-                    for (String r : recipientsForH) {
-                        copies.put(r, RistrettoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
+                    // Testamento: entrega SOLO la mitad community; el host extiende local.
+                    byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
+                    if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
+                        if (abortOnFail) {
+                            cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                        }
+                        return null;
                     }
                 } else {
                     // Peer vivo, NO respondió, no testament. REFUSAL → para la timba.
@@ -7695,8 +7750,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return null;
                 }
             } else if (ph.getSra_unlock_community() != null) {
-                for (String r : recipientsForH) {
-                    copies.put(r, RistrettoSRA.applyCommutativeLock(copies.get(r), ph.getSra_unlock_community()));
+                byte[] hCommunityLock = RistrettoSRA.getUnlockScalar(ph.getSra_unlock_community());
+                if (!extendCommunityChainsForSigner(commChains, offset, numCards, h, h, hCommunityLock)) {
+                    if (abortOnFail) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    }
+                    return null;
                 }
             } else {
                 // Peer ya salió sin dejar testament community. "Se fue sin dar testamento"
@@ -7706,6 +7765,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 return null;
             }
+        }
+
+        // El host verifica cada cadena final contra peer_k_community y toma el tail
+        // (la pieza single-locked por su recipient). Una cadena que no verifica = un peer
+        // devolvió algo no probado.
+        HashMap<String, byte[]> copies = new HashMap<>();
+        for (java.util.Map.Entry<String, String[]> e : commChains.entrySet()) {
+            byte[] copy = new byte[numCards * 32];
+            for (int j = 0; j < numCards; j++) {
+                int pointIdx = offset + j;
+                byte[] point = Arrays.copyOfRange(this.local_mega_packet, pointIdx * 32, (pointIdx + 1) * 32);
+                java.util.List<DealChain.Entry> ch = DealChain.parse(e.getValue()[j]);
+                if (ch == null || !DealChain.verify(point, ch, peer_k_community)) {
+                    LOGGER.log(Level.SEVERE, "ZERO-TRUST: community chain for recipient {0} piece {1} failed verification", new Object[]{e.getKey(), j});
+                    if (abortOnFail) {
+                        cancelarManoYDevolverApuestas("zero_trust.card_resolve_failed");
+                    }
+                    return null;
+                }
+                byte[] tail = DealChain.tail(point, ch);
+                System.arraycopy(tail, 0, copy, j * 32, 32);
+            }
+            copies.put(e.getKey(), copy);
         }
 
         // Resolver la copia del host (queda sólo el lock community propio del host).

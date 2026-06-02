@@ -8067,7 +8067,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
 
         // ---- SIDE-A (board ya en mesa) ----
-        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_inicio_a"));
         settleRunItTwiceBoard(resisten, 0, wonAnySide);
         GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
 
@@ -8077,7 +8076,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // ---- SIDE-B: rewind + reparto ----
-        GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_inicio_b"));
         // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
         // Rewind: tapar comunitarias corridas + re-pintar última acción.

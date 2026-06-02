@@ -622,6 +622,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // fases se rechazan siempre. Se fija localmente (no por el host) en host y
     // clientes al entrar/salir del reparto de SIDE-B, preservando el anti-early-cascade.
     private volatile boolean run_it_twice_side_b = false;
+    // Resultado del voto run-it-twice de la mano actual (host: de runRitVote;
+    // cliente: del RIT_VOTE_CLOSE). Ambos lo conocen para que sus bucles run()
+    // tomen la misma rama "correr SIDE-B" en lockstep. Reset por mano.
+    private volatile boolean rit_agreed = false;
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
@@ -5389,6 +5393,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.destapar_resistencia = false;
 
         this.run_it_twice_side_b = false;
+
+        this.rit_agreed = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -7813,6 +7819,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void closeRitClientDialog(boolean agreed) {
+        // El cliente guarda el resultado para que su bucle run() tome la misma
+        // rama SIDE-B que el host (checkpoint 3).
+        this.rit_agreed = agreed;
         RunItTwiceDialog d = this.rit_client_dialog;
         if (d != null) {
             d.closeDialog();
@@ -7956,6 +7965,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return CanonicalActionRecord.STREET_RIT2_TURN;
         }
         return CanonicalActionRecord.STREET_RIT2_RIVER;
+    }
+
+    /**
+     * Run-it-twice: divide un (side)pot en las mitades de SIDE-A y SIDE-B.
+     * Trabaja en céntimos enteros para evitar mitades no representables en chips
+     * de 2 decimales (p.ej. 0.05 / 2 = 0.025). Regla de la casa: si el total en
+     * céntimos es impar, SIDE-A se queda el céntimo de resto. Invariante:
+     * sideA + sideB == pot exacto (no se crea ni se pierde ningún céntimo).
+     *
+     * @return {@code [sideA_chips, sideB_chips]}
+     */
+    static float[] splitPotForRunItTwice(float pot) {
+        long cents = Math.round((double) pot * 100.0);
+        long sideB = cents / 2;        // floor
+        long sideA = cents - sideB;    // ceil — SIDE-A se lleva el resto
+        return new float[]{sideA / 100f, sideB / 100f};
     }
 
     // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la
@@ -9064,9 +9089,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // y se ignora (la mano sigue jugándose a un board) — la mecánica de
                 // los dos boards llega en checkpoints posteriores.
                 if (ritForThisAllin && GameFrame.getInstance().isPartida_local()) {
-                    boolean rit_agreed = runRitVote(resisten);
-                    LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0} (checkpoint 1: logged and ignored, single board)", rit_agreed);
-                    printRitVoteResult(rit_agreed);
+                    boolean agreed = runRitVote(resisten);
+                    this.rit_agreed = agreed;
+                    LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0} (checkpoint 1: logged; SIDE-B run wired in checkpoint 3)", agreed);
+                    printRitVoteResult(agreed);
                 }
             }
 

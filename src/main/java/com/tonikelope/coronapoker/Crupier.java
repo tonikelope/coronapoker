@@ -353,6 +353,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
+    private volatile boolean suspicious_host_warned = false;
+
+    /**
+     * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
+     * que NO da certeza de manipulación (siempre presumimos buena fe: podría ser un bug del
+     * software). A diferencia de {@link #triggerSecurityLockdown}, NO congela el saldo, NO
+     * cierra el socket ni termina la partida: solo informa al usuario UNA vez por sesión y
+     * recomienda ENCARECIDAMENTE abandonar la mesa, dejando que el juego siga si puede. Se usa
+     * cuando ya hemos neutralizado la anomalía rechazando la operación (p.ej. una segunda
+     * rotación) y congelar sería desproporcionado si resultara ser un bug.
+     */
+    public void warnSuspiciousHost(String reason) {
+        if (suspicious_host_warned) {
+            return;
+        }
+        suspicious_host_warned = true;
+        try {
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
+        } catch (Exception ignored) {
+        }
+        Helpers.threadRun(() -> Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                Translator.translate("zero_trust.suspicious_header")
+                + reason + "\n\n"
+                + Translator.translate("zero_trust.suspicious_body")));
+    }
+
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
@@ -433,6 +459,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_sra_lock_community = null;
     public volatile byte[] local_sra_unlock_community = null;
+    // Anti-replay de la rotación (Fase 4.3): el cliente sirve UNA sola rotación por
+    // cascada. Se pone a false al generar los scalars en el handler DECK_CASCADE_REQ
+    // (cada cascada/reintento legítimo permite una rotación) y a true tras servir la
+    // rotación. Una segunda DECK_ROTATION_REQ sin nueva cascada = host hostil intentando
+    // usar la rotación como oráculo de pocket-unlock encubierto → lockdown. Cierra el
+    // sigilo del único resquicio que queda (cartas de un peer que sale): sin rotación
+    // extra, el host tendría que corromper la rotación legítima y eso rompe el board
+    // (misdeal injustificado, detectable).
+    public volatile boolean rotation_served_this_cascade = false;
     // Locks community de los bots que orquesta este host. La mitad UNLOCK la
     // guarda el Participant (sra_unlock_community); el LOCK solo es necesario
     // localmente en la fase de rotación, así que vive en este Map keyed por

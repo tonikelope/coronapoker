@@ -2134,6 +2134,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                     crupierCheck.local_sra_lock_community = communityLockScalar;
                                                                     crupierCheck.local_sra_unlock_community = communityUnlockScalar;
                                                                     this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
+                                                                    // Anti-replay (Fase 4.3): nueva cascada (o reintento legítimo) habilita UNA
+                                                                    // rotación. Una segunda rotación sin pasar por aquí será rechazada.
+                                                                    crupierCheck.rotation_served_this_cascade = false;
 
                                                                     byte[] locked = RistrettoSRA.applyCommutativeLock(incomingDeck, lockScalar);
 
@@ -2192,6 +2195,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
                                                                         return;
                                                                     }
+                                                                    // Anti-replay (Fase 4.3): solo UNA rotación por cascada. Una segunda sin
+                                                                    // nueva cascada = host hostil usando la rotación como oráculo de
+                                                                    // pocket-unlock encubierto (intento de leer cartas de un peer que sale).
+                                                                    if (crupierRot.rotation_served_this_cascade) {
+                                                                        // No es fatal: rechazamos la rotación extra (el oráculo no obtiene
+                                                                        // nada) y la partida PUEDE continuar con la rotación legítima ya
+                                                                        // servida. Política: avisar + continuar (presumiendo buena fe), no
+                                                                        // congelar. El usuario decide si abandona.
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ replay (2nd rotation this cascade) — refusing extra rotation, warning user (game may continue)");
+                                                                        crupierRot.warnSuspiciousHost(Translator.translate("zero_trust.host_rotation_replay"));
+                                                                        return;
+                                                                    }
                                                                     // El unlock pocket del cliente vive en el Participant local (la cascade
                                                                     // handler lo guarda ahí, no en el Crupier — la mitad pocket no se
                                                                     // "publica" en Crupier hasta que el MEGAPACKET llega y el cliente
@@ -2227,6 +2242,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // de scalar mult sobre puntos en la curva permanece en la curva).
                                                                     byte[] rotated = RistrettoSRA.applyCommutativeLock(incomingPieces, myPocketUnlock);
                                                                     rotated = RistrettoSRA.applyCommutativeLock(rotated, crupierRot.local_sra_lock_community);
+                                                                    // Rotación servida: cualquier otra esta cascada se rechaza (anti-replay).
+                                                                    crupierRot.rotation_served_this_cascade = true;
 
                                                                     String b64Rot = Base64.getEncoder().encodeToString(rotated);
                                                                     String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));

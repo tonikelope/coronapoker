@@ -12635,12 +12635,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
                         auditorCuentas();
-                        // Nueva mano: el toggle run-it-twice vuelve a ser cambiable
-                        // (se bloqueó justo antes de destapar en la mano anterior).
-                        // Host-only: en el cliente queda siempre deshabilitado.
-                        if (GameFrame.getInstance().isPartida_local()) {
-                            Helpers.GUIRun(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true));
-                        }
                         GameFrame.getInstance().getRegistro().print(this.big_blind_nick + " " + Translator.translate("blinds.es_la_ciega_grande") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + " " + Translator.translate("blinds.es_la_ciega_pequena") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + " " + Translator.translate("ui.es_el_dealer"));
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
@@ -12966,6 +12960,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 GameFrame.getInstance().getMenu_rabbit_bb().setEnabled(false);
                                 GameFrame.getInstance().getIwtsth_rule_menu().setEnabled(false);
                                 Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
+                                Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
@@ -13051,6 +13046,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     gf.getMenu_rabbit_bb().setEnabled(true);
                                     gf.getIwtsth_rule_menu().setEnabled(true);
                                     Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
+                                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(true);

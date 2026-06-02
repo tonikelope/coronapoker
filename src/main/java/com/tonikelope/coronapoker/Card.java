@@ -822,7 +822,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         if (this.desenfocada && this.isIniciada()) {
 
-            this.desenfocada = true;
+            this.desenfocada = false;
 
             this.refreshCard();
         }

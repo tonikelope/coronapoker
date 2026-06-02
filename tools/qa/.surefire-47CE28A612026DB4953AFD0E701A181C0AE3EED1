@@ -1,0 +1,14 @@
+1,1,com.tonikelope.coronapoker.crypto.DealChainTest,malformedWireParsesToNull
+1,2,com.tonikelope.coronapoker.crypto.UnlockChainWireTest,respRoundTrip
+1,2,com.tonikelope.coronapoker.crypto.UnlockChainWireTest,reqRoundTrip
+1,7,com.tonikelope.coronapoker.crypto.UnlockChainWireTest,emptyAndMalformed
+1,28,com.tonikelope.coronapoker.crypto.DealChainTest,blindedStartIsRejected
+1,30,com.tonikelope.coronapoker.crypto.DealChainTest,extendRejectsTamperedIncomingChain
+1,35,com.tonikelope.coronapoker.crypto.DealChainTest,extendRejectsChainNotAnchoredToOurPoint
+1,35,com.tonikelope.coronapoker.crypto.DealChainTest,tamperedProofIsRejected
+1,36,com.tonikelope.coronapoker.crypto.DealChainTest,uncommittedOrAlteredKeyIsRejected
+1,44,com.tonikelope.coronapoker.crypto.DealChainTest,honestChainVerifiesAndTailRevealsCard
+1,44,com.tonikelope.coronapoker.crypto.DealChainTest,serializeParseRoundTrips
+1,124,com.tonikelope.coronapoker.crypto.UnlockChainWireTest,fullHostPeerFlowRevealsCardsAndRejectsBlinding
+1,176,com.tonikelope.coronapoker.crypto.DealChainTest,extendChainsHonestlyAcrossPeersAndRevealsCard
+1,299,com.tonikelope.coronapoker.crypto.CommunityChainDealingTest,communityChainRevealsBoardRejectsBlindingAndGate6CatchesSelfStrip

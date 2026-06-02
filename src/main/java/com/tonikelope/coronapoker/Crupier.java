@@ -347,6 +347,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final boolean IWTSTH_BLINKING = true;
     public static final int IWTSTH_TIMEOUT = 15000;
+    public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
     public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre
     // velocidad/precisión
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
@@ -614,6 +615,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Player last_aggressor = null;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
+    // Diálogo de votación run-it-twice activo en el CLIENTE (host-driven via RIT_VOTE_*).
+    private volatile RunItTwiceDialog rit_client_dialog = null;
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
@@ -7549,6 +7552,236 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return tot;
     }
 
+    // ---- Run-it-twice: votación host-driven --------------------------------
+    //
+    // Se ejecuta SOLO en el host (isPartida_local) cuando la acción se cierra
+    // con 2+ implicados (puedenApostar(resisten) <= 1) y la regla está activa.
+    // Votan únicamente los humanos implicados (resisten); los bots no votan.
+    // Unanimidad: run-it-twice solo si TODOS los humanos implicados votan RIT;
+    // un solo NORMAL (o timeout) → board único. Devuelve el booleano acordado.
+    //
+    // El host muestra su propio diálogo localmente (si está implicado) y pide a
+    // los humanos remotos vía RIT_VOTE_REQ; recoge respuestas drenando la cola
+    // received_commands (mismo patrón que requestRemoteCascade) y rebroadcasta
+    // RIT_VOTE_TALLY en vivo; al cerrar manda RIT_VOTE_CLOSE.
+
+    private void sendRitVoteReq(Participant p, int timeout, int totalVoters) {
+        try {
+            int id = Helpers.CSPRNG_GENERATOR.nextInt();
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters, p.getAes_key(), iv, p.getHmac_key()));
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
+        }
+    }
+
+    private void broadcastRitTally(int normal, int rit, RunItTwiceDialog hostDialog) {
+        // confirmation=false: fire-and-forget. No espera ACKs (los tally en vivo
+        // deben ser rápidos) y, crucialmente, NO drena received_commands — si
+        // esperara confirmación robaría los RIT_VOTE_RESP que estamos recogiendo.
+        try {
+            broadcastGAMECommandFromServer("RIT_VOTE_TALLY#" + normal + "#" + rit, null, false);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_TALLY", e);
+        }
+        if (hostDialog != null) {
+            hostDialog.setTally(normal, rit);
+        }
+    }
+
+    private void broadcastRitClose(int result) {
+        // confirmation=false por la misma razón; una CLOSE perdida la cubre el
+        // safety self-dispose del propio diálogo cliente.
+        try {
+            broadcastGAMECommandFromServer("RIT_VOTE_CLOSE#" + result, null, false);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to broadcast RIT_VOTE_CLOSE", e);
+        }
+    }
+
+    private boolean runRitVote(ArrayList<Player> resisten) {
+        String localNick = GameFrame.getInstance().getNick_local();
+
+        boolean localIsVoter = false;
+        ArrayList<String> remoteVoterNicks = new ArrayList<>();
+        HashMap<String, Participant> remoteVoterParts = new HashMap<>();
+
+        for (Player pl : resisten) {
+            String nick = pl.getNickname();
+            if (nick == null) {
+                continue;
+            }
+            if (nick.equals(localNick)) {
+                // Asiento del host: humano (el host nunca es bot).
+                localIsVoter = true;
+            } else {
+                Participant p = GameFrame.getInstance().getParticipantes().get(nick);
+                if (p != null && !p.isCpu() && !p.isExit()) {
+                    remoteVoterNicks.add(nick);
+                    remoteVoterParts.put(nick, p);
+                }
+                // Bots y remotos caídos/exit no votan.
+            }
+        }
+
+        int totalVoters = (localIsVoter ? 1 : 0) + remoteVoterNicks.size();
+        if (totalVoters == 0) {
+            // Todos los implicados son bots: no se ofrece RIT.
+            return false;
+        }
+
+        final int totalVotersFinal = totalVoters;
+        final RunItTwiceDialog[] hd = new RunItTwiceDialog[1];
+        if (localIsVoter) {
+            Helpers.GUIRunAndWait(() -> hd[0] = new RunItTwiceDialog(GameFrame.getInstance(), RIT_VOTE_TIMEOUT, totalVotersFinal));
+            Helpers.GUIRun(() -> hd[0].setVisible(true));
+        }
+        final RunItTwiceDialog hostDialog = hd[0];
+
+        for (String nick : remoteVoterNicks) {
+            sendRitVoteReq(remoteVoterParts.get(nick), RIT_VOTE_TIMEOUT, totalVoters);
+        }
+
+        HashMap<String, Integer> votes = new HashMap<>();
+        boolean anyNormal = false;
+        long deadlineMs = System.currentTimeMillis() + (RIT_VOTE_TIMEOUT + 3) * 1000L;
+
+        broadcastRitTally(0, 0, hostDialog);
+
+        while (votes.size() < totalVoters && !anyNormal
+                && !isFin_de_la_transmision() && System.currentTimeMillis() < deadlineMs) {
+
+            boolean changed = false;
+
+            if (localIsVoter && !votes.containsKey(localNick)
+                    && hostDialog != null && hostDialog.getVote() != RunItTwiceDialog.VOTE_PENDING) {
+                votes.put(localNick, hostDialog.getVote());
+                changed = true;
+            }
+
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("RIT_VOTE_RESP")) {
+                        try {
+                            String voterNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            int v = Integer.parseInt(partes[4]);
+                            if (remoteVoterNicks.contains(voterNick) && !votes.containsKey(voterNick)
+                                    && (v == RunItTwiceDialog.VOTE_NORMAL || v == RunItTwiceDialog.VOTE_RUN_IT_TWICE)) {
+                                votes.put(voterNick, v);
+                                changed = true;
+                            }
+                        } catch (Exception e) {
+                            // Voto malformado: se ignora.
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+            }
+
+            if (changed) {
+                int n = 0, r = 0;
+                for (int v : votes.values()) {
+                    if (v == RunItTwiceDialog.VOTE_NORMAL) {
+                        n++;
+                    } else {
+                        r++;
+                    }
+                }
+                broadcastRitTally(n, r, hostDialog);
+                if (n > 0) {
+                    anyNormal = true;
+                }
+            }
+
+            if (votes.size() < totalVoters && !anyNormal) {
+                synchronized (this.getReceived_commands()) {
+                    try {
+                        this.getReceived_commands().wait(200);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // RIT solo si TODOS votaron y todos votaron RUN-IT-TWICE.
+        boolean agreed = !anyNormal && votes.size() == totalVoters;
+        if (agreed) {
+            for (int v : votes.values()) {
+                if (v != RunItTwiceDialog.VOTE_RUN_IT_TWICE) {
+                    agreed = false;
+                    break;
+                }
+            }
+        }
+
+        int n = 0, r = 0;
+        for (int v : votes.values()) {
+            if (v == RunItTwiceDialog.VOTE_NORMAL) {
+                n++;
+            } else {
+                r++;
+            }
+        }
+        // Los que no llegaron a votar (timeout/caída) cuentan como NORMAL.
+        n += (totalVoters - votes.size());
+
+        broadcastRitTally(n, r, hostDialog);
+        broadcastRitClose(agreed ? 1 : 0);
+        if (hostDialog != null) {
+            hostDialog.closeDialog();
+        }
+
+        return agreed;
+    }
+
+    // ---- Run-it-twice: lado CLIENTE (reacciona a RIT_VOTE_* del host) -------
+
+    public void showRitClientVoteDialog(int timeout, int totalVoters) {
+        Helpers.GUIRun(() -> {
+            RunItTwiceDialog d = new RunItTwiceDialog(GameFrame.getInstance(), timeout, totalVoters);
+            d.setVoteListener((v) -> Helpers.threadRun(() -> {
+                try {
+                    String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
+                    sendGAMECommandToServer("RIT_VOTE_RESP#" + myNickB64 + "#" + v, false);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_RESP", e);
+                }
+            }));
+            this.rit_client_dialog = d;
+            d.setVisible(true);
+        });
+    }
+
+    public void updateRitClientTally(int normal, int rit) {
+        RunItTwiceDialog d = this.rit_client_dialog;
+        if (d != null) {
+            d.setTally(normal, rit);
+        }
+    }
+
+    public void closeRitClientDialog(boolean agreed) {
+        RunItTwiceDialog d = this.rit_client_dialog;
+        if (d != null) {
+            d.closeDialog();
+            this.rit_client_dialog = null;
+        }
+        printRitVoteResult(agreed);
+    }
+
+    public void printRitVoteResult(boolean agreed) {
+        GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
+    }
+
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
 
         GameFrame.getInstance().checkPause();
@@ -8653,12 +8886,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().hideTapeteApuestas();
 
             if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
+                boolean firstResistencia = !this.destapar_resistencia;
+                // PRIMERO bloqueamos el toggle (síncrono, justo antes de empezar a
+                // destapar) y LUEGO leemos el flag: así GameFrame.RUN_IT_TWICE ya no
+                // puede cambiar cuando decidimos el voto (race-free). El menú se
+                // reactiva al empezar la siguiente mano (ver NUEVA_MANO en run()).
+                if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
+                    Helpers.GUIRunAndWait(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false));
+                }
+                boolean ritForThisAllin = firstResistencia && GameFrame.RUN_IT_TWICE;
                 this.destapar_resistencia = true;
                 if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
                     GameFrame.getInstance().getLocalPlayer().desactivarControles();
                 }
                 procesarCartasResistencia(resisten, true);
                 checkJugadasParciales(resisten);
+                // Run-it-twice (checkpoint 1): votación host-driven al cerrarse la
+                // acción con 2+ implicados. De momento el resultado SOLO se loguea
+                // y se ignora (la mano sigue jugándose a un board) — la mecánica de
+                // los dos boards llega en checkpoints posteriores.
+                if (ritForThisAllin && GameFrame.getInstance().isPartida_local()) {
+                    boolean rit_agreed = runRitVote(resisten);
+                    LOGGER.log(Level.INFO, "RUN-IT-TWICE vote result: {0} (checkpoint 1: logged and ignored, single board)", rit_agreed);
+                    printRitVoteResult(rit_agreed);
+                }
             }
 
             if (this.street == Crupier.PREFLOP) {
@@ -11784,6 +12035,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
                         auditorCuentas();
+                        // Nueva mano: el toggle run-it-twice vuelve a ser cambiable
+                        // (se bloqueó justo antes de destapar en la mano anterior).
+                        // Host-only: en el cliente queda siempre deshabilitado.
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            Helpers.GUIRun(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true));
+                        }
                         GameFrame.getInstance().getRegistro().print(this.big_blind_nick + " " + Translator.translate("blinds.es_la_ciega_grande") + Helpers.float2String(this.ciega_grande) + ") / " + this.small_blind_nick + " " + Translator.translate("blinds.es_la_ciega_pequena") + Helpers.float2String(this.ciega_pequeña) + ") / " + this.dealer_nick + " " + Translator.translate("ui.es_el_dealer"));
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));

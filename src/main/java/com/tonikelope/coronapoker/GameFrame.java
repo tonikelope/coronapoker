@@ -130,6 +130,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
+    public static volatile boolean RUN_IT_TWICE = true;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
     public static volatile boolean SONIDOS_TTS = true;
@@ -478,6 +479,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.IWTSTH_RULE = false;
 
         GameFrame.RABBIT_HUNTING = 0;
+
+        GameFrame.RUN_IT_TWICE = true;
 
         // Defensivo: sin resetear estos statics, una partida que acaba con
         // force_recover=true deja contaminada la siguiente partida fresh
@@ -2254,6 +2257,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.MAX_HANDS_MENU.setEnabled(false);
             iwtsth_rule_menu.setEnabled(false);
             Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
+            Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
         }
 
         if (!menu_cinematicas.isEnabled()) {

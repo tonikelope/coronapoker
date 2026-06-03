@@ -12,11 +12,22 @@ secreto** y `π` permutación **secreta**, sobre puntos Ristretto255. Hay que pr
 `(π, k)` existe — sin revelar `π` (filtraría el orden de cartas) ni `k` (rompería el cifrado).
 Esto es exactamente un **argumento de shuffle** (mix-net con re-cifrado = multiplicar por `k`).
 
-## Construcción de referencia (NO inventar cripto)
-**Bayer–Groth (2012)** como base (publicado, revisado, con implementaciones de referencia contra
-las que contrastar). Adaptación: el "re-cifrado" no es ElGamal sino multiplicar por un escalar
-común `k` (caso más simple). La solidez viene de la prueba académica; los tests verifican que la
-**implementación** es correcta.
+## Construcción elegida: CUT-AND-CHOOSE (Sako–Kilian), NO Bayer–Groth
+Argumento de barajado por **cut-and-choose**, publicado y clásico. Por qué sobre Bayer–Groth,
+dado el contexto (cripto + dinero + open source + sin revisión externa todavía):
+
+- **Solidez trivial de razonar:** para probar `B = π(k·A)`, el prover publica un deck intermedio
+  `C = π1(k1·A)` con `B = π2(k2·C)` (`π2∘π1 = π`, `k2·k1 = k`). El reto pide revelar **una** de las
+  dos mitades: o `(π1,k1)` (se verifica `C = π1(k1·A)`) o `(π2,k2)` (se verifica `B = π2(k2·C)`).
+  Si `B` **no** es un barajado honesto de `A` (p.ej. duplica una carta), entonces para CUALQUIER
+  `C` al menos una mitad es inválida → se pilla con prob ≥ 1/2. K rondas → fallo ≤ **2⁻ᴷ**.
+- **Zero-knowledge:** cada ronda usa `(π1,k1)` frescos; revelar una mitad no filtra `π` ni `k`.
+- **Implementación SIMPLE = testeable:** solo permutar + multiplicar por escalar + comparar
+  encodings Ristretto. Sin matemática de polinomios/commitments donde se cuela la unsoundness.
+- **Coste:** K× cómputo (K≈128 para 2⁻¹²⁸). Es **setup de mano, no tiempo real** → asumible;
+  K y batching se ajustan/optimizan tras tener correctitud. Prueba más grande, nos da igual aquí.
+
+La solidez viene del argumento publicado (cut-and-choose); los tests verifican la implementación.
 
 ## Disciplina (cripto + dinero + open source)
 1. Construcción publicada, no inventada.
@@ -28,16 +39,18 @@ común `k` (caso más simple). La solidez viene de la prueba académica; los tes
 
 ## Escalera de ladrillos (cada uno con suite adversaria, TDD)
 1. **PedersenCommit** — `C = m·B + r·H`, H nothing-up-my-sleeve. Hiding + binding + homomórfico.
-   **(este commit)**
-2. **Transcript Fiat–Shamir** — dominio-separado, absorbe TODOS los valores públicos (un valor
-   omitido = forjable). Tests de que cambiar cualquier entrada cambia el reto.
-3. **Sigma básico** — PoK de apertura de un commitment. Completeness + special-soundness
-   (extraer el testigo de dos transcripts con el mismo commit) + forja falla.
-4. **Argumento de producto** — `∏ a_i = b` sobre un vector comprometido.
-5. **Argumento de multi-exponenciación / permutación** — el núcleo del shuffle.
-6. **Shuffle argument completo** — ensambla 4+5. Suite adversaria: no-permutación, duplicación,
-   escalar no-uniforme, cegado, carta añadida/quitada, claves cambiadas, transcript manipulado →
-   TODOS rechazados; barajado honesto → verifica; el multiset se preserva.
+   **(hecho — 9 tests verdes)**. Primitiva general reutilizable (commit de retos/decks).
+2. **Transcript Fiat–Shamir** — dominio-separado, absorbe (length-prefixed) TODOS los valores
+   públicos y pliega el reto en el estado. Tests: determinismo, que cambiar CUALQUIER entrada
+   cambia el reto, separación de dominio, retos consecutivos independientes. **(siguiente)**
+3. **DeckTransform** — aplica `(π, k)` a un deck de puntos Ristretto: `out[i] = k · in[π(i)]`.
+   Permutación por Fisher–Yates con stream determinista (reusa el patrón del shuffle existente).
+   Tests: es biyección, invertible, preserva el multiset bajo `k`, round-trip.
+4. **CutChooseShuffleProof** — prove/verify no interactivo (retos por Fiat–Shamir sobre los `C_j`
+   publicados). Suite adversaria: barajado honesto → verifica; no-biyección (duplicar/soltar
+   carta), escalar no-uniforme (cegado por-punto), `C` manipulado, reto manipulado, mitad
+   incoherente → TODOS rechazados con prob ≥ 1−2⁻ᴷ. ZK sanity: una mitad no fija `π`.
 
-Tras 6 + revisión externa, el motor queda listo para cablear (anclar la rotación / la cascada),
-que es ya la fase con smoke.
+Tras 4 + **revisión externa** + medir coste, el motor queda listo para cablear: una prueba de
+barajado por paso de cascada (anclada a los decks comprometidos) + `RotationChain` (DLEQ) para la
+rotación. Eso es ya la fase con smoke.

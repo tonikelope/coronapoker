@@ -1534,6 +1534,20 @@ public class WaitingRoomFrame extends JFrame {
         return Helpers.mostrarMensajeErrorSINO(container, msg, align, width);
     }
 
+    /** Parsea un CSV de base64 (formato del DUALLOCK_BUNDLE) a una lista de byte[]. */
+    private static java.util.List<byte[]> csvToBytes(String csv) {
+        java.util.List<byte[]> out = new java.util.ArrayList<>();
+        if (csv == null || csv.isEmpty()) {
+            return out;
+        }
+        for (String part : csv.split(",")) {
+            if (!part.isEmpty()) {
+                out.add(Base64.getDecoder().decode(part));
+            }
+        }
+        return out;
+    }
+
     private void runSocketReaderClientThread() {
         Helpers.threadRun(() -> {
 
@@ -2169,7 +2183,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // deck cascadeado, para que el host los agregue y se anclen en H_0.
                                                                     String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
                                                                     String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    // C1 (wire-2): prueba de barajado verificable de ESTE paso de cascada
+                                                                    // (deckOut = shuffle(k·deckIn)). El host la agrega a la cadena que TODOS
+                                                                    // verifican, así un host modificado no puede colar una carta. "" si la
+                                                                    // generación falla (peer legacy / degradado): el host lo trata como
+                                                                    // ausente (sin enforcement todavía en wire-2).
+                                                                    int myPermN = incomingDeck.length / 32;
+                                                                    int[] myPerm = CryptoSRA.shufflePermutation(myPermN, mySeed);
+                                                                    byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                                                                            .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
+                                                                    String proofB64 = (cascadeProof != null)
+                                                                            ? Base64.getEncoder().encodeToString(cascadeProof) : "";
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64 + "#" + proofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
                                                                 }
@@ -2245,12 +2270,77 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // Rotación servida: cualquier otra esta cascada se rechaza (anti-replay).
                                                                     crupierRot.rotation_served_this_cascade = true;
 
+                                                                    // Cierre del flanco rotacion: pruebo que mi paso es un re-key en sitio honesto
+                                                                    // (out[i]=s*in[i], s=uPocket*kCommunity), sin relocalizar ni duplicar. El host
+                                                                    // lo anexa al bundle para que todos verifiquen la cadena genesis->MEGAPACKET.
+                                                                    String rotProofB64 = "";
+                                                                    try {
+                                                                        java.math.BigInteger sRot = com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(myPocketUnlock)
+                                                                                .multiply(com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
+                                                                                .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(rotated);
+                                                                        if (inR != null && outR != null) {
+                                                                            byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                                                                                    com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
+                                                                            if (rp != null) {
+                                                                                rotProofB64 = Base64.getEncoder().encodeToString(rp);
+                                                                            }
+                                                                        }
+                                                                    } catch (Exception rotProofEx) {
+                                                                        rotProofB64 = ""; // sin prueba -> el host marca el paso como remoto-pendiente, no rompe nada
+                                                                    }
+
                                                                     String b64Rot = Base64.getEncoder().encodeToString(rotated);
                                                                     String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
                                                                     int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
+                                                                }
+                                                            });
+                                                            break;
+
+                                                        case "DUALLOCK_BUNDLE":
+                                                            // rotacion-3: cada peer verifica POR SU CUENTA que el reparto es un
+                                                            // barajado+rotacion honesto genesis->MEGAPACKET. pocketCount se deriva
+                                                            // LOCAL (active_crypto_ring.length*2), NUNCA del host, y el genesis se
+                                                            // recomputa. Si falla -> avisar+recomendar salir pero PERMITIR seguir
+                                                            // (por si es bug), no abort duro. Background, no toca UI.
+                                                            final String[] partes_bundle = partes_comando;
+                                                            Helpers.threadRun(() -> {
+                                                                Crupier cruB = GameFrame.getInstance().getCrupier();
+                                                                // Estado aun no listo (carrera con el procesado del MEGAPACKET): NO es
+                                                                // sospechoso, lo ignoramos sin avisar.
+                                                                if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
+                                                                    return;
+                                                                }
+                                                                // Un bundle RECIBIDO pero malformado (canal AES+HMAC -> vino del host
+                                                                // intacto) es anomalo: un host honesto siempre manda 7 campos validos.
+                                                                if (partes_bundle.length < 7) {
+                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformado (campos={0}) — avisando", partes_bundle.length);
+                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    return;
+                                                                }
+                                                                try {
+                                                                    int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
+                                                                    byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
+                                                                    boolean okB = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
+                                                                            genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
+                                                                            pocketCount, cruB.local_mega_packet,
+                                                                            csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]));
+                                                                    if (okB) {
+                                                                        // Marco ESTE mazo como verificado: el gate de unlock community ya no avisara para el.
+                                                                        cruB.dual_lock_verified_megapacket = cruB.local_mega_packet;
+                                                                        LOGGER.log(Level.INFO, "DUALLOCK_BUNDLE: deal-chain verify OK (peer-side)");
+                                                                    } else {
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE: deal-chain verify FAILED (peer-side) — host deshonesto o bug");
+                                                                        cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    }
+                                                                } catch (Exception bundleEx) {
+                                                                    // Recibido pero no parseable (base64 invalido, etc.) = anomalo -> avisar.
+                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE no parseable — avisando", bundleEx);
+                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }
                                                             });
                                                             break;
@@ -2388,8 +2478,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
                                                                     if (waitResult != Crupier.UnlockWaitResult.READY) {
                                                                         if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order, refusing", phase);
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                            // Politica: un TIMEOUT es evidencia ambigua (host fuera de orden O simple lag de
+                                                                            // red, indistinguibles). La operacion YA se rechaza (return abajo), asi que no
+                                                                            // perdemos proteccion; bajamos de lockdown a SOFT-WARN (avisar+recomendar salir
+                                                                            // pero permitir seguir) en vez de terminar la partida por algo que podria ser lag.
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
+                                                                            crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                         }
                                                                         return;
                                                                     }
@@ -2413,10 +2507,25 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
                                                                         return;
                                                                     }
+                                                                    // GATE "exigir prueba" (rotacion-3): voy a ayudar a revelar community = la ventana
+                                                                    // donde se leeria una carta colada. Si este mazo viene de un reparto FRESCO que NO he
+                                                                    // verificado como barajado honesto (el host no mando el bundle, o llego mal), aviso UNA
+                                                                    // vez. Avisar-pero-permitir: podria ser un bug/retraso de red -> recomiendo salir pero
+                                                                    // dejo seguir (no rompo la mano). El bundle llega ~1s tras repartir, mucho antes del
+                                                                    // primer unlock community -> cero falsos positivos. Recover no marca expect -> no avisa.
+                                                                    if (Crupier.shouldWarnMissingShuffleProof(phase, megapacket,
+                                                                            crupier.dual_lock_expect_bundle_for, crupier.dual_lock_verified_megapacket,
+                                                                            crupier.dual_lock_warned_megapacket)) {
+                                                                        crupier.dual_lock_warned_megapacket = megapacket;
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — warning (host may not have sent the bundle)");
+                                                                        crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_missing"));
+                                                                    }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed items — refusing");
-                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                        // Malformacion ESTRUCTURAL (no parsea) -> casi seguro bug/version-mismatch.
+                                                                        // La op ya se rechaza (return); SILENT-REFUSE, no lockdown. Coherente con el
+                                                                        // gemelo malformado de este mismo handler (wire < 6 campos, tambien silent).
+                                                                        LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
                                                                         return;
                                                                     }
                                                                     // Mi propio slot en el ring: NUNCA debo pelar mi lock de MI pocket
@@ -2770,10 +2879,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                     int expectedLen = "RABBIT_FLOP_PIECE".equals(cmdName) ? 96 : 32;
                                                                     Crupier crupierRP = GameFrame.getInstance().getCrupier();
                                                                     if (crupierRP == null || piece == null || piece.length != expectedLen) {
-                                                                        if (crupierRP != null) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: rabbit piece {0} bad length {1} — lockdown", new Object[]{cmdName, piece == null ? -1 : piece.length});
-                                                                            crupierRP.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
-                                                                        }
+                                                                        // Politica: el rabbit es un reveal COSMETICO post-mano (la mano ya esta liquidada);
+                                                                        // una pieza mala no puede robar dinero -> SILENT-REFUSE (no mostramos ese rabbit),
+                                                                        // NO terminamos la partida. Casi seguro un bug, no un ataque.
+                                                                        LOGGER.log(Level.WARNING, "rabbit piece {0} bad length {1} — refusing (cosmetic, not shown)", new Object[]{cmdName, piece == null ? -1 : piece.length});
                                                                         return;
                                                                     }
                                                                     // Dual-lock: las rabbit pieces son comunitarias, cifradas
@@ -2785,8 +2894,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         byte[] chunk = Arrays.copyOfRange(unlockedRP, k * 32, (k + 1) * 32);
                                                                         int idx = RistrettoSRA.resolveCardIndex(chunk);
                                                                         if (idx < 0) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: rabbit piece {0} chunk {1} does NOT resolve to genesis — lockdown", new Object[]{cmdName, k});
-                                                                            crupierRP.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                                                                            // Cosmetico post-mano -> SILENT-REFUSE (no mostramos ese rabbit), no lockdown.
+                                                                            LOGGER.log(Level.WARNING, "rabbit piece {0} chunk {1} does NOT resolve to genesis — refusing (cosmetic, not shown)", new Object[]{cmdName, k});
                                                                             return;
                                                                         }
                                                                         indices[k] = idx;

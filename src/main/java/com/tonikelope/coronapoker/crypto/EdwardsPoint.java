@@ -126,11 +126,72 @@ public final class EdwardsPoint {
         if (s.signum() < 0) {
             throw new IllegalArgumentException("scalar must be non-negative");
         }
+        // Fixed 4-bit window: precompute 0..15 multiples once, then process 4 scalar bits per step
+        // (4 doublings + 1 addition) instead of one bit at a time. Same result; ~40% fewer additions.
+        EdwardsPoint[] table = new EdwardsPoint[16];
+        table[0] = IDENTITY;
+        for (int w = 1; w < 16; w++) {
+            table[w] = table[w - 1].add(this);
+        }
+        int bits = s.bitLength();
         EdwardsPoint result = IDENTITY;
-        for (int i = s.bitLength() - 1; i >= 0; i--) {
-            result = result.dbl();
-            if (s.testBit(i)) {
-                result = result.add(this);
+        for (int i = ((bits + 3) / 4) * 4 - 4; i >= 0; i -= 4) {
+            result = result.dbl().dbl().dbl().dbl();
+            int window = (s.testBit(i + 3) ? 8 : 0) | (s.testBit(i + 2) ? 4 : 0)
+                    | (s.testBit(i + 1) ? 2 : 0) | (s.testBit(i) ? 1 : 0);
+            if (window != 0) {
+                result = result.add(table[window]);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Multi-scalar multiplication {@code Σ scalars[i]·points[i]} via Straus' method: ONE shared
+     * doubling ladder over all points (4-bit windows), instead of one independent {@link #scalarMul}
+     * per point. For {@code n} points this does ~256 doublings total (shared) instead of ~256·n, the
+     * dominant cost of every proof's {@code Σ wᵢ·Pᵢ}. Result is bit-identical to the naive sum
+     * (validated by fuzzing in MultiScalarMulTest). Scalars are reduced mod L; not constant-time.
+     */
+    public static EdwardsPoint multiscalarMul(BigInteger[] scalars, EdwardsPoint[] points) {
+        if (scalars == null || points == null || scalars.length != points.length) {
+            throw new IllegalArgumentException("scalars/points length mismatch");
+        }
+        int n = points.length;
+        if (n == 0) {
+            return IDENTITY;
+        }
+        BigInteger[] s = new BigInteger[n];
+        int maxBits = 0;
+        for (int i = 0; i < n; i++) {
+            s[i] = scalars[i].mod(L);
+            int b = s[i].bitLength();
+            if (b > maxBits) {
+                maxBits = b;
+            }
+        }
+        if (maxBits == 0) {
+            return IDENTITY; // all scalars zero
+        }
+        // Per-point 4-bit window tables: table[i][w] = w·points[i], w = 0..15.
+        EdwardsPoint[][] table = new EdwardsPoint[n][16];
+        for (int i = 0; i < n; i++) {
+            table[i][0] = IDENTITY;
+            for (int w = 1; w < 16; w++) {
+                table[i][w] = table[i][w - 1].add(points[i]);
+            }
+        }
+        int top = ((maxBits + 3) / 4) * 4 - 4;
+        EdwardsPoint result = IDENTITY;
+        for (int pos = top; pos >= 0; pos -= 4) {
+            result = result.dbl().dbl().dbl().dbl(); // shared across all points
+            for (int i = 0; i < n; i++) {
+                BigInteger si = s[i];
+                int window = (si.testBit(pos + 3) ? 8 : 0) | (si.testBit(pos + 2) ? 4 : 0)
+                        | (si.testBit(pos + 1) ? 2 : 0) | (si.testBit(pos) ? 1 : 0);
+                if (window != 0) {
+                    result = result.add(table[i][window]);
+                }
             }
         }
         return result;

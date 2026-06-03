@@ -354,7 +354,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
-    private volatile boolean suspicious_host_warned = false;
+    // Aviso suave UNA vez por anomalia DISTINTA y por partida (no one-shot global: si no, un aviso
+    // temprano se tragaba todos los siguientes). Llave = el reason (mensaje distinto por anomalia).
+    private final java.util.Set<String> suspicious_host_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
      * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
@@ -366,10 +368,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * rotación) y congelar sería desproporcionado si resultara ser un bug.
      */
     public void warnSuspiciousHost(String reason) {
-        if (suspicious_host_warned) {
-            return;
+        if (!suspicious_host_warned_reasons.add(reason)) {
+            return; // ya avisado de ESTA anomalia en esta partida
         }
-        suspicious_host_warned = true;
         try {
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
         } catch (Exception ignored) {
@@ -378,6 +379,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Translator.translate("zero_trust.suspicious_header")
                 + reason + "\n\n"
                 + Translator.translate("zero_trust.suspicious_body")));
+    }
+
+    /**
+     * Decisión PURA del gate "exigir prueba de barajado": avisar al ir a revelar community SII es fase
+     * community (la ventana de lectura del smuggle), el mazo viene de un reparto FRESCO ({@code expect}),
+     * NO se verificó un bundle honesto para él ({@code verified}) y no se avisó ya ({@code warned}).
+     * Aislada para ser testeable sin un juego completo. Recover no marca {@code expect} ⇒ no avisa.
+     */
+    public static boolean shouldWarnMissingShuffleProof(int phase, byte[] megapacket,
+                                                        byte[] expect, byte[] verified, byte[] warned) {
+        return phase != UNLOCK_PHASE_POCKET
+                && megapacket != null
+                && java.util.Arrays.equals(megapacket, expect)
+                && !java.util.Arrays.equals(megapacket, verified)
+                && !java.util.Arrays.equals(megapacket, warned);
     }
 
     public void triggerSecurityLockdown(String reason) {
@@ -540,6 +556,46 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
     public volatile byte[] local_mega_packet = null;
+
+    // C1 (wire-3): REGISTRO de la cadena de cascada (sin generar pruebas -> cero CPU en el barajado).
+    // cascade_chain_decks = genesis + un deck por paso. Por paso: para host/bots se guarda (perm, k)
+    // para generar la prueba luego (wire-4); para remotos, la prueba que ya mando el cliente.
+    // Sirve para que TODOS verifiquen que la cascada es un barajado honesto (un host modificado no
+    // puede colar cartas) — la generacion+verificacion se cablea en wire-4.
+    public volatile java.util.List<byte[]> cascade_chain_decks = null;
+    public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remoto: null
+    public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remoto: null
+    public volatile java.util.List<byte[]> cascade_step_remote_proof = null; // remoto: prueba; host/bot: null
+    // Pruebas generadas en BACKGROUND (durante las apuestas) a partir del registro de arriba.
+    public volatile java.util.List<byte[]> cascade_chain_proofs = null;
+    // Resultado de la verificacion en background: 0 = pendiente, 1 = OK, -1 = FALLO (trampa/bug).
+    // El settlement (antes de mover fichas) espera a que sea != 0 y aborta si es -1.
+    public volatile int cascade_verified = 0;
+    // Prueba del último paso remoto, parseada en requestRemoteCascade y leída por el bucle.
+    private volatile byte[] last_remote_cascade_proof = null;
+    // Cierre del flanco ROTACION (dual-lock): estados community tras cada paso de rotacion + un
+    // RotationProof (batch-DLEQ) por paso. Junto a la cascada cierra genesis->MEGAPACKET
+    // (DualLockCascade). host/bot: prueba generada inline (batch-DLEQ es barato, ~ms); remoto: la
+    // prueba que mande el cliente en DECK_ROTATION_RESP (pendiente wire-rotation-2 -> null por ahora).
+    public volatile java.util.List<byte[]> cascade_rotation_states = null;
+    // CERO crypto en el path de reparto: el bucle solo registra estados + el escalar combinado
+    // (s=s1*s2, multiplicacion BigInteger barata) de host/bot; las pruebas batch-DLEQ se generan en
+    // BACKGROUND. Para pasos remotos guardamos la prueba que ya mando el cliente (su generacion es
+    // inline pero de UN solo paso, trivial).
+    public volatile java.util.List<java.math.BigInteger> cascade_rotation_scalars = null; // host/bot: s; remoto: null
+    public volatile java.util.List<byte[]> cascade_rotation_remote_proofs = null;          // remoto: prueba; host/bot: null
+    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // construido en background
+    // Prueba del último paso de rotación remoto, parseada en requestRemoteRotation y leída por el bucle.
+    private volatile byte[] last_remote_rotation_proof = null;
+    // Gate "exigir prueba": el cliente EXIGE un bundle de barajado honesto para el mazo de cada reparto
+    // FRESCO. expect = mazo de un reparto fresco (se marca al procesar el MEGAPACKET, NO en recover, que
+    // restaura por otra ruta -> no avisa tras recover, el barajado ya se verifico pre-crash). verified =
+    // mazo para el que un bundle verifico OK. warned = guard de aviso unico por mazo. Llave = el propio
+    // megapacket (cambia cada mano -> sin reset). Lo lee el handler de unlock community (la ventana de
+    // lectura): si va a revelar community sin haber verificado el barajado de este mazo, avisa.
+    public volatile byte[] dual_lock_expect_bundle_for = null;
+    public volatile byte[] dual_lock_verified_megapacket = null;
+    public volatile byte[] dual_lock_warned_megapacket = null;
 
     // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
@@ -748,6 +804,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     } else {
                                         LOGGER.log(Level.WARNING, "DECK_CASCADE_RESP from {0} without commitments (legacy peer) — H_0 will fall back to HAND_V1", nick);
                                     }
+                                    // C1 (wire-3): prueba de barajado de ESTE paso remoto (campo extra
+                                    // partes[7]). "" o ausente = peer legacy/degradado -> null (sin
+                                    // enforcement todavia; el bucle la acumula en la cadena).
+                                    last_remote_cascade_proof = null;
+                                    if (partes.length >= 8 && partes[7] != null && !partes[7].isEmpty()) {
+                                        try {
+                                            last_remote_cascade_proof = Base64.getDecoder().decode(partes[7]);
+                                        } catch (Exception exProof) {
+                                            last_remote_cascade_proof = null;
+                                        }
+                                    }
                                 } else {
                                     LOGGER.log(Level.SEVERE,
                                             "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries invalid deck (len={1}, on_curve={2}) — refusing cascade",
@@ -794,6 +861,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // pieces y añade su lock de community — la mitad que sí se entrega vía
     // testamento al hacer EXIT. La fase de rotación es secuencial peer-a-peer
     // igual que la cascade principal; este método maneja un solo peer.
+    /** Une una lista de byte[] como CSV de base64 (el alfabeto base64 no usa ',' ni '#', sin ambigüedad). */
+    private static String joinB64(java.util.List<byte[]> items) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(java.util.Base64.getEncoder().encodeToString(items.get(i)));
+        }
+        return sb.toString();
+    }
+
     private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -808,6 +887,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean ok = false;
         boolean fatalError = false;
         byte[] newPieces = null;
+        this.last_remote_rotation_proof = null; // se rellena si el cliente manda su RotationProof
         // Timeout duro: si el peer no responde en REMOTE_SRA_PEER_TIMEOUT_MS, abortamos
         // la rotacion. Sin esto un peer reconectado mid-cascade (sin scalars SRA) deja
         // al host esperando hasta que el socket muera naturalmente (60-90s) — issue#9.
@@ -827,6 +907,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // (mismas N posiciones) y seguir siendo puntos de la curva.
                                 if (candidate.length == expectedLength && RistrettoSRA.arePointsValid(candidate)) {
                                     newPieces = candidate;
+                                    // rotacion-2: prueba del paso del cliente (opcional; sin ella el paso
+                                    // queda remoto-pendiente y el full-chain verify se salta, no rompe nada).
+                                    this.last_remote_rotation_proof = (partes.length >= 6 && partes[5] != null && !partes[5].isEmpty())
+                                            ? Base64.getDecoder().decode(partes[5]) : null;
                                     ok = true;
                                 } else {
                                     LOGGER.log(Level.SEVERE,
@@ -1187,8 +1271,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
             peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
 
-            workingDeck = RistrettoSRA.applyCommutativeLock(RistrettoSRA.getGenesisDeck(), this.local_sra_lock);
+            // C1 (wire-3): registrar la cadena de cascada (reset por intento). cascadeGenesis es el
+            // anclaje publico que todos derivan. Las pruebas NO se generan aqui (bloquearia el
+            // reparto -> la animacion de barajado se alarga); se generan en background tras el bucle.
+            byte[] cascadeGenesis = RistrettoSRA.getGenesisDeck();
+            java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
+            java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remoto: null
+            java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remoto: null
+            java.util.List<byte[]> chainStepRemoteProof = new java.util.ArrayList<>(); // remoto: prueba; host/bot: null
+            chainDecks.add(cascadeGenesis);
+
+            workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
+            // Paso del host: registrar (perm, k) para generar su prueba luego en background.
+            chainStepPerm.add(CryptoSRA.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
+            chainStepK.add(this.local_sra_lock);
+            chainStepRemoteProof.add(null);
+            chainDecks.add(workingDeck);
 
             boolean restart = false;
             for (int i = 0; i < numPlayers && !restart; i++) {
@@ -1215,10 +1314,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
+                        // C1 (wire-3): registrar el paso del bot (perm, k); su prueba va en background.
+                        chainStepPerm.add(CryptoSRA.shufflePermutation(workingDeck.length / 32, botSeed));
+                        chainStepK.add(botLock);
+                        chainStepRemoteProof.add(null);
+                        chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
+                            // C1 (wire-3): registrar la prueba del paso remoto (ya la genero el cliente).
+                            chainStepPerm.add(null);
+                            chainStepK.add(null);
+                            chainStepRemoteProof.add(last_remote_cascade_proof);
+                            chainDecks.add(workingDeck);
                         } else {
                             // El peer cayó durante el cascade (su Participant lo marcó
                             // exit por socket muerto). Aún no hemos repartido nada, así
@@ -1232,9 +1341,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!restart) {
+                // C1 (wire-3): SOLO REGISTRAR la cadena (decks + datos de cada paso: perm/k del host
+                // y bots, prueba ya hecha de los remotos). NO se genera ni verifica nada aqui -> CERO
+                // CPU extra en el barajado (antes bloqueaba el hilo del juego y se congelaba la barra
+                // de tiempo). La generacion+verificacion va en wire-4, con scalarmul ya optimizado.
+                this.cascade_chain_decks = chainDecks;
+                this.cascade_step_perm = chainStepPerm;
+                this.cascade_step_k = chainStepK;
+                this.cascade_step_remote_proof = chainStepRemoteProof;
                 break;
             }
         }
+
+        // C1: marcar la verificacion de la cadena como PENDIENTE. El calculo pesado se lanza al
+        // FINAL de repartirCartas (despues de repartir), para no pisar la animacion del barajado.
+        this.cascade_verified = 0;
 
         // FASE 1.5 (dual-lock, Opción G): ROTACIÓN de community pieces.
         //
@@ -1256,11 +1377,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean rotationOk = true;
         String rotationFailMotivo = null;
+        // Cierre del flanco rotacion: el bucle solo REGISTRA (cero crypto en el path): estado community
+        // tras cada paso + el escalar combinado s=s1*s2 de host/bot (mult BigInteger barata) o la prueba
+        // que ya mando el cliente. Las pruebas batch-DLEQ de host/bot se generan en BACKGROUND.
+        java.util.List<byte[]> rotStates = new java.util.ArrayList<>();
+        java.util.List<java.math.BigInteger> rotScalars = new java.util.ArrayList<>();
+        java.util.List<byte[]> rotRemoteProofs = new java.util.ArrayList<>();
         for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
             String currNick = currentRing[i];
+            java.math.BigInteger stepScalar = null;
+            byte[] stepRemoteProof = null;
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
+                stepScalar = RistrettoSRA.bytesToScalar(this.local_sra_unlock)
+                        .multiply(RistrettoSRA.bytesToScalar(this.local_sra_lock_community))
+                        .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                 if (p != null && p.isCpu()) {
@@ -1275,10 +1407,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botUnlock);
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
+                    stepScalar = RistrettoSRA.bytesToScalar(botUnlock)
+                            .multiply(RistrettoSRA.bytesToScalar(botCommunityLock))
+                            .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
                 } else if (p != null && !p.isExit()) {
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
                         communityPieces = rotated;
+                        stepRemoteProof = this.last_remote_rotation_proof; // prueba del cliente (DECK_ROTATION_RESP partes[5])
                     } else {
                         // Peer está vivo (no exit) pero no respondió — REFUSAL.
                         // Aplica la regla "no entrega secreto" → para la timba.
@@ -1300,12 +1436,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
                 }
             }
+            rotStates.add(communityPieces);   // estado community tras este paso (state[i+1])
+            rotScalars.add(stepScalar);        // host/bot: s=s1*s2; remoto: null
+            rotRemoteProofs.add(stepRemoteProof); // remoto: prueba del cliente; host/bot: null
         }
 
         if (!rotationOk) {
             cancelarManoYDevolverApuestas(rotationFailMotivo != null ? rotationFailMotivo : "peer.dropped_during_rotation");
             return false;
         }
+        this.cascade_rotation_states = rotStates;
+        this.cascade_rotation_scalars = rotScalars;
+        this.cascade_rotation_remote_proofs = rotRemoteProofs;
 
         // Reensamblar el deck: pocket pieces intactos + community pieces rotados.
         byte[] dualLockDeck = new byte[1664];
@@ -1525,6 +1667,113 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
         this.guardarFosilSRA();
 
+        // C1: tras repartir lanzamos en un hilo la generacion (cascada) + verificacion de la cadena
+        // COMPLETA genesis->MEGAPACKET (cascada Bayer-Groth + rotacion batch-DLEQ). Corre durante las
+        // apuestas, sin tocar la animacion.
+        // ESTADO (wire-rotation-1): host-side SELF-verify. Cubre ya la rotacion (antes quedaba fuera).
+        // Pendiente para proteccion efectiva: (a) difundir el bundle a los peers, (b) que cada peer lo
+        // verifique, (c) gatear el unlock en el veredicto verificado-por-peers ANTES de la ventana de
+        // lectura (avisar+permitir-seguir si falla, no abort duro). El anti-peek de una carta de jugador
+        // VIVO ya lo da la cadena DLEQ en tiempo real (self-strip + anclaje + GATE 6 en WaitingRoomFrame).
+        final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
+        final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
+        final java.util.List<int[]> bgPerm = this.cascade_step_perm;
+        final java.util.List<byte[]> bgK = this.cascade_step_k;
+        final java.util.List<byte[]> bgRemote = this.cascade_step_remote_proof;
+        final int bgPocketCount = numPlayersFinal * 2;
+        final byte[] bgMega = this.local_mega_packet;
+        final java.util.List<byte[]> bgRotStates = this.cascade_rotation_states;
+        final java.util.List<java.math.BigInteger> bgRotScalars = this.cascade_rotation_scalars;
+        final java.util.List<byte[]> bgRotRemoteProofs = this.cascade_rotation_remote_proofs;
+        if (bgDecks != null && bgPerm != null) {
+            Helpers.threadRun(() -> {
+                try {
+                    java.util.List<byte[]> proofs = new java.util.ArrayList<>();
+                    for (int s = 0; s < bgPerm.size(); s++) {
+                        proofs.add((bgRemote.get(s) != null) ? bgRemote.get(s)
+                                : com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
+                                        bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s)));
+                    }
+                    this.cascade_chain_proofs = proofs;
+                    boolean ok = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                            .verifyChainWire(bgGenesis, bgDecks, proofs);
+                    this.cascade_verified = ok ? 1 : -1;
+                    LOGGER.log(ok ? Level.INFO : Level.SEVERE,
+                            "C1 background: cascade-chain verify = {0} ({1} pasos)",
+                            new Object[]{ok, proofs.size()});
+                    // Cadena COMPLETA (cascada + rotacion). Generamos AQUI (background) las pruebas
+                    // batch-DLEQ de host/bot a partir del escalar registrado; las remotas ya vienen del
+                    // cliente. Cero crypto de esto en el path de reparto.
+                    java.util.List<byte[]> rotProofsBg = new java.util.ArrayList<>();
+                    boolean rotComplete = bgRotStates != null && bgRotScalars != null
+                            && bgRotRemoteProofs != null && bgMega != null && !bgRotStates.isEmpty()
+                            && bgRotScalars.size() == bgRotStates.size()
+                            && bgRotRemoteProofs.size() == bgRotStates.size();
+                    if (rotComplete) {
+                        byte[] preRotDeck = bgDecks.get(bgDecks.size() - 1);
+                        byte[] before = java.util.Arrays.copyOfRange(preRotDeck, bgPocketCount * 32, preRotDeck.length);
+                        for (int r = 0; r < bgRotStates.size() && rotComplete; r++) {
+                            byte[] after = bgRotStates.get(r);
+                            byte[] stepP;
+                            if (bgRotRemoteProofs.get(r) != null) {
+                                stepP = bgRotRemoteProofs.get(r);
+                            } else if (bgRotScalars.get(r) != null) {
+                                com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(before);
+                                com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(after);
+                                stepP = (inR != null && outR != null)
+                                        ? com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                                                com.tonikelope.coronapoker.crypto.RotationProof.prove(bgRotScalars.get(r), inR, outR))
+                                        : null;
+                            } else {
+                                stepP = null;
+                            }
+                            if (stepP == null) {
+                                rotComplete = false;
+                            } else {
+                                rotProofsBg.add(stepP);
+                            }
+                            before = after;
+                        }
+                    }
+                    // Solo seguimos si TODAS las pruebas de cascada estan (un peer legacy/proofless deja
+                    // un null -> NO difundir un bundle con null, que todos los peers rechazarian en falso).
+                    if (rotComplete && !rotProofsBg.isEmpty() && !proofs.contains(null)) {
+                        this.cascade_rotation_proofs = rotProofsBg;
+                        boolean fullOk = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
+                                bgGenesis, bgDecks.subList(1, bgDecks.size()), proofs, bgPocketCount,
+                                bgMega, bgRotStates, rotProofsBg);
+                        LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
+                                "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} pasos rotacion)",
+                                new Object[]{fullOk, rotProofsBg.size()});
+                        if (fullOk) {
+                            // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
+                            this.dual_lock_verified_megapacket = bgMega;
+                        }
+                        // rotacion-3: difundir el bundle a los peers para que CADA UNO verifique por su
+                        // cuenta (el host verificandose a si mismo no protege). El peer deriva pocketCount
+                        // LOCAL y recomputa el genesis. NO mandamos pocketCount (no fiarse del host).
+                        // Fire-and-forget; si falla en el peer -> avisa pero permite seguir (no abort duro).
+                        try {
+                            String bundle = "DUALLOCK_BUNDLE#"
+                                    + joinB64(bgDecks.subList(1, bgDecks.size())) + "#"
+                                    + joinB64(proofs) + "#"
+                                    + joinB64(bgRotStates) + "#"
+                                    + joinB64(rotProofsBg);
+                            broadcastGAMECommandFromServer(bundle, null);
+                        } catch (Exception bcEx) {
+                            LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE broadcast failed", bcEx);
+                        }
+                    } else {
+                        LOGGER.log(Level.INFO,
+                                "C1 background: full-chain verify skipped (rotacion incompleta o paso remoto sin prueba)");
+                    }
+                } catch (Exception bgEx) {
+                    this.cascade_verified = -1;
+                    LOGGER.log(Level.SEVERE, "C1 background: cascade verify threw", bgEx);
+                }
+            });
+        }
+
         return true;
     }
 
@@ -1548,6 +1797,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (partes[2].equals("MEGAPACKET") && partes.length >= 5) {
                             String orderB64 = partes[3];
                             this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
+                            // Reparto FRESCO: a partir de ahora exijo un bundle de barajado honesto para
+                            // este mazo (el handler de unlock community avisa si no llega). El recover NO
+                            // pasa por aqui, asi que no exige bundle (el barajado ya se verifico pre-crash).
+                            this.dual_lock_expect_bundle_for = this.local_mega_packet;
                             try {
                                 String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
                                 String[] orderTokens = orderStr.split(",");
@@ -3472,13 +3725,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
-                                        // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó
-                                        // clave mala intencionalmente o tiene cliente corrupto —
-                                        // no podemos distinguir, terminamos.
+                                        // Politica §8: sig OK pero SRA no resuelve = anomalia aislada a UN peer
+                                        // -> FORFEIT (decrypted=false -> sus cartas no se revelan, el showdown las
+                                        // muckea, ya manejado), NO terminamos la partida de todos. Avisamos.
+                                        // Coherente con el caso gemelo en RESP_SHOWDOWN_KEY.
                                         LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer maligno o bug. Lockdown.",
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA no resuelve. Peer maligno o bug -> FORFEIT (cartas no reveladas) + aviso.",
                                                 nick);
-                                        triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                        warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
                                     }
                                 }
                             }
@@ -3808,6 +4062,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
+                            // Recover: el barajado se verifico pre-crash y el mazo viene del fosil propio
+                            // (confiable) -> marco verificado para el receipt (no falsa alarma de "no verificado").
+                            this.dual_lock_verified_megapacket = megaPacket;
                             String[] orderTokens = orderMap.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                             for (String token : orderTokens) {
@@ -4043,6 +4300,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (orderMap != null && megaPacket != null) {
                         this.local_mega_packet = megaPacket;
+                        // Recover: el barajado se verifico pre-crash y el mazo viene del fosil propio
+                        // (confiable) -> marco verificado para el receipt (no falsa alarma de "no verificado").
+                        this.dual_lock_verified_megapacket = megaPacket;
                         String[] orderTokens = orderMap.split(",");
                         java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                         for (String token : orderTokens) {
@@ -6530,6 +6790,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int RECEIPT_SIG_LEN = HandStateChain.SIG_BYTES;
     private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN + RECEIPT_SIG_LEN;
     private static final int RECEIPT_FLAG_BIT_INVALID_SIG_SEEN = 0;
+    // Bit 1: el firmante NO pudo verificar el barajado honesto (DUALLOCK_BUNDLE) de esta mano —
+    // host no mando la prueba, fallo, o no llego. Va firmado en el receipt -> el host no puede
+    // quitarlo, y el consenso atestigua "mazo honesto verificado por todos", no solo "acciones OK".
+    private static final int RECEIPT_FLAG_BIT_DECK_UNVERIFIED = 1;
 
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         // EC-Identity v1 (commit 6): trigger barrier + receipt exchange + unanimous
@@ -6703,6 +6967,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (this.saw_invalid_action_sig) {
                 flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
             }
+            // Firmo si NO verifiqué el barajado honesto de ESTE mazo esta mano (host no mando la
+            // prueba, fallo, o no llego). dual_lock_verified_megapacket se pone al verificar el bundle
+            // OK (cliente), el full-chain en background (host) o al restaurar en recover.
+            byte[] mp = this.local_mega_packet;
+            byte[] verified = this.dual_lock_verified_megapacket;
+            if (mp == null || verified == null || !Arrays.equals(mp, verified)) {
+                flags |= (byte) (1 << RECEIPT_FLAG_BIT_DECK_UNVERIFIED);
+            }
             byte[] sig = im.signReceipt(handId, hFinal, flags);
             return encodeReceiptBlob(handId, hFinal, flags, sig);
         } catch (RuntimeException ex) {
@@ -6832,6 +7104,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Set<String> missing = new LinkedHashSet<>();
         Set<String> divergent = new LinkedHashSet<>();
         Set<String> invalidSigReporters = new LinkedHashSet<>();
+        Set<String> deckUnverifiedReporters = new LinkedHashSet<>();
 
         for (String nick : expected) {
             byte[] r = receipts.get(nick);
@@ -6884,6 +7157,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (((flags >> RECEIPT_FLAG_BIT_INVALID_SIG_SEEN) & 1) != 0) {
                 invalidSigReporters.add(nick);
             }
+            // Bit 1: el firmante no pudo verificar el barajado honesto (DUALLOCK_BUNDLE)
+            // de esta mano. Senal mas debil (benigna en recover, en timeout del bundle, o
+            // si un peer no llego a verificar); se reporta como aviso informativo, no
+            // bloquea ni acusa. El bit va firmado, asi que el host relay no puede quitarlo.
+            if (((flags >> RECEIPT_FLAG_BIT_DECK_UNVERIFIED) & 1) != 0) {
+                deckUnverifiedReporters.add(nick);
+            }
         }
 
         String localHB64 = Base64.getEncoder().encodeToString(hFinalLocal);
@@ -6929,6 +7209,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     MessageFormat.format(
                             Translator.translate("game.popup_verificacion_firma_invalida"),
                             reportersList));
+        } else if (!deckUnverifiedReporters.isEmpty()) {
+            // Consenso por lo demas limpio, pero uno o mas firmantes no pudieron verificar
+            // el barajado honesto de esta mano. Es informativo (recover, timeout del bundle,
+            // o peer que no llego a verificar). Se avisa pero NO bloquea ni acusa de trampa.
+            String deckList = String.join(", ", deckUnverifiedReporters);
+            LOGGER.log(Level.WARNING,
+                    "Hand {0} verified but shuffle UNVERIFIED by: [{1}], local_H={2}",
+                    new Object[]{sqlite_id_hand, deckList, localHB64});
+            GameFrame.getInstance().getRegistro().print(
+                    MessageFormat.format(
+                            Translator.translate("game.mano_verificacion_barajado_no_verificado"),
+                            deckList));
+            insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
+            showConsensusPopup(
+                    Translator.translate("game.popup_verificacion_titulo_aviso"),
+                    MessageFormat.format(
+                            Translator.translate("game.popup_verificacion_barajado_no_verificado"),
+                            deckList));
         } else {
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",
@@ -9964,15 +10262,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id1 = RistrettoSRA.resolveCardIndex(c1);
             int id2 = RistrettoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
-                // Sig OK pero clave firmada no resuelve. Peer FORFEIT (no MISDEAL
-                // — sería exploit).
-                // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó clave mala
-                // intencionalmente o tiene cliente corrupto — no podemos distinguir,
-                // terminamos.
+                // Sig OK pero la clave firmada NO resuelve a una carta genesis: el peer firmo una
+                // clave mala (bug/cliente corrupto) o intenta algo — no podemos distinguir. Esto es el
+                // HOST detectando a UN peer -> FORFEIT silencioso (return false -> sus cartas no se
+                // revelan, el showdown las muckea), NO terminamos la partida de todos. Sin popup: es un
+                // peer, no un ataque del host hacia mi (warnSuspiciousHost seria mis-framed). Coherente
+                // con los demas return false de este metodo (sin/mala sig, sin pocket cards).
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer maligno o bug. Lockdown.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (sus cartas no se revelan).",
                         new Object[]{nick, id1, id2});
-                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
                 return false;
             }
 
@@ -11999,21 +12297,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             int id1 = RistrettoSRA.resolveCardIndex(cb1);
                                             int id2 = RistrettoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
-                                                // LOCKDOWN: sig firmada por el peer es genuina pero
-                                                // la SRA no resuelve cartas → el peer firmó una clave
-                                                // MALA intencionalmente o tiene cliente corrupto. No
-                                                // podemos distinguir, terminamos por seguridad.
+                                                // Politica §8 + la intencion documentada arriba ("FORFEIT del peer"):
+                                                // sig OK pero la SRA no resuelve = anomalia aislada a UN peer (firmo una
+                                                // clave mala: bug/cliente corrupto, no distinguible de malicia). NO
+                                                // aplicamos sus cartas (continue -> el showdown las deja tapadas =
+                                                // forfeit) y avisamos, en vez de terminar la partida de TODOS. (El
+                                                // set-mismatch de abajo, host MINTIENDO sobre las cartas, si es lockdown.)
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug. Lockdown.",
+                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (cartas no aplicadas) + aviso.",
                                                         new Object[]{nick, id1, id2});
                                                 try {
                                                     GameFrame.getInstance().getRegistro().print(
                                                             nick + " — clave de showdown firmada pero no resuelve cartas. Posible cheat o bug del cliente.");
                                                 } catch (Exception ignored) {
                                                 }
-                                                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
-                                                lockdownTriggered = true;
-                                                break;
+                                                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                                continue;
                                             }
 
                                             // Validar plaintext vs SRA-decrypt como SET (no tupla):

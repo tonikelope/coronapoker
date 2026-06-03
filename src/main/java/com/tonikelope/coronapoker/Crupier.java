@@ -541,12 +541,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
     public volatile byte[] local_mega_packet = null;
 
-    // C1 (wire-3): cadena de pruebas de barajado verificable de la cascada. El host ensambla,
-    // por paso (suyo, de bots y remotos), (deckIn->deckOut, prueba). cascade_chain_decks tiene
-    // genesis + un deck por paso; cascade_chain_proofs una prueba por paso. Sirve para que TODOS
-    // verifiquen que la cascada es un barajado honesto (un host modificado no puede colar cartas).
+    // C1 (wire-3): REGISTRO de la cadena de cascada (sin generar pruebas -> cero CPU en el barajado).
+    // cascade_chain_decks = genesis + un deck por paso. Por paso: para host/bots se guarda (perm, k)
+    // para generar la prueba luego (wire-4); para remotos, la prueba que ya mando el cliente.
+    // Sirve para que TODOS verifiquen que la cascada es un barajado honesto (un host modificado no
+    // puede colar cartas) — la generacion+verificacion se cablea en wire-4.
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
-    public volatile java.util.List<byte[]> cascade_chain_proofs = null;
+    public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remoto: null
+    public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remoto: null
+    public volatile java.util.List<byte[]> cascade_step_remote_proof = null; // remoto: prueba; host/bot: null
     // Prueba del último paso remoto, parseada en requestRemoteCascade y leída por el bucle.
     private volatile byte[] last_remote_cascade_proof = null;
 
@@ -1207,20 +1210,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
             peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
 
-            // C1 (wire-3): arrancar la cadena de pruebas de barajado de esta cascada (reset por
-            // intento). cascadeGenesis es el anclaje publico que todos derivan.
+            // C1 (wire-3): registrar la cadena de cascada (reset por intento). cascadeGenesis es el
+            // anclaje publico que todos derivan. Las pruebas NO se generan aqui (bloquearia el
+            // reparto -> la animacion de barajado se alarga); se generan en background tras el bucle.
             byte[] cascadeGenesis = RistrettoSRA.getGenesisDeck();
             java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
-            java.util.List<byte[]> chainProofs = new java.util.ArrayList<>();
+            java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remoto: null
+            java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remoto: null
+            java.util.List<byte[]> chainStepRemoteProof = new java.util.ArrayList<>(); // remoto: prueba; host/bot: null
             chainDecks.add(cascadeGenesis);
 
             workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
-            // Paso del host: prueba genesis -> workingDeck (su lock + su shuffle).
-            chainProofs.add(com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
-                    cascadeGenesis, workingDeck,
-                    CryptoSRA.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed),
-                    this.local_sra_lock));
+            // Paso del host: registrar (perm, k) para generar su prueba luego en background.
+            chainStepPerm.add(CryptoSRA.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
+            chainStepK.add(this.local_sra_lock);
+            chainStepRemoteProof.add(null);
             chainDecks.add(workingDeck);
 
             boolean restart = false;
@@ -1246,20 +1251,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Fase 4: commitments K del bot para H_0 (HAND_V2).
                         peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
-                        byte[] botInDeck = workingDeck;
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
-                        // C1 (wire-3): prueba del paso del bot (lo controla el host -> tambien hay que probarlo).
-                        chainProofs.add(com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
-                                botInDeck, workingDeck,
-                                CryptoSRA.shufflePermutation(botInDeck.length / 32, botSeed), botLock));
+                        // C1 (wire-3): registrar el paso del bot (perm, k); su prueba va en background.
+                        chainStepPerm.add(CryptoSRA.shufflePermutation(workingDeck.length / 32, botSeed));
+                        chainStepK.add(botLock);
+                        chainStepRemoteProof.add(null);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
-                            // C1 (wire-3): acumular la prueba del paso remoto (parseada en requestRemoteCascade).
-                            chainProofs.add(last_remote_cascade_proof);
+                            // C1 (wire-3): registrar la prueba del paso remoto (ya la genero el cliente).
+                            chainStepPerm.add(null);
+                            chainStepK.add(null);
+                            chainStepRemoteProof.add(last_remote_cascade_proof);
                             chainDecks.add(workingDeck);
                         } else {
                             // El peer cayó durante el cascade (su Participant lo marcó
@@ -1274,16 +1280,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!restart) {
-                // C1 (wire-3): guardar la cadena ensamblada y AUTO-VERIFICAR. Señal de smoke: la
-                // cadena honesta del propio host DEBE verificar (true); un false aquí = bug de
-                // ensamblado, o algun peer no envió prueba (legacy/degradado). Sin enforcement aun.
+                // C1 (wire-3): SOLO REGISTRAR la cadena (decks + datos de cada paso: perm/k del host
+                // y bots, prueba ya hecha de los remotos). NO se genera ni verifica nada aqui -> CERO
+                // CPU extra en el barajado (antes bloqueaba el hilo del juego y se congelaba la barra
+                // de tiempo). La generacion+verificacion va en wire-4, con scalarmul ya optimizado.
                 this.cascade_chain_decks = chainDecks;
-                this.cascade_chain_proofs = chainProofs;
-                boolean selfOk = com.tonikelope.coronapoker.crypto.VerifiableCascade
-                        .verifyChainWire(cascadeGenesis, chainDecks, chainProofs);
-                LOGGER.log(selfOk ? Level.INFO : Level.SEVERE,
-                        "C1 wire-3: host cascade-chain self-verify = {0} ({1} pasos)",
-                        new Object[]{selfOk, chainProofs.size()});
+                this.cascade_step_perm = chainStepPerm;
+                this.cascade_step_k = chainStepK;
+                this.cascade_step_remote_proof = chainStepRemoteProof;
                 break;
             }
         }

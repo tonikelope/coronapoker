@@ -73,4 +73,83 @@ public final class ShuffleCascade {
         }
         return true;
     }
+
+    // ---- Byte-oriented wiring helpers (decks as flat 32-byte-per-point arrays, proof as bytes) ----
+    // Keep the byte↔point/proof conversion in this tested layer so the network handlers stay tiny.
+
+    /** Decode a flat deck (n×32 bytes) to points, or null if any point is non-canonical. */
+    public static EdwardsPoint[] decodeDeck(byte[] bytes) {
+        if (bytes == null || bytes.length == 0 || bytes.length % 32 != 0) {
+            return null;
+        }
+        int n = bytes.length / 32;
+        EdwardsPoint[] d = new EdwardsPoint[n];
+        for (int i = 0; i < n; i++) {
+            d[i] = Ristretto255.decode(java.util.Arrays.copyOfRange(bytes, i * 32, (i + 1) * 32));
+            if (d[i] == null) {
+                return null;
+            }
+        }
+        return d;
+    }
+
+    /**
+     * Prove a cascade step from flat byte decks: {@code deckOut[i] = kScalar·deckIn[perm[i]]}. Returns the
+     * serialized proof, or null on any failure (so a network-handler caller never throws).
+     */
+    public static byte[] proveStepWire(byte[] deckInBytes, byte[] deckOutBytes, int[] perm, byte[] kScalar) {
+        try {
+            EdwardsPoint[] in = decodeDeck(deckInBytes);
+            EdwardsPoint[] out = decodeDeck(deckOutBytes);
+            if (in == null || out == null || in.length != out.length) {
+                return null;
+            }
+            return ProofCodec.encodeShuffle(ShuffleArgument.prove(in, out, perm, RistrettoSRA.bytesToScalar(kScalar)));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** Verify a serialized cascade-step proof against flat byte decks. False on any malformed input. */
+    public static boolean verifyStepWire(byte[] deckInBytes, byte[] deckOutBytes, byte[] proofBytes) {
+        EdwardsPoint[] in = decodeDeck(deckInBytes);
+        EdwardsPoint[] out = decodeDeck(deckOutBytes);
+        if (in == null || out == null) {
+            return false;
+        }
+        ShuffleArgument.Proof proof = ProofCodec.decodeShuffle(proofBytes);
+        return proof != null && ShuffleArgument.verify(in, out, proof);
+    }
+
+    /**
+     * Verify a whole cascade from flat byte decks + serialized proofs. {@code deckBytes.get(0)} must equal
+     * {@code genesisBytes}; {@code proofBytes.get(m)} attests {@code deckBytes.get(m) → deckBytes.get(m+1)}.
+     * False on any malformed / short / non-anchored input.
+     */
+    public static boolean verifyChainWire(byte[] genesisBytes, java.util.List<byte[]> deckBytes,
+                                          java.util.List<byte[]> proofBytes) {
+        if (genesisBytes == null || deckBytes == null || proofBytes == null
+                || deckBytes.size() < 1 || proofBytes.size() != deckBytes.size() - 1) {
+            return false;
+        }
+        EdwardsPoint[] genesis = decodeDeck(genesisBytes);
+        if (genesis == null) {
+            return false;
+        }
+        EdwardsPoint[][] decks = new EdwardsPoint[deckBytes.size()][];
+        for (int i = 0; i < deckBytes.size(); i++) {
+            decks[i] = decodeDeck(deckBytes.get(i));
+            if (decks[i] == null) {
+                return false;
+            }
+        }
+        ShuffleArgument.Proof[] proofs = new ShuffleArgument.Proof[proofBytes.size()];
+        for (int i = 0; i < proofBytes.size(); i++) {
+            proofs[i] = ProofCodec.decodeShuffle(proofBytes.get(i));
+            if (proofs[i] == null) {
+                return false;
+            }
+        }
+        return verifyChain(genesis, decks, proofs);
+    }
 }

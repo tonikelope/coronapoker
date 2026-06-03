@@ -121,13 +121,9 @@ public final class ShuffleArgument {
         return e;
     }
 
-    /** {@code P_A = Σ e_j·A_j}. */
+    /** {@code P_A = Σ e_j·A_j} (Straus: shared doubling ladder). */
     private static EdwardsPoint multiExpPublic(BigInteger[] e, EdwardsPoint[] a) {
-        EdwardsPoint acc = EdwardsPoint.IDENTITY;
-        for (int j = 0; j < a.length; j++) {
-            acc = acc.add(a[j].scalarMul(e[j].mod(L)));
-        }
-        return acc;
+        return EdwardsPoint.multiscalarMul(e, a);
     }
 
     private static BigInteger scalarChallenge(EdwardsPoint pa, EdwardsPoint q, EdwardsPoint t) {

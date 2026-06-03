@@ -74,11 +74,17 @@ public final class PedersenVectorCommit {
 
     /** Commit to the vector {@code a} with blinding {@code r}: canonical encoding of {@code r·H + Σ a_i·G_i}. */
     public static byte[] commit(BigInteger[] a, BigInteger r) {
-        EdwardsPoint c = H.scalarMul(r.mod(EdwardsPoint.L));
-        for (int i = 0; i < a.length; i++) {
-            c = c.add(generator(i).scalarMul(a[i].mod(EdwardsPoint.L)));
+        // Single Straus multi-scalar multiplication over [H, G_0, …, G_{n-1}] (shared doubling ladder).
+        int n = a.length;
+        BigInteger[] scalars = new BigInteger[n + 1];
+        EdwardsPoint[] points = new EdwardsPoint[n + 1];
+        scalars[0] = r;
+        points[0] = H;
+        for (int i = 0; i < n; i++) {
+            scalars[i + 1] = a[i];
+            points[i + 1] = generator(i);
         }
-        return Ristretto255.encode(c);
+        return Ristretto255.encode(EdwardsPoint.multiscalarMul(scalars, points));
     }
 
     /** True iff {@code commitment} opens to {@code (a, r)}. */

@@ -2522,8 +2522,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                     }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN malformed items — refusing");
-                                                                        crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_bad_wire"));
+                                                                        // Malformacion ESTRUCTURAL (no parsea) -> casi seguro bug/version-mismatch.
+                                                                        // La op ya se rechaza (return); SILENT-REFUSE, no lockdown. Coherente con el
+                                                                        // gemelo malformado de este mismo handler (wire < 6 campos, tambien silent).
+                                                                        LOGGER.log(Level.WARNING, "REQ_SRA_UNLOCK_CHAIN malformed items — refusing (silent: likely a bug)");
                                                                         return;
                                                                     }
                                                                     // Mi propio slot en el ring: NUNCA debo pelar mi lock de MI pocket

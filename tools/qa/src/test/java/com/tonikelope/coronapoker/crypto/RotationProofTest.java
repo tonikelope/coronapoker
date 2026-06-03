@@ -127,6 +127,30 @@ public class RotationProofTest {
     }
 
     @Test
+    public void forgedProverCannotPassRelocation() {
+        // Modelo de amenaza REAL: el host recompilado no usa el prove() honesto; emite bytes (t,z)
+        // arbitrarios intentando validar una relocacion. Sin resolver el log discreto, no puede.
+        int n = 16;
+        EdwardsPoint[] in = randomRegion(n);
+        BigInteger s = scalar();
+        EdwardsPoint[] relocated = new EdwardsPoint[n];
+        for (int i = 0; i < n; i++) {
+            relocated[i] = in[(i + 3) % n].scalarMul(s.mod(L)); // smuggle por relocacion
+        }
+        for (int attempt = 0; attempt < 64; attempt++) {
+            byte[] forgedT = Ristretto255.encode(EdwardsPoint.BASE.scalarMul(scalar()));
+            BigInteger forgedZ = scalar();
+            assertFalse(RotationProof.verify(in, relocated, new RotationProof.Proof(forgedT, forgedZ)),
+                    "[ATAQUE] proof forjado (t,z arbitrarios) sobre relocacion -> rechazado (intento " + attempt + ")");
+        }
+        // Tampoco transfiere un proof HONESTO de una rotacion honesta de la misma region de entrada.
+        EdwardsPoint[] honestOut = rekey(in, s);
+        RotationProof.Proof honest = RotationProof.prove(s, in, honestOut);
+        assertFalse(RotationProof.verify(in, relocated, honest),
+                "proof honesto de la rotacion honesta NO valida la relocacion");
+    }
+
+    @Test
     public void proofForOneRegionDoesNotVerifyAnother() {
         EdwardsPoint[] in = randomRegion(14);
         BigInteger s = scalar();

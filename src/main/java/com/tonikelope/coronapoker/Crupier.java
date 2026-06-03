@@ -1297,43 +1297,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // C1: generar + verificar la cadena de barajado EN SEGUNDO PLANO. El motor usa un pool
-        // dedicado a MIN_PRIORITY (todos los cores que pueda, pero la UI lo desbanca -> no se nota).
-        // El reparto sigue instantaneo; este calculo corre durante las apuestas (tiempo humano).
-        // El settlement esperara a cascade_verified != 0 y abortara si es -1.
+        // C1: marcar la verificacion de la cadena como PENDIENTE. El calculo pesado se lanza al
+        // FINAL de repartirCartas (despues de repartir), para no pisar la animacion del barajado.
         this.cascade_verified = 0;
-        final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
-        final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
-        final java.util.List<int[]> bgPerm = this.cascade_step_perm;
-        final java.util.List<byte[]> bgK = this.cascade_step_k;
-        final java.util.List<byte[]> bgRemote = this.cascade_step_remote_proof;
-        if (bgDecks != null && bgPerm != null) {
-            Helpers.threadRun(() -> {
-                try {
-                    // Esperar a que la animacion de barajado/reparto termine antes de quemar CPU,
-                    // para que el GIF no tartamudee. La verificacion tiene TODA la mano (apuestas)
-                    // para completarse antes del settlement, asi que arrancar unos segundos tarde
-                    // no cuesta nada.
-                    Thread.sleep(4000);
-                    java.util.List<byte[]> proofs = new java.util.ArrayList<>();
-                    for (int s = 0; s < bgPerm.size(); s++) {
-                        proofs.add((bgRemote.get(s) != null) ? bgRemote.get(s)
-                                : com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
-                                        bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s)));
-                    }
-                    this.cascade_chain_proofs = proofs;
-                    boolean ok = com.tonikelope.coronapoker.crypto.VerifiableCascade
-                            .verifyChainWire(bgGenesis, bgDecks, proofs);
-                    this.cascade_verified = ok ? 1 : -1;
-                    LOGGER.log(ok ? Level.INFO : Level.SEVERE,
-                            "C1 background: cascade-chain verify = {0} ({1} pasos)",
-                            new Object[]{ok, proofs.size()});
-                } catch (Exception bgEx) {
-                    this.cascade_verified = -1;
-                    LOGGER.log(Level.SEVERE, "C1 background: cascade verify threw", bgEx);
-                }
-            });
-        }
 
         // FASE 1.5 (dual-lock, Opción G): ROTACIÓN de community pieces.
         //
@@ -1623,6 +1589,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
         this.guardarFosilSRA();
+
+        // C1: AHORA que YA se ha repartido (la animacion del barajado ya esta hecha), lanzamos en un
+        // hilo la generacion+verificacion de la cadena de barajado. Corre durante las apuestas y
+        // termina mucho antes del settlement, que esperara a cascade_verified != 0 y abortara si es
+        // -1. Asi el reparto va instantaneo y la animacion no se entera.
+        final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
+        final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
+        final java.util.List<int[]> bgPerm = this.cascade_step_perm;
+        final java.util.List<byte[]> bgK = this.cascade_step_k;
+        final java.util.List<byte[]> bgRemote = this.cascade_step_remote_proof;
+        if (bgDecks != null && bgPerm != null) {
+            Helpers.threadRun(() -> {
+                try {
+                    java.util.List<byte[]> proofs = new java.util.ArrayList<>();
+                    for (int s = 0; s < bgPerm.size(); s++) {
+                        proofs.add((bgRemote.get(s) != null) ? bgRemote.get(s)
+                                : com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
+                                        bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s)));
+                    }
+                    this.cascade_chain_proofs = proofs;
+                    boolean ok = com.tonikelope.coronapoker.crypto.VerifiableCascade
+                            .verifyChainWire(bgGenesis, bgDecks, proofs);
+                    this.cascade_verified = ok ? 1 : -1;
+                    LOGGER.log(ok ? Level.INFO : Level.SEVERE,
+                            "C1 background: cascade-chain verify = {0} ({1} pasos)",
+                            new Object[]{ok, proofs.size()});
+                } catch (Exception bgEx) {
+                    this.cascade_verified = -1;
+                    LOGGER.log(Level.SEVERE, "C1 background: cascade verify threw", bgEx);
+                }
+            });
+        }
 
         return true;
     }

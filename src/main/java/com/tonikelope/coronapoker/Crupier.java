@@ -836,6 +836,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // pieces y añade su lock de community — la mitad que sí se entrega vía
     // testamento al hacer EXIT. La fase de rotación es secuencial peer-a-peer
     // igual que la cascade principal; este método maneja un solo peer.
+    /** Une una lista de byte[] como CSV de base64 (el alfabeto base64 no usa ',' ni '#', sin ambigüedad). */
+    private static String joinB64(java.util.List<byte[]> items) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(java.util.Base64.getEncoder().encodeToString(items.get(i)));
+        }
+        return sb.toString();
+    }
+
     private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -1706,6 +1718,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
                                 "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} pasos rotacion)",
                                 new Object[]{fullOk, rotProofsBg.size()});
+                        // rotacion-3: difundir el bundle a los peers para que CADA UNO verifique por su
+                        // cuenta (el host verificandose a si mismo no protege). El peer deriva pocketCount
+                        // LOCAL y recomputa el genesis. NO mandamos pocketCount (no fiarse del host).
+                        // Fire-and-forget; si falla en el peer -> avisa pero permite seguir (no abort duro).
+                        try {
+                            String bundle = "DUALLOCK_BUNDLE#"
+                                    + joinB64(bgDecks.subList(1, bgDecks.size())) + "#"
+                                    + joinB64(proofs) + "#"
+                                    + joinB64(bgRotStates) + "#"
+                                    + joinB64(rotProofsBg);
+                            broadcastGAMECommandFromServer(bundle, null);
+                        } catch (Exception bcEx) {
+                            LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE broadcast failed", bcEx);
+                        }
                     } else {
                         LOGGER.log(Level.INFO,
                                 "C1 background: full-chain verify skipped (rotacion incompleta o paso remoto sin prueba)");

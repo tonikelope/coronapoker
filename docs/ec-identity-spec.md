@@ -33,11 +33,11 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 ### Discarded design alternatives (and why)
 
 - **Constant-time `modInverse` in SRA**: only matters against a local trojan, where nothing Java-pure saves you.
-- **Subgroup low-order point check in SRA**: redundant — `CryptoSRA.resolveCardIndex == -1` already invalidates tampered hands.
+- **Subgroup low-order point check in SRA**: unnecessary — Ristretto255 is a prime-order group (no small-order points), `RistrettoSRA.decode` rejects malformed points, and `RistrettoSRA.resolveCardIndex == -1` invalidates tampered hands.
 - **MAC swarm (Panoptes-style)**: same MITM exposure during pubkey exchange, but loses non-repudiation.
 - **Direct P2P topology for game commands**: too invasive a refactor. Star topology stays; the signing layer makes the host's broker role harmless.
 - **Mutual nonce challenge at join**: replay protection is delegated to the `session_id` baked into the join self-signature — same effect, zero extra round-trips.
-- **Blocking modal on TOFU pubkey mismatch**: removed for UX reasons. TOFU updates silently (last-write-wins); the user inspects identicons if they care.
+- **Blocking modal on TOFU pubkey mismatch**: deliberately not used (UX). TOFU updates silently (last-write-wins); the user inspects identicons if they care.
 - **Anti-spoofing nick canonicalization (zero-width chars, bidi, lookalikes)**: irrelevant if nobody modifies the client source. Only real cross-platform variations (Unicode NFC vs NFD) are canonicalized.
 - **Formal PAKE (SPAKE2/OPAQUE)**: the existing `HMAC-SHA512(password, ECDH)` binding is sufficient with a non-trivial password; an entropy warning is shown at game creation.
 
@@ -254,7 +254,7 @@ A peer also drops any `COMM_REVEAL` whose `STREET` doesn't match the street it i
 GAME # <hand_seq> # <ACTION_TYPE_STR> # <nick> # <amount_str> # <record_b64> # <sig_b64>
 ```
 
-The legacy fields (`hand_seq`, `ACTION_TYPE_STR`, `nick`, `amount_str`) remain for human-readable logs and parser compatibility. **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful** — they are the canonical values fed to the chain and verifier.
+The human-readable fields (`hand_seq`, `ACTION_TYPE_STR`, `nick`, `amount_str`) are retained for logs and parser compatibility. **Only `<record_b64>` and `<sig_b64>` are cryptographically meaningful** — they are the canonical values fed to the chain and verifier.
 
 ---
 
@@ -277,7 +277,7 @@ H_0 = SHA-256(
       )
 ```
 
-Each peer's block — its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings) — is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here (**HAND_V2**) is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5); the older **HAND_V1** layout without them survives only as a legacy fallback. The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
+Each peer's block — its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings) — is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here (**HAND_V2**) is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5); the **HAND_V1** layout without them remains as a compatibility fallback. The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
 
 ### 5.2 Per-action ratchet
 
@@ -437,7 +437,7 @@ No special "host pubkey" exists in the protocol: host == player + extra responsi
 
 - **TOFU** — Trust On First Use. Accept a key the first time, pin it. SSH-style.
 - **PAKE** — Password-Authenticated Key Exchange. Authenticate with a shared password without revealing it.
-- **Domain separator** — Unique string prefix in every signature so a signature for one purpose cannot be replayed in another (`ACTION_V1`, `RECEIPT_V2`, `SHOWDOWN_V1`, `JOIN_V1`, plus the `HAND_V2` chain domain — `HAND_V1` as legacy fallback).
+- **Domain separator** — Unique string prefix in every signature so a signature for one purpose cannot be replayed in another (`ACTION_V1`, `RECEIPT_V2`, `SHOWDOWN_V1`, `JOIN_V1`, plus the `HAND_V2` chain domain — `HAND_V1` as compatibility fallback).
 - **Ratchet** — One-way state update where each step depends on the previous; reordering is impossible without breaking the chain.
 - **Receipt** — Signed commitment by a peer to a final chain state, archivable as evidence.
 - **OOB (Out-of-Band)** — A channel separate from the system being secured (e.g. a phone call to compare a fingerprint shown in the UI).

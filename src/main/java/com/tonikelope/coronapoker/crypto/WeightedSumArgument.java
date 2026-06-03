@@ -67,11 +67,7 @@ public final class WeightedSumArgument {
     }
 
     static EdwardsPoint msm(BigInteger[] s, EdwardsPoint[] b) {
-        EdwardsPoint acc = EdwardsPoint.IDENTITY;
-        for (int i = 0; i < b.length; i++) {
-            acc = acc.add(b[i].scalarMul(s[i].mod(L)));
-        }
-        return acc;
+        return EdwardsPoint.multiscalarMul(s, b); // Straus: shared doubling ladder
     }
 
     private static BigInteger challenge(byte[][] cf, EdwardsPoint[] b, EdwardsPoint q, byte[][] t, byte[] tq) {

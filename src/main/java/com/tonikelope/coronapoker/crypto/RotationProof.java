@@ -81,11 +81,7 @@ public final class RotationProof {
     }
 
     private static EdwardsPoint msm(BigInteger[] w, EdwardsPoint[] p) {
-        EdwardsPoint acc = EdwardsPoint.IDENTITY;
-        for (int i = 0; i < p.length; i++) {
-            acc = acc.add(p[i].scalarMul(w[i].mod(L)));
-        }
-        return acc;
+        return EdwardsPoint.multiscalarMul(w, p); // Straus: shared doubling ladder
     }
 
     private static BigInteger schnorrChallenge(EdwardsPoint g, EdwardsPoint h, byte[] t) {

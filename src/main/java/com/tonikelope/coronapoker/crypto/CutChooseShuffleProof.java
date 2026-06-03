@@ -132,14 +132,15 @@ public final class CutChooseShuffleProof {
             throw new IllegalArgumentException("(pi,k) is not a witness for b = apply(a,pi,k)");
         }
 
-        int[][] pi1 = new int[rounds][];
-        BigInteger[] k1 = new BigInteger[rounds];
-        byte[][][] intermediates = new byte[rounds][][];
-        for (int j = 0; j < rounds; j++) {
+        // Rounds are independent → build the intermediates in parallel (scalar-mul heavy).
+        final int[][] pi1 = new int[rounds][];
+        final BigInteger[] k1 = new BigInteger[rounds];
+        final byte[][][] intermediates = new byte[rounds][][];
+        java.util.stream.IntStream.range(0, rounds).parallel().forEach(j -> {
             pi1[j] = DeckTransform.randomPermutation(n);
             k1[j] = RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
             intermediates[j] = encode(DeckTransform.apply(a, pi1[j], k1[j]));
-        }
+        });
 
         boolean[] bits = challengeBits(null, a, b, intermediates, rounds);
 
@@ -179,47 +180,54 @@ public final class CutChooseShuffleProof {
             return false;
         }
 
-        // Decode the intermediates (reject non-canonical points) and re-derive the challenge bits.
-        EdwardsPoint[][] cDecks = new EdwardsPoint[proof.rounds][];
-        for (int j = 0; j < proof.rounds; j++) {
+        // Decode the intermediates (reject non-canonical points). Rounds are independent →
+        // decode and check in parallel; any failure flips the atomic flag.
+        final EdwardsPoint[][] cDecks = new EdwardsPoint[proof.rounds][];
+        final java.util.concurrent.atomic.AtomicBoolean bad = new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.stream.IntStream.range(0, proof.rounds).parallel().forEach(j -> {
             byte[][] enc = proof.intermediates[j];
             if (enc == null || enc.length != n) {
-                return false;
+                bad.set(true);
+                return;
             }
             EdwardsPoint[] c = new EdwardsPoint[n];
             for (int i = 0; i < n; i++) {
                 if (enc[i] == null || enc[i].length != 32) {
-                    return false;
+                    bad.set(true);
+                    return;
                 }
                 c[i] = Ristretto255.decode(enc[i]);
                 if (c[i] == null) {
-                    return false; // non-canonical / off-group intermediate point
+                    bad.set(true); // non-canonical / off-group intermediate point
+                    return;
                 }
             }
             cDecks[j] = c;
+        });
+        if (bad.get()) {
+            return false;
         }
 
-        boolean[] bits = challengeBits(null, a, b, proof.intermediates, proof.rounds);
+        final boolean[] bits = challengeBits(null, a, b, proof.intermediates, proof.rounds);
 
-        for (int j = 0; j < proof.rounds; j++) {
+        java.util.stream.IntStream.range(0, proof.rounds).parallel().forEach(j -> {
+            if (bad.get()) {
+                return;
+            }
             int[] perm = proof.revealedPerm[j];
             BigInteger s = proof.revealedScalar[j];
             if (!DeckTransform.isPermutation(perm, n) || s == null
                     || s.mod(EdwardsPoint.L).signum() == 0) {
-                return false;
+                bad.set(true);
+                return;
             }
-            if (!bits[j]) {
-                // check C = apply(A, perm, s)
-                if (!DeckTransform.decksEqual(cDecks[j], DeckTransform.apply(a, perm, s))) {
-                    return false;
-                }
-            } else {
-                // check B = apply(C, perm, s)
-                if (!DeckTransform.decksEqual(b, DeckTransform.apply(cDecks[j], perm, s))) {
-                    return false;
-                }
+            boolean ok = !bits[j]
+                    ? DeckTransform.decksEqual(cDecks[j], DeckTransform.apply(a, perm, s))   // A -> C
+                    : DeckTransform.decksEqual(b, DeckTransform.apply(cDecks[j], perm, s));   // C -> B
+            if (!ok) {
+                bad.set(true);
             }
-        }
-        return true;
+        });
+        return !bad.get();
     }
 }

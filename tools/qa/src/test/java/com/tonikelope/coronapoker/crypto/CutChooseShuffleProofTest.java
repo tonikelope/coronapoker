@@ -71,19 +71,15 @@ public class CutChooseShuffleProofTest {
         EdwardsPoint[] b = DeckTransform.apply(a, pi, k);
         b[0] = EdwardsPoint.BASE.scalarMul(scalar()); // CORRUPCION: B deja de ser barajado de A
 
-        byte[][][] intermediates = new byte[rounds][][];
+        byte[][] hashes = new byte[rounds][];
         int[][] sigma = new int[rounds][];
         BigInteger[] m = new BigInteger[rounds];
         for (int j = 0; j < rounds; j++) {
             sigma[j] = DeckTransform.randomPermutation(n);
             m[j] = scalar();
-            EdwardsPoint[] c = DeckTransform.apply(b, sigma[j], m[j]); // C_j = barajado de B
-            intermediates[j] = new byte[n][];
-            for (int i = 0; i < n; i++) {
-                intermediates[j][i] = Ristretto255.encode(c[i]);
-            }
+            hashes[j] = CutChooseShuffleProof.hashDeck(DeckTransform.apply(b, sigma[j], m[j])); // C_j = barajado de B
         }
-        boolean[] bits = CutChooseShuffleProof.challengeBits(null, a, b, intermediates, rounds);
+        boolean[] bits = CutChooseShuffleProof.challengeBits(null, a, b, hashes, rounds);
 
         int[][] revealedPerm = new int[rounds][];
         BigInteger[] revealedScalar = new BigInteger[rounds];
@@ -93,17 +89,18 @@ public class CutChooseShuffleProofTest {
         }
         for (int j = 0; j < rounds; j++) {
             if (bits[j]) {
-                // mitad C->B: B = apply(C_j, invert(sigma_j), m_j^-1) -> respuesta valida
+                // mitad C->B: el verify recalcula C=apply(B,invert(perm),s^-1); con perm=invert(sigma),
+                // s=m^-1 sale C_j=apply(B,sigma,m) -> su hash cuadra con el comprometido.
                 revealedPerm[j] = DeckTransform.invert(sigma[j]);
                 revealedScalar[j] = m[j].modInverse(EdwardsPoint.L);
             } else {
-                // mitad A->C: el tramposo no puede; mete basura
+                // mitad A->C: el tramposo no puede; mete basura -> hash no cuadra
                 revealedPerm[j] = identity;
                 revealedScalar[j] = BigInteger.ONE;
             }
         }
         CutChooseShuffleProof.Proof forged =
-                new CutChooseShuffleProof.Proof(rounds, n, intermediates, revealedPerm, revealedScalar);
+                new CutChooseShuffleProof.Proof(rounds, n, hashes, revealedPerm, revealedScalar);
 
         assertFalse(CutChooseShuffleProof.verify(a, b, forged),
                 "prover TRAMPOSO sobre un no-barajado -> RECHAZADO (soundness cut-and-choose)");
@@ -140,9 +137,9 @@ public class CutChooseShuffleProofTest {
         BigInteger k = scalar();
         EdwardsPoint[] b = DeckTransform.apply(a, pi, k);
         CutChooseShuffleProof.Proof proof = CutChooseShuffleProof.prove(a, b, pi, k, 32);
-        // manipular un punto de un intermedio publicado
-        proof.intermediates[0][0] = Ristretto255.encode(EdwardsPoint.BASE.scalarMul(scalar()));
-        assertFalse(CutChooseShuffleProof.verify(a, b, proof), "intermedio manipulado -> rechazado");
+        // manipular el hash comprometido de un intermedio
+        proof.intermediateHash[0] = new byte[32];
+        assertFalse(CutChooseShuffleProof.verify(a, b, proof), "hash de intermedio manipulado -> rechazado");
     }
 
     @Test

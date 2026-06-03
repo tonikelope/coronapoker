@@ -1534,6 +1534,20 @@ public class WaitingRoomFrame extends JFrame {
         return Helpers.mostrarMensajeErrorSINO(container, msg, align, width);
     }
 
+    /** Parsea un CSV de base64 (formato del DUALLOCK_BUNDLE) a una lista de byte[]. */
+    private static java.util.List<byte[]> csvToBytes(String csv) {
+        java.util.List<byte[]> out = new java.util.ArrayList<>();
+        if (csv == null || csv.isEmpty()) {
+            return out;
+        }
+        for (String part : csv.split(",")) {
+            if (!part.isEmpty()) {
+                out.add(Base64.getDecoder().decode(part));
+            }
+        }
+        return out;
+    }
+
     private void runSocketReaderClientThread() {
         Helpers.threadRun(() -> {
 
@@ -2283,6 +2297,38 @@ public class WaitingRoomFrame extends JFrame {
                                                                     writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
+                                                                }
+                                                            });
+                                                            break;
+
+                                                        case "DUALLOCK_BUNDLE":
+                                                            // rotacion-3: cada peer verifica POR SU CUENTA que el reparto es un
+                                                            // barajado+rotacion honesto genesis->MEGAPACKET. pocketCount se deriva
+                                                            // LOCAL (active_crypto_ring.length*2), NUNCA del host, y el genesis se
+                                                            // recomputa. Si falla -> avisar+recomendar salir pero PERMITIR seguir
+                                                            // (por si es bug), no abort duro. Background, no toca UI.
+                                                            final String[] partes_bundle = partes_comando;
+                                                            Helpers.threadRun(() -> {
+                                                                try {
+                                                                    Crupier cruB = GameFrame.getInstance().getCrupier();
+                                                                    if (cruB == null || cruB.local_mega_packet == null
+                                                                            || cruB.active_crypto_ring == null || partes_bundle.length < 7) {
+                                                                        return;
+                                                                    }
+                                                                    int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
+                                                                    byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
+                                                                    boolean okB = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
+                                                                            genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
+                                                                            pocketCount, cruB.local_mega_packet,
+                                                                            csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]));
+                                                                    if (okB) {
+                                                                        LOGGER.log(Level.INFO, "DUALLOCK_BUNDLE: deal-chain verify OK (peer-side)");
+                                                                    } else {
+                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE: deal-chain verify FAILED (peer-side) — host deshonesto o bug");
+                                                                        cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    }
+                                                                } catch (Exception bundleEx) {
+                                                                    LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE processing failed", bundleEx);
                                                                 }
                                                             });
                                                             break;

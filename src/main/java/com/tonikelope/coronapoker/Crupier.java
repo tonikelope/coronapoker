@@ -3721,13 +3721,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     decrypted = unlockPlayerCardsWithSRAKey(jugador);
                                     if (!decrypted && this.single_locked_pocket_cards.containsKey(nick)) {
-                                        // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó
-                                        // clave mala intencionalmente o tiene cliente corrupto —
-                                        // no podemos distinguir, terminamos.
+                                        // Politica §8: sig OK pero SRA no resuelve = anomalia aislada a UN peer
+                                        // -> FORFEIT (decrypted=false -> sus cartas no se revelan, el showdown las
+                                        // muckea, ya manejado), NO terminamos la partida de todos. Avisamos.
+                                        // Coherente con el caso gemelo en RESP_SHOWDOWN_KEY.
                                         LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA resolveCardIndex == -1. Peer maligno o bug. Lockdown.",
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA no resuelve. Peer maligno o bug -> FORFEIT (cartas no reveladas) + aviso.",
                                                 nick);
-                                        triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                        warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
                                     }
                                 }
                             }
@@ -10213,15 +10214,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id1 = RistrettoSRA.resolveCardIndex(c1);
             int id2 = RistrettoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
-                // Sig OK pero clave firmada no resuelve. Peer FORFEIT (no MISDEAL
-                // — sería exploit).
-                // LOCKDOWN: sig genuina pero SRA no resuelve. Peer firmó clave mala
-                // intencionalmente o tiene cliente corrupto — no podemos distinguir,
-                // terminamos.
+                // Sig OK pero la clave firmada NO resuelve a una carta genesis: el peer firmo una
+                // clave mala (bug/cliente corrupto) o intenta algo — no podemos distinguir. Politica
+                // §8: anomalia aislada a UN peer -> FORFEIT (no terminamos la partida de todos). Sus
+                // cartas NO se revelan (return false -> el showdown las muckea, ya manejado) y avisamos.
+                // Coherente con los demas return false de este metodo (sin/mala sig, sin pocket cards).
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA resolveCardIndex == -1 (ids={1},{2}). Peer maligno o bug. Lockdown.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (sus cartas no se revelan) + aviso.",
                         new Object[]{nick, id1, id2});
-                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
+                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
                 return false;
             }
 

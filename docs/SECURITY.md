@@ -36,7 +36,7 @@ The 52 cards are mapped deterministically to **Ristretto255** group elements:
 - Ristretto255 is a **prime-order** group over edwards25519: there is no cofactor to clear and every element has a single canonical encoding, so the off-curve / small-order / non-canonical-encoding ambiguities of the old x-only Curve25519 representation simply do not exist.
 - The 52 encodings are the genesis deck. Every peer derives the same deck independently — nothing has to be sent.
 
-> **Migration note.** The SRA group was migrated from a Montgomery x-only Curve25519 representation to Ristretto255. The new pure-Java engine lives under [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) (`Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`), anchored to the RFC 9496 test vectors. The ECDH **channel** handshake (§3) still uses Curve25519 — only the Mental-Poker group changed.
+> **Engine.** The pure-Java SRA engine lives under [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) (`Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`), anchored to the RFC 9496 test vectors. The Mental-Poker group is **Ristretto255**; the ECDH **channel** handshake (§3) uses Curve25519 — a separate, lower-layer use of the curve for a different purpose.
 
 ### 2.2 Lock-permute-rotate
 
@@ -77,9 +77,9 @@ A blinded `r·P` cannot anchor: the chain would not start at the committed bytes
 Two further guards close the back doors found while hardening this:
 
 - **Self-strip guard (pockets).** A peer reads `megapacket[offsetBase]` *locally by index* and never de-locks a point inside its own pocket slot `[mySlot·2, mySlot·2+1]`, so a host that decouples the labelled `peerIdx` from the stripped point cannot make a peer reveal its own cards.
-- **GATE 6 (community).** When a peer strips its *own* community lock, the result must still be wrapped in the other peers' locks — so it should look like noise, never a real card. If instead the residual already resolves to a genuine (genesis) card, then every *other* lock was already gone and the host is using this peer as the **final** unlock to expose a board card before its street is due → refused. (Multiplicative blinding used to let a forged value slip past this genesis-check; with the DLEQ binding of the fix above making blinding impossible, the check can no longer be evaded.)
+- **GATE 6 (community).** When a peer strips its *own* community lock, the result must still be wrapped in the other peers' locks — so it should look like noise, never a real card. If instead the residual already resolves to a genuine (genesis) card, then every *other* lock was already gone and the host is using this peer as the **final** unlock to expose a board card before its street is due → refused. (The DLEQ binding of the fix above makes multiplicative blinding impossible, so a forged value cannot be dressed up to slip past this genesis-check.)
 
-The legacy unauthenticated batch path (`REQ_SRA_UNLOCK_BATCH`) has been **removed entirely** — all dealing now flows through the proof-chained `REQ_SRA_UNLOCK_CHAIN`. With no code left that serves an unlock outside the proof chain, the old door cannot be reached because it no longer exists.
+All dealing flows through a single proof-chained channel (`REQ_SRA_UNLOCK_CHAIN`): no peer ever serves an unlock outside the proof chain, so a point that does not provably descend from the committed deck simply cannot be de-locked.
 
 The chain above proves each de-lock is honest, but it does not by itself prove the **deck** is honest — that it is a genuine permutation of 52 distinct cards with nothing duplicated or relocated between the pocket and community halves. That is §2.6.
 
@@ -93,7 +93,7 @@ The de-lock chain (§2.5) stops a peer from being used as a decryption oracle, b
 - **Require-the-proof gate.** Before a peer helps reveal community cards (the only window where a smuggled card could be read), it checks it has verified an honest-shuffle proof for that exact deck. A host that smuggles and simply *omits* the bundle is caught here (soft warning), recover-safe (a recovered deck — verified before the crash — is not re-required).
 - **Zero-knowledge & cost.** The proofs reveal nothing about the permutation or the locks. All proving and verifying runs in the **background during betting, single-threaded** — no impact on the dealing animation or CPU.
 
-This closes the rotation/"exiter" residual: the rotation is now under proof, and a smuggle is a non-permutation that no proof can pass. (The earlier real-time defenses of §2.5 already blocked reading a *live* player's pocket; §2.6 additionally proves the whole deck honest — defense in depth, and the actual closure of the shuffle/rotation flank.)
+The rotation is under proof, and a smuggle is a non-permutation that no proof can pass. Together with the real-time defenses of §2.5 — which block reading a *live* player's pocket — §2.6 proves the whole deck honest, closing the shuffle/rotation flank in depth.
 
 ---
 
@@ -190,7 +190,7 @@ This encoder is the **single source of truth** for action serialization; any oth
 
 ### 5.2 Chain
 
-Each hand opens with `H_0`, a SHA-256 commitment that binds: the domain separator, the `HAND_ID`, the player set, **every peer's per-hand key commitments** `K_pocket = k_pocket·B` and `K_community = k_community·B`, and the cascaded-deck hash. Those `K` commitments are exactly what the verifiable dealing checks its DLEQ proofs against (§2.5) — the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. The **exact byte layout** (HAND_V2, with the older HAND_V1 — no `K` commitments — as a legacy fallback; [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start`/`startV2`) is specified once in [`ec-identity-spec.md`](ec-identity-spec.md) §5.1 — the single source of truth for the format.
+Each hand opens with `H_0`, a SHA-256 commitment that binds: the domain separator, the `HAND_ID`, the player set, **every peer's per-hand key commitments** `K_pocket = k_pocket·B` and `K_community = k_community·B`, and the cascaded-deck hash. Those `K` commitments are exactly what the verifiable dealing checks its DLEQ proofs against (§2.5) — the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. The **exact byte layout** (HAND_V2, with HAND_V1 — no `K` commitments — as a compatibility fallback; [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start`/`startV2`) is specified once in [`ec-identity-spec.md`](ec-identity-spec.md) §5.1 — the single source of truth for the format.
 
 Then every action ratchets the chain:
 
@@ -291,7 +291,7 @@ A **client cannot MISDEAL or FORFEIT** (it does not run the hand); its heaviest 
 
 1. **Benign race** — state not ready yet, or a stale / out-of-order message the protocol naturally produces → **SILENT-REFUSE**.
 2. **A client detecting the host:**
-   - The host is **provably attacking *me*** to read my cards — asked to strip a point in my own pocket slot, GATE 6 (a community strip that reveals genesis early), blinded-decryption oracle, a chain not anchored to the committed `MEGAPACKET`, or use of the obsolete unlock channel → **LEAVE** (hard-lockdown my own side).
+   - The host is **provably attacking *me*** to read my cards — asked to strip a point in my own pocket slot, GATE 6 (a community strip that reveals genesis early), blinded-decryption oracle, or a chain not anchored to the committed `MEGAPACKET` → **LEAVE** (hard-lockdown my own side).
    - An anomaly **already neutralised by refusing**, which could be a bug — a missing or failing shuffle proof (§2.6), a repeated rotation (anti-replay), a payload that is malformed *over the authenticated channel* → **SOFT-WARN**.
 3. **The host detecting a peer:**
    - The **hand cannot complete** — a needed unlock/chain did not arrive, or a peer left without a testament → **MISDEAL**.
@@ -308,7 +308,7 @@ The soft warning is shown **once per distinct anomaly type per game**, so a late
 
 For honesty's sake:
 
-- **Timing side-channels in the SRA engine.** The Ristretto255 engine is pure-Java `BigInteger` and is **not constant-time** — the migration prioritised correctness and verifiability over side-channel hardening (the previous x-only Curve25519 core did have a constant-time hot path). In principle a peer's per-hand lock scalars could leak through operation timing. In practice it is not exploitable in this threat model: the lock scalars are **ephemeral per hand** (no way to average many measurements of the same secret), the multiplications happen locally while only results travel the wire, and microsecond-scale variation is buried under millisecond network jitter. The adversary here is a host recompiling the client, not a co-located side-channel attacker measuring your CPU.
+- **Timing side-channels in the SRA engine.** The Ristretto255 engine is pure-Java `BigInteger` and is **not constant-time** — it prioritises correctness and verifiability over side-channel hardening. In principle a peer's per-hand lock scalars could leak through operation timing. In practice it is not exploitable in this threat model: the lock scalars are **ephemeral per hand** (no way to average many measurements of the same secret), the multiplications happen locally while only results travel the wire, and microsecond-scale variation is buried under millisecond network jitter. The adversary here is a host recompiling the client, not a co-located side-channel attacker measuring your CPU.
 - **Local trojan on a peer's machine.** Anyone with read access to `~/.coronapoker/identity_*.ed25519` becomes that peer cryptographically.
 - **Coercion / shoulder-surfing.** A peer who shows their screen to someone behind them is leaking pockets out-of-band.
 - **N-1 collusion.** Pure consensus systems cannot detect this; the victim will see divergent receipts and can choose not to settle.

@@ -272,29 +272,36 @@ On `continue-last-game`:
 
 ---
 
-## 8. SECURITY_LOCKDOWN
+## 8. Reacting to a cryptographic / security failure
 
-The client distinguishes two severities. Both **presume good faith**: an anomaly could be a software bug, not necessarily an attack, so the client never accuses anyone — but it protects the user.
+Every cryptographic check has a **defined, role-aware reaction**. The reaction depends on **who detects the fault** — a client and the host have different tools — and on **what is at stake** (one peer's data vs the whole table). All reactions **presume good faith**: an anomaly may be a software bug, not an attack, so the engine never accuses anyone and always prefers the *least destructive* response that still keeps honest players safe.
 
-### 8.1 Hard lockdown (fatal)
+### 8.1 The five reactions
 
-`triggerSecurityLockdown` ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)) ends the hand and **freezes** the moment a *fatal* anomaly fires — one where continuing could move chips against a manipulated state:
+| Reaction | What it does | Who can use it |
+|---|---|---|
+| **SILENT-REFUSE** | Drop the operation, log it; no user-facing signal | host & client |
+| **SOFT-WARN** — `warnSuspiciousHost` | Inform the user, strongly recommend leaving, **keep playing** | host & client |
+| **FORFEIT** | Kill **one** peer's hand (its cards stay sealed / it cannot win the showdown); the hand settles for everyone else | host only |
+| **MISDEAL** — `cancelarManoYDevolverApuestas` | Abort the hand, **refund all bets**, continue to the next hand | host only |
+| **HARD-LOCKDOWN** — `triggerSecurityLockdown` | Freeze balance, blacklist the peer, close the socket, **end the game for this side** | host & client |
 
-- A received deck point is invalid (off-group / non-canonical Ristretto encoding).
-- A genesis-deck card resolution fails — somebody returned a point the deck does not contain.
-- A **verifiable-dealing chain fails**: a de-lock step does not anchor to the committed `MEGAPACKET` point or carries an invalid DLEQ proof (§2.5).
-- A peer is asked to de-lock a point inside its own pocket, or a community de-lock resolves to genesis (extraction — §2.5).
-- An Ed25519 signature on an action, community reveal or showdown reveal does not verify.
-- A community-card announcement disagrees with the value re-derived from the unlocks.
-- An "early cascade" attack is detected (a peer/host trying to advance the cascade or reveal a street out of order).
+A **client cannot MISDEAL or FORFEIT** (it does not run the hand); its heaviest tool is to **leave** (lock down its own side). The **host rarely needs LOCKDOWN** — it has MISDEAL and FORFEIT, which are proportionate; ending the whole game because one peer misbehaves is almost never the right answer.
 
-It sets a `volatile` flag, blacklists the offending peer at the command-dispatch layer, closes the client socket, shows a critical popup that **recommends leaving the table**, and ends the hand for this peer. The reason string is logged at SEVERE so post-mortem is trivial.
+### 8.2 The decision rule
 
-### 8.2 Soft warning (non-fatal — warn but continue)
+1. **Benign race** — state not ready yet, or a stale / out-of-order message the protocol naturally produces → **SILENT-REFUSE**.
+2. **A client detecting the host:**
+   - The host is **provably attacking *me*** to read my cards — asked to strip a point in my own pocket slot, GATE 6 (a community strip that reveals genesis early), blinded-decryption oracle, a chain not anchored to the committed `MEGAPACKET`, or use of the obsolete unlock channel → **LEAVE** (hard-lockdown my own side).
+   - An anomaly **already neutralised by refusing**, which could be a bug — a missing or failing shuffle proof (§2.6), a repeated rotation (anti-replay), a payload that is malformed *over the authenticated channel* → **SOFT-WARN**.
+3. **The host detecting a peer:**
+   - The **hand cannot complete** — a needed unlock/chain did not arrive, or a peer left without a testament → **MISDEAL**.
+   - The fault is **isolated to one peer's data** — its showdown key or reveal won't resolve to a genesis card, or its signature is malformed → **FORFEIT that peer** (its cards stay sealed; the hand settles without it). This is the proportionate response the philosophy reserves for "could be a peer bug": it does not punish the honest players at the table.
+   - The fault proves the **global board/deck is forged** — a community announcement that disagrees with the unlocks, a cross-recipient fork, plaintext ≠ SRA-decrypt → **MISDEAL** (the board is bad for everyone). **HARD-LOCKDOWN** only if it proves the engine itself is compromised.
 
-`warnSuspiciousHost` ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)) is used when the anomaly has **already been neutralised by refusing the operation** and the game can safely continue — freezing would be disproportionate if it turned out to be a bug. It informs the user **once**, presuming good faith, and **strongly recommends leaving the table**, but does **not** freeze, close the socket or end the hand. Current use: a **repeated rotation** in the same cascade (anti-replay, §2.2/§2.5) — the extra rotation is refused (the oracle gets nothing) and play continues with the legitimate one.
+### 8.3 Warnings are per-anomaly, not one-shot
 
-**Policy: warn but continue, unless the fault is fatal — then lock down.**
+The soft warning is shown **once per distinct anomaly type per game**, so a later, *different* anomaly is never swallowed by an earlier one.
 
 ---
 

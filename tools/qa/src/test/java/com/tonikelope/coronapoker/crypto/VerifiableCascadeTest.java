@@ -110,19 +110,15 @@ public class VerifiableCascadeTest {
     /** Prueba forjada para un paso A->B que NO es barajado: C_j=apply(B,sigma,m); basura en A->C. */
     private static CutChooseShuffleProof.Proof forgeProof(EdwardsPoint[] a, EdwardsPoint[] b, int rounds) {
         int n = a.length;
-        byte[][][] intermediates = new byte[rounds][][];
+        byte[][] hashes = new byte[rounds][];
         int[][] sigma = new int[rounds][];
         BigInteger[] mm = new BigInteger[rounds];
         for (int j = 0; j < rounds; j++) {
             sigma[j] = DeckTransform.randomPermutation(n);
             mm[j] = scalar();
-            EdwardsPoint[] c = DeckTransform.apply(b, sigma[j], mm[j]);
-            intermediates[j] = new byte[n][];
-            for (int i = 0; i < n; i++) {
-                intermediates[j][i] = Ristretto255.encode(c[i]);
-            }
+            hashes[j] = CutChooseShuffleProof.hashDeck(DeckTransform.apply(b, sigma[j], mm[j]));
         }
-        boolean[] bits = CutChooseShuffleProof.challengeBits(null, a, b, intermediates, rounds);
+        boolean[] bits = CutChooseShuffleProof.challengeBits(null, a, b, hashes, rounds);
         int[][] perm = new int[rounds][];
         BigInteger[] sc = new BigInteger[rounds];
         int[] id = new int[n];
@@ -138,7 +134,7 @@ public class VerifiableCascadeTest {
                 sc[j] = BigInteger.ONE;
             }
         }
-        return new CutChooseShuffleProof.Proof(rounds, n, intermediates, perm, sc);
+        return new CutChooseShuffleProof.Proof(rounds, n, hashes, perm, sc);
     }
 
     @Test

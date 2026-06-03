@@ -131,4 +131,36 @@ public final class VerifiableCascade {
         }
         return CutChooseShuffleProof.verify(in, out, proof);
     }
+
+    /**
+     * Verify a whole cascade from flat byte decks + serialized proofs.
+     * {@code deckBytes.get(0)} must equal {@code genesisBytes}; {@code proofBytes.get(m)} attests
+     * {@code deckBytes.get(m) → deckBytes.get(m+1)}. False on any malformed/short/non-anchored input.
+     */
+    public static boolean verifyChainWire(byte[] genesisBytes, java.util.List<byte[]> deckBytes,
+                                          java.util.List<byte[]> proofBytes) {
+        if (genesisBytes == null || deckBytes == null || proofBytes == null
+                || deckBytes.size() < 1 || proofBytes.size() != deckBytes.size() - 1) {
+            return false;
+        }
+        EdwardsPoint[] genesis = decodeDeck(genesisBytes);
+        if (genesis == null) {
+            return false;
+        }
+        EdwardsPoint[][] decks = new EdwardsPoint[deckBytes.size()][];
+        for (int i = 0; i < deckBytes.size(); i++) {
+            decks[i] = decodeDeck(deckBytes.get(i));
+            if (decks[i] == null) {
+                return false;
+            }
+        }
+        CutChooseShuffleProof.Proof[] proofs = new CutChooseShuffleProof.Proof[proofBytes.size()];
+        for (int i = 0; i < proofBytes.size(); i++) {
+            proofs[i] = CutChooseShuffleProof.Proof.fromBytes(proofBytes.get(i));
+            if (proofs[i] == null) {
+                return false;
+            }
+        }
+        return verifyChain(genesis, decks, proofs);
+    }
 }

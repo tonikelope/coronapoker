@@ -17,6 +17,8 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.util.Arrays;
 
 /**
  * Non-interactive cut-and-choose proof that a deck {@code B} is an honest shuffle of a deck
@@ -25,23 +27,24 @@ import java.math.BigInteger;
  * smuggle (a dishonest host can no longer pass off a player's pocket as a community card, because it
  * could not prove the cascade step was a real shuffle). See {@code docs/sra-shuffle-argument-engine.md}.
  *
- * <p><b>How it works (per round).</b> The prover publishes a fresh intermediate deck
- * {@code C = apply(A, π1, k1)} (random {@code π1, k1}). A Fiat–Shamir bit, bound to {@code A}, {@code B}
- * and <i>every</i> {@code C}, then asks for one half:
+ * <p><b>How it works (per round).</b> The prover commits the SHA-256 <i>hash</i> of a fresh
+ * intermediate deck {@code C = apply(A, π1, k1)} (random {@code π1, k1}). A Fiat–Shamir bit, bound to
+ * {@code A}, {@code B} and <i>every</i> committed hash, then asks for one half:
  * <ul>
- *   <li>bit 0 → reveal {@code (π1, k1)}; verifier checks {@code C = apply(A, π1, k1)}.</li>
- *   <li>bit 1 → reveal {@code (π2, k2) = (compose(invert(π1), π), k·k1⁻¹)}; verifier checks
- *       {@code B = apply(C, π2, k2)}.</li>
+ *   <li>bit 0 → reveal {@code (π1, k1)}; the verifier recomputes {@code C = apply(A, π1, k1)} and
+ *       checks {@code hash(C)} equals the commitment (so {@code C} is a shuffle of {@code A}).</li>
+ *   <li>bit 1 → reveal {@code (π2, k2) = (compose(invert(π1), π), k·k1⁻¹)}; the verifier recomputes
+ *       {@code C = apply(B, invert(π2), k2⁻¹)} — which makes {@code B = apply(C, π2, k2)} hold by
+ *       construction — and checks {@code hash(C)} equals the commitment.</li>
  * </ul>
- * If {@code B} is <i>not</i> a shuffle of {@code A}, then for any {@code C} at least one half fails,
- * so each round catches the cheat with probability ≥ 1/2. The intermediates are fixed before the
- * (Fiat–Shamir) challenge, so a cheating prover cannot adapt them: over {@code rounds} rounds the
- * forgery probability is ≤ {@code 2^-rounds}. Revealing one fresh half per round leaks nothing about
- * {@code (π, k)} (zero-knowledge).
+ * Only the 32-byte hash travels per round (not the deck), so the proof is ~12× smaller. Soundness is
+ * unchanged: the hash binds {@code C} before the challenge (collision resistance), and if {@code B} is
+ * not a shuffle of {@code A} then for the committed {@code C} at least one half is unanswerable, so
+ * each round catches the cheat with probability ≥ 1/2 ⇒ forgery ≤ {@code 2^-rounds}. Revealing one
+ * fresh half per round leaks nothing about {@code (π, k)} (zero-knowledge).
  *
- * <p><b>Soundness parameter.</b> {@link #DEFAULT_ROUNDS} = 128 ⇒ 2^-128. This trades compute (K×)
- * for an implementation whose soundness is a one-line argument rather than subtle algebra — the
- * deliberate choice for money-grade, externally-reviewable crypto.
+ * <p><b>Soundness parameter.</b> {@link #DEFAULT_ROUNDS} = 128 ⇒ 2^-128 — the deliberate choice for
+ * money-grade crypto whose soundness is a one-line argument rather than subtle algebra.
  */
 public final class CutChooseShuffleProof {
 
@@ -53,18 +56,18 @@ public final class CutChooseShuffleProof {
     private CutChooseShuffleProof() {
     }
 
-    /** A proof: per round, the published intermediate deck and the revealed half (perm + scalar). */
+    /** A proof: per round, the committed intermediate hash and the revealed half (perm + scalar). */
     public static final class Proof {
         final int rounds;
         final int deckSize;
-        final byte[][][] intermediates; // [round][i] = canonical encoding of C_round[i]
-        final int[][] revealedPerm;     // [round] revealed permutation
+        final byte[][] intermediateHash; // [round] = SHA-256 of the round's intermediate deck C
+        final int[][] revealedPerm;      // [round] revealed permutation
         final BigInteger[] revealedScalar; // [round] revealed scalar
 
-        Proof(int rounds, int deckSize, byte[][][] intermediates, int[][] revealedPerm, BigInteger[] revealedScalar) {
+        Proof(int rounds, int deckSize, byte[][] intermediateHash, int[][] revealedPerm, BigInteger[] revealedScalar) {
             this.rounds = rounds;
             this.deckSize = deckSize;
-            this.intermediates = intermediates;
+            this.intermediateHash = intermediateHash;
             this.revealedPerm = revealedPerm;
             this.revealedScalar = revealedScalar;
         }
@@ -78,22 +81,19 @@ public final class CutChooseShuffleProof {
         private static final int MAX_DECK = 256;
 
         /**
-         * Serialize to a self-describing byte array:
-         * {@code rounds(4) | deckSize(4) | per round[ deckSize×32 intermediates | deckSize×2 perm |
-         * 32 scalar ]}. Perm indices are 2-byte big-endian (deck ≤ 256); scalars 32-byte big-endian.
+         * Serialize: {@code rounds(4) | deckSize(4) | per round[ 32 hash | deckSize×2 perm | 32 scalar ]}.
+         * Perm indices are 2-byte big-endian (deck ≤ 256); scalars 32-byte big-endian.
          */
         public byte[] toBytes() {
             int n = deckSize;
-            int perRound = n * 32 + n * 2 + 32;
+            int perRound = 32 + n * 2 + 32;
             byte[] out = new byte[8 + rounds * perRound];
             putInt(out, 0, rounds);
             putInt(out, 4, deckSize);
             int p = 8;
             for (int j = 0; j < rounds; j++) {
-                for (int i = 0; i < n; i++) {
-                    System.arraycopy(intermediates[j][i], 0, out, p, 32);
-                    p += 32;
-                }
+                System.arraycopy(intermediateHash[j], 0, out, p, 32);
+                p += 32;
                 for (int i = 0; i < n; i++) {
                     int v = revealedPerm[j][i];
                     out[p++] = (byte) (v >>> 8);
@@ -117,21 +117,19 @@ public final class CutChooseShuffleProof {
                 if (rounds <= 0 || rounds > MAX_ROUNDS || n <= 0 || n > MAX_DECK) {
                     return null;
                 }
-                int perRound = n * 32 + n * 2 + 32;
+                int perRound = 32 + n * 2 + 32;
                 if (in.length != 8 + (long) rounds * perRound) {
                     return null;
                 }
-                byte[][][] intermediates = new byte[rounds][n][];
+                byte[][] intermediateHash = new byte[rounds][];
                 int[][] revealedPerm = new int[rounds][n];
                 BigInteger[] revealedScalar = new BigInteger[rounds];
                 int p = 8;
                 for (int j = 0; j < rounds; j++) {
-                    for (int i = 0; i < n; i++) {
-                        byte[] pt = new byte[32];
-                        System.arraycopy(in, p, pt, 0, 32);
-                        p += 32;
-                        intermediates[j][i] = pt;
-                    }
+                    byte[] h = new byte[32];
+                    System.arraycopy(in, p, h, 0, 32);
+                    p += 32;
+                    intermediateHash[j] = h;
                     for (int i = 0; i < n; i++) {
                         int v = ((in[p] & 0xFF) << 8) | (in[p + 1] & 0xFF);
                         p += 2;
@@ -142,7 +140,7 @@ public final class CutChooseShuffleProof {
                     p += 32;
                     revealedScalar[j] = new BigInteger(1, s);
                 }
-                return new Proof(rounds, n, intermediates, revealedPerm, revealedScalar);
+                return new Proof(rounds, n, intermediateHash, revealedPerm, revealedScalar);
             } catch (Exception e) {
                 return null;
             }
@@ -176,31 +174,29 @@ public final class CutChooseShuffleProof {
         }
     }
 
-    private static void absorbEncodedDeck(Transcript t, String label, byte[][] deck) {
-        t.absorb(label + ":n", new byte[]{(byte) (deck.length >>> 8), (byte) deck.length});
-        for (int i = 0; i < deck.length; i++) {
-            t.absorb(label + ":" + i, deck[i]);
+    /** SHA-256 of a deck's concatenated canonical encodings — the per-round commitment. */
+    static byte[] hashDeck(EdwardsPoint[] deck) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            for (EdwardsPoint p : deck) {
+                md.update(Ristretto255.encode(p));
+            }
+            return md.digest();
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
         }
     }
 
-    private static byte[][] encode(EdwardsPoint[] deck) {
-        byte[][] out = new byte[deck.length][];
-        for (int i = 0; i < deck.length; i++) {
-            out[i] = Ristretto255.encode(deck[i]);
-        }
-        return out;
-    }
-
-    /** The K challenge bits, bound to A, B and every intermediate C (Fiat–Shamir). Package-private
-     *  so the adversarial test can simulate a cheating prover. */
+    /** The K challenge bits, bound to A, B and every committed intermediate hash (Fiat–Shamir).
+     *  Package-private so the adversarial test can simulate a cheating prover. */
     static boolean[] challengeBits(String domain, EdwardsPoint[] a, EdwardsPoint[] b,
-                                           byte[][][] intermediates, int rounds) {
+                                   byte[][] intermediateHash, int rounds) {
         Transcript t = new Transcript(FS_DOMAIN_PREFIX + (domain == null ? "" : domain));
         t.absorb("rounds", new byte[]{(byte) (rounds >>> 24), (byte) (rounds >>> 16), (byte) (rounds >>> 8), (byte) rounds});
         absorbDeck(t, "A", a);
         absorbDeck(t, "B", b);
         for (int j = 0; j < rounds; j++) {
-            absorbEncodedDeck(t, "C" + j, intermediates[j]);
+            t.absorb("H" + j, intermediateHash[j]);
         }
         byte[] raw = t.challengeBytes("bits", (rounds + 7) / 8);
         boolean[] bits = new boolean[rounds];
@@ -227,17 +223,17 @@ public final class CutChooseShuffleProof {
             throw new IllegalArgumentException("(pi,k) is not a witness for b = apply(a,pi,k)");
         }
 
-        // Rounds are independent → build the intermediates in parallel (scalar-mul heavy).
+        // Rounds are independent → build the intermediates + their hashes in parallel (scalar-mul heavy).
         final int[][] pi1 = new int[rounds][];
         final BigInteger[] k1 = new BigInteger[rounds];
-        final byte[][][] intermediates = new byte[rounds][][];
+        final byte[][] hashes = new byte[rounds][];
         java.util.stream.IntStream.range(0, rounds).parallel().forEach(j -> {
             pi1[j] = DeckTransform.randomPermutation(n);
             k1[j] = RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
-            intermediates[j] = encode(DeckTransform.apply(a, pi1[j], k1[j]));
+            hashes[j] = hashDeck(DeckTransform.apply(a, pi1[j], k1[j]));
         });
 
-        boolean[] bits = challengeBits(null, a, b, intermediates, rounds);
+        boolean[] bits = challengeBits(null, a, b, hashes, rounds);
 
         int[][] revealedPerm = new int[rounds][];
         BigInteger[] revealedScalar = new BigInteger[rounds];
@@ -252,7 +248,7 @@ public final class CutChooseShuffleProof {
                 revealedScalar[j] = kk.multiply(k1[j].modInverse(EdwardsPoint.L)).mod(EdwardsPoint.L);
             }
         }
-        return new Proof(rounds, n, intermediates, revealedPerm, revealedScalar);
+        return new Proof(rounds, n, hashes, revealedPerm, revealedScalar);
     }
 
     /** Production-strength proof ({@link #DEFAULT_ROUNDS}). */
@@ -269,41 +265,14 @@ public final class CutChooseShuffleProof {
         if (b.length != n || proof.deckSize != n || proof.rounds <= 0) {
             return false;
         }
-        if (proof.intermediates.length != proof.rounds
+        if (proof.intermediateHash.length != proof.rounds
                 || proof.revealedPerm.length != proof.rounds
                 || proof.revealedScalar.length != proof.rounds) {
             return false;
         }
 
-        // Decode the intermediates (reject non-canonical points). Rounds are independent →
-        // decode and check in parallel; any failure flips the atomic flag.
-        final EdwardsPoint[][] cDecks = new EdwardsPoint[proof.rounds][];
+        final boolean[] bits = challengeBits(null, a, b, proof.intermediateHash, proof.rounds);
         final java.util.concurrent.atomic.AtomicBoolean bad = new java.util.concurrent.atomic.AtomicBoolean(false);
-        java.util.stream.IntStream.range(0, proof.rounds).parallel().forEach(j -> {
-            byte[][] enc = proof.intermediates[j];
-            if (enc == null || enc.length != n) {
-                bad.set(true);
-                return;
-            }
-            EdwardsPoint[] c = new EdwardsPoint[n];
-            for (int i = 0; i < n; i++) {
-                if (enc[i] == null || enc[i].length != 32) {
-                    bad.set(true);
-                    return;
-                }
-                c[i] = Ristretto255.decode(enc[i]);
-                if (c[i] == null) {
-                    bad.set(true); // non-canonical / off-group intermediate point
-                    return;
-                }
-            }
-            cDecks[j] = c;
-        });
-        if (bad.get()) {
-            return false;
-        }
-
-        final boolean[] bits = challengeBits(null, a, b, proof.intermediates, proof.rounds);
 
         java.util.stream.IntStream.range(0, proof.rounds).parallel().forEach(j -> {
             if (bad.get()) {
@@ -311,15 +280,20 @@ public final class CutChooseShuffleProof {
             }
             int[] perm = proof.revealedPerm[j];
             BigInteger s = proof.revealedScalar[j];
+            byte[] committed = proof.intermediateHash[j];
             if (!DeckTransform.isPermutation(perm, n) || s == null
-                    || s.mod(EdwardsPoint.L).signum() == 0) {
+                    || s.mod(EdwardsPoint.L).signum() == 0
+                    || committed == null || committed.length != 32) {
                 bad.set(true);
                 return;
             }
-            boolean ok = !bits[j]
-                    ? DeckTransform.decksEqual(cDecks[j], DeckTransform.apply(a, perm, s))   // A -> C
-                    : DeckTransform.decksEqual(b, DeckTransform.apply(cDecks[j], perm, s));   // C -> B
-            if (!ok) {
+            // Recompute the round's intermediate C from the revealed half, then check its hash
+            // matches the commitment. For bit 1, C := apply(B, invert(perm), s^-1) makes
+            // B = apply(C, perm, s) hold by construction, so the hash check is the whole proof.
+            EdwardsPoint[] c = !bits[j]
+                    ? DeckTransform.apply(a, perm, s)
+                    : DeckTransform.apply(b, DeckTransform.invert(perm), s.modInverse(EdwardsPoint.L));
+            if (!Arrays.equals(hashDeck(c), committed)) {
                 bad.set(true);
             }
         });

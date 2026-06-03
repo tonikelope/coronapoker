@@ -44,24 +44,29 @@ public class ShuffleArgumentPerfTest {
             b[i] = a[pi[i]].scalarMul(k.mod(L));
         }
 
-        // warmup
-        ShuffleArgument.Proof warm = ShuffleArgument.prove(a, b, pi, k);
-        assertTrue(ShuffleArgument.verify(a, b, warm), "warmup verifica");
+        // Warmup generoso para que el JIT compile el hot path antes de medir (si no, el ruido domina).
+        ShuffleArgument.Proof warm = null;
+        for (int w = 0; w < 5; w++) {
+            warm = ShuffleArgument.prove(a, b, pi, k);
+            assertTrue(ShuffleArgument.verify(a, b, warm), "warmup verifica");
+        }
 
-        int steps = 3; // cascada tipica: host + 2 clientes
-        long tProve = 0, tVerify = 0;
-        for (int s = 0; s < steps; s++) {
+        int iters = 11;
+        long[] proveMs = new long[iters];
+        long[] verifyMs = new long[iters];
+        for (int s = 0; s < iters; s++) {
             long t0 = System.nanoTime();
             ShuffleArgument.Proof p = ShuffleArgument.prove(a, b, pi, k);
             long t1 = System.nanoTime();
             boolean ok = ShuffleArgument.verify(a, b, p);
             long t2 = System.nanoTime();
-            assertTrue(ok, "paso " + s + " verifica");
-            tProve += (t1 - t0);
-            tVerify += (t2 - t1);
+            assertTrue(ok, "iter " + s + " verifica");
+            proveMs[s] = (t1 - t0) / 1_000_000;
+            verifyMs[s] = (t2 - t1) / 1_000_000;
         }
-        System.out.println("[PERF] shuffle n=52, " + steps + " pasos: prove total="
-                + (tProve / 1_000_000) + "ms (" + (tProve / 1_000_000 / steps) + "ms/paso), verify total="
-                + (tVerify / 1_000_000) + "ms (" + (tVerify / 1_000_000 / steps) + "ms/paso)");
+        java.util.Arrays.sort(proveMs);
+        java.util.Arrays.sort(verifyMs);
+        System.out.println("[PERF] shuffle n=52 (mediana de " + iters + ", warmup x5): prove="
+                + proveMs[iters / 2] + "ms/paso, verify=" + verifyMs[iters / 2] + "ms/paso");
     }
 }

@@ -129,24 +129,43 @@ public final class MultiplicationProof {
                 || !inRange(p.z1) || !inRange(p.z2) || !inRange(p.z3) || !inRange(p.z4) || !inRange(p.z5)) {
             return false;
         }
+        // Decode each commitment ONCE and work in projective points, encoding only the two sides of
+        // each gate for the (canonical-encoding) comparison — avoids the redundant decode/encode round
+        // trips of the byte-oriented add/scale on this O(n) hot path. Behaviour is identical.
+        EdwardsPoint cap = Ristretto255.decode(ca);
+        EdwardsPoint cbp = Ristretto255.decode(cb);
+        EdwardsPoint ccp = Ristretto255.decode(cc);
+        EdwardsPoint m1p = Ristretto255.decode(p.m1);
+        EdwardsPoint m2p = Ristretto255.decode(p.m2);
+        EdwardsPoint m3p = Ristretto255.decode(p.m3);
+        if (cap == null || cbp == null || ccp == null || m1p == null || m2p == null || m3p == null) {
+            return false;
+        }
+        EdwardsPoint g0 = PedersenVectorCommit.generator(0);
+        EdwardsPoint h = PedersenVectorCommit.H;
         BigInteger e = challenge(ca, cb, cc, p.m1, p.m2, p.m3);
 
         // (1) z1·G_0 + z2·H == M1 ⊕ e·C_a
-        byte[] lhs1 = scalarG0PlusRH(p.z1, p.z2);
-        byte[] rhs1 = PedersenVectorCommit.add(p.m1, PedersenVectorCommit.scale(ca, e));
-        if (rhs1 == null || !Arrays.equals(lhs1, rhs1)) {
+        EdwardsPoint lhs1 = EdwardsPoint.multiscalarMul(new BigInteger[]{p.z1, p.z2}, new EdwardsPoint[]{g0, h});
+        EdwardsPoint rhs1 = m1p.add(cap.scalarMul(e));
+        if (!encEq(lhs1, rhs1)) {
             return false;
         }
         // (2) z3·G_0 + z4·H == M2 ⊕ e·C_b
-        byte[] lhs2 = scalarG0PlusRH(p.z3, p.z4);
-        byte[] rhs2 = PedersenVectorCommit.add(p.m2, PedersenVectorCommit.scale(cb, e));
-        if (rhs2 == null || !Arrays.equals(lhs2, rhs2)) {
+        EdwardsPoint lhs2 = EdwardsPoint.multiscalarMul(new BigInteger[]{p.z3, p.z4}, new EdwardsPoint[]{g0, h});
+        EdwardsPoint rhs2 = m2p.add(cbp.scalarMul(e));
+        if (!encEq(lhs2, rhs2)) {
             return false;
         }
         // (3) z1·C_b + z5·H == M3 ⊕ e·C_c
-        byte[] lhs3 = PedersenVectorCommit.add(PedersenVectorCommit.scale(cb, p.z1), commitScalar(BigInteger.ZERO, p.z5));
-        byte[] rhs3 = PedersenVectorCommit.add(p.m3, PedersenVectorCommit.scale(cc, e));
-        return rhs3 != null && lhs3 != null && Arrays.equals(lhs3, rhs3);
+        EdwardsPoint lhs3 = EdwardsPoint.multiscalarMul(new BigInteger[]{p.z1, p.z5}, new EdwardsPoint[]{cbp, h});
+        EdwardsPoint rhs3 = m3p.add(ccp.scalarMul(e));
+        return encEq(lhs3, rhs3);
+    }
+
+    /** Canonical-encoding equality (same relation the byte-oriented path used: Ristretto point equality). */
+    private static boolean encEq(EdwardsPoint a, EdwardsPoint b) {
+        return Arrays.equals(Ristretto255.encode(a), Ristretto255.encode(b));
     }
 
     private static BigInteger scalar() {

@@ -53,7 +53,7 @@ import java.util.Arrays;
  * output. Under that induction every {@code A} is DL-independent and the smuggle is impossible. <b>Verifying an
  * isolated step against an unanchored / caller-supplied {@code A} is NOT sound</b> — {@link #verify} cannot
  * detect provenance, so the cascade wiring is responsible for the anchor + chain (as
- * {@code VerifiableCascade.verifyChain} already does, via {@code decksEqual(genesis, decks[0])}).
+ * {@link ShuffleCascade#verifyChain} does, via {@code decksEqual(genesis, decks[0])}).
  *
  * <p>Defensive hygiene: {@link #verify} additionally rejects identity deck points / {@code Q} / {@code P_A}
  * (which would attest a degenerate all-identity deck, i.e. {@code k = 0}) and rejects out-of-range response

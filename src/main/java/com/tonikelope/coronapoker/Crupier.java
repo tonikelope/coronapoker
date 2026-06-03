@@ -562,7 +562,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (DualLockCascade). host/bot: prueba generada inline (batch-DLEQ es barato, ~ms); remoto: la
     // prueba que mande el cliente en DECK_ROTATION_RESP (pendiente wire-rotation-2 -> null por ahora).
     public volatile java.util.List<byte[]> cascade_rotation_states = null;
-    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;
+    // CERO crypto en el path de reparto: el bucle solo registra estados + el escalar combinado
+    // (s=s1*s2, multiplicacion BigInteger barata) de host/bot; las pruebas batch-DLEQ se generan en
+    // BACKGROUND. Para pasos remotos guardamos la prueba que ya mando el cliente (su generacion es
+    // inline pero de UN solo paso, trivial).
+    public volatile java.util.List<java.math.BigInteger> cascade_rotation_scalars = null; // host/bot: s; remoto: null
+    public volatile java.util.List<byte[]> cascade_rotation_remote_proofs = null;          // remoto: prueba; host/bot: null
+    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // construido en background
     // Prueba del último paso de rotación remoto, parseada en requestRemoteRotation y leída por el bucle.
     private volatile byte[] last_remote_rotation_proof = null;
 
@@ -830,29 +836,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // pieces y añade su lock de community — la mitad que sí se entrega vía
     // testamento al hacer EXIT. La fase de rotación es secuencial peer-a-peer
     // igual que la cascade principal; este método maneja un solo peer.
-    /**
-     * Genera el RotationProof (batch-DLEQ) de un paso de rotacion: prueba que {@code after[i] = s·before[i]}
-     * con {@code s = s1·s2} (uPocket·kCommunity), mismo escalar y misma posicion (re-key en sitio, sin
-     * relocalizar ni duplicar). Devuelve los bytes serializados, o null ante cualquier fallo (no rompe
-     * el reparto: una prueba ausente solo deja la verificacion full-chain como "skipped").
-     */
-    private byte[] genRotationProof(byte[] before, byte[] after, byte[] s1, byte[] s2) {
-        try {
-            java.math.BigInteger s = com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(s1)
-                    .multiply(com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(s2))
-                    .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
-            com.tonikelope.coronapoker.crypto.EdwardsPoint[] in = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(before);
-            com.tonikelope.coronapoker.crypto.EdwardsPoint[] out = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(after);
-            if (in == null || out == null) {
-                return null;
-            }
-            return com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
-                    com.tonikelope.coronapoker.crypto.RotationProof.prove(s, in, out));
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -1357,18 +1340,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean rotationOk = true;
         String rotationFailMotivo = null;
-        // Cierre del flanco rotacion: registramos el estado community tras cada paso + un RotationProof
-        // (batch-DLEQ) por paso (host/bot inline; remoto -> null, lo aporta el cliente en wire-rotation-2).
+        // Cierre del flanco rotacion: el bucle solo REGISTRA (cero crypto en el path): estado community
+        // tras cada paso + el escalar combinado s=s1*s2 de host/bot (mult BigInteger barata) o la prueba
+        // que ya mando el cliente. Las pruebas batch-DLEQ de host/bot se generan en BACKGROUND.
         java.util.List<byte[]> rotStates = new java.util.ArrayList<>();
-        java.util.List<byte[]> rotProofs = new java.util.ArrayList<>();
+        java.util.List<java.math.BigInteger> rotScalars = new java.util.ArrayList<>();
+        java.util.List<byte[]> rotRemoteProofs = new java.util.ArrayList<>();
         for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
             String currNick = currentRing[i];
-            byte[] rotBefore = communityPieces;
-            byte[] stepProof = null;
+            java.math.BigInteger stepScalar = null;
+            byte[] stepRemoteProof = null;
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
-                stepProof = genRotationProof(rotBefore, communityPieces, this.local_sra_unlock, this.local_sra_lock_community);
+                stepScalar = RistrettoSRA.bytesToScalar(this.local_sra_unlock)
+                        .multiply(RistrettoSRA.bytesToScalar(this.local_sra_lock_community))
+                        .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                 if (p != null && p.isCpu()) {
@@ -1383,12 +1370,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botUnlock);
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
-                    stepProof = genRotationProof(rotBefore, communityPieces, botUnlock, botCommunityLock);
+                    stepScalar = RistrettoSRA.bytesToScalar(botUnlock)
+                            .multiply(RistrettoSRA.bytesToScalar(botCommunityLock))
+                            .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
                 } else if (p != null && !p.isExit()) {
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
                         communityPieces = rotated;
-                        stepProof = this.last_remote_rotation_proof; // prueba del cliente (DECK_ROTATION_RESP partes[5])
+                        stepRemoteProof = this.last_remote_rotation_proof; // prueba del cliente (DECK_ROTATION_RESP partes[5])
                     } else {
                         // Peer está vivo (no exit) pero no respondió — REFUSAL.
                         // Aplica la regla "no entrega secreto" → para la timba.
@@ -1411,7 +1400,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             rotStates.add(communityPieces);   // estado community tras este paso (state[i+1])
-            rotProofs.add(stepProof);          // RotationProof del paso (null si remoto, de momento)
+            rotScalars.add(stepScalar);        // host/bot: s=s1*s2; remoto: null
+            rotRemoteProofs.add(stepRemoteProof); // remoto: prueba del cliente; host/bot: null
         }
 
         if (!rotationOk) {
@@ -1419,7 +1409,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return false;
         }
         this.cascade_rotation_states = rotStates;
-        this.cascade_rotation_proofs = rotProofs;
+        this.cascade_rotation_scalars = rotScalars;
+        this.cascade_rotation_remote_proofs = rotRemoteProofs;
 
         // Reensamblar el deck: pocket pieces intactos + community pieces rotados.
         byte[] dualLockDeck = new byte[1664];
@@ -1655,7 +1646,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final int bgPocketCount = numPlayersFinal * 2;
         final byte[] bgMega = this.local_mega_packet;
         final java.util.List<byte[]> bgRotStates = this.cascade_rotation_states;
-        final java.util.List<byte[]> bgRotProofs = this.cascade_rotation_proofs;
+        final java.util.List<java.math.BigInteger> bgRotScalars = this.cascade_rotation_scalars;
+        final java.util.List<byte[]> bgRotRemoteProofs = this.cascade_rotation_remote_proofs;
         if (bgDecks != null && bgPerm != null) {
             Helpers.threadRun(() -> {
                 try {
@@ -1672,19 +1664,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     LOGGER.log(ok ? Level.INFO : Level.SEVERE,
                             "C1 background: cascade-chain verify = {0} ({1} pasos)",
                             new Object[]{ok, proofs.size()});
-                    // Cadena COMPLETA (cascada + rotacion). Solo si TODAS las pruebas de rotacion estan
-                    // presentes (los pasos remotos quedan null hasta wire-rotation-2).
-                    if (bgRotStates != null && bgRotProofs != null && !bgRotProofs.isEmpty()
-                            && !bgRotProofs.contains(null) && bgMega != null) {
+                    // Cadena COMPLETA (cascada + rotacion). Generamos AQUI (background) las pruebas
+                    // batch-DLEQ de host/bot a partir del escalar registrado; las remotas ya vienen del
+                    // cliente. Cero crypto de esto en el path de reparto.
+                    java.util.List<byte[]> rotProofsBg = new java.util.ArrayList<>();
+                    boolean rotComplete = bgRotStates != null && bgRotScalars != null
+                            && bgRotRemoteProofs != null && bgMega != null && !bgRotStates.isEmpty()
+                            && bgRotScalars.size() == bgRotStates.size()
+                            && bgRotRemoteProofs.size() == bgRotStates.size();
+                    if (rotComplete) {
+                        byte[] preRotDeck = bgDecks.get(bgDecks.size() - 1);
+                        byte[] before = java.util.Arrays.copyOfRange(preRotDeck, bgPocketCount * 32, preRotDeck.length);
+                        for (int r = 0; r < bgRotStates.size() && rotComplete; r++) {
+                            byte[] after = bgRotStates.get(r);
+                            byte[] stepP;
+                            if (bgRotRemoteProofs.get(r) != null) {
+                                stepP = bgRotRemoteProofs.get(r);
+                            } else if (bgRotScalars.get(r) != null) {
+                                com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(before);
+                                com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(after);
+                                stepP = (inR != null && outR != null)
+                                        ? com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                                                com.tonikelope.coronapoker.crypto.RotationProof.prove(bgRotScalars.get(r), inR, outR))
+                                        : null;
+                            } else {
+                                stepP = null;
+                            }
+                            if (stepP == null) {
+                                rotComplete = false;
+                            } else {
+                                rotProofsBg.add(stepP);
+                            }
+                            before = after;
+                        }
+                    }
+                    if (rotComplete && !rotProofsBg.isEmpty()) {
+                        this.cascade_rotation_proofs = rotProofsBg;
                         boolean fullOk = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
                                 bgGenesis, bgDecks.subList(1, bgDecks.size()), proofs, bgPocketCount,
-                                bgMega, bgRotStates, bgRotProofs);
+                                bgMega, bgRotStates, rotProofsBg);
                         LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
                                 "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} pasos rotacion)",
-                                new Object[]{fullOk, bgRotProofs.size()});
+                                new Object[]{fullOk, rotProofsBg.size()});
                     } else {
                         LOGGER.log(Level.INFO,
-                                "C1 background: full-chain verify skipped (pruebas de rotacion remotas pendientes wire-rotation-2)");
+                                "C1 background: full-chain verify skipped (rotacion incompleta o paso remoto sin prueba)");
                     }
                 } catch (Exception bgEx) {
                     this.cascade_verified = -1;

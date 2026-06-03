@@ -1605,11 +1605,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
                         proofs.add((bgRemote.get(s) != null) ? bgRemote.get(s)
-                                : com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
+                                : com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
                                         bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s)));
                     }
                     this.cascade_chain_proofs = proofs;
-                    boolean ok = com.tonikelope.coronapoker.crypto.VerifiableCascade
+                    boolean ok = com.tonikelope.coronapoker.crypto.ShuffleCascade
                             .verifyChainWire(bgGenesis, bgDecks, proofs);
                     this.cascade_verified = ok ? 1 : -1;
                     LOGGER.log(ok ? Level.INFO : Level.SEVERE,

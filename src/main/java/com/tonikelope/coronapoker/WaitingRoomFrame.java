@@ -2309,12 +2309,20 @@ public class WaitingRoomFrame extends JFrame {
                                                             // (por si es bug), no abort duro. Background, no toca UI.
                                                             final String[] partes_bundle = partes_comando;
                                                             Helpers.threadRun(() -> {
+                                                                Crupier cruB = GameFrame.getInstance().getCrupier();
+                                                                // Estado aun no listo (carrera con el procesado del MEGAPACKET): NO es
+                                                                // sospechoso, lo ignoramos sin avisar.
+                                                                if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
+                                                                    return;
+                                                                }
+                                                                // Un bundle RECIBIDO pero malformado (canal AES+HMAC -> vino del host
+                                                                // intacto) es anomalo: un host honesto siempre manda 7 campos validos.
+                                                                if (partes_bundle.length < 7) {
+                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformado (campos={0}) — avisando", partes_bundle.length);
+                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                                                                    return;
+                                                                }
                                                                 try {
-                                                                    Crupier cruB = GameFrame.getInstance().getCrupier();
-                                                                    if (cruB == null || cruB.local_mega_packet == null
-                                                                            || cruB.active_crypto_ring == null || partes_bundle.length < 7) {
-                                                                        return;
-                                                                    }
                                                                     int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
                                                                     byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
                                                                     boolean okB = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
@@ -2328,7 +2336,9 @@ public class WaitingRoomFrame extends JFrame {
                                                                         cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                     }
                                                                 } catch (Exception bundleEx) {
-                                                                    LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE processing failed", bundleEx);
+                                                                    // Recibido pero no parseable (base64 invalido, etc.) = anomalo -> avisar.
+                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE no parseable — avisando", bundleEx);
+                                                                    cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }
                                                             });
                                                             break;

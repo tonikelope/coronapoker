@@ -1710,7 +1710,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             before = after;
                         }
                     }
-                    if (rotComplete && !rotProofsBg.isEmpty()) {
+                    // Solo seguimos si TODAS las pruebas de cascada estan (un peer legacy/proofless deja
+                    // un null -> NO difundir un bundle con null, que todos los peers rechazarian en falso).
+                    if (rotComplete && !rotProofsBg.isEmpty() && !proofs.contains(null)) {
                         this.cascade_rotation_proofs = rotProofsBg;
                         boolean fullOk = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
                                 bgGenesis, bgDecks.subList(1, bgDecks.size()), proofs, bgPocketCount,

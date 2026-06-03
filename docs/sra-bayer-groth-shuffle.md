@@ -73,7 +73,20 @@ binding entre ladrillos es justo lo que una revision independiente debe descarta
   arrays con conteo prefijado); decode TOTAL (malformado/truncado/garbage/conteo-gigante → null, nunca
   excepcion). 7 tests.
 
-## Cableado en el juego (HECHO, **PENDIENTE SMOKE**)
+## Cierre del flanco ROTACIÓN (HECHO, probado — 20 tests más, 80 en total)
+La cascada (ShuffleArgument) sólo cubre génesis→pre-rotación. El MEGAPACKET real sale tras la
+**rotación dual-lock** (FASE 1.5), que **no permuta**: re-keyea en sitio (un escalar a todas las
+community pieces). Por eso el cierre de la rotación NO es un proof-of-shuffle sino un **batch-DLEQ**:
+- **RotationProof** — batch-DLEQ: prueba `out[i]=s·in[i]` mismo `s`, mismo índice, sin reordenar
+  (Schwartz-Zippel sobre el agregado con pesos Fiat-Shamir; `s` oculto, ZK). Relocación, duplicación
+  o escalar-por-posición → rechazados.
+- **DualLockCascade.verifyFullChain** — cadena ENTERA génesis→MEGAPACKET: cascada (Bayer-Groth,
+  anclada génesis) + cadena de RotationProof + 2 invariantes (pocket del MEGAPACKET == pocket
+  pre-rotación byte-a-byte; community del MEGAPACKET == salida de la rotación). Fuerza que el
+  MEGAPACKET sea permutación+relock genuina de génesis: **smuggle pocket→community rechazado**.
+- **DualLockWire.verifyFullChainWire** — todo por bytes (génesis recomputado, decode total).
+
+## Cableado en el juego (HECHO PARCIAL, **PENDIENTE SMOKE**)
 Swap mecanico de 3 call sites (firma identica) de `VerifiableCascade` (cut-and-choose) a
 `ShuffleCascade` (Bayer-Groth): Crupier (proveStepWire de pasos host/bot + verifyChainWire en el
 thread de fondo) y WaitingRoomFrame (proveStepWire del paso propio del cliente). Aislado: el proof es

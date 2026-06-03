@@ -72,6 +72,101 @@ public final class CutChooseShuffleProof {
         public int getRounds() {
             return rounds;
         }
+
+        /** Defensive bounds for {@link #fromBytes} (reject absurd headers before allocating). */
+        private static final int MAX_ROUNDS = 1024;
+        private static final int MAX_DECK = 256;
+
+        /**
+         * Serialize to a self-describing byte array:
+         * {@code rounds(4) | deckSize(4) | per round[ deckSize×32 intermediates | deckSize×2 perm |
+         * 32 scalar ]}. Perm indices are 2-byte big-endian (deck ≤ 256); scalars 32-byte big-endian.
+         */
+        public byte[] toBytes() {
+            int n = deckSize;
+            int perRound = n * 32 + n * 2 + 32;
+            byte[] out = new byte[8 + rounds * perRound];
+            putInt(out, 0, rounds);
+            putInt(out, 4, deckSize);
+            int p = 8;
+            for (int j = 0; j < rounds; j++) {
+                for (int i = 0; i < n; i++) {
+                    System.arraycopy(intermediates[j][i], 0, out, p, 32);
+                    p += 32;
+                }
+                for (int i = 0; i < n; i++) {
+                    int v = revealedPerm[j][i];
+                    out[p++] = (byte) (v >>> 8);
+                    out[p++] = (byte) v;
+                }
+                byte[] s = scalar32(revealedScalar[j]);
+                System.arraycopy(s, 0, out, p, 32);
+                p += 32;
+            }
+            return out;
+        }
+
+        /** Parse {@link #toBytes}. Returns null on any malformed/over-large input (never throws). */
+        public static Proof fromBytes(byte[] in) {
+            try {
+                if (in == null || in.length < 8) {
+                    return null;
+                }
+                int rounds = getInt(in, 0);
+                int n = getInt(in, 4);
+                if (rounds <= 0 || rounds > MAX_ROUNDS || n <= 0 || n > MAX_DECK) {
+                    return null;
+                }
+                int perRound = n * 32 + n * 2 + 32;
+                if (in.length != 8 + (long) rounds * perRound) {
+                    return null;
+                }
+                byte[][][] intermediates = new byte[rounds][n][];
+                int[][] revealedPerm = new int[rounds][n];
+                BigInteger[] revealedScalar = new BigInteger[rounds];
+                int p = 8;
+                for (int j = 0; j < rounds; j++) {
+                    for (int i = 0; i < n; i++) {
+                        byte[] pt = new byte[32];
+                        System.arraycopy(in, p, pt, 0, 32);
+                        p += 32;
+                        intermediates[j][i] = pt;
+                    }
+                    for (int i = 0; i < n; i++) {
+                        int v = ((in[p] & 0xFF) << 8) | (in[p + 1] & 0xFF);
+                        p += 2;
+                        revealedPerm[j][i] = v;
+                    }
+                    byte[] s = new byte[32];
+                    System.arraycopy(in, p, s, 0, 32);
+                    p += 32;
+                    revealedScalar[j] = new BigInteger(1, s);
+                }
+                return new Proof(rounds, n, intermediates, revealedPerm, revealedScalar);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        private static void putInt(byte[] b, int off, int v) {
+            b[off] = (byte) (v >>> 24);
+            b[off + 1] = (byte) (v >>> 16);
+            b[off + 2] = (byte) (v >>> 8);
+            b[off + 3] = (byte) v;
+        }
+
+        private static int getInt(byte[] b, int off) {
+            return ((b[off] & 0xFF) << 24) | ((b[off + 1] & 0xFF) << 16)
+                    | ((b[off + 2] & 0xFF) << 8) | (b[off + 3] & 0xFF);
+        }
+
+        private static byte[] scalar32(BigInteger s) {
+            byte[] mod = s.mod(EdwardsPoint.L).toByteArray();
+            byte[] fixed = new byte[32];
+            int copy = Math.min(mod.length, 32);
+            System.arraycopy(mod, mod.length - copy, fixed, 32 - copy, copy);
+            return fixed;
+        }
     }
 
     private static void absorbDeck(Transcript t, String label, EdwardsPoint[] deck) {

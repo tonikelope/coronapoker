@@ -2176,7 +2176,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // ausente (sin enforcement todavía en wire-2).
                                                                     int myPermN = incomingDeck.length / 32;
                                                                     int[] myPerm = CryptoSRA.shufflePermutation(myPermN, mySeed);
-                                                                    byte[] cascadeProof = com.tonikelope.coronapoker.crypto.VerifiableCascade
+                                                                    byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
                                                                             .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
                                                                     String proofB64 = (cascadeProof != null)
                                                                             ? Base64.getEncoder().encodeToString(cascadeProof) : "";

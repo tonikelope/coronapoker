@@ -329,7 +329,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
     // Timeout duro para las fases SRA peer-a-peer en las que el host espera la
-    // respuesta de un cliente concreto (DECK_ROTATION_REQ y REQ_SRA_UNLOCK_BATCH).
+    // respuesta de un cliente concreto (DECK_ROTATION_REQ y REQ_SRA_UNLOCK_CHAIN).
     // Reproducido en issue#9: un peer reconectado mid-cascade no tiene los scalars
     // SRA generados (los crea solo en el handler DECK_CASCADE_REQ); su Crupier
     // rechaza silenciosamente -> el host esperaba hasta que el socket del peer
@@ -409,7 +409,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
             // Si somos cliente, cerramos el socket con el host inmediatamente.
-            // En lockdown el cliente refusa cualquier REQ_SRA_UNLOCK_BATCH siguiente
+            // En lockdown el cliente refusa cualquier REQ_SRA_UNLOCK_CHAIN siguiente
             // y la cascade SRA no tiene timeout artificial, así que sin cierre
             // el host queda esperando respuesta indefinidamente. Cerrar el
             // socket fuerza al host a detectar peer caído por SocketException
@@ -627,7 +627,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final Object lock_fin_mano = new Object();
     // Publica las transiciones de calle (street) y de showdown (show_time)
     // hacia los hilos que deben esperar a esos estados antes de servir una
-    // REQ_SRA_UNLOCK_BATCH. Toda escritura de street/show_time pasa por
+    // REQ_SRA_UNLOCK_CHAIN. Toda escritura de street/show_time pasa por
     // setStreetLocal/setShowTime y dispara notifyAll bajo este lock, así
     // ningún waiter pierde una transición.
     private final Object protocol_state_lock = new Object();
@@ -651,7 +651,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
     private volatile int street = PREFLOP;
-    // Zero-trust state machine: el cliente sólo responde REQ_SRA_UNLOCK_BATCH
+    // Zero-trust state machine: el cliente sólo responde REQ_SRA_UNLOCK_CHAIN
     // si la longitud de cada item encaja con la calle/fase en que está. Para
     // POCKET el guard verdadero es el anti-genesis cripto-check del cliente —
     // no hay un flag de "ya terminó Phase 2 para mí" porque cada peer sigue
@@ -957,110 +957,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
         return newPieces;
-    }
-
-    // v3: ronda total — pide a UN peer remoto que aplique su unlock a una LISTA
-    // de payloads en un solo RTT. Cada payload identifica al destinatario al que
-    // pertenece (peer_idx en el ring) y comparte la misma phase del batch. El
-    // peer valida cada item por separado (state machine, anti-reuse, GATE 6 cripto)
-    // y devuelve los unlocked en el mismo orden. Mantiene la propiedad de la versión
-    // single-item: si el peer hace EXIT durante la espera, devolvemos null y el
-    // caller decide aplicar testamento local o cancelar la mano.
-    private ArrayList<byte[]> requestRemoteUnlockBatch(String nick, Participant p, int phase, ArrayList<Integer> peerIdxs, ArrayList<byte[]> payloads) {
-        if (peerIdxs.size() != payloads.size()) {
-            return null;
-        }
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
-        byte[] iv = new byte[16];
-        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-        try {
-            StringBuilder sb = new StringBuilder();
-            sb.append("GAME#").append(id).append("#REQ_SRA_UNLOCK_BATCH#");
-            sb.append(phase).append('#').append(this.conta_mano).append('#').append(peerIdxs.size());
-            for (int i = 0; i < peerIdxs.size(); i++) {
-                sb.append('#').append(peerIdxs.get(i));
-                sb.append('#').append(Base64.getEncoder().encodeToString(payloads.get(i)));
-            }
-            p.writeCommandFromServer(Helpers.encryptCommand(sb.toString(),
-                    p.getAes_key(), iv, p.getHmac_key()));
-        } catch (Exception e) {
-            return null;
-        }
-
-        boolean ok = false;
-        ArrayList<byte[]> unlocked = null;
-        // Timeout duro: ver nota en requestRemoteRotation. Mismo issue#9 — un peer
-        // reconectado sin scalars SRA rechaza silenciosamente REQ_SRA_UNLOCK_BATCH
-        // y el host se queda bloqueado hasta que el socket muere naturalmente.
-        long deadlineMs = System.currentTimeMillis() + REMOTE_SRA_PEER_TIMEOUT_MS;
-        do {
-            synchronized (this.getReceived_commands()) {
-                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
-                while (!ok && !this.getReceived_commands().isEmpty()) {
-                    String cmd = this.received_commands.poll();
-                    String[] partes = cmd.split("#");
-                    if (partes.length >= 5 && partes[2].equals("RESP_SRA_UNLOCK_BATCH")) {
-                        try {
-                            String senderNick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
-                            if (senderNick.equals(nick)) {
-                                int count = Integer.parseInt(partes[4]);
-                                if (count == peerIdxs.size() && partes.length == 5 + 2 * count) {
-                                    ArrayList<byte[]> outList = new ArrayList<>(count);
-                                    boolean wellFormed = true;
-                                    for (int k = 0; k < count; k++) {
-                                        int respPeerIdx = Integer.parseInt(partes[5 + 2 * k]);
-                                        byte[] respPayload = Base64.getDecoder().decode(partes[6 + 2 * k]);
-                                        if (respPeerIdx != peerIdxs.get(k)
-                                                || respPayload.length != payloads.get(k).length) {
-                                            wellFormed = false;
-                                            break;
-                                        }
-                                        outList.add(respPayload);
-                                    }
-                                    if (wellFormed) {
-                                        unlocked = outList;
-                                        ok = true;
-                                    } else {
-                                        rejected.add(cmd);
-                                    }
-                                } else {
-                                    rejected.add(cmd);
-                                }
-                            } else {
-                                rejected.add(cmd);
-                            }
-                        } catch (Exception e) {
-                            rejected.add(cmd);
-                        }
-                    } else {
-                        rejected.add(cmd);
-                    }
-                }
-                if (!rejected.isEmpty()) {
-                    this.getReceived_commands().addAll(rejected);
-                }
-            }
-            if (!ok) {
-                long remainingMs = deadlineMs - System.currentTimeMillis();
-                if (remainingMs <= 0) {
-                    LOGGER.log(Level.WARNING,
-                            "REQ_SRA_UNLOCK_BATCH to {0} (phase {1}) timed out after {2}ms — peer alive but unresponsive (likely reconnected mid-cascade without SRA scalars)",
-                            new Object[]{nick, phase, REMOTE_SRA_PEER_TIMEOUT_MS});
-                    return null;
-                }
-                synchronized (this.getReceived_commands()) {
-                    try {
-                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            }
-        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
-        if (!ok) {
-            return null;
-        }
-        return unlocked;
     }
 
     /**
@@ -1484,7 +1380,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // El host quita su lock localmente salvo si el target del slot ES el
         // host (su lock se queda hasta el resolveCardIndex final). Igual con
         // bots: si target del slot es un bot, su lock se queda. Tras eso,
-        // por cada humano remoto H pedimos en UN solo REQ_SRA_UNLOCK_BATCH
+        // por cada humano remoto H pedimos en UN solo REQ_SRA_UNLOCK_CHAIN
         // que H quite su lock de todos los slots i cuyo target no sea H
         // (target=H mantiene el lock del propio H para que su client lo abra).
         // Si un humano H ha hecho EXIT con testamento, aplicamos su unlock
@@ -3361,7 +3257,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.river_revealed = v;
     }
 
-    // Phase enum para REQ_SRA_UNLOCK_BATCH. Cada item del batch lleva un
+    // Phase enum para REQ_SRA_UNLOCK_CHAIN. Cada item del batch lleva un
     // (phase, peer_idx); el cliente valida que (phase, peer_idx) encaja con
     // su estado local y aún no se ha servido en esta mano (anti-reuse, ver
     // isSraUnlockRequestLegitimate).
@@ -3407,7 +3303,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return local_mega_packet != null;
     }
 
-    // Tiempo máximo que el handler de REQ_SRA_UNLOCK_BATCH espera a que el
+    // Tiempo máximo que el handler de REQ_SRA_UNLOCK_CHAIN espera a que el
     // Crupier local avance hasta la calle exigida por la phase del batch
     // antes de tratarlo como maniobra del host (early-cascade attack).
     // Generoso: cubre clientes lentos, redes con jitter alto y manos con
@@ -3449,7 +3345,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Espera bloqueante hasta que el Crupier local haya progresado lo
-     * suficiente para que sea seguro servir un REQ_SRA_UNLOCK_BATCH de la phase
+     * suficiente para que sea seguro servir un REQ_SRA_UNLOCK_CHAIN de la phase
      * pedida, o hasta agotar el timeout.
      *
      * Gateo zero-trust contra el "early-cascade attack": un host malicioso
@@ -3576,7 +3472,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Zero-trust gate for REQ_SRA_UNLOCK_BATCH items (validated one by one).
+     * Zero-trust gate for REQ_SRA_UNLOCK_CHAIN items (validated one by one).
      *
      * The host declares which slot it is asking the client to unlock via
      * (phase, peer_idx, hand_id). En v3 cada recipient (pocket o comunitaria)

@@ -60,6 +60,31 @@ public final class Fe25519 {
         this.v = value.mod(P); // BigInteger.mod is always non-negative
     }
 
+    /** Wraps an already-reduced value in [0, P) without the (expensive) mod. */
+    private Fe25519(BigInteger reducedValue, boolean alreadyReduced) {
+        this.v = reducedValue;
+    }
+
+    private static final BigInteger MASK_255 = BigInteger.ONE.shiftLeft(255).subtract(BigInteger.ONE);
+    private static final BigInteger C19 = BigInteger.valueOf(19);
+
+    /**
+     * Fast reduction mod p = 2^255-19 of a non-negative {@code x < 2^512}, using {@code 2^255 ≡ 19}
+     * instead of a BigInteger division (the slow part of {@code mod}). Two fold rounds bring it
+     * below {@code 2P}, then at most two conditional subtractions land it in {@code [0, P)}.
+     */
+    private static BigInteger reduceWide(BigInteger x) {
+        x = x.and(MASK_255).add(x.shiftRight(255).multiply(C19)); // < 2^261
+        x = x.and(MASK_255).add(x.shiftRight(255).multiply(C19)); // < 2^255 + 1216
+        if (x.compareTo(P) >= 0) {
+            x = x.subtract(P);
+        }
+        if (x.compareTo(P) >= 0) {
+            x = x.subtract(P);
+        }
+        return x;
+    }
+
     public static Fe25519 of(BigInteger value) {
         return new Fe25519(value);
     }
@@ -128,11 +153,11 @@ public final class Fe25519 {
     }
 
     public Fe25519 mul(Fe25519 o) {
-        return new Fe25519(v.multiply(o.v));
+        return new Fe25519(reduceWide(v.multiply(o.v)), true);
     }
 
     public Fe25519 sqr() {
-        return new Fe25519(v.multiply(v));
+        return new Fe25519(reduceWide(v.multiply(v)), true);
     }
 
     public Fe25519 negate() {

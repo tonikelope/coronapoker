@@ -1310,6 +1310,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (bgDecks != null && bgPerm != null) {
             Helpers.threadRun(() -> {
                 try {
+                    // Esperar a que la animacion de barajado/reparto termine antes de quemar CPU,
+                    // para que el GIF no tartamudee. La verificacion tiene TODA la mano (apuestas)
+                    // para completarse antes del settlement, asi que arrancar unos segundos tarde
+                    // no cuesta nada.
+                    Thread.sleep(4000);
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
                         proofs.add((bgRemote.get(s) != null) ? bgRemote.get(s)

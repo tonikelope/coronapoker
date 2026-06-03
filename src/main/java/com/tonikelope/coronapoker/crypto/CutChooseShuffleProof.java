@@ -62,7 +62,10 @@ public final class CutChooseShuffleProof {
     private static final java.util.concurrent.ForkJoinPool POOL = makePool();
 
     private static java.util.concurrent.ForkJoinPool makePool() {
-        int n = Math.max(1, Runtime.getRuntime().availableProcessors());
+        // Deja 2 cores libres (al menos 1 hilo) para que la UI / animaciones nunca se queden sin
+        // CPU. En Windows las prioridades de hilo se respetan poco, asi que reservar headroom es lo
+        // que de verdad mantiene la animacion fluida; el resto de cores van a tope para la cripto.
+        int n = Math.max(1, Runtime.getRuntime().availableProcessors() - 2);
         java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory factory = p -> {
             java.util.concurrent.ForkJoinWorkerThread w =
                     java.util.concurrent.ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);

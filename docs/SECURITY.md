@@ -77,9 +77,9 @@ A blinded `r·P` cannot anchor: the chain would not start at the committed bytes
 Two further guards close the back doors found while hardening this:
 
 - **Self-strip guard (pockets).** A peer reads `megapacket[offsetBase]` *locally by index* and never de-locks a point inside its own pocket slot `[mySlot·2, mySlot·2+1]`, so a host that decouples the labelled `peerIdx` from the stripped point cannot make a peer reveal its own cards.
-- **GATE 6 (community).** After a community de-lock, a residual that resolves to a genesis card is extraction (the host presented the "all-locks-but-mine" chain to make us reveal the board early) → refused. With the binding making blinding impossible, this genesis-check can no longer be evaded.
+- **GATE 6 (community).** When a peer strips its *own* community lock, the result must still be wrapped in the other peers' locks — so it should look like noise, never a real card. If instead the residual already resolves to a genuine (genesis) card, then every *other* lock was already gone and the host is using this peer as the **final** unlock to expose a board card before its street is due → refused. (Multiplicative blinding used to let a forged value slip past this genesis-check; with the DLEQ binding of the fix above making blinding impossible, the check can no longer be evaded.)
 
-The legacy unauthenticated batch path (`REQ_SRA_UNLOCK_BATCH`) is now **obsolete and refused for every phase**, so the oracle cannot be reached through the old door either.
+The legacy unauthenticated batch path (`REQ_SRA_UNLOCK_BATCH`) has been **removed entirely** — all dealing now flows through the proof-chained `REQ_SRA_UNLOCK_CHAIN`. With no code left that serves an unlock outside the proof chain, the old door cannot be reached because it no longer exists.
 
 The chain above proves each de-lock is honest, but it does not by itself prove the **deck** is honest — that it is a genuine permutation of 52 distinct cards with nothing duplicated or relocated between the pocket and community halves. That is §2.6.
 

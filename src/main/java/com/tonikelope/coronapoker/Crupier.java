@@ -1590,10 +1590,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
         this.guardarFosilSRA();
 
-        // C1: AHORA que YA se ha repartido (la animacion del barajado ya esta hecha), lanzamos en un
-        // hilo la generacion+verificacion de la cadena de barajado. Corre durante las apuestas y
-        // termina mucho antes del settlement, que esperara a cascade_verified != 0 y abortara si es
-        // -1. Asi el reparto va instantaneo y la animacion no se entera.
+        // C1: tras repartir lanzamos en un hilo la generacion+verificacion de la cadena de barajado
+        // (Bayer-Groth). Corre durante las apuestas, sin tocar la animacion.
+        // ATENCION (estado real, no es proteccion efectiva todavia): hoy esto es INFORMATIVO. El
+        // veredicto se escribe en cascade_verified pero NINGUN sitio lo lee: NO existe gate de
+        // settlement. Ademas (a) las pruebas no se difunden a los peers -> el host se verifica a si
+        // mismo (inutil contra un host malicioso), y (b) solo cubre la cascada PRE-rotacion: la
+        // rotacion dual-lock (FASE 1.5, abajo) que genera el MEGAPACKET real queda sin probar.
+        // El anti-peek efectivo de una carta de jugador VIVO lo da la cadena DLEQ en tiempo real
+        // (self-strip guard + anclaje + GATE 6 en WaitingRoomFrame), no esto. TODO cierre real del
+        // flanco rotacion: probar la rotacion + difundir pruebas + cada peer verifica + gatear el
+        // unlock/settlement en el veredicto verificado-por-peers ANTES de la ventana de lectura.
         final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;

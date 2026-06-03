@@ -18,7 +18,8 @@ revelar ni `π` ni `k`. Bayer-Groth lo hace eficiente.
    un bug sutil (transcript, grado de polinomio) puede abrir un hueco que los tests no cacen
    (clase "Frozen Heart"). Los tests dan alta confianza; la revisión es la última puerta.
 
-## Escalera de ladrillos (cada uno con suite adversaria) — **motor COMPLETO + AUDITADO, 42 tests verdes**
+## Escalera de ladrillos (cada uno con suite adversaria) — **motor COMPLETO + AUDITADO**
+**60 tests verdes en total**: 42 del motor (ladrillos abajo + ensamblaje corona + blindaje ShuffleArgumentAuditTest) + 6 ShuffleCascade + 7 ProofCodec + 5 wire.
 1. **PedersenVectorCommit** — `C = r·H + Σ a_i·G_i`, generadores nothing-up-my-sleeve. Binding,
    hiding, homomorfico. **(hecho — 8 tests)**
 2. **Transcript Fiat-Shamir** — ya existe (reutilizado del motor anterior); absorbe todos los

@@ -2169,7 +2169,18 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // deck cascadeado, para que el host los agregue y se anclen en H_0.
                                                                     String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
                                                                     String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    // C1 (wire-2): prueba de barajado verificable de ESTE paso de cascada
+                                                                    // (deckOut = shuffle(k·deckIn)). El host la agrega a la cadena que TODOS
+                                                                    // verifican, así un host modificado no puede colar una carta. "" si la
+                                                                    // generación falla (peer legacy / degradado): el host lo trata como
+                                                                    // ausente (sin enforcement todavía en wire-2).
+                                                                    int myPermN = incomingDeck.length / 32;
+                                                                    int[] myPerm = CryptoSRA.shufflePermutation(myPermN, mySeed);
+                                                                    byte[] cascadeProof = com.tonikelope.coronapoker.crypto.VerifiableCascade
+                                                                            .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
+                                                                    String proofB64 = (cascadeProof != null)
+                                                                            ? Base64.getEncoder().encodeToString(cascadeProof) : "";
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64 + "#" + proofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
                                                                 }

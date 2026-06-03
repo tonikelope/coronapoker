@@ -159,6 +159,34 @@ public class CryptoSRA {
     }
 
     /**
+     * The permutation that {@link #shuffleDeck} applies for a given seed, as an index array:
+     * {@code perm[i]} is the original position whose card ends up at position {@code i}, i.e.
+     * {@code shuffleDeck(deck, seed)[i] == deck[perm[i]]}. Replays the exact same Fisher–Yates
+     * swaps on an identity index array, so it stays in lock-step with {@code shuffleDeck}.
+     *
+     * <p>Needed by the verifiable-shuffle engine: a peer must know its own permutation to prove its
+     * cascade step was an honest shuffle (it is never revealed on the wire).
+     */
+    public static int[] shufflePermutation(int numCards, byte[] seed) {
+        int[] perm = new int[numCards];
+        for (int i = 0; i < numCards; i++) {
+            perm[i] = i;
+        }
+        try {
+            DeterministicStream stream = new DeterministicStream(seed);
+            for (int i = numCards - 1; i > 0; i--) {
+                int j = stream.getUnbiasedInt(i + 1);
+                int t = perm[i];
+                perm[i] = perm[j];
+                perm[j] = t;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Deterministic shuffle permutation failed", e);
+        }
+        return perm;
+    }
+
+    /**
      * Retrieves the base 52-card unencrypted deck.
      * @return 52-card genesis deck (flat byte array)
      */

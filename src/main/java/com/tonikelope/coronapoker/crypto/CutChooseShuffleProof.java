@@ -53,39 +53,9 @@ public final class CutChooseShuffleProof {
 
     private static final String FS_DOMAIN_PREFIX = "SRA/CutChooseShuffle/v1/";
 
-    /**
-     * Dedicated worker pool for the (heavy, embarrassingly parallel) per-round work. Uses every
-     * available core, but the threads run at {@link Thread#MIN_PRIORITY} so the UI / game threads
-     * always preempt them — full throughput when the machine is idle, zero perceived UI lag. The
-     * crypto is run in the background (during betting), so spending all idle cores here is free.
-     */
-    private static final java.util.concurrent.ForkJoinPool POOL = makePool();
-
-    private static java.util.concurrent.ForkJoinPool makePool() {
-        // TODOS los cores (a MIN_PRIORITY). El calculo corre en background CON RETRASO -> ya no pisa
-        // la animacion de barajado; cuando arranca (durante las apuestas) la maquina esta ociosa, asi
-        // que usar el CPU a tope es gratis.
-        int n = Math.max(1, Runtime.getRuntime().availableProcessors());
-        java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory factory = p -> {
-            java.util.concurrent.ForkJoinWorkerThread w =
-                    java.util.concurrent.ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);
-            w.setPriority(Thread.MIN_PRIORITY);
-            w.setName("c1-shuffle-" + w.getPoolIndex());
-            return w;
-        };
-        return new java.util.concurrent.ForkJoinPool(n, factory, null, false);
-    }
-
-    /** Run {@code body(j)} for {@code j in [0,rounds)} across all cores in the low-priority pool. */
+    /** Run {@code body(j)} for {@code j in [0,rounds)} in parallel (default common pool). */
     private static void runInPool(int rounds, java.util.function.IntConsumer body) {
-        try {
-            POOL.submit(() -> java.util.stream.IntStream.range(0, rounds).parallel().forEach(body)).get();
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(ie);
-        } catch (java.util.concurrent.ExecutionException ee) {
-            throw new RuntimeException(ee.getCause() != null ? ee.getCause() : ee);
-        }
+        java.util.stream.IntStream.range(0, rounds).parallel().forEach(body);
     }
 
     private CutChooseShuffleProof() {

@@ -1745,6 +1745,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
                                 "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} pasos rotacion)",
                                 new Object[]{fullOk, rotProofsBg.size()});
+                        if (fullOk) {
+                            // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
+                            this.dual_lock_verified_megapacket = bgMega;
+                        }
                         // rotacion-3: difundir el bundle a los peers para que CADA UNO verifique por su
                         // cuenta (el host verificandose a si mismo no protege). El peer deriva pocketCount
                         // LOCAL y recomputa el genesis. NO mandamos pocketCount (no fiarse del host).
@@ -4058,6 +4062,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         if (orderMap != null && megaPacket != null) {
                             this.local_mega_packet = megaPacket;
+                            // Recover: el barajado se verifico pre-crash y el mazo viene del fosil propio
+                            // (confiable) -> marco verificado para el receipt (no falsa alarma de "no verificado").
+                            this.dual_lock_verified_megapacket = megaPacket;
                             String[] orderTokens = orderMap.split(",");
                             java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                             for (String token : orderTokens) {
@@ -4293,6 +4300,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (orderMap != null && megaPacket != null) {
                         this.local_mega_packet = megaPacket;
+                        // Recover: el barajado se verifico pre-crash y el mazo viene del fosil propio
+                        // (confiable) -> marco verificado para el receipt (no falsa alarma de "no verificado").
+                        this.dual_lock_verified_megapacket = megaPacket;
                         String[] orderTokens = orderMap.split(",");
                         java.util.ArrayList<String> ringList = new java.util.ArrayList<>();
                         for (String token : orderTokens) {
@@ -6780,6 +6790,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int RECEIPT_SIG_LEN = HandStateChain.SIG_BYTES;
     private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN + RECEIPT_SIG_LEN;
     private static final int RECEIPT_FLAG_BIT_INVALID_SIG_SEEN = 0;
+    // Bit 1: el firmante NO pudo verificar el barajado honesto (DUALLOCK_BUNDLE) de esta mano —
+    // host no mando la prueba, fallo, o no llego. Va firmado en el receipt -> el host no puede
+    // quitarlo, y el consenso atestigua "mazo honesto verificado por todos", no solo "acciones OK".
+    private static final int RECEIPT_FLAG_BIT_DECK_UNVERIFIED = 1;
 
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         // EC-Identity v1 (commit 6): trigger barrier + receipt exchange + unanimous
@@ -6953,6 +6967,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (this.saw_invalid_action_sig) {
                 flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
             }
+            // Firmo si NO verifiqué el barajado honesto de ESTE mazo esta mano (host no mando la
+            // prueba, fallo, o no llego). dual_lock_verified_megapacket se pone al verificar el bundle
+            // OK (cliente), el full-chain en background (host) o al restaurar en recover.
+            byte[] mp = this.local_mega_packet;
+            byte[] verified = this.dual_lock_verified_megapacket;
+            if (mp == null || verified == null || !Arrays.equals(mp, verified)) {
+                flags |= (byte) (1 << RECEIPT_FLAG_BIT_DECK_UNVERIFIED);
+            }
             byte[] sig = im.signReceipt(handId, hFinal, flags);
             return encodeReceiptBlob(handId, hFinal, flags, sig);
         } catch (RuntimeException ex) {
@@ -7082,6 +7104,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Set<String> missing = new LinkedHashSet<>();
         Set<String> divergent = new LinkedHashSet<>();
         Set<String> invalidSigReporters = new LinkedHashSet<>();
+        Set<String> deckUnverifiedReporters = new LinkedHashSet<>();
 
         for (String nick : expected) {
             byte[] r = receipts.get(nick);
@@ -7134,6 +7157,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (((flags >> RECEIPT_FLAG_BIT_INVALID_SIG_SEEN) & 1) != 0) {
                 invalidSigReporters.add(nick);
             }
+            // Bit 1: el firmante no pudo verificar el barajado honesto (DUALLOCK_BUNDLE)
+            // de esta mano. Senal mas debil (benigna en recover, en timeout del bundle, o
+            // si un peer no llego a verificar); se reporta como aviso informativo, no
+            // bloquea ni acusa. El bit va firmado, asi que el host relay no puede quitarlo.
+            if (((flags >> RECEIPT_FLAG_BIT_DECK_UNVERIFIED) & 1) != 0) {
+                deckUnverifiedReporters.add(nick);
+            }
         }
 
         String localHB64 = Base64.getEncoder().encodeToString(hFinalLocal);
@@ -7179,6 +7209,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     MessageFormat.format(
                             Translator.translate("game.popup_verificacion_firma_invalida"),
                             reportersList));
+        } else if (!deckUnverifiedReporters.isEmpty()) {
+            // Consenso por lo demas limpio, pero uno o mas firmantes no pudieron verificar
+            // el barajado honesto de esta mano. Es informativo (recover, timeout del bundle,
+            // o peer que no llego a verificar). Se avisa pero NO bloquea ni acusa de trampa.
+            String deckList = String.join(", ", deckUnverifiedReporters);
+            LOGGER.log(Level.WARNING,
+                    "Hand {0} verified but shuffle UNVERIFIED by: [{1}], local_H={2}",
+                    new Object[]{sqlite_id_hand, deckList, localHB64});
+            GameFrame.getInstance().getRegistro().print(
+                    MessageFormat.format(
+                            Translator.translate("game.mano_verificacion_barajado_no_verificado"),
+                            deckList));
+            insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
+            showConsensusPopup(
+                    Translator.translate("game.popup_verificacion_titulo_aviso"),
+                    MessageFormat.format(
+                            Translator.translate("game.popup_verificacion_barajado_no_verificado"),
+                            deckList));
         } else {
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",

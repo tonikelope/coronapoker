@@ -541,6 +541,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
     public volatile byte[] local_mega_packet = null;
 
+    // C1 (wire-3): cadena de pruebas de barajado verificable de la cascada. El host ensambla,
+    // por paso (suyo, de bots y remotos), (deckIn->deckOut, prueba). cascade_chain_decks tiene
+    // genesis + un deck por paso; cascade_chain_proofs una prueba por paso. Sirve para que TODOS
+    // verifiquen que la cascada es un barajado honesto (un host modificado no puede colar cartas).
+    public volatile java.util.List<byte[]> cascade_chain_decks = null;
+    public volatile java.util.List<byte[]> cascade_chain_proofs = null;
+    // Prueba del último paso remoto, parseada en requestRemoteCascade y leída por el bucle.
+    private volatile byte[] last_remote_cascade_proof = null;
+
     // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
     public volatile byte[] local_token_turn = null;
@@ -747,6 +756,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         }
                                     } else {
                                         LOGGER.log(Level.WARNING, "DECK_CASCADE_RESP from {0} without commitments (legacy peer) — H_0 will fall back to HAND_V1", nick);
+                                    }
+                                    // C1 (wire-3): prueba de barajado de ESTE paso remoto (campo extra
+                                    // partes[7]). "" o ausente = peer legacy/degradado -> null (sin
+                                    // enforcement todavia; el bucle la acumula en la cadena).
+                                    last_remote_cascade_proof = null;
+                                    if (partes.length >= 8 && partes[7] != null && !partes[7].isEmpty()) {
+                                        try {
+                                            last_remote_cascade_proof = Base64.getDecoder().decode(partes[7]);
+                                        } catch (Exception exProof) {
+                                            last_remote_cascade_proof = null;
+                                        }
                                     }
                                 } else {
                                     LOGGER.log(Level.SEVERE,
@@ -1187,8 +1207,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
             peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
 
-            workingDeck = RistrettoSRA.applyCommutativeLock(RistrettoSRA.getGenesisDeck(), this.local_sra_lock);
+            // C1 (wire-3): arrancar la cadena de pruebas de barajado de esta cascada (reset por
+            // intento). cascadeGenesis es el anclaje publico que todos derivan.
+            byte[] cascadeGenesis = RistrettoSRA.getGenesisDeck();
+            java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
+            java.util.List<byte[]> chainProofs = new java.util.ArrayList<>();
+            chainDecks.add(cascadeGenesis);
+
+            workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
             workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
+            // Paso del host: prueba genesis -> workingDeck (su lock + su shuffle).
+            chainProofs.add(com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
+                    cascadeGenesis, workingDeck,
+                    CryptoSRA.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed),
+                    this.local_sra_lock));
+            chainDecks.add(workingDeck);
 
             boolean restart = false;
             for (int i = 0; i < numPlayers && !restart; i++) {
@@ -1213,12 +1246,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Fase 4: commitments K del bot para H_0 (HAND_V2).
                         peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
+                        byte[] botInDeck = workingDeck;
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
+                        // C1 (wire-3): prueba del paso del bot (lo controla el host -> tambien hay que probarlo).
+                        chainProofs.add(com.tonikelope.coronapoker.crypto.VerifiableCascade.proveStepWire(
+                                botInDeck, workingDeck,
+                                CryptoSRA.shufflePermutation(botInDeck.length / 32, botSeed), botLock));
+                        chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
+                            // C1 (wire-3): acumular la prueba del paso remoto (parseada en requestRemoteCascade).
+                            chainProofs.add(last_remote_cascade_proof);
+                            chainDecks.add(workingDeck);
                         } else {
                             // El peer cayó durante el cascade (su Participant lo marcó
                             // exit por socket muerto). Aún no hemos repartido nada, así
@@ -1232,6 +1274,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!restart) {
+                // C1 (wire-3): guardar la cadena ensamblada y AUTO-VERIFICAR. Señal de smoke: la
+                // cadena honesta del propio host DEBE verificar (true); un false aquí = bug de
+                // ensamblado, o algun peer no envió prueba (legacy/degradado). Sin enforcement aun.
+                this.cascade_chain_decks = chainDecks;
+                this.cascade_chain_proofs = chainProofs;
+                boolean selfOk = com.tonikelope.coronapoker.crypto.VerifiableCascade
+                        .verifyChainWire(cascadeGenesis, chainDecks, chainProofs);
+                LOGGER.log(selfOk ? Level.INFO : Level.SEVERE,
+                        "C1 wire-3: host cascade-chain self-verify = {0} ({1} pasos)",
+                        new Object[]{selfOk, chainProofs.size()});
                 break;
             }
         }

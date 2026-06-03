@@ -63,10 +63,22 @@ La **revision criptografica externa antes de produccion sigue siendo innegociabl
 alta confianza (completeness + el tramposo cae en cada ladrillo), pero un bug sutil de transcript o de
 binding entre ladrillos es justo lo que una revision independiente debe descartar (clase "Frozen Heart").
 
-## Cableado (pendiente, despues de revision)
-Cuando haya revision externa, se cablea `ShuffleArgument` en el motor de cascada (sustituye al
-`CutChooseShuffleProof`; el cableado wire-1..3 ya esta hecho — grabar la cadena en el reparto y
-verificar en background). El reparto sigue instantaneo.
+## Orquestador + serializacion (hecho, probado)
+- **ShuffleCascade** — impone la precondicion DL: `verifyChain` ancla `decks[0]==genesis` y verifica
+  cada paso contra el mazo previo YA verificado (induccion ⇒ toda A DL-independiente). Helpers de wire
+  (`proveStepWire`/`verifyStepWire`/`verifyChainWire`) para que la red mueva solo `byte[]`. 6 tests
+  punto-nivel (smuggle en cualquier paso rechazado) + 5 wire.
+- **ProofCodec** — formato de wire determinista del arbol de prueba (puntos 32B, escalares 32B,
+  arrays con conteo prefijado); decode TOTAL (malformado/truncado/garbage/conteo-gigante → null, nunca
+  excepcion). 7 tests.
+
+## Cableado en el juego (HECHO, **PENDIENTE SMOKE**)
+Swap mecanico de 3 call sites (firma identica) de `VerifiableCascade` (cut-and-choose) a
+`ShuffleCascade` (Bayer-Groth): Crupier (proveStepWire de pasos host/bot + verifyChainWire en el
+thread de fondo) y WaitingRoomFrame (proveStepWire del paso propio del cliente). Aislado: el proof es
+volatile en memoria, regenerado/verificado cada mano en background, NO se persiste al fosil ni se usa
+en recover. Gated por `cascade_verified` (settlement espera y aborta si -1); el reparto va instantaneo.
+Se mantiene cut-and-choose como red de revert hasta confirmar el smoke; se elimina despues.
 
 ## Por que la base ya construida sirve
 Ristretto255 (grupo de orden primo), Fe25519 (campo, ya con mul por limbs), Dleq, Transcript y

@@ -557,6 +557,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile int cascade_verified = 0;
     // Prueba del último paso remoto, parseada en requestRemoteCascade y leída por el bucle.
     private volatile byte[] last_remote_cascade_proof = null;
+    // Cierre del flanco ROTACION (dual-lock): estados community tras cada paso de rotacion + un
+    // RotationProof (batch-DLEQ) por paso. Junto a la cascada cierra genesis->MEGAPACKET
+    // (DualLockCascade). host/bot: prueba generada inline (batch-DLEQ es barato, ~ms); remoto: la
+    // prueba que mande el cliente en DECK_ROTATION_RESP (pendiente wire-rotation-2 -> null por ahora).
+    public volatile java.util.List<byte[]> cascade_rotation_states = null;
+    public volatile java.util.List<byte[]> cascade_rotation_proofs = null;
 
     // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
@@ -822,6 +828,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // pieces y añade su lock de community — la mitad que sí se entrega vía
     // testamento al hacer EXIT. La fase de rotación es secuencial peer-a-peer
     // igual que la cascade principal; este método maneja un solo peer.
+    /**
+     * Genera el RotationProof (batch-DLEQ) de un paso de rotacion: prueba que {@code after[i] = s·before[i]}
+     * con {@code s = s1·s2} (uPocket·kCommunity), mismo escalar y misma posicion (re-key en sitio, sin
+     * relocalizar ni duplicar). Devuelve los bytes serializados, o null ante cualquier fallo (no rompe
+     * el reparto: una prueba ausente solo deja la verificacion full-chain como "skipped").
+     */
+    private byte[] genRotationProof(byte[] before, byte[] after, byte[] s1, byte[] s2) {
+        try {
+            java.math.BigInteger s = com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(s1)
+                    .multiply(com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(s2))
+                    .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+            com.tonikelope.coronapoker.crypto.EdwardsPoint[] in = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(before);
+            com.tonikelope.coronapoker.crypto.EdwardsPoint[] out = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(after);
+            if (in == null || out == null) {
+                return null;
+            }
+            return com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                    com.tonikelope.coronapoker.crypto.RotationProof.prove(s, in, out));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private byte[] requestRemoteRotation(String nick, byte[] communityPieces, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -1321,11 +1350,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         boolean rotationOk = true;
         String rotationFailMotivo = null;
+        // Cierre del flanco rotacion: registramos el estado community tras cada paso + un RotationProof
+        // (batch-DLEQ) por paso (host/bot inline; remoto -> null, lo aporta el cliente en wire-rotation-2).
+        java.util.List<byte[]> rotStates = new java.util.ArrayList<>();
+        java.util.List<byte[]> rotProofs = new java.util.ArrayList<>();
         for (int i = 0; i < numPlayersFinal && rotationOk; i++) {
             String currNick = currentRing[i];
+            byte[] rotBefore = communityPieces;
+            byte[] stepProof = null;
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
                 communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
+                stepProof = genRotationProof(rotBefore, communityPieces, this.local_sra_unlock, this.local_sra_lock_community);
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                 if (p != null && p.isCpu()) {
@@ -1340,10 +1376,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botUnlock);
                     communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
+                    stepProof = genRotationProof(rotBefore, communityPieces, botUnlock, botCommunityLock);
                 } else if (p != null && !p.isExit()) {
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
                         communityPieces = rotated;
+                        stepProof = null; // wire-rotation-2: prueba del cliente desde DECK_ROTATION_RESP
                     } else {
                         // Peer está vivo (no exit) pero no respondió — REFUSAL.
                         // Aplica la regla "no entrega secreto" → para la timba.
@@ -1365,12 +1403,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
                 }
             }
+            rotStates.add(communityPieces);   // estado community tras este paso (state[i+1])
+            rotProofs.add(stepProof);          // RotationProof del paso (null si remoto, de momento)
         }
 
         if (!rotationOk) {
             cancelarManoYDevolverApuestas(rotationFailMotivo != null ? rotationFailMotivo : "peer.dropped_during_rotation");
             return false;
         }
+        this.cascade_rotation_states = rotStates;
+        this.cascade_rotation_proofs = rotProofs;
 
         // Reensamblar el deck: pocket pieces intactos + community pieces rotados.
         byte[] dualLockDeck = new byte[1664];
@@ -1590,22 +1632,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
         this.guardarFosilSRA();
 
-        // C1: tras repartir lanzamos en un hilo la generacion+verificacion de la cadena de barajado
-        // (Bayer-Groth). Corre durante las apuestas, sin tocar la animacion.
-        // ATENCION (estado real, no es proteccion efectiva todavia): hoy esto es INFORMATIVO. El
-        // veredicto se escribe en cascade_verified pero NINGUN sitio lo lee: NO existe gate de
-        // settlement. Ademas (a) las pruebas no se difunden a los peers -> el host se verifica a si
-        // mismo (inutil contra un host malicioso), y (b) solo cubre la cascada PRE-rotacion: la
-        // rotacion dual-lock (FASE 1.5, abajo) que genera el MEGAPACKET real queda sin probar.
-        // El anti-peek efectivo de una carta de jugador VIVO lo da la cadena DLEQ en tiempo real
-        // (self-strip guard + anclaje + GATE 6 en WaitingRoomFrame), no esto. TODO cierre real del
-        // flanco rotacion: probar la rotacion + difundir pruebas + cada peer verifica + gatear el
-        // unlock/settlement en el veredicto verificado-por-peers ANTES de la ventana de lectura.
+        // C1: tras repartir lanzamos en un hilo la generacion (cascada) + verificacion de la cadena
+        // COMPLETA genesis->MEGAPACKET (cascada Bayer-Groth + rotacion batch-DLEQ). Corre durante las
+        // apuestas, sin tocar la animacion.
+        // ESTADO (wire-rotation-1): host-side SELF-verify. Cubre ya la rotacion (antes quedaba fuera).
+        // Pendiente para proteccion efectiva: (a) difundir el bundle a los peers, (b) que cada peer lo
+        // verifique, (c) gatear el unlock en el veredicto verificado-por-peers ANTES de la ventana de
+        // lectura (avisar+permitir-seguir si falla, no abort duro). El anti-peek de una carta de jugador
+        // VIVO ya lo da la cadena DLEQ en tiempo real (self-strip + anclaje + GATE 6 en WaitingRoomFrame).
         final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;
         final java.util.List<byte[]> bgK = this.cascade_step_k;
         final java.util.List<byte[]> bgRemote = this.cascade_step_remote_proof;
+        final int bgPocketCount = numPlayersFinal * 2;
+        final byte[] bgMega = this.local_mega_packet;
+        final java.util.List<byte[]> bgRotStates = this.cascade_rotation_states;
+        final java.util.List<byte[]> bgRotProofs = this.cascade_rotation_proofs;
         if (bgDecks != null && bgPerm != null) {
             Helpers.threadRun(() -> {
                 try {
@@ -1622,6 +1665,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     LOGGER.log(ok ? Level.INFO : Level.SEVERE,
                             "C1 background: cascade-chain verify = {0} ({1} pasos)",
                             new Object[]{ok, proofs.size()});
+                    // Cadena COMPLETA (cascada + rotacion). Solo si TODAS las pruebas de rotacion estan
+                    // presentes (los pasos remotos quedan null hasta wire-rotation-2).
+                    if (bgRotStates != null && bgRotProofs != null && !bgRotProofs.isEmpty()
+                            && !bgRotProofs.contains(null) && bgMega != null) {
+                        boolean fullOk = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
+                                bgGenesis, bgDecks.subList(1, bgDecks.size()), proofs, bgPocketCount,
+                                bgMega, bgRotStates, bgRotProofs);
+                        LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
+                                "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} pasos rotacion)",
+                                new Object[]{fullOk, bgRotProofs.size()});
+                    } else {
+                        LOGGER.log(Level.INFO,
+                                "C1 background: full-chain verify skipped (pruebas de rotacion remotas pendientes wire-rotation-2)");
+                    }
                 } catch (Exception bgEx) {
                     this.cascade_verified = -1;
                     LOGGER.log(Level.SEVERE, "C1 background: cascade verify threw", bgEx);

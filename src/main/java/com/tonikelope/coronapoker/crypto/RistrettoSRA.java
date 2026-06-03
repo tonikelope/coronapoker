@@ -163,7 +163,7 @@ public final class RistrettoSRA {
 
     // --- scalar <-> 32-byte little-endian helpers ---
 
-    static BigInteger bytesToScalar(byte[] le32) {
+    public static BigInteger bytesToScalar(byte[] le32) {
         byte[] be = new byte[le32.length];
         for (int i = 0; i < le32.length; i++) {
             be[i] = le32[le32.length - 1 - i];

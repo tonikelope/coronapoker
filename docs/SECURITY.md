@@ -10,7 +10,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 |---|---|---|
 | Hostile host trying to peek at a peer's pocket cards | Yes | EC-SRA over **Ristretto255** + **verifiable dealing**: every de-lock carries a chained DLEQ proof anchored to the committed deck, so the host cannot use a peer as a blinded-decryption oracle (§2.5). Pockets stay multi-locked until the owner releases their key at showdown |
 | Hostile host trying to peek at community cards before their street | Yes | Same verifiable-dealing chain applied to the community deal + GATE-6 genesis check; the street gate only opens in lockstep with local betting (§2.5, §8) |
-| Hostile host reading the pocket of a player who **abandons** mid-hand | Partial (self-delating) | The only residual vector: it requires forging a board (misdeal), which is self-delating since legitimate misdeals are tightly enumerated. The rotation is single-use per cascade (anti-replay) and the client warns + recommends leaving the table. Full closure (signing the shuffle) deferred as not worth the cost — see §9 |
+| Hostile host **smuggling** a card (duplicate, or relocate a pocket into the community half) to read it | Closed | The shuffle and rotation are proven honest with a zero-knowledge **verifiable shuffle** (§2.6), broadcast and verified **independently by every peer** against its own deck; a smuggle is a non-permutation that no proof can pass. Anti-replay on the rotation and the real-time de-lock guards (§2.5) remain as the inner layer |
 | Hostile host or peer rewriting hand history | Yes | Per-action Ed25519 signatures + `H_t` ratchet committed by every peer in a signed receipt |
 | Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password; session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Replay or tampering of game commands on the wire | Yes | AES-256-CBC with per-command IV + HMAC-SHA256 over `IV \|\| ciphertext` |
@@ -81,7 +81,19 @@ Two further guards close the back doors found while hardening this:
 
 The legacy unauthenticated batch path (`REQ_SRA_UNLOCK_BATCH`) is now **obsolete and refused for every phase**, so the oracle cannot be reached through the old door either.
 
-**Residual (rotation / "exiter").** The dual-lock *rotation* (step 2 of §2.2) is the one de-lock not yet under the verifiable chain — it precedes any committed anchor. It is mitigated by **anti-replay** (one rotation per cascade): abusing it forces a corrupted board, i.e. a self-delating misdeal. The full fix (a verifiable rotation anchored to a signed pre-rotation deck — the `RotationChain` engine is built and tested, kept on the `c1-rotation-chain` branch, out of master) is deferred as not worth the cost; see §9.
+The chain above proves each de-lock is honest, but it does not by itself prove the **deck** is honest — that it is a genuine permutation of 52 distinct cards with nothing duplicated or relocated between the pocket and community halves. That is §2.6.
+
+### 2.6 Verifiable shuffle — proving the deck is an honest permutation
+
+The de-lock chain (§2.5) stops a peer from being used as a decryption oracle, but the *shuffle and rotation themselves* were not proven honest. A hostile host could produce a **dishonest deck** — duplicate a card, or slip a copy of a player's pocket point into a community slot (the "rotation smuggle"/"exiter" flank) — and the de-lock chain would still validate each individual unlock. The deck is now proven honest with a **zero-knowledge verifiable shuffle**, broadcast and checked **independently by every peer**.
+
+- **Cascade (genesis → pre-rotation).** Each peer's shuffle step is attested by a **Bayer–Groth shuffle argument**: the output deck is a genuine permutation of the input, re-locked under a single uniform scalar — no card duplicated, none relocated, no biased distribution, without revealing the permutation. The chain is **anchored to the recomputable genesis deck** (`decks[0] == genesis`); each step is verified against the previous *already-verified* deck, so the input points stay discrete-log-independent and a smuggle (a non-permutation) cannot pass. ([`ShuffleArgument.java`](../src/main/java/com/tonikelope/coronapoker/crypto/ShuffleArgument.java), [`ShuffleCascade.java`](../src/main/java/com/tonikelope/coronapoker/crypto/ShuffleCascade.java)).
+- **Rotation (pre-rotation → MEGAPACKET).** The dual-lock rotation (§2.2 step 2) does **not** permute — it re-keys every community piece in place with one scalar (`uPocket·kCommunity`). That honesty (`out[i] = s·in[i]`, same scalar, same index, no reorder, no duplication) is proven with a **batch-DLEQ** ([`RotationProof.java`](../src/main/java/com/tonikelope/coronapoker/crypto/RotationProof.java)). Together with the cascade this binds the whole chain genesis → MEGAPACKET, including two structural invariants: the MEGAPACKET pocket region equals the pre-rotation pocket region byte-for-byte, and its community region equals the rotation output ([`DualLockCascade.java`](../src/main/java/com/tonikelope/coronapoker/crypto/DualLockCascade.java)).
+- **Broadcast + independent verification.** The host broadcasts the proof bundle (`DUALLOCK_BUNDLE`); **each peer recomputes the genesis, derives the pocket/community boundary locally (`numPlayers·2`, never trusting the host), and verifies the entire chain against its own MEGAPACKET** ([`DualLockWire.java`](../src/main/java/com/tonikelope/coronapoker/crypto/DualLockWire.java)). A dishonest deck fails the proof on every honest peer → soft warning (§8.2). The host verifying itself proves nothing; the security is that the *other players* verify.
+- **Require-the-proof gate.** Before a peer helps reveal community cards (the only window where a smuggled card could be read), it checks it has verified an honest-shuffle proof for that exact deck. A host that smuggles and simply *omits* the bundle is caught here (soft warning), recover-safe (a recovered deck — verified before the crash — is not re-required).
+- **Zero-knowledge & cost.** The proofs reveal nothing about the permutation or the locks. All proving and verifying runs in the **background during betting, single-threaded** — no impact on the dealing animation or CPU.
+
+This closes the rotation/"exiter" residual: the rotation is now under proof, and a smuggle is a non-permutation that no proof can pass. (The earlier real-time defenses of §2.5 already blocked reading a *live* player's pocket; §2.6 additionally proves the whole deck honest — defense in depth, and the actual closure of the shuffle/rotation flank.)
 
 ---
 
@@ -208,15 +220,14 @@ Where:
 
 - `H_final` is the final value of the `H_t` ratchet.
 - `flags.bit0` is set if the peer observed any invalid Ed25519 signature during the hand.
-- `sig` is `Ed25519(privkey, "RECEIPT_V2" || HAND_ID || H_final || flags)`.
+- `flags.bit1` is set if the peer could **not** verify the honest-shuffle proof (`DUALLOCK_BUNDLE`, §2.6) for this hand's deck. This binds the verifiable-shuffle verdict into the signed record, so the receipt attests deck honesty — not just action agreement. A peer sets the bit verified when it checks the bundle (client), when its background full-chain self-verify passes (host), or when it restores a hand on recover (the deck was verified pre-crash and the fossil is the peer's own). Otherwise the bit stays unverified.
+- `sig` is `Ed25519(privkey, "RECEIPT_V2" || HAND_ID || H_final || flags)`. Both flag bits are inside the signed payload, so a host relay cannot strip them.
 
-The host gathers the receipts from every peer and relays them to every other peer. The consensus check ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `waitForHandverifyTrigger` and the surrounding consensus loop) passes only when:
+The host gathers the receipts from every peer and relays them to every other peer. The consensus check ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `waitForHandverifyTrigger` and the surrounding consensus loop) reports the strongest anomaly it finds, in priority order: **divergent** `H_final` (alert) > **missing** receipt (warning) > `flags.bit0` **invalid-sig-seen** (warning) > `flags.bit1` **deck-unverified** (warning) > clean (info).
 
-- Every `sig` verifies under the expected peer's pinned pubkey.
-- Every `H_final` is identical.
-- No `flags.bit0` is set anywhere on the table.
+`flags.bit1` is the weakest signal and is purely informational: it is benign on recover, on a bundle timeout, or when a peer simply did not get to verify, so it warns but never blocks settlement nor accuses anyone of cheating. Consensus still passes (chips move) when only bit1 is set somewhere; a clean OK requires every `sig` to verify, every `H_final` identical, and no flag bit set anywhere.
 
-Any failure is logged into the `disputed_hands` table of the local SQLite. The hand is not unwound — chips already moved — but the dispute is archivable evidence with cryptographic signatures attached.
+Any anomaly is logged into the `disputed_hands` table of the local SQLite (row types `DIVERGENT`, `MISSING`, `INVALID_SIG_SEEN`, `DECK_UNVERIFIED`). The hand is not unwound — chips already moved — but the dispute is archivable evidence with cryptographic signatures attached.
 
 ---
 
@@ -260,29 +271,36 @@ On `continue-last-game`:
 
 ---
 
-## 8. SECURITY_LOCKDOWN
+## 8. Reacting to a cryptographic / security failure
 
-The client distinguishes two severities. Both **presume good faith**: an anomaly could be a software bug, not necessarily an attack, so the client never accuses anyone — but it protects the user.
+Every cryptographic check has a **defined, role-aware reaction**. The reaction depends on **who detects the fault** — a client and the host have different tools — and on **what is at stake** (one peer's data vs the whole table). All reactions **presume good faith**: an anomaly may be a software bug, not an attack, so the engine never accuses anyone and always prefers the *least destructive* response that still keeps honest players safe.
 
-### 8.1 Hard lockdown (fatal)
+### 8.1 The five reactions
 
-`triggerSecurityLockdown` ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)) ends the hand and **freezes** the moment a *fatal* anomaly fires — one where continuing could move chips against a manipulated state:
+| Reaction | What it does | Who can use it |
+|---|---|---|
+| **SILENT-REFUSE** | Drop the operation, log it; no user-facing signal | host & client |
+| **SOFT-WARN** — `warnSuspiciousHost` | Inform the user, strongly recommend leaving, **keep playing** | host & client |
+| **FORFEIT** | Kill **one** peer's hand (its cards stay sealed / it cannot win the showdown); the hand settles for everyone else | host only |
+| **MISDEAL** — `cancelarManoYDevolverApuestas` | Abort the hand, **refund all bets**, continue to the next hand | host only |
+| **HARD-LOCKDOWN** — `triggerSecurityLockdown` | Freeze balance, blacklist the peer, close the socket, **end the game for this side** | host & client |
 
-- A received deck point is invalid (off-group / non-canonical Ristretto encoding).
-- A genesis-deck card resolution fails — somebody returned a point the deck does not contain.
-- A **verifiable-dealing chain fails**: a de-lock step does not anchor to the committed `MEGAPACKET` point or carries an invalid DLEQ proof (§2.5).
-- A peer is asked to de-lock a point inside its own pocket, or a community de-lock resolves to genesis (extraction — §2.5).
-- An Ed25519 signature on an action, community reveal or showdown reveal does not verify.
-- A community-card announcement disagrees with the value re-derived from the unlocks.
-- An "early cascade" attack is detected (a peer/host trying to advance the cascade or reveal a street out of order).
+A **client cannot MISDEAL or FORFEIT** (it does not run the hand); its heaviest tool is to **leave** (lock down its own side). The **host rarely needs LOCKDOWN** — it has MISDEAL and FORFEIT, which are proportionate; ending the whole game because one peer misbehaves is almost never the right answer.
 
-It sets a `volatile` flag, blacklists the offending peer at the command-dispatch layer, closes the client socket, shows a critical popup that **recommends leaving the table**, and ends the hand for this peer. The reason string is logged at SEVERE so post-mortem is trivial.
+### 8.2 The decision rule
 
-### 8.2 Soft warning (non-fatal — warn but continue)
+1. **Benign race** — state not ready yet, or a stale / out-of-order message the protocol naturally produces → **SILENT-REFUSE**.
+2. **A client detecting the host:**
+   - The host is **provably attacking *me*** to read my cards — asked to strip a point in my own pocket slot, GATE 6 (a community strip that reveals genesis early), blinded-decryption oracle, a chain not anchored to the committed `MEGAPACKET`, or use of the obsolete unlock channel → **LEAVE** (hard-lockdown my own side).
+   - An anomaly **already neutralised by refusing**, which could be a bug — a missing or failing shuffle proof (§2.6), a repeated rotation (anti-replay), a payload that is malformed *over the authenticated channel* → **SOFT-WARN**.
+3. **The host detecting a peer:**
+   - The **hand cannot complete** — a needed unlock/chain did not arrive, or a peer left without a testament → **MISDEAL**.
+   - The fault is **isolated to one peer's data** — its showdown key or reveal won't resolve to a genesis card, or its signature is malformed → **FORFEIT that peer** (its cards stay sealed; the hand settles without it). This is the proportionate response the philosophy reserves for "could be a peer bug": it does not punish the honest players at the table.
+   - The fault proves the **global board/deck is forged** — a community announcement that disagrees with the unlocks, a cross-recipient fork, plaintext ≠ SRA-decrypt → **MISDEAL** (the board is bad for everyone). **HARD-LOCKDOWN** only if it proves the engine itself is compromised.
 
-`warnSuspiciousHost` ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)) is used when the anomaly has **already been neutralised by refusing the operation** and the game can safely continue — freezing would be disproportionate if it turned out to be a bug. It informs the user **once**, presuming good faith, and **strongly recommends leaving the table**, but does **not** freeze, close the socket or end the hand. Current use: a **repeated rotation** in the same cascade (anti-replay, §2.2/§2.5) — the extra rotation is refused (the oracle gets nothing) and play continues with the legitimate one.
+### 8.3 Warnings are per-anomaly, not one-shot
 
-**Policy: warn but continue, unless the fault is fatal — then lock down.**
+The soft warning is shown **once per distinct anomaly type per game**, so a later, *different* anomaly is never swallowed by an earlier one.
 
 ---
 
@@ -290,7 +308,6 @@ It sets a `volatile` flag, blacklists the offending peer at the command-dispatch
 
 For honesty's sake:
 
-- **Reading the pocket of a player who abandons mid-hand (rotation residual).** The dual-lock rotation (§2.2 step 2, §2.5) is the one de-lock not yet under the verifiable chain — it precedes any committed anchor. A hostile host *could* feed a still-locked pocket into the rotation to read it, but only at a steep, self-defeating price: it requires corrupting the board, which produces an **unjustified misdeal** (legitimate misdeals are tightly enumerated, so an unexplained one is a red flag — the client warns and recommends leaving, §8.2); the rotation is **single-use per cascade** (anti-replay); and it only ever yields the cards of a player who has *already left the table*. Net: self-delation + a broken hand for information of marginal value — no rational cheat would do it. Full closure (a verifiable rotation anchored to a signed pre-rotation deck) is designed and the `RotationChain` engine is built and tested, but deferred as not worth the cost. Both the engine and its design doc (`sra-phase4-3-design.md`) are kept **out of master** — on the **`c1-rotation-chain`** branch — since they are unused here.
 - **Timing side-channels in the SRA engine.** The Ristretto255 engine is pure-Java `BigInteger` and is **not constant-time** — the migration prioritised correctness and verifiability over side-channel hardening (the previous x-only Curve25519 core did have a constant-time hot path). In principle a peer's per-hand lock scalars could leak through operation timing. In practice it is not exploitable in this threat model: the lock scalars are **ephemeral per hand** (no way to average many measurements of the same secret), the multiplications happen locally while only results travel the wire, and microsecond-scale variation is buried under millisecond network jitter. The adversary here is a host recompiling the client, not a co-located side-channel attacker measuring your CPU.
 - **Local trojan on a peer's machine.** Anyone with read access to `~/.coronapoker/identity_*.ed25519` becomes that peer cryptographically.
 - **Coercion / shoulder-surfing.** A peer who shows their screen to someone behind them is leaking pockets out-of-band.
@@ -304,7 +321,8 @@ For honesty's sake:
 
 If you want to follow any of the above end-to-end:
 
-- SRA group + verifiable-dealing engine (Ristretto255): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) — `Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`, `VerifiableUnlock`, `DealChain`, `RotationChain`
+- SRA group + verifiable-dealing engine (Ristretto255): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) — `Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`, `VerifiableUnlock`, `DealChain`
+- Verifiable shuffle (§2.6): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) — `ShuffleArgument`, `ShuffleCascade`, `RotationProof`, `DualLockCascade`, `DualLockWire`, `ProofCodec`, `PedersenVectorCommit`, `MultiplicationProof`, `ProductArgument`, `PermutationArgument`, `WeightedSumArgument`
 - Shuffle primitive: [`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) (`shuffleDeck`)
 - Cascade orchestration, recovery, lockdown, soft warning: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)
 - Channel encryption: [`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) (`encryptCommand`, `decryptCommand`, `deriveChannelSecret`)

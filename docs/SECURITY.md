@@ -220,15 +220,14 @@ Where:
 
 - `H_final` is the final value of the `H_t` ratchet.
 - `flags.bit0` is set if the peer observed any invalid Ed25519 signature during the hand.
-- `sig` is `Ed25519(privkey, "RECEIPT_V2" || HAND_ID || H_final || flags)`.
+- `flags.bit1` is set if the peer could **not** verify the honest-shuffle proof (`DUALLOCK_BUNDLE`, §2.6) for this hand's deck. This binds the verifiable-shuffle verdict into the signed record, so the receipt attests deck honesty — not just action agreement. A peer sets the bit verified when it checks the bundle (client), when its background full-chain self-verify passes (host), or when it restores a hand on recover (the deck was verified pre-crash and the fossil is the peer's own). Otherwise the bit stays unverified.
+- `sig` is `Ed25519(privkey, "RECEIPT_V2" || HAND_ID || H_final || flags)`. Both flag bits are inside the signed payload, so a host relay cannot strip them.
 
-The host gathers the receipts from every peer and relays them to every other peer. The consensus check ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `waitForHandverifyTrigger` and the surrounding consensus loop) passes only when:
+The host gathers the receipts from every peer and relays them to every other peer. The consensus check ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `waitForHandverifyTrigger` and the surrounding consensus loop) reports the strongest anomaly it finds, in priority order: **divergent** `H_final` (alert) > **missing** receipt (warning) > `flags.bit0` **invalid-sig-seen** (warning) > `flags.bit1` **deck-unverified** (warning) > clean (info).
 
-- Every `sig` verifies under the expected peer's pinned pubkey.
-- Every `H_final` is identical.
-- No `flags.bit0` is set anywhere on the table.
+`flags.bit1` is the weakest signal and is purely informational: it is benign on recover, on a bundle timeout, or when a peer simply did not get to verify, so it warns but never blocks settlement nor accuses anyone of cheating. Consensus still passes (chips move) when only bit1 is set somewhere; a clean OK requires every `sig` to verify, every `H_final` identical, and no flag bit set anywhere.
 
-Any failure is logged into the `disputed_hands` table of the local SQLite. The hand is not unwound — chips already moved — but the dispute is archivable evidence with cryptographic signatures attached.
+Any anomaly is logged into the `disputed_hands` table of the local SQLite (row types `DIVERGENT`, `MISSING`, `INVALID_SIG_SEEN`, `DECK_UNVERIFIED`). The hand is not unwound — chips already moved — but the dispute is archivable evidence with cryptographic signatures attached.
 
 ---
 

@@ -51,6 +51,20 @@ La solidez viene del argumento publicado (cut-and-choose); los tests verifican l
    carta), escalar no-uniforme (cegado por-punto), `C` manipulado, reto manipulado, mitad
    incoherente → TODOS rechazados con prob ≥ 1−2⁻ᴷ. ZK sanity: una mitad no fija `π`.
 
-Tras 4 + **revisión externa** + medir coste, el motor queda listo para cablear: una prueba de
-barajado por paso de cascada (anclada a los decks comprometidos) + `RotationChain` (DLEQ) para la
-rotación. Eso es ya la fase con smoke.
+## Estado: MOTOR COMPLETO (ladrillos 1–4), aislado, 37 tests verdes
+- PedersenCommit (9), Transcript (12), DeckTransform (7), CutChooseShuffleProof (8) + perf (1).
+- **Coste medido** (52 cartas, K=128, paralelizado por rondas): prove ~1,1s / verify ~0,8s por
+  paso de cascada. Viable en setup de mano (los proves de cada peer corren en paralelo en su
+  máquina; la verificación de N pasos se solapa con la red).
+
+## Lo que falta (ya con smoke, fuera de este motor aislado)
+1. **Cableado:** una prueba de barajado por paso de cascada, anclada a los decks comprometidos
+   (broadcast/commit de cada estado de cascada para que el consenso verifique), + `RotationChain`
+   (DLEQ) para la rotación. Precursor aislado pendiente: exponer la permutación de
+   `CryptoSRA.shuffleDeck` como `int[]` para poder probarla.
+2. **Revisión externa** del motor (barata por lo simple del cut-and-choose) antes de master.
+3. **Bump de protocolo** + recovery/fossil de las pruebas.
+
+Con eso, el host modificado por un tramposo NO puede producir una mano válida con un smuggle: no
+sabe forjar la prueba de barajado del paso, y todo cliente honesto la rechaza. Prevención, no
+detección.

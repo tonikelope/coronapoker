@@ -2478,8 +2478,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                     Crupier.UnlockWaitResult waitResult = crupier.awaitStreetForUnlockPhase(phase, hand_id, Crupier.UNLOCK_WAIT_TIMEOUT_MS);
                                                                     if (waitResult != Crupier.UnlockWaitResult.READY) {
                                                                         if (waitResult == Crupier.UnlockWaitResult.TIMEOUT) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order, refusing", phase);
-                                                                            crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_unlock_out_of_order"));
+                                                                            // Politica: un TIMEOUT es evidencia ambigua (host fuera de orden O simple lag de
+                                                                            // red, indistinguibles). La operacion YA se rechaza (return abajo), asi que no
+                                                                            // perdemos proteccion; bajamos de lockdown a SOFT-WARN (avisar+recomendar salir
+                                                                            // pero permitir seguir) en vez de terminar la partida por algo que podria ser lag.
+                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN phase {0} timed out — host out of order or lag, refusing + warning", phase);
+                                                                            crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_unlock_out_of_order"));
                                                                         }
                                                                         return;
                                                                     }
@@ -2873,10 +2877,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                     int expectedLen = "RABBIT_FLOP_PIECE".equals(cmdName) ? 96 : 32;
                                                                     Crupier crupierRP = GameFrame.getInstance().getCrupier();
                                                                     if (crupierRP == null || piece == null || piece.length != expectedLen) {
-                                                                        if (crupierRP != null) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: rabbit piece {0} bad length {1} — lockdown", new Object[]{cmdName, piece == null ? -1 : piece.length});
-                                                                            crupierRP.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
-                                                                        }
+                                                                        // Politica: el rabbit es un reveal COSMETICO post-mano (la mano ya esta liquidada);
+                                                                        // una pieza mala no puede robar dinero -> SILENT-REFUSE (no mostramos ese rabbit),
+                                                                        // NO terminamos la partida. Casi seguro un bug, no un ataque.
+                                                                        LOGGER.log(Level.WARNING, "rabbit piece {0} bad length {1} — refusing (cosmetic, not shown)", new Object[]{cmdName, piece == null ? -1 : piece.length});
                                                                         return;
                                                                     }
                                                                     // Dual-lock: las rabbit pieces son comunitarias, cifradas
@@ -2888,8 +2892,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                         byte[] chunk = Arrays.copyOfRange(unlockedRP, k * 32, (k + 1) * 32);
                                                                         int idx = RistrettoSRA.resolveCardIndex(chunk);
                                                                         if (idx < 0) {
-                                                                            LOGGER.log(Level.SEVERE, "ZERO-TRUST: rabbit piece {0} chunk {1} does NOT resolve to genesis — lockdown", new Object[]{cmdName, k});
-                                                                            crupierRP.triggerSecurityLockdown(Translator.translate("zero_trust.host_community_garbage"));
+                                                                            // Cosmetico post-mano -> SILENT-REFUSE (no mostramos ese rabbit), no lockdown.
+                                                                            LOGGER.log(Level.WARNING, "rabbit piece {0} chunk {1} does NOT resolve to genesis — refusing (cosmetic, not shown)", new Object[]{cmdName, k});
                                                                             return;
                                                                         }
                                                                         indices[k] = idx;

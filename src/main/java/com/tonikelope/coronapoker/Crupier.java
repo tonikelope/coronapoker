@@ -563,6 +563,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // prueba que mande el cliente en DECK_ROTATION_RESP (pendiente wire-rotation-2 -> null por ahora).
     public volatile java.util.List<byte[]> cascade_rotation_states = null;
     public volatile java.util.List<byte[]> cascade_rotation_proofs = null;
+    // Prueba del último paso de rotación remoto, parseada en requestRemoteRotation y leída por el bucle.
+    private volatile byte[] last_remote_rotation_proof = null;
 
     // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
@@ -865,6 +867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         boolean ok = false;
         boolean fatalError = false;
         byte[] newPieces = null;
+        this.last_remote_rotation_proof = null; // se rellena si el cliente manda su RotationProof
         // Timeout duro: si el peer no responde en REMOTE_SRA_PEER_TIMEOUT_MS, abortamos
         // la rotacion. Sin esto un peer reconectado mid-cascade (sin scalars SRA) deja
         // al host esperando hasta que el socket muera naturalmente (60-90s) — issue#9.
@@ -884,6 +887,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // (mismas N posiciones) y seguir siendo puntos de la curva.
                                 if (candidate.length == expectedLength && RistrettoSRA.arePointsValid(candidate)) {
                                     newPieces = candidate;
+                                    // rotacion-2: prueba del paso del cliente (opcional; sin ella el paso
+                                    // queda remoto-pendiente y el full-chain verify se salta, no rompe nada).
+                                    this.last_remote_rotation_proof = (partes.length >= 6 && partes[5] != null && !partes[5].isEmpty())
+                                            ? Base64.getDecoder().decode(partes[5]) : null;
                                     ok = true;
                                 } else {
                                     LOGGER.log(Level.SEVERE,
@@ -1381,7 +1388,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
                         communityPieces = rotated;
-                        stepProof = null; // wire-rotation-2: prueba del cliente desde DECK_ROTATION_RESP
+                        stepProof = this.last_remote_rotation_proof; // prueba del cliente (DECK_ROTATION_RESP partes[5])
                     } else {
                         // Peer está vivo (no exit) pero no respondió — REFUSAL.
                         // Aplica la regla "no entrega secreto" → para la timba.

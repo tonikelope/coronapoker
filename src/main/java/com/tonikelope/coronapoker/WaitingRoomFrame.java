@@ -2256,10 +2256,31 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // Rotación servida: cualquier otra esta cascada se rechaza (anti-replay).
                                                                     crupierRot.rotation_served_this_cascade = true;
 
+                                                                    // Cierre del flanco rotacion: pruebo que mi paso es un re-key en sitio honesto
+                                                                    // (out[i]=s*in[i], s=uPocket*kCommunity), sin relocalizar ni duplicar. El host
+                                                                    // lo anexa al bundle para que todos verifiquen la cadena genesis->MEGAPACKET.
+                                                                    String rotProofB64 = "";
+                                                                    try {
+                                                                        java.math.BigInteger sRot = com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(myPocketUnlock)
+                                                                                .multiply(com.tonikelope.coronapoker.crypto.RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
+                                                                                .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(incomingPieces);
+                                                                        com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(rotated);
+                                                                        if (inR != null && outR != null) {
+                                                                            byte[] rp = com.tonikelope.coronapoker.crypto.DualLockWire.encodeRotationProof(
+                                                                                    com.tonikelope.coronapoker.crypto.RotationProof.prove(sRot, inR, outR));
+                                                                            if (rp != null) {
+                                                                                rotProofB64 = Base64.getEncoder().encodeToString(rp);
+                                                                            }
+                                                                        }
+                                                                    } catch (Exception rotProofEx) {
+                                                                        rotProofB64 = ""; // sin prueba -> el host marca el paso como remoto-pendiente, no rompe nada
+                                                                    }
+
                                                                     String b64Rot = Base64.getEncoder().encodeToString(rotated);
                                                                     String myNickB64Rot = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
                                                                     int respIdRot = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respIdRot + "#DECK_ROTATION_RESP#" + myNickB64Rot + "#" + b64Rot + "#" + rotProofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_ROTATION_REQ; host will time out and abort the hand", e);
                                                                 }

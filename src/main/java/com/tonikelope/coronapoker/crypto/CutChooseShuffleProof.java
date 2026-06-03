@@ -53,6 +53,38 @@ public final class CutChooseShuffleProof {
 
     private static final String FS_DOMAIN_PREFIX = "SRA/CutChooseShuffle/v1/";
 
+    /**
+     * Dedicated worker pool for the (heavy, embarrassingly parallel) per-round work. Uses every
+     * available core, but the threads run at {@link Thread#MIN_PRIORITY} so the UI / game threads
+     * always preempt them — full throughput when the machine is idle, zero perceived UI lag. The
+     * crypto is run in the background (during betting), so spending all idle cores here is free.
+     */
+    private static final java.util.concurrent.ForkJoinPool POOL = makePool();
+
+    private static java.util.concurrent.ForkJoinPool makePool() {
+        int n = Math.max(1, Runtime.getRuntime().availableProcessors());
+        java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory factory = p -> {
+            java.util.concurrent.ForkJoinWorkerThread w =
+                    java.util.concurrent.ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(p);
+            w.setPriority(Thread.MIN_PRIORITY);
+            w.setName("c1-shuffle-" + w.getPoolIndex());
+            return w;
+        };
+        return new java.util.concurrent.ForkJoinPool(n, factory, null, false);
+    }
+
+    /** Run {@code body(j)} for {@code j in [0,rounds)} across all cores in the low-priority pool. */
+    private static void runInPool(int rounds, java.util.function.IntConsumer body) {
+        try {
+            POOL.submit(() -> java.util.stream.IntStream.range(0, rounds).parallel().forEach(body)).get();
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(ie);
+        } catch (java.util.concurrent.ExecutionException ee) {
+            throw new RuntimeException(ee.getCause() != null ? ee.getCause() : ee);
+        }
+    }
+
     private CutChooseShuffleProof() {
     }
 
@@ -227,7 +259,7 @@ public final class CutChooseShuffleProof {
         final int[][] pi1 = new int[rounds][];
         final BigInteger[] k1 = new BigInteger[rounds];
         final byte[][] hashes = new byte[rounds][];
-        java.util.stream.IntStream.range(0, rounds).parallel().forEach(j -> {
+        runInPool(rounds, j -> {
             pi1[j] = DeckTransform.randomPermutation(n);
             k1[j] = RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
             hashes[j] = hashDeck(DeckTransform.apply(a, pi1[j], k1[j]));
@@ -274,7 +306,7 @@ public final class CutChooseShuffleProof {
         final boolean[] bits = challengeBits(null, a, b, proof.intermediateHash, proof.rounds);
         final java.util.concurrent.atomic.AtomicBoolean bad = new java.util.concurrent.atomic.AtomicBoolean(false);
 
-        java.util.stream.IntStream.range(0, proof.rounds).parallel().forEach(j -> {
+        runInPool(proof.rounds, j -> {
             if (bad.get()) {
                 return;
             }

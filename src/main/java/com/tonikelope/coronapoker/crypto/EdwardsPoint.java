@@ -126,11 +126,21 @@ public final class EdwardsPoint {
         if (s.signum() < 0) {
             throw new IllegalArgumentException("scalar must be non-negative");
         }
+        // Fixed 4-bit window: precompute 0..15 multiples once, then process 4 scalar bits per step
+        // (4 doublings + 1 addition) instead of one bit at a time. Same result; ~40% fewer additions.
+        EdwardsPoint[] table = new EdwardsPoint[16];
+        table[0] = IDENTITY;
+        for (int w = 1; w < 16; w++) {
+            table[w] = table[w - 1].add(this);
+        }
+        int bits = s.bitLength();
         EdwardsPoint result = IDENTITY;
-        for (int i = s.bitLength() - 1; i >= 0; i--) {
-            result = result.dbl();
-            if (s.testBit(i)) {
-                result = result.add(this);
+        for (int i = ((bits + 3) / 4) * 4 - 4; i >= 0; i -= 4) {
+            result = result.dbl().dbl().dbl().dbl();
+            int window = (s.testBit(i + 3) ? 8 : 0) | (s.testBit(i + 2) ? 4 : 0)
+                    | (s.testBit(i + 1) ? 2 : 0) | (s.testBit(i) ? 1 : 0);
+            if (window != 0) {
+                result = result.add(table[window]);
             }
         }
         return result;

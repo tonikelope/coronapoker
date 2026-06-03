@@ -61,6 +61,11 @@ public final class WeightedSumArgument {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
+    /** Canonical scalar response: present and reduced into {@code [0, L)}. */
+    private static boolean inRange(BigInteger s) {
+        return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
+    }
+
     static EdwardsPoint msm(BigInteger[] s, EdwardsPoint[] b) {
         EdwardsPoint acc = EdwardsPoint.IDENTITY;
         for (int i = 0; i < b.length; i++) {
@@ -113,6 +118,12 @@ public final class WeightedSumArgument {
                 || proof.t == null || proof.t.length != cf.length || proof.tq == null
                 || proof.z == null || proof.z.length != cf.length || proof.zs == null || proof.zs.length != cf.length) {
             return false;
+        }
+        // Canonical responses: present and reduced into [0, L) (rejects nulls and z+L malleability).
+        for (int i = 0; i < cf.length; i++) {
+            if (!inRange(proof.z[i]) || !inRange(proof.zs[i]) || proof.t[i] == null) {
+                return false;
+            }
         }
         EdwardsPoint tqPoint = Ristretto255.decode(proof.tq);
         if (tqPoint == null) {

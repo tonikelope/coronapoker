@@ -112,7 +112,8 @@ public final class ProductArgument {
 
     /** Verify that the committed factors {@code ca} multiply to the public target {@code b}. */
     public static boolean verify(byte[][] ca, BigInteger b, Proof proof) {
-        if (proof == null || ca == null || ca.length == 0 || proof.openT == null || proof.openZ == null) {
+        if (proof == null || ca == null || ca.length == 0 || proof.openT == null
+                || proof.openZ == null || proof.openZ.signum() < 0 || proof.openZ.compareTo(L) >= 0) {
             return false;
         }
         int n = ca.length;

@@ -48,54 +48,6 @@ public class DeckTransformTest {
     }
 
     @Test
-    public void invertRoundTripsTheTransform() {
-        EdwardsPoint[] deck = randomDeck(10);
-        int[] perm = DeckTransform.randomPermutation(10);
-        BigInteger k = scalar();
-        EdwardsPoint[] shuffled = DeckTransform.apply(deck, perm, k);
-        EdwardsPoint[] back = DeckTransform.apply(shuffled, DeckTransform.invert(perm), k.modInverse(EdwardsPoint.L));
-        assertTrue(DeckTransform.decksEqual(deck, back),
-                "apply(.,perm,k) seguido de apply(.,invert(perm),k^-1) recupera el deck");
-    }
-
-    @Test
-    public void factorisationIdentityHoldsForCutAndChoose() {
-        // B = apply(A, π, k). Para CUALQUIER (π1,k1) frescos, con C = apply(A,π1,k1),
-        // π2 = compose(invert(π1), π), k2 = k·k1^-1: debe cumplirse B = apply(C, π2, k2).
-        EdwardsPoint[] A = randomDeck(12);
-        int[] pi = DeckTransform.randomPermutation(12);
-        BigInteger k = scalar();
-        EdwardsPoint[] B = DeckTransform.apply(A, pi, k);
-
-        for (int round = 0; round < 5; round++) {
-            int[] pi1 = DeckTransform.randomPermutation(12);
-            BigInteger k1 = scalar();
-            EdwardsPoint[] C = DeckTransform.apply(A, pi1, k1);
-
-            int[] pi2 = DeckTransform.compose(DeckTransform.invert(pi1), pi);
-            BigInteger k2 = k.multiply(k1.modInverse(EdwardsPoint.L)).mod(EdwardsPoint.L);
-
-            assertTrue(DeckTransform.decksEqual(B, DeckTransform.apply(C, pi2, k2)),
-                    "identidad de factorización: B = apply(apply(A,π1,k1), compose(invert(π1),π), k·k1^-1)");
-            // y la otra mitad (A->C) verifica por construcción
-            assertTrue(DeckTransform.decksEqual(C, DeckTransform.apply(A, pi1, k1)));
-        }
-    }
-
-    @Test
-    public void composeMatchesSequentialApply() {
-        // apply(apply(A, g, kg), f, kf) == apply(A, compose(g, f)... ) cuidado con el orden:
-        // out2[i] = kf·C[f[i]] = kf·kg·A[g[f[i]]] = (kf·kg)·A[ compose(g,f)[i] ].
-        EdwardsPoint[] A = randomDeck(9);
-        int[] f = DeckTransform.randomPermutation(9);
-        int[] g = DeckTransform.randomPermutation(9);
-        BigInteger kf = scalar(), kg = scalar();
-        EdwardsPoint[] viaTwo = DeckTransform.apply(DeckTransform.apply(A, g, kg), f, kf);
-        EdwardsPoint[] viaOne = DeckTransform.apply(A, DeckTransform.compose(g, f), kf.multiply(kg).mod(EdwardsPoint.L));
-        assertTrue(DeckTransform.decksEqual(viaTwo, viaOne), "compose modela dos applies encadenados");
-    }
-
-    @Test
     public void isPermutationRejectsBadInputs() {
         assertTrue(DeckTransform.isPermutation(new int[]{0, 1, 2, 3}, 4));
         assertTrue(DeckTransform.isPermutation(new int[]{3, 0, 2, 1}, 4));

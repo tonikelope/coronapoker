@@ -17,6 +17,7 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 
 /**
  * Orchestrates the verifiable-shuffle engine over a whole SRA cascade: proves that the post-cascade
@@ -73,5 +74,61 @@ public final class VerifiableCascade {
             }
         }
         return true;
+    }
+
+    // ---- Byte-oriented wiring helpers (decks as flat 32-byte-per-point arrays, proof as bytes) ----
+    // Keep the byte↔point conversion in this tested layer so the network handlers stay tiny.
+
+    /** Decode a flat deck (n×32 bytes) to points, or null if any point is non-canonical. */
+    public static EdwardsPoint[] decodeDeck(byte[] bytes) {
+        if (bytes == null || bytes.length == 0 || bytes.length % 32 != 0) {
+            return null;
+        }
+        int n = bytes.length / 32;
+        EdwardsPoint[] d = new EdwardsPoint[n];
+        for (int i = 0; i < n; i++) {
+            d[i] = Ristretto255.decode(Arrays.copyOfRange(bytes, i * 32, (i + 1) * 32));
+            if (d[i] == null) {
+                return null;
+            }
+        }
+        return d;
+    }
+
+    /**
+     * Prove a cascade step from flat byte decks: {@code deckOut = shuffle(k·deckIn)} with the given
+     * permutation and lock scalar. Returns the serialized proof, or null on any failure (so a caller
+     * in a network handler never throws).
+     */
+    public static byte[] proveStepWire(byte[] deckInBytes, byte[] deckOutBytes, int[] perm, byte[] kScalar, int rounds) {
+        try {
+            EdwardsPoint[] in = decodeDeck(deckInBytes);
+            EdwardsPoint[] out = decodeDeck(deckOutBytes);
+            if (in == null || out == null || in.length != out.length) {
+                return null;
+            }
+            return CutChooseShuffleProof.prove(in, out, perm, RistrettoSRA.bytesToScalar(kScalar), rounds).toBytes();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Production-strength wire proof. */
+    public static byte[] proveStepWire(byte[] deckInBytes, byte[] deckOutBytes, int[] perm, byte[] kScalar) {
+        return proveStepWire(deckInBytes, deckOutBytes, perm, kScalar, CutChooseShuffleProof.DEFAULT_ROUNDS);
+    }
+
+    /** Verify a serialized cascade-step proof against flat byte decks. False on any malformed input. */
+    public static boolean verifyStepWire(byte[] deckInBytes, byte[] deckOutBytes, byte[] proofBytes) {
+        EdwardsPoint[] in = decodeDeck(deckInBytes);
+        EdwardsPoint[] out = decodeDeck(deckOutBytes);
+        if (in == null || out == null) {
+            return false;
+        }
+        CutChooseShuffleProof.Proof proof = CutChooseShuffleProof.Proof.fromBytes(proofBytes);
+        if (proof == null) {
+            return false;
+        }
+        return CutChooseShuffleProof.verify(in, out, proof);
     }
 }

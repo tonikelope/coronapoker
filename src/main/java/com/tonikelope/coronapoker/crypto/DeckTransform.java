@@ -61,24 +61,6 @@ public final class DeckTransform {
         return p;
     }
 
-    /** Inverse permutation: {@code inv[perm[i]] = i}. */
-    public static int[] invert(int[] perm) {
-        int[] inv = new int[perm.length];
-        for (int i = 0; i < perm.length; i++) {
-            inv[perm[i]] = i;
-        }
-        return inv;
-    }
-
-    /** Composition with {@code (f∘g)[i] = f[g[i]]}. */
-    public static int[] compose(int[] f, int[] g) {
-        int[] out = new int[g.length];
-        for (int i = 0; i < g.length; i++) {
-            out[i] = f[g[i]];
-        }
-        return out;
-    }
-
     /** True iff {@code perm} is a permutation of {@code 0..n-1}. */
     public static boolean isPermutation(int[] perm, int n) {
         if (perm == null || perm.length != n) {

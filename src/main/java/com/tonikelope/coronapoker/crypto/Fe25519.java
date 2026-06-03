@@ -153,11 +153,136 @@ public final class Fe25519 {
     }
 
     public Fe25519 mul(Fe25519 o) {
-        return new Fe25519(reduceWide(v.multiply(o.v)), true);
+        return new Fe25519(mulLimbs(toLimbs(v), toLimbs(o.v)), true);
     }
 
     public Fe25519 sqr() {
-        return new Fe25519(reduceWide(v.multiply(v)), true);
+        long[] f = toLimbs(v);
+        return new Fe25519(mulLimbs(f, f), true);
+    }
+
+    // ---- Fast field multiply: radix 2^51 limbs (5 × 64-bit), 128-bit accumulation via
+    // Math.multiplyHigh, reduction mod p=2^255-19 (2^255 ≡ 19). ~max practical speed in Java.
+    // BigInteger stays as canonical storage; mul/sqr convert in/out via 32 LE bytes (cheap). The
+    // Fe25519FastReduceTest fuzz (200k mul/sqr vs BigInteger) + RFC 9496 vectors gate correctness.
+
+    private static final long MASK_51 = (1L << 51) - 1;
+
+    /** v in [0, 2^255) → 5 radix-2^51 limbs (each < 2^51). */
+    private static long[] toLimbs(BigInteger value) {
+        byte[] be = value.toByteArray(); // big-endian, value >= 0
+        byte[] le = new byte[32];
+        for (int i = 0; i < be.length && i < 32; i++) {
+            le[i] = be[be.length - 1 - i];
+        }
+        long w0 = le64(le, 0), w1 = le64(le, 8), w2 = le64(le, 16), w3 = le64(le, 24);
+        return new long[]{
+            w0 & MASK_51,
+            ((w0 >>> 51) | (w1 << 13)) & MASK_51,
+            ((w1 >>> 38) | (w2 << 26)) & MASK_51,
+            ((w2 >>> 25) | (w3 << 39)) & MASK_51,
+            (w3 >>> 12) & MASK_51
+        };
+    }
+
+    private static long le64(byte[] b, int off) {
+        long r = 0;
+        for (int i = 0; i < 8; i++) {
+            r |= (b[off + i] & 0xFFL) << (8 * i);
+        }
+        return r;
+    }
+
+    /** Multiply two limb arrays mod p, return the canonical BigInteger in [0, P). */
+    private static BigInteger mulLimbs(long[] f, long[] g) {
+        long f0 = f[0], f1 = f[1], f2 = f[2], f3 = f[3], f4 = f[4];
+        long g0 = g[0], g1 = g[1], g2 = g[2], g3 = g[3], g4 = g[4];
+        long g1_19 = 19 * g1, g2_19 = 19 * g2, g3_19 = 19 * g3, g4_19 = 19 * g4;
+
+        // Each h_i accumulated as an unsigned 128-bit value (hi:lo).
+        long[] acc = new long[2];
+        long h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi;
+
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0, g0); a128(acc, f1, g4_19); a128(acc, f2, g3_19); a128(acc, f3, g2_19); a128(acc, f4, g1_19);
+        h0lo = acc[0]; h0hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0, g1); a128(acc, f1, g0); a128(acc, f2, g4_19); a128(acc, f3, g3_19); a128(acc, f4, g2_19);
+        h1lo = acc[0]; h1hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0, g2); a128(acc, f1, g1); a128(acc, f2, g0); a128(acc, f3, g4_19); a128(acc, f4, g3_19);
+        h2lo = acc[0]; h2hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0, g3); a128(acc, f1, g2); a128(acc, f2, g1); a128(acc, f3, g0); a128(acc, f4, g4_19);
+        h3lo = acc[0]; h3hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0, g4); a128(acc, f1, g3); a128(acc, f2, g2); a128(acc, f3, g1); a128(acc, f4, g0);
+        h4lo = acc[0]; h4hi = acc[1];
+
+        // Carry chain: take 51 bits per limb, push the rest up; h4's carry wraps to h0 ×19.
+        long c;
+        long l0 = h0lo & MASK_51; c = sh(h0hi, h0lo, 51);
+        long t1lo = h1lo, t1hi = h1hi; long[] s1 = addc(t1lo, t1hi, c); long l1 = s1[0] & MASK_51; c = sh(s1[1], s1[0], 51);
+        long[] s2 = addc(h2lo, h2hi, c); long l2 = s2[0] & MASK_51; c = sh(s2[1], s2[0], 51);
+        long[] s3 = addc(h3lo, h3hi, c); long l3 = s3[0] & MASK_51; c = sh(s3[1], s3[0], 51);
+        long[] s4 = addc(h4lo, h4hi, c); long l4 = s4[0] & MASK_51; c = sh(s4[1], s4[0], 51);
+        // wrap top carry into l0
+        l0 += 19 * c;
+        // second light carry pass (limbs now < 2^52 + small)
+        c = l0 >>> 51; l0 &= MASK_51; l1 += c;
+        c = l1 >>> 51; l1 &= MASK_51; l2 += c;
+        c = l2 >>> 51; l2 &= MASK_51; l3 += c;
+        c = l3 >>> 51; l3 &= MASK_51; l4 += c;
+        c = l4 >>> 51; l4 &= MASK_51; l0 += 19 * c;
+
+        // Reassemble to BigInteger via 32 LE bytes (l0..l4 each < 2^51, value < 2^255).
+        long w0 = l0 | (l1 << 51);
+        long w1 = (l1 >>> 13) | (l2 << 38);
+        long w2 = (l2 >>> 26) | (l3 << 25);
+        long w3 = (l3 >>> 39) | (l4 << 12);
+        byte[] le = new byte[32];
+        putLe64(le, 0, w0); putLe64(le, 8, w1); putLe64(le, 16, w2); putLe64(le, 24, w3);
+        byte[] be = new byte[32];
+        for (int i = 0; i < 32; i++) {
+            be[i] = le[31 - i];
+        }
+        BigInteger r = new BigInteger(1, be);
+        if (r.compareTo(P) >= 0) {
+            r = r.subtract(P);
+        }
+        return r;
+    }
+
+    /** acc(unsigned 128 hi:lo in acc[1]:acc[0]) += a*b (a,b >= 0). */
+    private static void a128(long[] acc, long a, long b) {
+        long lo = a * b;
+        long hi = Math.multiplyHigh(a, b);
+        long t = acc[0] + lo;
+        if (Long.compareUnsigned(t, lo) < 0) {
+            hi++;
+        }
+        acc[0] = t;
+        acc[1] += hi;
+    }
+
+    /** Right-shift an unsigned 128-bit value (hi:lo) by s in [1,63], result fits in a long here. */
+    private static long sh(long hi, long lo, int s) {
+        return (lo >>> s) | (hi << (64 - s));
+    }
+
+    /** (hi:lo) + c (c small, >=0) → new unsigned 128-bit as [lo, hi]. */
+    private static long[] addc(long lo, long hi, long c) {
+        long t = lo + c;
+        if (Long.compareUnsigned(t, lo) < 0) {
+            hi++;
+        }
+        return new long[]{t, hi};
+    }
+
+    private static void putLe64(byte[] b, int off, long w) {
+        for (int i = 0; i < 8; i++) {
+            b[off + i] = (byte) (w >>> (8 * i));
+        }
     }
 
     public Fe25519 negate() {

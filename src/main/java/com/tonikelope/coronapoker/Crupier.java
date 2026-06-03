@@ -354,7 +354,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static volatile boolean SECURITY_LOCKDOWN = false;
 
-    private volatile boolean suspicious_host_warned = false;
+    // Aviso suave UNA vez por anomalia DISTINTA y por partida (no one-shot global: si no, un aviso
+    // temprano se tragaba todos los siguientes). Llave = el reason (mensaje distinto por anomalia).
+    private final java.util.Set<String> suspicious_host_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
      * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
@@ -366,10 +368,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * rotación) y congelar sería desproporcionado si resultara ser un bug.
      */
     public void warnSuspiciousHost(String reason) {
-        if (suspicious_host_warned) {
-            return;
+        if (!suspicious_host_warned_reasons.add(reason)) {
+            return; // ya avisado de ESTA anomalia en esta partida
         }
-        suspicious_host_warned = true;
         try {
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
         } catch (Exception ignored) {

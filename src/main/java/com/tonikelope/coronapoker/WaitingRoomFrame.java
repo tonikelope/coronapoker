@@ -2330,6 +2330,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                             pocketCount, cruB.local_mega_packet,
                                                                             csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]));
                                                                     if (okB) {
+                                                                        // Marco ESTE mazo como verificado: el gate de unlock community ya no avisara para el.
+                                                                        cruB.dual_lock_verified_megapacket = cruB.local_mega_packet;
                                                                         LOGGER.log(Level.INFO, "DUALLOCK_BUNDLE: deal-chain verify OK (peer-side)");
                                                                     } else {
                                                                         LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE: deal-chain verify FAILED (peer-side) — host deshonesto o bug");
@@ -2500,6 +2502,19 @@ public class WaitingRoomFrame extends JFrame {
                                                                     if (megapacket == null || ring == null) {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
                                                                         return;
+                                                                    }
+                                                                    // GATE "exigir prueba" (rotacion-3): voy a ayudar a revelar community = la ventana
+                                                                    // donde se leeria una carta colada. Si este mazo viene de un reparto FRESCO que NO he
+                                                                    // verificado como barajado honesto (el host no mando el bundle, o llego mal), aviso UNA
+                                                                    // vez. Avisar-pero-permitir: podria ser un bug/retraso de red -> recomiendo salir pero
+                                                                    // dejo seguir (no rompo la mano). El bundle llega ~1s tras repartir, mucho antes del
+                                                                    // primer unlock community -> cero falsos positivos. Recover no marca expect -> no avisa.
+                                                                    if (Crupier.shouldWarnMissingShuffleProof(phase, megapacket,
+                                                                            crupier.dual_lock_expect_bundle_for, crupier.dual_lock_verified_megapacket,
+                                                                            crupier.dual_lock_warned_megapacket)) {
+                                                                        crupier.dual_lock_warned_megapacket = megapacket;
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — warning (host may not have sent the bundle)");
+                                                                        crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_missing"));
                                                                     }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {

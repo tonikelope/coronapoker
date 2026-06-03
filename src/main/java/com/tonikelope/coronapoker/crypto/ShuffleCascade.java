@@ -28,10 +28,10 @@ import java.math.BigInteger;
  * cannot be proven.
  *
  * <p>Layout: {@code decks[0]} is the genesis deck, {@code decks[m+1] = shuffle_m(decks[m])} peer
- * {@code m}'s output, {@code proofs[m]} attests that step. This is the Bayer–Groth replacement for
- * {@link VerifiableCascade} (cut-and-choose); the network wiring swap is smoke-gated and done
- * separately. The anchor + chain logic here is identical to {@code VerifiableCascade.verifyChain},
- * which is exactly the property the audit flagged as load-bearing.
+ * {@code m}'s output, {@code proofs[m]} attests that step. The anchor ({@code decks[0] == genesis}) +
+ * chain logic here is the load-bearing property the audit flagged: it pins each step's input to
+ * DL-independent points. Wired live and validated by smoke (host self-verify + each peer re-verifies
+ * the broadcast bundle).
  */
 public final class ShuffleCascade {
 

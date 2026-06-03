@@ -380,6 +380,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 + Translator.translate("zero_trust.suspicious_body")));
     }
 
+    /**
+     * Decisión PURA del gate "exigir prueba de barajado": avisar al ir a revelar community SII es fase
+     * community (la ventana de lectura del smuggle), el mazo viene de un reparto FRESCO ({@code expect}),
+     * NO se verificó un bundle honesto para él ({@code verified}) y no se avisó ya ({@code warned}).
+     * Aislada para ser testeable sin un juego completo. Recover no marca {@code expect} ⇒ no avisa.
+     */
+    public static boolean shouldWarnMissingShuffleProof(int phase, byte[] megapacket,
+                                                        byte[] expect, byte[] verified, byte[] warned) {
+        return phase != UNLOCK_PHASE_POCKET
+                && megapacket != null
+                && java.util.Arrays.equals(megapacket, expect)
+                && !java.util.Arrays.equals(megapacket, verified)
+                && !java.util.Arrays.equals(megapacket, warned);
+    }
+
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
@@ -571,6 +586,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile java.util.List<byte[]> cascade_rotation_proofs = null;                  // construido en background
     // Prueba del último paso de rotación remoto, parseada en requestRemoteRotation y leída por el bucle.
     private volatile byte[] last_remote_rotation_proof = null;
+    // Gate "exigir prueba": el cliente EXIGE un bundle de barajado honesto para el mazo de cada reparto
+    // FRESCO. expect = mazo de un reparto fresco (se marca al procesar el MEGAPACKET, NO en recover, que
+    // restaura por otra ruta -> no avisa tras recover, el barajado ya se verifico pre-crash). verified =
+    // mazo para el que un bundle verifico OK. warned = guard de aviso unico por mazo. Llave = el propio
+    // megapacket (cambia cada mano -> sin reset). Lo lee el handler de unlock community (la ventana de
+    // lectura): si va a revelar community sin haber verificado el barajado de este mazo, avisa.
+    public volatile byte[] dual_lock_expect_bundle_for = null;
+    public volatile byte[] dual_lock_verified_megapacket = null;
+    public volatile byte[] dual_lock_warned_megapacket = null;
 
     // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;
@@ -1768,6 +1792,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (partes[2].equals("MEGAPACKET") && partes.length >= 5) {
                             String orderB64 = partes[3];
                             this.local_mega_packet = java.util.Base64.getDecoder().decode(partes[4]);
+                            // Reparto FRESCO: a partir de ahora exijo un bundle de barajado honesto para
+                            // este mazo (el handler de unlock community avisa si no llega). El recover NO
+                            // pasa por aqui, asi que no exige bundle (el barajado ya se verifico pre-crash).
+                            this.dual_lock_expect_bundle_for = this.local_mega_packet;
                             try {
                                 String orderStr = new String(java.util.Base64.getDecoder().decode(orderB64), "UTF-8");
                                 String[] orderTokens = orderStr.split(",");

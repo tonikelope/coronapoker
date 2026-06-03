@@ -36,11 +36,28 @@ import java.util.Arrays;
  *   <li><b>{@code Q = Σ f_i·B_i}</b> for a revealed point {@code Q} — {@link WeightedSumArgument};</li>
  *   <li><b>{@code Q = k·P_A}</b> where {@code P_A = Σ e_j·A_j} is public — a Schnorr proof of the common scalar.</li>
  * </ol>
- * Combining: {@code Σ_j e_j·(B_{σ⁻¹(j)} − k·A_j) = 0} for the random {@code e}, which (random linear
- * combination, grinding-resistant under Fiat–Shamir) forces {@code B_i = k·A_{σ(i)}} — i.e. {@code σ}
- * is the shuffle permutation and {@code k} the single relock scalar. Honest-verifier ZK from the
- * sub-protocols; the single revealed point {@code Q = k·P_A} leaks neither {@code k} (a discrete log)
- * nor {@code σ}.
+ * Combining: {@code Σ_j e_j·(B_{σ⁻¹(j)} − k·A_j) = 0} for the random {@code e}. Forcing each bracket to
+ * zero (hence {@code B_i = k·A_{σ(i)}}) is the random-linear-combination step, and it is sound
+ * <b>only because the deck points {@code A_j} are discrete-log-independent</b> random group elements:
+ * with no prover-known relation {@code Σ_j λ_j·A_j = O}, the formal coefficient of each {@code A_j} must
+ * vanish independently. Honest-verifier ZK from the sub-protocols; the single revealed point
+ * {@code Q = k·P_A} leaks neither {@code k} (a discrete log) nor {@code σ} ({@code Q} is permutation-invariant).
+ *
+ * <p><b>SECURITY PRECONDITION — discrete-log independence of {@code A} (load-bearing).</b> The soundness
+ * above collapses if a malicious prover knows a linear relation among the input points {@code A_j}: it
+ * could then satisfy the combined equation with a non-permutation {@code B} (a smuggled/duplicated card it
+ * can read). The genesis deck (NUMS hash-to-group card points) is DL-independent; and an honest re-encryption
+ * shuffle of DL-independent points stays DL-independent (scalar-mul + reorder introduces no relation). So the
+ * caller MUST verify each cascade step against an {@code A} that is provably anchored to the recomputable
+ * genesis: step 0's input equals genesis, and step {@code m}'s input equals step {@code m−1}'s ALREADY-VERIFIED
+ * output. Under that induction every {@code A} is DL-independent and the smuggle is impossible. <b>Verifying an
+ * isolated step against an unanchored / caller-supplied {@code A} is NOT sound</b> — {@link #verify} cannot
+ * detect provenance, so the cascade wiring is responsible for the anchor + chain (as
+ * {@code VerifiableCascade.verifyChain} already does, via {@code decksEqual(genesis, decks[0])}).
+ *
+ * <p>Defensive hygiene: {@link #verify} additionally rejects identity deck points / {@code Q} / {@code P_A}
+ * (which would attest a degenerate all-identity deck, i.e. {@code k = 0}) and rejects out-of-range response
+ * scalars (canonical proofs only).
  */
 public final class ShuffleArgument {
 
@@ -70,8 +87,20 @@ public final class ShuffleArgument {
         }
     }
 
+    private static final byte[] IDENTITY_ENC = Ristretto255.encode(EdwardsPoint.IDENTITY);
+
     private static BigInteger scalar() {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
+    }
+
+    /** True iff the point is null or the group identity (a degenerate / k=0 deck position). */
+    private static boolean isIdentity(EdwardsPoint p) {
+        return p == null || Arrays.equals(Ristretto255.encode(p), IDENTITY_ENC);
+    }
+
+    /** Canonical scalar response: present and reduced into {@code [0, L)}. */
+    private static boolean inRange(BigInteger s) {
+        return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
     }
 
     /** Challenge vector {@code e_0..e_{n-1} = H(A, B)} (Fiat–Shamir). */
@@ -149,8 +178,14 @@ public final class ShuffleArgument {
     public static boolean verify(EdwardsPoint[] a, EdwardsPoint[] b, Proof proof) {
         if (proof == null || a == null || b == null || a.length == 0 || b.length != a.length
                 || proof.cf == null || proof.cf.length != a.length || proof.q == null
-                || proof.scT == null || proof.scZ == null) {
+                || proof.scT == null || !inRange(proof.scZ)) {
             return false;
+        }
+        // Degeneracy hygiene: no identity deck points (an identity card / k=0 deck is not a valid shuffle).
+        for (int i = 0; i < a.length; i++) {
+            if (isIdentity(a[i]) || isIdentity(b[i])) {
+                return false;
+            }
         }
         BigInteger[] e = challengeVector(a, b);
 
@@ -160,11 +195,14 @@ public final class ShuffleArgument {
         }
         // (2) Q = Σ f_i·B_i for the committed f.
         EdwardsPoint q = Ristretto255.decode(proof.q);
-        if (q == null || !WeightedSumArgument.verify(proof.cf, b, q, proof.wsum)) {
+        if (isIdentity(q) || !WeightedSumArgument.verify(proof.cf, b, q, proof.wsum)) {
             return false;
         }
         // (3) Q = k·P_A (Schnorr), P_A public.
         EdwardsPoint pa = multiExpPublic(e, a);
+        if (isIdentity(pa)) {
+            return false;
+        }
         EdwardsPoint t = Ristretto255.decode(proof.scT);
         if (t == null) {
             return false;

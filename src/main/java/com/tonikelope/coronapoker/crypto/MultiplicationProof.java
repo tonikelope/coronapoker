@@ -126,7 +126,7 @@ public final class MultiplicationProof {
     public static boolean verify(byte[] ca, byte[] cb, byte[] cc, Proof p) {
         if (p == null || ca == null || cb == null || cc == null
                 || p.m1 == null || p.m2 == null || p.m3 == null
-                || p.z1 == null || p.z2 == null || p.z3 == null || p.z4 == null || p.z5 == null) {
+                || !inRange(p.z1) || !inRange(p.z2) || !inRange(p.z3) || !inRange(p.z4) || !inRange(p.z5)) {
             return false;
         }
         BigInteger e = challenge(ca, cb, cc, p.m1, p.m2, p.m3);
@@ -151,5 +151,10 @@ public final class MultiplicationProof {
 
     private static BigInteger scalar() {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
+    }
+
+    /** Canonical scalar response: present and reduced into {@code [0, L)}. */
+    private static boolean inRange(BigInteger s) {
+        return s != null && s.signum() >= 0 && s.compareTo(L) < 0;
     }
 }

@@ -10215,14 +10215,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id2 = RistrettoSRA.resolveCardIndex(c2);
             if (id1 < 0 || id2 < 0) {
                 // Sig OK pero la clave firmada NO resuelve a una carta genesis: el peer firmo una
-                // clave mala (bug/cliente corrupto) o intenta algo — no podemos distinguir. Politica
-                // §8: anomalia aislada a UN peer -> FORFEIT (no terminamos la partida de todos). Sus
-                // cartas NO se revelan (return false -> el showdown las muckea, ya manejado) y avisamos.
-                // Coherente con los demas return false de este metodo (sin/mala sig, sin pocket cards).
+                // clave mala (bug/cliente corrupto) o intenta algo — no podemos distinguir. Esto es el
+                // HOST detectando a UN peer -> FORFEIT silencioso (return false -> sus cartas no se
+                // revelan, el showdown las muckea), NO terminamos la partida de todos. Sin popup: es un
+                // peer, no un ataque del host hacia mi (warnSuspiciousHost seria mis-framed). Coherente
+                // con los demas return false de este metodo (sin/mala sig, sin pocket cards).
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (sus cartas no se revelan) + aviso.",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (sus cartas no se revelan).",
                         new Object[]{nick, id1, id2});
-                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
                 return false;
             }
 
@@ -12249,21 +12249,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             int id1 = RistrettoSRA.resolveCardIndex(cb1);
                                             int id2 = RistrettoSRA.resolveCardIndex(cb2);
                                             if (id1 < 0 || id2 < 0) {
-                                                // LOCKDOWN: sig firmada por el peer es genuina pero
-                                                // la SRA no resuelve cartas → el peer firmó una clave
-                                                // MALA intencionalmente o tiene cliente corrupto. No
-                                                // podemos distinguir, terminamos por seguridad.
+                                                // Politica §8 + la intencion documentada arriba ("FORFEIT del peer"):
+                                                // sig OK pero la SRA no resuelve = anomalia aislada a UN peer (firmo una
+                                                // clave mala: bug/cliente corrupto, no distinguible de malicia). NO
+                                                // aplicamos sus cartas (continue -> el showdown las deja tapadas =
+                                                // forfeit) y avisamos, en vez de terminar la partida de TODOS. (El
+                                                // set-mismatch de abajo, host MINTIENDO sobre las cartas, si es lockdown.)
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug. Lockdown.",
+                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (cartas no aplicadas) + aviso.",
                                                         new Object[]{nick, id1, id2});
                                                 try {
                                                     GameFrame.getInstance().getRegistro().print(
                                                             nick + " — clave de showdown firmada pero no resuelve cartas. Posible cheat o bug del cliente.");
                                                 } catch (Exception ignored) {
                                                 }
-                                                triggerSecurityLockdown(Translator.translate("zero_trust.peer_sra_corrupt"));
-                                                lockdownTriggered = true;
-                                                break;
+                                                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                                continue;
                                             }
 
                                             // Validar plaintext vs SRA-decrypt como SET (no tupla):

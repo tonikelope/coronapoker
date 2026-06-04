@@ -22,7 +22,7 @@ import java.math.BigInteger;
  * Batch-DLEQ proof that one cascade <b>rotation</b> step is an honest <b>in-place re-key</b>:
  * {@code out[i] = s·in[i]} for ALL positions {@code i} with a single secret scalar {@code s} and NO
  * reordering — without revealing {@code s} (revealing it would leak the community lock). This closes the
- * dual-lock rotation (FASE 1.5) smuggle flank: the {@code ShuffleArgument} cascade proves
+ * dual-lock rotation smuggle flank: the {@code ShuffleArgument} cascade proves
  * genesis→pre-rotation is an honest shuffle, and this proves pre-rotation→MEGAPACKET is an honest
  * per-position rekey, so every dealt point is tied back to genesis with no relocation/duplication.
  *

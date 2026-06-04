@@ -47,7 +47,9 @@ public class CryptoEnginePerfTest {
             s[i] = scalar();
         }
 
-        // Correccion: BASE.scalarMul == multiscalarMul([s],[BASE]) (camino independiente, tabla NO cacheada).
+        // Correccion: BASE.scalarMul == multiscalarMul([s],[BASE]) (ladder independiente; la tabla
+        // de ventana si se comparte via windowTable, la referencia realmente independiente es
+        // MultiScalarMulTest contra la suma naive).
         for (int i = 0; i < 8; i++) {
             EdwardsPoint viaScalar = EdwardsPoint.BASE.scalarMul(s[i]);
             EdwardsPoint viaMsm = EdwardsPoint.multiscalarMul(

@@ -126,17 +126,29 @@ public final class WeightedSumArgument {
             return false;
         }
         BigInteger e = challenge(cf, b, q, proof.t, proof.tq);
-        // Per-element: z_i·G_0 + zs_i·H == T_i ⊕ e·C_f[i].
+        // Per-element: z_i·G_0 + zs_i·H == T_i ⊕ e·C_f[i], folded to a single shared-ladder
+        // multi-scalar per element ("− e·C_f[i] == T_i", free negation) with the native Ristretto
+        // equality — same coset relation as the byte comparison, no per-element encode round trips.
+        EdwardsPoint g0 = PedersenVectorCommit.generator(0);
+        EdwardsPoint h = PedersenVectorCommit.H;
         for (int i = 0; i < cf.length; i++) {
-            byte[] lhs = MultiplicationProof.commitScalar(proof.z[i], proof.zs[i]);
-            byte[] rhs = PedersenVectorCommit.add(proof.t[i], PedersenVectorCommit.scale(cf[i], e));
-            if (rhs == null || !Arrays.equals(lhs, rhs)) {
+            EdwardsPoint ti = Ristretto255.decode(proof.t[i]);
+            EdwardsPoint cfi = Ristretto255.decode(cf[i]);
+            if (ti == null || cfi == null) {
+                return false;
+            }
+            EdwardsPoint lhs = EdwardsPoint.multiscalarMul(
+                    new BigInteger[]{proof.z[i], proof.zs[i], e}, new EdwardsPoint[]{g0, h, cfi.negate()});
+            if (!Ristretto255.equalPoints(lhs, ti)) {
                 return false;
             }
         }
-        // Aggregate: Σ z_i·B_i == T_Q ⊕ e·Q.
-        EdwardsPoint lhsQ = msm(proof.z, b);
-        EdwardsPoint rhsQ = tqPoint.add(q.scalarMul(e));
-        return Arrays.equals(Ristretto255.encode(lhsQ), Ristretto255.encode(rhsQ));
+        // Aggregate: Σ z_i·B_i == T_Q ⊕ e·Q, folded the same way (Σ z_i·B_i − e·Q == T_Q).
+        int n = b.length;
+        BigInteger[] zAgg = Arrays.copyOf(proof.z, n + 1);
+        zAgg[n] = e;
+        EdwardsPoint[] bAgg = Arrays.copyOf(b, n + 1);
+        bAgg[n] = q.negate();
+        return Ristretto255.equalPoints(EdwardsPoint.multiscalarMul(zAgg, bAgg), tqPoint);
     }
 }

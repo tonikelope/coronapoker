@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Multiplication proof (Σ-protocol): given Pedersen commitments {@code C_a}, {@code C_b}, {@code C_c}
@@ -107,8 +106,12 @@ public final class MultiplicationProof {
 
         byte[] m1 = scalarG0PlusRH(x1, x2);
         byte[] m2 = scalarG0PlusRH(x3, x4);
-        // M3 = x1·C_b + x5·H
-        byte[] m3 = PedersenVectorCommit.add(PedersenVectorCommit.scale(cb, x1), commitScalar(BigInteger.ZERO, x5));
+        // M3 = x1·C_b + x5·H — one shared-ladder multi-scalar over the decoded point (null in,
+        // null out, like the byte-oriented scale/add it replaces).
+        EdwardsPoint cbp = Ristretto255.decode(cb);
+        byte[] m3 = cbp == null ? null
+                : Ristretto255.encode(EdwardsPoint.multiscalarMul(
+                        new BigInteger[]{x1, x5}, new EdwardsPoint[]{cbp, PedersenVectorCommit.H}));
 
         byte[] ca = scalarG0PlusRH(a, ra);
         byte[] cc = scalarG0PlusRH(c.mod(L), rc);
@@ -129,9 +132,10 @@ public final class MultiplicationProof {
                 || !inRange(p.z1) || !inRange(p.z2) || !inRange(p.z3) || !inRange(p.z4) || !inRange(p.z5)) {
             return false;
         }
-        // Decode each commitment ONCE and work in projective points, encoding only the two sides of
-        // each gate for the (canonical-encoding) comparison — avoids the redundant decode/encode round
-        // trips of the byte-oriented add/scale on this O(n) hot path. Behaviour is identical.
+        // Decode each commitment ONCE and fold each gate into a single shared-ladder multi-scalar:
+        // "L == M ⊕ e·C" is checked as "L − e·C == M" (the negation is free), with the native
+        // Ristretto group equality — the same coset relation the canonical-encoding comparison
+        // expressed, without the separate scalarMul and the two sqrt-ratio encodes per gate.
         EdwardsPoint cap = Ristretto255.decode(ca);
         EdwardsPoint cbp = Ristretto255.decode(cb);
         EdwardsPoint ccp = Ristretto255.decode(cc);
@@ -145,27 +149,22 @@ public final class MultiplicationProof {
         EdwardsPoint h = PedersenVectorCommit.H;
         BigInteger e = challenge(ca, cb, cc, p.m1, p.m2, p.m3);
 
-        // (1) z1·G_0 + z2·H == M1 ⊕ e·C_a
-        EdwardsPoint lhs1 = EdwardsPoint.multiscalarMul(new BigInteger[]{p.z1, p.z2}, new EdwardsPoint[]{g0, h});
-        EdwardsPoint rhs1 = m1p.add(cap.scalarMul(e));
-        if (!encEq(lhs1, rhs1)) {
+        // (1) z1·G_0 + z2·H − e·C_a == M1
+        EdwardsPoint lhs1 = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{p.z1, p.z2, e}, new EdwardsPoint[]{g0, h, cap.negate()});
+        if (!Ristretto255.equalPoints(lhs1, m1p)) {
             return false;
         }
-        // (2) z3·G_0 + z4·H == M2 ⊕ e·C_b
-        EdwardsPoint lhs2 = EdwardsPoint.multiscalarMul(new BigInteger[]{p.z3, p.z4}, new EdwardsPoint[]{g0, h});
-        EdwardsPoint rhs2 = m2p.add(cbp.scalarMul(e));
-        if (!encEq(lhs2, rhs2)) {
+        // (2) z3·G_0 + z4·H − e·C_b == M2
+        EdwardsPoint lhs2 = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{p.z3, p.z4, e}, new EdwardsPoint[]{g0, h, cbp.negate()});
+        if (!Ristretto255.equalPoints(lhs2, m2p)) {
             return false;
         }
-        // (3) z1·C_b + z5·H == M3 ⊕ e·C_c
-        EdwardsPoint lhs3 = EdwardsPoint.multiscalarMul(new BigInteger[]{p.z1, p.z5}, new EdwardsPoint[]{cbp, h});
-        EdwardsPoint rhs3 = m3p.add(ccp.scalarMul(e));
-        return encEq(lhs3, rhs3);
-    }
-
-    /** Canonical-encoding equality (same relation the byte-oriented path used: Ristretto point equality). */
-    private static boolean encEq(EdwardsPoint a, EdwardsPoint b) {
-        return Arrays.equals(Ristretto255.encode(a), Ristretto255.encode(b));
+        // (3) z1·C_b + z5·H − e·C_c == M3
+        EdwardsPoint lhs3 = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{p.z1, p.z5, e}, new EdwardsPoint[]{cbp, h, ccp.negate()});
+        return Ristretto255.equalPoints(lhs3, m3p);
     }
 
     private static BigInteger scalar() {

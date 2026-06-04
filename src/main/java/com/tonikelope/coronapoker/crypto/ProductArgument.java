@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Product argument: given single-value Pedersen commitments {@code C_a[0..n-1]} (with
@@ -60,14 +59,18 @@ public final class ProductArgument {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** -P (negation of the committed point). */
-    private static byte[] neg(byte[] c) {
-        return PedersenVectorCommit.scale(c, L.subtract(BigInteger.ONE));
-    }
-
-    /** Encoded point {@code C − b·G_0} (should equal {@code ρ·H} when {@code C} commits {@code b}). */
-    private static byte[] minusValue(byte[] c, BigInteger b) {
-        return PedersenVectorCommit.add(c, neg(MultiplicationProof.commitScalar(b, BigInteger.ZERO)));
+    /**
+     * Point {@code C − b·G_0} (should equal {@code ρ·H} when {@code C} commits {@code b}).
+     * The subtraction is a free point negation, not a scalar multiplication by {@code L−1};
+     * {@code null} if {@code c} fails to decode.
+     */
+    private static EdwardsPoint minusValue(byte[] c, BigInteger b) {
+        EdwardsPoint cp = Ristretto255.decode(c);
+        if (cp == null) {
+            return null;
+        }
+        EdwardsPoint bG0 = PedersenVectorCommit.generator(0).scalarMul(b.mod(L));
+        return cp.add(bG0.negate());
     }
 
     private static BigInteger openChallenge(byte[] cLast, BigInteger b, byte[] t) {
@@ -135,14 +138,17 @@ public final class ProductArgument {
                 return false;
             }
         }
-        // Final opening: C_p[n-1] − b·G_0 == ρ·H, proven by z·H == T ⊕ e·(C_p[n-1] − b·G_0).
-        byte[] pPoint = minusValue(cpFull[n - 1], b);
-        if (pPoint == null) {
+        // Final opening: C_p[n-1] − b·G_0 == ρ·H, proven by z·H == T ⊕ e·(C_p[n-1] − b·G_0),
+        // folded to one shared-ladder multi-scalar (z·H − e·P == T, free negation) with the native
+        // Ristretto equality — the same coset relation the byte comparison expressed.
+        EdwardsPoint pPoint = minusValue(cpFull[n - 1], b);
+        EdwardsPoint tp = Ristretto255.decode(proof.openT);
+        if (pPoint == null || tp == null) {
             return false;
         }
         BigInteger e = openChallenge(cpFull[n - 1], b, proof.openT);
-        byte[] lhs = MultiplicationProof.commitScalar(BigInteger.ZERO, proof.openZ); // z·H
-        byte[] rhs = PedersenVectorCommit.add(proof.openT, PedersenVectorCommit.scale(pPoint, e));
-        return rhs != null && Arrays.equals(lhs, rhs);
+        EdwardsPoint lhs = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{proof.openZ, e}, new EdwardsPoint[]{PedersenVectorCommit.H, pPoint.negate()});
+        return Ristretto255.equalPoints(lhs, tp);
     }
 }

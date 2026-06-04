@@ -2148,7 +2148,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     crupierCheck.local_sra_lock_community = communityLockScalar;
                                                                     crupierCheck.local_sra_unlock_community = communityUnlockScalar;
                                                                     this.participantes.get(local_nick).setSra_unlock_community(communityUnlockScalar);
-                                                                    // Anti-replay (Fase 4.3): nueva cascada (o reintento legítimo) habilita UNA
+                                                                    // Anti-replay: nueva cascada (o reintento legítimo) habilita UNA
                                                                     // rotación. Una segunda rotación sin pasar por aquí será rechazada.
                                                                     crupierCheck.rotation_served_this_cascade = false;
 
@@ -2179,15 +2179,15 @@ public class WaitingRoomFrame extends JFrame {
                                                                     String myNickB64 = Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"));
 
                                                                     int respId = Helpers.CSPRNG_GENERATOR.nextInt();
-                                                                    // Fase 4: enviar los commitments K=k*B (pocket y community) junto al
+                                                                    // Enviar los commitments K=k*B (pocket y community) junto al
                                                                     // deck cascadeado, para que el host los agregue y se anclen en H_0.
                                                                     String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
                                                                     String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    // C1 (wire-2): prueba de barajado verificable de ESTE paso de cascada
+                                                                    // Prueba de barajado verificable de ESTE paso de cascada
                                                                     // (deckOut = shuffle(k·deckIn)). El host la agrega a la cadena que TODOS
                                                                     // verifican, así un host modificado no puede colar una carta. "" si la
                                                                     // generación falla (peer legacy / degradado): el host lo trata como
-                                                                    // ausente (sin enforcement todavía en wire-2).
+                                                                    // ausente (sin enforcement todavía).
                                                                     int myPermN = incomingDeck.length / 32;
                                                                     int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
                                                                     byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
@@ -2220,7 +2220,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_ROTATION_REQ without community lock (Crupier or local_sra_lock_community null) — refusing");
                                                                         return;
                                                                     }
-                                                                    // Anti-replay (Fase 4.3): solo UNA rotación por cascada. Una segunda sin
+                                                                    // Anti-replay: solo UNA rotación por cascada. Una segunda sin
                                                                     // nueva cascada = host hostil usando la rotación como oráculo de
                                                                     // pocket-unlock encubierto (intento de leer cartas de un peer que sale).
                                                                     if (crupierRot.rotation_served_this_cascade) {
@@ -2302,7 +2302,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
 
                                                         case "DUALLOCK_BUNDLE":
-                                                            // rotacion-3: cada peer verifica POR SU CUENTA que el reparto es un
+                                                            // Cada peer verifica POR SU CUENTA que el reparto es un
                                                             // barajado+rotacion honesto genesis->MEGAPACKET. pocketCount se deriva
                                                             // LOCAL (active_crypto_ring.length*2), NUNCA del host, y el genesis se
                                                             // recomputa. Si falla -> avisar+recomendar salir pero PERMITIR seguir
@@ -2353,7 +2353,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
 
                                                         case "REQ_SRA_UNLOCK_CHAIN":
-                                                            // Fase 4.2: unlock batch VERIFICABLE. Por cada punto, el host envia la
+                                                            // Unlock batch VERIFICABLE. Por cada punto, el host envia la
                                                             // cadena DealChain de los peers previos; este peer la verifica contra SU
                                                             // MEGAPACKET comprometido y, si es valida, aplica su unlock con prueba
                                                             // DLEQ y extiende la cadena. El host nunca le manda el punto a descifrar
@@ -2415,7 +2415,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN before MEGAPACKET — refusing");
                                                                         return;
                                                                     }
-                                                                    // GATE "exigir prueba" (rotacion-3): voy a ayudar a revelar community = la ventana
+                                                                    // GATE "exigir prueba": voy a ayudar a revelar community = la ventana
                                                                     // donde se leeria una carta colada. Si este mazo viene de un reparto FRESCO que NO he
                                                                     // verificado como barajado honesto (el host no mando el bundle, o llego mal), aviso UNA
                                                                     // vez. Avisar-pero-permitir: podria ser un bug/retraso de red -> recomiendo salir pero
@@ -2696,7 +2696,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 crupierMP.active_crypto_ring = ringList.toArray(new String[0]);
                                                                 crupierMP.local_mega_packet = Base64.getDecoder().decode(partes_comando[4]);
-                                                                // Fase 4: poblar los commitments K de forma SINCRONA aqui. El handler
+                                                                // Poblar los commitments K de forma SINCRONA aqui. El handler
                                                                 // REQ_SRA_UNLOCK_CHAIN corre en su propio threadRun y los necesita; si
                                                                 // dependieramos de recibirMisCartas (consumer async de la cola) habria
                                                                 // carrera y el binding verificaria contra un mapa vacio -> lockdown falso.

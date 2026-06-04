@@ -3689,7 +3689,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         // muckea, ya manejado), NO terminamos la partida de todos. Avisamos.
                                         // Coherente con el caso gemelo en RESP_SHOWDOWN_KEY.
                                         LOGGER.log(Level.SEVERE,
-                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK pero SRA no resuelve. Peer maligno o bug -> FORFEIT (cartas no reveladas) + aviso.",
+                                                "ZERO-TRUST: SHOWCARDS for {0} — sig OK but SRA does not resolve. Malicious peer or bug -> FORFEIT (cards not revealed) + warning.",
                                                 nick);
                                         warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
                                     }
@@ -10132,7 +10132,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     GameFrame.getInstance().checkPause();
                     if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
                         LOGGER.log(Level.WARNING,
-                                "REQ_SHOWDOWN_KEY timeout — {0} peers did not respond. Sus cartas se muestran tapadas; el host resuelve el pot por acciones.",
+                                "REQ_SHOWDOWN_KEY timeout — {0} peers did not respond. Their cards stay face-down; the host resolves the pot from the action log.",
                                 pendientes);
                         break;
                     }
@@ -10257,7 +10257,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // peer, no un ataque del host hacia mi (warnSuspiciousHost seria mis-framed). Coherente
                 // con los demas return false de este metodo (sin/mala sig, sin pocket cards).
                 LOGGER.log(Level.SEVERE,
-                        "ZERO-TRUST: RESP_SHOWDOWN_KEY de {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (sus cartas no se revelan).",
+                        "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (their cards are not revealed).",
                         new Object[]{nick, id1, id2});
                 return false;
             }
@@ -12248,7 +12248,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
                                             if (signerPubkey == null || this.current_hand_id == null) {
                                                 LOGGER.log(Level.WARNING,
-                                                        "POTCARDS for {0}: signer pubkey o hand_id no resuelto aún — entry skipped (no lockdown, posible TOFU race)",
+                                                        "POTCARDS for {0}: signer pubkey or hand_id not resolved yet — entry skipped (no lockdown, possible TOFU race)",
                                                         nick);
                                                 continue;
                                             }
@@ -12292,7 +12292,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 // forfeit) y avisamos, en vez de terminar la partida de TODOS. (El
                                                 // set-mismatch de abajo, host MINTIENDO sobre las cartas, si es lockdown.)
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK pero SRA no resuelve (ids={1},{2}). Peer maligno o bug -> FORFEIT (cartas no aplicadas) + aviso.",
+                                                        "ZERO-TRUST: POTCARDS for {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (cards not applied) + warning.",
                                                         new Object[]{nick, id1, id2});
                                                 try {
                                                     GameFrame.getInstance().getRegistro().print(
@@ -12387,7 +12387,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.getInstance().checkPause()) {
                 start_time = System.currentTimeMillis();
             } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
-                LOGGER.log(Level.WARNING, "recibirCartasResistencia timeout — showdown reveals incompletos. UI muestra cartas tapadas; el host resuelve el pot por acciones.");
+                LOGGER.log(Level.WARNING, "recibirCartasResistencia timeout — showdown reveals incomplete. UI shows face-down cards; the host resolves the pot from the action log.");
                 break;
             } else {
                 synchronized (this.getReceived_commands()) {

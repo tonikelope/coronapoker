@@ -159,7 +159,7 @@ public final class TOFUResolver {
                     return new Resolution(Outcome.CHANGED, false, newCount);
                 }
             } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "TOFU resolve failed for nick " + nick, ex);
+                LOGGER.log(Level.SEVERE, "TOFU: resolve failed for nick " + nick, ex);
                 // Defensa: si el SELECT inicial alcanzó a leer un pubkey existente
                 // y NO matchea con el presentado, propagamos CHANGED — no NEW —
                 // aunque el UPDATE/INSERT posterior haya fallado. Devolver NEW aquí
@@ -215,7 +215,7 @@ public final class TOFUResolver {
                     return rows == 1;
                 }
             } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "TOFU markVerified failed for nick " + nick, ex);
+                LOGGER.log(Level.SEVERE, "TOFU: markVerified failed for nick " + nick, ex);
                 return false;
             }
         }
@@ -241,7 +241,7 @@ public final class TOFUResolver {
                     }
                 }
             } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "TOFU getPinnedPubkey failed for nick " + nick, ex);
+                LOGGER.log(Level.SEVERE, "TOFU: getPinnedPubkey failed for nick " + nick, ex);
             }
         }
         return null;
@@ -273,7 +273,7 @@ public final class TOFUResolver {
                     }
                 }
             } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "TOFU isVerified failed for nick " + nick, ex);
+                LOGGER.log(Level.SEVERE, "TOFU: isVerified failed for nick " + nick, ex);
             }
         }
         return false;

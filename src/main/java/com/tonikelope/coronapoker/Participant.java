@@ -287,7 +287,7 @@ public class Participant implements Runnable {
                         && (pong_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES
                         || pong2_timeout_counter >= WaitingRoomFrame.MAX_CONSECUTIVE_PING_FAILURES)) {
                     LOGGER.log(Level.WARNING,
-                            "[PEER] Participant {0} lost {1}/{2} consecutive PONGs - closing socket",
+                            "PEER: Participant {0} lost {1}/{2} consecutive PONGs — closing socket",
                             new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
                     socketClose();
                     break;
@@ -383,7 +383,7 @@ public class Participant implements Runnable {
                         GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
 
                         long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
-                        LOGGER.log(Level.INFO, "[PEER] Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
+                        LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
 
                         if (!this.force_reset_socket) {
                             try {
@@ -406,7 +406,7 @@ public class Participant implements Runnable {
                                         && System.currentTimeMillis() < deadline) {
                                     if (grace_deadline_floor > deadline) {
                                         LOGGER.log(Level.INFO,
-                                                "[PEER] Participant {0} grace extended by authenticated reconnect intent (+{1}ms)",
+                                                "PEER: Participant {0} grace extended by authenticated reconnect intent (+{1}ms)",
                                                 new Object[]{nick, grace_deadline_floor - deadline});
                                         deadline = grace_deadline_floor;
                                     }
@@ -614,7 +614,7 @@ public class Participant implements Runnable {
             return;
         }
         exit = true;
-        LOGGER.log(Level.WARNING, "[PEER] Participant {0} marked exit — {1}", new Object[]{nick, reason});
+        LOGGER.log(Level.WARNING, "PEER: Participant {0} marked exit — {1}", new Object[]{nick, reason});
         try {
             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                 Crupier c = GameFrame.getInstance().getCrupier();
@@ -752,10 +752,10 @@ public class Participant implements Runnable {
                 // threshold ni cerrar el socket recien instalado.
                 this.pong_timeout_counter = 0;
                 this.pong2_timeout_counter = 0;
-                LOGGER.log(Level.INFO, "[PEER] Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
+                LOGGER.log(Level.INFO, "PEER: Participant {0} resetSocket OK — reconnect succeeded within grace period (exit stays false)", nick);
             } catch (Exception ex) {
                 this.reset_socket = false;
-                LOGGER.log(Level.WARNING, "[PEER] Participant " + nick + " resetSocket FAILED — reader thread will continue to timeout", ex);
+                LOGGER.log(Level.WARNING, "PEER: Participant " + nick + " resetSocket FAILED — reader thread will continue to timeout", ex);
             } finally {
                 this.recon_socket = null;
                 this.force_reset_socket = false;

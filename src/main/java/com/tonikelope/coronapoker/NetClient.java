@@ -304,7 +304,7 @@ public class NetClient {
                 // Sin esto el cliente solo detectaba la caida cuando el reader
                 // devolvia null por su cuenta, que en Linux sin keepalive tarda
                 // ~16 min de TCP retransmit.
-                LOGGER.log(Level.WARNING, "Client write failed - socket dead, forcing reconnect", ex);
+                LOGGER.log(Level.WARNING, "Client write failed — socket dead, forcing reconnect", ex);
                 closeClientSocket();
             }
         }

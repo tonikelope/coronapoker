@@ -30,9 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *     showdown, button rotation).
  *
  * Out of scope (intentionally): real Crupier state machine, NetServer/NetClient,
- * SQL persistence, CryptoSRA. Those layers are validated by their own dedicated
- * tests under com.tonikelope.coronapoker.sra and by manual smoke checklists
- * per sprint (docs/smoke-checklist/).
+ * SQL persistence, the SRA crypto engine. Those layers are validated by their own
+ * dedicated tests under com.tonikelope.coronapoker.crypto / .sra and by manual
+ * smoke checklists per sprint (docs/smoke-checklist/).
  *
  * Asserts on EVERY hand:
  *   - chip conservation: Sigma stacks == numSeats * startingStack (epsilon 0.5f)

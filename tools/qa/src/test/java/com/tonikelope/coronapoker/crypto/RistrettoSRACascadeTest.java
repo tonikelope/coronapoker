@@ -9,11 +9,11 @@
  *   - unlock order does not matter (commutativity),
  *   - many hands run clean (state isolation, no degeneration).
  *
- * Reuses CryptoSRA.shuffleDeck for the permutation (byte-agnostic, already validated).
+ * Reuses DeterministicShuffle.shuffleDeck for the permutation (byte-agnostic, already validated).
  */
 package com.tonikelope.coronapoker.crypto;
 
-import com.tonikelope.coronapoker.CryptoSRA;
+import com.tonikelope.coronapoker.DeterministicShuffle;
 import com.tonikelope.coronapoker.Helpers;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -52,7 +52,7 @@ public class RistrettoSRACascadeTest {
         for (int p = 0; p < numPlayers; p++) {
             deck = RistrettoSRA.applyCommutativeLock(deck, lock[p]);
             assertTrue(deck != null, "lock pass " + p + " must succeed");
-            deck = CryptoSRA.shuffleDeck(deck, seed[p]);
+            deck = DeterministicShuffle.shuffleDeck(deck, seed[p]);
         }
 
         Set<Integer> resolved = new HashSet<>();
@@ -83,7 +83,7 @@ public class RistrettoSRACascadeTest {
         byte[] deck = RistrettoSRA.getGenesisDeck();
         for (int p = 0; p < numPlayers; p++) {
             deck = RistrettoSRA.applyCommutativeLock(deck, lock[p]);
-            deck = CryptoSRA.shuffleDeck(deck, seed[p]);
+            deck = DeterministicShuffle.shuffleDeck(deck, seed[p]);
         }
 
         Set<Integer> resolved = new HashSet<>();
@@ -160,7 +160,7 @@ public class RistrettoSRACascadeTest {
             byte[] deck = RistrettoSRA.getGenesisDeck();
             for (int p = 0; p < numPlayers; p++) {
                 deck = RistrettoSRA.applyCommutativeLock(deck, lock[p]);
-                deck = CryptoSRA.shuffleDeck(deck, seed[p]);
+                deck = DeterministicShuffle.shuffleDeck(deck, seed[p]);
             }
             Set<Integer> resolved = new HashSet<>();
             for (int i = 0; i < dealtPerHand; i++) {

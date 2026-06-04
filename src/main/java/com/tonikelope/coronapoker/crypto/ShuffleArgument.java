@@ -25,7 +25,7 @@ import java.math.BigInteger;
  * {@code π} and {@code k}. This is the missing half of the SRA mental-poker engine: it forces the deck
  * to be an HONEST re-encryption shuffle (a real permutation of distinct cards, uniformly relocked),
  * which closes the rotation-smuggle vulnerability (a smuggled duplicate is not a permutation, so the
- * proof fails). See {@code docs/sra-bayer-groth-shuffle.md}.
+ * proof fails). See {@code docs/SECURITY.md}.
  *
  * <p>Construction (Neff/Bayer–Groth). A challenge vector {@code e = H(A, B)} is drawn (Fiat–Shamir).
  * The prover commits the permuted challenges {@code f_i = e[π(i)]} and shows:

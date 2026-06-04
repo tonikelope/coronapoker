@@ -224,7 +224,7 @@ Honest player timeouts are resolved client-side: each peer's local `auto_action`
 
 Community cards are never sent in the clear. After the SRA cascade and the community rotation pass (see [`SECURITY.md`](SECURITY.md) §2.2), each community slot is locked **only** under each peer's `k_community`. Per street, the host:
 
-1. Sends every ring member its **own per-recipient encrypted piece** — `FLOP_PIECE` / `TURN_PIECE` / `RIVER_PIECE` (and `RABBIT_*_PIECE` for rabbit hunting), wire-shaped as `<PIECE>#<recipient_nick_b64>#<payload_b64>`. The recipient applies its `local_sra_unlock_community` to decode the piece **locally** and maps each 32-byte chunk to a card index via `CryptoSRA.resolveCardIndex`.
+1. Sends every ring member its **own per-recipient encrypted piece** — `FLOP_PIECE` / `TURN_PIECE` / `RIVER_PIECE` (and `RABBIT_*_PIECE` for rabbit hunting), wire-shaped as `<PIECE>#<recipient_nick_b64>#<payload_b64>`. The recipient applies its `local_sra_unlock_community` to decode the piece **locally** and maps each 32-byte chunk to a card index via `RistrettoSRA.resolveCardIndex`.
 2. Broadcasts a single signed announcement to everyone:
    ```
    COMM_REVEAL # <record_b64> # <sig_b64>

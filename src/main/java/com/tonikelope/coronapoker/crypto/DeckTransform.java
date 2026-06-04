@@ -21,14 +21,10 @@ import java.math.BigInteger;
 
 /**
  * Deck transform for the verifiable-shuffle engine: a "shuffle step" applies a permutation and a
- * single common scalar to a deck of Ristretto points, {@code out[i] = k · deck[perm[i]]}. Plus the
- * permutation algebra the cut-and-choose proof needs (invert, compose), where the round identity is
- *
- * <pre>  B = apply(A, π, k)  ⇔  B = apply( apply(A, π1, k1), compose(invert(π1), π), k·k1⁻¹ )  </pre>
- *
- * i.e. any shuffle {@code A→B} factors through a fresh intermediate {@code C = apply(A, π1, k1)}.
- * That factorisation is exactly what lets a verifier check one half of the step per challenge round
- * without learning {@code (π, k)}.
+ * single common scalar to a deck of Ristretto points, {@code out[i] = k · deck[perm[i]]} — exactly
+ * the statement a {@link ShuffleArgument} attests. {@link #decksEqual} is the genesis-anchor
+ * comparison of {@link ShuffleCascade#verifyChain}; {@link #apply}, {@link #randomPermutation} and
+ * {@link #isPermutation} are the reference transform the QA battery uses to build honest shuffles.
  */
 public final class DeckTransform {
 

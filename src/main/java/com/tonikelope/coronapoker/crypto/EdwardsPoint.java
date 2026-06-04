@@ -22,7 +22,6 @@ import java.math.BigInteger;
  * Point on edwards25519, the twisted Edwards curve -x^2 + y^2 = 1 + d*x^2*y^2
  * (a = -1) birationally equivalent to Curve25519, underlying Ristretto255.
  *
- * Phase 1 of the verifiable-dealing rework (docs/sra-verifiable-dealing-design.md).
  * Extended homogeneous coordinates (X:Y:Z:T) with x = X/Z, y = Y/Z, x*y = T/Z.
  * Group law via the unified Hisil-Wong-Carter-Dawson formulas (add-2008-hwcd-3 /
  * dbl-2008-hwcd), correct for all inputs including the identity.

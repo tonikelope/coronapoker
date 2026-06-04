@@ -1,8 +1,8 @@
 /*
  * Phase 3 (group migration) — dual-lock cascade flow on the Ristretto engine.
  *
- * Ports the dual-lock dealing tests (previously validated on the Montgomery engine
- * in com.tonikelope.coronapoker.sra.CryptoSRACascadeTest) to RistrettoSRA, so the
+ * Ports the dual-lock dealing tests (previously validated on the retired Montgomery
+ * engine) to RistrettoSRA, so the
  * EXACT flow Crupier runs is covered automatically — minimising manual smoke:
  *   - cascade-lock+shuffle with k_pocket, slice, community rotation (uPocket+kCommunity),
  *   - pocket dealing (others unlock, owner last),
@@ -10,11 +10,11 @@
  *   - testament: a community-only key handed over on EXIT does NOT leak the pocket,
  *   - showdown: a fabricated key never resolves to a card.
  *
- * Uses CryptoSRA.shuffleDeck (byte-agnostic permutation, unchanged by the migration).
+ * Uses DeterministicShuffle.shuffleDeck (byte-agnostic permutation, unchanged by the migration).
  */
 package com.tonikelope.coronapoker.crypto;
 
-import com.tonikelope.coronapoker.CryptoSRA;
+import com.tonikelope.coronapoker.DeterministicShuffle;
 import com.tonikelope.coronapoker.Helpers;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -62,7 +62,7 @@ public class RistrettoSRADualLockTest {
         byte[] deck = RistrettoSRA.getGenesisDeck();
         for (int i = 0; i < numPlayers; i++) {
             deck = RistrettoSRA.applyCommutativeLock(deck, kPocket[i]);
-            deck = CryptoSRA.shuffleDeck(deck, seeds[i]);
+            deck = DeterministicShuffle.shuffleDeck(deck, seeds[i]);
         }
 
         // 2) Slice.
@@ -143,7 +143,7 @@ public class RistrettoSRADualLockTest {
         byte[] deck = RistrettoSRA.getGenesisDeck();
         for (int i = 0; i < numPlayers; i++) {
             deck = RistrettoSRA.applyCommutativeLock(deck, kPocket[i]);
-            deck = CryptoSRA.shuffleDeck(deck, seeds[i]);
+            deck = DeterministicShuffle.shuffleDeck(deck, seeds[i]);
         }
         byte[][] pocketPieces = new byte[pocketSlots][];
         for (int j = 0; j < pocketSlots; j++) {
@@ -201,7 +201,7 @@ public class RistrettoSRADualLockTest {
         byte[] deck = RistrettoSRA.getGenesisDeck();
         for (int i = 0; i < numPlayers; i++) {
             deck = RistrettoSRA.applyCommutativeLock(deck, kPocket[i]);
-            deck = CryptoSRA.shuffleDeck(deck, seeds[i]);
+            deck = DeterministicShuffle.shuffleDeck(deck, seeds[i]);
         }
         byte[][] pocketPieces = new byte[pocketSlots][];
         for (int j = 0; j < pocketSlots; j++) {

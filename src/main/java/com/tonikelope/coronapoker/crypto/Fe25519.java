@@ -22,7 +22,6 @@ import java.math.BigInteger;
  * Element of the prime field GF(2^255 - 19) — the base field of edwards25519,
  * underlying the Ristretto255 group.
  *
- * Phase 1 of the verifiable-dealing rework (docs/sra-verifiable-dealing-design.md).
  * This is a correctness-first BigInteger implementation: every operation reduces
  * mod p, so it is correct by construction. It is validated against algebraic
  * properties and the RFC 9496 constants (see Fe25519Test). A radix-16 fast path

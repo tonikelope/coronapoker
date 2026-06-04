@@ -62,13 +62,17 @@ public final class PermutationArgument {
         return tr.challengeScalar("x");
     }
 
-    /** Derived factor commitments {@code C_a[i] = x·G_0 ⊖ C_d'[i]} (committing {@code a_i = x − d'_i}). */
+    /**
+     * Derived factor commitments {@code C_a[i] = x·G_0 ⊖ C_d'[i]} (committing {@code a_i = x − d'_i}).
+     * The subtraction is a free point negation ({@code ⊖C = −C}, same element {@code (L−1)·C} names),
+     * not a scalar multiplication; {@code null} for any {@code C_d'[i]} that fails to decode.
+     */
     private static byte[][] factorCommitments(BigInteger x, byte[][] cdprime) {
-        byte[] xG0 = MultiplicationProof.commitScalar(x, BigInteger.ZERO);
+        EdwardsPoint xG0 = PedersenVectorCommit.generator(0).scalarMul(x.mod(L));
         byte[][] ca = new byte[cdprime.length][];
         for (int i = 0; i < cdprime.length; i++) {
-            byte[] negCd = PedersenVectorCommit.scale(cdprime[i], L.subtract(BigInteger.ONE));
-            ca[i] = PedersenVectorCommit.add(xG0, negCd);
+            EdwardsPoint cd = Ristretto255.decode(cdprime[i]);
+            ca[i] = cd == null ? null : Ristretto255.encode(xG0.add(cd.negate()));
         }
         return ca;
     }

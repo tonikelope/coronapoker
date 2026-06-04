@@ -64,6 +64,10 @@ public final class Ristretto255 {
      * canonical 32-byte representation (RFC 9496 §4.3.2).
      */
     public static byte[] encode(EdwardsPoint p) {
+        byte[] cached = p.ristrettoCache();
+        if (cached != null) {
+            return cached.clone(); // fresh array per call, like the computed path
+        }
         Fe25519 x0 = p.extX();
         Fe25519 y0 = p.extY();
         Fe25519 z0 = p.extZ();
@@ -95,7 +99,9 @@ public final class Ristretto255 {
         }
 
         Fe25519 s = denInv.mul(z.sub(y)).abs();
-        return s.toBytes();
+        byte[] enc = s.toBytes();
+        p.ristrettoCache(enc.clone());
+        return enc;
     }
 
     /**
@@ -135,7 +141,35 @@ public final class Ristretto255 {
         if (!wasSquare || t.isNegative() || y.isZero()) {
             return null;
         }
-        return EdwardsPoint.fromAffine(x, y);
+        EdwardsPoint p = EdwardsPoint.fromAffine(x, y);
+        // Canonical input accepted -> the round-trip is the identity (RFC 9496), so the input IS
+        // this point's canonical encoding: seed the cache and the wire point re-encodes for free.
+        p.ristrettoCache(in.clone());
+        return p;
+    }
+
+    /**
+     * Native Ristretto255 group-element equality of two edwards25519 representatives:
+     * {@code X1·Y2 == Y1·X2} (invariant under the identity / {@code (0,-1)} coset translations) OR
+     * {@code Y1·Y2 == X1·X2} (under the {@code (±i,0)} ones) — together, exactly "same E[4] coset",
+     * i.e. the same relation as comparing canonical encodings, in four field multiplies instead of
+     * two sqrt-ratio exponentiations. Validated against encode-equality by fuzz, torsion included
+     * (RistrettoEqualityTest).
+     */
+    public static boolean equalPoints(EdwardsPoint a, EdwardsPoint b) {
+        if (a.extX().mul(b.extY()).ctEq(a.extY().mul(b.extX()))) {
+            return true;
+        }
+        return a.extY().mul(b.extY()).ctEq(a.extX().mul(b.extX()));
+    }
+
+    /**
+     * True iff the point is the Ristretto255 identity element, i.e. lies in the E[4] coset of
+     * {@code (0,1)}: exactly {@code X == 0} (the {@code (0,±1)} members) or {@code Y == 0} (the
+     * {@code (±i,0)} ones). Two zero checks instead of a full encode.
+     */
+    public static boolean isIdentity(EdwardsPoint p) {
+        return p.extX().isZero() || p.extY().isZero();
     }
 
     /**

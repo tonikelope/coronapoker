@@ -2323,22 +2323,23 @@ public class WaitingRoomFrame extends JFrame {
                                                                     return;
                                                                 }
                                                                 try {
-                                                                    int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
+                                                                    // SNAPSHOT inmutable de ESTE mazo+bundle y a la cola serial. El verify
+                                                                    // corre contra este snapshot, NO contra el local_mega_packet vivo: una
+                                                                    // mano nueva ya no puede clobbear la verificacion de esta, y un equipo
+                                                                    // lento la termina igual aunque la mano haya avanzado (cazando un
+                                                                    // smuggle pasado). El veredicto vuelve por el Sink (ver Crupier).
                                                                     byte[] genesisB = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck();
-                                                                    boolean okB = com.tonikelope.coronapoker.crypto.DualLockWire.verifyFullChainWire(
+                                                                    int pocketCount = cruB.active_crypto_ring.length * 2; // PEER-DERIVED
+                                                                    ShuffleVerificationQueue.Job job = new ShuffleVerificationQueue.Job(
                                                                             genesisB, csvToBytes(partes_bundle[3]), csvToBytes(partes_bundle[4]),
                                                                             pocketCount, cruB.local_mega_packet,
-                                                                            csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]));
-                                                                    if (okB) {
-                                                                        // Marco ESTE mazo como verificado: el gate de unlock community ya no avisara para el.
-                                                                        cruB.dual_lock_verified_megapacket = cruB.local_mega_packet;
-                                                                        LOGGER.log(Level.INFO, "DUALLOCK_BUNDLE: deal-chain verify OK (peer-side)");
-                                                                    } else {
-                                                                        LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE: deal-chain verify FAILED (peer-side) — host deshonesto o bug");
-                                                                        cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
-                                                                    }
+                                                                            csvToBytes(partes_bundle[5]), csvToBytes(partes_bundle[6]),
+                                                                            cruB.getMano());
+                                                                    cruB.getShuffleVerifyQueue().enqueue(job);
                                                                 } catch (Exception bundleEx) {
-                                                                    // Recibido pero no parseable (base64 invalido, etc.) = anomalo -> avisar.
+                                                                    // No parseable (base64 invalido, etc.) = anomalo pero ambiguo -> avisar.
+                                                                    // (Solo los jobs que SI parsean y fallan la prueba se reportan como
+                                                                    // "deshonesto probado" desde la cola; esto es solo malformacion.)
                                                                     LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE no parseable — avisando", bundleEx);
                                                                     cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }

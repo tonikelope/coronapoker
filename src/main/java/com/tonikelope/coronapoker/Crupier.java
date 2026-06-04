@@ -375,10 +375,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
         } catch (Exception ignored) {
         }
-        Helpers.threadRun(() -> Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                Translator.translate("zero_trust.suspicious_header")
-                + reason + "\n\n"
-                + Translator.translate("zero_trust.suspicious_body")));
+        Helpers.threadRun(() -> {
+            // Modal: desde este hilo de fondo bloquea hasta que el usuario pulsa OK.
+            Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                    Translator.translate("zero_trust.suspicious_header")
+                    + reason + "\n\n"
+                    + Translator.translate("zero_trust.suspicious_body"));
+            // El aviso recomienda abandonar la mesa: tras cerrarlo se lo ponemos a un click
+            // abriendo el flujo de salida ya existente (mismo camino que el menu Salir /
+            // Ctrl+Q). Si prefiere seguir jugando, cancela el dialogo y no pasa nada.
+            // SOLO en cliente: en el host el aviso es auto-deteccion (posible bug propio) y
+            // ademas su flujo de salida en partida local con un unico humano NO pregunta
+            // (saldria de la timba sin confirmacion). Si mientras tanto salto un lockdown
+            // duro, ese flujo ya esta gestionando la salida y no abrimos nada encima.
+            if (!Crupier.SECURITY_LOCKDOWN && !GameFrame.getInstance().isPartida_local()) {
+                try {
+                    Helpers.GUIRun(() -> GameFrame.getInstance().getExit_menu().doClick());
+                } catch (Exception ignored) {
+                }
+            }
+        });
     }
 
     /**

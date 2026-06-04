@@ -3437,7 +3437,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            ExitDialog exit_dialog = new ExitDialog(this, true, "¿SALIR DE LA TIMBA?");
+            ExitDialog exit_dialog = new ExitDialog(this, true, Translator.translate("exit.salir_de_la_timba_pregunta"));
             exit_dialog.setLocationRelativeTo(this);
             exit_dialog.setVisible(true);
 

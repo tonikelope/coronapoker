@@ -211,13 +211,13 @@ public final class EdwardsPoint {
         if (maxBits == 0) {
             return IDENTITY; // all scalars zero
         }
-        // Per-point 4-bit window tables: table[i][w] = w·points[i], w = 0..15.
-        EdwardsPoint[][] table = new EdwardsPoint[n][16];
+        // Per-point 4-bit window tables: table[i][w] = w·points[i], w = 0..15. Reuses each point's
+        // memoized table (see windowTable): the fixed generators (H, G_0, BASE) and any deck point
+        // appearing in several multi-scalar calls build their 15-addition table once per lifetime
+        // instead of once per call.
+        EdwardsPoint[][] table = new EdwardsPoint[n][];
         for (int i = 0; i < n; i++) {
-            table[i][0] = IDENTITY;
-            for (int w = 1; w < 16; w++) {
-                table[i][w] = table[i][w - 1].add(points[i]);
-            }
+            table[i] = points[i].windowTable();
         }
         int top = ((maxBits + 3) / 4) * 4 - 4;
         EdwardsPoint result = IDENTITY;

@@ -516,7 +516,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // --- LLAVES EC-SRA DEL JUGADOR LOCAL ---
-    // Dual-lock (Opción G): cada peer genera DOS pares de scalars por mano.
+    // Dual-lock: cada peer genera DOS pares de scalars por mano.
     //   - local_sra_lock / local_sra_unlock se usan en la cascade principal y
     //     siguen siendo la clave de las pocket pieces.
     //   - local_sra_lock_community / local_sra_unlock_community se usan en la
@@ -528,7 +528,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] local_sra_unlock = null;
     public volatile byte[] local_sra_lock_community = null;
     public volatile byte[] local_sra_unlock_community = null;
-    // Anti-replay de la rotación (Fase 4.3): el cliente sirve UNA sola rotación por
+    // Anti-replay de la rotación: el cliente sirve UNA sola rotación por
     // cascada. Se pone a false al generar los scalars en el handler DECK_CASCADE_REQ
     // (cada cascada/reintento legítimo permite una rotación) y a true tras servir la
     // rotación. Una segunda DECK_ROTATION_REQ sin nueva cascada = host hostil intentando
@@ -543,7 +543,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // nick del bot. Limpiado en los mismos sitios que el resto de scalars.
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> bot_community_locks = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // Fase 4 (verifiable dealing): commitments publicos K=k*B de cada peer del ring
+    // Verifiable dealing: commitments publicos K=k*B de cada peer del ring
     // (nick -> encoding Ristretto 32B), para K_pocket y K_community. Se recolectan
     // durante la cascade (propios + bots localmente, remotos via DECK_CASCADE_RESP),
     // se difunden en el MEGAPACKET y se anclan en H_0 (HAND_V2) para que la cadena
@@ -609,11 +609,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
     public volatile byte[] local_mega_packet = null;
 
-    // C1 (wire-3): REGISTRO de la cadena de cascada (sin generar pruebas -> cero CPU en el barajado).
+    // REGISTRO de la cadena de cascada (sin generar pruebas -> cero CPU en el barajado).
     // cascade_chain_decks = genesis + un deck por paso. Por paso: para host/bots se guarda (perm, k)
-    // para generar la prueba luego (wire-4); para remotos, la prueba que ya mando el cliente.
+    // para generar la prueba luego en background; para remotos, la prueba que ya mando el cliente.
     // Sirve para que TODOS verifiquen que la cascada es un barajado honesto (un host modificado no
-    // puede colar cartas) — la generacion+verificacion se cablea en wire-4.
+    // puede colar cartas) — la generacion+verificacion corre en background tras el reparto.
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
     public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remoto: null
     public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remoto: null
@@ -844,7 +844,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
                                     newDeck = candidate;
                                     ok = true;
-                                    // Fase 4: capturar los commitments K del peer (partes[5]=K_pocket,
+                                    // Capturar los commitments K del peer (partes[5]=K_pocket,
                                     // partes[6]=K_community) para anclarlos en H_0 (HAND_V2).
                                     if (partes.length >= 7) {
                                         try {
@@ -867,7 +867,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     } else {
                                         LOGGER.log(Level.WARNING, "DECK_CASCADE_RESP from {0} without commitments (legacy peer) — H_0 will fall back to HAND_V1", nick);
                                     }
-                                    // C1 (wire-3): prueba de barajado de ESTE paso remoto (campo extra
+                                    // Prueba de barajado de ESTE paso remoto (campo extra
                                     // partes[7]). "" o ausente = peer legacy/degradado -> null (sin
                                     // enforcement todavia; el bucle la acumula en la cadena).
                                     last_remote_cascade_proof = null;
@@ -918,7 +918,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return newDeck;
     }
 
-    // Dual-lock (Opción G): pide a un peer remoto que aplique sobre el bloque
+    // Dual-lock: pide a un peer remoto que aplique sobre el bloque
     // de community pieces la rotación uPocket + kCommunity (en ese orden).
     // Tras la rotación, el peer pierde su lock de pocket sobre las community
     // pieces y añade su lock de community — la mitad que sí se entrega vía
@@ -970,7 +970,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // (mismas N posiciones) y seguir siendo puntos de la curva.
                                 if (candidate.length == expectedLength && RistrettoSRA.arePointsValid(candidate)) {
                                     newPieces = candidate;
-                                    // rotacion-2: prueba del paso del cliente (opcional; sin ella el paso
+                                    // Prueba de rotacion del paso del cliente (opcional; sin ella el paso
                                     // queda remoto-pendiente y el full-chain verify se salta, no rompe nada).
                                     this.last_remote_rotation_proof = (partes.length >= 6 && partes[5] != null && !partes[5].isEmpty())
                                             ? Base64.getDecoder().decode(partes[5]) : null;
@@ -1023,7 +1023,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Fase 4.2: variante verificable del unlock batch. Envia, por item, las cadenas
+     * Variante verificable del unlock batch. Envia, por item, las cadenas
      * DealChain por punto (no el residuo desnudo); el peer las verifica contra su
      * MEGAPACKET comprometido y devuelve las cadenas extendidas con su prueba. El
      * host nunca le manda el punto a descifrar — solo el offset y las pruebas previas
@@ -1097,7 +1097,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Fase 4.2: extiende localmente (en nombre de signerNick, con su lock) la cadena
+     * Extiende localmente (en nombre de signerNick, con su lock) la cadena
      * DealChain de cada slot del pocket salvo el del propio signer (skipSlot). Usado
      * por el host para su propio paso, el de los bots y el testamento de un peer que
      * salió (el host deriva el lock del unlock entregado). Devuelve false si algún
@@ -1123,7 +1123,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Fase 4.3: análogo community de {@link #extendPocketChainsForSigner}. Extiende, en
+     * Análogo community de {@link #extendPocketChainsForSigner}. Extiende, en
      * nombre de signerNick con su community-lock, la cadena de cada recipient (clave del map)
      * salvo skipRecipient. A diferencia del pocket, TODAS las copies anclan al MISMO punto
      * base del MEGAPACKET (offset+j, las community pieces post-rotación), no a slots por
@@ -1170,7 +1170,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.CSPRNG_GENERATOR.nextBytes(this.current_hand_id);
         }
 
-        // FASE 1: CASCADA DE CIFRADO Y BARAJADO
+        // CASCADA DE CIFRADO Y BARAJADO
         //
         // Si un peer humano cae DURANTE su pase de cascade (entre el DECK_CASCADE_REQ
         // y nuestra recepción de su RESP), aún no se han enviado las pocket cards,
@@ -1218,19 +1218,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Candado fresco del Host por intento.
             this.local_sra_lock = RistrettoSRA.generateLockScalar();
             this.local_sra_unlock = RistrettoSRA.getUnlockScalar(this.local_sra_lock);
-            // Dual-lock (Opción G): segundo par para community. Generado por
+            // Dual-lock: segundo par para community. Generado por
             // adelantado para que la fase de rotación que vendrá después de la
             // cascade tenga el scalar listo. Hasta que se cablee la rotación
             // este par queda inerte (no se aplica a nada).
             this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
             this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(this.local_sra_lock_community);
 
-            // Fase 4: commitments K=k*B del host para H_0 (HAND_V2).
+            // Commitments K=k*B del host para H_0 (HAND_V2).
             String hostNickForCommit = GameFrame.getInstance().getNick_local();
             peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
             peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
 
-            // C1 (wire-3): registrar la cadena de cascada (reset por intento). cascadeGenesis es el
+            // Registrar la cadena de cascada (reset por intento). cascadeGenesis es el
             // anclaje publico que todos derivan. Las pruebas NO se generan aqui (bloquearia el
             // reparto -> la animacion de barajado se alarga); se generan en background tras el bucle.
             byte[] cascadeGenesis = RistrettoSRA.getGenesisDeck();
@@ -1268,12 +1268,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         byte[] botCommunityUnlock = RistrettoSRA.getUnlockScalar(botCommunityLock);
                         this.bot_community_locks.put(currNick, botCommunityLock);
                         p.setSra_unlock_community(botCommunityUnlock);
-                        // Fase 4: commitments K del bot para H_0 (HAND_V2).
+                        // Commitments K del bot para H_0 (HAND_V2).
                         peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
                         workingDeck = DeterministicShuffle.shuffleDeck(workingDeck, botSeed);
-                        // C1 (wire-3): registrar el paso del bot (perm, k); su prueba va en background.
+                        // Registrar el paso del bot (perm, k); su prueba va en background.
                         chainStepPerm.add(DeterministicShuffle.shufflePermutation(workingDeck.length / 32, botSeed));
                         chainStepK.add(botLock);
                         chainStepRemoteProof.add(null);
@@ -1282,7 +1282,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
-                            // C1 (wire-3): registrar la prueba del paso remoto (ya la genero el cliente).
+                            // Registrar la prueba del paso remoto (ya la genero el cliente).
                             chainStepPerm.add(null);
                             chainStepK.add(null);
                             chainStepRemoteProof.add(last_remote_cascade_proof);
@@ -1300,10 +1300,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (!restart) {
-                // C1 (wire-3): SOLO REGISTRAR la cadena (decks + datos de cada paso: perm/k del host
+                // SOLO REGISTRAR la cadena (decks + datos de cada paso: perm/k del host
                 // y bots, prueba ya hecha de los remotos). NO se genera ni verifica nada aqui -> CERO
                 // CPU extra en el barajado (antes bloqueaba el hilo del juego y se congelaba la barra
-                // de tiempo). La generacion+verificacion va en wire-4, con scalarmul ya optimizado.
+                // de tiempo). La generacion+verificacion corre luego en background.
                 this.cascade_chain_decks = chainDecks;
                 this.cascade_step_perm = chainStepPerm;
                 this.cascade_step_k = chainStepK;
@@ -1312,11 +1312,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // C1: marcar la verificacion de la cadena como PENDIENTE. El calculo pesado se lanza al
+        // Marcar la verificacion de la cadena como PENDIENTE. El calculo pesado se lanza al
         // FINAL de repartirCartas (despues de repartir), para no pisar la animacion del barajado.
         this.cascade_verified = 0;
 
-        // FASE 1.5 (dual-lock, Opción G): ROTACIÓN de community pieces.
+        // ROTACIÓN dual-lock de community pieces.
         //
         // Tras la cascade, workingDeck tiene 52 cartas * 32 bytes = 1664 bytes.
         // Las primeras N*2 cartas (N*64 bytes) son pocket pieces para los N
@@ -1427,7 +1427,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // a fourth field. Old clients (pre-v1) just stop parsing at the third field;
         // new clients pick it up to seed their HandStateChain.
         String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
-        // Fase 4: 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0 (HAND_V2).
+        // 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0 (HAND_V2).
         String commitmentsField = serializeCommitments();
         broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
 
@@ -1437,7 +1437,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // chain on every peer in parallel.
         initHandStateChain();
 
-        // FASE 2 (v3): cascade POCKET en un único batch por helper humano.
+        // Cascade POCKET en un único batch por helper humano.
         //
         // Por cada slot i del ring se construye pockets[i] = mega_packet[i*64:(i+1)*64].
         // El host quita su lock localmente salvo si el target del slot ES el
@@ -1448,7 +1448,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (target=H mantiene el lock del propio H para que su client lo abra).
         // Si un humano H ha hecho EXIT con testamento, aplicamos su unlock
         // localmente para esos mismos slots; sin testamento abortamos la mano.
-        // FASE 4.2: dealing pocket VERIFICABLE. Cada peer que quita su lock adjunta una
+        // Dealing pocket VERIFICABLE. Cada peer que quita su lock adjunta una
         // prueba DLEQ encadenada desde el MEGAPACKET comprometido; el host (sus propios
         // locks, los de bots y los testamentos de exits) extiende localmente, y los
         // helpers vivos vía REQ_SRA_UNLOCK_CHAIN. El residuo single-locked de cada slot
@@ -1626,7 +1626,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // GUARDAMOS EL FÓSIL DESPUÉS DE REPARTIR (Obligatorio en SRA)
         this.guardarFosilSRA();
 
-        // C1: tras repartir lanzamos en un hilo la generacion (cascada) + verificacion de la cadena
+        // Tras repartir lanzamos en un hilo la generacion (cascada) + verificacion de la cadena
         // COMPLETA genesis->MEGAPACKET (cascada Bayer-Groth + rotacion batch-DLEQ). Corre durante las
         // apuestas, sin tocar la animacion.
         // ESTADO (wire-rotation-1): host-side SELF-verify. Cubre ya la rotacion (antes quedaba fuera).
@@ -1708,7 +1708,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
                             this.dual_lock_verified_megapacket = bgMega;
                         }
-                        // rotacion-3: difundir el bundle a los peers para que CADA UNO verifique por su
+                        // Difundir el bundle a los peers para que CADA UNO verifique por su
                         // cuenta (el host verificandose a si mismo no protege). El peer deriva pocketCount
                         // LOCAL y recomputa el genesis. NO mandamos pocketCount (no fiarse del host).
                         // Fire-and-forget; si falla en el peer -> avisa pero permite seguir (no abort duro).
@@ -1790,7 +1790,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     this.current_hand_id = null;
                                 }
                             }
-                            // Fase 4: parsear los commitments K (5º campo) antes de sembrar H_0.
+                            // Parsear los commitments K (5º campo) antes de sembrar H_0.
                             if (partes.length >= 7) {
                                 parseCommitments(partes[6]);
                             }
@@ -1894,7 +1894,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return "*";
         }
         try {
-            // Dual-lock (Opción G): el testamento entrega EXCLUSIVAMENTE la mitad
+            // Dual-lock: el testamento entrega EXCLUSIVAMENTE la mitad
             // community. La mitad pocket (sra_unlock / received_token / local_sra_unlock)
             // NUNCA se comparte vía EXIT — es la propiedad de seguridad que justifica
             // el refactor. Con solo community, el host puede continuar revelando las
@@ -3231,7 +3231,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // ZERO-TRUST SRA: Enviamos la clave de desbloqueo en vez de las cartas en texto plano.
             // Cada receptor descifra localmente desde su propia copia del mega_packet.
             //
-            // Dual-lock (Opción G): SHOWCARDS revela cartas PRIVADAS, así que la clave que viaja
+            // Dual-lock: SHOWCARDS revela cartas PRIVADAS, así que la clave que viaja
             // es la mitad POCKET (no la community que entrega EXIT). El receptor la guarda en
             // Participant.sra_unlock y unlockPlayerCardsWithSRAKey la aplica sobre el pocket
             // piece almacenado en single_locked_pocket_cards.
@@ -3904,7 +3904,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     myP.setSra_unlock(this.local_sra_unlock);
                                 }
                             } else if (part.startsWith("COMMITMENTS@")) {
-                                // Fase 4 (recovery): repoblar los K del ring (HAND_V2) para que
+                                // Recovery: repoblar los K del ring (HAND_V2) para que
                                 // initHandStateChain reconstruya el MISMO H_0 que la mano original.
                                 this.peer_k_pocket.clear();
                                 this.peer_k_community.clear();
@@ -4157,7 +4157,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 myP.setSra_unlock(this.local_sra_unlock);
                             }
                         } else if (part.startsWith("COMMITMENTS@")) {
-                            // Fase 4 (recovery): repoblar los K del ring (HAND_V2) para que
+                            // Recovery: repoblar los K del ring (HAND_V2) para que
                             // initHandStateChain reconstruya el MISMO H_0 que la mano original.
                             this.peer_k_pocket.clear();
                             this.peer_k_community.clear();
@@ -8726,7 +8726,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return true;
     }
 
-    // POCKET-like cascade comunitario (v3): construimos una copia per-recipient
+    // POCKET-like cascade comunitario: construimos una copia per-recipient
     // (host + cada humano remoto), cada una con todos los locks salvo el del
     // destinatario, y la broadcastamos como *_PIECE. El destinatario aplica
     // su propio unlock localmente y verifica via resolveCardIndex (-1 ⇒
@@ -8758,7 +8758,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Fase 4.3: community dealing VERIFICABLE (chain anclado al MEGAPACKET).
+        // Community dealing VERIFICABLE (chain anclado al MEGAPACKET).
         // Cada copy de recipient X ancla a megapacket[offset+j]; el host y los bots
         // extienden localmente con prueba DLEQ, los helpers vivos vía REQ_SRA_UNLOCK_CHAIN.
         // El tail de cada copy es la pieza single-locked por X (formato idéntico al batch
@@ -9832,7 +9832,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS@").append(java.util.Base64.getEncoder().encodeToString(unlockToSave));
             }
 
-            // Dual-lock (Opción G): además del unlock pocket guardamos el unlock
+            // Dual-lock: además del unlock pocket guardamos el unlock
             // community. Sin esto, una recuperación post-rotación dejaría las
             // community pieces sin descifrar y la mano se atascaría en FLOP.
             byte[] unlockCommunityToSave = this.local_sra_unlock_community;
@@ -9846,7 +9846,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 fosil.append("#SRAKEYS_COMMUNITY@").append(java.util.Base64.getEncoder().encodeToString(unlockCommunityToSave));
             }
 
-            // Fase 4: persistir los commitments K del ring para que el recovery
+            // Persistir los commitments K del ring para que el recovery
             // reconstruya el MISMO H_0 (HAND_V2). Sin esto, initHandStateChain en
             // recovery cae a HAND_V1 (peer_k_pocket vacío) y diverge del H_0 original,
             // rompiendo la verificación de la cadena de acciones recuperadas.
@@ -10403,7 +10403,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String nick : this.active_crypto_ring) {
             playerIds.add(CanonicalActionRecord.playerIdFromNick(nick));
         }
-        // Fase 4: si tenemos los commitments K de todos los miembros del ring, sembramos
+        // Si tenemos los commitments K de todos los miembros del ring, sembramos
         // H_0 con HAND_V2 (los ancla); si falta alguno (peer legacy), caemos a HAND_V1.
         // La decisión es coherente host<->cliente porque los K llegan del mismo MEGAPACKET.
         java.util.List<byte[]> kPockets = new java.util.ArrayList<>();

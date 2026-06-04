@@ -185,7 +185,7 @@ public class WaitingRoomFrame extends JFrame {
     private volatile int server_port = 0;
     private volatile boolean booting = false;
     private volatile boolean partida_empezada = false;
-    // Sprint 7 telemetría: última snapshot recibida desde el host. Actualizada
+    // Telemetría: última snapshot recibida desde el host. Actualizada
     // en la rama "TELEMETRY" del GAME sub-switch de cliente(). Lectores
     // (futuro LatencyDot, F7 label) acceden via getLatest_telemetry().
     private volatile Helpers.TelemetryFrame latest_telemetry = null;
@@ -807,6 +807,10 @@ public class WaitingRoomFrame extends JFrame {
 
         setTitle(Init.WINDOW_TITLE + Translator.translate("game.sala_de_espera") + nick + ")");
 
+        // Placeholder traducido hasta que llegue el primer PING (el texto del .form es solo
+        // el default de diseño; el formato real lo pone el handler de PONGs).
+        latency_label.setText(Translator.translate("ui.latencia_servidor") + " 0 ms | 0 ms");
+
         // Session-key identicon access (anti-MITM): right-click any participant in the
         // list. A client opens the AES identicon of its single channel with the host;
         // the host opens the mosaic of every per-client session identicon.
@@ -1427,7 +1431,7 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 if (ok_rec) {
-                    // Sprint 7 telemetría: contador de reconexiones exitosas
+                    // Telemetría: contador de reconexiones exitosas
                     // del cliente. Se incrementa SÓLO en la rama positiva
                     // (la rama de fallo no entra a este if). Mirror del
                     // Participant.reconnection_count del lado servidor.
@@ -1753,7 +1757,7 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
 
-                    // Sprint 7 telemetría: actualizar también el LatencyDot del
+                    // Telemetría: actualizar también el LatencyDot del
                     // LocalPlayer del cliente con su propia medición al server
                     // + su contador de reconexiones. Esto da feedback INMEDIATO
                     // (no espera al TELEMETRY broadcast del host) sobre la
@@ -2534,7 +2538,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "TELEMETRY":
-                                                            // Sprint 7 telemetría. El wire-format del payload contiene '#'
+                                                            // Telemetría. El wire-format del payload contiene '#'
                                                             // como separador interno (timestamp#entries), así que si el
                                                             // split('#') del comando GAME generó más de 4 partes, hay que
                                                             // recomponer partes[3..end] con '#' para reconstruir el payload
@@ -3850,7 +3854,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * Sprint 7 telemetría: última snapshot recibida del host (lat1/lat2/recon
+     * Telemetría: última snapshot recibida del host (lat1/lat2/recon
      * por peer). Puede ser null si aún no se ha recibido ninguna. Lectores
      * deben tolerar null y campos faltantes en el map (peer recién entrado
      * todavía no medido).

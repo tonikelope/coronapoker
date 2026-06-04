@@ -176,7 +176,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    // Sprint 7 telemetría: el widget LatencyDot lo coloca el autor en el
+    // Telemetría: el widget LatencyDot lo coloca el autor en el
     // .form (NetBeans visual editor) y lo enlaza llamando setLatencyDot.
     private volatile LatencyDot latency_dot = null;
 
@@ -189,7 +189,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Sprint 7 telemetría: actualiza la bolita LatencyDot. No-op si aún no
+     * Telemetría: actualiza la bolita LatencyDot. No-op si aún no
      * se ha enlazado vía setLatencyDot.
      */
     public void applyTelemetry(int lat1, int lat2, int reconnectionCount) {
@@ -944,7 +944,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
-            // Sprint 7: wire opcional al latency_dot_widget del .form (si existe).
+            // Wire opcional al latency_dot_widget del .form (si existe).
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");
                 f.setAccessible(true);

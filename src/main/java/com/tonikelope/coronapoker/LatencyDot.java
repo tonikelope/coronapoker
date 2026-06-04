@@ -18,7 +18,7 @@ import java.awt.RenderingHints;
 import javax.swing.JLabel;
 
 /**
- * Sprint 7 telemetría — componente UI standalone para mostrar latencia + nº
+ * Telemetría — componente UI standalone para mostrar latencia + nº
  * reconexiones de un peer remoto. Pinta una bolita coloreada (verde/amarillo
  * /naranja/rojo/gris) cuyo color depende del último valor de latencia recibido
  * del broadcast TELEMETRY del host.

@@ -1,9 +1,8 @@
-# EC-Identity — Specification
+# Identity — Specification
 
-Cryptographic identity, action signing and hand-integrity layer for CoronaPoker. This document describes the layer **as it ships today**, after the EC-SRA dual-lock and EC-Identity work were merged into master. For the higher-level security overview see [`SECURITY.md`](SECURITY.md); this file is the deeper reference for the identity, action-record, hash-chain and receipt machinery.
+Cryptographic identity, action signing and hand-integrity layer for CoronaPoker. For the higher-level security overview see [`SECURITY.md`](SECURITY.md); this file is the deeper reference for the identity, action-record, hash-chain and receipt machinery.
 
-**Status**: Implemented (shipped).
-**Author**: tonikelope
+All peers in a game run the same exact version (the handshake refuses any other — §3), so the protocol is single-version throughout: there are no compatibility modes or fallbacks.
 
 ---
 
@@ -28,18 +27,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 - **Collusion of N-1 peers against 1 victim.** Inherent to any consensus without a trusted third party. The victim sees the divergent receipt in the consensus log and can refuse to settle informally.
 - **Cross-device identity portability.** Each install generates its own keypair per nick. A player using the same nick on two machines will present a different pubkey on each — that is the natural and correct behavior.
 - **Identification by pubkey for stats/recover.** Nick remains the identifier for SQLite stats and recovery. No changes to the existing stats/recover schema.
-- **Chain recovery on mid-hand reconnection.** A peer that drops mid-hand and reconnects cannot rejoin the in-progress hand. Its absent receipt makes that hand close as `MISSING` for it. See §11.
-
-### Discarded design alternatives (and why)
-
-- **Constant-time `modInverse` in SRA**: only matters against a local trojan, where nothing Java-pure saves you.
-- **Subgroup low-order point check in SRA**: unnecessary — Ristretto255 is a prime-order group (no small-order points), `RistrettoSRA.decode` rejects malformed points, and `RistrettoSRA.resolveCardIndex == -1` invalidates tampered hands.
-- **MAC swarm (Panoptes-style)**: same MITM exposure during pubkey exchange, but loses non-repudiation.
-- **Direct P2P topology for game commands**: too invasive a refactor. Star topology stays; the signing layer makes the host's broker role harmless.
-- **Mutual nonce challenge at join**: replay protection is delegated to the `session_id` baked into the join self-signature — same effect, zero extra round-trips.
-- **Blocking modal on TOFU pubkey mismatch**: deliberately not used (UX). TOFU updates silently (last-write-wins); the user inspects identicons if they care.
-- **Anti-spoofing nick canonicalization (zero-width chars, bidi, lookalikes)**: irrelevant if nobody modifies the client source. Only real cross-platform variations (Unicode NFC vs NFD) are canonicalized.
-- **Formal PAKE (SPAKE2/OPAQUE)**: the existing `HMAC-SHA512(password, ECDH)` binding is sufficient with a non-trivial password; an entropy warning is shown at game creation.
+- **Chain recovery on mid-hand reconnection.** A peer that drops mid-hand and reconnects cannot rejoin the in-progress hand. Its absent receipt makes that hand close as `MISSING` for it.
 
 ---
 
@@ -122,7 +110,7 @@ Each game has a fresh `session_id`. A `self_sig` is valid only for the session w
 
 ### Version gate
 
-Compatibility is enforced by **strict equality** of the client's `version` field against the host's `AboutDialog.VERSION`. A mismatch returns `BADVERSION#<host_version>` and the join is refused. There is no min-compatible range; any wire-incompatible change is gated simply by bumping the version string. (V1 receipts without the flags byte, for instance, are wire-incompatible with the current `RECEIPT_V2` format — §6.)
+Compatibility is enforced by **strict equality** of the client's `version` field against the host's `AboutDialog.VERSION`. A mismatch returns `BADVERSION#<host_version>` and the join is refused. There is no min-compatible range, so every peer in a game runs the identical wire format — any change to it is gated simply by bumping the version string.
 
 ### TOFU resolution (silent, no user interaction)
 
@@ -220,7 +208,7 @@ Honest player timeouts are resolved client-side: each peer's local `auto_action`
 | 1 | Bot (`Participant.isCpu()`) | **Host's** pinned pubkey (§10) |
 | 0 | — | Reserved (never on wire; reject if seen) |
 
-### 4.7 Host-signed community card reveals (EC-SRA v3)
+### 4.7 Host-signed community card reveals
 
 Community cards are never sent in the clear. After the SRA cascade and the community rotation pass (see [`SECURITY.md`](SECURITY.md) §2.2), each community slot is locked **only** under each peer's `k_community`. Per street, the host:
 
@@ -268,7 +256,7 @@ Each peer computes locally after `MEGAPACKET` processing — no broadcast:
 
 ```
 H_0 = SHA-256(
-        "HAND_V2\0"                          ||  //  8B domain separator
+        "HAND\0"                             ||  //  5B domain separator
         HAND_ID                              ||  // 16B random from host
         num_players (uint8)                  ||  //  1B
         per peer, sorted by id:                  // 96B × N
@@ -277,7 +265,7 @@ H_0 = SHA-256(
       )
 ```
 
-Each peer's block — its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings) — is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here (**HAND_V2**) is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5); the **HAND_V1** layout without them remains as a compatibility fallback. The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
+Each peer's block — its `PLAYER_ID` (`SHA-256(nick_canonical_utf8)`) followed by its per-hand commitments `K_pocket = k_pocket·B` and `K_community = k_community·B` (Ristretto255 encodings) — is sorted by `PLAYER_ID` as a 32-byte unsigned integer, so `H_0` is identical across peers regardless of join order. Binding the `K` commitments here is what the verifiable dealing checks its DLEQ de-lock proofs against (see [`SECURITY.md`](SECURITY.md) §2.5). The deck commitment binds the chain to the exact cascade permutation: peers that walked a different cascade diverge on the very first absorb.
 
 ### 5.2 Per-action ratchet
 
@@ -293,7 +281,7 @@ Intermediate `H_t` values are **not** broadcast in production; the chain is veri
 
 ## 6. Receipt and consensus
 
-Replaces the no-op `HANDVERIFY` semantics; the command name `HANDVERIFY` is **kept** with a dual-form payload. Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
+At hand close every peer publishes a signed receipt over the `HANDVERIFY` command (dual-form payload: a trigger from the host, then one signed receipt per peer). Source: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java), [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java).
 
 ### 6.1 Wire form
 
@@ -318,7 +306,7 @@ sig = Ed25519.sign(my_privkey, "RECEIPT_V2\0" || HAND_ID || H_final || flags)
 
 ### 6.3 Consensus check
 
-After collecting receipts (timeout reused from master), each peer's `runConsensusCheck` classifies every expected peer and reports OK only when **all three** hold:
+After collecting receipts (bounded by a timeout), each peer's `runConsensusCheck` classifies every expected peer and reports OK only when **all three** hold:
 
 1. Every receipt signature verifies against the claimed signer's pinned pubkey (and the receipt's `HAND_ID` matches the local hand).
 2. Every `H_final` is byte-identical to the local `H_final`.
@@ -425,23 +413,11 @@ No special "host pubkey" exists in the protocol: host == player + extra responsi
 
 ---
 
-## 11. Future work
-
-1. **Cross-device identity import/export** via an encrypted, passphrase-protected bundle.
-2. **Identity revocation broadcast** — a signed revocation that forces peers to re-pin on next encounter.
-3. **Hardware-backed identity storage** (macOS Keychain, Windows DPAPI, Linux libsecret).
-4. **At-rest encryption** of the private key file with a user passphrase.
-5. **Standalone verifier tool** that takes a `disputed_hands.receipts` blob + a list of pubkeys, verifies signatures and prints the chain.
-6. **Threshold receipts** for very large meshes (relaxing strict unanimity beyond some table size).
-7. **Chain replay on mid-hand reconnection** so a reconnecting peer can rejoin and sign a receipt for the in-progress hand (today that hand closes as `MISSING` for them and the next hand starts clean).
-
----
-
-## 12. Glossary
+## 11. Glossary
 
 - **TOFU** — Trust On First Use. Accept a key the first time, pin it. SSH-style.
 - **PAKE** — Password-Authenticated Key Exchange. Authenticate with a shared password without revealing it.
-- **Domain separator** — Unique string prefix in every signature so a signature for one purpose cannot be replayed in another (`ACTION_V1`, `RECEIPT_V2`, `SHOWDOWN_V1`, `JOIN_V1`, plus the `HAND_V2` chain domain — `HAND_V1` as compatibility fallback).
+- **Domain separator** — Unique string prefix in every signature (and in the chain seed) so a value for one purpose cannot be replayed in another: `ACTION_V1`, `RECEIPT_V2`, `SHOWDOWN_V1`, `JOIN_V1` for the signed contexts, and `HAND` for the `H_0` chain domain.
 - **Ratchet** — One-way state update where each step depends on the previous; reordering is impossible without breaking the chain.
 - **Receipt** — Signed commitment by a peer to a final chain state, archivable as evidence.
 - **OOB (Out-of-Band)** — A channel separate from the system being secured (e.g. a phone call to compare a fingerprint shown in the UI).

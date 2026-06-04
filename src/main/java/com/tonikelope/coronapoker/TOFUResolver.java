@@ -23,7 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * EC-Identity v1: persistence layer for Trust-On-First-Use identity pinning.
+ * Identity: persistence layer for Trust-On-First-Use identity pinning.
  *
  * Reads and updates the SQLite known_identities table created by Helpers.initSQLITE.
  * Resolution semantics:

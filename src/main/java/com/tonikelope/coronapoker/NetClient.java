@@ -298,7 +298,7 @@ public class NetClient {
                 os.write((command + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 os.flush();
             } catch (IOException ex) {
-                // Paridad con Participant.writeCommandFromServer (commit 27fe6906):
+                // Paridad con Participant.writeCommandFromServer :
                 // si el write falla, el socket esta muerto. Cerramos para forzar
                 // readLine null en runSocketReaderClientThread -> reconectarCliente().
                 // Sin esto el cliente solo detectaba la caida cuando el reader

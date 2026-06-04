@@ -2845,7 +2845,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
             return;
         }
-        // EC-Identity v1: right-clicking own avatar opens the identicon of THIS installation's
+        // Identity: right-clicking own avatar opens the identicon of THIS installation's
         // Ed25519 public identity. The dialog shows the visual icon and the 128-bit
         // fingerprint in 8 groups of 4, ready to be shared with a peer through an
         // out-of-band channel (WhatsApp, Telegram, voice).

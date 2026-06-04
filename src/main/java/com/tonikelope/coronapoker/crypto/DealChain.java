@@ -24,7 +24,7 @@ import java.util.Map;
 
 /**
  * Wire serialization + verification of a per-point de-locking chain for verifiable
- * dealing (Phase 4.2). A chain records, for ONE 32-byte deck point, the ordered
+ * dealing. A chain records, for ONE 32-byte deck point, the ordered
  * sequence of peers that stripped their lock: each entry is (nick, residualAfter,
  * DLEQ proof). The chain's implicit start X0 is the committed MEGAPACKET point at
  * the relevant position (held locally by every peer), so it is NOT transmitted —

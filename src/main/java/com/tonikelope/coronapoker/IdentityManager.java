@@ -34,7 +34,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * EC-Identity v1: persistent per-nick Ed25519 keypair used for player identity.
+ * Identity: persistent per-nick Ed25519 keypair used for player identity.
  *
  * The keypair is bound to the NFC-canonicalized nick: each nick used on this machine
  * gets its own keypair on disk, so two test instances launched with different nicks on
@@ -303,7 +303,7 @@ public final class IdentityManager {
         }
     }
 
-    // ===== ACTION_V1 helpers (commit 5) =====
+    // ===== ACTION signing helpers =====
 
     /**
      * Domain separator for per-action signatures (spec §4.4). Bound to the 92-byte
@@ -341,7 +341,7 @@ public final class IdentityManager {
         }
     }
 
-    // ===== RECEIPT_V2 helpers (Opción A: flags byte) =====
+    // ===== RECEIPT helpers (flags byte) =====
 
     /**
      * Domain separator for end-of-hand consensus receipts (spec §6.2). Bumped
@@ -398,7 +398,7 @@ public final class IdentityManager {
         }
     }
 
-    // ===== SHOWDOWN_REVEAL helpers (PHASE A.1: showdown zero-trust + sig) =====
+    // ===== SHOWDOWN_REVEAL helpers =====
 
     private static final byte[] SHOWDOWN_DOMAIN = "SHOWDOWN_V1\0".getBytes(StandardCharsets.UTF_8);
 
@@ -450,7 +450,7 @@ public final class IdentityManager {
         }
     }
 
-    // ===== JOIN_IDENTITY helpers (commit 2b) =====
+    // ===== JOIN_IDENTITY helpers =====
 
     private static final byte[] JOIN_DOMAIN = "JOIN_V1\0".getBytes(StandardCharsets.UTF_8);
 

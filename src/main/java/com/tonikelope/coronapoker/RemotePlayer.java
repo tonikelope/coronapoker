@@ -1740,7 +1740,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
             return;
         }
-        // EC-Identity v1: right-clicking a remote human avatar opens the identicon of that
+        // Identity: right-clicking a remote human avatar opens the identicon of that
         // peer's Ed25519 public identity. The dialog includes a "Verificar identidad"
         // button that marks (nick, pubkey) as verified_oob if the user has compared
         // the fingerprint with the peer through an external secure channel.

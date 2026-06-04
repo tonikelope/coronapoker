@@ -145,10 +145,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return new Card[]{flop1, flop2, flop3, turn, river};
     }
 
-    public JButton getRandom_button() {
-        return random_button;
-    }
-
     public Color getColor_contadores() {
         return color_contadores;
     }
@@ -195,7 +191,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             initComponents();
             Helpers.translateComponents(this, false);
             last_hand_panel.setVisible(false);
-            random_button.setVisible(false);
             hand_limit_spinner.setVisible(false);
             hand_limit_spinner.addChangeListener(e -> {
 
@@ -346,7 +341,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         turn = new com.tonikelope.coronapoker.Card();
         flop1 = new com.tonikelope.coronapoker.Card();
         pause_button = new javax.swing.JButton();
-        random_button = new javax.swing.JButton();
         hand_limit_spinner = new javax.swing.JSpinner();
         max_hands_button = new javax.swing.JButton();
         lights_label = new javax.swing.JLabel();
@@ -443,18 +437,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pause_button.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 pause_buttonActionPerformed(evt);
-            }
-        });
-
-        random_button.setBackground(new java.awt.Color(255, 0, 0));
-        random_button.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        random_button.setForeground(new java.awt.Color(255, 255, 255));
-        random_button.setText("RANDOM.ORG");
-        random_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        random_button.setFocusable(false);
-        random_button.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                random_buttonActionPerformed(evt);
             }
         });
 
@@ -616,8 +598,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 .addGap(12, 12, 12)
                 .addComponent(pause_button)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(random_button)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(lights_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(tiempo_partida)
@@ -648,7 +628,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                                 .addComponent(pause_button)
-                                .addComponent(random_button)
                                 .addComponent(hand_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(max_hands_button)
                                 .addComponent(lights_label))
@@ -848,17 +827,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     }//GEN-LAST:event_pause_buttonActionPerformed
 
-    private void random_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_random_buttonActionPerformed
-        // TODO add your handling code here:
-
-        Helpers.DECK_RANDOM_GENERATOR = Integer.valueOf(Helpers.PROPERTIES.getProperty("random_generator"));
-
-        GameFrame.getInstance().getTapete().getCommunityCards().getRandom_button().setVisible(false);
-
-        Helpers.mostrarMensajeInformativo(GameFrame.getInstance(), Translator.translate("shuffle.se_ha_reactivado_randomorg"), new ImageIcon(Init.class.getResource("/images/dados.png")));
-
-    }//GEN-LAST:event_random_buttonActionPerformed
-
     private void last_hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_last_hand_labelMouseClicked
         // TODO add your handling code here:
         hand_labelMouseClicked(evt);
@@ -935,7 +903,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private javax.swing.JButton pause_button;
     private javax.swing.JLabel pot_label;
     private javax.swing.JPanel pot_panel;
-    private javax.swing.JButton random_button;
     private com.tonikelope.coronapoker.Card river;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel tiempo_partida;

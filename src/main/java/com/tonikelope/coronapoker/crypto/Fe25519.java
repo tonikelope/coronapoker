@@ -56,6 +56,14 @@ public final class Fe25519 {
     /** Canonical representative in [0, P). */
     private final BigInteger v;
 
+    /**
+     * Lazily-memoized radix-2^51 limb form of {@code v}. The instance is immutable, so this is a
+     * pure cache: any operand reused across many multiplies (the curve constants {@code D2}/{@code D},
+     * or a fixed field element) decomposes once instead of on every {@code mul}/{@code sqr}. {@code volatile}
+     * for safe publication of the array contents across threads (the background SRA verifiers).
+     */
+    private volatile long[] limbsCache;
+
     private Fe25519(BigInteger value) {
         this.v = value.mod(P); // BigInteger.mod is always non-negative
     }
@@ -153,12 +161,25 @@ public final class Fe25519 {
     }
 
     public Fe25519 mul(Fe25519 o) {
-        return new Fe25519(mulLimbs(toLimbs(v), toLimbs(o.v)), true);
+        return new Fe25519(mulLimbs(limbs(), o.limbs()), true);
     }
 
     public Fe25519 sqr() {
-        long[] f = toLimbs(v);
+        long[] f = limbs();
         return new Fe25519(mulLimbs(f, f), true);
+    }
+
+    /**
+     * The memoized limb form of {@code v} (see {@link #limbsCache}). {@code mulLimbs} only reads its
+     * operands, never mutates them, so handing out the cached array is safe.
+     */
+    private long[] limbs() {
+        long[] l = limbsCache;
+        if (l == null) {
+            l = toLimbs(v);
+            limbsCache = l;
+        }
+        return l;
     }
 
     // ---- Fast field multiply: radix 2^51 limbs (5 × 64-bit), 128-bit accumulation via

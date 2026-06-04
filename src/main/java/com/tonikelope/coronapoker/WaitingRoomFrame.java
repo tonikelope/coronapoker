@@ -1318,7 +1318,7 @@ public class WaitingRoomFrame extends JFrame {
                             throw new IOException("Server denied reconnect: " + ackDecrypted);
                         }
 
-                        LOGGER.log(Level.INFO, "RECONNECTED SUCCESSFULLY TO SERVER");
+                        LOGGER.log(Level.INFO, "Reconnected successfully to server");
 
                         // Reset de contadores del PING/PONG defensivo cliente: si llevaban
                         // fallos contra el socket viejo, el primer fail contra el nuevo
@@ -1331,7 +1331,7 @@ public class WaitingRoomFrame extends JFrame {
 
                     } catch (Exception ex) {
 
-                        LOGGER.log(Level.SEVERE, "RECONNECTION SOCKET THREW AN EXCEPTION");
+                        LOGGER.log(Level.SEVERE, "Reconnection socket threw an exception");
                         LOGGER.log(Level.SEVERE, null, ex);
 
                     } finally {
@@ -1720,19 +1720,19 @@ public class WaitingRoomFrame extends JFrame {
 
                     if (pong1 == null) {
                         LOGGER.log(Level.WARNING,
-                                "SERVER FAILED TO RESPOND TO PING");
+                                "Server failed to respond to PING");
                     } else if (pong1 != ping + 1) {
                         LOGGER.log(Level.WARNING,
-                                "INVALID PONG FROM SERVER");
+                                "Invalid PONG from server");
                     } else if (pong2 == null) {
                         LOGGER.log(Level.WARNING,
-                                "SERVER FAILED TO RESPOND TO PING2");
+                                "Server failed to respond to PING2");
                     } else if (pong2 != ping + 2) {
                         LOGGER.log(Level.WARNING,
-                                "INVALID PONG2 FROM SERVER");
+                                "Invalid PONG2 from server");
                     } else if (DEV_MODE) {
                         LOGGER.log(Level.INFO,
-                                "SERVER PONGS RECEIVED. (Latency: {0} ms / {1} ms)",
+                                "Server PONGs received (latency: {0} ms / {1} ms)",
                                 new Object[]{net_client.getRemote_server_latency(), net_client.getRemote_server_latency2()});
                     }
 
@@ -1746,7 +1746,7 @@ public class WaitingRoomFrame extends JFrame {
                         consecutive_ping_failures++;
                         if (consecutive_ping_failures >= MAX_CONSECUTIVE_PING_FAILURES) {
                             LOGGER.log(Level.WARNING,
-                                    "Client lost {0} consecutive PONGs - closing socket to force reconnect",
+                                    "Client lost {0} consecutive PONGs — closing socket to force reconnect",
                                     consecutive_ping_failures);
                             closeClientSocket();
                             break;
@@ -2025,7 +2025,7 @@ public class WaitingRoomFrame extends JFrame {
                                         hostPar.setIdentity_pubkey(hostIdPubkey);
                                         hostPar.setIdentity_self_sig(hostIdSig);
                                     }
-                                    LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3}) via intro",
+                                    LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via intro",
                                             new Object[]{server_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                 }
                             } else {
@@ -3037,7 +3037,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                 p.setIdentity_pubkey(idPubkey);
                                                                                 p.setIdentity_self_sig(idSig);
                                                                             }
-                                                                            LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3}) via NEWUSER",
+                                                                            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via NEWUSER",
                                                                                     new Object[]{nickNew, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                         }
                                                                     } catch (Exception idex) {
@@ -3100,7 +3100,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                                     p.setIdentity_pubkey(idPubkey);
                                                                                     p.setIdentity_self_sig(idSig);
                                                                                 }
-                                                                                LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3}) via USERSLIST",
+                                                                                LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3}) via USERSLIST",
                                                                                         new Object[]{list_nick, res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
                                                                             }
                                                                         } catch (Exception idex) {
@@ -3157,7 +3157,7 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                 } else {
                                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {
-                                        LOGGER.log(Level.WARNING, "SOCKET RECEIVED POISON PILL");
+                                        LOGGER.log(Level.WARNING, "Socket received poison pill");
                                     }
                                 }
                             } while (!exit);
@@ -3262,7 +3262,7 @@ public class WaitingRoomFrame extends JFrame {
             par.setIdentity_pubkey(pubkey);
             par.setIdentity_self_sig(sig);
             TOFUResolver.Resolution res = TOFUResolver.resolve(par.getNick(), pubkey);
-            LOGGER.log(Level.INFO, "TOFU [{0}] -> {1} (sessions={2}, verified={3})",
+            LOGGER.log(Level.INFO, "TOFU: {0} -> {1} (sessions={2}, verified={3})",
                     new Object[]{par.getNick(), res.getOutcome(), res.getSessionsCount(), res.isVerifiedOob()});
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "recordJoinIdentity failed for " + par.getNick(), ex);
@@ -3391,7 +3391,7 @@ public class WaitingRoomFrame extends JFrame {
                                         }
                                     }
 
-                                    LOGGER.log(Level.WARNING, "CLIENT {0} HAS RECONNECTED SUCCESSFULLY.", client_nick);
+                                    LOGGER.log(Level.WARNING, "Client {0} has reconnected successfully", client_nick);
 
                                     // Ack explícito al cliente para que su reconectarCliente sepa
                                     // que el reconnect fue aceptado de verdad. Sin este ack el
@@ -3424,7 +3424,7 @@ public class WaitingRoomFrame extends JFrame {
                                     }
 
                                 } else {
-                                    LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT", client_nick);
+                                    LOGGER.log(Level.WARNING, "Client {0} failed to reconnect", client_nick);
                                     // Ack explícito de denegación antes de cerrar (ver nota en
                                     // la rama OK más arriba sobre por qué hace falta el ack).
                                     try {
@@ -3453,7 +3453,7 @@ public class WaitingRoomFrame extends JFrame {
                                 // denegación explícita (RECONNECT_DENIED) en su
                                 // reconectarCliente y caerá en su propio dialog
                                 // con pausa entre intentos.
-                                LOGGER.log(Level.WARNING, "CLIENT {0} FAILED TO RECONNECT (BAD HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
+                                LOGGER.log(Level.WARNING, "Client {0} failed to reconnect (bad HMAC) — silencing popup (expected after long interruption; client will land on its own reconnect-failed dialog)", client_nick);
                                 try {
                                     writeCommandFromServer(
                                             Helpers.encryptCommand("RECONNECT_DENIED#BAD_HMAC", aes_key, hmac_key),
@@ -3475,7 +3475,7 @@ public class WaitingRoomFrame extends JFrame {
                                 });
                             }
                         } else {
-                            LOGGER.log(Level.WARNING, "User {0} TRYING TO RECONNECT TO PREVIOUS GAME -> DENIED", client_nick);
+                            LOGGER.log(Level.WARNING, "User {0} trying to reconnect to a previous game — denied", client_nick);
                             // Ack explícito de denegación antes de cerrar el socket. Sin esto el
                             // cliente cree que reconectó (su handshake terminó OK), su reader
                             // lee null inmediatamente al cerrar el server, llama a
@@ -3535,7 +3535,7 @@ public class WaitingRoomFrame extends JFrame {
                         }
 
                         LOGGER.log(Level.WARNING,
-                                "User {0} ARRIVED TOO LATE -> DENIED", client_nick);
+                                "User {0} arrived too late — denied", client_nick);
 
                     } else if (participantes.size() == MAX_PARTICIPANTES) {
                         writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
@@ -3672,11 +3672,11 @@ public class WaitingRoomFrame extends JFrame {
                                         new_bot_button
                                                 .setEnabled(participantes.size() < WaitingRoomFrame.MAX_PARTICIPANTES);
                                     });
-                                    LOGGER.log(Level.INFO, "{0} CONNECTED", client_nick);
+                                    LOGGER.log(Level.INFO, "{0} connected", client_nick);
                                 } else {
                                     try (client_socket) {
                                         LOGGER.log(Level.INFO,
-                                                "{0} COULD NOT CONNECT PROPERLY (GAME FULL OR ALREADY STARTED)",
+                                                "{0} could not connect properly (game full or already started)",
                                                 client_nick);
                                     }
                                 }
@@ -3696,7 +3696,7 @@ public class WaitingRoomFrame extends JFrame {
                 } else {
                     try (client_socket) {
                         LOGGER.log(Level.SEVERE,
-                                "BAD MAGIC BYTES FROM CLIENT!");
+                                "Bad magic bytes from client");
                     }
                 }
             } catch (Exception ex) {

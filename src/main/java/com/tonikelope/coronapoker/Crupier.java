@@ -422,13 +422,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (java.util.Arrays.equals(megapacket, local_mega_packet)) {
                                 dual_lock_verified_megapacket = megapacket;
                             }
-                            LOGGER.log(Level.INFO, "shuffle-verify-queue: deck verified OK (hand {0})", handId);
+                            LOGGER.log(Level.INFO, "SHUFFLE-VERIFY: deck verified OK (hand {0})", handId);
                         }
 
                         @Override
                         public void onDishonest(byte[] megapacket, int handId) {
                             LOGGER.log(Level.SEVERE,
-                                    "shuffle-verify-queue: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning",
+                                    "SHUFFLE-VERIFY: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning",
                                     handId);
                             warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                         }
@@ -436,7 +436,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         @Override
                         public void onMalformed(byte[] megapacket, int handId, Exception error) {
                             LOGGER.log(Level.SEVERE,
-                                    "shuffle-verify-queue: bundle not evaluable (hand " + handId + ") — warning", error);
+                                    "SHUFFLE-VERIFY: bundle not evaluable (hand " + handId + ") — warning", error);
                             warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                         }
                     });
@@ -1658,7 +1658,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             .verifyChainWire(bgGenesis, bgDecks, proofs);
                     this.cascade_verified = ok ? 1 : -1;
                     LOGGER.log(ok ? Level.INFO : Level.SEVERE,
-                            "C1 background: cascade-chain verify = {0} ({1} steps)",
+                            "SHUFFLE-VERIFY: background cascade-chain self-check = {0} ({1} steps)",
                             new Object[]{ok, proofs.size()});
                     // Cadena COMPLETA (cascada + rotacion). Generamos AQUI (background) las pruebas
                     // batch-DLEQ de host/bot a partir del escalar registrado; las remotas ya vienen del
@@ -1702,7 +1702,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 bgGenesis, bgDecks.subList(1, bgDecks.size()), proofs, bgPocketCount,
                                 bgMega, bgRotStates, rotProofsBg);
                         LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
-                                "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} rotation steps)",
+                                "SHUFFLE-VERIFY: background dual-lock full-chain self-check (cascade+rotation) = {0} ({1} rotation steps)",
                                 new Object[]{fullOk, rotProofsBg.size()});
                         if (fullOk) {
                             // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
@@ -1724,11 +1724,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     } else {
                         LOGGER.log(Level.INFO,
-                                "C1 background: full-chain verify skipped (rotation incomplete or remote step without proof)");
+                                "SHUFFLE-VERIFY: background full-chain self-check skipped (rotation incomplete or remote step without proof)");
                     }
                 } catch (Exception bgEx) {
                     this.cascade_verified = -1;
-                    LOGGER.log(Level.SEVERE, "C1 background: cascade verify threw", bgEx);
+                    LOGGER.log(Level.SEVERE, "SHUFFLE-VERIFY: background cascade self-check threw", bgEx);
                 }
             });
         }
@@ -3820,7 +3820,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void recuperarDatosClavePartida() {
-        LOGGER.log(Level.INFO, "[ZERO-TRUST DEBUG] Starting recuperarDatosClavePartida...");
+        LOGGER.log(Level.INFO, "ZERO-TRUST: starting recuperarDatosClavePartida");
 
         for (Player j : GameFrame.getInstance().getJugadores()) {
             if (j.getNickname().startsWith("CoronaBot$") && !GameFrame.getInstance().getParticipantes().containsKey(j.getNickname())) {
@@ -4793,7 +4793,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Aborto controlado: host fuerza recover -> todos a sala de espera
         // con dialog recover auto-abierto. Para MISDEAL no-zero-trust (peer
         // caido, etc.) la timba puede continuar fresh.
-        LOGGER.log(Level.WARNING, "[RECOVERY] abortAndRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
+        LOGGER.log(Level.WARNING, "RECOVERY: abortAndRecover engaged — broadcasting SERVEREXITRECOVER and routing everyone to main menu with recover dialog");
         setForce_recover(true);
         Helpers.threadRun(() -> {
             try {
@@ -4815,7 +4815,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // (no RECOVER) y finTransmision sin force_recover -> BalanceDialog
         // final con el balance al momento del ultimo refund. No reconexion,
         // no sala de espera. Fin punto.
-        LOGGER.log(Level.WARNING, "[ZERO-TRUST] abortAndExit engaged — broadcasting SERVEREXIT and routing everyone to BalanceDialog (game over)");
+        LOGGER.log(Level.WARNING, "ZERO-TRUST: abortAndExit engaged — broadcasting SERVEREXIT and routing everyone to BalanceDialog (game over)");
         // NO setForce_recover(true) — queremos que finTransmision detecte
         // force_recover=false y vaya a la rama BalanceDialog.
         Helpers.threadRun(() -> {
@@ -6332,7 +6332,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 i++;
             }
 
-            LOGGER.log(Level.INFO, () -> "BALANCE AFTER HAND(" + String.valueOf(conta_mano) + ") -> " + String.join("@", balance_float));
+            LOGGER.log(Level.INFO, () -> "Balance after hand " + String.valueOf(conta_mano) + " -> " + String.join("@", balance_float));
 
             String balanceFileName = Init.DEV_MODE ? "/balance_backup_" + GameFrame.getInstance().getNick_local().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt" : "/balance_backup.txt";
 
@@ -7490,7 +7490,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     start_time = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                    LOGGER.log(Level.WARNING, "recibirAccionesRecuperadas timeout — ACTIONDATA never arrived from host. Breaking wait so the dragon recovery dialog closes via the empty-queue branch in recuperarDatosClavePartida.");
+                    LOGGER.log(Level.WARNING, "recibirAccionesRecuperadas timeout — ACTIONDATA never arrived from host. Breaking wait so the recovery dialog closes via the empty-queue branch in recuperarDatosClavePartida.");
                     break;
                 } else {
                     synchronized (this.getReceived_commands()) {
@@ -8187,7 +8187,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private boolean enviarCartasComunitarias(java.util.ArrayList<Player> resisten) {
-        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA street unlock: {0}", street);
+        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating SRA street unlock: {0}", street);
 
         // Dual-lock: ambas mitades son load-bearing. La pocket sigue siendo
         // necesaria para resolver el resto de la mano y la community es la
@@ -8655,7 +8655,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // cross-recipient fork igual que el board vivo. abortOnFail=true: SIDE-B lleva
     // dinero (medio bote), no es cosmético como rabbit.
     private boolean enviarRit2Comunitarias(java.util.ArrayList<Player> resisten) {
-        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating EC-SRA SIDE-B street unlock: {0}", street);
+        java.util.logging.Logger.getLogger(Crupier.class.getName()).log(java.util.logging.Level.INFO, "Initiating SRA SIDE-B street unlock: {0}", street);
 
         if (this.local_sra_unlock == null || this.local_sra_unlock_community == null || this.active_crypto_ring == null) {
             cancelarManoYDevolverApuestas("peer.state_inconsistent");
@@ -9254,7 +9254,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private ArrayList<Player> rondaApuestas(int street, ArrayList<Player> resisten) {
 
-        LOGGER.log(Level.INFO, "[HAND {0}] ({1})",
+        LOGGER.log(Level.INFO, "HAND {0}: betting round {1}",
                 new Object[]{String.valueOf(getMano()), STREETS[street - 1]});
 
         disableAllPlayersTimeout();
@@ -9313,7 +9313,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             actualizarContadoresTapete();
-            LOGGER.log(Level.INFO, "UNCOVER COM CARDS");
+            LOGGER.log(Level.INFO, "Uncovering community cards");
             destaparCartaComunitaria(street, resisten);
         }
 
@@ -9404,7 +9404,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 float old_player_bet = current_player.getBet();
-                LOGGER.log(Level.INFO, "Read DECISION from -> {0}", current_player.getNickname());
+                LOGGER.log(Level.INFO, "Read DECISION from {0}", current_player.getNickname());
 
                 if (GameFrame.AUTO_ACTION_BUTTONS && current_player != GameFrame.getInstance().getLocalPlayer()
                         && GameFrame.getInstance().getLocalPlayer().getDecision() != Player.FOLD
@@ -9716,7 +9716,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.sqlNewAction(current_player, localRecord, localSig);
                 } else if (GameFrame.getInstance().isPartida_local()) {
                     if (this.sqlCheckGenuineRecoverAction(current_player)) {
-                        LOGGER.log(Level.INFO, "RECOVER ACTION OK");
+                        LOGGER.log(Level.INFO, "Recover action OK");
                     }
                 }
 
@@ -9922,7 +9922,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // descifrar correctamente las hole cards, resolveCardIndex
             // devolvió -1 y guardar ese valor envenena el fósil: en
             // recovery se lee como byte=-1 → (byte&0xFF)+1 = 256 →
-            // PALOS[19] OOB → CRUPIER FATAL ERROR. Sólo persistimos si
+            // PALOS[19] OOB → error fatal del Crupier. Sólo persistimos si
             // ambos índices son válidos.
             if (this.local_original_cards != null
                     && this.local_original_cards[0] >= 0 && this.local_original_cards[0] < 52
@@ -11923,7 +11923,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         start_time = System.currentTimeMillis();
                     } else if (System.currentTimeMillis() - start_time > GameFrame.CLIENT_RECEPTION_TIMEOUT) {
 
-                        LOGGER.log(Level.WARNING, "sortearSitios timeout — SEATS never arrived from host. Breaking wait; permutados stays null and the caller's iteration will fail fast via the existing CRUPIER FATAL ERROR catch in Crupier.run() instead of hanging indefinitely.");
+                        LOGGER.log(Level.WARNING, "sortearSitios timeout — SEATS never arrived from host. Breaking wait; permutados stays null and the caller's iteration will fail fast via the existing fatal-error catch in Crupier.run() instead of hanging indefinitely.");
                         break;
                     } else {
                         synchronized (this.getReceived_commands()) {
@@ -13382,7 +13382,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } catch (Exception ex) {
                 if (!fin_de_la_transmision) {
-                    LOGGER.log(Level.SEVERE, "CRUPIER FATAL ERROR", ex);
+                    LOGGER.log(Level.SEVERE, "Crupier fatal error", ex);
                     Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("error.crupier_fatal"));
                     System.exit(1);
                 }
@@ -13590,7 +13590,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // If the player reaches winner calculation with null cards, it means
             // they disconnected before reaching showdown. Their hand is mucked.
             if (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty() || jugador.getHoleCard1().getValor().equals("null")) {
-                LOGGER.log(Level.WARNING, "⚠️ [MUCK] {0} could not reveal cards due to disconnection. Pot lost.", jugador.getNickname());
+                LOGGER.log(Level.WARNING, "MUCK: {0} could not reveal cards due to disconnection — pot lost", jugador.getNickname());
                 continue; // Al no meterlo en el mapa 'jugadas', el motor lo ignora para el premio.
             }
 
@@ -13884,8 +13884,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // reveladas (disconnection mid-hand antes del showdown) construyen
         // una org.alberta.poker.Hand con suit/rank invalido, y
         // HandEvaluator.Find_Flush devuelve -1 al iterar el array de
-        // palos -> OOBE -> CRUPIER FATAL. calcularJugadas ya filtra el
-        // mismo caso (logea [MUCK] y los excluye del calculo de
+        // palos -> OOBE -> error fatal del Crupier. calcularJugadas ya filtra el
+        // mismo caso (logea MUCK y los excluye del calculo de
         // ganadores); aqui replicamos el filtro para que monteCarlo no
         // pete cuando se evalua la ronda siguiente a un peer recien caido.
         ArrayList<Player> resistenSafe = new ArrayList<>(resisten.size());

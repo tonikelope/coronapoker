@@ -273,7 +273,7 @@ public class Helpers {
                 POKER_QUOTES_EN = (ArrayList<String>) getResourceTextFileAsList("quotes_EN.txt");
 
                 if (POKER_QUOTES_ES != null && POKER_QUOTES_ES.size() != POKER_QUOTES_EN.size()) {
-                    LOGGER.log(Level.WARNING, "QUOTES FILES LENGTH DO NOT MATCH. TRUNCATING...");
+                    LOGGER.log(Level.WARNING, "Quotes files length do not match — truncating");
 
                     final int size = Math.min(POKER_QUOTES_ES.size(), POKER_QUOTES_EN.size());
                     POKER_QUOTES_ES = (ArrayList<String>) POKER_QUOTES_ES.subList(0, size);
@@ -1444,7 +1444,7 @@ public class Helpers {
     public static void CREATE_THREAD_POOL() {
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
-        LOGGER.log(Level.INFO, "********** NEW THREAD-POOL CREATED. LET'S GO! **********");
+        LOGGER.log(Level.INFO, "New thread pool created");
     }
 
     public static boolean UPnPClose(int port) {
@@ -3696,7 +3696,7 @@ public class Helpers {
      * <p>Extends {@link Error} ON PURPOSE so the dozens of existing
      * {@code catch (Exception)} blocks (some of which trigger destructive side
      * effects like {@code cancelarManoYDevolverApuestas} or
-     * {@code System.exit(1)} on CRUPIER FATAL ERROR) do NOT swallow it: the
+     * {@code System.exit(1)} on a fatal Crupier error) do NOT swallow it: the
      * throwable must propagate to the top of the worker's {@code Runnable} and
      * be absorbed silently by the {@code Future}. The interrupt flag is restored
      * before the throw, so any catch site that explicitly wants to react can

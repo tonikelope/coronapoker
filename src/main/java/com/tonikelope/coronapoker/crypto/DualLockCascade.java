@@ -52,8 +52,8 @@ public final class DualLockCascade {
             return false;
         }
         for (int i = 0; i < a.length; i++) {
-            if (a[i] == null || b[i] == null
-                    || !Arrays.equals(Ristretto255.encode(a[i]), Ristretto255.encode(b[i]))) {
+            // Native Ristretto group equality: same relation as comparing canonical encodings.
+            if (a[i] == null || b[i] == null || !Ristretto255.equalPoints(a[i], b[i])) {
                 return false;
             }
         }

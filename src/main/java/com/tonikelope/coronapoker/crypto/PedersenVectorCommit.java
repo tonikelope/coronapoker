@@ -58,10 +58,21 @@ public final class PedersenVectorCommit {
     }
 
     /** The i-th vector generator G_i (cached, grown on demand). */
-    public static synchronized EdwardsPoint generator(int i) {
+    public static EdwardsPoint generator(int i) {
         if (i < 0) {
             throw new IllegalArgumentException("negative generator index");
         }
+        // Lock-free fast path on the volatile copy-on-write array: every proof calls this per
+        // commitment (G_0 above all), and the background verifier threads would otherwise contend
+        // on a lock that is only needed to grow the cache.
+        EdwardsPoint[] g = gens;
+        if (i < g.length) {
+            return g[i];
+        }
+        return growGenerators(i);
+    }
+
+    private static synchronized EdwardsPoint growGenerators(int i) {
         if (i >= gens.length) {
             EdwardsPoint[] grown = Arrays.copyOf(gens, i + 1);
             for (int j = gens.length; j <= i; j++) {

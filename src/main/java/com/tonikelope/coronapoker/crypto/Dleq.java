@@ -82,9 +82,12 @@ public final class Dleq {
             return false; // non-canonical scalar
         }
 
-        // R1 = s*g1 - c*h1 ; R2 = s*g2 - c*h2
-        EdwardsPoint r1 = g1.scalarMul(s).add(h1.scalarMul(c).negate());
-        EdwardsPoint r2 = g2.scalarMul(s).add(h2.scalarMul(c).negate());
+        // R1 = s*g1 - c*h1 ; R2 = s*g2 - c*h2 — one shared-ladder multi-scalar each (the negation
+        // moves to the point, which is free; s*g + c*(-h) is the exact same group element).
+        EdwardsPoint r1 = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{s, c}, new EdwardsPoint[]{g1, h1.negate()});
+        EdwardsPoint r2 = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{s, c}, new EdwardsPoint[]{g2, h2.negate()});
         BigInteger cPrime = challenge(g1, h1, g2, h2, r1, r2);
         return cPrime.equals(c);
     }

@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Batch-DLEQ proof that one cascade <b>rotation</b> step is an honest <b>in-place re-key</b>:
@@ -40,7 +39,6 @@ public final class RotationProof {
     private static final String FS_WEIGHTS_DOMAIN = "SRA/RotationProof/weights/v1";
     private static final String FS_SCHNORR_DOMAIN = "SRA/RotationProof/schnorr/v1";
     private static final BigInteger L = EdwardsPoint.L;
-    private static final byte[] IDENTITY_ENC = Ristretto255.encode(EdwardsPoint.IDENTITY);
 
     private RotationProof() {
     }
@@ -56,7 +54,7 @@ public final class RotationProof {
     }
 
     private static boolean isIdentity(EdwardsPoint p) {
-        return p == null || Arrays.equals(Ristretto255.encode(p), IDENTITY_ENC);
+        return p == null || Ristretto255.isIdentity(p);
     }
 
     private static boolean inRange(BigInteger s) {
@@ -129,9 +127,10 @@ public final class RotationProof {
             return false; // aggregate base degenerate (negligible for honest decks)
         }
         BigInteger e = schnorrChallenge(g, h, proof.t);
-        // z·G == T ⊕ e·H  <=>  H = s·G
-        EdwardsPoint lhs = g.scalarMul(proof.z.mod(L));
-        EdwardsPoint rhs = t.add(h.scalarMul(e));
-        return Arrays.equals(Ristretto255.encode(lhs), Ristretto255.encode(rhs));
+        // z·G == T ⊕ e·H  <=>  H = s·G — folded to one shared-ladder multi-scalar
+        // (z·G − e·H == T, free negation) with the native Ristretto equality.
+        EdwardsPoint lhs = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{proof.z, e}, new EdwardsPoint[]{g, h.negate()});
+        return Ristretto255.equalPoints(lhs, t);
     }
 }

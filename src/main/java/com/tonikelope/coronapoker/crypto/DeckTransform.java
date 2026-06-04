@@ -18,7 +18,6 @@ package com.tonikelope.coronapoker.crypto;
 
 import com.tonikelope.coronapoker.Helpers;
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Deck transform for the verifiable-shuffle engine: a "shuffle step" applies a permutation and a
@@ -76,13 +75,16 @@ public final class DeckTransform {
         return true;
     }
 
-    /** Decks equal by canonical Ristretto encoding (same length, same points in order). */
+    /**
+     * Decks equal as Ristretto group elements, position by position (same relation as comparing
+     * canonical encodings — see {@link Ristretto255#equalPoints} — without the encodes).
+     */
     public static boolean decksEqual(EdwardsPoint[] a, EdwardsPoint[] b) {
         if (a == null || b == null || a.length != b.length) {
             return false;
         }
         for (int i = 0; i < a.length; i++) {
-            if (!Arrays.equals(Ristretto255.encode(a[i]), Ristretto255.encode(b[i]))) {
+            if (!Ristretto255.equalPoints(a[i], b[i])) {
                 return false;
             }
         }

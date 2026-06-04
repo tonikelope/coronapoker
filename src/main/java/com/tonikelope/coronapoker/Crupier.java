@@ -8310,18 +8310,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Run-it-twice: divide un (side)pot en las mitades de SIDE-A y SIDE-B.
-     * Trabaja en céntimos enteros para evitar mitades no representables en chips
-     * de 2 decimales (p.ej. 0.05 / 2 = 0.025). Regla de la casa: si el total en
-     * céntimos es impar, SIDE-A se queda el céntimo de resto. Invariante:
-     * sideA + sideB == pot exacto (no se crea ni se pierde ningún céntimo).
+     * Trabaja en décimas enteras porque la ficha mínima del juego es 0.10 (toda
+     * la economía redondea a 1 decimal vía floatClean/setStack): una mitad con
+     * pico de céntimos (p.ej. 21.30 / 2 = 10.65) no es representable y el
+     * redondeo del stack la destruiría o crearía en silencio al consolidar.
+     * Regla de la casa: si el total en décimas es impar, AMBAS caras reciben el
+     * floor y el pico (una ficha de 0.10) NO se reparte — queda sin pagar y el
+     * recálculo de bote_sobrante tras los dos boards lo arrastra a la mano
+     * siguiente. Invariante: sideA + sideB + pico == pot exacto (ni se crea ni
+     * se pierde dinero).
      *
      * @return {@code [sideA_chips, sideB_chips]}
      */
     static float[] splitPotForRunItTwice(float pot) {
-        long cents = Math.round((double) pot * 100.0);
-        long sideB = cents / 2;        // floor
-        long sideA = cents - sideB;    // ceil — SIDE-A se lleva el resto
-        return new float[]{sideA / 100f, sideB / 100f};
+        long decimas = Math.round((double) pot * 10.0);
+        long half = decimas / 2;       // floor — el pico indivisible va al bote_sobrante
+        return new float[]{half / 10f, half / 10f};
     }
 
     // Run-it-twice rewind (parte comunitaria): TAPA las cartas comunitarias
@@ -8411,8 +8415,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // normal NO se toca). SIDE-A ya está en la mesa (rondaApuestas la repartió):
     // se paga la mitad-A de cada (side)pot, pausa para asimilar, rewind, se
     // reparte SIDE-B y se paga la mitad-B. Cada bote se parte con
-    // splitPotForRunItTwice (conservación exacta; SIDE-A se lleva el céntimo de
-    // resto) y dentro de cada board se reparte entre los ganadores de ESE board
+    // splitPotForRunItTwice (mitades en fichas de 0.10; el pico indivisible no
+    // se reparte y acaba en bote_sobrante al recalcularlo tras los dos boards)
+    // y dentro de cada board se reparte entre los ganadores de ESE board
     // con calcularBoteParaGanador (mismo helper de producción). conta_win cuenta
     // UNA vez por jugador que gane ≥1 side (snapshot + corrección final, porque
     // showdown() incrementa por board vía setWinner). 'perdedores' refleja SIDE-B
@@ -8538,9 +8543,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Beneficio del ganador del pot principal en ESTE board (cosmético, número
         // verde de la label del tapete): su parte (medio bote / nº ganadores) menos
         // su mitad de la apuesta de referencia. La apuesta se parte igual que el
-        // bote (mismo split, resto a SIDE-A) → la suma de ambos boards = beneficio
-        // real total. Mismo significado que beneficio_bote_principal del showdown
-        // normal (cantidad - bote.getBet()), pero por board.
+        // bote (mismo split, floor a ficha de 0.10) → la suma de ambos boards =
+        // beneficio real total salvo el pico no repartido (que va a bote_sobrante).
+        // Mismo significado que beneficio_bote_principal del showdown normal
+        // (cantidad - bote.getBet()), pero por board.
         this.beneficio_bote_principal = cantidad[0] - splitPotForRunItTwice(this.bote.getBet())[board];
         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
         Player unganador = null;

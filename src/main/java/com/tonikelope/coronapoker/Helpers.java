@@ -1656,7 +1656,7 @@ public class Helpers {
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_hand ON showdown(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_balance_hand ON balance(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showcards_hand ON showcards(id_hand)");
-                // EC-Identity v1 (commit 6): forensic log of hands whose end-of-hand consensus
+                // Consensus: forensic log of hands whose end-of-hand consensus
                 // did not check out unanimously. The hand is paid out regardless — this table is
                 // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of
                 // every receipt this peer collected for that hand (each receipt = HAND_ID ||
@@ -1680,7 +1680,7 @@ public class Helpers {
                     statement.execute("ALTER TABLE balance ADD rebuy_count INTEGER DEFAULT 0");
                 } catch (Exception ex) {
                 }
-                // EC-Identity v1 (recovery): per-hand cryptographic HAND_ID (16 bytes,
+                // Recovery: per-hand cryptographic HAND_ID (16 bytes,
                 // base64). Needed to rebuild HandStateChain on recovery — the SQL
                 // hand.id is an auto-increment PK and does NOT match the bytes that
                 // initHandStateChain feeds into SHA-256(domain || HAND_ID || ...).
@@ -1688,7 +1688,7 @@ public class Helpers {
                     statement.execute("ALTER TABLE hand ADD hand_id_b64 TEXT");
                 } catch (Exception ex) {
                 }
-                // EC-Identity v1 (recovery): per-action canonical 92-byte record + Ed25519
+                // Recovery: per-action canonical 92-byte record + Ed25519
                 // signature, both base64. Stored so recovery can replay every action
                 // through HandStateChain.absorb with the exact bytes that were absorbed
                 // pre-crash. Other peers' signatures cannot be re-derived locally

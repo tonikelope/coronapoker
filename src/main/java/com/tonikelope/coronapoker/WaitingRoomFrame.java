@@ -201,13 +201,13 @@ public class WaitingRoomFrame extends JFrame {
     private final NetServer net_server;
     private final NetClient net_client;
 
-    // EC-Identity v1: per-game 16-byte session identifier. The host generates it once
+    // Identity: per-game 16-byte session identifier. The host generates it once
     // at construction and ships it inside the ECDH handshake. Clients capture it from
     // the handshake and use it to compute their JOIN_IDENTITY self_sig (which binds
     // their pubkey to this specific game session and thus blocks replay across sessions).
     private volatile byte[] session_id = null;
 
-    // EC-Identity v1: the host computes its own self_sig at game creation so it can be
+    // Identity: the host computes its own self_sig at game creation so it can be
     // shipped to every joining client embedded in the sync intro (atomic transport).
     // Host is special-cased because it is not in `participantes` — it IS the room.
     private volatile byte[] host_self_sig = null;
@@ -784,7 +784,7 @@ public class WaitingRoomFrame extends JFrame {
         this.net_server = server ? new NetServer(this) : null;
         this.net_client = server ? null : new NetClient(this);
 
-        // EC-Identity v1: host pre-generates session_id once at construction so it can be
+        // Identity: host pre-generates session_id once at construction so it can be
         // shipped to every joining client during the ECDH handshake. Clients leave it null
         // here and capture the value from the wire when they connect.
         //
@@ -1232,7 +1232,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
 
-                        // EC-Identity v1: read session_id off the stream. On reconnect we don't
+                        // Identity: read session_id off the stream. On reconnect we don't
                         // recompute self_sig because the host already has our pinned identity,
                         // but we MUST consume these bytes to keep the stream in sync.
                         int sidLen = dIn.readInt();
@@ -1834,7 +1834,7 @@ public class WaitingRoomFrame extends JFrame {
                     }
                     byte[] serverPubKeyEnc = new byte[length];
                     dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
-                    // EC-Identity v1: capture session_id sent right after the server pubkey.
+                    // Identity: capture session_id sent right after the server pubkey.
                     int sidLen = dIn.readInt();
                     if (sidLen <= 0 || sidLen > HANDSHAKE_MAX_SESSIONID_BYTES) {
                         throw new IOException("Handshake: invalid session_id length " + sidLen
@@ -1867,7 +1867,7 @@ public class WaitingRoomFrame extends JFrame {
                     // PSK-DH already authenticates the password: a wrong password produces a different
                     // channel key and the server cannot decrypt this message. No need to send the password.
                     //
-                    // EC-Identity v1: augment the first command with the JOIN_IDENTITY marker, this
+                    // Identity: augment the first command with the JOIN_IDENTITY marker, this
                     // installation's Ed25519 pubkey, and a self_sig that binds it to the session_id
                     // received during the handshake. Field layout (6 fields):
                     //   nick_b64 # version # avatar_b64_or_* # JOIN_V1 # pubkey_b64 # self_sig_b64
@@ -1974,7 +1974,7 @@ public class WaitingRoomFrame extends JFrame {
                                 server_avatar = null;
                             }
 
-                            // EC-Identity v1: host identity rides on the same intro packet that
+                            // Identity: host identity rides on the same intro packet that
                             // carries nick + avatar. Capture pubkey+sig here; verify and apply
                             // once the Participant exists.
                             byte[] hostIdPubkey = null;
@@ -2015,7 +2015,7 @@ public class WaitingRoomFrame extends JFrame {
                                 LOGGER.log(Level.WARNING, "Could not clear handshake SoTimeout on client post-NICKOK", ex);
                             }
 
-                            // EC-Identity v1: apply the host's identity to the freshly-created
+                            // Identity: apply the host's identity to the freshly-created
                             // Participant. Verify self_sig against current session_id; on success,
                             // store on Participant and run TOFU.
                             if (hostIdPubkey != null && hostIdSig != null
@@ -2508,7 +2508,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             });
                                                             break;
                                                         case "H_CHECK":
-                                                            // EC-Identity v1: debug-only chain divergence probe. The host
+                                                            // Identity: debug-only chain divergence probe. The host
                                                             // broadcasts its H_t after every action when
                                                             // HandStateChain.DEBUG_HANDCHAIN is on; clients compare it to
                                                             // their own absorbed chain and log SEVERE on mismatch. The case
@@ -2999,7 +2999,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "NEWUSER":
-                                                            // EC-Identity v1: layout
+                                                            // Identity: layout
                                                             //   [3] nickB64
                                                             //   [4] unsecureFlag
                                                             //   [5] avatarB64_or_*
@@ -3052,7 +3052,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "USERSLIST":
-                                                            // EC-Identity v1: each entry now carries pubkey + self_sig in
+                                                            // Identity: each entry now carries pubkey + self_sig in
                                                             // fields [3] and [4] (or "*" for bots / unknown). Apply them
                                                             // to the Participant once it exists, after TOFU.
                                                             //
@@ -3233,7 +3233,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * EC-Identity v1: verifies a JOIN_IDENTITY self_sig sent by a new client during
+     * Identity: verifies a JOIN_IDENTITY self_sig sent by a new client during
      * their initial handshake. Decodes the base64-encoded pubkey (32 bytes) and signature
      * (64 bytes), then delegates to {@link IdentityManager#verifyJoin} under the current
      * game's session_id and the NFC-normalized nick.
@@ -3255,7 +3255,7 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     /**
-     * EC-Identity v1: stores the validated identity on the participant entry, runs the
+     * Identity: stores the validated identity on the participant entry, runs the
      * local TOFU resolution, and logs the outcome (NEW / MATCH / CHANGED). Called by
      * the host right after a successful JOIN.
      */
@@ -3314,7 +3314,7 @@ public class WaitingRoomFrame extends JFrame {
                     DataOutputStream dOut = new DataOutputStream(client_socket.getOutputStream());
                     dOut.writeInt(serverPubKeyEnc.length);
                     dOut.write(serverPubKeyEnc);
-                    // EC-Identity v1: ship the game session_id immediately after the server
+                    // Identity: ship the game session_id immediately after the server
                     // pubkey. Clients on this version expect these bytes; old clients are
                     // blocked by the strict-equality VERSION gate further down.
                     dOut.writeInt(session_id.length);
@@ -3546,14 +3546,14 @@ public class WaitingRoomFrame extends JFrame {
                     } else if (participantes.containsKey(client_nick)) {
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
                     } else if (partes.length != 6 || !"JOIN_V1".equals(partes[3])) {
-                        // EC-Identity v1: clients on the new wire MUST send a JOIN_V1 payload
+                        // Identity: clients on the new wire MUST send a JOIN_V1 payload
                         // with pubkey + self_sig. Anything else is a misformatted client and
                         // gets the same response as a version mismatch.
                         LOGGER.log(Level.WARNING, "Client {0} sent malformed JOIN (fields={1}, marker={2})",
                                 new Object[]{client_nick, partes.length, partes.length > 3 ? partes[3] : "(missing)"});
                         writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
                     } else if (!verifyJoinSelfSig(client_nick, partes[4], partes[5])) {
-                        // EC-Identity v1: self_sig invalid means either the client is on the
+                        // Identity: self_sig invalid means either the client is on the
                         // wrong session_id (replay from another game) or has a tampered key.
                         // Reject without explanation to deny an oracle to attackers.
                         LOGGER.log(Level.WARNING, "Client {0} sent invalid JOIN self_sig -> rejecting", client_nick);
@@ -3595,7 +3595,7 @@ public class WaitingRoomFrame extends JFrame {
                             }
                         }
 
-                        // EC-Identity v1: piggyback host's pubkey + self_sig on the sync intro so
+                        // Identity: piggyback host's pubkey + self_sig on the sync intro so
                         // the new client has the host's identity in the same packet as nick + avatar
                         // — no dependency on any async queue. Avatar slot uses "*" placeholder when
                         // there is no avatar, keeping a fixed 4-field layout
@@ -3635,7 +3635,7 @@ public class WaitingRoomFrame extends JFrame {
                                     }
                                     nuevoParticipante(client_nick, client_avatar, client_socket, aes_key, hmac_key,
                                             false, false);
-                                    // EC-Identity v1: cache pubkey+self_sig on the new Participant
+                                    // Identity: cache pubkey+self_sig on the new Participant
                                     // and run local TOFU resolution. partes[4] / partes[5] were
                                     // validated above by verifyJoinSelfSig.
                                     recordJoinIdentity(participantes.get(client_nick), partes[4], partes[5]);
@@ -3647,7 +3647,7 @@ public class WaitingRoomFrame extends JFrame {
                                         // la identidad del host ya viaja en el intro síncrono).
                                         enviarListaUsuariosActualesAlNuevoUsuario(participantes.get(client_nick));
 
-                                        // EC-Identity v1: NEWUSER carries the new peer's pubkey +
+                                        // Identity: NEWUSER carries the new peer's pubkey +
                                         // self_sig so already-connected peers can independently verify
                                         // and TOFU-resolve in the same packet that announces the join.
                                         // Avatar slot uses "*" placeholder for a fixed 5-field layout

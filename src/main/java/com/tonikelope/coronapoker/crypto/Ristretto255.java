@@ -22,7 +22,6 @@ import java.util.Arrays;
 /**
  * Ristretto255 encode/decode (RFC 9496 §4.3) over the edwards25519 point group.
  *
- * Phase 1 of the verifiable-dealing rework (docs/sra-verifiable-dealing-design.md).
  * Ristretto255 is a prime-order group abstraction over edwards25519: canonical
  * 32-byte encodings, no cofactor, equal points encode equally. This replaces the
  * Montgomery x-only representation of the current SRA and removes the cofactor /

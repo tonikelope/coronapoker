@@ -22,7 +22,7 @@ import java.math.BigInteger;
  * Permutation argument: given single-value Pedersen commitments {@code C_d'[i] = Comm([d'_i], s_i)},
  * proves the committed vector {@code d'} is a permutation of a PUBLIC vector {@code d} — in zero
  * knowledge (the permutation stays hidden). The combinatorial heart of the Bayer–Groth shuffle
- * (see {@code docs/sra-bayer-groth-shuffle.md}).
+ * (see {@code docs/SECURITY.md}).
  *
  * <p>Construction (Neff/Bayer–Groth characterisation). A multiset equals another iff the polynomials
  * {@code Π(X − d'_i)} and {@code Π(X − d_i)} are identical. The prover commits {@code d'} first, then a

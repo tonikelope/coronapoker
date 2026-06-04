@@ -27,9 +27,11 @@ import java.util.Arrays;
  * (derived by hash-to-group). Perfectly hiding, computationally binding under discrete log.
  *
  * <p>This is the foundational commitment of the Bayer–Groth verifiable shuffle (see
- * {@code docs/sra-bayer-groth-shuffle.md}): it lets the prover commit to a whole vector (e.g. a
- * permutation, or a row of the deck) in a single group element, and the homomorphism
- * ({@link #add}, {@link #scale}) is what the product / multi-exponentiation arguments exploit.
+ * {@code docs/SECURITY.md}): it lets the prover commit to a whole vector (e.g. a
+ * permutation, or a row of the deck) in a single group element, and its homomorphic
+ * structure (point addition / scalar scaling of commitments, exercised directly on
+ * {@link EdwardsPoint}s by the argument verifiers) is what the product /
+ * multi-exponentiation arguments exploit.
  *
  * <p>Generators are cached and grown on demand up to the requested length. All scalars are reduced
  * mod the group order L; commitments are canonical Ristretto encodings (byte equality = point
@@ -98,27 +100,4 @@ public final class PedersenVectorCommit {
         return Ristretto255.encode(EdwardsPoint.multiscalarMul(scalars, points));
     }
 
-    /** True iff {@code commitment} opens to {@code (a, r)}. */
-    public static boolean verify(byte[] commitment, BigInteger[] a, BigInteger r) {
-        return commitment != null && Arrays.equals(commitment, commit(a, r));
-    }
-
-    /** Homomorphic add: {@code Comm(a,r) ⊕ Comm(b,s) = Comm(a+b, r+s)} (vectors of equal length). */
-    public static byte[] add(byte[] c1, byte[] c2) {
-        EdwardsPoint p1 = Ristretto255.decode(c1);
-        EdwardsPoint p2 = Ristretto255.decode(c2);
-        if (p1 == null || p2 == null) {
-            return null;
-        }
-        return Ristretto255.encode(p1.add(p2));
-    }
-
-    /** Homomorphic scalar scaling: {@code e·Comm(a,r) = Comm(e·a, e·r)}. */
-    public static byte[] scale(byte[] c, BigInteger e) {
-        EdwardsPoint p = Ristretto255.decode(c);
-        if (p == null) {
-            return null;
-        }
-        return Ristretto255.encode(p.scalarMul(e.mod(EdwardsPoint.L)));
-    }
 }

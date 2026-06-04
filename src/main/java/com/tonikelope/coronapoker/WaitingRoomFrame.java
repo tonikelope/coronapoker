@@ -2165,7 +2165,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // so there is no protocol reason to share it with the Crupier.
                                                                     byte[] mySeed = new byte[48];
                                                                     Helpers.CSPRNG_GENERATOR.nextBytes(mySeed);
-                                                                    byte[] shuffled = CryptoSRA.shuffleDeck(locked, mySeed);
+                                                                    byte[] shuffled = DeterministicShuffle.shuffleDeck(locked, mySeed);
 
                                                                     // (last-mile lockdown re-check eliminado — ver nota
                                                                     // equivalente en REQ_SRA_UNLOCK. La gate al inicio del
@@ -2189,7 +2189,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // generación falla (peer legacy / degradado): el host lo trata como
                                                                     // ausente (sin enforcement todavía en wire-2).
                                                                     int myPermN = incomingDeck.length / 32;
-                                                                    int[] myPerm = CryptoSRA.shufflePermutation(myPermN, mySeed);
+                                                                    int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
                                                                     byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
                                                                             .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
                                                                     String proofB64 = (cascadeProof != null)

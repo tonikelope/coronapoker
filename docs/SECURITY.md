@@ -62,7 +62,7 @@ Any mismatch — bad signature, unknown point, conflicting announcement — trig
 
 ### 2.4 Deterministic shuffle
 
-The permutation each peer applies is generated with **AES-256-CTR** seeded by a per-hand key, then converted to a Fisher-Yates shuffle using **rejection sampling** to eliminate modulo bias ([`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) — `shuffleDeck`, with the unbiased index draw in `DeterministicStream.getUnbiasedInt`). The seed is fresh per hand, so reordering carries no information across hands.
+The permutation each peer applies is generated with **AES-256-CTR** seeded by a per-hand key, then converted to a Fisher-Yates shuffle using **rejection sampling** to eliminate modulo bias ([`DeterministicShuffle.java`](../src/main/java/com/tonikelope/coronapoker/DeterministicShuffle.java) — `shuffleDeck`, with the unbiased index draw in `DeterministicStream.getUnbiasedInt`). The seed is fresh per hand, so reordering carries no information across hands.
 
 ### 2.5 Verifiable dealing — closing the blinded-decryption oracle
 
@@ -324,7 +324,7 @@ If you want to follow any of the above end-to-end:
 
 - SRA group + verifiable-dealing engine (Ristretto255): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) — `Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`, `VerifiableUnlock`, `DealChain`
 - Verifiable shuffle (§2.6): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/) — `ShuffleArgument`, `ShuffleCascade`, `RotationProof`, `DualLockCascade`, `DualLockWire`, `ProofCodec`, `PedersenVectorCommit`, `MultiplicationProof`, `ProductArgument`, `PermutationArgument`, `WeightedSumArgument`
-- Shuffle primitive: [`CryptoSRA.java`](../src/main/java/com/tonikelope/coronapoker/CryptoSRA.java) (`shuffleDeck`)
+- Shuffle primitive: [`DeterministicShuffle.java`](../src/main/java/com/tonikelope/coronapoker/DeterministicShuffle.java) (`shuffleDeck`)
 - Cascade orchestration, recovery, lockdown, soft warning: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)
 - Channel encryption: [`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) (`encryptCommand`, `decryptCommand`, `deriveChannelSecret`)
 - Identity layer: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java), [`TOFUResolver.java`](../src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)

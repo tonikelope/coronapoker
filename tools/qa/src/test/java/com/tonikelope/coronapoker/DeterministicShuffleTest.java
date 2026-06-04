@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class CryptoSRAShufflePermutationTest {
+public class DeterministicShuffleTest {
 
     @BeforeAll
     public static void ensureRng() {
@@ -44,12 +44,12 @@ public class CryptoSRAShufflePermutationTest {
 
     @Test
     public void permutationMatchesShuffleDeckExactly() {
-        byte[] deck = CryptoSRA.getGenesisDeck(); // 52 * 32
+        byte[] deck = com.tonikelope.coronapoker.crypto.RistrettoSRA.getGenesisDeck(); // 52 * 32
         int n = deck.length / 32;
         for (int trial = 0; trial < 20; trial++) {
             byte[] seed = randomSeed();
-            byte[] shuffled = CryptoSRA.shuffleDeck(deck, seed);
-            int[] perm = CryptoSRA.shufflePermutation(n, seed);
+            byte[] shuffled = DeterministicShuffle.shuffleDeck(deck, seed);
+            int[] perm = DeterministicShuffle.shufflePermutation(n, seed);
 
             assertTrue(isPermutation(perm, n), "shufflePermutation devuelve una permutación válida");
 
@@ -65,14 +65,14 @@ public class CryptoSRAShufflePermutationTest {
     @Test
     public void deterministicForSameSeed() {
         byte[] seed = randomSeed();
-        assertArrayEquals(CryptoSRA.shufflePermutation(52, seed), CryptoSRA.shufflePermutation(52, seed),
+        assertArrayEquals(DeterministicShuffle.shufflePermutation(52, seed), DeterministicShuffle.shufflePermutation(52, seed),
                 "misma seed -> misma permutación");
     }
 
     @Test
     public void differentSeedsGiveDifferentPermutation() {
-        int[] p1 = CryptoSRA.shufflePermutation(52, randomSeed());
-        int[] p2 = CryptoSRA.shufflePermutation(52, randomSeed());
+        int[] p1 = DeterministicShuffle.shufflePermutation(52, randomSeed());
+        int[] p2 = DeterministicShuffle.shufflePermutation(52, randomSeed());
         assertFalse(Arrays.equals(p1, p2), "seeds distintas -> permutaciones distintas (con prob abrumadora)");
     }
 }

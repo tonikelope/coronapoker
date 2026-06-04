@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Element of the prime field GF(2^255 - 19) — the base field of edwards25519,
@@ -71,26 +70,6 @@ public final class Fe25519 {
     /** Wraps an already-reduced value in [0, P) without the (expensive) mod. */
     private Fe25519(BigInteger reducedValue, boolean alreadyReduced) {
         this.v = reducedValue;
-    }
-
-    private static final BigInteger MASK_255 = BigInteger.ONE.shiftLeft(255).subtract(BigInteger.ONE);
-    private static final BigInteger C19 = BigInteger.valueOf(19);
-
-    /**
-     * Fast reduction mod p = 2^255-19 of a non-negative {@code x < 2^512}, using {@code 2^255 ≡ 19}
-     * instead of a BigInteger division (the slow part of {@code mod}). Two fold rounds bring it
-     * below {@code 2P}, then at most two conditional subtractions land it in {@code [0, P)}.
-     */
-    private static BigInteger reduceWide(BigInteger x) {
-        x = x.and(MASK_255).add(x.shiftRight(255).multiply(C19)); // < 2^261
-        x = x.and(MASK_255).add(x.shiftRight(255).multiply(C19)); // < 2^255 + 1216
-        if (x.compareTo(P) >= 0) {
-            x = x.subtract(P);
-        }
-        if (x.compareTo(P) >= 0) {
-            x = x.subtract(P);
-        }
-        return x;
     }
 
     public static Fe25519 of(BigInteger value) {
@@ -152,12 +131,24 @@ public final class Fe25519 {
         return le;
     }
 
+    // Both operands hold canonical values in [0, P) (the class invariant: every constructor path
+    // reduces), so add/sub stay within (-P, 2P) and one conditional subtraction/addition replaces
+    // the BigInteger division inside mod() — the dominant cost of the curve formulas' add chains.
+
     public Fe25519 add(Fe25519 o) {
-        return new Fe25519(v.add(o.v));
+        BigInteger r = v.add(o.v); // < 2P
+        if (r.compareTo(P) >= 0) {
+            r = r.subtract(P);
+        }
+        return new Fe25519(r, true);
     }
 
     public Fe25519 sub(Fe25519 o) {
-        return new Fe25519(v.subtract(o.v));
+        BigInteger r = v.subtract(o.v); // > -P
+        if (r.signum() < 0) {
+            r = r.add(P);
+        }
+        return new Fe25519(r, true);
     }
 
     public Fe25519 mul(Fe25519 o) {
@@ -307,16 +298,16 @@ public final class Fe25519 {
     }
 
     public Fe25519 negate() {
-        return new Fe25519(v.negate());
+        return v.signum() == 0 ? ZERO : new Fe25519(P.subtract(v), true);
     }
 
     public Fe25519 pow(BigInteger e) {
-        return new Fe25519(v.modPow(e, P));
+        return new Fe25519(v.modPow(e, P), true); // modPow result already in [0, P)
     }
 
     /** Multiplicative inverse via Fermat's little theorem (a^(p-2)). */
     public Fe25519 inv() {
-        return new Fe25519(v.modPow(P_MINUS_2, P));
+        return new Fe25519(v.modPow(P_MINUS_2, P), true);
     }
 
     public boolean isZero() {

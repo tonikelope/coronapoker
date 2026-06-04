@@ -60,14 +60,18 @@ public final class ProductArgument {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
-    /** -P (negation of the committed point). */
-    private static byte[] neg(byte[] c) {
-        return PedersenVectorCommit.scale(c, L.subtract(BigInteger.ONE));
-    }
-
-    /** Encoded point {@code C − b·G_0} (should equal {@code ρ·H} when {@code C} commits {@code b}). */
+    /**
+     * Encoded point {@code C − b·G_0} (should equal {@code ρ·H} when {@code C} commits {@code b}).
+     * The subtraction is a free point negation, not a scalar multiplication by {@code L−1};
+     * {@code null} if {@code c} fails to decode.
+     */
     private static byte[] minusValue(byte[] c, BigInteger b) {
-        return PedersenVectorCommit.add(c, neg(MultiplicationProof.commitScalar(b, BigInteger.ZERO)));
+        EdwardsPoint cp = Ristretto255.decode(c);
+        if (cp == null) {
+            return null;
+        }
+        EdwardsPoint bG0 = PedersenVectorCommit.generator(0).scalarMul(b.mod(L));
+        return Ristretto255.encode(cp.add(bG0.negate()));
     }
 
     private static BigInteger openChallenge(byte[] cLast, BigInteger b, byte[] t) {

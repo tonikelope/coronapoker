@@ -22,7 +22,7 @@ import java.security.MessageDigest;
 
 /**
  * Fiat–Shamir transcript for non-interactive proofs (verifiable-shuffle engine; see
- * {@code docs/sra-shuffle-argument-engine.md}). A running SHA-512 state that absorbs every public
+ * {@code docs/SECURITY.md}). A running SHA-512 state that absorbs every public
  * value the proof depends on and derives challenges from it. Two correctness invariants the whole
  * soundness rests on, and that the test suite pins:
  *
@@ -130,11 +130,6 @@ public final class Transcript {
     /** A challenge scalar uniform in {@code [0, L)} (64 bytes reduced mod L; negligible bias). */
     public BigInteger challengeScalar(String label) {
         return new BigInteger(1, challengeBytes(label, 64)).mod(EdwardsPoint.L);
-    }
-
-    /** A single challenge bit (used per cut-and-choose round). */
-    public boolean challengeBit(String label) {
-        return (challengeBytes(label, 1)[0] & 1) == 1;
     }
 
     private static byte[] counterBytes(long c) {

@@ -22,7 +22,7 @@ import java.math.BigInteger;
  * Product argument: given single-value Pedersen commitments {@code C_a[0..n-1]} (with
  * {@code C_a[i] = Comm([a_i], r_i)}), proves that {@code Π a_i == b} for a PUBLIC target {@code b},
  * in zero knowledge (the {@code a_i} stay hidden). The combinatorial core of the permutation /
- * shuffle argument (see {@code docs/sra-bayer-groth-shuffle.md}): a permutation of a public vector
+ * shuffle argument (see {@code docs/SECURITY.md}): a permutation of a public vector
  * {@code d} is characterised by {@code Π(x − d'_i) == Π(x − d_i)} for a random challenge {@code x},
  * and the right-hand side is exactly such a public product.
  *

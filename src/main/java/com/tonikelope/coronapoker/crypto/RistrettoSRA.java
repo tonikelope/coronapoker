@@ -23,17 +23,13 @@ import java.util.Arrays;
 
 /**
  * Commutative-SRA primitives over the prime-order Ristretto255 group — the
- * intended replacement for the Montgomery x-only core in {@code CryptoSRA}.
+ * engine that replaced the retired Montgomery x-only core.
  *
- * Phase 1 of the verifiable-dealing rework (docs/sra-verifiable-dealing-design.md).
- * Everything is a 32-byte canonical Ristretto encoding on the wire (same size as
- * today, so the command protocol is unchanged). Because Ristretto has prime order,
- * scalars need no clamping and there is no cofactor / small-subgroup caveat: a
- * lock is multiplication by a uniform scalar in [1, L), an unlock is its inverse
- * mod L, and decode() rejects any malformed point (replacing arePointsOnCurve).
- *
- * This class is NOT yet wired into the game; it is the validated engine that the
- * cascade migration (Phase 3) will build on.
+ * Everything is a 32-byte canonical Ristretto encoding on the wire. Because
+ * Ristretto has prime order, scalars need no clamping and there is no cofactor /
+ * small-subgroup caveat: a lock is multiplication by a uniform scalar in [1, L),
+ * an unlock is its inverse mod L, and decode() rejects any malformed point —
+ * a valid decode IS the group-membership proof (see docs/SECURITY.md).
  */
 public final class RistrettoSRA {
 

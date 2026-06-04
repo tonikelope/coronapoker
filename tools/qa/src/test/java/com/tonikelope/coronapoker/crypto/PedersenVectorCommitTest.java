@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PedersenVectorCommitTest {
 
@@ -39,11 +38,12 @@ public class PedersenVectorCommitTest {
 
     @Test
     public void commitOpensWithItsOwnOpening() {
+        // Abrir un commitment ES recomputarlo con (a, r) y comparar encodings (determinismo).
         BigInteger[] a = vec(8);
         BigInteger r = scalar();
         byte[] c = PedersenVectorCommit.commit(a, r);
         assertNotNull(c);
-        assertTrue(PedersenVectorCommit.verify(c, a, r), "el commitment vectorial abre con (a, r)");
+        assertArrayEquals(c, PedersenVectorCommit.commit(a, r), "el commitment vectorial abre con (a, r)");
     }
 
     @Test
@@ -53,8 +53,8 @@ public class PedersenVectorCommitTest {
         byte[] c = PedersenVectorCommit.commit(a, r);
         BigInteger[] a2 = a.clone();
         a2[2] = a2[2].add(BigInteger.ONE);
-        assertFalse(PedersenVectorCommit.verify(c, a2, r), "un elemento del vector cambiado no abre");
-        assertFalse(PedersenVectorCommit.verify(c, a, r.add(BigInteger.ONE)), "blinding cambiado no abre");
+        assertFalse(Arrays.equals(c, PedersenVectorCommit.commit(a2, r)), "un elemento del vector cambiado no abre");
+        assertFalse(Arrays.equals(c, PedersenVectorCommit.commit(a, r.add(BigInteger.ONE))), "blinding cambiado no abre");
     }
 
     @Test
@@ -74,14 +74,17 @@ public class PedersenVectorCommitTest {
 
     @Test
     public void homomorphicAddition() {
+        // La propiedad que los verificadores plegados explotan a nivel de punto:
+        // decode(Comm(a,ra)) + decode(Comm(b,rb)) = decode(Comm(a+b, ra+rb)).
         BigInteger[] a = vec(5), b = vec(5);
         BigInteger ra = scalar(), rb = scalar();
-        byte[] sum = PedersenVectorCommit.add(PedersenVectorCommit.commit(a, ra), PedersenVectorCommit.commit(b, rb));
+        EdwardsPoint ca = Ristretto255.decode(PedersenVectorCommit.commit(a, ra));
+        EdwardsPoint cb = Ristretto255.decode(PedersenVectorCommit.commit(b, rb));
         BigInteger[] ab = new BigInteger[5];
         for (int i = 0; i < 5; i++) {
             ab[i] = a[i].add(b[i]);
         }
-        assertArrayEquals(PedersenVectorCommit.commit(ab, ra.add(rb)), sum,
+        assertArrayEquals(PedersenVectorCommit.commit(ab, ra.add(rb)), Ristretto255.encode(ca.add(cb)),
                 "Comm(a,ra) (+) Comm(b,rb) = Comm(a+b, ra+rb)");
     }
 
@@ -89,12 +92,13 @@ public class PedersenVectorCommitTest {
     public void homomorphicScaling() {
         BigInteger[] a = vec(5);
         BigInteger r = scalar(), e = scalar();
-        byte[] scaled = PedersenVectorCommit.scale(PedersenVectorCommit.commit(a, r), e);
+        EdwardsPoint c = Ristretto255.decode(PedersenVectorCommit.commit(a, r));
         BigInteger[] ea = new BigInteger[5];
         for (int i = 0; i < 5; i++) {
             ea[i] = a[i].multiply(e);
         }
-        assertArrayEquals(PedersenVectorCommit.commit(ea, r.multiply(e)), scaled,
+        assertArrayEquals(PedersenVectorCommit.commit(ea, r.multiply(e)),
+                Ristretto255.encode(c.scalarMul(e.mod(EdwardsPoint.L))),
                 "e * Comm(a,r) = Comm(e*a, e*r)");
     }
 

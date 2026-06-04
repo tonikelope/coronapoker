@@ -26,7 +26,7 @@ import java.util.Arrays;
  * individual-commitment substrate with {@link PermutationArgument}, so the same committed vector can be
  * proven (a) a permutation of a public vector AND (b) the weights of a multi-exponentiation of the
  * encrypted deck — which is exactly how the shuffle ties its hidden permutation to the deck points
- * (see {@code docs/sra-bayer-groth-shuffle.md}).
+ * (see {@code docs/SECURITY.md}).
  *
  * <p>Protocol. Masks {@code (β_i, σ_i)}; sends per-element {@code T_i = β_i·G_0 + σ_i·H} and the
  * aggregate {@code T_Q = Σ β_i·B_i}. Challenge {@code e = H(C_f, B, Q, T, T_Q)}. Responses

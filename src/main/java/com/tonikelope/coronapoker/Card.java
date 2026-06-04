@@ -718,7 +718,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             // un caller hizo (byte -1 & 0xFF) + 1 = 256). Sin esta gate la
             // PALOS[(value-1)/13] = PALOS[19] lanza
             // ArrayIndexOutOfBoundsException que escapa al try-catch
-            // genérico de Crupier.run y dispara CRUPIER FATAL ERROR +
+            // genérico de Crupier.run y dispara el error fatal del Crupier +
             // System.exit(1) (server muere). Mejor no actualizar.
             return;
         }

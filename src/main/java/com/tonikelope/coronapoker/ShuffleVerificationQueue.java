@@ -144,7 +144,7 @@ public final class ShuffleVerificationQueue {
         boolean accepted = queue.offer(job);
         if (!accepted) {
             LOGGER.log(Level.WARNING,
-                    "shuffle-verify-queue full (capacity reached) — dropping verify job for hand {0}; "
+                    "SHUFFLE-VERIFY: queue full (capacity reached) — dropping verify job for hand {0}; "
                     + "that deck stays unverified (receipt bit1)", job.handId);
         }
         return accepted;

@@ -164,7 +164,7 @@ public class StatsDialog extends JFrame {
         hand_comcards_val.setFont(original_dialog_font);
         game_textarea.setFont(original_dialog_font);
 
-        setTitle("CoronaPoker " + AboutDialog.VERSION + " - " + Translator.translate(getTitle()));
+        setTitle("CoronaPoker " + AboutDialog.VERSION + " - " + Translator.translate("ui.lo_que_no_son_cuentas"));
         stats_combo.setSelectedIndex(-1);
 
         Helpers.setScaledIconLabel(title, getClass().getResource("/images/stats.png"), title.getHeight(), title.getHeight());

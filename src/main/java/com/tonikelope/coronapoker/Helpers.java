@@ -776,7 +776,7 @@ public class Helpers {
             try {
                 Files.deleteIfExists(Paths.get(f));
             } catch (Exception ex) {
-                // Sprint 6 deferred 🟡-35: Defender / AV puede tener bloqueado
+                // Defender / AV puede tener bloqueado
                 // el .gif justo cuando intentamos borrarlo. En lugar de
                 // silenciar (acumulación monotónica en %TEMP%), marcar el
                 // fichero para borrado al exit del JVM — la mayoría de los
@@ -2092,7 +2092,7 @@ public class Helpers {
     }
 
     /**
-     * Sprint 7 telemetría: payload de una snapshot de latencia/reconexiones
+     * Telemetría: payload de una snapshot de latencia/reconexiones
      * que el host emite periódicamente a todos los clientes. Inmutable.
      */
     public static final class TelemetryFrame {
@@ -2110,7 +2110,7 @@ public class Helpers {
 
     /**
      * Codifica un TelemetryFrame al wire format usado por el broadcast
-     * TELEMETRY del Sprint 7. Formato:
+     * TELEMETRY. Formato:
      *
      *   <ts>#<b64nick>|<lat1>/<lat2>/<recon>@<b64nick>|<lat1>/<lat2>/<recon>@...
      *
@@ -2155,7 +2155,7 @@ public class Helpers {
     }
 
     /**
-     * Decodifica el wire format del Sprint 7 TELEMETRY. Tolera entradas
+     * Decodifica el wire format de TELEMETRY. Tolera entradas
      * mal formadas (skip silencioso de entries con campos faltantes o
      * sin parsear como int) para que un peer hostil no pueda romper el
      * cliente con un payload corrupto.
@@ -3601,7 +3601,7 @@ public class Helpers {
 
                 Logger
                         .getLogger(Helpers.class
-                                .getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " cargado {0}", mod);
+                                .getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " loaded {0}", mod);
 
                 return mod;
 

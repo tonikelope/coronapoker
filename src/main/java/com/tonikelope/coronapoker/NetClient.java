@@ -78,7 +78,7 @@ public class NetClient {
     // (potencialmente legitimo por jitter post-reconexion) no debe alcanzar
     // el threshold ni cerrar el socket recien instalado.
     private volatile boolean reset_ping_counters = false;
-    // Sprint 7 telemetría: cuenta de reconexiones EXITOSAS del cliente al
+    // Telemetría: cuenta de reconexiones EXITOSAS del cliente al
     // server desde el arranque. Mirror del contador per-peer en Participant
     // (que cuenta en el servidor las reconexiones recibidas de cada peer).
     // El cliente puede comparar su propio valor con el broadcast TELEMETRY
@@ -231,7 +231,7 @@ public class NetClient {
     }
 
     /**
-     * Sprint 7 telemetría: nº de reconexiones EXITOSAS de este cliente al
+     * Telemetría: nº de reconexiones EXITOSAS de este cliente al
      * server desde el arranque del NetClient.
      */
     public int getReconnectionCount() {

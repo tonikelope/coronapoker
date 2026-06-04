@@ -147,7 +147,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
             // NO matar icon_zoom_timer aquí — entre manos / al inicio del
             // recover dejaba la siguiente mano sin setAvatar y el avatar
-            // quedaba invisible. Revertido el cambio del sprint-5 b173ccf9.
+            // quedaba invisible. Revertido el cambio b173ccf9.
         });
     }
 
@@ -162,7 +162,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return latency_label;
     }
 
-    // Sprint 7 telemetría: el widget LatencyDot lo coloca el autor en el
+    // Telemetría: el widget LatencyDot lo coloca el autor en el
     // .form (NetBeans visual editor) y lo enlaza llamando setLatencyDot
     // en el constructor tras initComponents(). Si null → applyTelemetry
     // es no-op silencioso (telemetría no afecta al game flow).
@@ -177,7 +177,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Sprint 7 telemetría: actualiza la bolita con la última snapshot recibida
+     * Telemetría: actualiza la bolita con la última snapshot recibida
      * del broadcast TELEMETRY del host. Si lat1 y lat2 ambos válidos, usa el
      * min. Si uno es -1, usa el otro. Si ambos -1, -1 → bolita roja.
      * No-op si latency_dot aún no se ha enlazado vía setLatencyDot.
@@ -1232,7 +1232,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             setOpaque(false);
             setBackground(null);
             latency_label.setVisible(false);
-            // Sprint 7: si el .form contiene un latency_dot_widget colocado
+            // Placeholder traducido hasta que llegue el primer PING (el texto del .form
+            // es solo el default de diseño).
+            latency_label.setText(Translator.translate("conn.latencia_format", "*", "*"));
+            // Si el .form contiene un latency_dot_widget colocado
             // por el autor en NetBeans, lo enlazamos aquí. Si no, no-op.
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");

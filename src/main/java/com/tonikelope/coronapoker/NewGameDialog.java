@@ -341,17 +341,6 @@ public class NewGameDialog extends JDialog {
             bots_combobox.setVisible(false);
         }
 
-        DefaultComboBoxModel<JLabel> random_combobox_model = new DefaultComboBoxModel<>();
-        JLabel random_label1 = new JLabel(Translator.translate("shuffle.modo_paranoico_trng_csprng"));
-        random_label1.setIcon(new ImageIcon(getClass().getResource("/images/5stars.png")));
-        random_combobox_model.addElement(random_label1);
-        JLabel random_label2 = new JLabel(Translator.translate("shuffle.modo_casino_trng"));
-        random_label2.setIcon(new ImageIcon(getClass().getResource("/images/4_5stars.png")));
-        random_combobox_model.addElement(random_label2);
-        JLabel random_label3 = new JLabel(Translator.translate("shuffle.modo_normal_csprng"));
-        random_combobox_model.addElement(random_label3);
-        random_label3.setIcon(new ImageIcon(getClass().getResource("/images/4stars.png")));
-
         game_combo.setEnabled(false);
 
         password.setEnabled(false);

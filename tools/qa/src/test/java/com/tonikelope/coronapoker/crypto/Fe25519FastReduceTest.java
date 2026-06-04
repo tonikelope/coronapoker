@@ -10,6 +10,7 @@ import java.math.BigInteger;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Fe25519FastReduceTest {
 
@@ -84,6 +85,54 @@ public class Fe25519FastReduceTest {
             }
             assertEquals(a.negate().mod(P), toBig(Fe25519.of(a).negate()), "negate(" + a + ")");
         }
+    }
+
+    @Test
+    public void conditionalSubtractDeterministicVectors() {
+        // Productos cuyo valor reducido cae exactamente en [P, 2^255) antes de la resta condicional
+        // final: si esa rama faltara, el resultado quedaria no-canonico (P+1 en vez de 1) y el
+        // oraculo BigInteger lo caza. El fuzz aleatorio no llega aqui (probabilidad ~19/2^255).
+        BigInteger P = Fe25519.P;
+        checkMul(BigInteger.TWO, P.add(BigInteger.ONE).shiftRight(1));            // 2 * (P+1)/2 = P+1 ≡ 1
+        checkMul(BigInteger.valueOf(3), P.add(BigInteger.TWO).divide(BigInteger.valueOf(3))); // = P+2 ≡ 2
+        assertEquals(BigInteger.ZERO, P.add(BigInteger.TWO).mod(BigInteger.valueOf(3)),
+                "P+2 divisible entre 3 (sanity del vector)");
+    }
+
+    @Test
+    public void carryNormalizeDenormalizedWrapCorner() {
+        // Corner adversario de la cadena de carries: tras el wrap ×19, l0 puede quedar con el bit 51
+        // puesto a la vez que l1 queda impar (ripple de limbs saturados exactos) — el reensamblado OR
+        // antiguo perdia un carry ahi. Sumas de columna craftadas para caer exactamente en ese caso:
+        // h0..h3 = 2^51-1, h4 = T*2^51 + (2^51-1) con 19T = 2^53-10, que fuerza l0 = 2^51+8 y l1 = 3
+        // antes del segundo pase ligero. Se cruza contra el oraculo BigInteger.
+        BigInteger M = BigInteger.ONE.shiftLeft(51).subtract(BigInteger.ONE); // 2^51 - 1
+        BigInteger t = BigInteger.ONE.shiftLeft(53).subtract(BigInteger.TEN);
+        assertEquals(BigInteger.ZERO, t.mod(BigInteger.valueOf(19)), "2^53-10 divisible entre 19 (sanity)");
+        BigInteger h4 = t.divide(BigInteger.valueOf(19)).shiftLeft(51).add(M);
+
+        BigInteger[] h = {M, M, M, M, h4};
+        long[] lohi = new long[10];
+        for (int i = 0; i < 5; i++) {
+            lohi[2 * i] = h[i].longValue();                 // lo (64 bits bajos)
+            lohi[2 * i + 1] = h[i].shiftRight(64).longValue(); // hi
+        }
+        long[] limbs = Fe25519.carryNormalize(lohi[0], lohi[1], lohi[2], lohi[3], lohi[4],
+                lohi[5], lohi[6], lohi[7], lohi[8], lohi[9]);
+
+        BigInteger expected = BigInteger.ZERO;
+        for (int i = 0; i < 5; i++) {
+            expected = expected.add(h[i].shiftLeft(51 * i));
+        }
+        expected = expected.mod(Fe25519.P);
+
+        BigInteger got = BigInteger.ZERO;
+        for (int i = 0; i < 5; i++) {
+            long li = limbs[i];
+            assertTrue(li >= 0 && li < (1L << 51), "limb " + i + " canonico (< 2^51)");
+            got = got.add(BigInteger.valueOf(li).shiftLeft(51 * i));
+        }
+        assertEquals(expected, got, "carryNormalize en el corner del wrap denormalizado");
     }
 
     @Test

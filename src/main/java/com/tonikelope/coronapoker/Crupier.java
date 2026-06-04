@@ -396,6 +396,58 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && !java.util.Arrays.equals(megapacket, warned);
     }
 
+    /**
+     * The peer-side shuffle-verification queue (one serial daemon worker per Crupier), created on first
+     * use. The {@link ShuffleVerificationQueue.Sink} maps each verdict onto the existing policy:
+     * <ul>
+     *   <li><b>verified</b> — mark the deck as verified for the live unlock gate, but only if this
+     *       snapshot is STILL the current deck (a late verdict for a past hand must not touch the live
+     *       hand's gate); otherwise the verdict is purely historical.</li>
+     *   <li><b>dishonest</b> — the bundle parsed but the honest-shuffle proof FAILED: a proven-dishonest
+     *       deck (host cheating or a bug). SOFT-WARN per §8.2 (warn + recommend leaving, keep playing).
+     *       This now fires reliably even for a past hand on slow hardware, instead of being lost.</li>
+     *   <li><b>malformed</b> — the bundle could not be evaluated (ambiguous, e.g. version mismatch):
+     *       SOFT-WARN, never treated as proof of cheating.</li>
+     * </ul>
+     */
+    public ShuffleVerificationQueue getShuffleVerifyQueue() {
+        ShuffleVerificationQueue q = shuffle_verify_queue;
+        if (q == null) {
+            synchronized (this) {
+                q = shuffle_verify_queue;
+                if (q == null) {
+                    q = new ShuffleVerificationQueue(new ShuffleVerificationQueue.Sink() {
+                        @Override
+                        public void onVerified(byte[] megapacket, int handId) {
+                            if (java.util.Arrays.equals(megapacket, local_mega_packet)) {
+                                dual_lock_verified_megapacket = megapacket;
+                            }
+                            LOGGER.log(Level.INFO, "shuffle-verify-queue: deck verified OK (hand {0})", handId);
+                        }
+
+                        @Override
+                        public void onDishonest(byte[] megapacket, int handId) {
+                            LOGGER.log(Level.SEVERE,
+                                    "shuffle-verify-queue: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning",
+                                    handId);
+                            warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                        }
+
+                        @Override
+                        public void onMalformed(byte[] megapacket, int handId, Exception error) {
+                            LOGGER.log(Level.SEVERE,
+                                    "shuffle-verify-queue: bundle not evaluable (hand " + handId + ") — warning", error);
+                            warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                        }
+                    });
+                    q.start();
+                    shuffle_verify_queue = q;
+                }
+            }
+        }
+        return q;
+    }
+
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
@@ -596,6 +648,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] dual_lock_expect_bundle_for = null;
     public volatile byte[] dual_lock_verified_megapacket = null;
     public volatile byte[] dual_lock_warned_megapacket = null;
+
+    // Cola serial de verificacion del barajado honesto (peer-side). Sustituye al threadRun-por-mano:
+    // cada job lleva SU snapshot de mazo+bundle y un unico worker daemon los drena en FIFO, asi un equipo
+    // muy lento termina de verificar manos pasadas (y caza un smuggle pasado) aunque la mano viva avance,
+    // sin acumular hilos peleando por la CPU. Creada perezosamente al primer DUALLOCK_BUNDLE (ver
+    // getShuffleVerifyQueue). El worker es daemon -> no bloquea el cierre de la JVM.
+    private volatile ShuffleVerificationQueue shuffle_verify_queue = null;
 
     // --- TOKENS DEL HOST ---
     public volatile byte[] local_token_flop = null;

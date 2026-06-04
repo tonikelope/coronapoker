@@ -1658,7 +1658,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             .verifyChainWire(bgGenesis, bgDecks, proofs);
                     this.cascade_verified = ok ? 1 : -1;
                     LOGGER.log(ok ? Level.INFO : Level.SEVERE,
-                            "C1 background: cascade-chain verify = {0} ({1} pasos)",
+                            "C1 background: cascade-chain verify = {0} ({1} steps)",
                             new Object[]{ok, proofs.size()});
                     // Cadena COMPLETA (cascada + rotacion). Generamos AQUI (background) las pruebas
                     // batch-DLEQ de host/bot a partir del escalar registrado; las remotas ya vienen del
@@ -1702,7 +1702,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 bgGenesis, bgDecks.subList(1, bgDecks.size()), proofs, bgPocketCount,
                                 bgMega, bgRotStates, rotProofsBg);
                         LOGGER.log(fullOk ? Level.INFO : Level.SEVERE,
-                                "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} pasos rotacion)",
+                                "C1 background: dual-lock FULL-chain (cascade+rotation) verify = {0} ({1} rotation steps)",
                                 new Object[]{fullOk, rotProofsBg.size()});
                         if (fullOk) {
                             // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
@@ -1724,7 +1724,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     } else {
                         LOGGER.log(Level.INFO,
-                                "C1 background: full-chain verify skipped (rotacion incompleta o paso remoto sin prueba)");
+                                "C1 background: full-chain verify skipped (rotation incomplete or remote step without proof)");
                     }
                 } catch (Exception bgEx) {
                     this.cascade_verified = -1;
@@ -3663,14 +3663,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             byte[] sig = Base64.getDecoder().decode(sigB64);
                             if (sraKey.length != 32 || sig.length != 64) {
                                 LOGGER.log(Level.SEVERE,
-                                        "ZERO-TRUST: SHOWCARDS for {0} has bad lengths (key={1}, sig={2}) — host wire malformado, lockdown.",
+                                        "ZERO-TRUST: SHOWCARDS for {0} has bad lengths (key={1}, sig={2}) — malformed host wire, lockdown.",
                                         new Object[]{nick, sraKey.length, sig.length});
                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
                             } else {
                                 byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
                                 if (signerPubkey == null || this.current_hand_id == null) {
                                     LOGGER.log(Level.WARNING,
-                                            "SHOWCARDS for {0}: signer pubkey or hand_id not resolved yet — card stays tapada (no lockdown, possible TOFU race)",
+                                            "SHOWCARDS for {0}: signer pubkey or hand_id not resolved yet — card stays face-down (no lockdown, possible TOFU race)",
                                             nick);
                                 } else if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
                                     LOGGER.log(Level.SEVERE,
@@ -10213,7 +10213,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             byte[] key = Base64.getDecoder().decode(keyB64);
             if (key.length != 32) {
                 LOGGER.log(Level.WARNING,
-                        "verifyAndStoreShowdownKey: RESP_SHOWDOWN_KEY from {0} has wrong length {1} — sus cartas no se revelan",
+                        "verifyAndStoreShowdownKey: RESP_SHOWDOWN_KEY from {0} has wrong length {1} — their cards are not revealed",
                         new Object[]{nick, key.length});
                 return false;
             }
@@ -12239,7 +12239,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             byte[] sig = Base64.getDecoder().decode(sigB64);
                                             if (sraKey.length != 32 || sig.length != 64) {
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS for {0} has bad lengths — host wire malformado. Lockdown.",
+                                                        "ZERO-TRUST: POTCARDS for {0} has bad lengths — malformed host wire. Lockdown.",
                                                         nick);
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
                                                 lockdownTriggered = true;
@@ -12315,7 +12315,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     java.util.Arrays.asList(expected1, expected2));
                                             if (!received.equals(expected)) {
                                                 LOGGER.log(Level.SEVERE,
-                                                        "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) discrepa con SRA-decrypt ({3},{4}). Host miente. Lockdown.",
+                                                        "ZERO-TRUST: POTCARDS plaintext for {0} ({1},{2}) disagrees with SRA-decrypt ({3},{4}). Host is lying. Lockdown.",
                                                         new Object[]{nick, c1_str, c2_str, expected1, expected2});
                                                 triggerSecurityLockdown(Translator.translate("zero_trust.host_potcards_mismatch"));
                                                 lockdownTriggered = true;

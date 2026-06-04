@@ -3535,7 +3535,7 @@ public class WaitingRoomFrame extends JFrame {
                         }
 
                         LOGGER.log(Level.WARNING,
-                                "El usuario {0} LLEGA TARDE -> DENEGADO", client_nick);
+                                "User {0} ARRIVED TOO LATE -> DENIED", client_nick);
 
                     } else if (participantes.size() == MAX_PARTICIPANTES) {
                         writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);

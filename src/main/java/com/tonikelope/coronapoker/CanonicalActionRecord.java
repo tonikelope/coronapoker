@@ -22,10 +22,10 @@ import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 
 /**
- * EC-Identity v1 (commit 4): canonical 92-byte serialization of a hand action.
+ * Identity: canonical 92-byte serialization of a hand action.
  *
  * Every action that mutates the hand state is encoded here before being absorbed
- * into the {@link HandStateChain} ratchet (and, in commit 5, signed with the
+ * into the {@link HandStateChain} ratchet (signed with the
  * actor's Ed25519 key). The byte layout is documented in
  * {@code docs/ec-identity-spec.md} §4.1:
  *
@@ -107,7 +107,7 @@ public final class CanonicalActionRecord {
     public static final int ACTION_RAISE = 4;
     public static final int ACTION_ALLIN = 5;
     /**
-     * EC-Identity v1 (Phase 3): host-signed announcement of the community cards
+     * Identity: host-signed announcement of the community cards
      * revealed at a street boundary (flop, turn, river). PLAYER_ID is the host's
      * canonical player id (the signer), STREET is the street being revealed,
      * AMOUNT_CENTS packs the card indices (see {@link #packCommunityCards} /
@@ -229,7 +229,7 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * EC-Identity v1 (Phase 3): packs 1..3 community card indices (0..51 each)
+     * Identity: packs 1..3 community card indices (0..51 each)
      * into the AMOUNT_CENTS field of a community-reveal record. Layout is
      * little-endian within the 8-byte slot but card-major (first card in the
      * lowest byte of the packed value), so unpacking byte-by-byte yields the
@@ -251,7 +251,7 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * EC-Identity v1 (Phase 3): inverse of {@link #packCommunityCards}.
+     * Identity: inverse of {@link #packCommunityCards}.
      * {@code numCards} is implied by the street (3 for FLOP, 1 for TURN/RIVER).
      */
     public static int[] unpackCommunityCards(long packed, int numCards) {
@@ -266,9 +266,9 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * EC-Identity v1: reads the {@code AMOUNT_CENTS} field (8 bytes, big-endian)
+     * Identity: reads the {@code AMOUNT_CENTS} field (8 bytes, big-endian)
      * from an encoded record. Exposed for receivers that need the raw amount
-     * (e.g., the Phase 3 community-reveal flow unpacks card indices from it).
+     * (e.g., the community-reveal flow unpacks card indices from it).
      */
     public static long readAmountCents(byte[] record) {
         if (record == null || record.length != RECORD_BYTES) {
@@ -278,7 +278,7 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * EC-Identity v1: reads the {@code STREET} byte (uint8) from an encoded record.
+     * Identity: reads the {@code STREET} byte (uint8) from an encoded record.
      */
     public static int readStreet(byte[] record) {
         if (record == null || record.length != RECORD_BYTES) {
@@ -288,9 +288,9 @@ public final class CanonicalActionRecord {
     }
 
     /**
-     * EC-Identity v1: reads the {@code ACTION_TYPE} byte (uint8) from an encoded
+     * Identity: reads the {@code ACTION_TYPE} byte (uint8) from an encoded
      * record. Used by receivers to dispatch community-reveal records to the
-     * Phase 3 verification flow instead of the player-action flow.
+     * community-reveal verification flow instead of the player-action flow.
      */
     public static int readActionType(byte[] record) {
         if (record == null || record.length != RECORD_BYTES) {

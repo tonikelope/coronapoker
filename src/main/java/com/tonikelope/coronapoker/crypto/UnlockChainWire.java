@@ -22,7 +22,7 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * Wire (de)serialization for the verifiable unlock batch (Phase 4.2). The whole
+ * Wire (de)serialization for the verifiable unlock batch. The whole
  * item list travels as ONE base64 field of the REQ/RESP command, so it never
  * interacts with the surrounding '#'-split; inside, items are '\n'-separated and
  * fields '\t'-separated (DealChain chains use only ':' ';' Base64, never '\t'/'\n').

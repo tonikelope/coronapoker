@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2026 tonikelope
  *
- * Zero-Trust Pure Java EC-SRA Cryptographic Engine.
+ * Zero-Trust Pure Java SRA Cryptographic Engine.
  */
 package com.tonikelope.coronapoker;
 
@@ -119,7 +119,7 @@ public class Participant implements Runnable {
         this.sra_unlock_community = sra_unlock_community;
     }
 
-    // --- EC-Identity v1 ---
+    // --- Identity ---
     // Cached at JOIN time. The host keeps these so it can later relay the verbatim
     // self_sig to any peer that connects after this one (atomic identity transport
     // via intro/USERSLIST/NEWUSER).
@@ -273,7 +273,7 @@ public class Participant implements Runnable {
 
                 // Red de seguridad para sockets "mudos" (peer killed sin RST, particion
                 // unidireccional, GC stall infinito). La via primaria sigue siendo la
-                // IOException en writeCommandFromServer (commit 27fe6906), pero si el peer
+                // IOException en writeCommandFromServer , pero si el peer
                 // SOLO recibe sin que nadie le escriba nada distinto al PING, ese write
                 // del PING SI dispara IOException... a menos que el SO mantenga el envio
                 // bufferizado sin ack y no genere error. En ese borde, este threshold

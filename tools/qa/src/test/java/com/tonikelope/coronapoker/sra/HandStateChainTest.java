@@ -1,9 +1,10 @@
 /*
- * EC-Identity v1 (commit 4): unit tests for the hand-state chain ratchet.
+ * Unit tests for the hand-state chain ratchet (H_t).
  *
- *   - H_0 from known inputs (regression vector).
- *   - Player-id sorting is order-independent (every peer derives the same H_0
- *     regardless of join order).
+ *   - H_0 is 32 bytes and deterministic from the same inputs.
+ *   - Peer sorting is order-independent (every peer derives the same H_0
+ *     regardless of join order), with id<->commitment association preserved.
+ *   - H_0 is sensitive to the deck, the hand id and every peer's K commitments.
  *   - absorb() requires the record's PREV_H to match the chain's current H_t.
  *   - The chain remains deterministic across multiple absorbs.
  *   - Argument validation rejects malformed inputs loudly.
@@ -44,36 +45,6 @@ public class HandStateChainTest {
         return out;
     }
 
-    @Test
-    public void initialHashIs32Bytes() {
-        HandStateChain c = HandStateChain.start(handId(0x10),
-                nicksToIds("alice", "bob", "charlie"),
-                deck(0x01, 1664));
-        assertEquals(32, c.getCurrentHash().length);
-        assertEquals(0, c.getAbsorbedActions());
-    }
-
-    @Test
-    public void playerOrderDoesNotAffectInitialHash() {
-        byte[] hid = handId(0x42);
-        byte[] dck = deck(0xAA, 256);
-        HandStateChain a = HandStateChain.start(hid, nicksToIds("alice", "bob", "charlie"), dck);
-        HandStateChain b = HandStateChain.start(hid, nicksToIds("charlie", "alice", "bob"), dck);
-        HandStateChain c = HandStateChain.start(hid, nicksToIds("bob", "charlie", "alice"), dck);
-        assertArrayEquals(a.getCurrentHash(), b.getCurrentHash());
-        assertArrayEquals(b.getCurrentHash(), c.getCurrentHash());
-    }
-
-    @Test
-    public void differentDecksProduceDifferentInitialHashes() {
-        byte[] hid = handId(0x42);
-        HandStateChain a = HandStateChain.start(hid, nicksToIds("alice", "bob"), deck(0x01, 1664));
-        HandStateChain b = HandStateChain.start(hid, nicksToIds("alice", "bob"), deck(0x02, 1664));
-        assertNotEquals(Arrays.toString(a.getCurrentHash()), Arrays.toString(b.getCurrentHash()));
-    }
-
-    // ---- HAND_V2 (verifiable dealing: per-peer K_pocket / K_community commitments) ----
-
     private static byte[] commit(int seed) {
         byte[] out = new byte[32];
         for (int i = 0; i < 32; i++) out[i] = (byte) (seed * 7 + i);
@@ -86,19 +57,40 @@ public class HandStateChainTest {
         return out;
     }
 
+    /** Convenience: start a chain for the given nicks with deterministic per-peer commitments. */
+    private static HandStateChain startFor(byte[] hid, byte[] dck, String... nicks) {
+        List<byte[]> ids = nicksToIds(nicks);
+        return HandStateChain.start(hid, ids, commits(1, ids.size()), commits(100, ids.size()), dck);
+    }
+
     @Test
-    public void startV2IsDeterministicAnd32Bytes() {
+    public void initialHashIs32Bytes() {
+        HandStateChain c = startFor(handId(0x10), deck(0x01, 1664), "alice", "bob", "charlie");
+        assertEquals(32, c.getCurrentHash().length);
+        assertEquals(0, c.getAbsorbedActions());
+    }
+
+    @Test
+    public void differentDecksProduceDifferentInitialHashes() {
+        byte[] hid = handId(0x42);
+        HandStateChain a = startFor(hid, deck(0x01, 1664), "alice", "bob");
+        HandStateChain b = startFor(hid, deck(0x02, 1664), "alice", "bob");
+        assertNotEquals(Arrays.toString(a.getCurrentHash()), Arrays.toString(b.getCurrentHash()));
+    }
+
+    @Test
+    public void isDeterministicAnd32Bytes() {
         byte[] hid = handId(0x10);
         byte[] dck = deck(0x01, 1664);
         List<byte[]> ids = nicksToIds("alice", "bob", "charlie");
-        HandStateChain a = HandStateChain.startV2(hid, ids, commits(1, 3), commits(100, 3), dck);
-        HandStateChain b = HandStateChain.startV2(hid, ids, commits(1, 3), commits(100, 3), dck);
+        HandStateChain a = HandStateChain.start(hid, ids, commits(1, 3), commits(100, 3), dck);
+        HandStateChain b = HandStateChain.start(hid, ids, commits(1, 3), commits(100, 3), dck);
         assertEquals(32, a.getCurrentHash().length);
         assertArrayEquals(a.getCurrentHash(), b.getCurrentHash());
     }
 
     @Test
-    public void startV2PeerOrderDoesNotAffectInitialHash() {
+    public void peerOrderDoesNotAffectInitialHash() {
         byte[] hid = handId(0x42);
         byte[] dck = deck(0xAA, 256);
         byte[] aId = CanonicalActionRecord.playerIdFromNick("alice");
@@ -108,61 +100,47 @@ public class HandStateChainTest {
         byte[] bKp = commit(2), bKc = commit(101);
         byte[] cKp = commit(3), cKc = commit(102);
 
-        HandStateChain x = HandStateChain.startV2(hid,
+        HandStateChain x = HandStateChain.start(hid,
                 Arrays.asList(aId, bId, cId), Arrays.asList(aKp, bKp, cKp), Arrays.asList(aKc, bKc, cKc), dck);
         // Same peers, different input order, association preserved -> same H_0.
-        HandStateChain y = HandStateChain.startV2(hid,
+        HandStateChain y = HandStateChain.start(hid,
                 Arrays.asList(cId, aId, bId), Arrays.asList(cKp, aKp, bKp), Arrays.asList(cKc, aKc, bKc), dck);
         assertArrayEquals(x.getCurrentHash(), y.getCurrentHash());
     }
 
     @Test
-    public void startV2IsSensitiveToCommitments() {
+    public void isSensitiveToCommitments() {
         byte[] hid = handId(0x10);
         byte[] dck = deck(0x01, 1664);
         List<byte[]> ids = nicksToIds("alice", "bob", "charlie");
-        HandStateChain base = HandStateChain.startV2(hid, ids, commits(1, 3), commits(100, 3), dck);
+        HandStateChain base = HandStateChain.start(hid, ids, commits(1, 3), commits(100, 3), dck);
         List<byte[]> kp2 = commits(1, 3);
         kp2.set(1, commit(999));
-        HandStateChain changed = HandStateChain.startV2(hid, ids, kp2, commits(100, 3), dck);
+        HandStateChain changed = HandStateChain.start(hid, ids, kp2, commits(100, 3), dck);
         assertNotEquals(Arrays.toString(base.getCurrentHash()), Arrays.toString(changed.getCurrentHash()));
     }
 
     @Test
-    public void startV2DiffersFromV1() {
-        byte[] hid = handId(0x10);
-        byte[] dck = deck(0x01, 1664);
-        List<byte[]> ids = nicksToIds("alice", "bob", "charlie");
-        HandStateChain v1 = HandStateChain.start(hid, ids, dck);
-        HandStateChain v2 = HandStateChain.startV2(hid, ids, commits(1, 3), commits(100, 3), dck);
-        assertNotEquals(Arrays.toString(v1.getCurrentHash()), Arrays.toString(v2.getCurrentHash()),
-                "HAND_V2 must not collide with HAND_V1 (distinct domain + extra commitments)");
-    }
-
-    @Test
-    public void startV2RejectsMismatchedListSizes() {
+    public void rejectsMismatchedListSizes() {
         byte[] hid = handId(0x10);
         byte[] dck = deck(0x01, 1664);
         List<byte[]> ids = nicksToIds("alice", "bob", "charlie");
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.startV2(hid, ids, commits(1, 2), commits(100, 3), dck));
+                () -> HandStateChain.start(hid, ids, commits(1, 2), commits(100, 3), dck));
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.startV2(hid, ids, commits(1, 3), commits(100, 2), dck));
+                () -> HandStateChain.start(hid, ids, commits(1, 3), commits(100, 2), dck));
     }
 
     @Test
     public void differentHandIdsProduceDifferentInitialHashes() {
-        HandStateChain a = HandStateChain.start(handId(0x10),
-                nicksToIds("alice", "bob"), deck(0x01, 256));
-        HandStateChain b = HandStateChain.start(handId(0x11),
-                nicksToIds("alice", "bob"), deck(0x01, 256));
+        HandStateChain a = startFor(handId(0x10), deck(0x01, 256), "alice", "bob");
+        HandStateChain b = startFor(handId(0x11), deck(0x01, 256), "alice", "bob");
         assertNotEquals(Arrays.toString(a.getCurrentHash()), Arrays.toString(b.getCurrentHash()));
     }
 
     @Test
     public void absorbAdvancesTheChain() {
-        HandStateChain chain = HandStateChain.start(handId(0x10),
-                nicksToIds("alice", "bob"), deck(0x01, 256));
+        HandStateChain chain = startFor(handId(0x10), deck(0x01, 256), "alice", "bob");
 
         byte[] h0 = chain.getCurrentHash();
         byte[] pid = CanonicalActionRecord.playerIdFromNick("alice");
@@ -189,8 +167,7 @@ public class HandStateChainTest {
 
     @Test
     public void absorbRejectsRecordWithMismatchedPrevH() {
-        HandStateChain chain = HandStateChain.start(handId(0x10),
-                nicksToIds("alice", "bob"), deck(0x01, 256));
+        HandStateChain chain = startFor(handId(0x10), deck(0x01, 256), "alice", "bob");
         byte[] wrongPrev = new byte[32]; // zeros, not the chain's H_0
         byte[] pid = CanonicalActionRecord.playerIdFromNick("alice");
         byte[] record = CanonicalActionRecord.encode(wrongPrev, chain.getHandId(), pid,
@@ -206,10 +183,9 @@ public class HandStateChainTest {
         // must come out byte-identical.
         byte[] hid = handId(0x55);
         byte[] dck = deck(0xCC, 1664);
-        List<byte[]> ring = nicksToIds("alice", "bob", "charlie");
 
-        HandStateChain peerA = HandStateChain.start(hid, ring, dck);
-        HandStateChain peerB = HandStateChain.start(hid, ring, dck);
+        HandStateChain peerA = startFor(hid, dck, "alice", "bob", "charlie");
+        HandStateChain peerB = startFor(hid, dck, "alice", "bob", "charlie");
 
         // Three actions, same on both sides.
         Object[][] actions = {
@@ -236,10 +212,9 @@ public class HandStateChainTest {
     public void divergentActionsProduceDivergentChains() {
         byte[] hid = handId(0x77);
         byte[] dck = deck(0x42, 256);
-        List<byte[]> ring = nicksToIds("alice", "bob");
 
-        HandStateChain peerA = HandStateChain.start(hid, ring, dck);
-        HandStateChain peerB = HandStateChain.start(hid, ring, dck);
+        HandStateChain peerA = startFor(hid, dck, "alice", "bob");
+        HandStateChain peerB = startFor(hid, dck, "alice", "bob");
 
         byte[] pidAlice = CanonicalActionRecord.playerIdFromNick("alice");
 
@@ -262,19 +237,22 @@ public class HandStateChainTest {
     public void startRejectsMalformedInputs() {
         byte[] dck = deck(0x01, 32);
         List<byte[]> ring = nicksToIds("alice");
+        List<byte[]> kp = commits(1, 1);
+        List<byte[]> kc = commits(100, 1);
 
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.start(null, ring, dck));
+                () -> HandStateChain.start(null, ring, kp, kc, dck));
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.start(new byte[15], ring, dck));
+                () -> HandStateChain.start(new byte[15], ring, kp, kc, dck));
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.start(handId(0), Collections.emptyList(), dck));
+                () -> HandStateChain.start(handId(0), Collections.emptyList(),
+                        Collections.emptyList(), Collections.emptyList(), dck));
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.start(handId(0), ring, new byte[0]));
+                () -> HandStateChain.start(handId(0), ring, kp, kc, new byte[0]));
 
         List<byte[]> badRing = new ArrayList<>();
         badRing.add(new byte[31]);
         assertThrows(IllegalArgumentException.class,
-                () -> HandStateChain.start(handId(0), badRing, dck));
+                () -> HandStateChain.start(handId(0), badRing, commits(1, 1), commits(100, 1), dck));
     }
 }

@@ -1314,7 +1314,7 @@ public class NewGameDialog extends JDialog {
 
                 Helpers.PROPERTIES.setProperty("nick", elnick);
 
-                // EC-Identity v1: load or generate the Ed25519 keypair bound to the nick the user
+                // Identity: load or generate the Ed25519 keypair bound to the nick the user
                 // is about to enter the waiting room. Per-nick files in CORONA_DIR let different
                 // test instances on the same machine use distinct identities, and switching back
                 // to a known nick reloads the existing keypair. Abort the join if storage fails —
@@ -1412,7 +1412,7 @@ public class NewGameDialog extends JDialog {
 
                 this.dialog_ok = true;
 
-                // EC-Identity v1 (commit 0): warn the host if the game password is weak.
+                // Identity: warn the host if the game password is weak.
                 // Non-blocking informational popup — the user dismisses with OK and proceeds.
                 if (this.partida_local && pass_text.getPassword().length > 0) {
                     String pwd = new String(pass_text.getPassword());

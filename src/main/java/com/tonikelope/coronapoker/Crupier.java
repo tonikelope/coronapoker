@@ -160,7 +160,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      *                                 absorben nothing y H_t avanza igual)
      *
      * El array debe tener length >= 6 (contrato del action[] del Sprint
-     * EC-Identity v1, comentado en readActionFromRemotePlayer).
+     * Identity, comentado en readActionFromRemotePlayer).
      */
     static void synthesizeFoldAction(Object[] action) {
         if (action == null || action.length < 6) {
@@ -531,7 +531,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return local_hand_seed;
     }
 
-    // --- LLAVES EC-SRA DEL JUGADOR LOCAL ---
+    // --- LLAVES SRA DEL JUGADOR LOCAL ---
     // Dual-lock: cada peer genera DOS pares de scalars por mano.
     //   - local_sra_lock / local_sra_unlock se usan en la cascade principal y
     //     siguen siendo la clave de las pocket pieces.
@@ -562,7 +562,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Verifiable dealing: commitments publicos K=k*B de cada peer del ring
     // (nick -> encoding Ristretto 32B), para K_pocket y K_community. Se recolectan
     // durante la cascade (propios + bots localmente, remotos via DECK_CASCADE_RESP),
-    // se difunden en el MEGAPACKET y se anclan en H_0 (HAND_V2) para que la cadena
+    // se difunden en el MEGAPACKET y se anclan en H_0 para que la cadena
     // DLEQ del dealing se verifique contra claves que nadie puede falsificar.
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_pocket = new java.util.concurrent.ConcurrentHashMap<>();
     public final java.util.concurrent.ConcurrentHashMap<String, byte[]> peer_k_community = new java.util.concurrent.ConcurrentHashMap<>();
@@ -806,14 +806,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean force_recover = false;
     public volatile String[] active_crypto_ring = null;
 
-    // EC-Identity v1: hand-state chain (H_t ratchet) for the current hand. Initialized
+    // Identity: hand-state chain (H_t ratchet) for the current hand. Initialized
     // after the MEGAPACKET is processed on both host and clients; absorbs every canonical
     // action record produced during the hand. Cleared to null between hands by
     // readyForNextHand.
     public volatile byte[] current_hand_id = null;
     public volatile HandStateChain hand_state_chain = null;
 
-    // EC-Identity v1 (Opción A): per-hand flag — set to true the first time this
+    // Identity: per-hand flag — set to true the first time this
     // peer rejects an Ed25519 signature on an incoming ACTION or COMM_REVEAL
     // wire during the hand. The flag is embedded into this peer's receipt (under
     // the issuer's own sig, so the host relay cannot strip it). runConsensusCheck
@@ -861,7 +861,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     newDeck = candidate;
                                     ok = true;
                                     // Capturar los commitments K del peer (partes[5]=K_pocket,
-                                    // partes[6]=K_community) para anclarlos en H_0 (HAND_V2).
+                                    // partes[6]=K_community) para anclarlos en H_0. Son obligatorios:
+                                    // un peer que no los manda es un peer manipulado (todos corren la
+                                    // misma versión), así que se rechaza igual que un commitment inválido.
                                     if (partes.length >= 7) {
                                         try {
                                             byte[] kp = Base64.getDecoder().decode(partes[5]);
@@ -881,11 +883,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             ok = false;
                                         }
                                     } else {
-                                        LOGGER.log(Level.WARNING, "DECK_CASCADE_RESP from {0} without commitments (legacy peer) — H_0 will fall back to HAND_V1", nick);
+                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries no commitments — refusing", nick);
+                                        fatalError = true;
+                                        ok = false;
                                     }
-                                    // Prueba de barajado de ESTE paso remoto (campo extra
-                                    // partes[7]). "" o ausente = peer legacy/degradado -> null (sin
-                                    // enforcement todavia; el bucle la acumula en la cadena).
+                                    // Prueba de barajado de ESTE paso remoto (campo extra partes[7]).
+                                    // "" o ausente -> null (el bucle acumula la cadena; un paso sin prueba
+                                    // deja el full-chain verify pendiente, no rompe la mano).
                                     last_remote_cascade_proof = null;
                                     if (partes.length >= 8 && partes[7] != null && !partes[7].isEmpty()) {
                                         try {
@@ -1177,7 +1181,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.peer_k_pocket.clear();
             this.peer_k_community.clear();
 
-        // EC-Identity v1: fresh per-hand 16-byte HAND_ID that the host broadcasts to
+        // Identity: fresh per-hand 16-byte HAND_ID that the host broadcasts to
         // every peer inside the MEGAPACKET. Every peer seeds its HandStateChain with
         // this id + the sorted player ids of the crypto-ring + the cascaded deck, so
         // H_0 is byte-identical across the table.
@@ -1241,7 +1245,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.local_sra_lock_community = RistrettoSRA.generateLockScalar();
             this.local_sra_unlock_community = RistrettoSRA.getUnlockScalar(this.local_sra_lock_community);
 
-            // Commitments K=k*B del host para H_0 (HAND_V2).
+            // Commitments K=k*B del host para H_0.
             String hostNickForCommit = GameFrame.getInstance().getNick_local();
             peer_k_pocket.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock));
             peer_k_community.put(hostNickForCommit, RistrettoSRA.commitment(this.local_sra_lock_community));
@@ -1284,7 +1288,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         byte[] botCommunityUnlock = RistrettoSRA.getUnlockScalar(botCommunityLock);
                         this.bot_community_locks.put(currNick, botCommunityLock);
                         p.setSra_unlock_community(botCommunityUnlock);
-                        // Commitments K del bot para H_0 (HAND_V2).
+                        // Commitments K del bot para H_0.
                         peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
@@ -1439,15 +1443,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.SEVERE, "Error encoding orderB64 for MEGAPACKET", e);
         }
 
-        // Enviamos el MEGAPACKET final a todos. EC-Identity v1: append HAND_ID as
-        // a fourth field. Old clients (pre-v1) just stop parsing at the third field;
-        // new clients pick it up to seed their HandStateChain.
+        // Enviamos el MEGAPACKET final a todos. El HAND_ID viaja como cuarto campo;
+        // los clientes lo recogen para sembrar su HandStateChain.
         String handIdB64 = Base64.getEncoder().encodeToString(this.current_hand_id);
-        // 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0 (HAND_V2).
+        // 5º campo = commitments K del ring (nick:Kp:Kc;...) para H_0.
         String commitmentsField = serializeCommitments();
         broadcastGAMECommandFromServer("MEGAPACKET#" + orderB64 + "#" + megaPacketB64 + "#" + handIdB64 + "#" + commitmentsField, null, true);
 
-        // EC-Identity v1: now that MEGAPACKET is finalised and every peer (in theory)
+        // Identity: now that MEGAPACKET is finalised and every peer (in theory)
         // sees the same active_crypto_ring + cascadedDeck + handId, seed our own
         // HandStateChain. Subsequent actions in rondaApuestas ratchet H_t through this
         // chain on every peer in parallel.
@@ -1789,7 +1792,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             } catch (Exception e) {
                                 LOGGER.log(Level.WARNING, "Error parsing ORDER of MEGAPACKET", e);
                             }
-                            // EC-Identity v1: the host appends a 16-byte HAND_ID as a fourth
+                            // Identity: the host appends a 16-byte HAND_ID as a fourth
                             // payload field. If present and well formed, seed our HandStateChain
                             // so subsequent actions ratchet on every peer in parallel.
                             if (partes.length >= 6) {
@@ -2234,11 +2237,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private String pedirPermisoAClientes(int targetStreet, ArrayList<Player> resisten) {
-        return null; // OBSOLETE IN EC-SRA
+        return null; // OBSOLETE
     }
 
     private Object[] recopilarTokens(int targetStreet, java.util.ArrayList<Player> resisten) {
-        return new Object[]{null, null}; // OBSOLETE IN EC-SRA
+        return new Object[]{null, null}; // OBSOLETE
     }
 
     public void rebuyNow(String nick, int buyin) {
@@ -3144,7 +3147,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             } else {
-                // EC-Identity v1 (consensus fix): on the client side, the Participant
+                // Consensus: on the client side, the Participant
                 // for the exiting peer is a shell with no socket, so exitAndCloseSocket
                 // is host-only. But computeExpectedConsensusSigners checks
                 // Participant.isExit() — without flipping the flag here, the client
@@ -3554,7 +3557,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * Zero-trust gate for REQ_SRA_UNLOCK_CHAIN items (validated one by one).
      *
      * The host declares which slot it is asking the client to unlock via
-     * (phase, peer_idx, hand_id). En v3 cada recipient (pocket o comunitaria)
+     * (phase, peer_idx, hand_id). Cada recipient (pocket o comunitaria)
      * tiene su propia copia per-destinatario, por lo que peer_idx siempre
      * identifica al destinatario en el ring para CUALQUIER phase. El cliente
      * valida:
@@ -3920,7 +3923,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     myP.setSra_unlock(this.local_sra_unlock);
                                 }
                             } else if (part.startsWith("COMMITMENTS@")) {
-                                // Recovery: repoblar los K del ring (HAND_V2) para que
+                                // Recovery: repoblar los K del ring para que
                                 // initHandStateChain reconstruya el MISMO H_0 que la mano original.
                                 this.peer_k_pocket.clear();
                                 this.peer_k_community.clear();
@@ -4058,7 +4061,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 myPlayer.getHoleCard2().destapar(false);
                             }
 
-                            // EC-Identity v1 (recovery): restore HAND_ID from SQL
+                            // Recovery: restore HAND_ID from SQL
                             // and re-init HandStateChain. Without this the chain
                             // stays null through the recovered hand, action absorbs
                             // become no-ops and the consensus phase skips silently.
@@ -4173,7 +4176,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 myP.setSra_unlock(this.local_sra_unlock);
                             }
                         } else if (part.startsWith("COMMITMENTS@")) {
-                            // Recovery: repoblar los K del ring (HAND_V2) para que
+                            // Recovery: repoblar los K del ring para que
                             // initHandStateChain reconstruya el MISMO H_0 que la mano original.
                             this.peer_k_pocket.clear();
                             this.peer_k_community.clear();
@@ -4296,7 +4299,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             myPlayer.getHoleCard2().destapar(false);
                         }
 
-                        // EC-Identity v1 (recovery): symmetric with host branch —
+                        // Recovery: symmetric with host branch —
                         // restore HAND_ID from the map (sent by host) and re-init
                         // HandStateChain so replay re-absorbs actions with the
                         // persisted record/sig from the wire.
@@ -5042,12 +5045,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             received_commands.clear();
         }
 
-        // EC-Identity v1: the per-hand chain belongs to the hand that just ended. The
+        // Identity: the per-hand chain belongs to the hand that just ended. The
         // new hand seeds a fresh chain after its MEGAPACKET arrives.
         this.current_hand_id = null;
         this.hand_state_chain = null;
 
-        // EC-Identity v1 (Opción A): reset the invalid-sig flag for the new hand.
+        // Identity: reset the invalid-sig flag for the new hand.
         this.saw_invalid_action_sig = false;
 
         // Local entropy for our SRA shuffle (never leaves this process). 48 bytes:
@@ -6051,7 +6054,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlNewAction(Player current_player, byte[] actionRecord, byte[] actionSig) {
         synchronized (GameFrame.SQL_LOCK) {
-            // EC-Identity v1 (recovery): persist the canonical record + Ed25519
+            // Recovery: persist the canonical record + Ed25519
             // signature bytes alongside the action so a post-crash recovery can
             // replay them into HandStateChain. Both are nullable for legacy
             // interop and for paths where the chain wasn't initialised (recovery
@@ -6692,7 +6695,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 6): on the client, waits for the host's bare
+     * Consensus: on the client, waits for the host's bare
      * {@code HANDVERIFY} trigger (no payload). Returns true when the trigger
      * arrived (or the per-call deadline elapsed and we give up); returns false
      * only if a MISDEAL command was polled instead — in that case the hand was
@@ -6746,7 +6749,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Receipt blob layout (v2 — Opción A): {@code HAND_ID(16) || H_final(32) ||
+     * Receipt blob layout: {@code HAND_ID(16) || H_final(32) ||
      * flags(1) || sig(64)} = 113 bytes. The flags byte sits BETWEEN H_final and
      * sig so the sig (over RECEIPT_V2 || HAND_ID || H_final || flags) covers it.
      *
@@ -6776,7 +6779,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF = 2;
 
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
-        // EC-Identity v1 (commit 6): trigger barrier + receipt exchange + unanimous
+        // Consensus: trigger barrier + receipt exchange + unanimous
         // consensus check. Synchronous on both host and client so the disputed_hands
         // row, popup and JUL log are all in place before the payout code that follows
         // this call begins. The outcome is signaletic only — §6.3/§6.4 mandate the
@@ -6823,7 +6826,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             long deadline = System.currentTimeMillis() + GameFrame.CLIENT_RECEPTION_TIMEOUT;
             boolean isHost = GameFrame.getInstance().isPartida_local();
 
-            // EC-Identity v1 (deadlock fix): relays are collected inside the
+            // Identity: relays are collected inside the
             // synchronized block and dispatched OUTSIDE it. The relay broadcast
             // waits for ACKs (sync, confirmation=true) and can block tens of
             // seconds; doing it while holding the received_commands monitor
@@ -6928,7 +6931,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 6, extended by Opción A): builds the encoded
+     * Consensus: builds the encoded
      * receipt {@code HAND_ID || H_final || flags || sig} for this peer's local
      * view of the just-finished hand. Returns null if the local identity is
      * not usable. The flags byte encodes the {@code saw_invalid_action_sig}
@@ -7064,7 +7067,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 6, extended by Opción A): compares collected
+     * Consensus: compares collected
      * receipts against this peer's own (HAND_ID, H_final) and writes the
      * outcome to the Crupier log (i18n), the JUL log, the in-game popup, and
      * the disputed_hands SQLite table. Four outcomes (priority top-down):
@@ -7235,7 +7238,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",
                     new Object[]{sqlite_id_hand, expected.size(), localHB64});
-            // EC-Identity v1: even on a clean consensus OK, if any of the
+            // Identity: even on a clean consensus OK, if any of the
             // peers whose receipts we just verified are still on TOFU-NEW
             // (pubkey pinned but not yet confirmed out-of-band by the user),
             // emit a debug-log WARNING. This goes to JUL only — never to the
@@ -7755,7 +7758,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Object[] readActionFromRemotePlayer(Player jugador) {
         boolean ok = false;
-        // EC-Identity v1 (commit 5): action[] grows to 6 slots so the wire's
+        // Identity: action[] grows to 6 slots so the wire's
         // record + sig and the voluntary flag survive the trip through Crupier:
         //   [0] decision        (Integer)
         //   [1] bet             (Float; on ALLIN overloaded to cinematic String —
@@ -7776,7 +7779,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         do {
             ok = false;
 
-            // EC-Identity v1 (chain consistency fix): always drain the queue,
+            // Identity: always drain the queue,
             // even when jugador.isExit() is already true at the start. Reason:
             // the host's §4.5 autofold ACTION for this peer may already be sitting
             // in the queue when their EXIT was processed inline by WaitingRoomFrame
@@ -7792,11 +7795,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         {
                             try {
-                                /* EC-Identity v1 wire (commit 5):
+                                /* Action wire:
                                  *   GAME#ID#ACTION#NICK_B64#DECISION#BET#CINEMATIC_OR_*#RECORD_B64#SIG_B64
-                                 * Legacy wire (pre-commit-5) is shorter; record/sig stay null and the
-                                 * receiver verification is skipped (the chain absorbs only if both are
-                                 * present, so the legacy path remains correct).
+                                 * Every ACTION carries the record + sig as the last two fields; the
+                                 * chain absorbs them and the receiver verifies the signature.
                                  */
                                 if (partes.length >= 6 && partes[2].equals("ACTION")) {
                                     String senderNick = new String(java.util.Base64.getDecoder().decode(partes[3]), "UTF-8");
@@ -7813,9 +7815,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             action[2] = partes[6];
                                         }
 
-                                        // EC-Identity v1: record + sig from the wire (commit 5).
-                                        // partes[7] / partes[8] arrive as base64; absent (or "*") means
-                                        // the sender is on a pre-v1 build and verification is skipped.
+                                        // Identity: record + sig from the wire.
+                                        // partes[7] / partes[8] arrive as base64; absent (or "*") only on
+                                        // a malformed wire, in which case verification is skipped.
                                         action[3] = null;
                                         action[4] = null;
                                         action[5] = Boolean.TRUE; // genuine player decision
@@ -7827,7 +7829,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 action[3] = wireRecord;
                                                 action[4] = wireSig;
 
-                                                // EC-Identity v1: decode the FLAGS.is_voluntary bit from the
+                                                // Identity: decode the FLAGS.is_voluntary bit from the
                                                 // record so action[5] reflects what the sender claimed (§4.5
                                                 // host auto-folds use voluntary=0). The §10 receiver rule
                                                 // picks the signer pubkey from this bit + Participant.isCpu().
@@ -7848,7 +7850,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                                 "ZERO-TRUST: invalid Ed25519 signature on action by {0} (voluntary={1}) — SYNTHESIZING FOLD instead of applying falsified decision",
                                                                 new Object[]{jugador.getNickname(), wireVoluntary});
                                                         printInvalidActionSigToRegistro(jugador.getNickname());
-                                                        // EC-Identity v1 (Opción A): mark the hand as having seen
+                                                        // Identity: mark the hand as having seen
                                                         // an invalid signature so the receipt carries the bit y
                                                         // consensus refuses to report OK at hand close.
                                                         this.saw_invalid_action_sig = true;
@@ -8246,7 +8248,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRiver().actualizarConValorNumerico(hostIndices[0] + 1);
         }
 
-        // EC-Identity v1 (Phase 3): broadcast a host-signed announce of these
+        // Identity: broadcast a host-signed announce of these
         // indices and absorb into H_t. Every recipient cross-checks their
         // PIECE-decoded indices against the announce; mismatch triggers
         // lockdown (cross-recipient fork attack closed). Skipped when the
@@ -8669,7 +8671,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return paidThisBoard;
     }
 
-    // Run-it-twice SIDE-B (Opción A — verificable como el board vivo): reparte la
+    // Run-it-twice SIDE-B (verificable como el board vivo): reparte la
     // calle actual (this.street) del SEGUNDO board desde offsets FRESCOS del
     // MEGAPACKET (las posiciones libres tras el river de SIDE-A: offset vivo +
     // RIT2_BOARD_SPAN), bajo fases RIT2_* y comandos RIT2_*_PIECE, y emite/absorbe
@@ -9001,7 +9003,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             piece_ok = true;
         }
 
-        // EC-Identity v1 (Phase 3): client also waits for the host's signed
+        // Identity: client also waits for the host's signed
         // COMM_REVEAL announcement of these community cards, verifies the sig
         // with the host's pubkey, compares the announced indices against the
         // locally-decoded PIECE indices (mismatch ⇒ cross-recipient fork,
@@ -9019,7 +9021,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             reveal_ok = true;
         }
 
-        // En v3 cada cliente humano recibe SU PROPIA pieza cifrada (FLOP_PIECE
+        // Cada cliente humano recibe SU PROPIA pieza cifrada (FLOP_PIECE
         // /TURN_PIECE/RIVER_PIECE) con los locks de los demás ya quitados; el
         // cliente aplica su propio sra_unlock y resuelve mediante
         // resolveCardIndex. Un -1 significa que el host envió bytes que no son
@@ -9104,7 +9106,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             try {
                                 byte[] candidateRecord = java.util.Base64.getDecoder().decode(partes[3]);
                                 byte[] candidateSig = java.util.Base64.getDecoder().decode(partes[4]);
-                                // EC-Identity v1 (Phase 3): reject silently if the
+                                // Identity: reject silently if the
                                 // reveal is for a different street than the one we
                                 // are processing right now. Avoids lockdown on a
                                 // duplicate/stale COMM_REVEAL left over from the
@@ -9192,7 +9194,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // EC-Identity v1 (Phase 3): cross-check the announce against the piece.
+        // Identity: cross-check the announce against the piece.
         // chainRequiresReveal=false means legacy/recovery-degraded mode and the
         // reveal was never expected — skip the cross-check entirely.
         if (chainRequiresReveal && revealRecord != null && revealSig != null) {
@@ -9482,7 +9484,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 } else {
                     current_player.esTuTurno();
-                    // EC-Identity v1 (chain consistency fix): no longer skip
+                    // Identity: no longer skip
                     // readActionFromRemotePlayer when current_player.isExit() at the
                     // start of the iteration. The previous early-out left action=null,
                     // the 3-slot fallback synthesised a record + signature locally on
@@ -9559,7 +9561,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.current_remote_cinematic_b64 = null;
                 }
 
-                // EC-Identity v1 (commit 5): resolve record + sig for this action.
+                // Identity: resolve record + sig for this action.
                 // Three sources cover the cases:
                 //   1) RemotePlayer human, action came from the wire via
                 //      readActionFromRemotePlayer → action[3]/[4] already populated.
@@ -9621,7 +9623,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String comando = null;
                 try {
-                    // EC-Identity v1 wire (commit 5):
+                    // Action wire:
                     //   ACTION#nickB64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
                     comando = "ACTION#"
                             + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
@@ -9659,7 +9661,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 } while (current_player.isTurno());
 
-                // EC-Identity v1 (commit 5): absorb the (record || sig) bytes into H_t.
+                // Identity: absorb the (record || sig) bytes into H_t.
                 // Same call on host and every client, so the chain stays byte-identical
                 // across the table. Failed-verify sigs are absorbed too so divergence
                 // remains detectable at hand close (§4.5). Exit-synth skips: localRecord
@@ -9869,8 +9871,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             // Persistir los commitments K del ring para que el recovery
-            // reconstruya el MISMO H_0 (HAND_V2). Sin esto, initHandStateChain en
-            // recovery cae a HAND_V1 (peer_k_pocket vacío) y diverge del H_0 original,
+            // reconstruya el MISMO H_0. Sin esto, initHandStateChain en
+            // recovery queda sin los K (peer_k_pocket vacío) y diverge del H_0 original,
             // rompiendo la verificación de la cadena de acciones recuperadas.
             String commitmentsFossil = serializeCommitments();
             if (!commitmentsFossil.isEmpty()) {
@@ -10407,11 +10409,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1: seed the per-hand H_t chain from the three pieces every peer
+     * Identity: seed the per-hand H_t chain from the three pieces every peer
      * already has after MEGAPACKET — the HAND_ID from the host, the active_crypto_ring
      * nicks and the cascaded deck. Idempotent: if any of them is missing the chain is
-     * set to null so downstream absorb calls become no-ops (failing soft until commit 5
-     * makes the chain a hard requirement).
+     * set to null so downstream absorb calls become no-ops (no consensus this hand).
      */
     private void initHandStateChain() {
         if (this.current_hand_id == null
@@ -10425,9 +10426,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         for (String nick : this.active_crypto_ring) {
             playerIds.add(CanonicalActionRecord.playerIdFromNick(nick));
         }
-        // Si tenemos los commitments K de todos los miembros del ring, sembramos
-        // H_0 con HAND_V2 (los ancla); si falta alguno (peer legacy), caemos a HAND_V1.
-        // La decisión es coherente host<->cliente porque los K llegan del mismo MEGAPACKET.
+        // H_0 ancla el commitment K (pocket + community) de cada miembro del ring; los K llegan
+        // del mismo MEGAPACKET, así que host y cliente derivan el mismo H_0. Si falta alguno la
+        // cadena no se inicializa (sin consenso esta mano): no debería ocurrir — todos los peers
+        // corren la misma versión y mandan sus K — así que es un estado anómalo, no un degradado.
         java.util.List<byte[]> kPockets = new java.util.ArrayList<>();
         java.util.List<byte[]> kCommunities = new java.util.ArrayList<>();
         boolean allCommitmentsPresent = true;
@@ -10441,18 +10443,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             kPockets.add(kp);
             kCommunities.add(kc);
         }
+        if (!allCommitmentsPresent) {
+            LOGGER.log(Level.SEVERE, "Missing K commitments — hand state chain not initialized (no consensus this hand)");
+            this.hand_state_chain = null;
+            return;
+        }
         try {
-            if (allCommitmentsPresent) {
-                this.hand_state_chain = HandStateChain.startV2(
-                        this.current_hand_id, playerIds, kPockets, kCommunities, this.local_mega_packet);
-            } else {
-                LOGGER.log(Level.WARNING, "Missing K commitments — seeding H_0 with HAND_V1 (legacy fallback)");
-                this.hand_state_chain = HandStateChain.start(
-                        this.current_hand_id, playerIds, this.local_mega_packet);
-            }
+            this.hand_state_chain = HandStateChain.start(
+                    this.current_hand_id, playerIds, kPockets, kCommunities, this.local_mega_packet);
             LOGGER.log(Level.INFO, "Hand state chain initialized: H_0={0}",
                     Base64.getEncoder().encodeToString(this.hand_state_chain.getCurrentHash()));
-            // EC-Identity v1 (recovery): persist HAND_ID on the SQL hand row so
+            // Recovery: persist HAND_ID on the SQL hand row so
             // recovery can re-init the chain with the same handId after a crash.
             // Skipped during recovery replay itself (the row was already populated
             // by the original hand; the value being restored is what we want).
@@ -10464,7 +10465,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (recovery): writes the 16-byte HAND_ID (base64) onto the
+     * Recovery: writes the 16-byte HAND_ID (base64) onto the
      * current hand's SQL row. Best-effort; failures are logged but never fatal.
      * No-op when sqlite_id_hand isn't set yet (NUEVA_MANO ordering edge case).
      */
@@ -10528,7 +10529,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1: absorbs the wire (record, sig) bytes directly into the
+     * Identity: absorbs the wire (record, sig) bytes directly into the
      * peer's H_t chain. Used by the action loop once the canonical record +
      * signature are in hand. Invalid signatures are absorbed too (the receipt
      * protocol catches divergence at hand close, §4.5). No-op when the chain
@@ -10568,7 +10569,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 5): predicts the post-action total bet (in cents) for the
+     * Identity: predicts the post-action total bet (in cents) for the
      * player about to act, WITHOUT waiting for async setDecision side-effects.
      *
      * <ul>
@@ -10603,7 +10604,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 5): resolves the Ed25519 raw pubkey to verify an action's
+     * Identity: resolves the Ed25519 raw pubkey to verify an action's
      * signature against, applying the §10 consolidated receiver rule:
      *
      * <ul>
@@ -10679,7 +10680,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 6 polish 2): writes the in-game registro line for a
+     * Consensus: writes the in-game registro line for a
      * per-action signature failure so the user notices in real time. JUL has the
      * full SEVERE detail already; this line is the human-visible warning. Runs
      * on the GUI thread to keep the registro's append model consistent with master.
@@ -10699,7 +10700,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (commit 5): builds and signs a canonical action record for an
+     * Identity: builds and signs a canonical action record for an
      * action originating LOCALLY in this process — host's own UI, a bot (host drives
      * it), an auto-fold (host fabricates on behalf of a timed-out / EXITed peer), or
      * a client's own UI when partida_local is false. Returns null when the chain is
@@ -10745,7 +10746,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * EC-Identity v1 (Phase 3): builds the canonical 92-byte community-reveal
+     * Identity: builds the canonical 92-byte community-reveal
      * record and signs it with the host's privkey. Called only on the host
      * (partida_local) right after the per-recipient PIECE cascade completes,
      * before broadcasting the announce wire. Returns null when the chain isn't
@@ -11471,7 +11472,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private String sqlRecoverHandActions() {
         synchronized (GameFrame.SQL_LOCK) {
             String ret = null;
-            // EC-Identity v1 (recovery): pull record_b64 / sig_b64 alongside the
+            // Recovery: pull record_b64 / sig_b64 alongside the
             // legacy fields so recovery replays each action with the exact bytes
             // that were absorbed into H_t pre-crash. Both columns are nullable;
             // missing values map to "*" on the wire so the receiver falls back to
@@ -11533,7 +11534,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 map.put("hand_end", rs.getLong("hand_end"));
                 map.put("server", rs.getString("server"));
                 map.put("preflop_players", rs.getString("preflop_players"));
-                // EC-Identity v1 (recovery): cryptographic HAND_ID (16 bytes,
+                // Recovery: cryptographic HAND_ID (16 bytes,
                 // base64) needed to re-seed HandStateChain.start with the same
                 // value the original hand used. Nullable — recovery falls back
                 // to "chain stays null" (legacy degraded mode) when missing.
@@ -11684,14 +11685,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (name.equals(nick)) {
 
-                    // EC-Identity v1 (recovery): return a 6-slot action so the
+                    // Recovery: return a 6-slot action so the
                     // rondaApuestas absorb path picks up the persisted record + sig
-                    // bytes and ratchets H_t exactly as before the crash. Legacy
-                    // recovery data (pre-v1) has 3 fields and falls back to "*"
-                    // placeholders — those leave record/sig null, the canBuild gate
-                    // takes over (host re-builds with its privkey for its own
-                    // actions, client no-ops for others), so the chain ends up null
-                    // for the recovered hand only when pre-v1 data is fed in.
+                    // bytes and ratchets H_t exactly as before the crash. Shorter
+                    // recovery data (3 fields) falls back to "*" placeholders — those
+                    // leave record/sig null, the canBuild gate takes over (host
+                    // re-builds with its privkey for its own actions, client no-ops
+                    // for others), so the chain ends up null for the recovered hand
+                    // only when the shorter data is fed in.
                     res = new Object[6];
 
                     res[0] = Integer.parseInt(accion_partes[1]);

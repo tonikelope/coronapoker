@@ -313,6 +313,8 @@ sig = Ed25519.sign(my_privkey, "RECEIPT_V2\0" || HAND_ID || H_final || flags)
 ```
 
 - `flags.bit0` (`RECEIPT_FLAG_BIT_INVALID_SIG_SEEN`) is set when the issuer observed at least one invalid Ed25519 action signature during the hand.
+- `flags.bit1` (`RECEIPT_FLAG_BIT_DECK_UNVERIFIED`) is set when the issuer could not confirm the honest-shuffle proof (`DUALLOCK_BUNDLE`) for this hand's deck.
+- `flags.bit2` (`RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF`) qualifies bit1: set only when a proof was expected (fresh deal) and none arrived — host withholding, as opposed to a slow local verifier. See [`SECURITY.md`](SECURITY.md) §6 for the full bit1/bit2 policy.
 
 ### 6.3 Consensus check
 
@@ -320,16 +322,18 @@ After collecting receipts (timeout reused from master), each peer's `runConsensu
 
 1. Every receipt signature verifies against the claimed signer's pinned pubkey (and the receipt's `HAND_ID` matches the local hand).
 2. Every `H_final` is byte-identical to the local `H_final`.
-3. No receipt has `flags.bit0` set anywhere on the table.
+3. No receipt has any `flags` bit set anywhere on the table.
 
-The four outcomes:
+The outcomes, in descending priority (only the strongest is surfaced):
 
 | Outcome | Meaning | Severity | `disputed_hands` |
 |---|---|---|---|
-| `OK` | all present, unanimous, no invalid-sig flag | INFO | No |
-| `MISSING` | a peer's receipt is absent / wrong length / stale `HAND_ID` / pubkey unavailable | WARNING (ambiguous: network or crash) | `reason='MISSING'` |
 | `DIVERGENT` | a receipt's sig fails or its `H_final` differs | SEVERE (interpreted as host manipulation) | `reason='DIVERGENT'` |
-| `INVALID_SIG_SEEN` | all sigs valid and `H_final`s match, but some peer flagged an invalid action sig | SEVERE | logged |
+| `MISSING` | a peer's receipt is absent / wrong length / stale `HAND_ID` / pubkey unavailable | WARNING (ambiguous: network or crash) | `reason='MISSING'` |
+| `INVALID_SIG_SEEN` | all sigs valid and `H_final`s match, but some peer flagged an invalid action sig (bit0) | SEVERE | `reason='INVALID_SIG_SEEN'` |
+| `DECK_NO_PROOF` | otherwise clean, but some peer never received the shuffle proof (bit1+bit2) — host may be withholding it | WARNING (popup to the table) | `reason='DECK_NO_PROOF'` |
+| `DECK_UNVERIFIED` | otherwise clean, but some peer's proof is still verifying (bit1 alone, slow peer) | WARNING (silent: JUL + row, no popup) | `reason='DECK_UNVERIFIED'` |
+| `OK` | all present, unanimous, no flag bit set | INFO | No |
 
 **The hand always settles** in every case — consensus is **signaletic, not gating**. The existing `cancelarManoYDevolverApuestas` / `MISDEAL` flow is untouched and reserved for genuine SRA-level catastrophes.
 

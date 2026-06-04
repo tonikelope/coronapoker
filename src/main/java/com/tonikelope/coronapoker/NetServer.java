@@ -234,7 +234,7 @@ public class NetServer {
                         }
                         commandBuilder.append(avatar_b != null ? Base64.getEncoder().encodeToString(avatar_b) : "*");
 
-                        // EC-Identity v1: pubkey + self_sig per entry, atomic with
+                        // Identity: pubkey + self_sig per entry, atomic with
                         // the rest of the peer's data. Bots have no identity ("*|*").
                         byte[] pubkey = p.isCpu() ? null : p.getIdentity_pubkey();
                         byte[] selfSig = p.isCpu() ? null : p.getIdentity_self_sig();

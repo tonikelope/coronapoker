@@ -2315,6 +2315,12 @@ public class WaitingRoomFrame extends JFrame {
                                                                 if (cruB == null || cruB.local_mega_packet == null || cruB.active_crypto_ring == null) {
                                                                     return;
                                                                 }
+                                                                // Un bundle para este mazo LLEGO del host: marcalo antes de parsear/verificar.
+                                                                // Distingue en el recibo el peer lento (recibido, cola pendiente -> benigno) del
+                                                                // host que no manda la prueba (received != mazo vivo -> aviso a la mesa). Aunque
+                                                                // venga malformado/no parseable, el host mando ALGO -> cuenta como recibido (esos
+                                                                // casos ya disparan su propio warnSuspiciousHost en vivo mas abajo).
+                                                                cruB.dual_lock_bundle_received_for = cruB.local_mega_packet;
                                                                 // Un bundle RECIBIDO pero malformado (canal AES+HMAC -> vino del host
                                                                 // intacto) es anomalo: un host honesto siempre manda 7 campos validos.
                                                                 if (partes_bundle.length < 7) {

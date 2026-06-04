@@ -648,6 +648,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile byte[] dual_lock_expect_bundle_for = null;
     public volatile byte[] dual_lock_verified_megapacket = null;
     public volatile byte[] dual_lock_warned_megapacket = null;
+    // Marca "un DUALLOCK_BUNDLE para este mazo LLEGO del host" (se pone al recibir el comando, antes de
+    // parsear/verificar). Distingue en el recibo el peer LENTO (bundle recibido pero la cola aun no acabo
+    // -> benigno) del host que NO mando la prueba (recibido != mazo vivo -> sospechoso). Llave = megapacket.
+    public volatile byte[] dual_lock_bundle_received_for = null;
 
     // Cola serial de verificacion del barajado honesto (peer-side). Sustituye al threadRun-por-mano:
     // cada job lleva SU snapshot de mazo+bundle y un unico worker daemon los drena en FIFO, asi un equipo
@@ -6745,10 +6749,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final int RECEIPT_SIG_LEN = HandStateChain.SIG_BYTES;
     private static final int RECEIPT_TOTAL_LEN = RECEIPT_HANDID_LEN + RECEIPT_HFINAL_LEN + RECEIPT_FLAGS_LEN + RECEIPT_SIG_LEN;
     private static final int RECEIPT_FLAG_BIT_INVALID_SIG_SEEN = 0;
-    // Bit 1: el firmante NO pudo verificar el barajado honesto (DUALLOCK_BUNDLE) de esta mano —
-    // host no mando la prueba, fallo, o no llego. Va firmado en el receipt -> el host no puede
-    // quitarlo, y el consenso atestigua "mazo honesto verificado por todos", no solo "acciones OK".
+    // Bit 1: el firmante NO confirmo el barajado honesto (DUALLOCK_BUNDLE) de esta mano. Paraguas:
+    // puede ser que el bundle llegara y la cola aun no acabara (peer lento, benigno) o que NO llegara.
+    // Va firmado en el receipt -> el host no puede quitarlo, y el consenso atestigua "mazo honesto
+    // verificado por todos", no solo "acciones OK".
     private static final int RECEIPT_FLAG_BIT_DECK_UNVERIFIED = 1;
+    // Bit 2: cualifica al bit 1 cuando NINGUN bundle de barajado llego para este mazo (host no mando la
+    // prueba, incluso de forma selectiva a un peer). Distingue "host no prueba" (sospechoso, avisa a la
+    // mesa) de "peer lento que aun no termino" (benigno, solo evidencia forense). Tambien va firmado.
+    private static final int RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF = 2;
 
     private void requestShowdownKeys(ArrayList<Player> inShowdown) {
         // EC-Identity v1 (commit 6): trigger barrier + receipt exchange + unanimous
@@ -6922,13 +6931,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (this.saw_invalid_action_sig) {
                 flags |= (byte) (1 << RECEIPT_FLAG_BIT_INVALID_SIG_SEEN);
             }
-            // Firmo si NO verifiqué el barajado honesto de ESTE mazo esta mano (host no mando la
-            // prueba, fallo, o no llego). dual_lock_verified_megapacket se pone al verificar el bundle
-            // OK (cliente), el full-chain en background (host) o al restaurar en recover.
+            // Bit 1: no confirme el barajado honesto de ESTE mazo esta mano. dual_lock_verified_megapacket
+            // se pone al verificar el bundle OK (cliente), el full-chain en background (host) o al restaurar
+            // en recover. Bit 2 (cualificador): EXIGIA prueba (reparto fresco) y NO me llego ningun bundle
+            // para este mazo -> host no la mando. Si el bundle SI llego (received==mp) pero la cola aun no
+            // acabo, queda solo el bit 1 (peer lento, benigno). Recover pone verified==mp -> ni entra aqui.
             byte[] mp = this.local_mega_packet;
             byte[] verified = this.dual_lock_verified_megapacket;
             if (mp == null || verified == null || !Arrays.equals(mp, verified)) {
                 flags |= (byte) (1 << RECEIPT_FLAG_BIT_DECK_UNVERIFIED);
+                byte[] expect = this.dual_lock_expect_bundle_for;
+                byte[] received = this.dual_lock_bundle_received_for;
+                if (mp != null && Arrays.equals(mp, expect) && !Arrays.equals(mp, received)) {
+                    flags |= (byte) (1 << RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF);
+                }
             }
             byte[] sig = im.signReceipt(handId, hFinal, flags);
             return encodeReceiptBlob(handId, hFinal, flags, sig);
@@ -7060,6 +7076,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Set<String> divergent = new LinkedHashSet<>();
         Set<String> invalidSigReporters = new LinkedHashSet<>();
         Set<String> deckUnverifiedReporters = new LinkedHashSet<>();
+        Set<String> noShuffleProofReporters = new LinkedHashSet<>();
 
         for (String nick : expected) {
             byte[] r = receipts.get(nick);
@@ -7112,12 +7129,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (((flags >> RECEIPT_FLAG_BIT_INVALID_SIG_SEEN) & 1) != 0) {
                 invalidSigReporters.add(nick);
             }
-            // Bit 1: el firmante no pudo verificar el barajado honesto (DUALLOCK_BUNDLE)
-            // de esta mano. Senal mas debil (benigna en recover, en timeout del bundle, o
-            // si un peer no llego a verificar); se reporta como aviso informativo, no
-            // bloquea ni acusa. El bit va firmado, asi que el host relay no puede quitarlo.
+            // Bit 1: el firmante no confirmo el barajado honesto (DUALLOCK_BUNDLE) de esta
+            // mano. El bit 2 lo cualifica: si esta puesto, NINGUN bundle llego (host no mando
+            // la prueba -> sospechoso, avisa a la mesa); si no, el bundle llego pero la cola
+            // aun no acabo (peer lento -> benigno, solo evidencia forense). Ambos van firmados,
+            // asi que el host relay no los puede quitar.
             if (((flags >> RECEIPT_FLAG_BIT_DECK_UNVERIFIED) & 1) != 0) {
                 deckUnverifiedReporters.add(nick);
+                if (((flags >> RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF) & 1) != 0) {
+                    noShuffleProofReporters.add(nick);
+                }
             }
         }
 
@@ -7164,24 +7185,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     MessageFormat.format(
                             Translator.translate("game.popup_verificacion_firma_invalida"),
                             reportersList));
-        } else if (!deckUnverifiedReporters.isEmpty()) {
-            // Consenso por lo demas limpio, pero uno o mas firmantes no pudieron verificar
-            // el barajado honesto de esta mano. Es informativo (recover, timeout del bundle,
-            // o peer que no llego a verificar). Se avisa pero NO bloquea ni acusa de trampa.
-            String deckList = String.join(", ", deckUnverifiedReporters);
+        } else if (!noShuffleProofReporters.isEmpty()) {
+            // Consenso por lo demas limpio, pero a uno o mas firmantes NO les llego ningun bundle
+            // de barajado para este mazo. Un host correcto siempre lo manda, asi que su ausencia
+            // (sobre todo si se repite, o si es selectiva a un peer) es una degradacion real: se
+            // avisa a toda la mesa. NO bloquea ni acusa de trampa (podria ser version modificada o bug).
+            String noProofList = String.join(", ", noShuffleProofReporters);
             LOGGER.log(Level.WARNING,
-                    "Hand {0} verified but shuffle UNVERIFIED by: [{1}], local_H={2}",
-                    new Object[]{sqlite_id_hand, deckList, localHB64});
+                    "Hand {0} verified but NO shuffle proof reached: [{1}] (host withholding?), local_H={2}",
+                    new Object[]{sqlite_id_hand, noProofList, localHB64});
             GameFrame.getInstance().getRegistro().print(
                     MessageFormat.format(
-                            Translator.translate("game.mano_verificacion_barajado_no_verificado"),
-                            deckList));
-            insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
+                            Translator.translate("game.mano_verificacion_host_sin_prueba"),
+                            noProofList));
+            insertDisputedHandRow(receipts, hFinalLocal, "DECK_NO_PROOF");
             showConsensusPopup(
                     Translator.translate("game.popup_verificacion_titulo_aviso"),
                     MessageFormat.format(
-                            Translator.translate("game.popup_verificacion_barajado_no_verificado"),
-                            deckList));
+                            Translator.translate("game.popup_verificacion_host_sin_prueba"),
+                            noProofList));
+        } else if (!deckUnverifiedReporters.isEmpty()) {
+            // Consenso limpio salvo que uno o mas firmantes aun no TERMINARON de verificar el
+            // barajado (el bundle SI les llego, pero su cola va lenta). Es benigno y se autocorrige
+            // (la verificacion diferida sigue viva y disparara su propio aviso si algun dia PRUEBA
+            // deshonestidad). No merece molestar a la mesa con un popup: solo evidencia forense
+            // silenciosa (JUL + disputed_hands), misma politica que el caso TOFU-NEW de abajo.
+            String deckList = String.join(", ", deckUnverifiedReporters);
+            LOGGER.log(Level.WARNING,
+                    "Hand {0} verified; shuffle proof still pending (slow peer) for: [{1}], local_H={2}",
+                    new Object[]{sqlite_id_hand, deckList, localHB64});
+            insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
         } else {
             LOGGER.log(Level.INFO,
                     "Hand {0} verified: {1} receipts unanimous, H={2}",

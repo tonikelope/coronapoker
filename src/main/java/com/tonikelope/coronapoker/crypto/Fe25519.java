@@ -152,12 +152,11 @@ public final class Fe25519 {
     }
 
     public Fe25519 mul(Fe25519 o) {
-        return new Fe25519(mulLimbs(limbs(), o.limbs()), true);
+        return fromCanonicalLimbs(mulLimbs(limbs(), o.limbs()));
     }
 
     public Fe25519 sqr() {
-        long[] f = limbs();
-        return new Fe25519(mulLimbs(f, f), true);
+        return fromCanonicalLimbs(sqrLimbs(limbs()));
     }
 
     /**
@@ -205,8 +204,8 @@ public final class Fe25519 {
         return r;
     }
 
-    /** Multiply two limb arrays mod p, return the canonical BigInteger in [0, P). */
-    private static BigInteger mulLimbs(long[] f, long[] g) {
+    /** Multiply two limb arrays mod p, returning CANONICAL limbs (each < 2^51, value in [0, P)). */
+    private static long[] mulLimbs(long[] f, long[] g) {
         long f0 = f[0], f1 = f[1], f2 = f[2], f3 = f[3], f4 = f[4];
         long g0 = g[0], g1 = g[1], g2 = g[2], g3 = g[3], g4 = g[4];
         long g1_19 = 19 * g1, g2_19 = 19 * g2, g3_19 = 19 * g3, g4_19 = 19 * g4;
@@ -231,37 +230,108 @@ public final class Fe25519 {
         a128(acc, f0, g4); a128(acc, f1, g3); a128(acc, f2, g2); a128(acc, f3, g1); a128(acc, f4, g0);
         h4lo = acc[0]; h4hi = acc[1];
 
-        // Carry chain: take 51 bits per limb, push the rest up; h4's carry wraps to h0 ×19.
+        return carryNormalize(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi);
+    }
+
+    /**
+     * Dedicated squaring: the symmetric cross terms ({@code f_i·f_j == f_j·f_i}) collapse the 25
+     * 64×64 multiplies of the generic product to 15, folding the ×2 into one pre-doubled operand
+     * ({@code 38·f_i·f_j = (2f_i)·(19f_j)}). The doubling famously dominates the scalar ladders
+     * (4 squarings per point doubling), so this is the hottest field path of all.
+     */
+    private static long[] sqrLimbs(long[] f) {
+        long f0 = f[0], f1 = f[1], f2 = f[2], f3 = f[3], f4 = f[4];
+        long f0_2 = 2 * f0, f1_2 = 2 * f1, f2_2 = 2 * f2, f3_2 = 2 * f3;
+        long f3_19 = 19 * f3, f4_19 = 19 * f4;
+
+        // Same operand magnitudes as mulLimbs (2f < 2^52, 19f < 2^56), so the unsigned 128-bit
+        // accumulation bounds are unchanged.
+        long[] acc = new long[2];
+        long h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi;
+
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0, f0); a128(acc, f1_2, f4_19); a128(acc, f2_2, f3_19);
+        h0lo = acc[0]; h0hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0_2, f1); a128(acc, f2_2, f4_19); a128(acc, f3, f3_19);
+        h1lo = acc[0]; h1hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0_2, f2); a128(acc, f1, f1); a128(acc, f3_2, f4_19);
+        h2lo = acc[0]; h2hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0_2, f3); a128(acc, f1_2, f2); a128(acc, f4, f4_19);
+        h3lo = acc[0]; h3hi = acc[1];
+        acc[0] = 0; acc[1] = 0;
+        a128(acc, f0_2, f4); a128(acc, f1_2, f3); a128(acc, f2, f2);
+        h4lo = acc[0]; h4hi = acc[1];
+
+        return carryNormalize(h0lo, h0hi, h1lo, h1hi, h2lo, h2hi, h3lo, h3hi, h4lo, h4hi);
+    }
+
+    /**
+     * Carry chain + final normalization for the five 128-bit column sums of {@code mulLimbs}/
+     * {@code sqrLimbs}: take 51 bits per limb pushing the rest up (h4's carry wraps to l0 ×19,
+     * since 2^255 ≡ 19), then two light passes settle every limb under 2^51, and a conditional
+     * subtraction of p lands the value in [0, P) — the returned limbs are exactly the canonical
+     * decomposition {@code toLimbs} would produce.
+     *
+     * <p>The second light pass is load-bearing: after the first one, the ×19 wrap can leave
+     * {@code l0} just over 2^51 while a ripple of exactly-saturated limbs leaves {@code l1} odd,
+     * and reassembling that with bitwise OR would silently drop a carry (an astronomically rare
+     * but adversarially relevant corner). After the second pass a further wrap can only add 19 to
+     * an {@code l0 ≤ 18}, so every limb is strictly below 2^51 by construction. Package-private
+     * for the white-box corner test that pins this exact case.
+     */
+    static long[] carryNormalize(long h0lo, long h0hi, long h1lo, long h1hi, long h2lo, long h2hi,
+            long h3lo, long h3hi, long h4lo, long h4hi) {
         long c;
         long l0 = h0lo & MASK_51; c = sh(h0hi, h0lo, 51);
-        long t1lo = h1lo, t1hi = h1hi; long[] s1 = addc(t1lo, t1hi, c); long l1 = s1[0] & MASK_51; c = sh(s1[1], s1[0], 51);
+        long[] s1 = addc(h1lo, h1hi, c); long l1 = s1[0] & MASK_51; c = sh(s1[1], s1[0], 51);
         long[] s2 = addc(h2lo, h2hi, c); long l2 = s2[0] & MASK_51; c = sh(s2[1], s2[0], 51);
         long[] s3 = addc(h3lo, h3hi, c); long l3 = s3[0] & MASK_51; c = sh(s3[1], s3[0], 51);
         long[] s4 = addc(h4lo, h4hi, c); long l4 = s4[0] & MASK_51; c = sh(s4[1], s4[0], 51);
-        // wrap top carry into l0
+        // wrap top carry into l0 (c < 2^58, so l0 < 2^63: no overflow)
         l0 += 19 * c;
-        // second light carry pass (limbs now < 2^52 + small)
+        // first light pass: settle the big wrapped carry
+        c = l0 >>> 51; l0 &= MASK_51; l1 += c;
+        c = l1 >>> 51; l1 &= MASK_51; l2 += c;
+        c = l2 >>> 51; l2 &= MASK_51; l3 += c;
+        c = l3 >>> 51; l3 &= MASK_51; l4 += c;
+        c = l4 >>> 51; l4 &= MASK_51; l0 += 19 * c; // c <= 1 -> l0 < 2^51 + 19
+        // second light pass: settle that last +19 (if l4 wraps again, l0 <= 18 + 19 stays tiny)
         c = l0 >>> 51; l0 &= MASK_51; l1 += c;
         c = l1 >>> 51; l1 &= MASK_51; l2 += c;
         c = l2 >>> 51; l2 &= MASK_51; l3 += c;
         c = l3 >>> 51; l3 &= MASK_51; l4 += c;
         c = l4 >>> 51; l4 &= MASK_51; l0 += 19 * c;
+        // conditional subtract p = 2^255 - 19: the value is < 2^255 = p + 19, so "value >= p" is
+        // exactly "all high limbs saturated and l0 >= 2^51 - 19", and the difference is l0's excess.
+        if (l4 == MASK_51 && l3 == MASK_51 && l2 == MASK_51 && l1 == MASK_51 && l0 >= MASK_51 - 18) {
+            l0 -= MASK_51 - 18;
+            l1 = 0; l2 = 0; l3 = 0; l4 = 0;
+        }
+        return new long[]{l0, l1, l2, l3, l4};
+    }
 
-        // Reassemble to BigInteger via 32 LE bytes (l0..l4 each < 2^51, value < 2^255).
-        long w0 = l0 | (l1 << 51);
-        long w1 = (l1 >>> 13) | (l2 << 38);
-        long w2 = (l2 >>> 26) | (l3 << 25);
-        long w3 = (l3 >>> 39) | (l4 << 12);
-        byte[] le = new byte[32];
-        putLe64(le, 0, w0); putLe64(le, 8, w1); putLe64(le, 16, w2); putLe64(le, 24, w3);
+    /**
+     * Wraps the canonical limbs of a mul/sqr result: rebuilds the BigInteger (the canonical
+     * storage) and seeds {@link #limbsCache} with them, so a chained multiply never re-decomposes
+     * the value it has just assembled — curve formulas are exactly such chains.
+     */
+    private static Fe25519 fromCanonicalLimbs(long[] l) {
+        long w0 = l[0] | (l[1] << 51);
+        long w1 = (l[1] >>> 13) | (l[2] << 38);
+        long w2 = (l[2] >>> 26) | (l[3] << 25);
+        long w3 = (l[3] >>> 39) | (l[4] << 12);
         byte[] be = new byte[32];
-        for (int i = 0; i < 32; i++) {
-            be[i] = le[31 - i];
+        for (int i = 0; i < 8; i++) {
+            be[31 - i] = (byte) (w0 >>> (8 * i));
+            be[23 - i] = (byte) (w1 >>> (8 * i));
+            be[15 - i] = (byte) (w2 >>> (8 * i));
+            be[7 - i] = (byte) (w3 >>> (8 * i));
         }
-        BigInteger r = new BigInteger(1, be);
-        if (r.compareTo(P) >= 0) {
-            r = r.subtract(P);
-        }
+        Fe25519 r = new Fe25519(new BigInteger(1, be), true);
+        r.limbsCache = l;
         return r;
     }
 
@@ -289,12 +359,6 @@ public final class Fe25519 {
             hi++;
         }
         return new long[]{t, hi};
-    }
-
-    private static void putLe64(byte[] b, int off, long w) {
-        for (int i = 0; i < 8; i++) {
-            b[off + i] = (byte) (w >>> (8 * i));
-        }
     }
 
     public Fe25519 negate() {

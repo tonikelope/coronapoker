@@ -23,7 +23,7 @@ import java.math.BigInteger;
  * (single-value, {@code Comm([v], r) = r·H + v·G_0}), proves in zero knowledge that {@code c = a·b}
  * mod L — without revealing {@code a}, {@code b}, {@code c} or their blindings. This is the atom of
  * the product argument (a grand-product chains one of these per multiplication step), which in turn
- * powers the permutation/shuffle argument (see {@code docs/sra-bayer-groth-shuffle.md}).
+ * powers the permutation/shuffle argument (see {@code docs/SECURITY.md}).
  *
  * <p>Protocol. Prover masks {@code x1..x5}; sends {@code M1 = x1·G_0 + x2·H}, {@code M2 = x3·G_0 + x4·H},
  * {@code M3 = x1·C_b + x5·H}. Challenge {@code e = H(C_a, C_b, C_c, M1, M2, M3)}. Responses
@@ -37,8 +37,9 @@ import java.math.BigInteger;
  * Check (3) expands to {@code M3 + e·(a·b·G_0 + r_c·H)}, which equals {@code M3 ⊕ e·C_c} iff
  * {@code a·b == c}. Complete, special-sound, honest-verifier ZK.
  *
- * <p>All point arithmetic is expressed through {@link PedersenVectorCommit} on length-1 vectors:
- * {@code v·G_0 + r·H = commit([v], r)}, {@code r·H = commit([0], r)}, {@code x1·C_b = scale(C_b, x1)}.
+ * <p>Commitments are {@link PedersenVectorCommit} on length-1 vectors ({@code v·G_0 + r·H =
+ * commit([v], r)}); the verifier folds each check into a single shared-ladder multi-scalar
+ * against the negated commitment and compares with the native Ristretto equality.
  */
 public final class MultiplicationProof {
 

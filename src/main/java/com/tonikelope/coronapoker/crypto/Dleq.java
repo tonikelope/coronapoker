@@ -24,7 +24,6 @@ import java.security.MessageDigest;
  * Non-interactive proof of equality of discrete logarithms (Chaum-Pedersen) over
  * the Ristretto255 group, with the Fiat-Shamir transform.
  *
- * Phase 2 of the verifiable-dealing rework (docs/sra-verifiable-dealing-design.md).
  * Proves knowledge of a scalar k such that h1 = k*g1 AND h2 = k*g2, without
  * revealing k. In the cascade this binds each de-locking step to the committed
  * deck: a peer commits K = k*B, and when it strips its lock from a point X

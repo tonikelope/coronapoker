@@ -21,7 +21,7 @@ import java.util.Arrays;
 
 /**
  * Verifiable de-locking for the SRA dealing cascade — the logic that closes the
- * blinded-oracle attack (docs/sra-verifiable-dealing-integration.md, Phase 4).
+ * blinded-oracle attack (see docs/SECURITY.md).
  *
  * A peer that strips its lock from a point publishes, alongside the result, a DLEQ
  * proof that it used its COMMITTED key. Verifying the chain from the committed deck

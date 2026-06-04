@@ -70,6 +70,24 @@ public final class EdwardsPoint {
      */
     private volatile EdwardsPoint[] windowTable;
 
+    /**
+     * Lazily-memoized canonical Ristretto255 encoding of this point (see {@link Ristretto255#encode}).
+     * Same pure-cache pattern as {@link #windowTable}: the instance is immutable, so its canonical
+     * encoding is a constant — computed at most once, and seeded for free by
+     * {@link Ristretto255#decode} (RFC 9496 guarantees the round-trip), so wire points re-encode
+     * without paying the sqrt-ratio exponentiation. Holds a private copy; {@code encode} hands out
+     * clones. {@code volatile} for safe publication across the background SRA verifier threads.
+     */
+    private volatile byte[] ristrettoCache;
+
+    byte[] ristrettoCache() {
+        return ristrettoCache;
+    }
+
+    void ristrettoCache(byte[] enc) {
+        this.ristrettoCache = enc;
+    }
+
     EdwardsPoint(Fe25519 x, Fe25519 y, Fe25519 z, Fe25519 t) {
         this.X = x;
         this.Y = y;
@@ -193,13 +211,13 @@ public final class EdwardsPoint {
         if (maxBits == 0) {
             return IDENTITY; // all scalars zero
         }
-        // Per-point 4-bit window tables: table[i][w] = w·points[i], w = 0..15.
-        EdwardsPoint[][] table = new EdwardsPoint[n][16];
+        // Per-point 4-bit window tables: table[i][w] = w·points[i], w = 0..15. Reuses each point's
+        // memoized table (see windowTable): the fixed generators (H, G_0, BASE) and any deck point
+        // appearing in several multi-scalar calls build their 15-addition table once per lifetime
+        // instead of once per call.
+        EdwardsPoint[][] table = new EdwardsPoint[n][];
         for (int i = 0; i < n; i++) {
-            table[i][0] = IDENTITY;
-            for (int w = 1; w < 16; w++) {
-                table[i][w] = table[i][w - 1].add(points[i]);
-            }
+            table[i] = points[i].windowTable();
         }
         int top = ((maxBits + 3) / 4) * 4 - 4;
         EdwardsPoint result = IDENTITY;

@@ -17,7 +17,6 @@
 package com.tonikelope.coronapoker.crypto;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * Verifiable shuffle argument (Bayer–Groth assembly) for one cascade step: given PUBLIC input deck
@@ -87,15 +86,13 @@ public final class ShuffleArgument {
         }
     }
 
-    private static final byte[] IDENTITY_ENC = Ristretto255.encode(EdwardsPoint.IDENTITY);
-
     private static BigInteger scalar() {
         return RistrettoSRA.bytesToScalar(RistrettoSRA.generateLockScalar());
     }
 
     /** True iff the point is null or the group identity (a degenerate / k=0 deck position). */
     private static boolean isIdentity(EdwardsPoint p) {
-        return p == null || Arrays.equals(Ristretto255.encode(p), IDENTITY_ENC);
+        return p == null || Ristretto255.isIdentity(p);
     }
 
     /** Canonical scalar response: present and reduced into {@code [0, L)}. */
@@ -204,8 +201,10 @@ public final class ShuffleArgument {
             return false;
         }
         BigInteger ce = scalarChallenge(pa, q, t);
-        EdwardsPoint lhs = pa.scalarMul(proof.scZ.mod(L));   // z·P_A
-        EdwardsPoint rhs = t.add(q.scalarMul(ce));           // T + e·Q
-        return Arrays.equals(Ristretto255.encode(lhs), Ristretto255.encode(rhs));
+        // z·P_A == T + e·Q, folded to one shared-ladder multi-scalar (z·P_A − e·Q == T) with the
+        // native Ristretto equality — same coset relation as the encoding comparison.
+        EdwardsPoint lhs = EdwardsPoint.multiscalarMul(
+                new BigInteger[]{proof.scZ, ce}, new EdwardsPoint[]{pa, q.negate()});
+        return Ristretto255.equalPoints(lhs, t);
     }
 }

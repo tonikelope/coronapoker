@@ -10922,7 +10922,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Sprint 7 telemetría: construye una TelemetryFrame con las métricas
+     * Telemetría: construye una TelemetryFrame con las métricas
      * actuales de TODOS los Participants (latencias del ping/pong del
      * servidor + reconnection_count acumulado) y la broadcasta a todos
      * los clientes vía "GAME#id#TELEMETRY#payload".
@@ -10992,7 +10992,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Sprint 7 telemetría: aplica un TelemetryFrame a los Player locales.
+     * Telemetría: aplica un TelemetryFrame a los Player locales.
      * Usado por:
      *   - broadcastTelemetryFrame() del host (auto-aplicación, ya que el host
      *     no recibe su propio broadcast).
@@ -11560,7 +11560,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
                             // REPLACE_EXISTING: si una recuperación previa dejó un
-                            // balance_used huérfano (Sprint 6 🟡-36 v2), el move fallaba
+                            // balance_used huérfano, el move fallaba
                             // con FileAlreadyExistsException, el catch lo logueaba SEVERE
                             // pero el balance original quedaba en disco para una eventual
                             // tercera recuperación con datos viejos. REPLACE_EXISTING
@@ -12235,7 +12235,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 continue;
                                             }
 
-                                            // Mapping zero-trust de violaciones (ver Sprint 7 audit):
+                                            // Mapping zero-trust de violaciones:
                                             //   sig/key missing, bad lengths, sig verify FAILED,
                                             //   Set mismatch (cartas distintas) → 🔴 LOCKDOWN (terminamos).
                                             //   sig OK pero SRA no resuelve → 🟢 FORFEIT del peer + popup.

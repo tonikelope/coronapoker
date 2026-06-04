@@ -8,7 +8,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 
 | Adversary | Defended? | How |
 |---|---|---|
-| Hostile host trying to peek at a peer's pocket cards | Yes | EC-SRA over **Ristretto255** + **verifiable dealing**: every de-lock carries a chained DLEQ proof anchored to the committed deck, so the host cannot use a peer as a blinded-decryption oracle (§2.5). Pockets stay multi-locked until the owner releases their key at showdown |
+| Hostile host trying to peek at a peer's pocket cards | Yes | SRA over **Ristretto255** + **verifiable dealing**: every de-lock carries a chained DLEQ proof anchored to the committed deck, so the host cannot use a peer as a blinded-decryption oracle (§2.5). Pockets stay multi-locked until the owner releases their key at showdown |
 | Hostile host trying to peek at community cards before their street | Yes | Same verifiable-dealing chain applied to the community deal + GATE-6 genesis check; the street gate only opens in lockstep with local betting (§2.5, §8) |
 | Hostile host **smuggling** a card (duplicate, or relocate a pocket into the community half) to read it | Closed | The shuffle and rotation are proven honest with a zero-knowledge **verifiable shuffle** (§2.6), broadcast and verified **independently by every peer** against its own deck; a smuggle is a non-permutation that no proof can pass. Anti-replay on the rotation and the real-time de-lock guards (§2.5) remain as the inner layer |
 | Hostile host or peer rewriting hand history | Yes | Per-action Ed25519 signatures + `H_t` ratchet committed by every peer in a signed receipt |
@@ -23,7 +23,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 
 ---
 
-## 2. Mental Poker — EC-SRA cascade
+## 2. Mental Poker — SRA cascade
 
 The deck is shuffled and locked **collectively**. No single peer ever sees a card before it is legitimately revealed, and no peer (host included) can bias the distribution.
 
@@ -204,7 +204,7 @@ Signatures land **inside** the ratchet: tampering with a record OR with the sign
 
 ### 5.3 Host-signed community announcements
 
-Phase 3 of the EC-Identity work extends the same record format to community-card reveals (`ACTION_COMMUNITY`). The host signs the announcement; every recipient verifies and absorbs. Without this, a hostile host could announce a different flop to different peers and leave no chain-level evidence — with this, the announcement is part of `H_t`, so the divergence becomes observable in the receipt.
+The same record format covers community-card reveals (`ACTION_COMMUNITY`). The host signs the announcement; every recipient verifies and absorbs. Without this, a hostile host could announce a different flop to different peers and leave no chain-level evidence — with this, the announcement is part of `H_t`, so the divergence becomes observable in the receipt.
 
 ---
 

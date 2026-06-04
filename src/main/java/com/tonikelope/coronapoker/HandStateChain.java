@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -252,23 +251,6 @@ public final class HandStateChain {
             }
         }
     }
-
-    /**
-     * Lexicographic comparator over unsigned 32-byte arrays (treats bytes as
-     * {@code 0..255}, not signed Java bytes). Needed because Java's default
-     * byte comparison is signed and would put {@code 0x80..0xFF} bytes before
-     * {@code 0x00..0x7F}.
-     */
-    private static final Comparator<byte[]> UNSIGNED_LEX_ORDER = (a, b) -> {
-        int len = Math.min(a.length, b.length);
-        for (int i = 0; i < len; i++) {
-            int diff = (a[i] & 0xFF) - (b[i] & 0xFF);
-            if (diff != 0) {
-                return diff;
-            }
-        }
-        return a.length - b.length;
-    };
 
     private static byte[] sha256(byte[] data) {
         try {

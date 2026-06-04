@@ -1241,9 +1241,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             chainDecks.add(cascadeGenesis);
 
             workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
-            workingDeck = CryptoSRA.shuffleDeck(workingDeck, this.local_hand_seed);
+            workingDeck = DeterministicShuffle.shuffleDeck(workingDeck, this.local_hand_seed);
             // Paso del host: registrar (perm, k) para generar su prueba luego en background.
-            chainStepPerm.add(CryptoSRA.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
+            chainStepPerm.add(DeterministicShuffle.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
             chainStepK.add(this.local_sra_lock);
             chainStepRemoteProof.add(null);
             chainDecks.add(workingDeck);
@@ -1272,9 +1272,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         peer_k_pocket.put(currNick, RistrettoSRA.commitment(botLock));
                         peer_k_community.put(currNick, RistrettoSRA.commitment(botCommunityLock));
                         workingDeck = RistrettoSRA.applyCommutativeLock(workingDeck, botLock);
-                        workingDeck = CryptoSRA.shuffleDeck(workingDeck, botSeed);
+                        workingDeck = DeterministicShuffle.shuffleDeck(workingDeck, botSeed);
                         // C1 (wire-3): registrar el paso del bot (perm, k); su prueba va en background.
-                        chainStepPerm.add(CryptoSRA.shufflePermutation(workingDeck.length / 32, botSeed));
+                        chainStepPerm.add(DeterministicShuffle.shufflePermutation(workingDeck.length / 32, botSeed));
                         chainStepK.add(botLock);
                         chainStepRemoteProof.add(null);
                         chainDecks.add(workingDeck);

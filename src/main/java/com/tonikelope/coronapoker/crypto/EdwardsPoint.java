@@ -62,6 +62,14 @@ public final class EdwardsPoint {
     private final Fe25519 Z;
     private final Fe25519 T;
 
+    /**
+     * Lazily-memoized 4-bit window table ({@code 0..15 · this}) used by {@link #scalarMul}. The instance
+     * is immutable, so for a point scalar-multiplied many times — above all the constant {@link #BASE},
+     * the {@code k·B} commitments and DLEQ bases — the 15-addition table is built once and reused.
+     * {@code volatile} for safe publication across the background SRA verifier threads.
+     */
+    private volatile EdwardsPoint[] windowTable;
+
     EdwardsPoint(Fe25519 x, Fe25519 y, Fe25519 z, Fe25519 t) {
         this.X = x;
         this.Y = y;
@@ -128,11 +136,9 @@ public final class EdwardsPoint {
         }
         // Fixed 4-bit window: precompute 0..15 multiples once, then process 4 scalar bits per step
         // (4 doublings + 1 addition) instead of one bit at a time. Same result; ~40% fewer additions.
-        EdwardsPoint[] table = new EdwardsPoint[16];
-        table[0] = IDENTITY;
-        for (int w = 1; w < 16; w++) {
-            table[w] = table[w - 1].add(this);
-        }
+        // The table depends only on `this`, so it is memoized (windowTable) — a point reused across many
+        // scalarMuls (the constant BASE above all) builds its 15-addition table once, not per call.
+        EdwardsPoint[] table = windowTable();
         int bits = s.bitLength();
         EdwardsPoint result = IDENTITY;
         for (int i = ((bits + 3) / 4) * 4 - 4; i >= 0; i -= 4) {
@@ -144,6 +150,20 @@ public final class EdwardsPoint {
             }
         }
         return result;
+    }
+
+    /** Memoized 4-bit window table {@code [0..15]·this} for {@link #scalarMul} (see {@link #windowTable}). */
+    private EdwardsPoint[] windowTable() {
+        EdwardsPoint[] t = windowTable;
+        if (t == null) {
+            t = new EdwardsPoint[16];
+            t[0] = IDENTITY;
+            for (int w = 1; w < 16; w++) {
+                t[w] = t[w - 1].add(this);
+            }
+            windowTable = t;
+        }
+        return t;
     }
 
     /**

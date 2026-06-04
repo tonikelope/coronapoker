@@ -1176,7 +1176,7 @@ public class Helpers {
                         timeLength += Math.max(gifControlDirectory.getInt(GifControlDirectory.TAG_DELAY), MIN_GIF_FRAME_DELAY);
                     }
                 } catch (MetadataException e) {
-                    e.printStackTrace();
+                    LOGGER.log(Level.SEVERE, null, e);
                 }
             }
             // Unit of time is 10 milliseconds in GIF.

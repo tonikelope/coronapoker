@@ -2324,7 +2324,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 // Un bundle RECIBIDO pero malformado (canal AES+HMAC -> vino del host
                                                                 // intacto) es anomalo: un host honesto siempre manda 7 campos validos.
                                                                 if (partes_bundle.length < 7) {
-                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformado (campos={0}) — avisando", partes_bundle.length);
+                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE malformed (fields={0}) — warning user", partes_bundle.length);
                                                                     cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                     return;
                                                                 }
@@ -2346,7 +2346,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // No parseable (base64 invalido, etc.) = anomalo pero ambiguo -> avisar.
                                                                     // (Solo los jobs que SI parsean y fallan la prueba se reportan como
                                                                     // "deshonesto probado" desde la cola; esto es solo malformacion.)
-                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE no parseable — avisando", bundleEx);
+                                                                    LOGGER.log(Level.SEVERE, "DUALLOCK_BUNDLE unparseable — warning user", bundleEx);
                                                                     cruB.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
                                                                 }
                                                             });
@@ -3676,7 +3676,7 @@ public class WaitingRoomFrame extends JFrame {
                                 } else {
                                     try (client_socket) {
                                         LOGGER.log(Level.INFO,
-                                                "{0} NO PUDO CONECTAR CORRECTAMENTE (PARTIDA LLENA O EMPEZADA)",
+                                                "{0} COULD NOT CONNECT PROPERLY (GAME FULL OR ALREADY STARTED)",
                                                 client_nick);
                                     }
                                 }

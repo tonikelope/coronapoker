@@ -1038,6 +1038,7 @@ public class NewGameDialog extends JDialog {
         password.setText("Password:");
         password.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         password.setDoubleBuffered(true);
+        password.putClientProperty("i18n.key", "ui.password");
 
         pass_text.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
         pass_text.addActionListener(new java.awt.event.ActionListener() {

@@ -74,7 +74,7 @@ public class Participant implements Runnable {
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
     private volatile int pong2_timeout_counter = 0;
-    // Sprint 7 telemetría: cuenta de reconexiones exitosas del peer al server.
+    // Telemetría: cuenta de reconexiones exitosas del peer al server.
     // Incrementado en resetSocket() tras setear reset_socket=true. Cubre tanto
     // reconexiones naturales (peer cae + vuelve) como las forzadas vía menú
     // "FORZAR RECONEXIÓN" — ambas indican inestabilidad de enlace observable.
@@ -167,7 +167,7 @@ public class Participant implements Runnable {
     }
 
     /**
-     * Sprint 7 telemetría: nº de reconexiones exitosas de este peer al server
+     * Telemetría: nº de reconexiones exitosas de este peer al server
      * desde que se creó el Participant (inicio de partida o entrada a la sala).
      * Sólo cuenta reconexiones que llegaron hasta reset_socket=true.
      */
@@ -740,7 +740,7 @@ public class Participant implements Runnable {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
                 this.reset_socket = true;
-                // Sprint 7 telemetría: contador por peer de reconexiones exitosas.
+                // Telemetría: contador por peer de reconexiones exitosas.
                 // Sólo se incrementa cuando llegamos aquí (reset_socket=true ya
                 // garantiza que el socket nuevo está instalado y los streams
                 // listos). El TELEMETRY broadcast del host expone este valor
@@ -994,7 +994,7 @@ public class Participant implements Runnable {
                     }
                 } catch (Exception ex) {
                     if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isExit()) {
-                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, nick + " -> EXCEPCION AL PROCESAR ALGÚN COMANDO DE ESTE CLIENTE", ex);
+                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, nick + " -> exception while processing a command from this client", ex);
                     }
                 }
             } while (!exit && !WaitingRoomFrame.getInstance().isExit() && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()));

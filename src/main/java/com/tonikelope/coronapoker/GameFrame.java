@@ -2640,7 +2640,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         TTSWatchdog();
 
-        // Sprint 7 telemetría: broadcaster periódico server-side (1 thread).
+        // Telemetría: broadcaster periódico server-side (1 thread).
         // Solo activo en el host (isPartida_local). Loop sale al final de la
         // transmisión (mismo signal que TTSWatchdog y el resto de threads
         // del Crupier — SHUTDOWN_THREAD_POOL al cerrar el juego también
@@ -2668,7 +2668,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     /**
-     * Sprint 7 telemetría: thread server-side que dispara
+     * Telemetría: thread server-side que dispara
      * Crupier.broadcastTelemetryFrame() cada PING_INTERVAL_MS para que los
      * clientes mantengan su latest_telemetry fresco.
      *
@@ -3437,7 +3437,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         } else {
 
-            ExitDialog exit_dialog = new ExitDialog(this, true, "¿SALIR DE LA TIMBA?");
+            ExitDialog exit_dialog = new ExitDialog(this, true, Translator.translate("exit.salir_de_la_timba_pregunta"));
             exit_dialog.setLocationRelativeTo(this);
             exit_dialog.setVisible(true);
 

@@ -897,6 +897,9 @@
                         </Property>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
+                      <AuxValues>
+                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="password.putClientProperty(&quot;i18n.key&quot;, &quot;ui.password&quot;);"/>
+                      </AuxValues>
                     </Component>
                     <Component class="javax.swing.JPasswordField" name="pass_text">
                       <Properties>

@@ -375,10 +375,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
         } catch (Exception ignored) {
         }
-        Helpers.threadRun(() -> Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                Translator.translate("zero_trust.suspicious_header")
-                + reason + "\n\n"
-                + Translator.translate("zero_trust.suspicious_body")));
+        Helpers.threadRun(() -> {
+            // Modal: desde este hilo de fondo bloquea hasta que el usuario pulsa OK.
+            Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                    Translator.translate("zero_trust.suspicious_header")
+                    + reason + "\n\n"
+                    + Translator.translate("zero_trust.suspicious_body"));
+            // El aviso recomienda abandonar la mesa: tras cerrarlo se lo ponemos a un click
+            // abriendo el flujo de salida ya existente (mismo camino que el menu Salir /
+            // Ctrl+Q). Si prefiere seguir jugando, cancela el dialogo y no pasa nada.
+            // SOLO en cliente: en el host el aviso es auto-deteccion (posible bug propio) y
+            // ademas su flujo de salida en partida local con un unico humano NO pregunta
+            // (saldria de la timba sin confirmacion). Si mientras tanto salto un lockdown
+            // duro, ese flujo ya esta gestionando la salida y no abrimos nada encima.
+            if (!Crupier.SECURITY_LOCKDOWN && !GameFrame.getInstance().isPartida_local()) {
+                try {
+                    Helpers.GUIRun(() -> GameFrame.getInstance().getExit_menu().doClick());
+                } catch (Exception ignored) {
+                }
+            }
+        });
     }
 
     /**
@@ -10906,7 +10922,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Sprint 7 telemetría: construye una TelemetryFrame con las métricas
+     * Telemetría: construye una TelemetryFrame con las métricas
      * actuales de TODOS los Participants (latencias del ping/pong del
      * servidor + reconnection_count acumulado) y la broadcasta a todos
      * los clientes vía "GAME#id#TELEMETRY#payload".
@@ -10976,7 +10992,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Sprint 7 telemetría: aplica un TelemetryFrame a los Player locales.
+     * Telemetría: aplica un TelemetryFrame a los Player locales.
      * Usado por:
      *   - broadcastTelemetryFrame() del host (auto-aplicación, ya que el host
      *     no recibe su propio broadcast).
@@ -11544,7 +11560,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             String balance = Files.readString(Paths.get(Init.CORONA_DIR + "/balance"));
 
                             // REPLACE_EXISTING: si una recuperación previa dejó un
-                            // balance_used huérfano (Sprint 6 🟡-36 v2), el move fallaba
+                            // balance_used huérfano, el move fallaba
                             // con FileAlreadyExistsException, el catch lo logueaba SEVERE
                             // pero el balance original quedaba en disco para una eventual
                             // tercera recuperación con datos viejos. REPLACE_EXISTING
@@ -12219,7 +12235,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 continue;
                                             }
 
-                                            // Mapping zero-trust de violaciones (ver Sprint 7 audit):
+                                            // Mapping zero-trust de violaciones:
                                             //   sig/key missing, bad lengths, sig verify FAILED,
                                             //   Set mismatch (cartas distintas) → 🔴 LOCKDOWN (terminamos).
                                             //   sig OK pero SRA no resuelve → 🟢 FORFEIT del peer + popup.

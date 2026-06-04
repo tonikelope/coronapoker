@@ -124,7 +124,6 @@ public class TablePanelFactory {
                 }
 
                 Helpers.GUIRunAndWait(() -> {
-                    nuevo_panel.getCommunityCards().getRandom_button().setVisible(panel.getCommunityCards().getRandom_button().isVisible());
                     nuevo_panel.getCommunityCards().getPause_button().setForeground(panel.getCommunityCards().getPause_button().getForeground());
                     nuevo_panel.getCommunityCards().getPause_button().setBackground(panel.getCommunityCards().getPause_button().getBackground());
                     nuevo_panel.getCommunityCards().getTiempo_partida().setVisible(panel.getCommunityCards().getTiempo_partida().isVisible());

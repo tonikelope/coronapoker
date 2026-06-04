@@ -34,7 +34,6 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.gif.GifControlDirectory;
 import org.dosse.upnp.UPnP;
-import static com.tonikelope.coronapoker.Helpers.DECK_RANDOM_GENERATOR;
 import static com.tonikelope.coronapoker.Init.CACHE_DIR;
 import static com.tonikelope.coronapoker.Init.CORONA_DIR;
 import static com.tonikelope.coronapoker.Init.DEBUG_DIR;
@@ -193,14 +192,6 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.random.api.RandomOrgClient;
-import org.random.api.exception.RandomOrgBadHTTPResponseException;
-import org.random.api.exception.RandomOrgInsufficientBitsError;
-import org.random.api.exception.RandomOrgInsufficientRequestsError;
-import org.random.api.exception.RandomOrgJSONRPCError;
-import org.random.api.exception.RandomOrgKeyNotRunningError;
-import org.random.api.exception.RandomOrgRANDOMORGError;
-import org.random.api.exception.RandomOrgSendTimeoutException;
 import org.sqlite.SQLiteConfig;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -244,12 +235,7 @@ public class Helpers {
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
-    public static final int RANDOMORG_TIMEOUT = 15000;
     public static final int HTTP_TIMEOUT = 15000;
-    public static final int CSPRNG = 3;
-    public static final int TRNG = 2;
-    public static final int TRNG_CSPRNG = 1;
-    public static final boolean INFINITE_DECK_SHUFFLE = false;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).
@@ -270,12 +256,9 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_DEALER = null;
     public static volatile ImageIcon IMAGEN_DEAD_DEALER = null;
 
-    public volatile static int DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
-    public volatile static String RANDOM_ORG_APIKEY = "";
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = isDesignTime() ? new Properties() : loadPropertiesFile();
     public volatile static Font GUI_FONT = null;
-    public volatile static boolean RANDOMORG_ERROR_MSG = false;
     public volatile static boolean GENERATING_GIFSICLE_CACHE = false;
     public volatile static String GIFSICLE_CACHE_ZOOM = "";
     public volatile static long GIFSICLE_CACHE_THREAD;
@@ -3265,261 +3248,6 @@ public class Helpers {
         }
 
         return ret;
-    }
-
-    public static byte[] getRandomOrgBytes(int nbytes) {
-
-        LOGGER.log(Level.INFO, () -> "Getting TRUE RANDOM [" + String.valueOf(nbytes) + "] BYTES SEED from Random.org...");
-
-        byte[] seed = new byte[nbytes];
-
-        HttpURLConnection con = null;
-
-        try {
-            // Build the URL for raw bytes as requested
-            URL url_api = new URL("https://www.random.org/cgi-bin/randbyte?nbytes=" + nbytes + "&format=f");
-
-            con = (HttpURLConnection) url_api.openConnection();
-
-            // Use your original User-Agent and cache settings
-            con.addRequestProperty("User-Agent", Helpers.USER_AGENT_CORONAPOKER);
-            con.setUseCaches(false);
-
-            // Read the binary stream directly
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
-
-                byte[] buffer = new byte[1024];
-                int reads;
-                while ((reads = bis.read(buffer)) != -1) {
-                    byte_res.write(buffer, 0, reads);
-                }
-
-                // Return the downloaded bytes if successful
-                return byte_res.toByteArray();
-            }
-
-        } catch (Exception ex) {
-            // Log failure and proceed to local fallback
-            LOGGER.log(Level.SEVERE, "Network random source failed, using fallback", ex);
-
-            // Fallback using your existing CSPRNG_GENERATOR logic
-            if (Helpers.CSPRNG_GENERATOR != null) {
-                Helpers.CSPRNG_GENERATOR.nextBytes(seed);
-            } else {
-                // Safety net if the generator is null
-                new java.security.SecureRandom().nextBytes(seed);
-            }
-        } finally {
-            if (con != null) {
-                con.disconnect();
-            }
-        }
-
-        return seed;
-    }
-
-    public static Integer[] getRandomIntegerSequence(int method, int min, int max) throws Exception {
-
-        return getRandomIntegerSequence(method, min, max, null);
-
-    }
-
-    public static Integer[] getRandomIntegerSequence(int method, Integer[] init) throws Exception {
-
-        return getRandomIntegerSequence(method, null, null, init);
-
-    }
-
-    private static Integer[] getRandomIntegerSequence(int method, Integer min, Integer max, Integer[] init) throws Exception {
-
-        if ((method == Helpers.TRNG || method == Helpers.TRNG_CSPRNG || init == null) && (min == null || max == null || min < 0 || min > max)) {
-            throw new Exception("BAD INTEGER SEQUENCE PARAMETERS!");
-        }
-
-        switch (method) {
-
-            case Helpers.TRNG_CSPRNG:
-
-            case Helpers.TRNG:
-
-                Future future = null;
-
-                try {
-
-                    future = Helpers.futureRun(new Callable() {
-                        @Override
-                        public Object call() {
-
-                            if (!Helpers.RANDOM_ORG_APIKEY.isBlank()) {
-
-                                try {
-                                    RandomOrgClient roc = RandomOrgClient.getRandomOrgClient(RANDOM_ORG_APIKEY, 24 * 60 * 60 * 1000, 2 * Helpers.RANDOMORG_TIMEOUT, true);
-
-                                    return Arrays.stream(roc.generateIntegers(max - min + 1, min, max, false)).boxed().toArray(Integer[]::new);
-
-                                } catch (RandomOrgSendTimeoutException | RandomOrgKeyNotRunningError | RandomOrgInsufficientRequestsError | RandomOrgInsufficientBitsError | RandomOrgBadHTTPResponseException | RandomOrgRANDOMORGError | RandomOrgJSONRPCError | IOException ex) {
-                                    Logger.getLogger(Helpers.class
-                                            .getName()).log(Level.SEVERE, null, ex);
-                                }
-                            } else {
-
-                                HttpURLConnection con = null;
-
-                                try {
-
-                                    URL url_api = new URL("https://www.random.org/sequences/?min=" + String.valueOf(min) + "&max=" + String.valueOf(max) + "&col=1&format=plain&rnd=new");
-
-                                    con = (HttpURLConnection) url_api.openConnection();
-
-                                    con.addRequestProperty("User-Agent", USER_AGENT_CORONAPOKER);
-
-                                    con.setUseCaches(false);
-
-                                    String output = null;
-
-                                    try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
-
-                                        byte[] buffer = new byte[1024];
-
-                                        int reads;
-
-                                        while ((reads = bis.read(buffer)) != -1) {
-
-                                            byte_res.write(buffer, 0, reads);
-                                        }
-
-                                        output = new String(byte_res.toByteArray(), "UTF-8").trim();
-
-                                    }
-
-                                    String[] per_str_array = output.split("\n");
-
-                                    if (per_str_array.length == max - min + 1) {
-
-                                        Integer[] permutacion = new Integer[per_str_array.length];
-
-                                        for (int i = 0; i < per_str_array.length; i++) {
-
-                                            permutacion[i] = Integer.valueOf(per_str_array[i].trim());
-                                        }
-
-                                        return permutacion;
-
-                                    }
-
-                                } catch (Exception ex) {
-
-                                    Logger.getLogger(Helpers.class
-                                            .getName()).log(Level.SEVERE, null, ex);
-
-                                } finally {
-
-                                    if (con != null) {
-                                        con.disconnect();
-                                    }
-                                }
-
-                            }
-
-                            return null;
-                        }
-                    });
-
-                    Integer[] randomorg_shuffle = (Integer[]) future.get(Helpers.RANDOMORG_TIMEOUT, TimeUnit.MILLISECONDS);
-
-                    if (randomorg_shuffle != null) {
-
-                        if (method == Helpers.TRNG_CSPRNG) {
-
-                            //Second shuffle with CSPRNG (PARANOID MODE)
-                            return getRandomIntegerSequence(Helpers.CSPRNG, randomorg_shuffle);
-
-                        }
-
-                        return randomorg_shuffle;
-                    }
-
-                } catch (InterruptedException | ExecutionException | TimeoutException ex) {
-
-                    if (future != null) {
-                        future.cancel(true);
-                    }
-                }
-
-                if (!Helpers.RANDOMORG_ERROR_MSG) {
-                    Helpers.RANDOMORG_ERROR_MSG = true;
-
-                    Helpers.threadRun(new Runnable() {
-                        public void run() {
-
-                            int res = Helpers.mostrarMensajeErrorSINO(GameFrame.getInstance() != null ? GameFrame.getInstance() : null, Translator.translate("msg.randomorg_problem"));
-
-                            if (res == 0) {
-
-                                DECK_RANDOM_GENERATOR = Helpers.CSPRNG;
-
-                                Helpers.GUIRun(new Runnable() {
-                                    public void run() {
-
-                                        GameFrame.getInstance().getTapete().getCommunityCards().getRandom_button().setVisible(true);
-                                    }
-                                });
-                            }
-
-                            Helpers.RANDOMORG_ERROR_MSG = false;
-                        }
-                    });
-                }
-
-                //Fallback to CSPRNG
-                return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
-
-            case Helpers.CSPRNG:
-
-                /*
-                    EYE ON FISHER-YATES WHEN SHUFFLING A POKER DECK:
-
-                    The Fisher-Yates shuffling algorithm guarantees that all permutations are equally likely, but in
-                    order to randomly generate ANY of the mathematically possible permutations, a suitable random number
-                    generator is required.
-
-                    A 52 cards poker deck can be sorted in [52! = 80,658,175,170,943,878,571,660,636,856,403,766,975,289,505,440,883,277,824,000,000,000,000]
-                    different ways. In order to generate ANY of the 52! permutations, a minimum period of 2^226
-                    may be required, although it would be advisable to exceed several orders of magnitude this amount.
-                    CSPRNG HASH-DRBG SHA-512 has an average period of 2^512 (2^1024 internal state length) which
-                    is M-A-N-Y orders of magnitude greater than required.
-
-                    Note: reshuffling the same deck continuously might mitigate a short period PRNG. See constant INFINITE_DECK_SHUFFLE.
-
-                 */
-                if (Helpers.CSPRNG_GENERATOR != null) {
-
-                    ArrayList<Integer> permutacion = new ArrayList<>();
-
-                    if (init == null) {
-
-                        for (int i = min; i <= max; i++) {
-                            permutacion.add(i);
-                        }
-
-                    } else {
-
-                        permutacion.addAll(Arrays.asList(init));
-
-                    }
-
-                    Collections.shuffle(permutacion, Helpers.CSPRNG_GENERATOR); //Fisher-Yates
-
-                    return permutacion.toArray(new Integer[0]);
-                } else {
-                    throw new Exception("NO RNG AVAILABLE!");
-                }
-
-            default:
-                return getRandomIntegerSequence(Helpers.CSPRNG, min, max, init);
-
-        }
-
     }
 
     //Thanks -> https://stackoverflow.com/a/19746437 (Pantalla 0 es la principal)

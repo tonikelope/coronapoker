@@ -3601,7 +3601,7 @@ public class Helpers {
 
                 Logger
                         .getLogger(Helpers.class
-                                .getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " cargado {0}", mod);
+                                .getName()).log(Level.INFO, mod.get("name") + " " + mod.get("version") + " loaded {0}", mod);
 
                 return mod;
 

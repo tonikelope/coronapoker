@@ -994,7 +994,7 @@ public class Participant implements Runnable {
                     }
                 } catch (Exception ex) {
                     if (!exit && WaitingRoomFrame.getInstance() != null && !WaitingRoomFrame.getInstance().isExit()) {
-                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, nick + " -> EXCEPCION AL PROCESAR ALGÚN COMANDO DE ESTE CLIENTE", ex);
+                        Logger.getLogger(Participant.class.getName()).log(Level.SEVERE, nick + " -> exception while processing a command from this client", ex);
                     }
                 }
             } while (!exit && !WaitingRoomFrame.getInstance().isExit() && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()));

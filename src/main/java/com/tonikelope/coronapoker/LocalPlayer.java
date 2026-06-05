@@ -2633,12 +2633,29 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         Init.PLAYING_CINEMATIC = true;
 
                         Helpers.threadRun(() -> {
-                            if (!GameFrame.getInstance().getCrupier().localCinematicAllin()) {
-                                GameFrame.getInstance().getCrupier().soundAllin();
+                            // Secuenciado en UN hilo (antes eran dos en paralelo) para
+                            // cerrar la race del "*": localCinematicAllin fija
+                            // current_local_cinematic_b64 y LANZA la animación en sus
+                            // propios hilos (no bloquea), y solo después finTurno
+                            // libera al crupier — así el build del ACTION ya no puede
+                            // leer el b64 a null y difundir "*" cuando finTurno ganaba
+                            // la carrera. La acción sigue saliendo al pulsar el botón
+                            // (la selección del GIF son milisegundos).
+                            try {
+                                if (!GameFrame.getInstance().getCrupier().localCinematicAllin()) {
+                                    GameFrame.getInstance().getCrupier().soundAllin();
+                                }
+                            } catch (Exception ex) {
+                                // La cinemática es cosmética: pase lo que pase, el
+                                // turno tiene que cerrarse y el flag apagarse (la
+                                // espera del turno del bot depende de él).
+                                Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+                                Init.PLAYING_CINEMATIC = false;
+                                synchronized (Init.LOCK_CINEMATICS) {
+                                    Init.LOCK_CINEMATICS.notifyAll();
+                                }
                             }
-                        });
 
-                        Helpers.threadRun(() -> {
                             setDecision(Player.ALLIN);
 
                             setBet(stack + bet);

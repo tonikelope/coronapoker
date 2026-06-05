@@ -322,6 +322,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int REPARTIR_PAUSA = 250; // 2 players
     public static final int CARD_ANIMATION_DELAY = 100;
     public static final int SHUFFLE_ANIMATION_DELAY = 250;
+    // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
+    private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f},
     new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
@@ -12256,24 +12258,75 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             "/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
                 }
 
-                ImageIcon icon = new ImageIcon(url_icon);
+                float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
-                if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+                // Motor pre-decodificado con catch-up: los frames se decodifican AQUÍ
+                // (el coste lo absorbe la pausa de abajo vía lapsed) y la reproducción
+                // elige el frame por tiempo transcurrido, así la animación dura siempre
+                // lo nominal aunque el timer de Windows vaya grueso. Si el GIF no se
+                // deja pre-decodificar, la ruta legacy (animador Toolkit) sigue intacta.
+                PreRenderedGif anim = null;
+                int display_w = 0;
+                int display_h = 0;
 
-                    ImageIcon icon_gifsicle = Helpers.genGifsicleCardAnimation(url_icon,
-                            (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP),
-                            baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+                try {
+                    if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
-                    if (icon_gifsicle != null) {
-                        icon = icon_gifsicle;
+                        String gifsicle_path = Helpers.genGifsicleCardAnimationPath(url_icon, zoom_factor,
+                                baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+
+                        if (gifsicle_path != null) {
+                            anim = PreRenderedGif.decode(Paths.get(gifsicle_path).toUri().toURL());
+                            display_w = anim.getWidth();
+                            display_h = anim.getHeight();
+                        } else {
+                            // Sin caché gifsicle todavía: frames a tamaño base estirados
+                            // al zoom en el paint (GifLabel pinta a bounds con bilinear).
+                            anim = PreRenderedGif.decode(url_icon);
+                            display_w = Math.round(anim.getWidth() * zoom_factor);
+                            display_h = Math.round(anim.getHeight() * zoom_factor);
+                        }
                     } else {
-                        int w = icon.getIconWidth();
-                        int h = icon.getIconHeight();
-                        icon = new ImageIcon(icon.getImage().getScaledInstance(
-                                Math.round(w * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)),
-                                Math.round(h * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)),
-                                Image.SCALE_DEFAULT));
+                        anim = PreRenderedGif.decode(url_icon);
+                        display_w = anim.getWidth();
+                        display_h = anim.getHeight();
                     }
+                } catch (Exception ex) {
+                    anim = null;
+                    LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
+                }
+
+                if (anim != null && !PRE_RENDERED_ENGINE_LOGGED) {
+                    PRE_RENDERED_ENGINE_LOGGED = true;
+                    LOGGER.log(Level.INFO, "Card flip animations: pre-rendered catch-up engine active ({0} frames / {1} ms)",
+                            new Object[]{anim.getFrameCount(), anim.getTotalMs()});
+                }
+
+                ImageIcon icon = null;
+
+                if (anim == null) {
+
+                    icon = new ImageIcon(url_icon);
+
+                    if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+
+                        ImageIcon icon_gifsicle = Helpers.genGifsicleCardAnimation(url_icon, zoom_factor,
+                                baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+
+                        if (icon_gifsicle != null) {
+                            icon = icon_gifsicle;
+                        } else {
+                            int w = icon.getIconWidth();
+                            int h = icon.getIconHeight();
+                            icon = new ImageIcon(icon.getImage().getScaledInstance(
+                                    Math.round(w * zoom_factor),
+                                    Math.round(h * zoom_factor),
+                                    Image.SCALE_DEFAULT));
+                        }
+                    }
+
+                    display_w = icon.getIconWidth();
+                    display_h = icon.getIconHeight();
                 }
 
                 long lapsed = System.currentTimeMillis() - start;
@@ -12284,14 +12337,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 : PAUSA_DESTAPAR_CARTA - lapsed));
 
                 final ImageIcon ficon = icon;
+                final int fdw = display_w;
+                final int fdh = display_h;
 
                 Helpers.GUIRunAndWait(() -> {
                     int x = (int) ((int) ((carta.getLocationOnScreen().getX() + Math.round(carta.getWidth() / 2))
-                            - Math.round(ficon.getIconWidth() / 2))
+                            - Math.round(fdw / 2))
                             - GameFrame.getInstance().getTapete().getLocationOnScreen().getX());
 
                     int y = (int) ((int) ((carta.getLocationOnScreen().getY() + Math.round(carta.getHeight() / 2))
-                            - Math.round(ficon.getIconHeight() / 2))
+                            - Math.round(fdh / 2))
                             - GameFrame.getInstance().getTapete().getLocationOnScreen().getY());
 
                     GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
@@ -12299,8 +12354,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     carta.setVisibleCard(false);
                 });
 
-                GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false,
-                        "misc/uncover.wav", 1, -1);
+                if (anim != null) {
+                    GameFrame.getInstance().getTapete().showCentralFrames(anim, fdw, fdh, CARD_ANIMATION_DELAY,
+                            "misc/uncover.wav");
+                } else {
+                    GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false,
+                            "misc/uncover.wav", 1, -1);
+                }
 
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);

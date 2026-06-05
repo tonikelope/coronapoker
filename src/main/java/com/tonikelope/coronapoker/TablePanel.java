@@ -37,7 +37,9 @@ import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -51,6 +53,11 @@ import javax.swing.JPanel;
  * @author tonikelope
  */
 public abstract class TablePanel extends javax.swing.JLayeredPane implements ZoomableInterface {
+
+    // Tick del reproductor pre-decodificado (showCentralFrames). No marca el
+    // ritmo de la animación (eso lo hace el indexado por nanoTime), solo la
+    // frecuencia con la que se reevalúa qué frame toca.
+    public static final int PRE_RENDERED_TICK_MS = 10;
 
     protected volatile TexturePaint tp = null;
 
@@ -200,6 +207,86 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             if (Thread.currentThread().threadId() == central_label_thread) {
 
                 Helpers.GUIRunAndWait(() -> {
+                    getCentral_label().setVisible(false);
+                });
+            }
+        }
+    }
+
+    // Reproduce un GIF pre-decodificado sobre la central_label con indexado por
+    // reloj (catch-up): el frame visible se elige por tiempo transcurrido con
+    // nanoTime, así la duración total es siempre la nominal del GIF aunque los
+    // ticks del timer lleguen tarde (granularidad del timer de Windows). Mismo
+    // contrato que showCentralImage: bloquea al llamante hasta el fin de la
+    // animación (con el mismo timeout) y respeta fin_de_la_transmision y el
+    // takeover de central_label_thread.
+    public void showCentralFrames(PreRenderedGif anim, int display_w, int display_h, int delay_end, String audio) {
+
+        central_label_thread = Thread.currentThread().threadId();
+
+        final CountDownLatch finished = new CountDownLatch(1);
+
+        Helpers.GUIRunAndWait(() -> {
+
+            getCentral_label().setSize(display_w, display_h);
+
+            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+                getCentral_label().setIcon(null);
+                getCentral_label().setFrameOverride(anim.getFrame(0));
+                getCentral_label().setVisible(true);
+
+                if (audio != null) {
+                    Audio.playWavResource(audio);
+                }
+
+                final long t0 = System.nanoTime();
+                final int last_frame = anim.getFrameCount() - 1;
+                final int[] painted = {0};
+
+                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+
+                player.addActionListener(e -> {
+
+                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+
+                    int idx = anim.frameAt(elapsed);
+
+                    if (idx != painted[0]) {
+                        painted[0] = idx;
+                        getCentral_label().setFrameOverride(anim.getFrame(idx));
+                    }
+
+                    if (idx == last_frame || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                        player.stop();
+                        finished.countDown();
+                    }
+                });
+
+                player.start();
+
+            } else {
+                finished.countDown();
+            }
+        });
+
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
+
+            try {
+                finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+            } catch (InterruptedException ex) {
+                Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                        "central label pre-rendered playback", ex);
+            }
+
+            if (delay_end > 0) {
+                Helpers.parkThreadMillis(delay_end);
+            }
+
+            if (Thread.currentThread().threadId() == central_label_thread) {
+
+                Helpers.GUIRunAndWait(() -> {
+                    getCentral_label().setFrameOverride(null);
                     getCentral_label().setVisible(false);
                 });
             }

@@ -29,7 +29,10 @@ https://github.com/tonikelope/coronapoker
 package com.tonikelope.coronapoker;
 
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -54,6 +57,11 @@ public class GifLabel extends JLabel {
     private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
 
+    // Frame pre-decodificado servido por TablePanel.showCentralFrames (motor
+    // con catch-up de los giros de carta). Mientras no es null tiene prioridad
+    // sobre el icono y se pinta estirado a los bounds como el resto de GIFs.
+    private volatile BufferedImage frame_override = null;
+
     public GifLabel() {
     }
 
@@ -65,6 +73,7 @@ public class GifLabel extends JLabel {
         repeat = 1;
         audio = null;
         audio_playing = false;
+        frame_override = null;
 
         // Toolkit.getImage(URL) caches Images by URL for the entire JVM lifetime
         // and the GIF's internal frame counter survives across dialog instances.
@@ -107,10 +116,24 @@ public class GifLabel extends JLabel {
         }
     }
 
+    public void setFrameOverride(BufferedImage frame) {
+        this.frame_override = frame;
+        repaint();
+    }
+
     // Hardware-accelerated dynamic scaling.
     // Instead of scaling the image pixel by pixel in CPU, we stretch it dynamically on the GPU.
     @Override
     protected void paintComponent(Graphics g) {
+        BufferedImage override = frame_override;
+        if (override != null) {
+            Graphics2D g2d = (Graphics2D) g;
+            if (override.getWidth() != getWidth() || override.getHeight() != getHeight()) {
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            }
+            g2d.drawImage(override, 0, 0, getWidth(), getHeight(), null);
+            return;
+        }
         if (getIcon() != null && getIcon() instanceof ImageIcon) {
             Image img = ((ImageIcon) getIcon()).getImage();
             if (img != null) {

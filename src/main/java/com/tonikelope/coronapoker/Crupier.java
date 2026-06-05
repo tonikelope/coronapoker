@@ -2533,6 +2533,104 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return turno;
     }
 
+    // Apaga el flag de cinemática en curso y despierta a los hilos que esperan
+    // su final en LOCK_CINEMATICS (watcher de _cinematicAllin, turno de los
+    // bots). Para los early-outs que NO van a reproducir animación: el caller
+    // (botón all-in local / RemotePlayer.allin) ya puso PLAYING_CINEMATIC=true.
+    private void cinematicOff() {
+        Init.PLAYING_CINEMATIC = false;
+
+        synchronized (Init.LOCK_CINEMATICS) {
+            Init.LOCK_CINEMATICS.notifyAll();
+        }
+    }
+
+    // Bolsa de cinemáticas de all-in: índices de allin_cinematics barajados
+    // con el CSPRNG. En vez de tirar un dado por all-in (que por azar repite
+    // la misma varias veces seguidas), cada jugador baraja localmente TODAS
+    // las animaciones en su primer all-in de la timba (Crupier nuevo por
+    // partida = bolsa nueva) y las va consumiendo en orden; al agotarse se
+    // rebaraja. El guard de la frontera evita además repetir entre el final
+    // de una bolsa y el comienzo de la siguiente. La elección sigue siendo
+    // local del que actúa (viaja a los demás dentro del ACTION), así que la
+    // bolsa no necesita sincronía con nadie.
+    private final ArrayList<Integer> allin_cinematic_bag = new ArrayList<>();
+    private int last_allin_cinematic = -1;
+
+    private int nextAllinCinematic(int total) {
+        if (this.allin_cinematic_bag.isEmpty()) {
+            for (int i = 0; i < total; i++) {
+                this.allin_cinematic_bag.add(i);
+            }
+            Collections.shuffle(this.allin_cinematic_bag, Helpers.CSPRNG_GENERATOR);
+            // Se consume desde el final (remove O(1)): si el primero en salir
+            // del rebarajado repitiera el último mostrado, se permuta con otra
+            // posición al azar (solo posible con 2+ animaciones).
+            if (total > 1 && this.allin_cinematic_bag.get(total - 1) == this.last_allin_cinematic) {
+                Collections.swap(this.allin_cinematic_bag, total - 1, Helpers.CSPRNG_GENERATOR.nextInt(total - 1));
+            }
+        }
+        this.last_allin_cinematic = this.allin_cinematic_bag.remove(this.allin_cinematic_bag.size() - 1);
+        return this.last_allin_cinematic;
+    }
+
+    // Duración de una cinemática del catálogo local: la declarada en la tabla
+    // o, si la entrada no la trae, la del propio GIF (mod primero, bundled
+    // después). 0 si no se pudo determinar.
+    private long allinCinematicPausa(Object[] cinematic) {
+
+        String filename = (String) cinematic[0];
+
+        long pausa = 0L;
+
+        if (cinematic.length > 1) {
+
+            pausa = (long) cinematic[1];
+
+        } else if (Files
+                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
+
+            try {
+                pausa = Helpers.getGIFLength(
+                        Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri()
+                                .toURL());
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
+            try {
+                pausa = Helpers
+                        .getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return pausa;
+    }
+
+    // URL local de un GIF de cinemática de all-in: mod primero (si el fichero
+    // del mod existe, NO se cae al bundled aunque su URL falle — mismo
+    // comportamiento de siempre), bundled después, null si no existe en esta
+    // máquina.
+    private URL resolveAllinCinematicURL(String filename) {
+
+        if (Init.MOD != null && Files
+                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
+            try {
+                return Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
+                        .toUri().toURL();
+            } catch (MalformedURLException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+                return null;
+            }
+        }
+
+        return getClass().getResource("/cinematics/allin/" + filename);
+    }
+
     public boolean localCinematicAllin() {
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
@@ -2543,36 +2641,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             Object[][] allin_cinematics = map.get("allin/");
 
-            int r = Helpers.CSPRNG_GENERATOR.nextInt(allin_cinematics.length);
+            int r = nextAllinCinematic(allin_cinematics.length);
 
             String filename = (String) allin_cinematics[r][0];
 
-            long pausa = 0L;
-
-            if (allin_cinematics[r].length > 1) {
-
-                pausa = (long) allin_cinematics[r][1];
-
-            } else if (Files
-                    .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-
-                try {
-                    pausa = Helpers.getGIFLength(
-                            Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri()
-                                    .toURL());
-
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
-                try {
-                    pausa = Helpers
-                            .getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
-
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            }
+            long pausa = allinCinematicPausa(allin_cinematics[r]);
 
             if (pausa != 0L) {
 
@@ -2600,15 +2673,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
-                    Init.PLAYING_CINEMATIC = false;
+                    cinematicOff();
                     this.current_local_cinematic_b64 = null;
                 }
             } else {
-                Init.PLAYING_CINEMATIC = false;
+                cinematicOff();
                 this.current_local_cinematic_b64 = null;
             }
         } else {
-            Init.PLAYING_CINEMATIC = false;
+            cinematicOff();
             this.current_local_cinematic_b64 = null;
         }
 
@@ -2632,42 +2705,77 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             } catch (UnsupportedEncodingException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
-                Init.PLAYING_CINEMATIC = false;
+                cinematicOff();
                 setCurrent_remote_cinematic_b64(null);
             }
 
         } else {
-            Init.PLAYING_CINEMATIC = false;
+            // Camino de TODOS los all-in de bot (no llevan cinemática): el
+            // notify de cinematicOff evita que el siguiente bot en turno se
+            // coma el timed-wait entero por ver el flag aún encendido.
+            cinematicOff();
         }
 
         return false;
 
     }
 
-    private boolean _cinematicAllin(String filename, long pausa) {
+    private boolean _cinematicAllin(String announced_filename, long announced_pausa) {
 
-        if (!this.sincronizando_mano) {
+        // MODs: el GIF anunciado en el ACTION sale del catálogo de QUIEN actúa,
+        // y esta máquina puede no tenerlo. Si no se resuelve localmente y hay
+        // catálogo propio, se sustituye por la siguiente cinemática de la
+        // bolsa local (mismo sistema barajado que para los all-in propios),
+        // con SU duración (si no se pudo determinar, se conserva la anunciada:
+        // el diálogo cierra solo al acabar los frames y la duración solo pauta
+        // el remanente del skip).
+        String chosen_filename = announced_filename;
+        long chosen_pausa = announced_pausa;
+
+        if (!this.sincronizando_mano && GameFrame.CINEMATICAS
+                && resolveAllinCinematicURL(announced_filename) == null) {
+
+            Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
+                    : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
+
+            if (map.containsKey("allin/") && map.get("allin/").length > 0) {
+
+                Object[][] allin_cinematics = map.get("allin/");
+
+                Object[] sustituta = allin_cinematics[nextAllinCinematic(allin_cinematics.length)];
+
+                chosen_filename = (String) sustituta[0];
+
+                long sub_pausa = allinCinematicPausa(sustituta);
+
+                if (sub_pausa != 0L) {
+                    chosen_pausa = sub_pausa;
+                }
+
+                LOGGER.log(Level.INFO, "All-in cinematic {0} not available locally — substituting {1}", new Object[]{announced_filename, chosen_filename});
+            }
+        }
+
+        final String filename = chosen_filename;
+        final long pausa = chosen_pausa;
+
+        if (this.sincronizando_mano) {
+            // Replay de recovery: la cinemática se omite, pero el caller
+            // (RemotePlayer.allin / botón local) ya puso PLAYING_CINEMATIC=true.
+            // Hay que apagarlo aquí o el flag quedaría atascado en true y la
+            // espera de los bots al fin de la cinemática se bloquearía tras
+            // la recuperación.
+            cinematicOff();
+            this.current_remote_cinematic_b64 = null;
+
+        } else {
 
             Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
             if (GameFrame.CINEMATICAS) {
 
                 final ImageIcon icon;
-                URL url_icon = null;
-
-                if (Init.MOD != null && Files
-                        .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-                    try {
-                        url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
-                                .toUri().toURL();
-                    } catch (MalformedURLException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                    }
-                } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
-                    url_icon = getClass().getResource("/cinematics/allin/" + filename);
-                } else {
-                    url_icon = null;
-                }
+                URL url_icon = resolveAllinCinematicURL(filename);
 
                 if (url_icon != null) {
 
@@ -3009,9 +3117,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirRebuys(ArrayList<String> pending) {
 
-        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+        // Barra de tiempo: se llena y baja en smooth los segundos de decisión
+        // del game over (los mismos que marca la cuenta atrás "¿RECOMPRA? (N)"
+        // de la action label); al agotarse pasa a indeterminada (en el bucle
+        // de abajo) hasta que lleguen los REBUY o salten los timeouts de
+        // seguridad del crupier.
+        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
+
+        // Visual "¿RECOMPRA? (N)": cuenta atrás LOCAL en la action label de los
+        // humanos arruinados mientras deciden en su máquina (sin sincronía con
+        // su GameOverDialog real — cosmético). Bots fuera: en el host ni
+        // entran en pending y en los clientes su REBUY llega al instante.
+        for (String nick : pending) {
+            Player jugador = nick2player.get(nick);
+            Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
+            if (jugador instanceof RemotePlayer && !jugador.isExit()
+                    && participante != null && !participante.isCpu()) {
+                ((RemotePlayer) jugador).setRebuying(true);
+            }
+        }
 
         long start_time = System.currentTimeMillis();
+        long barra_start = start_time;
+        boolean barra_indeterminada = false;
         boolean timeout = false;
 
         while (!pending.isEmpty() && !timeout) {
@@ -3042,6 +3170,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 continue;
                             }
                             jugador.setTimeout(false);
+                            // Decisión recibida: para la cuenta atrás visual y
+                            // restaura el texto previo (si se queda espectador,
+                            // el setSpectator de abajo repinta encima).
+                            if (jugador instanceof RemotePlayer) {
+                                ((RemotePlayer) jugador).setRebuying(false);
+                            }
 
                             if (GameFrame.getInstance().isPartida_local()) {
                                 broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
@@ -3072,17 +3206,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!pending.isEmpty()) {
+                // Decisión agotada (los segundos del smoothCountdown de arriba):
+                // barra a indeterminada hasta que lleguen los REBUY que faltan o
+                // salte el timeout de seguridad. Si llegan antes, el bucle sale
+                // solo y el resetBarra final cancela el smooth — la mano
+                // siguiente arranca sin esperar a que la barra termine.
+                if (!barra_indeterminada
+                        && System.currentTimeMillis() - barra_start > GameOverDialog.REBUY_DIALOG_COUNTDOWN * 1000L) {
+                    barra_indeterminada = true;
+                    Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+                }
+
                 Iterator<String> iterator = pending.iterator();
                 while (iterator.hasNext()) {
                     String nick = iterator.next();
                     Player jp = nick2player.get(nick);
                     if (jp != null && jp.isExit()) {
+                        // Se fue en pleno rebuy (cierre/desconexión): fuera de
+                        // la espera y fuera la cuenta atrás visual (el guard de
+                        // exit en setRebuying no toca el visual de SE PIRA).
+                        if (jp instanceof RemotePlayer) {
+                            ((RemotePlayer) jp).setRebuying(false);
+                        }
                         iterator.remove();
                     }
                 }
 
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
+                    // La barra smooth se congela durante la pausa (deadline
+                    // empujado en smoothCountdown): empujamos también el
+                    // instante del flip a indeterminada para no cortarla.
+                    barra_start = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (GameFrame.getInstance().isPartida_local()) {
                         // Jugador no respondió al rebuy en el tiempo esperado:
@@ -3098,6 +3253,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (jpk != null && !jpk.isExit()) {
                                 jpk.setSpectator(null);
                                 jpk.setTimeout(false);
+                            }
+                            // Para la cuenta atrás visual; con spectator ya
+                            // puesto, el restore se omite y manda el repaint
+                            // de setSpectator.
+                            if (jpk instanceof RemotePlayer) {
+                                ((RemotePlayer) jpk).setRebuying(false);
                             }
                         }
                         timeout = true;
@@ -9506,6 +9667,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     action = new Object[]{decision, current_player.getBet(), null};
 
                 } else {
+                    // Misma condición de siempre del branch del bot, izada para poder
+                    // consultarla ANTES de esTuTurno sin cambiar su semántica.
+                    final boolean bot_del_host = GameFrame.getInstance().isPartida_local()
+                            && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()) != null
+                            && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()).isCpu();
+
+                    // Cinemática de all-in en curso (la del jugador local o la de un
+                    // humano remoto): a un BOT no se le activa el turno (esTuTurno:
+                    // borde naranja, barra, decisión) hasta que la animación termine
+                    // en esta máquina. La acción del all-in ya viajó/se pintó en el
+                    // momento del botón (eso no se toca); en red el freno de los
+                    // humanos lo pone su propio modal, pero el bot corre en este
+                    // hilo y se adelantaba: recibía el turno y actuaba detrás de la
+                    // animación. Timed-wait robusto a notify perdidos (mismo patrón
+                    // que el watcher de _cinematicAllin); TODOS los finales de la
+                    // cinemática (frames completos, skip por click, sin GIF,
+                    // CINEMATICAS off, replay de recovery) apagan el flag y
+                    // notifican LOCK_CINEMATICS, y durante el replay de recovery el
+                    // flag está apagado (espera inerte).
+                    if (bot_del_host) {
+                        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()) {
+                            synchronized (Init.LOCK_CINEMATICS) {
+                                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()) {
+                                    break;
+                                }
+                                try {
+                                    Init.LOCK_CINEMATICS.wait(1000);
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
                     current_player.esTuTurno();
                     // Identity: no longer skip
                     // readActionFromRemotePlayer when current_player.isExit() at the
@@ -9515,9 +9711,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // its own privkey. The host's §4.5 autofold ACTION now flows
                     // through readActionFromRemotePlayer's existing isExit handler
                     // (host) and the queue drain (clients receive the host's wire).
-                    if (GameFrame.getInstance().isPartida_local()
-                            && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()) != null
-                            && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
+                    if (bot_del_host) {
                         if (!eraSincronizacion || (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) == null) {
                             long start = System.currentTimeMillis();
                             float call_required = getApuesta_actual() - current_player.getBet();
@@ -9634,8 +9828,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Cinematic_or_* field is now always present in the wire (fixed slot).
                 String cinematicField = "*";
                 if (decision == Player.ALLIN) {
-                    if (current_player == GameFrame.getInstance().getLocalPlayer()
-                            && !GameFrame.getInstance().isPartida_local()) {
+                    if (current_player == GameFrame.getInstance().getLocalPlayer()) {
+                        // Acción PROPIA (host o cliente): adjunta la cinemática que
+                        // eligió localCinematicAllin. El host quedaba fuera de esta
+                        // rama (la condición exigía !isPartida_local()) y caía al
+                        // else-if con current_remote_cinematic_b64 — null para una
+                        // acción propia — así que sus all-in difundían "*" y los
+                        // clientes no reproducían GIF ni limbo para ellos (asimetría
+                        // heredada del código pre-identity). El campo no forma parte
+                        // del record firmado: cero impacto en firmas/chain.
                         if (this.current_local_cinematic_b64 != null) {
                             cinematicField = this.current_local_cinematic_b64;
                         }

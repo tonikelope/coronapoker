@@ -39,6 +39,10 @@ import javax.swing.JDialog;
 public class GameOverDialog extends JDialog {
 
     public static final int COUNTDOWN_PAUSE = 1350;
+    // Segundos del RebuyDialog del game over para decidir la recompra. Misma
+    // cifra que usa la cuenta atrás visual "¿RECOMPRA? (N)" que los demás ven
+    // en el RemotePlayer del arruinado (RemotePlayer.setRebuying).
+    public static final int REBUY_DIALOG_COUNTDOWN = 10;
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;
@@ -289,7 +293,7 @@ public class GameOverDialog extends JDialog {
 
         dispose();
 
-        buyin_dialog = new RebuyDialog(GameFrame.getInstance(), true, false, 10);
+        buyin_dialog = new RebuyDialog(GameFrame.getInstance(), true, false, REBUY_DIALOG_COUNTDOWN);
 
         buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 

@@ -1140,6 +1140,21 @@ public class WaitingRoomFrame extends JFrame {
         return net_client.readCommand();
     }
 
+    // True si la timba YA terminó para este peer (su Crupier salió del bucle
+    // run() con fin_de_la_transmision): la reconexión automática no aplica —
+    // el cierre del socket del server es el final normal de la partida, no
+    // una caída. OJO: el flag exit de esta clase se levanta más tarde
+    // (GameFrame.finTransmision, tras el volcado de logs/SQL/chat), así que
+    // sin esta consulta el reader detecta el cierre del host ANTES de
+    // exit=true (carrera host-termina-primero, p.ej. host arruinado que pasa
+    // a espectador y deja la timba con un solo jugador) y dispara
+    // reconexiones espurias con sus banners encima del BalanceDialog.
+    private boolean timbaTerminada() {
+        return isPartida_empezada() && GameFrame.getInstance() != null
+                && GameFrame.getInstance().getCrupier() != null
+                && GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
+    }
+
     // Función AUTO-RECONNECT
     public boolean reconectarCliente() {
 
@@ -1343,7 +1358,7 @@ public class WaitingRoomFrame extends JFrame {
                         if (!ok_rec) {
 
                             if (WaitingRoomFrame.getInstance().isPartida_empezada()
-                                    && GameFrame.getInstance() != null) {
+                                    && GameFrame.getInstance() != null && !timbaTerminada()) {
                                 Helpers.GUIRun(() -> {
                                     InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
                                             Translator.translate("conn.no_se_pudo_reconectar_con"), Color.RED,
@@ -1419,7 +1434,7 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     }
 
-                } while (!exit && !ok_rec && (!WaitingRoomFrame.getInstance().isPartida_empezada()
+                } while (!exit && !ok_rec && !timbaTerminada() && (!WaitingRoomFrame.getInstance().isPartida_empezada()
                         || !GameFrame.getInstance().getLocalPlayer().isExit()));
 
                 if (net_client.getReconnect_dialog() != null) {
@@ -1628,7 +1643,7 @@ public class WaitingRoomFrame extends JFrame {
                 }
 
                 if (mensaje_recibido == null) {
-                    if (!exit && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada())
+                    if (!exit && !timbaTerminada() && ((WaitingRoomFrame.getInstance() != null && !isPartida_empezada())
                             || (GameFrame.getInstance() != null && !GameFrame.getInstance().getLocalPlayer().isExit()))) {
 
                         if (!reconectarCliente()) {

@@ -1182,6 +1182,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
+        // Retención del turno (mismo orden que el all-in del jugador local): la
+        // réplica no consuma el all-in hasta que SU copia de la cinemática
+        // termine — el bucle de apuestas local queda parado en este turno y la
+        // secuencia turno → GIF → ALL-IN → siguiente turno es idéntica en todas
+        // las máquinas. Los all-in de bot no llevan cinemática (b64 null):
+        // remoteCinematicAllin apaga el flag al instante y aquí no se espera.
+        GameFrame.getInstance().getCrupier().esperarFinCinematica();
+
         setDecision(Player.ALLIN);
 
         setBet(this.stack + this.bet);

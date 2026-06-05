@@ -118,6 +118,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile String player_action_icon = null;
     private volatile Timer icon_zoom_timer = null;
     private volatile Timer iwtsth_blink_timer = null;
+    private volatile Timer rebuy_countdown_timer = null;
+    private volatile String rebuy_countdown_saved_text = null;
     private volatile boolean notify_blocked = false;
     private volatile URL chat_notify_image_url = null;
     private volatile Long chat_notify_thread = null;
@@ -2621,6 +2623,47 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             });
 
         }
+    }
+
+    // Cuenta atrás visual "¿RECOMPRA? (N)" en la action label mientras este
+    // humano remoto decide EN SU máquina si recompra (GameOverDialog/
+    // RebuyDialog locales). Puramente cosmética y solo para humanos: la
+    // activa/apaga recibirRebuys (en el host los bots ni entran en la espera
+    // y en los clientes su REBUY llega al instante desde el host). Mantiene
+    // la calavera de checkGameOver (no toca el icono); cuenta desde
+    // REBUY_TIMEOUT en segundos hasta quedarse en "¿RECOMPRA?" a secas
+    // (nunca muestra el cero). Al apagarse restaura el texto previo (la
+    // jugada con la que perdió); si la decisión fue quedarse de espectador,
+    // setSpectator ya puso this.spectator y el restore se omite (su repaint
+    // manda). Todo corre en el EDT (Timer de Swing).
+    public void setRebuying(boolean rebuying) {
+        Helpers.GUIRun(() -> {
+            if (rebuying) {
+                if (this.exit || this.spectator
+                        || (rebuy_countdown_timer != null && rebuy_countdown_timer.isRunning())) {
+                    return;
+                }
+                rebuy_countdown_saved_text = player_action.getText();
+                final int[] count = {Math.round(GameFrame.REBUY_TIMEOUT / 1000f)};
+                player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
+                rebuy_countdown_timer = new Timer(1000, (e) -> {
+                    if (--count[0] > 0) {
+                        player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
+                    } else {
+                        player_action.setText(Translator.translate("rebuy.recompra_3"));
+                        ((Timer) e.getSource()).stop();
+                    }
+                });
+                rebuy_countdown_timer.start();
+            } else if (rebuy_countdown_timer != null) {
+                rebuy_countdown_timer.stop();
+                rebuy_countdown_timer = null;
+                if (!this.exit && !this.spectator && rebuy_countdown_saved_text != null) {
+                    player_action.setText(rebuy_countdown_saved_text);
+                }
+                rebuy_countdown_saved_text = null;
+            }
+        });
     }
 
     @Override

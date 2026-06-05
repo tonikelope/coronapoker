@@ -1953,6 +1953,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return iwtsth_blink_timer;
     }
 
+    public Timer getRebuy_countdown_timer() {
+        return rebuy_countdown_timer;
+    }
+
     @Override
     public void setLoser(String msg) {
         this.loser = true;
@@ -2649,6 +2653,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 rebuy_countdown_saved_text = player_action.getText();
                 final int[] count = {GameOverDialog.REBUY_DIALOG_COUNTDOWN};
                 player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
+                // repaint() del slot completo tras cada setText (mismo idiom que
+                // setPlayerActionIcon): el slot y el action panel son rounded
+                // rects opacos que NO pintan sus esquinas (RoundedPanel /
+                // paintComponent de esta clase), así que un repaint parcial
+                // disparado solo por el label deja píxeles huérfanos en las
+                // 4 esquinas (negros sobre el fondo rojo de arruinado).
+                repaint();
                 rebuy_countdown_timer = new Timer(1000, (e) -> {
                     if (--count[0] > 0) {
                         player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
@@ -2656,6 +2667,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_action.setText(Translator.translate("rebuy.recompra_3"));
                         ((Timer) e.getSource()).stop();
                     }
+                    repaint();
                 });
                 rebuy_countdown_timer.start();
             } else if (rebuy_countdown_timer != null) {
@@ -2663,6 +2675,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 rebuy_countdown_timer = null;
                 if (!this.exit && !this.spectator && rebuy_countdown_saved_text != null) {
                     player_action.setText(rebuy_countdown_saved_text);
+                    repaint();
                 }
                 rebuy_countdown_saved_text = null;
             }

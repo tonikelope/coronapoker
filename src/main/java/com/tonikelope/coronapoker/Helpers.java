@@ -4796,28 +4796,28 @@ public class Helpers {
 
         private static void generarRabbitMenu() {
 
-            Action rabbitOffAction = new AbstractAction("OFF") {
+            Action rabbitOffAction = new AbstractAction(Translator.translate("menu.off")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_rabbit_off().doClick();
                 }
             };
 
-            Action rabbitFreeAction = new AbstractAction("FREE") {
+            Action rabbitFreeAction = new AbstractAction(Translator.translate("menu.free")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_rabbit_free().doClick();
                 }
             };
 
-            Action rabbitSbAction = new AbstractAction("FREE + SB") {
+            Action rabbitSbAction = new AbstractAction(Translator.translate("menu.free_sb")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_rabbit_sb().doClick();
                 }
             };
 
-            Action rabbitBbAction = new AbstractAction("FREE + SB + BB") {
+            Action rabbitBbAction = new AbstractAction(Translator.translate("menu.free_sb_bb")) {
                 @Override
                 public void actionPerformed(ActionEvent ae) {
                     GameFrame.getInstance().getMenu_rabbit_bb().doClick();

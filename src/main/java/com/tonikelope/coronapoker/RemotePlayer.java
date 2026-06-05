@@ -1306,6 +1306,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             panel_cartas.add(chat_notify_label, Integer.valueOf(1002));
             rebuy_gif_label.setVisible(false);
             rebuy_gif_label.setFocusable(false);
+            // A diferencia del chat_notify_label, este GIF NO se oculta con
+            // click: listener vacío que además consume el evento (sin él, el
+            // click atravesaría la label y abriría el visor de la carta de
+            // debajo). Lo retira solo setRebuying(false).
+            rebuy_gif_label.addMouseListener(new MouseAdapter() {
+            });
             panel_cartas.add(rebuy_gif_label, Integer.valueOf(1001));
             chip_label.setVisible(false);
             chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));

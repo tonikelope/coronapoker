@@ -289,6 +289,44 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    // Recoloca/redimensiona el GIF de game over del rebuy si está visible.
+    // Lo llaman vistaCompacta y el icon_zoom_timer tras un resize (vista
+    // compacta, zoom), igual que refreshNotifyChatLabel para los GIFs del
+    // chat: este GIF dura toda la decisión del arruinado y sin esto se
+    // quedaría con la geometría del momento del show. GifLabel estira la
+    // Image a los bounds en el paint (GPU), así que basta recalcular bounds
+    // con el MISMO cálculo del show — sin recargar el icono ni tocar la
+    // animación en curso.
+    public void refreshRebuyGifLabel() {
+
+        Helpers.GUIRun(() -> {
+            if (!rebuy_gif_label.isVisible() || !(rebuy_gif_label.getIcon() instanceof ImageIcon)) {
+                return;
+            }
+
+            ImageIcon icon = (ImageIcon) rebuy_gif_label.getIcon();
+
+            if (icon.getIconWidth() <= 0 || icon.getIconHeight() <= 0) {
+                return;
+            }
+
+            int max_width = panel_cartas.getWidth();
+            int new_height = panel_cartas.getHeight();
+            int new_width = (int) Math.round((icon.getIconWidth() * new_height) / icon.getIconHeight());
+
+            if (new_width > max_width) {
+                new_height = (int) Math.round((new_height * max_width) / new_width);
+                new_width = max_width;
+            }
+
+            rebuy_gif_label.setSize(new_width, new_height);
+            rebuy_gif_label.setPreferredSize(rebuy_gif_label.getSize());
+            rebuy_gif_label.setLocation(Math.round((panel_cartas.getWidth() - new_width) / 2), Math.round((getHoleCard1().getHeight() - new_height) / 2));
+            rebuy_gif_label.repaint();
+        });
+
+    }
+
     @Override
     public boolean isMuestra() {
         return muestra;
@@ -1331,6 +1369,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 holeCard1.updateImagePreloadCache();
                 holeCard2.updateImagePreloadCache();
                 refreshNotifyChatLabel();
+                refreshRebuyGifLabel();
             });
             icon_zoom_timer.setRepeats(false);
             icon_zoom_timer.setCoalesce(false);

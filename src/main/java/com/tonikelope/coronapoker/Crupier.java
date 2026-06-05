@@ -3117,12 +3117,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirRebuys(ArrayList<String> pending) {
 
-        // Barra de tiempo: se llena y baja en smooth los segundos de decisión
-        // del game over (los mismos que marca la cuenta atrás "¿RECOMPRA? (N)"
-        // de la action label); al agotarse pasa a indeterminada (en el bucle
-        // de abajo) hasta que lleguen los REBUY o salten los timeouts de
-        // seguridad del crupier.
-        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
+        // Barra de tiempo según el modo local (mismo snapshot de CINEMATICAS
+        // que decide el visual de los arruinados en setRebuying):
+        // - CINEMATICAS ON: el GIF de game over sobre las cartas YA es la
+        //   cuenta atrás → barra indeterminada desde el principio.
+        // - CINEMATICAS OFF: la barra se llena y baja en smooth los segundos
+        //   de decisión del game over (los mismos que marca la cuenta atrás
+        //   "¿RECOMPRA? (N)" de la action label) y al agotarse pasa a
+        //   indeterminada (en el bucle de abajo) hasta que lleguen los REBUY
+        //   o salten los timeouts de seguridad del crupier.
+        final boolean barra_smooth = !GameFrame.CINEMATICAS;
+        if (barra_smooth) {
+            Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
+        } else {
+            Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+        }
 
         // Visual "¿RECOMPRA? (N)": cuenta atrás LOCAL en la action label de los
         // humanos arruinados mientras deciden en su máquina (sin sincronía con
@@ -3170,11 +3179,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 continue;
                             }
                             jugador.setTimeout(false);
-                            // Decisión recibida: para la cuenta atrás visual y
-                            // restaura el texto previo (si se queda espectador,
-                            // el setSpectator de abajo repinta encima).
+                            // Decisión recibida: retira la cuenta atrás/GIF y pinta
+                            // el desenlace — "¡RECOMPRA!" si recompró (con un solo
+                            // arruinado la espera acaba al instante y sin esto no
+                            // daría tiempo a ver qué pasó); si no, restaura y el
+                            // setSpectator de abajo repinta encima.
+                            boolean recompra = (partes.length > 4)
+                                    ? (!partes[4].equals("0") && !atRebuyLimit(nick))
+                                    : !atRebuyLimit(nick);
                             if (jugador instanceof RemotePlayer) {
-                                ((RemotePlayer) jugador).setRebuying(false);
+                                ((RemotePlayer) jugador).setRebuying(false, recompra);
                             }
 
                             if (GameFrame.getInstance().isPartida_local()) {
@@ -3182,7 +3196,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (partes.length > 4) {
-                                if (partes[4].equals("0") || atRebuyLimit(nick)) {
+                                if (partes[4].equals("0")) {
+                                    // Pulsó ESPECTADOR en su game over: feedback
+                                    // explícito en el visual de espectador.
+                                    jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
+                                } else if (atRebuyLimit(nick)) {
                                     jugador.setSpectator(null);
                                 } else {
                                     rebuy_now.put(nick, Integer.parseInt(partes[4]));
@@ -3206,12 +3224,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!pending.isEmpty()) {
-                // Decisión agotada (los segundos del smoothCountdown de arriba):
-                // barra a indeterminada hasta que lleguen los REBUY que faltan o
-                // salte el timeout de seguridad. Si llegan antes, el bucle sale
-                // solo y el resetBarra final cancela el smooth — la mano
-                // siguiente arranca sin esperar a que la barra termine.
-                if (!barra_indeterminada
+                // Solo en modo barra smooth (CINEMATICAS off): decisión agotada
+                // (los segundos del smoothCountdown de arriba) → barra a
+                // indeterminada hasta que lleguen los REBUY que faltan o salte
+                // el timeout de seguridad. Si llegan antes, el bucle sale solo
+                // y el resetBarra final cancela el smooth — la mano siguiente
+                // arranca sin esperar a que la barra termine.
+                if (barra_smooth && !barra_indeterminada
                         && System.currentTimeMillis() - barra_start > GameOverDialog.REBUY_DIALOG_COUNTDOWN * 1000L) {
                     barra_indeterminada = true;
                     Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());

@@ -3112,7 +3112,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void recibirRebuys(ArrayList<String> pending) {
 
-        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+        // Barra de tiempo: se llena y baja en smooth los segundos de decisión
+        // del game over (los mismos que marca la cuenta atrás "¿RECOMPRA? (N)"
+        // de la action label); al agotarse pasa a indeterminada (en el bucle
+        // de abajo) hasta que lleguen los REBUY o salten los timeouts de
+        // seguridad del crupier.
+        Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
 
         // Visual "¿RECOMPRA? (N)": cuenta atrás LOCAL en la action label de los
         // humanos arruinados mientras deciden en su máquina (sin sincronía con
@@ -3128,6 +3133,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         long start_time = System.currentTimeMillis();
+        long barra_start = start_time;
+        boolean barra_indeterminada = false;
         boolean timeout = false;
 
         while (!pending.isEmpty() && !timeout) {
@@ -3194,6 +3201,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (!pending.isEmpty()) {
+                // Decisión agotada (los segundos del smoothCountdown de arriba):
+                // barra a indeterminada hasta que lleguen los REBUY que faltan o
+                // salte el timeout de seguridad. Si llegan antes, el bucle sale
+                // solo y el resetBarra final cancela el smooth — la mano
+                // siguiente arranca sin esperar a que la barra termine.
+                if (!barra_indeterminada
+                        && System.currentTimeMillis() - barra_start > GameOverDialog.REBUY_DIALOG_COUNTDOWN * 1000L) {
+                    barra_indeterminada = true;
+                    Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+                }
+
                 Iterator<String> iterator = pending.iterator();
                 while (iterator.hasNext()) {
                     String nick = iterator.next();
@@ -3211,6 +3229,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (GameFrame.getInstance().checkPause()) {
                     start_time = System.currentTimeMillis();
+                    // La barra smooth se congela durante la pausa (deadline
+                    // empujado en smoothCountdown): empujamos también el
+                    // instante del flip a indeterminada para no cortarla.
+                    barra_start = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
                     if (GameFrame.getInstance().isPartida_local()) {
                         // Jugador no respondió al rebuy en el tiempo esperado:

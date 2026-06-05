@@ -226,6 +226,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         final CountDownLatch finished = new CountDownLatch(1);
 
+        final javax.swing.Timer[] player_holder = new javax.swing.Timer[1];
+
         Helpers.GUIRunAndWait(() -> {
 
             getCentral_label().setSize(display_w, display_h);
@@ -245,6 +247,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final int[] painted = {0};
 
                 final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+
+                player_holder[0] = player;
 
                 player.addActionListener(e -> {
 
@@ -291,6 +295,16 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 });
             }
         }
+
+        // Cinturón y tirantes: para ESTE player pase lo que pase con la espera
+        // (timeout del latch, fin de transmisión, takeover). El Timer ya se
+        // auto-termina al llegar al último frame; esto solo cierra los caminos
+        // exóticos sin tocar el player de un posible nuevo dueño del label.
+        Helpers.GUIRun(() -> {
+            if (player_holder[0] != null) {
+                player_holder[0].stop();
+            }
+        });
     }
 
     public GifLabel getCentral_label() {

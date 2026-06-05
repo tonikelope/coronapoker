@@ -2381,6 +2381,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                             if (rp.getIwtsth_blink_timer() != null) {
                                 rp.getIwtsth_blink_timer().stop();
                             }
+                            if (rp.getRebuy_countdown_timer() != null) {
+                                rp.getRebuy_countdown_timer().stop();
+                            }
                         }
                     }
 

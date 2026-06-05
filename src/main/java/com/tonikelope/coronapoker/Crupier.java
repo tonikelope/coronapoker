@@ -2569,6 +2569,63 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return this.last_allin_cinematic;
     }
 
+    // Duración de una cinemática del catálogo local: la declarada en la tabla
+    // o, si la entrada no la trae, la del propio GIF (mod primero, bundled
+    // después). 0 si no se pudo determinar.
+    private long allinCinematicPausa(Object[] cinematic) {
+
+        String filename = (String) cinematic[0];
+
+        long pausa = 0L;
+
+        if (cinematic.length > 1) {
+
+            pausa = (long) cinematic[1];
+
+        } else if (Files
+                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
+
+            try {
+                pausa = Helpers.getGIFLength(
+                        Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri()
+                                .toURL());
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
+            try {
+                pausa = Helpers
+                        .getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return pausa;
+    }
+
+    // URL local de un GIF de cinemática de all-in: mod primero (si el fichero
+    // del mod existe, NO se cae al bundled aunque su URL falle — mismo
+    // comportamiento de siempre), bundled después, null si no existe en esta
+    // máquina.
+    private URL resolveAllinCinematicURL(String filename) {
+
+        if (Init.MOD != null && Files
+                .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
+            try {
+                return Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
+                        .toUri().toURL();
+            } catch (MalformedURLException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+                return null;
+            }
+        }
+
+        return getClass().getResource("/cinematics/allin/" + filename);
+    }
+
     public boolean localCinematicAllin() {
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
@@ -2583,32 +2640,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             String filename = (String) allin_cinematics[r][0];
 
-            long pausa = 0L;
-
-            if (allin_cinematics[r].length > 1) {
-
-                pausa = (long) allin_cinematics[r][1];
-
-            } else if (Files
-                    .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-
-                try {
-                    pausa = Helpers.getGIFLength(
-                            Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename).toUri()
-                                    .toURL());
-
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
-                try {
-                    pausa = Helpers
-                            .getGIFLength(getClass().getResource("/cinematics/allin/" + filename).toURI().toURL());
-
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
-            }
+            long pausa = allinCinematicPausa(allin_cinematics[r]);
 
             if (pausa != 0L) {
 
@@ -2683,7 +2715,44 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private boolean _cinematicAllin(String filename, long pausa) {
+    private boolean _cinematicAllin(String announced_filename, long announced_pausa) {
+
+        // MODs: el GIF anunciado en el ACTION sale del catálogo de QUIEN actúa,
+        // y esta máquina puede no tenerlo. Si no se resuelve localmente y hay
+        // catálogo propio, se sustituye por la siguiente cinemática de la
+        // bolsa local (mismo sistema barajado que para los all-in propios),
+        // con SU duración (si no se pudo determinar, se conserva la anunciada:
+        // el diálogo cierra solo al acabar los frames y la duración solo pauta
+        // el remanente del skip).
+        String chosen_filename = announced_filename;
+        long chosen_pausa = announced_pausa;
+
+        if (!this.sincronizando_mano && GameFrame.CINEMATICAS
+                && resolveAllinCinematicURL(announced_filename) == null) {
+
+            Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
+                    : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
+
+            if (map.containsKey("allin/") && map.get("allin/").length > 0) {
+
+                Object[][] allin_cinematics = map.get("allin/");
+
+                Object[] sustituta = allin_cinematics[nextAllinCinematic(allin_cinematics.length)];
+
+                chosen_filename = (String) sustituta[0];
+
+                long sub_pausa = allinCinematicPausa(sustituta);
+
+                if (sub_pausa != 0L) {
+                    chosen_pausa = sub_pausa;
+                }
+
+                LOGGER.log(Level.INFO, "All-in cinematic {0} not available locally — substituting {1}", new Object[]{announced_filename, chosen_filename});
+            }
+        }
+
+        final String filename = chosen_filename;
+        final long pausa = chosen_pausa;
 
         if (this.sincronizando_mano) {
             // Replay de recovery: la cinemática se omite, pero el caller
@@ -2701,21 +2770,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.CINEMATICAS) {
 
                 final ImageIcon icon;
-                URL url_icon = null;
-
-                if (Init.MOD != null && Files
-                        .exists(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename))) {
-                    try {
-                        url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/cinematics/allin/" + filename)
-                                .toUri().toURL();
-                    } catch (MalformedURLException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                    }
-                } else if (getClass().getResource("/cinematics/allin/" + filename) != null) {
-                    url_icon = getClass().getResource("/cinematics/allin/" + filename);
-                } else {
-                    url_icon = null;
-                }
+                URL url_icon = resolveAllinCinematicURL(filename);
 
                 if (url_icon != null) {
 

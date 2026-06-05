@@ -1083,6 +1083,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 jugador.refreshSecPotLabel();
                 jugador.refreshNotifyChatLabel();
             }
+            // El GIF de game over del rebuy dura toda la decisión del
+            // arruinado: recolócalo a la geometría compacta/normal nueva.
+            jugador.refreshRebuyGifLabel();
         }
 
     }

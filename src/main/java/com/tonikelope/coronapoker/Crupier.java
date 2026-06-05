@@ -2540,6 +2540,35 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // Bolsa de cinemáticas de all-in: índices de allin_cinematics barajados
+    // con el CSPRNG. En vez de tirar un dado por all-in (que por azar repite
+    // la misma varias veces seguidas), cada jugador baraja localmente TODAS
+    // las animaciones en su primer all-in de la timba (Crupier nuevo por
+    // partida = bolsa nueva) y las va consumiendo en orden; al agotarse se
+    // rebaraja. El guard de la frontera evita además repetir entre el final
+    // de una bolsa y el comienzo de la siguiente. La elección sigue siendo
+    // local del que actúa (viaja a los demás dentro del ACTION), así que la
+    // bolsa no necesita sincronía con nadie.
+    private final ArrayList<Integer> allin_cinematic_bag = new ArrayList<>();
+    private int last_allin_cinematic = -1;
+
+    private int nextAllinCinematic(int total) {
+        if (this.allin_cinematic_bag.isEmpty()) {
+            for (int i = 0; i < total; i++) {
+                this.allin_cinematic_bag.add(i);
+            }
+            Collections.shuffle(this.allin_cinematic_bag, Helpers.CSPRNG_GENERATOR);
+            // Se consume desde el final (remove O(1)): si el primero en salir
+            // del rebarajado repitiera el último mostrado, se permuta con otra
+            // posición al azar (solo posible con 2+ animaciones).
+            if (total > 1 && this.allin_cinematic_bag.get(total - 1) == this.last_allin_cinematic) {
+                Collections.swap(this.allin_cinematic_bag, total - 1, Helpers.CSPRNG_GENERATOR.nextInt(total - 1));
+            }
+        }
+        this.last_allin_cinematic = this.allin_cinematic_bag.remove(this.allin_cinematic_bag.size() - 1);
+        return this.last_allin_cinematic;
+    }
+
     public boolean localCinematicAllin() {
 
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
@@ -2550,7 +2579,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             Object[][] allin_cinematics = map.get("allin/");
 
-            int r = Helpers.CSPRNG_GENERATOR.nextInt(allin_cinematics.length);
+            int r = nextAllinCinematic(allin_cinematics.length);
 
             String filename = (String) allin_cinematics[r][0];
 

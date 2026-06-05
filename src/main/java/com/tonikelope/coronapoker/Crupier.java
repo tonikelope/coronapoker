@@ -9668,8 +9668,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Cinematic_or_* field is now always present in the wire (fixed slot).
                 String cinematicField = "*";
                 if (decision == Player.ALLIN) {
-                    if (current_player == GameFrame.getInstance().getLocalPlayer()
-                            && !GameFrame.getInstance().isPartida_local()) {
+                    if (current_player == GameFrame.getInstance().getLocalPlayer()) {
+                        // Acción PROPIA (host o cliente): adjunta la cinemática que
+                        // eligió localCinematicAllin. El host quedaba fuera de esta
+                        // rama (la condición exigía !isPartida_local()) y caía al
+                        // else-if con current_remote_cinematic_b64 — null para una
+                        // acción propia — así que sus all-in difundían "*" y los
+                        // clientes no reproducían GIF ni limbo para ellos (asimetría
+                        // heredada del código pre-identity). El campo no forma parte
+                        // del record firmado: cero impacto en firmas/chain.
                         if (this.current_local_cinematic_b64 != null) {
                             cinematicField = this.current_local_cinematic_b64;
                         }

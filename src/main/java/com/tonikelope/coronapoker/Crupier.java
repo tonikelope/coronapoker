@@ -3114,6 +3114,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
+        // Visual "¿RECOMPRA? (N)": cuenta atrás LOCAL en la action label de los
+        // humanos arruinados mientras deciden en su máquina (sin sincronía con
+        // su GameOverDialog real — cosmético). Bots fuera: en el host ni
+        // entran en pending y en los clientes su REBUY llega al instante.
+        for (String nick : pending) {
+            Player jugador = nick2player.get(nick);
+            Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
+            if (jugador instanceof RemotePlayer && !jugador.isExit()
+                    && participante != null && !participante.isCpu()) {
+                ((RemotePlayer) jugador).setRebuying(true);
+            }
+        }
+
         long start_time = System.currentTimeMillis();
         boolean timeout = false;
 
@@ -3145,6 +3158,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 continue;
                             }
                             jugador.setTimeout(false);
+                            // Decisión recibida: para la cuenta atrás visual y
+                            // restaura el texto previo (si se queda espectador,
+                            // el setSpectator de abajo repinta encima).
+                            if (jugador instanceof RemotePlayer) {
+                                ((RemotePlayer) jugador).setRebuying(false);
+                            }
 
                             if (GameFrame.getInstance().isPartida_local()) {
                                 broadcastGAMECommandFromServer("REBUY#" + partes[3] + (partes.length > 4 ? "#" + partes[4] : ""), nick);
@@ -3180,6 +3199,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     String nick = iterator.next();
                     Player jp = nick2player.get(nick);
                     if (jp != null && jp.isExit()) {
+                        // Se fue en pleno rebuy (cierre/desconexión): fuera de
+                        // la espera y fuera la cuenta atrás visual (el guard de
+                        // exit en setRebuying no toca el visual de SE PIRA).
+                        if (jp instanceof RemotePlayer) {
+                            ((RemotePlayer) jp).setRebuying(false);
+                        }
                         iterator.remove();
                     }
                 }
@@ -3201,6 +3226,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             if (jpk != null && !jpk.isExit()) {
                                 jpk.setSpectator(null);
                                 jpk.setTimeout(false);
+                            }
+                            // Para la cuenta atrás visual; con spectator ya
+                            // puesto, el restore se omite y manda el repaint
+                            // de setSpectator.
+                            if (jpk instanceof RemotePlayer) {
+                                ((RemotePlayer) jpk).setRebuying(false);
                             }
                         }
                         timeout = true;

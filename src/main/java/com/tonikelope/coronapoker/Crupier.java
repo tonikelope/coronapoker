@@ -757,6 +757,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // fases se rechazan siempre. Se fija localmente (no por el host) en host y
     // clientes al entrar/salir del reparto de SIDE-B, preservando el anti-early-cascade.
     private volatile boolean run_it_twice_side_b = false;
+    // Run-it-twice: etiqueta de cara ya traducida (CARA-A/CARA-B) que la
+    // pot_label del tapete añade entre corchetes mientras se corren los dos
+    // boards (null fuera de run-it-twice). Se enciende con el voto afirmativo
+    // (run-out de SIDE-A), pasa a CARA-B en el rewind y se apaga en NUEVA_MANO.
+    private volatile String rit_pot_board_tag = null;
     // Resultado del voto run-it-twice de la mano actual (host: de runRitVote;
     // cliente: del RIT_VOTE_CLOSE). Ambos lo conocen para que sus bucles run()
     // tomen la misma rama "correr SIDE-B" en lockstep. Reset por mano.
@@ -3509,6 +3514,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return this.run_it_twice_side_b;
     }
 
+    public String getRitPotBoardTag() {
+        return this.rit_pot_board_tag;
+    }
+
     /**
      * Pure gating predicate (no Crupier state → unit-testable): may a given unlock phase be
      * served when the local street machine is at {@code street} and show_time is {@code showTime}?
@@ -5663,6 +5672,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.rit_vote_done = false;
 
         this.rit_allin_street = -1;
+
+        this.rit_pot_board_tag = null;
 
         // Defensivo: si una mano anterior abortó entre los dos boards con el SQL
         // del showdown silenciado, lo reactivamos al empezar la mano nueva.
@@ -8174,6 +8185,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void printRitVoteResult(boolean agreed) {
+        if (agreed) {
+            // Punto común host (runRitVote / rebroadcast de recovery) y cliente
+            // (RIT_VOTE_CLOSE): desde aquí el run-out es ya el de SIDE-A y la
+            // pot_label lo marca hasta que el rewind cambie a CARA-B.
+            this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_a");
+        }
         GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
     }
 
@@ -8492,6 +8509,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // run-out de SIDE-A). settleRunItTwiceBoard(.,1,.) lo recalcula para el
         // showdown de SIDE-B.
         this.beneficio_bote_principal = null;
+        // La pot_label pasa a marcar CARA-B y se repinta YA en estado de reparto
+        // (bote TOTAL, igual que durante el run-out de CARA-A): sin el repintado
+        // arrastraría el texto del settle de CARA-A (con su etiqueta CARA-A)
+        // hasta que se complete la primera calle de SIDE-B.
+        this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_b");
+        GameFrame.getInstance().setTapeteBote(this.bote_total, this.beneficio_bote_principal);
         setRunItTwiceSideB(true);
         boolean dealt = repartirSideB(resisten);
         setRunItTwiceSideB(false);
@@ -13021,6 +13044,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     && this.rit_allin_street < Crupier.RIVER && resisten.size() >= 2) {
                                 resolverRunItTwiceShowdown(resisten);
                             } else {
+                            // Defensivo: si el voto RIT se acordó pero los exits
+                            // dejaron <2 implicados, resuelve el showdown normal
+                            // y la pot_label no debe marcar cara alguna.
+                            this.rit_pot_board_tag = null;
                             switch (resisten.size()) {
                                 case 0:
                                     // Math yes, GUI no.

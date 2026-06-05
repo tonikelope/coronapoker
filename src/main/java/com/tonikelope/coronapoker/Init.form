@@ -50,9 +50,9 @@
               <Component id="baraja_panel" alignment="0" max="32767" attributes="0"/>
               <Group type="103" rootIndex="1" groupAlignment="0" attributes="0">
                   <Group type="102" alignment="1" attributes="0">
-                      <EmptySpace pref="996" max="32767" attributes="0"/>
+                      <EmptySpace pref="1012" max="32767" attributes="0"/>
                       <Component id="botones_panel" max="32767" attributes="0"/>
-                      <EmptySpace pref="1028" max="32767" attributes="0"/>
+                      <EmptySpace pref="1012" max="32767" attributes="0"/>
                   </Group>
               </Group>
           </Group>

@@ -816,9 +816,9 @@ public class Init extends JFrame {
             .addComponent(baraja_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, tapeteLayout.createSequentialGroup()
-                    .addContainerGap(996, Short.MAX_VALUE)
+                    .addContainerGap(1012, Short.MAX_VALUE)
                     .addComponent(botones_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addContainerGap(1028, Short.MAX_VALUE)))
+                    .addContainerGap(1012, Short.MAX_VALUE)))
         );
         tapeteLayout.setVerticalGroup(
             tapeteLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

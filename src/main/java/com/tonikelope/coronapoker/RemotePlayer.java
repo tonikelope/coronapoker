@@ -2732,6 +2732,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
                 if (rebuy_gif_label.isVisible()) {
                     rebuy_gif_label.setVisible(false);
+                    // setIcon(null) resetea el audio pendiente de la GifLabel:
+                    // sin esto, un REBUY que llegara entre el show y el PRIMER
+                    // frame del GIF dejaría el wav huérfano (el stop de abajo
+                    // correría antes de que el frame 1 lo disparase). Además
+                    // suelta la referencia a la Image del GIF.
+                    rebuy_gif_label.setIcon((javax.swing.Icon) null);
                     // Con varios arruinados a la vez suena UN solo game_over.wav:
                     // se corta cuando el último visual del grupo se retira.
                     if (--REBUY_GIF_ACTIVOS <= 0) {

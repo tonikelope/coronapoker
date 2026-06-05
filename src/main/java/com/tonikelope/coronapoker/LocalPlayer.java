@@ -2639,16 +2639,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         });
 
                         Helpers.threadRun(() -> {
-                            // Retención del turno: el all-in NO se consuma (decisión,
-                            // apuesta, finTurno) hasta que termine su cinemática. El
-                            // jugador conserva el borde amarillo de turno mientras el
-                            // GIF anuncia el all-in, y el crupier no avanza (ni turno
-                            // del bot, ni broadcast, ni run-out) hasta el finTurno.
-                            // Mismo orden en las réplicas remotas (RemotePlayer.allin):
-                            // todas las máquinas ven la misma secuencia turno → GIF →
-                            // ALL-IN → siguiente turno.
-                            GameFrame.getInstance().getCrupier().esperarFinCinematica();
-
                             setDecision(Player.ALLIN);
 
                             setBet(stack + bet);

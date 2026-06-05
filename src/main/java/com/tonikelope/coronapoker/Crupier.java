@@ -2529,49 +2529,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Apaga el flag de cinemática en curso y despierta a los hilos que esperan
-    // su final en LOCK_CINEMATICS (watcher de _cinematicAllin y la retención
-    // de turno de esperarFinCinematica). Para los early-outs que NO van a
-    // reproducir animación: el caller (botón all-in local / RemotePlayer.allin)
-    // ya puso PLAYING_CINEMATIC=true.
+    // su final en LOCK_CINEMATICS (watcher de _cinematicAllin, turno de los
+    // bots). Para los early-outs que NO van a reproducir animación: el caller
+    // (botón all-in local / RemotePlayer.allin) ya puso PLAYING_CINEMATIC=true.
     private void cinematicOff() {
         Init.PLAYING_CINEMATIC = false;
 
         synchronized (Init.LOCK_CINEMATICS) {
             Init.LOCK_CINEMATICS.notifyAll();
-        }
-    }
-
-    // Retención del turno de all-in: espera al fin de la cinemática en curso
-    // (PLAYING_CINEMATIC). La llaman el botón all-in local y RemotePlayer.allin
-    // ANTES de consumar la acción (setDecision/setBet/finTurno), de modo que un
-    // turno de all-in no termina hasta que su animación acaba EN ESTA máquina:
-    // el bucle de apuestas queda parado en ese turno (sin broadcast, sin
-    // esTuTurno del siguiente, sin run-out) y la secuencia turno → GIF →
-    // ALL-IN → siguiente es idéntica en host, clientes y partidas con bots sin
-    // tocar el protocolo — cada máquina se autorregula con su propia copia del
-    // GIF. Timed-wait robusto a notify perdidos (mismo patrón que el watcher
-    // de _cinematicAllin); TODOS los finales de la cinemática (frames
-    // completos, skip por click, sin GIF, CINEMATICAS off, replay de recovery)
-    // apagan el flag y notifican LOCK_CINEMATICS. En TEST_MODE no se espera
-    // (igual que las pausas).
-    public void esperarFinCinematica() {
-
-        if (GameFrame.TEST_MODE) {
-            return;
-        }
-
-        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()) {
-            synchronized (Init.LOCK_CINEMATICS) {
-                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()) {
-                    break;
-                }
-                try {
-                    Init.LOCK_CINEMATICS.wait(1000);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
         }
     }
 
@@ -2680,9 +2645,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         } else {
             // Camino de TODOS los all-in de bot (no llevan cinemática): el
-            // notify de cinematicOff despierta al instante la retención de
-            // turno de RemotePlayer.allin (esperarFinCinematica), que si no
-            // se comería el timed-wait entero por ver el flag aún encendido.
+            // notify de cinematicOff evita que el siguiente bot en turno se
+            // coma el timed-wait entero por ver el flag aún encendido.
             cinematicOff();
         }
 
@@ -9556,6 +9520,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()) != null
                             && GameFrame.getInstance().getParticipantes().get(current_player.getNickname()).isCpu()) {
                         if (!eraSincronizacion || (accion_recuperada = siguienteAccionLocalRecuperada(current_player.getNickname())) == null) {
+                            // Cinemática de all-in en curso (la del jugador local o
+                            // la de un humano remoto): el bot NO actúa hasta que
+                            // termine. En red el freno lo pone el propio modal de la
+                            // cinemática (el humano al que le toca no puede actuar
+                            // con el diálogo encima), pero el bot corre en este hilo
+                            // y se adelantaba: actuaba detrás de la animación y al
+                            // cerrarse el jugador se encontraba la mano ya avanzada.
+                            // Mismo timed-wait robusto a notify perdidos que el
+                            // watcher de _cinematicAllin; todos los finales de la
+                            // cinemática (frames completos, skip por click, sin GIF,
+                            // CINEMATICAS off, replay de recovery) apagan el flag y
+                            // notifican LOCK_CINEMATICS.
+                            while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()) {
+                                synchronized (Init.LOCK_CINEMATICS) {
+                                    if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()) {
+                                        break;
+                                    }
+                                    try {
+                                        Init.LOCK_CINEMATICS.wait(1000);
+                                    } catch (InterruptedException ex) {
+                                        Thread.currentThread().interrupt();
+                                        break;
+                                    }
+                                }
+                            }
                             long start = System.currentTimeMillis();
                             float call_required = getApuesta_actual() - current_player.getBet();
                             int decision_loki = ((RemotePlayer) current_player).getBot().calculateBotDecision(resisten.size() - 1);

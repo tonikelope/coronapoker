@@ -322,6 +322,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int REPARTIR_PAUSA = 250; // 2 players
     public static final int CARD_ANIMATION_DELAY = 100;
     public static final int SHUFFLE_ANIMATION_DELAY = 250;
+    // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
+    private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f},
     new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
@@ -12292,6 +12294,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } catch (Exception ex) {
                     anim = null;
                     LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
+                }
+
+                if (anim != null && !PRE_RENDERED_ENGINE_LOGGED) {
+                    PRE_RENDERED_ENGINE_LOGGED = true;
+                    LOGGER.log(Level.INFO, "Card flip animations: pre-rendered catch-up engine active ({0} frames / {1} ms)",
+                            new Object[]{anim.getFrameCount(), anim.getTotalMs()});
                 }
 
                 ImageIcon icon = null;

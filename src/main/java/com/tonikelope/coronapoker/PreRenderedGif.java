@@ -35,7 +35,6 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Iterator;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -133,16 +132,18 @@ public class PreRenderedGif {
                     throw new IOException("GIF has no frames: " + url);
                 }
 
-                // Primera pasada: frames crudos + metadatos por frame
-                ArrayList<BufferedImage> raws = new ArrayList<>(n);
+                // Pasada de metadatos (sin decodificar píxeles): geometría, delay y disposal por frame
                 int[] left = new int[n];
                 int[] top = new int[n];
+                int[] fw = new int[n];
+                int[] fh = new int[n];
                 long[] delay_ms = new long[n];
                 String[] disposal = new String[n];
 
                 for (int i = 0; i < n; i++) {
-                    raws.add(reader.read(i));
                     readFrameMetadata(reader.getImageMetadata(i), i, left, top, delay_ms, disposal);
+                    fw[i] = reader.getWidth(i);
+                    fh[i] = reader.getHeight(i);
                 }
 
                 // Pantalla lógica: del stream metadata, con fallback al extent máximo de los frames
@@ -162,43 +163,78 @@ public class PreRenderedGif {
                 }
 
                 for (int i = 0; i < n; i++) {
-                    lw = Math.max(lw, left[i] + raws.get(i).getWidth());
-                    lh = Math.max(lh, top[i] + raws.get(i).getHeight());
+                    lw = Math.max(lw, left[i] + fw[i]);
+                    lh = Math.max(lh, top[i] + fh[i]);
                 }
 
-                // Segunda pasada: composición respetando el disposal de cada frame
+                // Pasada única de decodificación+composición: cada frame crudo se
+                // descarta al instante (pico de memoria ≈ memoria viva).
                 BufferedImage[] frames = new BufferedImage[n];
                 long[] frame_end_ms = new long[n];
 
-                BufferedImage canvas = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D g = canvas.createGraphics();
+                // Canvas perezoso: los GIFs de giro (frames completos con disposal
+                // background) son autocontenidos y se almacenan tal cual salen del
+                // lector (indexados de 8 bits, ~4× menos RAM que ARGB) sin tocar
+                // nunca el compositor.
+                BufferedImage canvas = null;
+                Graphics2D g = null;
+                boolean canvas_clean = true;
 
                 try {
                     long t = 0;
                     BufferedImage restore = null;
+                    boolean restore_clean = true;
 
                     for (int i = 0; i < n; i++) {
 
-                        if ("restoreToPrevious".equals(disposal[i])) {
-                            restore = copyOf(canvas);
-                        }
-
-                        g.drawImage(raws.get(i), left[i], top[i], null);
-
-                        frames[i] = copyOf(canvas);
+                        BufferedImage raw = reader.read(i);
 
                         t += delay_ms[i];
                         frame_end_ms[i] = t;
 
-                        if ("restoreToBackgroundColor".equals(disposal[i])) {
-                            clearRect(g, left[i], top[i], raws.get(i).getWidth(), raws.get(i).getHeight());
+                        boolean full = (left[i] == 0 && top[i] == 0 && fw[i] == lw && fh[i] == lh);
+                        boolean to_background = "restoreToBackgroundColor".equals(disposal[i]);
+
+                        if (canvas_clean && full && to_background) {
+                            // Frame autocontenido: lo compuesto ES el frame crudo y el
+                            // disposal deja el lienzo limpio otra vez.
+                            frames[i] = raw;
+                            continue;
+                        }
+
+                        if (canvas == null) {
+                            // Los frames anteriores (si los hubo) dejaron el lienzo
+                            // limpio, así que arrancar transparente es el estado correcto.
+                            canvas = new BufferedImage(lw, lh, BufferedImage.TYPE_INT_ARGB);
+                            g = canvas.createGraphics();
+                        }
+
+                        boolean was_clean = canvas_clean;
+
+                        if ("restoreToPrevious".equals(disposal[i])) {
+                            restore = copyOf(canvas);
+                            restore_clean = was_clean;
+                        }
+
+                        g.drawImage(raw, left[i], top[i], null);
+
+                        frames[i] = copyOf(canvas);
+
+                        if (to_background) {
+                            clearRect(g, left[i], top[i], fw[i], fh[i]);
+                            canvas_clean = full || was_clean;
                         } else if ("restoreToPrevious".equals(disposal[i]) && restore != null) {
                             clearRect(g, 0, 0, lw, lh);
                             g.drawImage(restore, 0, 0, null);
+                            canvas_clean = restore_clean;
+                        } else {
+                            canvas_clean = false;
                         }
                     }
                 } finally {
-                    g.dispose();
+                    if (g != null) {
+                        g.dispose();
+                    }
                 }
 
                 return new PreRenderedGif(frames, frame_end_ms, lw, lh);

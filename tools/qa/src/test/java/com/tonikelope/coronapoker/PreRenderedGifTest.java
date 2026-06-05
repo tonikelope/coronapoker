@@ -29,6 +29,7 @@ import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageOutputStream;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class PreRenderedGifTest {
 
@@ -104,7 +105,7 @@ public class PreRenderedGifTest {
         File gif = File.createTempFile("prerendered_gif_test", ".gif");
 
         try {
-            writeAnimatedGif(gif, frames, 5); // 5 cs = 50 ms per frame
+            writeAnimatedGif(gif, frames, 5, "none"); // 5 cs = 50 ms per frame
 
             PreRenderedGif anim = PreRenderedGif.decode(gif.toURI().toURL());
 
@@ -129,7 +130,51 @@ public class PreRenderedGifTest {
         }
     }
 
-    private static void writeAnimatedGif(File file, BufferedImage[] frames, int delay_cs) throws Exception {
+    @Test
+    public void selfContainedFramesSkipRecomposition() throws Exception {
+
+        // Full-screen frames with disposal "restoreToBackgroundColor" (the card
+        // flip GIF layout) are self-contained: decode must keep the reader's
+        // frames as-is — no ARGB recomposition copies (the memory/CPU fast path)
+        // — while pixels still match frame by frame.
+        Color[] colors = {Color.RED, Color.GREEN, Color.BLUE};
+
+        BufferedImage[] frames = new BufferedImage[colors.length];
+
+        for (int i = 0; i < colors.length; i++) {
+            frames[i] = new BufferedImage(40, 60, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = frames[i].createGraphics();
+            try {
+                g.setColor(colors[i]);
+                g.fillRect(0, 0, 40, 60);
+            } finally {
+                g.dispose();
+            }
+        }
+
+        File gif = File.createTempFile("prerendered_gif_selfcontained_test", ".gif");
+
+        try {
+            writeAnimatedGif(gif, frames, 2, "restoreToBackgroundColor"); // 2 cs = 20 ms, like the deck GIFs
+
+            PreRenderedGif anim = PreRenderedGif.decode(gif.toURI().toURL());
+
+            assertEquals(3, anim.getFrameCount());
+            assertEquals(60L, anim.getTotalMs());
+
+            for (int i = 0; i < colors.length; i++) {
+                assertEquals(colors[i].getRGB(), anim.getFrame(i).getRGB(20, 30),
+                        "center pixel of frame " + i);
+                assertNotEquals(BufferedImage.TYPE_INT_ARGB, anim.getFrame(i).getType(),
+                        "frame " + i + " must be the reader's own image (fast path), not an ARGB recomposition");
+            }
+
+        } finally {
+            gif.delete();
+        }
+    }
+
+    private static void writeAnimatedGif(File file, BufferedImage[] frames, int delay_cs, String disposal) throws Exception {
 
         ImageWriter writer = ImageIO.getImageWritersByFormatName("gif").next();
 
@@ -152,7 +197,7 @@ public class PreRenderedGifTest {
                 IIOMetadataNode root = new IIOMetadataNode(fmt);
 
                 IIOMetadataNode gce = new IIOMetadataNode("GraphicControlExtension");
-                gce.setAttribute("disposalMethod", "none");
+                gce.setAttribute("disposalMethod", disposal);
                 gce.setAttribute("userInputFlag", "FALSE");
                 gce.setAttribute("transparentColorFlag", "FALSE");
                 gce.setAttribute("delayTime", Integer.toString(delay_cs));

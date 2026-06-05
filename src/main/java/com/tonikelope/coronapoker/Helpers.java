@@ -833,6 +833,13 @@ public class Helpers {
     //card_id es baraja_valor_palo, por ejemplo "coronapoker_7_P"
     public static ImageIcon genGifsicleCardAnimation(URL url, float zoom, String card_id) {
 
+        String path = genGifsicleCardAnimationPath(url, zoom, card_id);
+
+        return path != null ? new ImageIcon(path) : null;
+    }
+
+    public static String genGifsicleCardAnimationPath(URL url, float zoom, String card_id) {
+
         if (!Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif")) && Helpers.getGifsicleBinaryPath() != null) {
 
             genGifsicleCardAnimationsHQCache(url, zoom);
@@ -867,7 +874,7 @@ public class Helpers {
 
                 GIFSICLE_FAST_TEMP_FILES.add(filename_new);
 
-                return Files.isReadable(Paths.get(filename_new)) ? new ImageIcon(filename_new) : null;
+                return Files.isReadable(Paths.get(filename_new)) ? filename_new : null;
 
             } catch (Exception ex) {
                 Logger.getLogger(Helpers.class
@@ -885,7 +892,7 @@ public class Helpers {
             return null;
 
         } else if (Files.isReadable(Paths.get(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif"))) {
-            return new ImageIcon(CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif");
+            return CACHE_DIR + "/gifsicle_" + String.valueOf(Helpers.floatClean(zoom, 2)) + "_" + card_id + ".gif";
         }
 
         return null;

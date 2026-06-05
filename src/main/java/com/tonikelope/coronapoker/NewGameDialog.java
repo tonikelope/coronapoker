@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.io.File;
@@ -1548,7 +1549,7 @@ public class NewGameDialog extends JDialog {
 
                 this.nick.setEnabled(false);
 
-                pack();
+                packPreservingCenter();
 
                 if (!this.force_recover) {
 
@@ -1563,7 +1564,7 @@ public class NewGameDialog extends JDialog {
                 this.recover_checkbox.setEnabled(false);
                 Helpers.mostrarMensajeError(this, Translator.translate("game.no_hay_timbas_que_se"));
 
-                pack();
+                packPreservingCenter();
 
             }
 
@@ -1625,7 +1626,7 @@ public class NewGameDialog extends JDialog {
 
             this.nick.setEnabled(true);
 
-            pack();
+            packPreservingCenter();
         }
 
     }//GEN-LAST:event_recover_checkboxActionPerformed
@@ -1726,7 +1727,7 @@ public class NewGameDialog extends JDialog {
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
-            pack();
+            packPreservingCenter();
 
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
@@ -1814,12 +1815,29 @@ public class NewGameDialog extends JDialog {
             this.nick.setEnabled(false);
         }
 
-        pack();
+        packPreservingCenter();
     }//GEN-LAST:event_game_comboItemStateChanged
 
     private void bots_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bots_comboboxActionPerformed
         // Selection is committed only when the user accepts the dialog (see vamosActionPerformed).
     }//GEN-LAST:event_bots_comboboxActionPerformed
+
+    private void packPreservingCenter() {
+
+        int center_x = getX() + getWidth() / 2;
+
+        int center_y = getY() + getHeight() / 2;
+
+        pack();
+
+        Rectangle screen = getGraphicsConfiguration().getBounds();
+
+        int x = Math.max(screen.x, Math.min(center_x - getWidth() / 2, screen.x + screen.width - getWidth()));
+
+        int y = Math.max(screen.y, Math.min(center_y - getHeight() / 2, screen.y + screen.height - getHeight()));
+
+        setLocation(x, y);
+    }
 
     private void commitBotDifficultyFromCombo() {
         if (!partida_local) {

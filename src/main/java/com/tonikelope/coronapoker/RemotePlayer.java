@@ -120,6 +120,23 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer iwtsth_blink_timer = null;
     private volatile Timer rebuy_countdown_timer = null;
     private volatile String rebuy_countdown_saved_text = null;
+    // GIF de game over sobre las cartas del arruinado mientras decide la
+    // recompra (solo modo CINEMATICAS). Label dedicada (capa 1001, debajo del
+    // chat_notify_label): un meme del chat se pinta encima y al ocultarse el
+    // game over sigue debajo, sin pelear por el ownership del notify.
+    private final GifLabel rebuy_gif_label = new GifLabel();
+    // Generación del visual de rebuy: invalida el swap al GIF de cero si el
+    // rebuy se resolvió mientras el de cuenta atrás aún corría. Solo se
+    // escribe en el EDT.
+    private volatile int rebuy_generation = 0;
+    // Marcador de activación del visual de rebuy (EDT-confined): hace
+    // idempotentes setRebuying(true)/setRebuying(false) en ambos modos.
+    private boolean rebuying_visual = false;
+    // Nº de arruinados mostrando el GIF de game over AHORA (EDT-confined,
+    // compartido entre todos los RemotePlayer): con varios simultáneos suena
+    // UN solo game_over.wav (lo engancha el primero) y se corta cuando el
+    // último se resuelve.
+    private static int REBUY_GIF_ACTIVOS = 0;
     private volatile boolean notify_blocked = false;
     private volatile URL chat_notify_image_url = null;
     private volatile Long chat_notify_thread = null;
@@ -1287,6 +1304,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
             panel_cartas.add(chat_notify_label, Integer.valueOf(1002));
+            rebuy_gif_label.setVisible(false);
+            rebuy_gif_label.setFocusable(false);
+            panel_cartas.add(rebuy_gif_label, Integer.valueOf(1001));
             chip_label.setVisible(false);
             chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chip_label.setOpaque(false);
@@ -2651,40 +2671,177 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // puso this.spectator y el restore se omite (su repaint manda). Todo
     // corre en el EDT (Timer de Swing).
     public void setRebuying(boolean rebuying) {
+        setRebuying(rebuying, false);
+    }
+
+    // 'recompro' solo aplica al apagar: true si la decisión del arruinado fue
+    // RECOMPRAR — la action label pasa a "¡RECOMPRA!" como feedback del
+    // desenlace (con un solo arruinado la espera acaba al instante y sin esto
+    // no daría tiempo a ver qué pasó) y ahí se queda hasta el repintado de la
+    // mano siguiente. Con false (espectador/exit/timeout) se restaura el texto
+    // previo, y si procede setSpectator repinta encima.
+    public void setRebuying(boolean rebuying, boolean recompro) {
         Helpers.GUIRun(() -> {
             if (rebuying) {
-                if (this.exit || this.spectator
-                        || (rebuy_countdown_timer != null && rebuy_countdown_timer.isRunning())) {
+                if (this.exit || this.spectator || rebuying_visual) {
                     return;
                 }
+                rebuying_visual = true;
                 rebuy_countdown_saved_text = player_action.getText();
-                final int[] count = {GameOverDialog.REBUY_DIALOG_COUNTDOWN};
-                player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
-                // repaint() del slot completo tras cada setText (mismo idiom que
-                // setPlayerActionIcon): el slot y el action panel son rounded
-                // rects opacos que NO pintan sus esquinas (RoundedPanel /
-                // paintComponent de esta clase), así que un repaint parcial
-                // disparado solo por el label deja píxeles huérfanos en las
-                // 4 esquinas (negros sobre el fondo rojo de arruinado).
-                repaint();
-                rebuy_countdown_timer = new Timer(1000, (e) -> {
-                    if (--count[0] > 0) {
-                        player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
-                    } else {
-                        player_action.setText(Translator.translate("rebuy.recompra_3"));
-                        ((Timer) e.getSource()).stop();
-                    }
+                // Snapshot LOCAL de CINEMATICAS al empezar: decide el modo para
+                // toda la espera (toggles posteriores del menú no afectan).
+                if (GameFrame.CINEMATICAS) {
+                    // Modo GIF: la label queda FIJA en "¿RECOMPRA?" (sin número)
+                    // y la cuenta atrás la pone el GIF de game over sobre las
+                    // cartas — entero UNA vez (por frames, sin reloj) y con su
+                    // audio; al terminar queda fijo el de cero hasta que el
+                    // rebuy se resuelva.
+                    player_action.setText(Translator.translate("rebuy.recompra_3"));
+                    // repaint() del slot completo tras cada setText (mismo idiom
+                    // que setPlayerActionIcon): el slot y el action panel son
+                    // rounded rects opacos que NO pintan sus esquinas
+                    // (RoundedPanel / paintComponent de esta clase) y un repaint
+                    // parcial deja píxeles huérfanos en las 4 esquinas.
                     repaint();
-                });
-                rebuy_countdown_timer.start();
-            } else if (rebuy_countdown_timer != null) {
-                rebuy_countdown_timer.stop();
-                rebuy_countdown_timer = null;
-                if (!this.exit && !this.spectator && rebuy_countdown_saved_text != null) {
-                    player_action.setText(rebuy_countdown_saved_text);
+                    mostrarRebuyGameOverGif(++rebuy_generation);
+                } else {
+                    // Modo sin cinemáticas: cuenta atrás numérica en la label.
+                    final int[] count = {GameOverDialog.REBUY_DIALOG_COUNTDOWN};
+                    player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
                     repaint();
+                    rebuy_countdown_timer = new Timer(1000, (e) -> {
+                        if (--count[0] > 0) {
+                            player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
+                        } else {
+                            player_action.setText(Translator.translate("rebuy.recompra_3"));
+                            ((Timer) e.getSource()).stop();
+                        }
+                        repaint();
+                    });
+                    rebuy_countdown_timer.start();
                 }
-                rebuy_countdown_saved_text = null;
+            } else {
+                if (!rebuying_visual) {
+                    return;
+                }
+                rebuying_visual = false;
+                rebuy_generation++;
+                if (rebuy_countdown_timer != null) {
+                    rebuy_countdown_timer.stop();
+                    rebuy_countdown_timer = null;
+                }
+                if (rebuy_gif_label.isVisible()) {
+                    rebuy_gif_label.setVisible(false);
+                    // Con varios arruinados a la vez suena UN solo game_over.wav:
+                    // se corta cuando el último visual del grupo se retira.
+                    if (--REBUY_GIF_ACTIVOS <= 0) {
+                        REBUY_GIF_ACTIVOS = 0;
+                        Audio.stopWavResource("misc/game_over.wav");
+                    }
+                }
+                if (rebuy_countdown_saved_text != null) {
+                    if (!this.exit && !this.spectator) {
+                        if (recompro) {
+                            // Feedback del desenlace: recompró — fuera la
+                            // calavera, gafas de sol.
+                            player_action.setText(Translator.translate("rebuy.recompra_4"));
+                            setPlayerActionIcon("action/glasses.png");
+                        } else {
+                            player_action.setText(rebuy_countdown_saved_text);
+                        }
+                        repaint();
+                    }
+                    rebuy_countdown_saved_text = null;
+                }
+            }
+        });
+    }
+
+    // GIF de game over sobre las cartas mientras este arruinado decide la
+    // recompra (solo lo lanza setRebuying en modo CINEMATICAS). El de cuenta
+    // atrás se reproduce entero UNA vez, gobernado por sus frames (sin reloj)
+    // y con su audio (solo el PRIMER arruinado del grupo lo engancha); al
+    // terminar se fija el de cero hasta que setRebuying(false) lo retire
+    // (REBUY recibido, exit o timeout del crupier). Escalado/centrado como
+    // las notificaciones del chat. URLs cache-busted con fragmento único:
+    // Toolkit cachea las Image por URL y dos arruinados simultáneos
+    // compartirían la animación pisándose los contadores de frames. 'gen'
+    // invalida el show/swap si el rebuy se resolvió entre medias.
+    private void mostrarRebuyGameOverGif(int gen) {
+        Helpers.threadRun(() -> {
+            try {
+                URL countdown_url = getClass().getResource("/cinematics/misc/game_over.gif");
+                ImageIcon gif = new ImageIcon(new URL(countdown_url.toString() + "#" + String.valueOf(System.nanoTime())));
+                while (gif.getIconHeight() == 0 || gif.getIconWidth() == 0) {
+                    Helpers.pausar(GUI_RENDER_WAIT);
+                }
+
+                int max_width = panel_cartas.getWidth();
+                int new_height = panel_cartas.getHeight();
+                int new_width = (int) Math.round((gif.getIconWidth() * new_height) / gif.getIconHeight());
+                if (new_width > max_width) {
+                    new_height = (int) Math.round((new_height * max_width) / new_width);
+                    new_width = max_width;
+                }
+
+                final int width = new_width;
+                final int height = new_height;
+                final int frames = Helpers.getGIFFramesCount(countdown_url);
+                final CyclicBarrier barrier = new CyclicBarrier(2);
+
+                Helpers.GUIRun(() -> {
+                    if (gen != rebuy_generation) {
+                        return;
+                    }
+                    rebuy_gif_label.setBarrier(barrier);
+                    rebuy_gif_label.setIcon(gif, frames);
+                    rebuy_gif_label.setRepeat(1);
+                    // El audio se engancha DESPUÉS de setIcon (setIcon lo
+                    // resetea); end_frame -1 = el wav suena entero y lo corta
+                    // setRebuying(false) si el rebuy se resuelve antes. Solo el
+                    // primero del grupo: UN audio aunque haya varios GIFs.
+                    if (REBUY_GIF_ACTIVOS == 0) {
+                        rebuy_gif_label.addAudio("misc/game_over.wav", 1, -1);
+                    }
+                    REBUY_GIF_ACTIVOS++;
+                    rebuy_gif_label.setSize(width, height);
+                    rebuy_gif_label.setPreferredSize(rebuy_gif_label.getSize());
+                    rebuy_gif_label.setOpaque(false);
+                    rebuy_gif_label.setLocation(Math.round((panel_cartas.getWidth() - width) / 2), Math.round((getHoleCard1().getHeight() - height) / 2));
+                    rebuy_gif_label.setVisible(true);
+                });
+
+                // GifLabel dispara la barrera al completar la única pasada del
+                // GIF; cap defensivo generoso por si el recurso no llegara a
+                // animar (el gen-check de abajo aborta el swap si ya no toca).
+                try {
+                    barrier.await(60, TimeUnit.SECONDS);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (Exception ex) {
+                }
+
+                URL zero_url = getClass().getResource("/cinematics/misc/game_over_zero.gif");
+                ImageIcon zero = new ImageIcon(new URL(zero_url.toString() + "#" + String.valueOf(System.nanoTime())));
+                while (zero.getIconHeight() == 0 || zero.getIconWidth() == 0) {
+                    Helpers.pausar(GUI_RENDER_WAIT);
+                }
+                final int zero_frames = Helpers.getGIFFramesCount(zero_url);
+
+                Helpers.GUIRun(() -> {
+                    if (gen != rebuy_generation || !rebuy_gif_label.isVisible()) {
+                        return;
+                    }
+                    // Cero FIJO: una pasada y GifLabel deja de pedir frames
+                    // (se congela en el último); lo retira setRebuying(false).
+                    rebuy_gif_label.setBarrier(null);
+                    rebuy_gif_label.setIcon(zero, zero_frames);
+                    rebuy_gif_label.setRepeat(1);
+                });
+
+            } catch (Exception ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
     }

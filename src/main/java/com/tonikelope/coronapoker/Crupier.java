@@ -3170,11 +3170,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 continue;
                             }
                             jugador.setTimeout(false);
-                            // Decisión recibida: para la cuenta atrás visual y
-                            // restaura el texto previo (si se queda espectador,
-                            // el setSpectator de abajo repinta encima).
+                            // Decisión recibida: retira la cuenta atrás/GIF y pinta
+                            // el desenlace — "¡RECOMPRA!" si recompró (con un solo
+                            // arruinado la espera acaba al instante y sin esto no
+                            // daría tiempo a ver qué pasó); si no, restaura y el
+                            // setSpectator de abajo repinta encima.
+                            boolean recompra = (partes.length > 4)
+                                    ? (!partes[4].equals("0") && !atRebuyLimit(nick))
+                                    : !atRebuyLimit(nick);
                             if (jugador instanceof RemotePlayer) {
-                                ((RemotePlayer) jugador).setRebuying(false);
+                                ((RemotePlayer) jugador).setRebuying(false, recompra);
                             }
 
                             if (GameFrame.getInstance().isPartida_local()) {
@@ -3182,7 +3187,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
 
                             if (partes.length > 4) {
-                                if (partes[4].equals("0") || atRebuyLimit(nick)) {
+                                if (partes[4].equals("0")) {
+                                    // Pulsó ESPECTADOR en su game over: feedback
+                                    // explícito en el visual de espectador.
+                                    jugador.setSpectator(Translator.translate("rebuy.no_recompra"));
+                                } else if (atRebuyLimit(nick)) {
                                     jugador.setSpectator(null);
                                 } else {
                                     rebuy_now.put(nick, Integer.parseInt(partes[4]));

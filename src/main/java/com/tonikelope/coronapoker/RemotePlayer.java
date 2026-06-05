@@ -2630,12 +2630,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // RebuyDialog locales). Puramente cosmética y solo para humanos: la
     // activa/apaga recibirRebuys (en el host los bots ni entran en la espera
     // y en los clientes su REBUY llega al instante desde el host). Mantiene
-    // la calavera de checkGameOver (no toca el icono); cuenta desde
-    // REBUY_TIMEOUT en segundos hasta quedarse en "¿RECOMPRA?" a secas
-    // (nunca muestra el cero). Al apagarse restaura el texto previo (la
-    // jugada con la que perdió); si la decisión fue quedarse de espectador,
-    // setSpectator ya puso this.spectator y el restore se omite (su repaint
-    // manda). Todo corre en el EDT (Timer de Swing).
+    // la calavera de checkGameOver (no toca el icono); temporizador LOCAL de
+    // 1 seg, aproximado (sin sincronía con el diálogo real del remoto):
+    // cuenta los mismos segundos que el RebuyDialog del game over y al agotar
+    // se queda fijo en "¿RECOMPRA?" a secas (nunca muestra el cero) — para
+    // entonces el remoto normalmente ya habrá pulsado y su REBUY estará al
+    // llegar. Al apagarse restaura el texto previo (la jugada con la que
+    // perdió); si la decisión fue quedarse de espectador, setSpectator ya
+    // puso this.spectator y el restore se omite (su repaint manda). Todo
+    // corre en el EDT (Timer de Swing).
     public void setRebuying(boolean rebuying) {
         Helpers.GUIRun(() -> {
             if (rebuying) {
@@ -2644,7 +2647,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     return;
                 }
                 rebuy_countdown_saved_text = player_action.getText();
-                final int[] count = {Math.round(GameFrame.REBUY_TIMEOUT / 1000f)};
+                final int[] count = {GameOverDialog.REBUY_DIALOG_COUNTDOWN};
                 player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
                 rebuy_countdown_timer = new Timer(1000, (e) -> {
                     if (--count[0] > 0) {

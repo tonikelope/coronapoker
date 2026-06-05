@@ -987,6 +987,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             holeCard1.enfocar();
             holeCard2.enfocar();
             sec_pot_win_label.setVisible(false);
+            // Borde neutro: en el flujo normal lo restaura finTurno (que el
+            // rewind no llama) y renderDecisionVisual solo repinta borde en
+            // ALLIN/FOLD; sin esto el verde/rojo de ganador/perdedor de SIDE-A
+            // sobreviviría en CHECK/BET (p.ej. quien cubre el all-in).
+            if (decision != Player.ALLIN && decision != Player.FOLD) {
+                setPlayerBorder(new Color(204, 204, 204, 75));
+            }
         });
         renderDecisionVisual(this.decision);
     }

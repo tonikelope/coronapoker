@@ -12562,14 +12562,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
     // el mismo motor que las comunitarias (ANIMACION_CARTAS + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
-    // giran SECUENCIALMENTE (izquierda y, al terminar, derecha) sobre
-    // overlays efímeros y el método BLOQUEA hasta que el giro termina (nunca
-    // llamar desde el EDT): así el llamante no actualiza las etiquetas de
-    // gana/pierde/jugada hasta que el destape se ha visto entero. Si el gate no aplica (animaciones off, baraja sin GIFs,
-    // LocalPlayer — sus cartas nunca están tapadas en su propia pantalla —,
-    // cartas ya destapadas o decode fallido) cae al destape clásico
-    // destaparCartas(sound): el flag sound es SOLO para ese fallback, el
-    // camino animado pone siempre su uncover.wav como las comunitarias.
+    // giran SECUENCIALMENTE con ciclo completo (la izquierda gira y aterriza
+    // en su carta estática antes de que la derecha empiece) sobre overlays
+    // efímeros, y el método BLOQUEA hasta que el giro termina (nunca llamar
+    // desde el EDT): así el llamante no actualiza las etiquetas de
+    // gana/pierde/jugada hasta que el destape se ha visto entero. Si el gate
+    // no aplica (animaciones off, baraja sin GIFs, LocalPlayer — sus cartas
+    // nunca están tapadas en su propia pantalla —, cartas ya destapadas o
+    // decode fallido) cae al destape clásico destaparCartas(sound): el flag
+    // sound es SOLO para ese fallback, el camino animado pone siempre su
+    // uncover.wav como las comunitarias.
     public void mostrarAnimacionDestaparCartasJugador(Player jugador, boolean sound) {
 
         Card c1 = jugador.getHoleCard1();

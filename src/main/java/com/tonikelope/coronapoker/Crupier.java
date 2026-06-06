@@ -9888,26 +9888,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // momento del botón (eso no se toca); en red el freno de los
                     // humanos lo pone su propio modal, pero el bot corre en este
                     // hilo y se adelantaba: recibía el turno y actuaba detrás de la
-                    // animación. Timed-wait robusto a notify perdidos (mismo patrón
-                    // que el watcher de _cinematicAllin); TODOS los finales de la
-                    // cinemática (frames completos, skip por click, sin GIF,
-                    // CINEMATICAS off, replay de recovery) apagan el flag y
-                    // notifican LOCK_CINEMATICS, y durante el replay de recovery el
-                    // flag está apagado (espera inerte).
+                    // animación.
                     if (bot_del_host) {
-                        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()) {
-                            synchronized (Init.LOCK_CINEMATICS) {
-                                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()) {
-                                    break;
-                                }
-                                try {
-                                    Init.LOCK_CINEMATICS.wait(1000);
-                                } catch (InterruptedException ex) {
-                                    Thread.currentThread().interrupt();
-                                    break;
-                                }
-                            }
-                        }
+                        esperarFinCinematicaAllin();
                     }
 
                     current_player.esTuTurno();
@@ -13206,7 +13189,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         } while (!isFin_de_la_transmision());
     }
 
+    // Espera (timed-wait robusto a notify perdidos, mismo patrón que el
+    // watcher de _cinematicAllin) a que termine la cinemática de all-in en
+    // curso en ESTA máquina. TODOS los finales de la cinemática (frames
+    // completos, skip por click, sin GIF, CINEMATICAS off, replay de
+    // recovery) apagan el flag y notifican LOCK_CINEMATICS; durante el
+    // replay de recovery el flag está apagado (espera inerte). Lo usan el
+    // turno del bot tras un all-in y los destapes animados (resistencia y
+    // showdown), que no deben pisar la animación central.
+    private void esperarFinCinematicaAllin() {
+        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()) {
+            synchronized (Init.LOCK_CINEMATICS) {
+                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()) {
+                    break;
+                }
+                try {
+                    Init.LOCK_CINEMATICS.wait(1000);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+    }
+
     public void procesarCartasResistencia(ArrayList<Player> resisten, boolean destapar) {
+
+        if (destapar) {
+            // El destape (animado o seco) de las cartas de la resistencia no
+            // debe arrancar con la cinemática del all-in aún en pantalla.
+            esperarFinCinematicaAllin();
+        }
 
         if (!this.cartas_resistencia) {
 
@@ -13431,6 +13444,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // mustShow se decide AQUÍ una sola vez por jugador (first_to_show es
         // estado del recorrido) y la pasada 2 lo reutiliza tal cual:
         // recalcularlo podría divergir.
+        // Un all-in en el river llega aquí sin run-out: la cinemática del
+        // all-in puede seguir en pantalla y los giros de la pasada 1 no
+        // deben pisarla.
+        esperarFinCinematicaAllin();
+
         HashMap<Player, Boolean> must_show = new HashMap<>();
 
         int pos = pivote;

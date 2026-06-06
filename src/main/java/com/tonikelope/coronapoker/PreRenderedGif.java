@@ -112,6 +112,16 @@ public class PreRenderedGif {
     }
 
     public static PreRenderedGif decode(URL url) throws IOException {
+        return decode(url, Long.MAX_VALUE);
+    }
+
+    /**
+     * Como {@link #decode(URL)} pero con tope de memoria: la estimación de
+     * almacenamiento se calcula con la pasada de metadatos (sin decodificar un
+     * solo píxel) y si supera max_bytes se lanza IOException, de forma que el
+     * llamante pueda caer a la ruta legacy sin haber pagado el decode.
+     */
+    public static PreRenderedGif decode(URL url, long max_bytes) throws IOException {
 
         try (InputStream is = url.openStream(); ImageInputStream iis = ImageIO.createImageInputStream(is)) {
 
@@ -165,6 +175,12 @@ public class PreRenderedGif {
                 for (int i = 0; i < n; i++) {
                     lw = Math.max(lw, left[i] + fw[i]);
                     lh = Math.max(lh, top[i] + fh[i]);
+                }
+
+                long estimate = estimateStorageBytes(left, top, fw, fh, disposal, lw, lh);
+
+                if (estimate > max_bytes) {
+                    throw new IOException("GIF pre-render estimate " + estimate + " bytes exceeds cap " + max_bytes + ": " + url);
                 }
 
                 // Pasada única de decodificación+composición: cada frame crudo se
@@ -243,6 +259,54 @@ public class PreRenderedGif {
                 reader.dispose();
             }
         }
+    }
+
+    // Estimación de la memoria que retendrá el GIF decodificado, calculada SOLO
+    // con metadatos. Replica la máquina de estados canvas_clean del bucle de
+    // decodificación: frames autocontenidos cuestan su tamaño indexado (1
+    // byte/píxel, lo que devuelve el lector GIF), el resto una copia ARGB del
+    // lienzo completo; el lienzo compositor y el snapshot de restoreToPrevious
+    // se contabilizan una vez si llegan a existir. Package-private para el test AAA.
+    static long estimateStorageBytes(int[] left, int[] top, int[] fw, int[] fh, String[] disposal, int lw, int lh) {
+
+        long bytes = 0;
+        boolean canvas_clean = true;
+        boolean canvas_counted = false;
+        boolean restore_counted = false;
+
+        for (int i = 0; i < left.length; i++) {
+
+            boolean full = (left[i] == 0 && top[i] == 0 && fw[i] == lw && fh[i] == lh);
+            boolean to_background = "restoreToBackgroundColor".equals(disposal[i]);
+
+            if (canvas_clean && full && to_background) {
+                bytes += (long) fw[i] * fh[i];
+                continue;
+            }
+
+            if (!canvas_counted) {
+                canvas_counted = true;
+                bytes += (long) lw * lh * 4L;
+            }
+
+            bytes += (long) lw * lh * 4L;
+
+            boolean was_clean = canvas_clean;
+
+            if (to_background) {
+                canvas_clean = full || was_clean;
+            } else if ("restoreToPrevious".equals(disposal[i])) {
+                if (!restore_counted) {
+                    restore_counted = true;
+                    bytes += (long) lw * lh * 4L;
+                }
+                canvas_clean = was_clean;
+            } else {
+                canvas_clean = false;
+            }
+        }
+
+        return bytes;
     }
 
     private static void readFrameMetadata(IIOMetadata md, int i, int[] left, int[] top, long[] delay_ms, String[] disposal) {

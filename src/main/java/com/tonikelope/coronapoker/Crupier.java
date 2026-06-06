@@ -13394,6 +13394,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int pos = pivote;
         boolean first_to_show = true; // Control para obligar a mostrar al primero en hablar
+        boolean alguno_destapado = false;
 
         do {
             Player jugador_actual = GameFrame.getInstance().getJugadores().get(pos);
@@ -13423,6 +13424,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // pasada 2 (comportamiento de siempre).
                     boolean estaba_tapada = jugador_actual.getHoleCard1().isTapada();
 
+                    // Pausa dramática ENTRE destapes, nunca tras el último:
+                    // corre antes de este giro solo si ya hubo otro antes
+                    // (visualmente cae tras la etiqueta neutra del jugador
+                    // anterior). Así los veredictos de la pasada 2 saltan
+                    // JUSTO al terminar el último giro, igual que en el
+                    // all-in multiway.
+                    if (estaba_tapada && alguno_destapado && !GameFrame.TEST_MODE) {
+                        Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
+                    }
+
                     // Bloquea hasta el fin del giro (hilo del crupier, como las
                     // comunitarias).
                     mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
@@ -13436,13 +13447,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
                         }
 
-                        // Pausa dramática para asimilar la mano recién
-                        // mostrada antes de que gire el siguiente (y, tras el
-                        // último, antes del estallido de veredictos de la
-                        // pasada 2). Solo cuando aquí HUBO destape.
-                        if (!GameFrame.TEST_MODE) {
-                            Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
-                        }
+                        alguno_destapado = true;
                     }
                 }
 

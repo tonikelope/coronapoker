@@ -19,6 +19,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageTypeSpecifier;
@@ -30,6 +31,7 @@ import javax.imageio.stream.ImageOutputStream;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class PreRenderedGifTest {
 
@@ -168,6 +170,71 @@ public class PreRenderedGifTest {
                 assertNotEquals(BufferedImage.TYPE_INT_ARGB, anim.getFrame(i).getType(),
                         "frame " + i + " must be the reader's own image (fast path), not an ARGB recomposition");
             }
+
+        } finally {
+            gif.delete();
+        }
+    }
+
+    // ---- estimateStorageBytes: RAM prediction from metadata only ----
+
+    @Test
+    public void storageEstimateForSelfContainedLayoutIsIndexedSize() {
+        // Full-screen frames + restoreToBackgroundColor (the shuffle/card-flip
+        // layout): every frame takes the fast path, 1 byte per pixel, and the
+        // compositor canvas is never allocated.
+        int n = 86, w = 960, h = 540;
+        int[] left = new int[n], top = new int[n], fw = new int[n], fh = new int[n];
+        String[] disposal = new String[n];
+        for (int i = 0; i < n; i++) {
+            fw[i] = w;
+            fh[i] = h;
+            disposal[i] = "restoreToBackgroundColor";
+        }
+
+        assertEquals((long) n * w * h,
+                PreRenderedGif.estimateStorageBytes(left, top, fw, fh, disposal, w, h));
+    }
+
+    @Test
+    public void storageEstimateForPartialFramesIsArgbRecomposition() {
+        // Partial frames force the compositor: one ARGB canvas plus one ARGB
+        // copy of the full logical screen per frame.
+        int n = 4, lw = 100, lh = 80;
+        int[] left = {0, 10, 20, 30}, top = {0, 5, 10, 15};
+        int[] fw = {50, 50, 50, 50}, fh = {40, 40, 40, 40};
+        String[] disposal = {"none", "none", "none", "none"};
+
+        long canvas = (long) lw * lh * 4;
+        long per_frame = (long) lw * lh * 4;
+
+        assertEquals(canvas + n * per_frame,
+                PreRenderedGif.estimateStorageBytes(left, top, fw, fh, disposal, lw, lh));
+    }
+
+    @Test
+    public void decodeRejectsGifsOverTheMemoryCap() throws Exception {
+
+        BufferedImage frame = new BufferedImage(40, 60, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = frame.createGraphics();
+        try {
+            g.setColor(Color.RED);
+            g.fillRect(0, 0, 40, 60);
+        } finally {
+            g.dispose();
+        }
+
+        File gif = File.createTempFile("prerendered_gif_cap_test", ".gif");
+
+        try {
+            writeAnimatedGif(gif, new BufferedImage[]{frame, frame}, 5, "restoreToBackgroundColor");
+
+            // Two self-contained 40x60 frames = 4800 bytes estimated
+            assertThrows(IOException.class,
+                    () -> PreRenderedGif.decode(gif.toURI().toURL(), 4_799L));
+
+            PreRenderedGif anim = PreRenderedGif.decode(gif.toURI().toURL(), 4_800L);
+            assertEquals(2, anim.getFrameCount());
 
         } finally {
             gif.delete();

@@ -1047,6 +1047,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.GUIRun(jugadas_dialog::pack);
         }
 
+        // Pre-decodifica el shuffle.gif de la nueva baraja en background (la
+        // caché es de una sola entrada: reemplaza y libera la anterior)
+        Crupier.warmShuffleAnimCache();
+
     }
 
     public void vistaCompacta() {
@@ -3833,6 +3837,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.savePropertiesFile();
 
         Helpers.TapetePopupMenu.ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
+
+        // Si las animaciones se acaban de activar, el warm-up de arranque se
+        // saltó el shuffle.gif: pre-decodificarlo ahora en background
+        Crupier.warmShuffleAnimCache();
     }//GEN-LAST:event_animacion_menuActionPerformed
 
     private void auto_action_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_action_menuActionPerformed

@@ -332,6 +332,151 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // Reproduce los GIFs de giro de una o varias cartas A LA VEZ sobre
+    // overlays efímeros en POPUP_LAYER (uno por carta, centrado sobre ella),
+    // con el mismo motor catch-up y los mismos relevos sin hueco que
+    // showCentralFrames: cada tapada se oculta en el MISMO evento EDT que
+    // muestra su primer frame y cada carta se destapa síncronamente DEBAJO de
+    // su último frame antes de retirar los overlays. Bloquea al llamante
+    // (NUNCA llamar desde el EDT) hasta que todas las animaciones terminan
+    // más delay_end — para destapes secuenciales (una carta aterrizada del
+    // todo antes de que gire la siguiente) el llamante encadena llamadas de
+    // una sola carta. No toca central_label ni su takeover: los overlays se
+    // crean y se retiran aquí mismo.
+    public void playCardFlipOverlays(Card[] cartas, PreRenderedGif[] anims, int[] dws, int[] dhs, int delay_end, String audio) {
+
+        final GifLabel[] overlays = new GifLabel[cartas.length];
+
+        final CountDownLatch finished = new CountDownLatch(1);
+
+        final javax.swing.Timer[] player_holder = new javax.swing.Timer[1];
+
+        Helpers.GUIRunAndWait(() -> {
+
+            try {
+                if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+                    for (int i = 0; i < cartas.length; i++) {
+
+                        GifLabel overlay = new GifLabel();
+                        overlay.setFocusable(false);
+                        overlay.setSize(dws[i], dhs[i]);
+
+                        int x = (int) ((int) ((cartas[i].getLocationOnScreen().getX() + Math.round(cartas[i].getWidth() / 2))
+                                - Math.round(dws[i] / 2))
+                                - getLocationOnScreen().getX());
+
+                        int y = (int) ((int) ((cartas[i].getLocationOnScreen().getY() + Math.round(cartas[i].getHeight() / 2))
+                                - Math.round(dhs[i] / 2))
+                                - getLocationOnScreen().getY());
+
+                        overlay.setLocation(x, y);
+                        overlay.setFrameOverride(anims[i].getFrame(0));
+
+                        add(overlay, JLayeredPane.POPUP_LAYER);
+
+                        overlay.setVisible(true);
+
+                        overlays[i] = overlay;
+
+                        // Mismo evento EDT que muestra el primer frame: el relevo
+                        // carta→GIF se pinta de una pieza.
+                        cartas[i].setVisibleCard(false);
+                    }
+
+                    if (audio != null) {
+                        Audio.playWavResource(audio);
+                    }
+
+                    final long t0 = System.nanoTime();
+                    final int[] painted = new int[cartas.length];
+
+                    final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+
+                    player_holder[0] = player;
+
+                    player.addActionListener(e -> {
+
+                        long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+
+                        boolean all_done = true;
+
+                        for (int i = 0; i < anims.length; i++) {
+
+                            int idx = anims[i].frameAt(elapsed);
+
+                            if (idx != painted[i]) {
+                                painted[i] = idx;
+                                overlays[i].setFrameOverride(anims[i].getFrame(idx));
+                            }
+
+                            all_done = all_done && (idx == anims[i].getFrameCount() - 1);
+                        }
+
+                        if (all_done || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                            player.stop();
+                            finished.countDown();
+                        }
+                    });
+
+                    player.start();
+
+                } else {
+                    finished.countDown();
+                }
+            } catch (Exception ex) {
+                // P.ej. IllegalComponentStateException si una carta dejó de
+                // estar en pantalla justo ahora: limpiar lo añadido y soltar
+                // al llamante, que destapa en seco con el destaparSync de abajo.
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                for (GifLabel overlay : overlays) {
+                    if (overlay != null) {
+                        remove(overlay);
+                    }
+                }
+                repaint();
+                finished.countDown();
+            }
+        });
+
+        try {
+            finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                    "card flip overlays playback", ex);
+        }
+
+        // Igual que en showCentralFrames: el destape síncrono ocurre tapado por
+        // el último frame durante delay_end, así el relevo GIF→carta nunca
+        // pinta el hueco vacío.
+        for (Card carta : cartas) {
+            carta.destaparSync();
+        }
+
+        if (delay_end > 0) {
+            Helpers.parkThreadMillis(delay_end);
+        }
+
+        Helpers.GUIRunAndWait(() -> {
+            for (GifLabel overlay : overlays) {
+                if (overlay != null) {
+                    overlay.setVisible(false);
+                    remove(overlay);
+                }
+            }
+            revalidate();
+            repaint();
+        });
+
+        // Cinturón y tirantes (mismo patrón que showCentralFrames): parar el
+        // timer pase lo que pase con la espera.
+        Helpers.GUIRun(() -> {
+            if (player_holder[0] != null) {
+                player_holder[0].stop();
+            }
+        });
+    }
+
     // Variante en bucle de showCentralFrames para el GIF de barajado: repite la
     // animación (centrada, con el audio re-disparado en cada ciclo y cortado en
     // audio_stop_frame, mismo contrato que addAudio(1, stop)) hasta que el

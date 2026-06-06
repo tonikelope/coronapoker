@@ -437,6 +437,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 30000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
+    public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
     public static final int TIEMPO_PENSAR = 40; // Segundos
     public static final int PAUSA_ENTRE_MANOS = 10; // Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
@@ -3509,16 +3510,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void showAndBroadcastPlayerCards(String nick) {
+
+        Player jugador;
+        boolean isLocal;
+
         synchronized (lock_mostrar) {
             // Nota: ya no gateamos con show_time. Si el comando proviene del flujo IWTSTH, la temporización
             // del wait/pausaConBarra puede haber cerrado show_time antes de que llegue el SHOWCARDS de un
             // candidato remoto. La función es idempotente (chequea isTapada() abajo) y los callers
             // ya verifican show_time donde corresponde para el flujo voluntario (LocalPlayer.player_allin_buttonActionPerformed).
-            Player jugador = nick2player.get(nick);
+            jugador = nick2player.get(nick);
             if (jugador == null) {
                 return;
             }
-            boolean isLocal = jugador.equals(GameFrame.getInstance().getLocalPlayer());
+            isLocal = jugador.equals(GameFrame.getInstance().getLocalPlayer());
 
             // Solo desciframos si es remoto y faltan los valores
             if (!isLocal && (jugador.getHoleCard1().getValor() == null || jugador.getHoleCard1().getValor().isEmpty())) {
@@ -3563,30 +3568,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Error sending SHOWCARDS for " + nick, ex);
             }
+        }
 
-            if (jugador.getHoleCard1().isTapada()) {
-                jugador.destaparCartas(true);
+        // Destape + etiqueta FUERA de lock_mostrar: el giro animado bloquea
+        // ~1s a este worker y el lock lo comparten el procesador de comandos
+        // (showPlayerCards) y el cierre de show_time del crupier — retenerlo
+        // durante la animación los atascaría. La idempotencia frente a
+        // destapes concurrentes del mismo jugador la da el
+        // destape_animado_lock dentro del método animado.
+        if (jugador.getHoleCard1().isTapada()) {
+            // Bloquea hasta el fin del giro (los callers son workers): la
+            // etiqueta de jugada de abajo no aparece hasta destapar del todo.
+            mostrarAnimacionDestaparCartasJugador(jugador, true);
 
-                // CLONACIÓN DEFENSIVA: Pasamos una copia a la clase Hand para que no desordene la UI
-                ArrayList<Card> evalList = new ArrayList<>();
-                evalList.addAll(jugador.getHoleCards());
-                for (Card c : GameFrame.getInstance().getCartas_comunes()) {
-                    if (!c.isTapada()) {
-                        evalList.add(c);
-                    }
+            // CLONACIÓN DEFENSIVA: Pasamos una copia a la clase Hand para que no desordene la UI
+            ArrayList<Card> evalList = new ArrayList<>();
+            evalList.addAll(jugador.getHoleCards());
+            for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+                if (!c.isTapada()) {
+                    evalList.add(c);
                 }
-
-                try {
-                    Hand jugada = new Hand(evalList);
-                    jugador.showCards(jugada.getName());
-                } catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
-                }
-
-                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
-            } else if (isLocal) {
-                setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
             }
+
+            try {
+                Hand jugada = new Hand(evalList);
+                jugador.showCards(jugada.getName());
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error evaluating Hand while showing cards of " + nick, e);
+            }
+
+            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
+        } else if (isLocal) {
+            setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
         }
     }
 
@@ -4007,34 +4020,63 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     if (decrypted) {
-                        jugador.ordenarCartas();
-                        jugador.destaparCartas(true);
+                        // Destape + etiqueta de jugada a un worker: este método
+                        // corre en el hilo procesador de comandos y el giro
+                        // animado bloquea ~1s — los comandos siguientes no
+                        // pueden esperar eso. El orden etiqueta-tras-animación
+                        // se conserva dentro del worker (la animación bloquea
+                        // al worker, no al procesador). El destape lógico está
+                        // garantizado por el finally del método animado aunque
+                        // la animación falle.
+                        final Player fjugador = jugador;
 
-                        ArrayList<Card> evaluationList = new ArrayList<>();
-                        evaluationList.addAll(jugador.getHoleCards());
-                        for (Card c : GameFrame.getInstance().getCartas_comunes()) {
-                            if (!c.isTapada()) {
-                                evaluationList.add(c);
+                        Helpers.threadRun(() -> {
+                            // Serializado bajo el destape_animado_lock del jugador
+                            // (reentrante para la animación interior) con re-check
+                            // de tapada: el isTapada() de la entrada del método deja
+                            // pasar un SHOWCARDS duplicado mientras el primer worker
+                            // aún anima (~1s), y sin esto el duplicado repetiría
+                            // etiqueta y sqlNewShowcards. Con el destape clásico la
+                            // ventana era de milisegundos; con la animación no.
+                            Object destape_lock = (fjugador instanceof RemotePlayer)
+                                    ? ((RemotePlayer) fjugador).getDestape_animado_lock() : new Object();
+
+                            synchronized (destape_lock) {
+
+                                if (!fjugador.getHoleCard1().isTapada()) {
+                                    return;
+                                }
+
+                                fjugador.ordenarCartas();
+                                mostrarAnimacionDestaparCartasJugador(fjugador, true);
+
+                                ArrayList<Card> evaluationList = new ArrayList<>();
+                                evaluationList.addAll(fjugador.getHoleCards());
+                                for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+                                    if (!c.isTapada()) {
+                                        evaluationList.add(c);
+                                    }
+                                }
+
+                                Hand jugada = null;
+                                try {
+                                    jugada = new Hand(evaluationList);
+                                    fjugador.showCards(jugada.getName());
+                                } catch (Exception e) {
+                                }
+
+                                if (GameFrame.SONIDOS_CHORRA && fjugador.getDecision() == Player.FOLD) {
+                                    Audio.playWavResource("misc/showyourcards.wav");
+                                }
+
+                                if (!perdedores.containsKey(fjugador)) {
+                                    GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("ui.muestra_2") + Card.collection2String(fjugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
+                                }
+
+                                sqlNewShowcards(fjugador.getNickname(), fjugador.getDecision() == Player.FOLD);
+                                sqlUpdateShowdownHand(fjugador, jugada);
                             }
-                        }
-
-                        Hand jugada = null;
-                        try {
-                            jugada = new Hand(evaluationList);
-                            jugador.showCards(jugada.getName());
-                        } catch (Exception e) {
-                        }
-
-                        if (GameFrame.SONIDOS_CHORRA && jugador.getDecision() == Player.FOLD) {
-                            Audio.playWavResource("misc/showyourcards.wav");
-                        }
-
-                        if (!perdedores.containsKey(jugador)) {
-                            GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("ui.muestra_2") + Card.collection2String(jugador.getHoleCards()) + ")" + (jugada != null ? " -> " + jugada : ""));
-                        }
-
-                        sqlNewShowcards(jugador.getNickname(), jugador.getDecision() == Player.FOLD);
-                        sqlUpdateShowdownHand(jugador, jugada);
+                        });
                     }
                     setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                 } else {
@@ -12517,6 +12559,171 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
+    // Destape sin animación de un rival con el MISMO ritmo que el camino
+    // animado, solo que cada carta aparece de golpe con su uncover.wav en
+    // vez de girar — espejo de las comunitarias con las animaciones
+    // desactivadas (pausa + destape seco con audio): izquierda → pausa →
+    // derecha, y el llamante pone su etiqueta justo después, como con el
+    // giro. Mismo lock y re-check anti-duplicados que el camino animado
+    // (reentrante si se llega desde sus fallbacks internos). El try/finally
+    // garantiza el destape lógico de la segunda carta aunque la pausa muera
+    // por cancelación cooperativa.
+    private void destaparCartasJugadorSecuencial(RemotePlayer jugador) {
+
+        synchronized (jugador.getDestape_animado_lock()) {
+
+            Card c1 = jugador.getHoleCard1();
+            Card c2 = jugador.getHoleCard2();
+
+            if (!c1.isTapada() || !c2.isTapada()) {
+                return;
+            }
+
+            jugador.prepararDestapeAnimado();
+
+            try {
+                c1.destapar();
+
+                if (!GameFrame.TEST_MODE) {
+                    Helpers.pausar(PAUSA_DESTAPAR_CARTA);
+                }
+            } finally {
+                c2.destapar();
+            }
+        }
+    }
+
+    // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
+    // el mismo motor que las comunitarias (ANIMACION_CARTAS + GIF de giro por
+    // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
+    // giran SECUENCIALMENTE con ciclo completo (la izquierda gira y aterriza
+    // en su carta estática antes de que la derecha empiece) sobre overlays
+    // efímeros, y el método BLOQUEA hasta que el giro termina (nunca llamar
+    // desde el EDT): así el llamante no actualiza las etiquetas de
+    // gana/pierde/jugada hasta que el destape se ha visto entero.
+    //
+    // Escalera de fallbacks:
+    //   1) animaciones ON + GIF por carta → giro animado (uncover por carta).
+    //   2) rival destapable pero sin animación posible (animaciones OFF,
+    //      baraja sin GIFs, decode fallido, valores cambiados) →
+    //      destaparCartasJugadorSecuencial: mismo ritmo, destapes secos con
+    //      su audio, como las comunitarias sin animaciones.
+    //   3) resto (LocalPlayer — sus cartas nunca están tapadas en su propia
+    //      pantalla —, cartas ya destapadas, sin valor) → destape clásico
+    //      destaparCartas(sound); el flag sound aplica SOLO aquí.
+    public void mostrarAnimacionDestaparCartasJugador(Player jugador, boolean sound) {
+
+        Card c1 = jugador.getHoleCard1();
+        Card c2 = jugador.getHoleCard2();
+
+        boolean destapable = jugador instanceof RemotePlayer
+                && c1.isIniciadaConValor() && c1.isTapada()
+                && c2.isIniciadaConValor() && c2.isTapada();
+
+        if (!destapable) {
+            jugador.destaparCartas(sound);
+            return;
+        }
+
+        RemotePlayer rp = (RemotePlayer) jugador;
+
+        URL url1 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c1) : null;
+        URL url2 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c2) : null;
+
+        if (url1 == null || url2 == null) {
+            destaparCartasJugadorSecuencial(rp);
+            return;
+        }
+
+        synchronized (rp.getDestape_animado_lock()) {
+
+            // Re-chequeo bajo el lock: un destape concurrente del mismo
+            // jugador (SHOWCARDS duplicado/echo) pudo ganarnos mientras
+            // esperábamos. Cartas ya boca arriba = nada que hacer.
+            if (!c1.isTapada() || !c2.isTapada()) {
+                return;
+            }
+
+            try {
+                // Los dos GIFs en paralelo: el de la segunda carta se decodifica
+                // en background mientras el de la primera se decodifica inline.
+                final URL furl2 = url2;
+                final Card fc2 = c2;
+
+                Future<?> decode2 = Helpers.futureRun(() -> decodeCardFlipAnim(furl2, fc2));
+
+                FlipAnim anim1 = decodeCardFlipAnim(url1, c1);
+
+                FlipAnim anim2 = null;
+
+                try {
+                    anim2 = (FlipAnim) decode2.get();
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (classic uncover fallback)", ex);
+                }
+
+                if (anim1 == null || anim2 == null) {
+                    destaparCartasJugadorSecuencial(rp);
+                    return;
+                }
+
+                // Cinturón y tirantes: las pockets llegan desordenadas y
+                // ordenarCartas PERMUTA los valores entre los dos componentes
+                // Card. Todos los flujos ordenan ANTES de destapar en el mismo
+                // hilo, pero si algún valor cambiase entre el decode y el giro
+                // mejor el destape seco que animar un GIF que no casa con la
+                // carta que aterriza debajo.
+                if (!anim1.card.equals(c1.toShortString()) || !anim2.card.equals(c2.toShortString())) {
+                    LOGGER.log(Level.WARNING, "Card values changed between flip GIF decode and playback (plain uncover fallback)");
+                    destaparCartasJugadorSecuencial(rp);
+                    return;
+                }
+
+                // Vista compacta: las hole cards van achatadas a media altura y
+                // el overlay se achata igual (GifLabel estira a bounds) para
+                // casar con la carta de debajo.
+                int dh1 = (GameFrame.VISTA_COMPACTA > 0 && c1.isCompactable()) ? Math.round(anim1.display_h / 2f) : anim1.display_h;
+                int dh2 = (GameFrame.VISTA_COMPACTA > 0 && c2.isCompactable()) ? Math.round(anim2.display_h / 2f) : anim2.display_h;
+
+                rp.prepararDestapeAnimado();
+
+                // SECUENCIAL de ciclo completo: la izquierda gira Y ATERRIZA
+                // en su carta estática (destape síncrono + retirada de su
+                // overlay, una llamada entera) antes de que la derecha
+                // empiece su giro. Dejar la primera congelada en su último
+                // frame mientras gira la segunda y "bajar" las dos a la vez
+                // quedaba mal. delay_end asimétrico a propósito: la primera
+                // conserva su beat de 100ms antes de que arranque la segunda,
+                // pero la segunda va a 0 para que lo que siga al destape (la
+                // jugada en etiqueta neutra del showdown) entre JUSTO al
+                // terminar el giro — destaparSync ya dejó la estática debajo
+                // y el overlay se retira sin parpadeo.
+                GameFrame.getInstance().getTapete().playCardFlipOverlays(
+                        new Card[]{c1},
+                        new PreRenderedGif[]{anim1.anim},
+                        new int[]{anim1.display_w},
+                        new int[]{dh1},
+                        CARD_ANIMATION_DELAY,
+                        "misc/uncover.wav");
+
+                GameFrame.getInstance().getTapete().playCardFlipOverlays(
+                        new Card[]{c2},
+                        new PreRenderedGif[]{anim2.anim},
+                        new int[]{anim2.display_w},
+                        new int[]{dh2},
+                        0,
+                        "misc/uncover.wav");
+
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            } finally {
+                // Pase lo que pase con la animación, el destape lógico es
+                // obligatorio (no-op si destaparSync ya volteó las cartas).
+                jugador.destaparCartas(false);
+            }
+        }
+    }
+
     public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
 
         URL url_icon = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(carta) : null;
@@ -13020,12 +13227,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (destapar) {
                     Audio.playWavResource("misc/uncover.wav", false);
 
-                    // Destapamos las cartas de los jugadores involucrados
+                    // Destapamos las cartas de los jugadores involucrados,
+                    // SECUENCIAL por jugador: cada giro animado bloquea (hilo
+                    // del crupier) y el siguiente rival no gira hasta que el
+                    // anterior termina, como un dealer real.
                     for (Player jugador : resisten) {
 
                         if (jugador != GameFrame.getInstance().getLocalPlayer() && !jugador.isExit()) {
 
-                            jugador.destaparCartas(false);
+                            mostrarAnimacionDestaparCartasJugador(jugador, false);
                         }
                     }
                 }
@@ -13041,12 +13251,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (destapar) {
                     Audio.playWavResource("misc/uncover.wav", false);
 
-                    // Destapamos las cartas de los jugadores involucrados
+                    // Destapamos las cartas de los jugadores involucrados,
+                    // SECUENCIAL por jugador (ver rama del host).
                     for (Player jugador : resisten) {
 
                         if (jugador != GameFrame.getInstance().getLocalPlayer() && !jugador.isExit()) {
 
-                            jugador.destaparCartas(false);
+                            mostrarAnimacionDestaparCartasJugador(jugador, false);
                         }
                     }
                 }
@@ -13210,15 +13421,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
         }
 
+        // 2. PASADA 1 — destapes: en orden de palabra, cada jugador que debe
+        // mostrar gira sus cartas (animado, bloqueante), SIN tocar su action
+        // label (la etiqueta azul de jugada queda reservada al botón MOSTRAR
+        // voluntario de los foldeados entre manos). Los veredictos
+        // GANA/PIERDE + jugada de TODOS se revelan de golpe en la pasada 2,
+        // cuando ya no queda nadie por destapar — como en una mesa real,
+        // donde no hay ganador hasta que todas las manos están boca arriba.
+        // mustShow se decide AQUÍ una sola vez por jugador (first_to_show es
+        // estado del recorrido) y la pasada 2 lo reutiliza tal cual:
+        // recalcularlo podría divergir.
+        HashMap<Player, Boolean> must_show = new HashMap<>();
+
         int pos = pivote;
         boolean first_to_show = true; // Control para obligar a mostrar al primero en hablar
+        boolean alguno_destapado = false;
 
         do {
             Player jugador_actual = GameFrame.getInstance().getJugadores().get(pos);
 
             if (perdedores.containsKey(jugador_actual) || ganadores.containsKey(jugador_actual)) {
 
-                boolean isLocal = jugador_actual.equals(GameFrame.getInstance().getLocalPlayer());
                 boolean isWinner = ganadores.containsKey(jugador_actual);
                 Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
 
@@ -13228,17 +13451,68 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // - Es un All-in (destapar_resistencia = true)
                 // - El jugador es uno de los ganadores del bote
                 // - Es el primer jugador en actuar en el showdown (pivote)
-                boolean mustShow = !GameFrame.IWTSTH_RULE || 
-                                   this.destapar_resistencia || 
-                                   isWinner || 
+                boolean mustShow = !GameFrame.IWTSTH_RULE ||
+                                   this.destapar_resistencia ||
+                                   isWinner ||
                                    first_to_show;
 
+                must_show.put(jugador_actual, mustShow);
+
                 if (mustShow) {
-                    jugador_actual.destaparCartas(false);
+                    // ¿El destape ocurre AHORA? En all-in y run-it-twice las
+                    // cartas ya giraron antes del showdown: ni animación, ni
+                    // etiqueta neutra, ni pausa — directo al veredicto de la
+                    // pasada 2 (comportamiento de siempre).
+                    boolean estaba_tapada = jugador_actual.getHoleCard1().isTapada();
+
+                    // Pausa dramática ENTRE destapes, nunca tras el último:
+                    // corre antes de este giro solo si ya hubo otro antes
+                    // (visualmente cae tras la etiqueta neutra del jugador
+                    // anterior). Así los veredictos de la pasada 2 saltan
+                    // JUSTO al terminar el último giro, igual que en el
+                    // all-in multiway.
+                    if (estaba_tapada && alguno_destapado && !GameFrame.TEST_MODE) {
+                        Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
+                    }
+
+                    // Bloquea hasta el fin del giro (hilo del crupier, como las
+                    // comunitarias).
+                    mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
+
+                    if (estaba_tapada) {
+                        // Jugada en etiqueta NEUTRA (gris del label en reposo,
+                        // no el azul del botón MOSTRAR): enseña QUÉ lleva sin
+                        // adelantar si gana. El LocalPlayer nunca entra aquí
+                        // (sus cartas nunca están tapadas en su pantalla).
+                        if (jugador_actual instanceof RemotePlayer) {
+                            ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
+                        }
+
+                        alguno_destapado = true;
+                    }
                 }
 
                 // A partir de ahora, los siguientes perdedores podrán ocultar sus cartas
                 first_to_show = false;
+            }
+
+            pos = (pos + 1) % GameFrame.getInstance().getJugadores().size();
+
+        } while (pos != pivote);
+
+        // 3. PASADA 2 — veredictos: GANA/PIERDE + jugada + sonidos + SQL para
+        // todos de golpe, con todas las manos ya boca arriba.
+        pos = pivote;
+
+        do {
+            Player jugador_actual = GameFrame.getInstance().getJugadores().get(pos);
+
+            if (perdedores.containsKey(jugador_actual) || ganadores.containsKey(jugador_actual)) {
+
+                boolean isLocal = jugador_actual.equals(GameFrame.getInstance().getLocalPlayer());
+                boolean isWinner = ganadores.containsKey(jugador_actual);
+                Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
+                boolean mustShow = must_show.get(jugador_actual);
 
                 if (isWinner) {
                     jugador_actual.setWinner(jugada.getName());
@@ -13257,17 +13531,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (isLocal) {
                         jugador_actual.setLoser(jugada.getName());
                         GameFrame.getInstance().getLocalPlayer().setMuestra(mustShow);
-                        
+
                         // Si el jugador local hizo "muck" (cartas tapadas), habilitamos el botón voluntario
                         if (!mustShow) {
                             GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(true);
                         }
                     } else {
-                        // destaparCartas() above is async (Helpers.GUIRun), so we cannot
-                        // read getHoleCard1().isTapada() here to decide the label. Use the
-                        // mustShow flag that drove the uncover decision: a remote player
-                        // that did NOT show keeps the generic "PIERDE" label; otherwise
-                        // we expose the hand name.
+                        // El destape de la pasada 1 puede ser asíncrono en el
+                        // fallback clásico, así que no leemos isTapada() aquí
+                        // para decidir la etiqueta: usamos el mustShow que
+                        // gobernó el destape. Un remoto que NO mostró conserva
+                        // el "PIERDE" genérico; si mostró, se expone la jugada.
                         if (!mustShow) {
                             jugador_actual.setLoser(Translator.translate("ui.pierde_3"));
                         } else {

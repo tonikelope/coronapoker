@@ -158,12 +158,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    public void showCentralImage(ImageIcon icon, int frames, int delay_end) {
-
-        showCentralImage(icon, frames, delay_end, true, null, 0, 0);
-
-    }
-
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {
         central_label_thread = Thread.currentThread().threadId();
 
@@ -300,6 +294,151 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         // (timeout del latch, fin de transmisión, takeover). El Timer ya se
         // auto-termina al llegar al último frame; esto solo cierra los caminos
         // exóticos sin tocar el player de un posible nuevo dueño del label.
+        Helpers.GUIRun(() -> {
+            if (player_holder[0] != null) {
+                player_holder[0].stop();
+            }
+        });
+    }
+
+    // Variante en bucle de showCentralFrames para el GIF de barajado: repite la
+    // animación (centrada, con el audio re-disparado en cada ciclo y cortado en
+    // audio_stop_frame, mismo contrato que addAudio(1, stop)) hasta que el
+    // predicado caiga. El predicado solo se consulta al llegar al último frame,
+    // así que siempre se reproduce al menos un ciclo completo, igual que el
+    // do-while legacy sobre showCentralImage. Bloquea al llamante hasta el fin
+    // del bucle y respeta fin_de_la_transmision y el takeover de
+    // central_label_thread.
+    public void showCentralFramesLoop(PreRenderedGif anim, int display_w, int display_h, String audio, int audio_stop_frame, java.util.function.BooleanSupplier keep_looping) {
+
+        central_label_thread = Thread.currentThread().threadId();
+
+        final CountDownLatch finished = new CountDownLatch(1);
+
+        final javax.swing.Timer[] player_holder = new javax.swing.Timer[1];
+
+        Helpers.GUIRunAndWait(() -> {
+
+            getCentral_label().setSize(display_w, display_h);
+            getCentral_label().setLocation(Math.round((getWidth() - display_w) / 2), Math.round((getHeight() - display_h) / 2));
+
+            if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+                getCentral_label().setIcon(null);
+                getCentral_label().setFrameOverride(anim.getFrame(0));
+                getCentral_label().setVisible(true);
+
+                if (audio != null) {
+                    Audio.playWavResource(audio);
+                }
+
+                final long[] t0 = {System.nanoTime()};
+                final long total_ms = anim.getTotalMs();
+                final int[] painted = {0};
+                final boolean[] audio_on = {audio != null};
+
+                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+
+                player_holder[0] = player;
+
+                player.addActionListener(e -> {
+
+                    if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                        if (audio_on[0]) {
+                            audio_on[0] = false;
+                            Audio.stopWavResource(audio);
+                        }
+                        player.stop();
+                        finished.countDown();
+                        return;
+                    }
+
+                    long elapsed = (System.nanoTime() - t0[0]) / 1_000_000L;
+
+                    int idx = anim.frameAt(elapsed);
+
+                    // Ventana de audio 1..audio_stop_frame (1-based) de cada ciclo
+                    if (audio_on[0] && idx + 1 >= audio_stop_frame) {
+                        audio_on[0] = false;
+                        Audio.stopWavResource(audio);
+                    }
+
+                    if (idx != painted[0]) {
+                        painted[0] = idx;
+                        getCentral_label().setFrameOverride(anim.getFrame(idx));
+                    }
+
+                    // Fin de ciclo cuando el ÚLTIMO frame ha consumido también su
+                    // delay (no al entrar en él), para que el ciclo dure siempre
+                    // el total nominal del GIF.
+                    if (elapsed >= total_ms) {
+
+                        if (keep_looping.getAsBoolean()) {
+                            // Rebobinado exacto: nuevo origen de tiempos y audio
+                            // re-disparado, sin gap entre ciclos.
+                            t0[0] = System.nanoTime();
+                            painted[0] = 0;
+                            getCentral_label().setFrameOverride(anim.getFrame(0));
+                            if (audio != null) {
+                                if (audio_on[0]) {
+                                    Audio.stopWavResource(audio);
+                                }
+                                audio_on[0] = true;
+                                Audio.playWavResource(audio);
+                            }
+                        } else {
+                            player.stop();
+                            finished.countDown();
+                        }
+                    }
+                });
+
+                player.start();
+
+            } else {
+                finished.countDown();
+            }
+        });
+
+        if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && Thread.currentThread().threadId() == central_label_thread) {
+
+            try {
+                // El bucle dura lo que dure el predicado (la cascada SRA puede ir
+                // para largo), así que la espera normal es indefinida: el único
+                // exit normal es el countDown del player. El timeout por ronda es
+                // solo defensivo: si el predicado ya cayó (o hay fin de
+                // transmisión) y el player no ha contado el latch tras una ronda
+                // ENTERA adicional, es que ya no hay EDT vivo que lo cuente
+                // (shutdown) y seguir esperando bloquearía el hilo del crupier.
+                boolean stopping_observed = false;
+
+                while (!finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS)) {
+
+                    boolean stopping = !keep_looping.getAsBoolean() || GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
+
+                    if (stopping && stopping_observed) {
+                        break;
+                    }
+
+                    stopping_observed = stopping;
+                }
+            } catch (InterruptedException ex) {
+                Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                        "central label pre-rendered loop playback", ex);
+            }
+
+            if (Thread.currentThread().threadId() == central_label_thread) {
+
+                Helpers.GUIRunAndWait(() -> {
+                    getCentral_label().setFrameOverride(null);
+                    getCentral_label().setVisible(false);
+                });
+            }
+        }
+
+        // Mismo cinturón y tirantes que showCentralFrames para los caminos
+        // exóticos (timeout defensivo, takeover): parar ESTE player sin tocar
+        // el de un posible nuevo dueño del label.
         Helpers.GUIRun(() -> {
             if (player_holder[0] != null) {
                 player_holder[0].stop();

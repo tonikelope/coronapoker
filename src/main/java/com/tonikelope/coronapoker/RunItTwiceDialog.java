@@ -53,6 +53,10 @@ import javax.swing.WindowConstants;
  * until the host closes it via {@link #closeDialog()}; a hard safety cap
  * disposes it anyway if a close ever gets lost.
  *
+ * The dialog pops up centered over the table, right on top of the community
+ * cards, so it is shown slightly translucent: the voter can read the board
+ * before deciding.
+ *
  * @author tonikelope
  */
 public class RunItTwiceDialog extends JDialog {
@@ -64,6 +68,10 @@ public class RunItTwiceDialog extends JDialog {
     // Grace window (ms) after the countdown ends to still receive the host's
     // CLOSE before force-disposing — covers network latency on the final tally.
     private static final int SAFETY_GRACE_MS = 8000;
+
+    // Translucent enough to read the community cards behind the dialog while
+    // keeping the buttons and tallies perfectly legible.
+    private static final float DIALOG_OPACITY = 0.8f;
 
     private volatile int vote = VOTE_PENDING;
     private volatile boolean disposing = false;
@@ -122,6 +130,7 @@ public class RunItTwiceDialog extends JDialog {
         normal_button.setBackground(new Color(120, 120, 120));
         normal_button.setForeground(Color.WHITE);
         normal_button.setFocusable(false);
+        normal_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         normal_button.setMargin(new java.awt.Insets(14, 28, 14, 28));
         normal_button.addActionListener((e) -> castVote(VOTE_NORMAL));
 
@@ -129,6 +138,7 @@ public class RunItTwiceDialog extends JDialog {
         rit_button.setBackground(new Color(0, 130, 0));
         rit_button.setForeground(Color.WHITE);
         rit_button.setFocusable(false);
+        rit_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rit_button.setMargin(new java.awt.Insets(14, 28, 14, 28));
         rit_button.addActionListener((e) -> castVote(VOTE_RUN_IT_TWICE));
 
@@ -164,6 +174,8 @@ public class RunItTwiceDialog extends JDialog {
 
         pack();
         setLocationRelativeTo(parent);
+
+        setOpacity(DIALOG_OPACITY);
 
         Helpers.threadRun(() -> countdownLoop(timeout));
     }

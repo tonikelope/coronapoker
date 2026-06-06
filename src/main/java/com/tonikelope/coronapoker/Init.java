@@ -1123,6 +1123,10 @@ public class Init extends JFrame {
             GameFrame.BARAJA = GameFrame.BARAJA_DEFAULT;
         }
 
+        // Pre-decodifica el shuffle.gif de la baraja actual en background desde
+        // el arranque, para que la primera mano no pague el decode
+        Crupier.warmShuffleAnimCache();
+
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
         Audio.MASTER_VOLUME = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
 

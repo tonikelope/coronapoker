@@ -331,12 +331,94 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // shuffle.wav, el mismo en el motor pre-decodificado y en la ruta legacy
     public static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     // Caché del shuffle.gif pre-decodificado de la baraja ACTUAL (una sola
-    // entrada, keyed por URL): el decode de ~0,5 s se paga solo en la primera
-    // mano y la animación queda residente (~43 MB las barajas integradas)
-    // hasta que se cambie de baraja, que la reemplaza y libera la anterior.
-    // Un value null cachea también el fallo (GIF de mod indecodificable o
-    // sobre el tope): un único intento y un único WARNING por baraja.
+    // entrada, keyed por URL): el decode de ~0,5 s se paga una única vez por
+    // baraja (normalmente en el warm-up de arranque/cambio de baraja, fuera de
+    // la partida) y la animación queda residente (~43 MB las barajas
+    // integradas) hasta que se cambie de baraja, que la reemplaza y libera la
+    // anterior. Un value null cachea también el fallo (GIF de mod
+    // indecodificable o sobre el tope): un único intento y un único WARNING
+    // por baraja.
     private static volatile Map.Entry<String, PreRenderedGif> SHUFFLE_ANIM_CACHE = null;
+
+    private static final Object SHUFFLE_ANIM_LOCK = new Object();
+
+    // URL del shuffle.gif de la baraja actual (fichero del mod o recurso
+    // integrado), null si la baraja no tiene
+    public static URL shuffleGifUrl() {
+
+        String baraja = GameFrame.BARAJA;
+
+        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(baraja))[1];
+
+        if (baraja_mod && Files.exists(
+                Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
+            try {
+                return Paths
+                        .get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif")
+                        .toUri().toURL();
+            } catch (MalformedURLException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+
+        } else if (Crupier.class.getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
+            return Crupier.class.getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
+        }
+
+        return null;
+    }
+
+    // Shuffle.gif pre-decodificado de la caché, decodificándolo si no está
+    // (null si no se deja o excede el tope: ruta legacy). Sincronizado para
+    // que el warm-up y el hilo del barajado nunca paguen el decode dos veces.
+    public static PreRenderedGif getShuffleAnim(URL url_icon) {
+
+        String url_key = url_icon.toString();
+
+        synchronized (SHUFFLE_ANIM_LOCK) {
+
+            Map.Entry<String, PreRenderedGif> cache = SHUFFLE_ANIM_CACHE;
+
+            if (cache != null && url_key.equals(cache.getKey())) {
+                return cache.getValue();
+            }
+
+            PreRenderedGif anim = null;
+
+            try {
+                anim = PreRenderedGif.decode(url_icon, PRE_RENDERED_SHUFFLE_MAX_BYTES);
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Shuffle GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
+            }
+
+            if (anim != null && !PRE_RENDERED_SHUFFLE_LOGGED) {
+                PRE_RENDERED_SHUFFLE_LOGGED = true;
+                LOGGER.log(Level.INFO, "Shuffle animation: pre-rendered catch-up engine active ({0} frames / {1} ms)",
+                        new Object[]{anim.getFrameCount(), anim.getTotalMs()});
+            }
+
+            SHUFFLE_ANIM_CACHE = new HashMap.SimpleEntry<>(url_key, anim);
+
+            return anim;
+        }
+    }
+
+    // Calienta la caché en background (arranque, cambio de baraja, animaciones
+    // reactivadas) para que la primera mano no pague el decode de ~0,5 s
+    public static void warmShuffleAnimCache() {
+
+        if (!GameFrame.ANIMACION_CARTAS) {
+            return;
+        }
+
+        Helpers.threadRun(() -> {
+
+            URL url_icon = shuffleGifUrl();
+
+            if (url_icon != null) {
+                getShuffleAnim(url_icon);
+            }
+        });
+    }
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f},
     new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
@@ -6067,57 +6149,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean[] gif_thread_done = {false};
 
             Helpers.threadRun(() -> {
-                String baraja = GameFrame.BARAJA;
-                boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
-                URL url_icon = null;
-                if (baraja_mod && Files.exists(
-                        Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif"))) {
-                    try {
-                        url_icon = Paths
-                                .get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/shuffle.gif")
-                                .toUri().toURL();
-                    } catch (MalformedURLException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                    }
-
-                } else if (getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif") != null) {
-                    url_icon = getClass().getResource("/images/decks/" + baraja + "/gif/shuffle.gif");
-
-                }
+                URL url_icon = shuffleGifUrl();
                 if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
 
                     // Motor pre-decodificado con catch-up también para el barajado:
-                    // un único decode por baraja (cacheado; el animador Toolkit
+                    // un único decode por baraja (normalmente ya caliente por el
+                    // warm-up de arranque/cambio de baraja; el animador Toolkit
                     // re-decodificaba el GIF entero en CADA ciclo del bucle por el
                     // flush) y ciclos siempre de duración nominal aunque el timer
-                    // de Windows vaya grueso. El decode (~0,5 s, solo la primera
-                    // mano con cada baraja) corre en este hilo, en paralelo a la
-                    // cascada SRA. Si el GIF no se deja pre-decodificar (o excede
-                    // el tope de RAM), la ruta legacy sigue intacta.
-                    PreRenderedGif shuffle_anim;
-
-                    String url_key = url_icon.toString();
-
-                    Map.Entry<String, PreRenderedGif> cache = SHUFFLE_ANIM_CACHE;
-
-                    if (cache != null && url_key.equals(cache.getKey())) {
-                        shuffle_anim = cache.getValue();
-                    } else {
-                        try {
-                            shuffle_anim = PreRenderedGif.decode(url_icon, PRE_RENDERED_SHUFFLE_MAX_BYTES);
-                        } catch (Exception ex) {
-                            shuffle_anim = null;
-                            LOGGER.log(Level.WARNING, "Shuffle GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
-                        }
-
-                        SHUFFLE_ANIM_CACHE = new HashMap.SimpleEntry<>(url_key, shuffle_anim);
-                    }
-
-                    if (shuffle_anim != null && !PRE_RENDERED_SHUFFLE_LOGGED) {
-                        PRE_RENDERED_SHUFFLE_LOGGED = true;
-                        LOGGER.log(Level.INFO, "Shuffle animation: pre-rendered catch-up engine active ({0} frames / {1} ms)",
-                                new Object[]{shuffle_anim.getFrameCount(), shuffle_anim.getTotalMs()});
-                    }
+                    // de Windows vaya grueso. Si el GIF no se deja pre-decodificar
+                    // (o excede el tope de RAM), la ruta legacy sigue intacta.
+                    PreRenderedGif shuffle_anim = getShuffleAnim(url_icon);
 
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);

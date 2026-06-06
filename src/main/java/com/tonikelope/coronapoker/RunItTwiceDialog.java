@@ -33,8 +33,6 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.MouseInfo;
-import java.awt.PointerInfo;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.function.IntConsumer;
@@ -46,6 +44,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 /**
@@ -94,22 +93,32 @@ public class RunItTwiceDialog extends JDialog {
     private volatile int tally_normal = 0;
     private volatile int tally_rit = 0;
 
-    // MOUSE_ENTERED/EXITED fire per-component, so this listener goes on the
-    // dialog and every descendant (see installHoverOpacity); on exit the
-    // pointer position decides whether it really left the dialog, since
-    // moving between children fires exit events too.
+    // Hover tracking is purely event-driven: MOUSE_ENTERED/EXITED fire
+    // per-component, so this listener goes on the dialog and every descendant
+    // (see installHoverOpacity). Moving between children fires the exit(old)
+    // and enter(new) pair within the SAME event dispatch, so the exit defers
+    // its decision with invokeLater and the sibling's enter cancels it via
+    // mouse_inside; only a real departure (no enter follows) restores the
+    // resting opacity. Comparing MouseInfo against getBounds() here is NOT
+    // reliable: under HiDPI scaling pointer and window coordinates can come
+    // in different spaces and the dialog gets stuck opaque.
+    private boolean mouse_inside = false;
+
     private final MouseAdapter hover_listener = new MouseAdapter() {
         @Override
         public void mouseEntered(MouseEvent e) {
+            mouse_inside = true;
             setOpacity(1f);
         }
 
         @Override
         public void mouseExited(MouseEvent e) {
-            PointerInfo pointer = MouseInfo.getPointerInfo();
-            if (pointer == null || !getBounds().contains(pointer.getLocation())) {
-                setOpacity(RESTING_OPACITY);
-            }
+            mouse_inside = false;
+            SwingUtilities.invokeLater(() -> {
+                if (!mouse_inside) {
+                    setOpacity(RESTING_OPACITY);
+                }
+            });
         }
     };
 

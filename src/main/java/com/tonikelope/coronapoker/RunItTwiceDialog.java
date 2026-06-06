@@ -54,8 +54,9 @@ import javax.swing.WindowConstants;
  * disposes it anyway if a close ever gets lost.
  *
  * The dialog pops up centered over the table, right on top of the community
- * cards, so it is shown slightly translucent: the voter can read the board
- * before deciding.
+ * cards, so when the board already shows at least one revealed card it is
+ * shown slightly translucent: the voter can read the board before deciding.
+ * On a preflop all-in there is nothing to see behind and it stays opaque.
  *
  * @author tonikelope
  */
@@ -175,9 +176,25 @@ public class RunItTwiceDialog extends JDialog {
         pack();
         setLocationRelativeTo(parent);
 
-        setOpacity(DIALOG_OPACITY);
+        // Translucency only buys anything if the dialog is covering revealed
+        // community cards; on a preflop all-in the board is empty and the
+        // dialog reads better fully opaque. The board is static while the
+        // vote is open (the run-out resumes after the result), so checking
+        // once here is enough.
+        if (hayComunitariasDestapadas()) {
+            setOpacity(DIALOG_OPACITY);
+        }
 
         Helpers.threadRun(() -> countdownLoop(timeout));
+    }
+
+    private static boolean hayComunitariasDestapadas() {
+        for (Card c : GameFrame.getInstance().getCartas_comunes()) {
+            if (c != null && !c.isTapada() && c.getValor() != null && !c.getValor().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int getVote() {

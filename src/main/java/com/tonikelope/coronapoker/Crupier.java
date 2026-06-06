@@ -13321,8 +13321,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             nick2player.clear();
             for (Player jugador : GameFrame.getInstance().getJugadores()) {
                 nick2player.put(jugador.getNickname(), jugador);
-                //
-                if (jugador.isExit() && GameFrame.getInstance().isPartida_local()) {
+                // Baja de sala solo para participantes remotos: si el que sale
+                // es el propio host (exit a mitad de mano, con finTransmision
+                // ya en marcha en paralelo) no hay baja que procesar — su
+                // entrada en participantes es un placeholder null por diseño.
+                if (jugador.isExit() && GameFrame.getInstance().isPartida_local()
+                        && jugador != GameFrame.getInstance().getLocalPlayer()) {
                     GameFrame.getInstance().getSala_espera().borrarParticipante(jugador.getNickname());
                 }
             }

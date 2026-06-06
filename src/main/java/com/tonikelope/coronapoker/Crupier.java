@@ -319,7 +319,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; // 2 players
     public static final int CARD_ANIMATION_DELAY = 100;
-    public static final int SHUFFLE_ANIMATION_DELAY = 250;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce el barajado

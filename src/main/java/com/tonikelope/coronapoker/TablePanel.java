@@ -158,12 +158,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    public void showCentralImage(ImageIcon icon, int frames, int delay_end) {
-
-        showCentralImage(icon, frames, delay_end, true, null, 0, 0);
-
-    }
-
     public void showCentralImage(ImageIcon icon, int frames, int delay_end, boolean center, String audio, int audio_frame_start, int audio_frame_end) {
         central_label_thread = Thread.currentThread().threadId();
 

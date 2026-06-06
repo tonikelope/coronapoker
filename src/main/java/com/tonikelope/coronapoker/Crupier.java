@@ -324,6 +324,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int SHUFFLE_ANIMATION_DELAY = 250;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
+    // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce el barajado
+    private static volatile boolean PRE_RENDERED_SHUFFLE_LOGGED = false;
+    // Tope de memoria para pre-decodificar shuffle.gif (las barajas integradas
+    // rondan los 43 MB gracias al fast path indexado; un shuffle.gif de mod que
+    // estime por encima cae a la ruta legacy Toolkit en vez de tragarse la RAM)
+    public static final long PRE_RENDERED_SHUFFLE_MAX_BYTES = 64L * 1024 * 1024;
+    // Frame (1-based) de cada ciclo del GIF de barajado en el que se corta
+    // shuffle.wav, el mismo en el motor pre-decodificado y en la ruta legacy
+    public static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final float[][] CIEGAS = new float[][]{new float[]{0.1f, 0.2f}, new float[]{0.2f, 0.4f},
     new float[]{0.3f, 0.6f}, new float[]{0.5f, 1.0f}};
@@ -6072,17 +6081,50 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 }
                 if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
-                    ImageIcon icon = new ImageIcon(url_icon);
+
+                    // Motor pre-decodificado con catch-up también para el barajado:
+                    // un único decode por mano (el animador Toolkit re-decodificaba
+                    // el GIF entero en CADA ciclo del bucle por el flush) y ciclos
+                    // siempre de duración nominal aunque el timer de Windows vaya
+                    // grueso. El decode (~0,5 s) corre en este hilo, en paralelo a
+                    // la cascada SRA. Si el GIF no se deja pre-decodificar (o excede
+                    // el tope de RAM), la ruta legacy sigue intacta.
+                    PreRenderedGif shuffle_anim = null;
+
+                    try {
+                        shuffle_anim = PreRenderedGif.decode(url_icon, PRE_RENDERED_SHUFFLE_MAX_BYTES);
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Shuffle GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
+                    }
+
+                    if (shuffle_anim != null && !PRE_RENDERED_SHUFFLE_LOGGED) {
+                        PRE_RENDERED_SHUFFLE_LOGGED = true;
+                        LOGGER.log(Level.INFO, "Shuffle animation: pre-rendered catch-up engine active ({0} frames / {1} ms)",
+                                new Object[]{shuffle_anim.getFrameCount(), shuffle_anim.getTotalMs()});
+                    }
+
                     Helpers.GUIRunAndWait(() -> {
                         GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
                     });
-                    // Loop the shuffle GIF (with audio re-triggered each cycle) until the
-                    // SRA cascade finishes. Minimum 1 full cycle thanks to do-while.
-                    // delay_end=0 keeps the gap between cycles to the bare EDT round-trip.
-                    do {
-                        GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true,
-                                "misc/shuffle.wav", 1, 53);
-                    } while (barajando && !isFin_de_la_transmision());
+
+                    if (shuffle_anim != null) {
+                        // Bucle hasta que la cascada SRA termine, con mínimo 1 ciclo
+                        // completo (el predicado solo se consulta al fin de ciclo) y
+                        // audio re-disparado en cada ciclo, como el do-while legacy.
+                        GameFrame.getInstance().getTapete().showCentralFramesLoop(shuffle_anim,
+                                shuffle_anim.getWidth(), shuffle_anim.getHeight(),
+                                "misc/shuffle.wav", SHUFFLE_AUDIO_STOP_FRAME, () -> barajando);
+                    } else {
+                        ImageIcon icon = new ImageIcon(url_icon);
+                        // Loop the shuffle GIF (with audio re-triggered each cycle) until the
+                        // SRA cascade finishes. Minimum 1 full cycle thanks to do-while.
+                        // delay_end=0 keeps the gap between cycles to the bare EDT round-trip.
+                        do {
+                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true,
+                                    "misc/shuffle.wav", 1, SHUFFLE_AUDIO_STOP_FRAME);
+                        } while (barajando && !isFin_de_la_transmision());
+                    }
+
                     if (!isFin_de_la_transmision()) {
                         Helpers.GUIRunAndWait(() -> {
                             GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);

@@ -12651,13 +12651,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // overlay, una llamada entera) antes de que la derecha
                 // empiece su giro. Dejar la primera congelada en su último
                 // frame mientras gira la segunda y "bajar" las dos a la vez
-                // quedaba mal.
+                // quedaba mal. delay_end=0 a propósito: destaparSync deja la
+                // estática bajo el último frame, así que el overlay se retira
+                // al instante sin parpadeo — cero pausa entre la primera y la
+                // segunda carta, y cero pausa entre la segunda y la jugada en
+                // etiqueta neutra del llamante.
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
                         new Card[]{c1},
                         new PreRenderedGif[]{anim1.anim},
                         new int[]{anim1.display_w},
                         new int[]{dh1},
-                        CARD_ANIMATION_DELAY,
+                        0,
                         "misc/uncover.wav");
 
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
@@ -12665,7 +12669,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         new PreRenderedGif[]{anim2.anim},
                         new int[]{anim2.display_w},
                         new int[]{dh2},
-                        CARD_ANIMATION_DELAY,
+                        0,
                         "misc/uncover.wav");
 
             } catch (Exception ex) {

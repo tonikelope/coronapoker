@@ -33,6 +33,8 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.MouseInfo;
+import java.awt.PointerInfo;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.function.IntConsumer;
@@ -44,7 +46,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.WindowConstants;
 
 /**
@@ -93,32 +95,28 @@ public class RunItTwiceDialog extends JDialog {
     private volatile int tally_normal = 0;
     private volatile int tally_rit = 0;
 
-    // Hover tracking is purely event-driven: MOUSE_ENTERED/EXITED fire
-    // per-component, so this listener goes on the dialog and every descendant
-    // (see installHoverOpacity). Moving between children fires the exit(old)
-    // and enter(new) pair within the SAME event dispatch, so the exit defers
-    // its decision with invokeLater and the sibling's enter cancels it via
-    // mouse_inside; only a real departure (no enter follows) restores the
-    // resting opacity. Comparing MouseInfo against getBounds() here is NOT
-    // reliable: under HiDPI scaling pointer and window coordinates can come
-    // in different spaces and the dialog gets stuck opaque.
-    private boolean mouse_inside = false;
+    // Hover-in is event-driven but hover-out is polled, and that asymmetry
+    // is forced: MOUSE_ENTERED fires fine on the dialog and its children
+    // (see installHoverOpacity), but when the pointer crosses from a modal
+    // dialog onto its modally-blocked owner AWT synthesizes no MOUSE_EXITED
+    // at all -- the natively disabled GameFrame never reports the pointer,
+    // and the exit only shows up once some unrelated window (other monitor,
+    // other app) does. So entering restores full opacity and starts this
+    // short-lived poll of the pointer against the dialog bounds, which fades
+    // the dialog back and stops itself once the pointer is really outside.
+    private final Timer hover_poll = new Timer(100, (e) -> {
+        PointerInfo pointer = MouseInfo.getPointerInfo();
+        if (pointer == null || !getBounds().contains(pointer.getLocation())) {
+            ((Timer) e.getSource()).stop();
+            setOpacity(RESTING_OPACITY);
+        }
+    });
 
     private final MouseAdapter hover_listener = new MouseAdapter() {
         @Override
         public void mouseEntered(MouseEvent e) {
-            mouse_inside = true;
             setOpacity(1f);
-        }
-
-        @Override
-        public void mouseExited(MouseEvent e) {
-            mouse_inside = false;
-            SwingUtilities.invokeLater(() -> {
-                if (!mouse_inside) {
-                    setOpacity(RESTING_OPACITY);
-                }
-            });
+            hover_poll.start();
         }
     };
 
@@ -238,6 +236,7 @@ public class RunItTwiceDialog extends JDialog {
     public void closeDialog() {
         disposing = true;
         Helpers.GUIRun(() -> {
+            hover_poll.stop();
             Helpers.resetBarra(barra, 0);
             dispose();
         });

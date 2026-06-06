@@ -332,20 +332,18 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Reproduce los GIFs de giro de varias cartas sobre overlays efímeros en
-    // POPUP_LAYER (uno por carta, centrado sobre ella), con el mismo motor
-    // catch-up y los mismos relevos sin hueco que showCentralFrames: cada
-    // tapada se oculta en el MISMO evento EDT que muestra su primer frame y
-    // cada carta se destapa síncronamente DEBAJO de su último frame antes de
-    // retirar los overlays. start_offsets[i] retrasa el arranque del giro de
-    // la carta i (un solo reloj t0 compartido): hasta entonces su overlay
-    // muestra el frame 0 (el dorso, indistinguible de la carta quieta) y el
-    // audio suena al arrancar CADA giro. Los giros ya terminados se quedan en
-    // su último frame mientras el resto acaba. Bloquea al llamante (NUNCA
-    // llamar desde el EDT) hasta que todas las animaciones terminan más
-    // delay_end. No toca central_label ni su takeover: los overlays se crean
-    // y se retiran aquí mismo.
-    public void playCardFlipOverlays(Card[] cartas, PreRenderedGif[] anims, int[] dws, int[] dhs, long[] start_offsets, int delay_end, String audio) {
+    // Reproduce los GIFs de giro de una o varias cartas A LA VEZ sobre
+    // overlays efímeros en POPUP_LAYER (uno por carta, centrado sobre ella),
+    // con el mismo motor catch-up y los mismos relevos sin hueco que
+    // showCentralFrames: cada tapada se oculta en el MISMO evento EDT que
+    // muestra su primer frame y cada carta se destapa síncronamente DEBAJO de
+    // su último frame antes de retirar los overlays. Bloquea al llamante
+    // (NUNCA llamar desde el EDT) hasta que todas las animaciones terminan
+    // más delay_end — para destapes secuenciales (una carta aterrizada del
+    // todo antes de que gire la siguiente) el llamante encadena llamadas de
+    // una sola carta. No toca central_label ni su takeover: los overlays se
+    // crean y se retiran aquí mismo.
+    public void playCardFlipOverlays(Card[] cartas, PreRenderedGif[] anims, int[] dws, int[] dhs, int delay_end, String audio) {
 
         final GifLabel[] overlays = new GifLabel[cartas.length];
 
@@ -392,7 +390,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                     final long t0 = System.nanoTime();
                     final int[] painted = new int[cartas.length];
-                    final boolean[] started = new boolean[cartas.length];
 
                     final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
 
@@ -406,23 +403,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                         for (int i = 0; i < anims.length; i++) {
 
-                            long local_elapsed = elapsed - start_offsets[i];
-
-                            if (local_elapsed < 0) {
-                                // Aún no le toca: su overlay sigue en el frame 0 (dorso).
-                                all_done = false;
-                                continue;
-                            }
-
-                            if (!started[i]) {
-                                started[i] = true;
-                                // El audio del primer giro (offset 0) ya sonó arriba.
-                                if (audio != null && start_offsets[i] > 0) {
-                                    Audio.playWavResource(audio);
-                                }
-                            }
-
-                            int idx = anims[i].frameAt(local_elapsed);
+                            int idx = anims[i].frameAt(elapsed);
 
                             if (idx != painted[i]) {
                                 painted[i] = idx;

@@ -67,6 +67,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -12379,72 +12380,174 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return ciega_pequeña;
     }
 
-    public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
+    // Pre-decode en vuelo de los GIFs de giro (una Future por carta, ver
+    // prefetchAnimacionDestaparCarta). Acotado por diseño: las claves son las
+    // instancias fijas de las comunitarias del GameFrame, cada recogida vacía
+    // su entrada y cada prefetch reemplaza la anterior de esa carta.
+    private final ConcurrentHashMap<Card, Future<?>> flip_anim_prefetch = new ConcurrentHashMap<>();
+
+    // Resultado del pre-decode del GIF de giro de una carta: el anim con sus
+    // dimensiones de pintado y las condiciones bajo las que se decodificó
+    // (carta y zoom), para descartarlo si cambian entre el prefetch y el
+    // destape (p.ej. el re-reparto de CARA-B reutiliza las mismas instancias
+    // de Card con otro valor).
+    private static final class FlipAnim {
+
+        private final PreRenderedGif anim;
+        private final int display_w;
+        private final int display_h;
+        private final float zoom_factor;
+        private final String card;
+
+        private FlipAnim(PreRenderedGif anim, int display_w, int display_h, float zoom_factor, String card) {
+            this.anim = anim;
+            this.display_w = display_w;
+            this.display_h = display_h;
+            this.zoom_factor = zoom_factor;
+            this.card = card;
+        }
+    }
+
+    // URL del GIF de giro de una carta (fichero del mod o recurso integrado),
+    // o null si la baraja actual no trae GIF para esa carta.
+    private URL cardFlipGifUrl(Card carta) {
 
         String baraja = GameFrame.BARAJA;
         boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
 
-        if (GameFrame.ANIMACION_CARTAS && ((baraja_mod && Files.exists(Paths.get(Helpers.getCurrentJarParentPath()
-                + "/mod/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif")))
-                || getClass().getResource("/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo()
-                        + ".gif") != null)) {
+        try {
+            if (baraja_mod) {
+                String mod_gif = Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/"
+                        + carta.getValor() + "_" + carta.getPalo() + ".gif";
+
+                return Files.exists(Paths.get(mod_gif)) ? Paths.get(mod_gif).toUri().toURL() : null;
+            }
+
+            return getClass().getResource(
+                    "/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+
+        } catch (MalformedURLException ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+            return null;
+        }
+    }
+
+    // Pre-decodifica el GIF de giro de una carta al zoom actual para el motor
+    // catch-up. Devuelve null si el GIF no se deja pre-decodificar: el
+    // llamante cae a la ruta legacy con el animador Toolkit, que sigue
+    // intacta.
+    private FlipAnim decodeCardFlipAnim(URL url_icon, Card carta) {
+
+        float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
+        try {
+            PreRenderedGif anim;
+            int display_w;
+            int display_h;
+
+            if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
+
+                String gifsicle_path = Helpers.genGifsicleCardAnimationPath(url_icon, zoom_factor,
+                        GameFrame.BARAJA + "_" + carta.getValor() + "_" + carta.getPalo());
+
+                if (gifsicle_path != null) {
+                    anim = PreRenderedGif.decode(Paths.get(gifsicle_path).toUri().toURL());
+                    display_w = anim.getWidth();
+                    display_h = anim.getHeight();
+                } else {
+                    // Sin caché gifsicle todavía: frames a tamaño base estirados
+                    // al zoom en el paint (GifLabel pinta a bounds con bilinear).
+                    anim = PreRenderedGif.decode(url_icon);
+                    display_w = Math.round(anim.getWidth() * zoom_factor);
+                    display_h = Math.round(anim.getHeight() * zoom_factor);
+                }
+            } else {
+                anim = PreRenderedGif.decode(url_icon);
+                display_w = anim.getWidth();
+                display_h = anim.getHeight();
+            }
+
+            return new FlipAnim(anim, display_w, display_h, zoom_factor, carta.toShortString());
+
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
+            return null;
+        }
+    }
+
+    // Lanza en background el pre-decode del GIF de giro de una carta. Lo usa
+    // destaparFlop con la segunda y la tercera carta: sus destapes encadenan
+    // sin pausa larga (solo la primera la tiene, y ahí el decode se absorbe
+    // vía lapsed), así que sin esto cada una pagaba su decode en crudo entre
+    // flip y flip y la cadencia del flop variaba de mano en mano.
+    private void prefetchAnimacionDestaparCarta(Card carta) {
+
+        if (GameFrame.ANIMACION_CARTAS) {
+
+            URL url_icon = cardFlipGifUrl(carta);
+
+            if (url_icon != null) {
+                flip_anim_prefetch.put(carta, Helpers.futureRun(() -> decodeCardFlipAnim(url_icon, carta)));
+            }
+        }
+    }
+
+    // Recoge el pre-decode lanzado por prefetchAnimacionDestaparCarta. Espera
+    // si aún está en curso (siempre mucho menos que la animación del flip
+    // anterior) y lo descarta si la carta o el zoom cambiaron entre medias.
+    private FlipAnim takePrefetchedFlipAnim(Card carta) {
+
+        Future<?> prefetched = flip_anim_prefetch.remove(carta);
+
+        if (prefetched == null) {
+            return null;
+        }
+
+        try {
+            FlipAnim decoded = (FlipAnim) prefetched.get();
+
+            if (decoded != null && decoded.card.equals(carta.toShortString())
+                    && decoded.zoom_factor == (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP)) {
+                return decoded;
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Prefetched card flip GIF unavailable (decoding inline)", ex);
+        }
+
+        return null;
+    }
+
+    public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
+
+        URL url_icon = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(carta) : null;
+
+        if (url_icon != null) {
 
             long start = System.currentTimeMillis();
 
             try {
-                URL url_icon = null;
-
-                if (baraja_mod) {
-                    url_icon = Paths.get(Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/"
-                            + carta.getValor() + "_" + carta.getPalo() + ".gif").toUri().toURL();
-                } else {
-                    url_icon = getClass().getResource(
-                            "/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
-                }
-
-                float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
-
                 // Motor pre-decodificado con catch-up: los frames se decodifican AQUÍ
-                // (el coste lo absorbe la pausa de abajo vía lapsed) y la reproducción
-                // elige el frame por tiempo transcurrido, así la animación dura siempre
+                // (el coste lo absorbe la pausa de abajo vía lapsed; para la 2ª y 3ª
+                // del flop viene ya hecho del prefetch) y la reproducción elige el
+                // frame por tiempo transcurrido, así la animación dura siempre
                 // lo nominal aunque el timer de Windows vaya grueso. Si el GIF no se
                 // deja pre-decodificar, la ruta legacy (animador Toolkit) sigue intacta.
-                PreRenderedGif anim = null;
-                int display_w = 0;
-                int display_h = 0;
+                FlipAnim decoded = takePrefetchedFlipAnim(carta);
 
-                try {
-                    if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
-
-                        String gifsicle_path = Helpers.genGifsicleCardAnimationPath(url_icon, zoom_factor,
-                                baraja + "_" + carta.getValor() + "_" + carta.getPalo());
-
-                        if (gifsicle_path != null) {
-                            anim = PreRenderedGif.decode(Paths.get(gifsicle_path).toUri().toURL());
-                            display_w = anim.getWidth();
-                            display_h = anim.getHeight();
-                        } else {
-                            // Sin caché gifsicle todavía: frames a tamaño base estirados
-                            // al zoom en el paint (GifLabel pinta a bounds con bilinear).
-                            anim = PreRenderedGif.decode(url_icon);
-                            display_w = Math.round(anim.getWidth() * zoom_factor);
-                            display_h = Math.round(anim.getHeight() * zoom_factor);
-                        }
-                    } else {
-                        anim = PreRenderedGif.decode(url_icon);
-                        display_w = anim.getWidth();
-                        display_h = anim.getHeight();
-                    }
-                } catch (Exception ex) {
-                    anim = null;
-                    LOGGER.log(Level.WARNING, "Card flip GIF pre-decode failed (legacy Toolkit animation fallback)", ex);
+                if (decoded == null) {
+                    decoded = decodeCardFlipAnim(url_icon, carta);
                 }
+
+                final PreRenderedGif anim = (decoded != null) ? decoded.anim : null;
 
                 if (anim != null && !PRE_RENDERED_ENGINE_LOGGED) {
                     PRE_RENDERED_ENGINE_LOGGED = true;
                     LOGGER.log(Level.INFO, "Card flip animations: pre-rendered catch-up engine active ({0} frames / {1} ms)",
                             new Object[]{anim.getFrameCount(), anim.getTotalMs()});
                 }
+
+                int display_w = (anim != null) ? decoded.display_w : 0;
+                int display_h = (anim != null) ? decoded.display_h : 0;
 
                 ImageIcon icon = null;
 
@@ -12454,8 +12557,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (GameFrame.ZOOM_LEVEL != GameFrame.DEFAULT_ZOOM_LEVEL) {
 
+                        float zoom_factor = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+
                         ImageIcon icon_gifsicle = Helpers.genGifsicleCardAnimation(url_icon, zoom_factor,
-                                baraja + "_" + carta.getValor() + "_" + carta.getPalo());
+                                GameFrame.BARAJA + "_" + carta.getValor() + "_" + carta.getPalo());
 
                         if (icon_gifsicle != null) {
                             icon = icon_gifsicle;
@@ -12495,12 +12600,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     GameFrame.getInstance().getTapete().getCentral_label().setLocation(x, y);
 
-                    carta.setVisibleCard(false);
+                    if (anim == null) {
+                        // Ruta legacy: la tapada se oculta aquí, en un evento EDT
+                        // anterior al que muestra el GIF (puede llegar a pintarse un
+                        // frame con el hueco vacío, como siempre). La ruta
+                        // pre-decodificada lo hace atómico vía on_show.
+                        carta.setVisibleCard(false);
+                    }
                 });
 
                 if (anim != null) {
+                    // on_show oculta la tapada en el MISMO evento EDT que muestra el
+                    // primer frame (relevo carta→GIF en un solo paint) y before_hide
+                    // destapa la estática DEBAJO del último frame antes de ocultar el
+                    // GIF (relevo GIF→carta sin pintar nunca el hueco vacío). Sin los
+                    // hooks, ambos relevos pasaban por un estado intermedio sin carta
+                    // que a veces llegaba a pintarse: parpadeo sutil de duración
+                    // variable.
                     GameFrame.getInstance().getTapete().showCentralFrames(anim, fdw, fdh, CARD_ANIMATION_DELAY,
-                            "misc/uncover.wav");
+                            "misc/uncover.wav",
+                            () -> carta.setVisibleCard(false),
+                            () -> carta.destaparSync());
                 } else {
                     GameFrame.getInstance().getTapete().showCentralImage(ficon, 0, CARD_ANIMATION_DELAY, false,
                             "misc/uncover.wav", 1, -1);
@@ -12509,8 +12629,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             } finally {
-                // Even if the animation crashes, we MUST logically flip the card 
-                // otherwise Hand evaluation crashes later.
+                // Even if the animation crashes, we MUST logically flip the card
+                // otherwise Hand evaluation crashes later. (En el camino feliz
+                // pre-decodificado es un no-op: destaparSync ya volteó la carta
+                // bajo el último frame del GIF.)
                 carta.destapar(false);
             }
 
@@ -12524,6 +12646,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void destaparFlop(ArrayList<Player> resisten) {
+
+        // La 2ª y la 3ª carta encadenan sin pausa larga: su GIF de giro se
+        // pre-decodifica en background mientras la primera paga su pausa y su
+        // animación, para que la cadencia del flop no dependa del decode.
+        prefetchAnimacionDestaparCarta(GameFrame.getInstance().getFlop2());
+        prefetchAnimacionDestaparCarta(GameFrame.getInstance().getFlop3());
 
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop1());
         mostrarAnimacionDestaparCartaComunitaria(GameFrame.getInstance().getFlop2());

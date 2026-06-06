@@ -13358,6 +13358,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
         }
 
+        // 2. PASADA 1 — destapes: en orden de palabra, cada jugador que debe
+        // mostrar gira sus cartas (animado, bloqueante) y recibe SOLO su
+        // jugada en etiqueta neutra (showCards azul, como el botón MOSTRAR).
+        // Los veredictos GANA/PIERDE de TODOS se revelan de golpe en la
+        // pasada 2, cuando ya no queda nadie por destapar — como en una mesa
+        // real, donde no hay ganador hasta que todas las manos están boca
+        // arriba. mustShow se decide AQUÍ una sola vez por jugador
+        // (first_to_show es estado del recorrido) y la pasada 2 lo reutiliza
+        // tal cual: recalcularlo podría divergir.
+        HashMap<Player, Boolean> must_show = new HashMap<>();
+
         int pos = pivote;
         boolean first_to_show = true; // Control para obligar a mostrar al primero en hablar
 
@@ -13366,7 +13377,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (perdedores.containsKey(jugador_actual) || ganadores.containsKey(jugador_actual)) {
 
-                boolean isLocal = jugador_actual.equals(GameFrame.getInstance().getLocalPlayer());
                 boolean isWinner = ganadores.containsKey(jugador_actual);
                 Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
 
@@ -13376,20 +13386,53 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // - Es un All-in (destapar_resistencia = true)
                 // - El jugador es uno de los ganadores del bote
                 // - Es el primer jugador en actuar en el showdown (pivote)
-                boolean mustShow = !GameFrame.IWTSTH_RULE || 
-                                   this.destapar_resistencia || 
-                                   isWinner || 
+                boolean mustShow = !GameFrame.IWTSTH_RULE ||
+                                   this.destapar_resistencia ||
+                                   isWinner ||
                                    first_to_show;
 
+                must_show.put(jugador_actual, mustShow);
+
                 if (mustShow) {
+                    // ¿El destape ocurre AHORA? En all-in y run-it-twice las
+                    // cartas ya giraron antes del showdown: ni animación ni
+                    // etiqueta neutra, directo al veredicto de la pasada 2
+                    // (comportamiento de siempre, sin flash azul).
+                    boolean estaba_tapada = jugador_actual.getHoleCard1().isTapada();
+
                     // Bloquea hasta el fin del giro (hilo del crupier, como las
-                    // comunitarias): setWinner/setLoser/jugada de abajo no se
-                    // pintan hasta que el destape se ha visto entero.
+                    // comunitarias).
                     mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
+
+                    if (estaba_tapada) {
+                        // Etiqueta neutra con la jugada: enseña QUÉ lleva sin
+                        // adelantar si gana. El LocalPlayer nunca entra aquí
+                        // (sus cartas nunca están tapadas en su pantalla).
+                        jugador_actual.showCards(jugada.getName());
+                    }
                 }
 
                 // A partir de ahora, los siguientes perdedores podrán ocultar sus cartas
                 first_to_show = false;
+            }
+
+            pos = (pos + 1) % GameFrame.getInstance().getJugadores().size();
+
+        } while (pos != pivote);
+
+        // 3. PASADA 2 — veredictos: GANA/PIERDE + jugada + sonidos + SQL para
+        // todos de golpe, con todas las manos ya boca arriba.
+        pos = pivote;
+
+        do {
+            Player jugador_actual = GameFrame.getInstance().getJugadores().get(pos);
+
+            if (perdedores.containsKey(jugador_actual) || ganadores.containsKey(jugador_actual)) {
+
+                boolean isLocal = jugador_actual.equals(GameFrame.getInstance().getLocalPlayer());
+                boolean isWinner = ganadores.containsKey(jugador_actual);
+                Hand jugada = isWinner ? ganadores.get(jugador_actual) : perdedores.get(jugador_actual);
+                boolean mustShow = must_show.get(jugador_actual);
 
                 if (isWinner) {
                     jugador_actual.setWinner(jugada.getName());
@@ -13408,17 +13451,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (isLocal) {
                         jugador_actual.setLoser(jugada.getName());
                         GameFrame.getInstance().getLocalPlayer().setMuestra(mustShow);
-                        
+
                         // Si el jugador local hizo "muck" (cartas tapadas), habilitamos el botón voluntario
                         if (!mustShow) {
                             GameFrame.getInstance().getLocalPlayer().activar_boton_mostrar(true);
                         }
                     } else {
-                        // destaparCartas() above is async (Helpers.GUIRun), so we cannot
-                        // read getHoleCard1().isTapada() here to decide the label. Use the
-                        // mustShow flag that drove the uncover decision: a remote player
-                        // that did NOT show keeps the generic "PIERDE" label; otherwise
-                        // we expose the hand name.
+                        // El destape de la pasada 1 puede ser asíncrono en el
+                        // fallback clásico, así que no leemos isTapada() aquí
+                        // para decidir la etiqueta: usamos el mustShow que
+                        // gobernó el destape. Un remoto que NO mostró conserva
+                        // el "PIERDE" genérico; si mostró, se expone la jugada.
                         if (!mustShow) {
                             jugador_actual.setLoser(Translator.translate("ui.pierde_3"));
                         } else {

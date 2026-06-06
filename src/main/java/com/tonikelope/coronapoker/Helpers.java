@@ -235,7 +235,10 @@ public class Helpers {
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
-    public static final int HTTP_TIMEOUT = 15000;
+    // Solo lo usa el check de versión (CoronaPoker y MOD). Corto a propósito:
+    // el check de arranque reintenta en silencio (Init.UPDATE_CHECK_RETRIES)
+    // y un GitHub lento no debe retener nada.
+    public static final int HTTP_TIMEOUT = 5000;
     public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).

@@ -116,6 +116,10 @@ public class Init extends JFrame {
     public static volatile VolumeControlDialog VOLUME_DIALOG = null;
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
+    // Reintentos SILENCIOSOS del check de versión (arranque y botón
+    // ACTUALIZAR): con el timeout corto de Helpers.HTTP_TIMEOUT, GitHub lento
+    // o caído no bloquea nada ni saca diálogos.
+    private static final int UPDATE_CHECK_RETRIES = 3;
     private volatile Timer quote_timer = null;
     private volatile int conta_quote = 0;
     private volatile JTextPane quote = null;
@@ -1172,47 +1176,64 @@ public class Init extends JFrame {
 
     private static void UPDATE() {
         Helpers.threadRun(() -> {
+            // Solo el label de "comprobando actualización": los botones de
+            // acción quedan libres durante el check (con GitHub lento los
+            // reintentos pueden tardar varios segundos y no deben retener al
+            // usuario; el setEnabled(false) del panel que había aquí era
+            // además un no-op: JPanel no propaga el disable a sus hijos). Si
+            // el usuario ya se metió en una partida, la oferta de update
+            // simplemente no se muestra esa sesión (guard de ventana visible
+            // y activa).
             Helpers.GUIRun(() -> {
-                VENTANA_INICIO.action_buttons_panel.setEnabled(false);
                 VENTANA_INICIO.update_label.setVisible(true);
                 VENTANA_INICIO.update_button.setVisible(false);
             });
-            do {
-                NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
-                if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
-                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
-                        Helpers.GUIRun(() -> {
-                            VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
-                        });
-                        try {
-                            String current_jar_path = Helpers.getCurrentJarPath();
-                            // replace (literal) en vez de replaceAll (regex) — el '.' en
-                            // "20.66.jar" es metacaracter regex y matchearía cualquier char
-                            // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
-                            // hace substring literal, que es lo correcto aquí.
-                            String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
-                            String updater_jar = Helpers.downloadUpdater();
+            // Reset para que el botón ACTUALIZAR manual re-compruebe siempre
+            // (un check previo "estás al día" deja NEW_VERSION en blanco).
+            NEW_VERSION = null;
 
-                            if (updater_jar != null) {
-                                Helpers.cleanCacheDIR();
-                                if (GameFrame.LANGUAGE.equals("es")) {
-                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
-                                    Runtime.getRuntime().exec(cmdArr);
-                                } else {
-                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
-                                    Runtime.getRuntime().exec(cmdArr);
-                                }
-                                System.exit(0);
+            // Hasta UPDATE_CHECK_RETRIES intentos en silencio: si GitHub no
+            // responde, se deja visible el botón ACTUALIZAR para el check
+            // manual y punto (el diálogo modal de "¿reintentar?" que había
+            // aquí podía asaltar al usuario ya metido en partida, sin el
+            // guard de ventana visible/activa que sí tiene la oferta).
+            for (int intento = 0; intento < UPDATE_CHECK_RETRIES && NEW_VERSION == null; intento++) {
+                NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
+            }
+
+            if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
+                    Helpers.GUIRun(() -> {
+                        VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
+                    });
+                    try {
+                        String current_jar_path = Helpers.getCurrentJarPath();
+                        // replace (literal) en vez de replaceAll (regex) — el '.' en
+                        // "20.66.jar" es metacaracter regex y matchearía cualquier char
+                        // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
+                        // hace substring literal, que es lo correcto aquí.
+                        String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
+                        String updater_jar = Helpers.downloadUpdater();
+
+                        if (updater_jar != null) {
+                            Helpers.cleanCacheDIR();
+                            if (GameFrame.LANGUAGE.equals("es")) {
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
+                                Runtime.getRuntime().exec(cmdArr);
                             } else {
-                                Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
+                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
+                                Runtime.getRuntime().exec(cmdArr);
                             }
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
+                            System.exit(0);
+                        } else {
+                            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
                         }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                        Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
                     }
                 }
-            } while (NEW_VERSION == null && Helpers.mostrarMensajeErrorSINO(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_comprobar")) == 0);
+            }
 
             if (Init.MOD != null) {
                 LOGGER.log(Level.INFO, "Checking MOD updates...");
@@ -1224,7 +1245,6 @@ public class Init extends JFrame {
                 if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
                     VENTANA_INICIO.update_button.setVisible(true);
                 }
-                VENTANA_INICIO.action_buttons_panel.setEnabled(true);
             });
         });
     }

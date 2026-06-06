@@ -8629,38 +8629,80 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return new float[]{half / 10f, half / 10f};
     }
 
-    // Run-it-twice rewind (parte comunitaria): TAPA las cartas comunitarias
-    // "corridas" (calles posteriores al all-in run-out) — iniciarCarta(true) las
-    // deja boca abajo (iniciada+tapada+visible, mostrando el dorso) y limpia el
-    // desenfoque del showdown de SIDE-A, que es justo el estado del que el reparto
-    // vivo revela una comunitaria (actualizarConValorNumerico + destapar). Con
-    // resetearCarta(false) quedaban invisibles y destapar no hacía nada. Las
+    // Run-it-twice rewind (parte comunitaria): deja las cartas comunitarias
+    // "corridas" (calles posteriores al all-in run-out) boca abajo
+    // (iniciada+tapada+visible, mostrando el dorso) y sin el desenfoque del
+    // showdown de SIDE-A, que es justo el estado del que el reparto vivo revela
+    // una comunitaria (actualizarConValorNumerico + destapar). Con animaciones,
+    // las corridas se RETIRAN de la mesa (hueco vacío) y se vuelven a repartir
+    // una a una con la animación de reparto del juego (deal.wav + dorso + pausa,
+    // mismo ritmo que repartir()); sin animaciones, dorso directo con
+    // iniciarCarta(true). resetearCarta(false) a secas NO vale (quedaban
+    // invisibles y destapar no hacía nada): aquí es seguro SOLO porque el
+    // re-reparto las re-inicia antes de que repartirSideB las destape. Las
     // compartidas (calle del all-in y anteriores) quedan fijas.
     private void rebobinarComunitariasSideB() {
+
+        ArrayList<Card> corridas = new ArrayList<>();
+        ArrayList<Card> compartidas = new ArrayList<>();
+
+        if (rit_allin_street < FLOP) {
+            corridas.add(GameFrame.getInstance().getFlop1());
+            corridas.add(GameFrame.getInstance().getFlop2());
+            corridas.add(GameFrame.getInstance().getFlop3());
+        } else {
+            compartidas.add(GameFrame.getInstance().getFlop1());
+            compartidas.add(GameFrame.getInstance().getFlop2());
+            compartidas.add(GameFrame.getInstance().getFlop3());
+        }
+
+        if (rit_allin_street < TURN) {
+            corridas.add(GameFrame.getInstance().getTurn());
+        } else {
+            compartidas.add(GameFrame.getInstance().getTurn());
+        }
+
+        if (rit_allin_street < RIVER) {
+            corridas.add(GameFrame.getInstance().getRiver());
+        } else {
+            compartidas.add(GameFrame.getInstance().getRiver());
+        }
+
+        boolean animacion = GameFrame.ANIMACION_CARTAS;
+
         Helpers.GUIRunAndWait(() -> {
-            // Corridas → boca abajo (iniciarCarta) para que SIDE-B las revele.
+            // Corridas → fuera de la mesa (resetearCarta invisible) si hay
+            // animaciones, o boca abajo directo si no las hay.
             // Compartidas → enfocar() para deshacer el atenuado del showdown de
             // SIDE-A, de modo que el board de SIDE-B se vea entero y brillante.
-            if (rit_allin_street < FLOP) {
-                GameFrame.getInstance().getFlop1().iniciarCarta(true);
-                GameFrame.getInstance().getFlop2().iniciarCarta(true);
-                GameFrame.getInstance().getFlop3().iniciarCarta(true);
-            } else {
-                GameFrame.getInstance().getFlop1().enfocar();
-                GameFrame.getInstance().getFlop2().enfocar();
-                GameFrame.getInstance().getFlop3().enfocar();
+            for (Card carta : corridas) {
+                if (animacion) {
+                    carta.resetearCarta(false);
+                } else {
+                    carta.iniciarCarta(true);
+                }
             }
-            if (rit_allin_street < TURN) {
-                GameFrame.getInstance().getTurn().iniciarCarta(true);
-            } else {
-                GameFrame.getInstance().getTurn().enfocar();
-            }
-            if (rit_allin_street < RIVER) {
-                GameFrame.getInstance().getRiver().iniciarCarta(true);
-            } else {
-                GameFrame.getInstance().getRiver().enfocar();
+            for (Card carta : compartidas) {
+                carta.enfocar();
             }
         });
+
+        if (!animacion) {
+            return;
+        }
+
+        // Re-reparto animado: un beat con el hueco vacío para que el rewind se
+        // lea, y cada corrida vuelve boca abajo con la cadencia de repartir().
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
+
+        Helpers.pausar(pausa);
+
+        for (Card carta : corridas) {
+            GameFrame.getInstance().checkPause();
+            Audio.playWavResource("misc/deal.wav", false);
+            carta.iniciarCarta();
+            Helpers.pausar(pausa);
+        }
     }
 
     // Run-it-twice: reparte el SEGUNDO board (SIDE-B). Re-corre el run-out de las
@@ -8780,23 +8822,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
         // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);
-        // Rewind: tapar comunitarias corridas + re-pintar última acción.
-        rebobinarComunitariasSideB();
+        // Durante el reparto de SIDE-B (rewind animado + repartirSideB →
+        // actualizarContadoresTapete) la label del bote NO debe arrastrar el
+        // beneficio de SIDE-A: se limpia para volver al estado de REPARTO (sin
+        // número de beneficio, igual que el run-out de SIDE-A).
+        // settleRunItTwiceBoard(.,1,.) lo recalcula para el showdown de SIDE-B.
+        this.beneficio_bote_principal = null;
+        // La pot_label pasa a marcar CARA-B y se repinta YA, ANTES del rewind
+        // animado, en estado de reparto (bote TOTAL, igual que durante el
+        // run-out de CARA-A): sin el repintado arrastraría el texto del settle
+        // de CARA-A (con su etiqueta CARA-A) durante toda la animación del
+        // re-reparto y hasta que se complete la primera calle de SIDE-B.
+        this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_b");
+        GameFrame.getInstance().setTapeteBote(this.bote_total, this.beneficio_bote_principal);
         for (Player p : resisten) {
             p.repaintLastAction();
         }
-        // Durante el reparto de SIDE-B (repartirSideB → actualizarContadoresTapete)
-        // la label del bote NO debe arrastrar el beneficio de SIDE-A: se limpia
-        // para volver al estado de REPARTO (sin número de beneficio, igual que el
-        // run-out de SIDE-A). settleRunItTwiceBoard(.,1,.) lo recalcula para el
-        // showdown de SIDE-B.
-        this.beneficio_bote_principal = null;
-        // La pot_label pasa a marcar CARA-B y se repinta YA en estado de reparto
-        // (bote TOTAL, igual que durante el run-out de CARA-A): sin el repintado
-        // arrastraría el texto del settle de CARA-A (con su etiqueta CARA-A)
-        // hasta que se complete la primera calle de SIDE-B.
-        this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_b");
-        GameFrame.getInstance().setTapeteBote(this.bote_total, this.beneficio_bote_principal);
+        // Rewind: retirar las comunitarias corridas y re-repartirlas boca abajo
+        // con la animación de reparto del juego.
+        rebobinarComunitariasSideB();
         setRunItTwiceSideB(true);
         boolean dealt = repartirSideB(resisten);
         setRunItTwiceSideB(false);

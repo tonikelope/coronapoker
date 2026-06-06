@@ -2638,6 +2638,43 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.pagar = pagar;
     }
 
+    // Serializa destapes animados concurrentes del mismo jugador (p.ej. un
+    // SHOWCARDS duplicado/echo procesado en dos workers): el clásico era
+    // idempotente vía el isTapada() dentro del EDT, el animado re-chequea
+    // bajo este lock. Lock dedicado a propósito: NO sincronizar sobre this
+    // (los métodos synchronized del jugador, como setPagar, no deben esperar
+    // una animación).
+    private final Object destape_animado_lock = new Object();
+
+    public Object getDestape_animado_lock() {
+        return destape_animado_lock;
+    }
+
+    // Efectos colaterales del destape clásico que deben ocurrir al ARRANCAR el
+    // giro animado (Crupier.mostrarAnimacionDestaparCartasJugador): ocultar la
+    // ficha de apuesta y, si el parpadeo IWTSTH estaba activo, pararlo con su
+    // recoloreado de loser (la etiqueta PIERDE ya estaba puesta y parpadeando,
+    // no revela nada por adelantado). Réplica exacta de destaparCartas(boolean)
+    // sin el destape de las cartas, que lo pone el motor animado.
+    public void prepararDestapeAnimado() {
+
+        Helpers.GUIRunAndWait(() -> {
+
+            chip_label.setVisible(false);
+
+            if (iwtsth_blink_timer.isRunning()) {
+
+                iwtsth_blink_timer.stop();
+
+                if (isLoser()) {
+                    setActionBackground(Color.RED);
+                    player_action.setForeground(Color.WHITE);
+                    player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                }
+            }
+        });
+    }
+
     @Override
     public void destaparCartas(boolean sound) {
 
@@ -2669,8 +2706,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    // synchronized: el swap permuta los valores entre los dos componentes Card
+    // en varios pasos y puede llamarse desde hilos distintos (crupier, worker
+    // de SHOWCARDS, worker de IWTSTH). Dos swaps concurrentes podrían dejar
+    // las dos cartas con el mismo valor; serializado es idempotente (el
+    // segundo ve c1 >= c2 y no toca nada). Monitor de this a propósito: es un
+    // intercambio de microsegundos, nunca se anima ni se bloquea aquí dentro.
     @Override
-    public void ordenarCartas() {
+    public synchronized void ordenarCartas() {
         if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad

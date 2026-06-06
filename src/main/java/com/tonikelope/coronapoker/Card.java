@@ -60,6 +60,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
     public final static String PALOS_STRING = "PCTD";
     public final static String[] VALORES = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
     public final static int DEFAULT_CORNER = 20;
+    public final static long DESTAPAR_SYNC_TIMEOUT = 5000;
     public static float DISABLED_CARD_OPACITY = 0.30f;
     private final static HashMap<String, String> UNICODE_TABLE = loadUnicodeTable();
     private static volatile int CARD_WIDTH = -1;
@@ -792,6 +793,47 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
             this.refreshCard();
 
+        }
+
+        this.iwtsth_candidate = null;
+    }
+
+    // Destape síncrono y sin sonido: no retorna hasta que la cara delantera
+    // está aplicada en el EDT. Lo usa el giro de las comunitarias para colar
+    // la carta estática DEBAJO del último frame del GIF antes de ocultarlo,
+    // de forma que el relevo GIF→carta nunca pinte el hueco vacío (el destape
+    // asíncrono clásico deja una ventana variable con el sitio en blanco). El
+    // deadline cubre el único camino en que el worker de refresco muere sin
+    // señalizar (excepción cargando el recurso de la carta): antes que
+    // congelar la mano se continúa con el mismo resultado visual que el
+    // destape asíncrono. Llamar SIEMPRE fuera del EDT: el worker necesita el
+    // EDT para aplicar el icono y desde el EDT esto esperaría el deadline
+    // entero en vano.
+    public void destaparSync() {
+
+        if (isIniciadaConValor() && this.tapada) {
+
+            this.tapada = false;
+
+            this.visible_card = true;
+
+            final ConcurrentLinkedQueue<Long> notifier = new ConcurrentLinkedQueue<>();
+
+            this.refreshCard(true, notifier);
+
+            long deadline = System.currentTimeMillis() + DESTAPAR_SYNC_TIMEOUT;
+
+            synchronized (notifier) {
+                while (notifier.isEmpty() && System.currentTimeMillis() < deadline) {
+                    try {
+                        notifier.wait(1000);
+                    } catch (InterruptedException ex) {
+                        Helpers.logCooperativeCancellation(Logger.getLogger(Card.class.getName()),
+                                "destapar sync notifier wait", ex);
+                        break;
+                    }
+                }
+            }
         }
 
         this.iwtsth_candidate = null;

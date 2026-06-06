@@ -216,6 +216,21 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // takeover de central_label_thread.
     public void showCentralFrames(PreRenderedGif anim, int display_w, int display_h, int delay_end, String audio) {
 
+        showCentralFrames(anim, display_w, display_h, delay_end, audio, null, null);
+    }
+
+    // on_show corre dentro del MISMO runnable del EDT que hace visible el
+    // primer frame: el llamante puede ocultar ahí la carta tapada de debajo y
+    // el relevo carta→GIF se pinta en un solo paint (con el hide en un evento
+    // EDT separado el estado intermedio con el hueco vacío llegaba a pintarse
+    // a veces — parpadeo sutil e intermitente). before_hide corre en el hilo
+    // llamante tras el último frame y ANTES de la pausa delay_end, solo si
+    // este hilo sigue siendo el dueño del label: el llamante puede destapar
+    // ahí la carta estática debajo del GIF (que aún muestra su último frame
+    // durante toda la pausa) y el relevo GIF→carta tampoco pinta nunca el
+    // hueco vacío.
+    public void showCentralFrames(PreRenderedGif anim, int display_w, int display_h, int delay_end, String audio, Runnable on_show, Runnable before_hide) {
+
         central_label_thread = Thread.currentThread().threadId();
 
         final CountDownLatch finished = new CountDownLatch(1);
@@ -231,6 +246,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 getCentral_label().setIcon(null);
                 getCentral_label().setFrameOverride(anim.getFrame(0));
                 getCentral_label().setVisible(true);
+
+                if (on_show != null) {
+                    on_show.run();
+                }
 
                 if (audio != null) {
                     Audio.playWavResource(audio);
@@ -275,6 +294,18 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             } catch (InterruptedException ex) {
                 Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
                         "central label pre-rendered playback", ex);
+            }
+
+            // Antes de la pausa a propósito: lo que haga el llamante (destapar
+            // la carta estática) ocurre tapado por el último frame durante
+            // delay_end y no alarga la animación. Blindado para que un fallo
+            // del hook jamás deje el label visible para siempre.
+            if (before_hide != null && Thread.currentThread().threadId() == central_label_thread) {
+                try {
+                    before_hide.run();
+                } catch (Exception ex) {
+                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
 
             if (delay_end > 0) {

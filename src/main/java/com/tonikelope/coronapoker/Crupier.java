@@ -12644,15 +12644,25 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 rp.prepararDestapeAnimado();
 
-                // SECUENCIAL: primero gira la carta izquierda y, al terminar
-                // su animación, arranca la derecha (offset = duración nominal
-                // del primer GIF; el motor catch-up garantiza esa duración).
+                // SECUENCIAL de ciclo completo: la izquierda gira Y ATERRIZA
+                // en su carta estática (destape síncrono + retirada de su
+                // overlay, una llamada entera) antes de que la derecha
+                // empiece su giro. Dejar la primera congelada en su último
+                // frame mientras gira la segunda y "bajar" las dos a la vez
+                // quedaba mal.
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
-                        new Card[]{c1, c2},
-                        new PreRenderedGif[]{anim1.anim, anim2.anim},
-                        new int[]{anim1.display_w, anim2.display_w},
-                        new int[]{dh1, dh2},
-                        new long[]{0L, anim1.anim.getTotalMs()},
+                        new Card[]{c1},
+                        new PreRenderedGif[]{anim1.anim},
+                        new int[]{anim1.display_w},
+                        new int[]{dh1},
+                        CARD_ANIMATION_DELAY,
+                        "misc/uncover.wav");
+
+                GameFrame.getInstance().getTapete().playCardFlipOverlays(
+                        new Card[]{c2},
+                        new PreRenderedGif[]{anim2.anim},
+                        new int[]{anim2.display_w},
+                        new int[]{dh2},
                         CARD_ANIMATION_DELAY,
                         "misc/uncover.wav");
 
@@ -13364,14 +13374,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // 2. PASADA 1 — destapes: en orden de palabra, cada jugador que debe
-        // mostrar gira sus cartas (animado, bloqueante) y recibe SOLO su
-        // jugada en etiqueta neutra (showCards azul, como el botón MOSTRAR).
-        // Los veredictos GANA/PIERDE de TODOS se revelan de golpe en la
-        // pasada 2, cuando ya no queda nadie por destapar — como en una mesa
-        // real, donde no hay ganador hasta que todas las manos están boca
-        // arriba. mustShow se decide AQUÍ una sola vez por jugador
-        // (first_to_show es estado del recorrido) y la pasada 2 lo reutiliza
-        // tal cual: recalcularlo podría divergir.
+        // mostrar gira sus cartas (animado, bloqueante), SIN tocar su action
+        // label (la etiqueta azul de jugada queda reservada al botón MOSTRAR
+        // voluntario de los foldeados entre manos). Los veredictos
+        // GANA/PIERDE + jugada de TODOS se revelan de golpe en la pasada 2,
+        // cuando ya no queda nadie por destapar — como en una mesa real,
+        // donde no hay ganador hasta que todas las manos están boca arriba.
+        // mustShow se decide AQUÍ una sola vez por jugador (first_to_show es
+        // estado del recorrido) y la pasada 2 lo reutiliza tal cual:
+        // recalcularlo podría divergir.
         HashMap<Player, Boolean> must_show = new HashMap<>();
 
         int pos = pivote;
@@ -13400,9 +13411,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (mustShow) {
                     // ¿El destape ocurre AHORA? En all-in y run-it-twice las
-                    // cartas ya giraron antes del showdown: ni animación ni
-                    // etiqueta neutra, directo al veredicto de la pasada 2
-                    // (comportamiento de siempre, sin flash azul).
+                    // cartas ya giraron antes del showdown: ni animación, ni
+                    // etiqueta neutra, ni pausa — directo al veredicto de la
+                    // pasada 2 (comportamiento de siempre).
                     boolean estaba_tapada = jugador_actual.getHoleCard1().isTapada();
 
                     // Bloquea hasta el fin del giro (hilo del crupier, como las
@@ -13410,17 +13421,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     mostrarAnimacionDestaparCartasJugador(jugador_actual, false);
 
                     if (estaba_tapada) {
-                        // Etiqueta neutra con la jugada: enseña QUÉ lleva sin
+                        // Jugada en etiqueta NEUTRA (gris del label en reposo,
+                        // no el azul del botón MOSTRAR): enseña QUÉ lleva sin
                         // adelantar si gana. El LocalPlayer nunca entra aquí
                         // (sus cartas nunca están tapadas en su pantalla).
-                        jugador_actual.showCards(jugada.getName());
+                        if (jugador_actual instanceof RemotePlayer) {
+                            ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
+                        }
 
                         // Pausa dramática para asimilar la mano recién
                         // mostrada antes de que gire el siguiente (y, tras el
                         // último, antes del estallido de veredictos de la
-                        // pasada 2). Solo cuando aquí HUBO destape: en all-in
-                        // y run-it-twice la pasada 1 es un no-op y el showdown
-                        // va directo a los veredictos, como siempre.
+                        // pasada 2). Solo cuando aquí HUBO destape.
                         if (!GameFrame.TEST_MODE) {
                             Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
                         }

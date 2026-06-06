@@ -2650,6 +2650,33 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return destape_animado_lock;
     }
 
+    // Muestra la jugada en el action label con estilo NEUTRO (el gris
+    // translúcido del label en reposo): la usa la pasada de destapes del
+    // showdown para enseñar QUÉ lleva el jugador sin adelantar el veredicto.
+    // El azul de showCards queda reservado al botón MOSTRAR voluntario de los
+    // foldeados. Mismo ajuste de fuente para jugadas largas que
+    // setWinner/setLoser (que la repintarán encima en la pasada de
+    // veredictos).
+    public void showJugadaNeutral(String jugada) {
+
+        Helpers.GUIRun(() -> {
+            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                player_action.setFont(orig_action_font);
+                orig_action_font = null;
+            }
+
+            setActionBackground(new Color(204, 204, 204, 75));
+            player_action.setForeground(Color.WHITE);
+
+            if (jugada.length() > MAX_ACTION_HAND_LENGTH) {
+                orig_action_font = player_action.getFont();
+                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
+            }
+
+            player_action.setText(jugada);
+        });
+    }
+
     // Efectos colaterales del destape clásico que deben ocurrir al ARRANCAR el
     // giro animado (Crupier.mostrarAnimacionDestaparCartasJugador): ocultar la
     // ficha de apuesta y, si el parpadeo IWTSTH estaba activo, pararlo con su

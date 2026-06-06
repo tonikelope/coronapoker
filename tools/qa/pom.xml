@@ -33,7 +33,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>21.16</version>
+    <version>21.17</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -43,7 +43,7 @@
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>21.16</coronapoker.version>
+        <coronapoker.version>21.17</coronapoker.version>
     </properties>
 
     <build>

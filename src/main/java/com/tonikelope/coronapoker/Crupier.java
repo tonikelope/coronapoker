@@ -437,6 +437,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 30000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
+    public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
     public static final int TIEMPO_PENSAR = 40; // Segundos
     public static final int PAUSA_ENTRE_MANOS = 10; // Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
@@ -12561,10 +12562,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
     // el mismo motor que las comunitarias (ANIMACION_CARTAS + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
-    // giran A LA VEZ sobre overlays efímeros y el método BLOQUEA hasta que el
-    // giro termina (nunca llamar desde el EDT): así el llamante no actualiza
-    // las etiquetas de gana/pierde/jugada hasta que el destape se ha visto
-    // entero. Si el gate no aplica (animaciones off, baraja sin GIFs,
+    // giran SECUENCIALMENTE (izquierda y, al terminar, derecha) sobre
+    // overlays efímeros y el método BLOQUEA hasta que el giro termina (nunca
+    // llamar desde el EDT): así el llamante no actualiza las etiquetas de
+    // gana/pierde/jugada hasta que el destape se ha visto entero. Si el gate no aplica (animaciones off, baraja sin GIFs,
     // LocalPlayer — sus cartas nunca están tapadas en su propia pantalla —,
     // cartas ya destapadas o decode fallido) cae al destape clásico
     // destaparCartas(sound): el flag sound es SOLO para ese fallback, el
@@ -12643,11 +12644,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 rp.prepararDestapeAnimado();
 
+                // SECUENCIAL: primero gira la carta izquierda y, al terminar
+                // su animación, arranca la derecha (offset = duración nominal
+                // del primer GIF; el motor catch-up garantiza esa duración).
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
                         new Card[]{c1, c2},
                         new PreRenderedGif[]{anim1.anim, anim2.anim},
                         new int[]{anim1.display_w, anim2.display_w},
                         new int[]{dh1, dh2},
+                        new long[]{0L, anim1.anim.getTotalMs()},
                         CARD_ANIMATION_DELAY,
                         "misc/uncover.wav");
 
@@ -13409,6 +13414,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // adelantar si gana. El LocalPlayer nunca entra aquí
                         // (sus cartas nunca están tapadas en su pantalla).
                         jugador_actual.showCards(jugada.getName());
+
+                        // Pausa dramática para asimilar la mano recién
+                        // mostrada antes de que gire el siguiente (y, tras el
+                        // último, antes del estallido de veredictos de la
+                        // pasada 2). Solo cuando aquí HUBO destape: en all-in
+                        // y run-it-twice la pasada 1 es un no-op y el showdown
+                        // va directo a los veredictos, como siempre.
+                        if (!GameFrame.TEST_MODE) {
+                            Helpers.pausar(PAUSA_ENTRE_DESTAPES_SHOWDOWN);
+                        }
                     }
                 }
 

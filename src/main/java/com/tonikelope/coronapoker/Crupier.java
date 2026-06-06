@@ -291,8 +291,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public static volatile Map.Entry<String, String[]> LOSER_SOUNDS_MOD = null;
 
-    public static final int GIF_SHUFFLE_ANIMATION_TIMEOUT = 1500;
-
     static {
 
         ALLIN_SOUNDS.put("es", ALLIN_SOUNDS_ES);

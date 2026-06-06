@@ -3945,13 +3945,19 @@ public class WaitingRoomFrame extends JFrame {
      * DELUSER que solo aplica al host está guardado por isServer().
      */
     public synchronized void borrarParticipante(String nick) {
-        if (!participantes.containsKey(nick)) {
+        // get + null-check en vez de containsKey: en el host su propia entrada
+        // es un placeholder null por diseño (no hay Participant local) y un
+        // null aquí es siempre "nada que borrar". De paso cierra el hueco
+        // check-then-act frente al remove de NetServer, que muta el mapa
+        // fuera de este monitor.
+        Participant pToDel = participantes.get(nick);
+
+        if (pToDel == null) {
             return;
         }
 
         Audio.playWavResource("misc/toilet.wav");
 
-        Participant pToDel = participantes.get(nick);
         String avatar_src = pToDel.getAvatar_chat_src();
 
         participantes.remove(nick);

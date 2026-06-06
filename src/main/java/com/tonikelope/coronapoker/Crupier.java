@@ -12559,6 +12559,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
+    // Destape sin animación de un rival con el MISMO ritmo que el camino
+    // animado, solo que cada carta aparece de golpe con su uncover.wav en
+    // vez de girar — espejo de las comunitarias con las animaciones
+    // desactivadas (pausa + destape seco con audio): izquierda → pausa →
+    // derecha, y el llamante pone su etiqueta justo después, como con el
+    // giro. Mismo lock y re-check anti-duplicados que el camino animado
+    // (reentrante si se llega desde sus fallbacks internos). El try/finally
+    // garantiza el destape lógico de la segunda carta aunque la pausa muera
+    // por cancelación cooperativa.
+    private void destaparCartasJugadorSecuencial(RemotePlayer jugador) {
+
+        synchronized (jugador.getDestape_animado_lock()) {
+
+            Card c1 = jugador.getHoleCard1();
+            Card c2 = jugador.getHoleCard2();
+
+            if (!c1.isTapada() || !c2.isTapada()) {
+                return;
+            }
+
+            jugador.prepararDestapeAnimado();
+
+            try {
+                c1.destapar();
+
+                if (!GameFrame.TEST_MODE) {
+                    Helpers.pausar(PAUSA_DESTAPAR_CARTA);
+                }
+            } finally {
+                c2.destapar();
+            }
+        }
+    }
+
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
     // el mismo motor que las comunitarias (ANIMACION_CARTAS + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
@@ -12566,33 +12600,40 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // en su carta estática antes de que la derecha empiece) sobre overlays
     // efímeros, y el método BLOQUEA hasta que el giro termina (nunca llamar
     // desde el EDT): así el llamante no actualiza las etiquetas de
-    // gana/pierde/jugada hasta que el destape se ha visto entero. Si el gate
-    // no aplica (animaciones off, baraja sin GIFs, LocalPlayer — sus cartas
-    // nunca están tapadas en su propia pantalla —, cartas ya destapadas o
-    // decode fallido) cae al destape clásico destaparCartas(sound): el flag
-    // sound es SOLO para ese fallback, el camino animado pone siempre su
-    // uncover.wav como las comunitarias.
+    // gana/pierde/jugada hasta que el destape se ha visto entero.
+    //
+    // Escalera de fallbacks:
+    //   1) animaciones ON + GIF por carta → giro animado (uncover por carta).
+    //   2) rival destapable pero sin animación posible (animaciones OFF,
+    //      baraja sin GIFs, decode fallido, valores cambiados) →
+    //      destaparCartasJugadorSecuencial: mismo ritmo, destapes secos con
+    //      su audio, como las comunitarias sin animaciones.
+    //   3) resto (LocalPlayer — sus cartas nunca están tapadas en su propia
+    //      pantalla —, cartas ya destapadas, sin valor) → destape clásico
+    //      destaparCartas(sound); el flag sound aplica SOLO aquí.
     public void mostrarAnimacionDestaparCartasJugador(Player jugador, boolean sound) {
 
         Card c1 = jugador.getHoleCard1();
         Card c2 = jugador.getHoleCard2();
 
-        URL url1 = null;
-        URL url2 = null;
-
-        if (GameFrame.ANIMACION_CARTAS && jugador instanceof RemotePlayer
+        boolean destapable = jugador instanceof RemotePlayer
                 && c1.isIniciadaConValor() && c1.isTapada()
-                && c2.isIniciadaConValor() && c2.isTapada()) {
-            url1 = cardFlipGifUrl(c1);
-            url2 = cardFlipGifUrl(c2);
-        }
+                && c2.isIniciadaConValor() && c2.isTapada();
 
-        if (url1 == null || url2 == null) {
+        if (!destapable) {
             jugador.destaparCartas(sound);
             return;
         }
 
         RemotePlayer rp = (RemotePlayer) jugador;
+
+        URL url1 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c1) : null;
+        URL url2 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c2) : null;
+
+        if (url1 == null || url2 == null) {
+            destaparCartasJugadorSecuencial(rp);
+            return;
+        }
 
         synchronized (rp.getDestape_animado_lock()) {
 
@@ -12622,7 +12663,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (anim1 == null || anim2 == null) {
-                    jugador.destaparCartas(sound);
+                    destaparCartasJugadorSecuencial(rp);
                     return;
                 }
 
@@ -12630,11 +12671,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // ordenarCartas PERMUTA los valores entre los dos componentes
                 // Card. Todos los flujos ordenan ANTES de destapar en el mismo
                 // hilo, pero si algún valor cambiase entre el decode y el giro
-                // mejor el destape clásico que animar un GIF que no casa con
-                // la carta que aterriza debajo.
+                // mejor el destape seco que animar un GIF que no casa con la
+                // carta que aterriza debajo.
                 if (!anim1.card.equals(c1.toShortString()) || !anim2.card.equals(c2.toShortString())) {
-                    LOGGER.log(Level.WARNING, "Card values changed between flip GIF decode and playback (classic uncover fallback)");
-                    jugador.destaparCartas(sound);
+                    LOGGER.log(Level.WARNING, "Card values changed between flip GIF decode and playback (plain uncover fallback)");
+                    destaparCartasJugadorSecuencial(rp);
                     return;
                 }
 

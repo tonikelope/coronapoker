@@ -30,13 +30,8 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.MouseInfo;
-import java.awt.PointerInfo;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.function.IntConsumer;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -46,7 +41,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
-import javax.swing.Timer;
 import javax.swing.WindowConstants;
 
 /**
@@ -60,8 +54,8 @@ import javax.swing.WindowConstants;
  * disposes it anyway if a close ever gets lost.
  *
  * The dialog pops up centered over the table, right on top of the community
- * cards, so it rests semi-transparent (the voter can read the board before
- * deciding) and turns fully opaque while the mouse hovers over it.
+ * cards, so it is shown slightly translucent: the voter can read the board
+ * before deciding.
  *
  * @author tonikelope
  */
@@ -75,9 +69,9 @@ public class RunItTwiceDialog extends JDialog {
     // CLOSE before force-disposing — covers network latency on the final tally.
     private static final int SAFETY_GRACE_MS = 8000;
 
-    // Resting opacity, low enough to read the community cards behind the
-    // dialog; hovering over it restores full opacity (see hover_listener).
-    private static final float RESTING_OPACITY = 0.65f;
+    // Translucent enough to read the community cards behind the dialog while
+    // keeping the buttons and tallies perfectly legible.
+    private static final float DIALOG_OPACITY = 0.8f;
 
     private volatile int vote = VOTE_PENDING;
     private volatile boolean disposing = false;
@@ -94,31 +88,6 @@ public class RunItTwiceDialog extends JDialog {
 
     private volatile int tally_normal = 0;
     private volatile int tally_rit = 0;
-
-    // Hover-in is event-driven but hover-out is polled, and that asymmetry
-    // is forced: MOUSE_ENTERED fires fine on the dialog and its children
-    // (see installHoverOpacity), but when the pointer crosses from a modal
-    // dialog onto its modally-blocked owner AWT synthesizes no MOUSE_EXITED
-    // at all -- the natively disabled GameFrame never reports the pointer,
-    // and the exit only shows up once some unrelated window (other monitor,
-    // other app) does. So entering restores full opacity and starts this
-    // short-lived poll of the pointer against the dialog bounds, which fades
-    // the dialog back and stops itself once the pointer is really outside.
-    private final Timer hover_poll = new Timer(100, (e) -> {
-        PointerInfo pointer = MouseInfo.getPointerInfo();
-        if (pointer == null || !getBounds().contains(pointer.getLocation())) {
-            ((Timer) e.getSource()).stop();
-            setOpacity(RESTING_OPACITY);
-        }
-    });
-
-    private final MouseAdapter hover_listener = new MouseAdapter() {
-        @Override
-        public void mouseEntered(MouseEvent e) {
-            setOpacity(1f);
-            hover_poll.start();
-        }
-    };
 
     public RunItTwiceDialog(java.awt.Frame parent, int timeout, int totalVoters) {
         super(parent, true);
@@ -206,8 +175,7 @@ public class RunItTwiceDialog extends JDialog {
         pack();
         setLocationRelativeTo(parent);
 
-        setOpacity(RESTING_OPACITY);
-        installHoverOpacity(this);
+        setOpacity(DIALOG_OPACITY);
 
         Helpers.threadRun(() -> countdownLoop(timeout));
     }
@@ -236,19 +204,9 @@ public class RunItTwiceDialog extends JDialog {
     public void closeDialog() {
         disposing = true;
         Helpers.GUIRun(() -> {
-            hover_poll.stop();
             Helpers.resetBarra(barra, 0);
             dispose();
         });
-    }
-
-    private void installHoverOpacity(Component c) {
-        c.addMouseListener(hover_listener);
-        if (c instanceof Container) {
-            for (Component child : ((Container) c).getComponents()) {
-                installHoverOpacity(child);
-            }
-        }
     }
 
     private void refreshButtonLabels() {

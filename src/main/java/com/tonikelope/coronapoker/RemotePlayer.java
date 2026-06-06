@@ -2638,6 +2638,70 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.pagar = pagar;
     }
 
+    // Serializa destapes animados concurrentes del mismo jugador (p.ej. un
+    // SHOWCARDS duplicado/echo procesado en dos workers): el clásico era
+    // idempotente vía el isTapada() dentro del EDT, el animado re-chequea
+    // bajo este lock. Lock dedicado a propósito: NO sincronizar sobre this
+    // (los métodos synchronized del jugador, como setPagar, no deben esperar
+    // una animación).
+    private final Object destape_animado_lock = new Object();
+
+    public Object getDestape_animado_lock() {
+        return destape_animado_lock;
+    }
+
+    // Muestra la jugada en el action label con estilo NEUTRO (el gris
+    // translúcido del label en reposo): la usa la pasada de destapes del
+    // showdown para enseñar QUÉ lleva el jugador sin adelantar el veredicto.
+    // El azul de showCards queda reservado al botón MOSTRAR voluntario de los
+    // foldeados. Mismo ajuste de fuente para jugadas largas que
+    // setWinner/setLoser (que la repintarán encima en la pasada de
+    // veredictos).
+    public void showJugadaNeutral(String jugada) {
+
+        Helpers.GUIRun(() -> {
+            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                player_action.setFont(orig_action_font);
+                orig_action_font = null;
+            }
+
+            setActionBackground(new Color(204, 204, 204, 75));
+            player_action.setForeground(Color.WHITE);
+
+            if (jugada.length() > MAX_ACTION_HAND_LENGTH) {
+                orig_action_font = player_action.getFont();
+                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
+            }
+
+            player_action.setText(jugada);
+        });
+    }
+
+    // Efectos colaterales del destape clásico que deben ocurrir al ARRANCAR el
+    // giro animado (Crupier.mostrarAnimacionDestaparCartasJugador): ocultar la
+    // ficha de apuesta y, si el parpadeo IWTSTH estaba activo, pararlo con su
+    // recoloreado de loser (la etiqueta PIERDE ya estaba puesta y parpadeando,
+    // no revela nada por adelantado). Réplica exacta de destaparCartas(boolean)
+    // sin el destape de las cartas, que lo pone el motor animado.
+    public void prepararDestapeAnimado() {
+
+        Helpers.GUIRunAndWait(() -> {
+
+            chip_label.setVisible(false);
+
+            if (iwtsth_blink_timer.isRunning()) {
+
+                iwtsth_blink_timer.stop();
+
+                if (isLoser()) {
+                    setActionBackground(Color.RED);
+                    player_action.setForeground(Color.WHITE);
+                    player_action.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                }
+            }
+        });
+    }
+
     @Override
     public void destaparCartas(boolean sound) {
 
@@ -2669,8 +2733,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    // synchronized: el swap permuta los valores entre los dos componentes Card
+    // en varios pasos y puede llamarse desde hilos distintos (crupier, worker
+    // de SHOWCARDS, worker de IWTSTH). Dos swaps concurrentes podrían dejar
+    // las dos cartas con el mismo valor; serializado es idempotente (el
+    // segundo ve c1 >= c2 y no toca nada). Monitor de this a propósito: es un
+    // intercambio de microsegundos, nunca se anima ni se bloquea aquí dentro.
     @Override
-    public void ordenarCartas() {
+    public synchronized void ordenarCartas() {
         if (getHoleCard1().getValorNumerico() != -1 && getHoleCard2().getValorNumerico() != -1 && getHoleCard1().getValorNumerico() < getHoleCard2().getValorNumerico()) {
 
             //Ordenamos las cartas para mayor comodidad

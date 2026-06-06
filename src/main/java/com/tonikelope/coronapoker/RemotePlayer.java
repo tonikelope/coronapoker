@@ -963,15 +963,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     final float apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
                     final int conta_raise_snapshot = GameFrame.getInstance().getCrupier().getConta_raise();
-                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet) < 0 && Helpers.float1DSecureCompare(0f, apuesta_actual_snapshot) < 0) {
-                        player_action.setText((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet - apuesta_actual_snapshot) + ")");
+                    // Lectura ÚNICA del volátil bet: guard y texto deben usar
+                    // exactamente el mismo valor (ver nota en ALLIN).
+                    final float bet_snapshot = bet;
+                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.float1DSecureCompare(0f, apuesta_actual_snapshot) < 0) {
+                        player_action.setText((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet_snapshot - apuesta_actual_snapshot) + ")");
 
                         raise = true;
 
                         reraise = (conta_raise_snapshot > 0);
 
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet));
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet_snapshot));
                     }
                     setPlayerActionIcon("action/bet.png");
                 });
@@ -981,8 +984,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
                     final float apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
-                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet + stack) < 0) {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(bet + stack - apuesta_actual_snapshot) + ")");
+                    // Lectura ÚNICA de bet+stack para guard y texto: son
+                    // volátiles y el dinero del all-in se mueve en dos pasos
+                    // (bet sube, luego stack baja) en otro hilo. Con lecturas
+                    // separadas el guard podía ver la suma inflada a mitad de
+                    // setBet y el texto la ya asentada, colando un importe
+                    // negativo en la etiqueta ("ALL IN (+-0.90)").
+                    final float total_allin = bet + stack;
+                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
+                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(total_allin - apuesta_actual_snapshot) + ")");
                     } else {
                         player_action.setText(ACTIONS_LABELS[dec - 1][0]);
                     }
@@ -1246,9 +1256,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         });
 
-        setDecision(Player.ALLIN);
-
+        // setBet ANTES de setDecision a propósito (mismo orden que bet() y
+        // check()): el render del all-in que setDecision encola al EDT lee
+        // bet+stack, y así los lee ya asentados en vez de competir con el
+        // movimiento del dinero a mitad de setBet.
         setBet(this.stack + this.bet);
+
+        setDecision(Player.ALLIN);
 
         finTurno();
 
@@ -2102,10 +2116,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                     } else {
 
-                        //Vamos ALLIN
-                        setDecision(Player.ALLIN);
-
+                        //Vamos ALLIN (setBet antes: ver allin())
                         setBet(stack);
+
+                        setDecision(Player.ALLIN);
                     }
                 } else {
                     setBet(0f);
@@ -2119,10 +2133,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Vamos ALLIN
-                    setDecision(Player.ALLIN);
-
+                    //Vamos ALLIN (setBet antes: ver allin())
                     setBet(stack);
+
+                    setDecision(Player.ALLIN);
                 }
 
                 break;
@@ -2133,10 +2147,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 } else {
 
-                    //Vamos ALLIN
-                    setDecision(Player.ALLIN);
-
+                    //Vamos ALLIN (setBet antes: ver allin())
                     setBet(stack);
+
+                    setDecision(Player.ALLIN);
                 }
 
                 break;
@@ -2303,9 +2317,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
             } else {
 
-                //Vamos ALLIN
-                setDecision(Player.ALLIN);
+                //Vamos ALLIN (setBet antes: ver allin())
                 setBet(stack);
+                setDecision(Player.ALLIN);
 
             }
 

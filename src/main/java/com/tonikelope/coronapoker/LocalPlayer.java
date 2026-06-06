@@ -831,8 +831,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.GUIRun(() -> {
                 setPlayerBorder(new Color(204, 204, 204, 75));
 
-                holeCard1.resetearCarta();
-                holeCard2.resetearCarta();
+                // Hole cards are deliberately NOT reset here (same criterion as
+                // RemotePlayer.setExit): if the hand is still live with the pot
+                // already committed (all-in run-out, run-it-twice side boards),
+                // the Card model must reach calcularJugadas intact or the
+                // showdown mucks a legitimate hand and gives the pot away. If
+                // betting action is still pending, the engine's fold path does
+                // its own visual reset; the next-hand board reset purges
+                // everything anyway.
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
                 player_action.setText(Translator.translate("game.abandonas_la_timba"));

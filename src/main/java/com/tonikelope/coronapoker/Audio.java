@@ -317,13 +317,17 @@ public class Audio {
 
     }
 
+    public static float effectiveLoopVolume(String sound) {
+
+        // Single source of truth for MP3 loop volume. MUTED_ALL is deliberately
+        // NOT consulted: the only MUTED_ALL window with sounds enabled is TTS
+        // playback (muteAllExceptMp3Loops), where loops must keep playing.
+        return (!GameFrame.SONIDOS || MUTED_MP3_LOOP || MP3_LOOP_MUTED.contains(sound)) ? 0f : findSoundVolume(sound);
+    }
+
     public static void setMP3LoopPlayerVolume(String sound, CoronaMP3FilePlayer player) {
 
-        if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-            player.setVolume(0f);
-        } else {
-            player.setVolume(findSoundVolume(sound));
-        }
+        player.setVolume(effectiveLoopVolume(sound));
 
     }
 
@@ -509,13 +513,7 @@ public class Audio {
 
                     try {
 
-                        float vol;
-
-                        if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-                            vol = 0f;
-                        } else {
-                            vol = findSoundVolume(sound);
-                        }
+                        float vol = effectiveLoopVolume(sound);
 
                         InputStream is = getSoundInputStream(sound);
                         if (is == null) {

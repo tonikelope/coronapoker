@@ -501,7 +501,7 @@ public class Audio {
                         InputStream is = getSoundInputStream(sound);
                         if (is == null) {
                             // File not found or stream is dead, break the infinite loop
-                            MP3_LOOP.remove(sound);
+                            MP3_LOOP.remove(sound, audio_player);
                             break;
                         }
 
@@ -528,11 +528,14 @@ public class Audio {
                         // Irrecoverable error for this specific file
                         Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "MP3 Loop irrecoverable exception for {0}: {1}", new Object[]{sound, ex.getMessage()});
                         BLACKLISTED_SOUNDS.add(sound);
-                        MP3_LOOP.remove(sound);
+                        MP3_LOOP.remove(sound, audio_player);
                         break; // Kill the infinite loop immediately
                     }
 
-                } while (MP3_LOOP.containsKey(sound));
+                    // Generation check: a concurrent restart of this sound replaces the
+                    // map entry with a fresh player, which must end THIS loop too (the
+                    // old containsKey check kept zombie threads looping forever).
+                } while (MP3_LOOP.get(sound) == audio_player);
             });
 
         }

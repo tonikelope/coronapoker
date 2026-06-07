@@ -421,6 +421,24 @@ public class Audio {
                         // and the generic catch used to blacklist the sound for the session).
                         final ConcurrentLinkedQueue<Clip> clip_queue = WAVS_RESOURCES.computeIfAbsent(sound, k -> new ConcurrentLinkedQueue<>());
 
+                        // A one-shot clip posts a STOP event the moment it reaches
+                        // the end of media (or when a concurrent force_close stops
+                        // it). Waiting on that event lets the tail render in full
+                        // and releases at the exact, click-free instant — unlike
+                        // the former LOOP_CONTINUOUSLY + timed stop(), which cut the
+                        // line at an arbitrary playhead position (parking for the
+                        // data length ignored the output buffer latency, so the last
+                        // buffer was still playing when the timer elapsed) and
+                        // truncated the waveform mid-sample, producing the
+                        // intermittent end-of-sound click.
+                        final java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
+
+                        final javax.sound.sampled.LineListener end_listener = (javax.sound.sampled.LineEvent ev) -> {
+                            if (ev.getType() == javax.sound.sampled.LineEvent.Type.STOP) {
+                                finished.countDown();
+                            }
+                        };
+
                         try {
 
                             synchronized (clip_queue) {
@@ -447,12 +465,20 @@ public class Audio {
 
                                 setClipVolume(sound, clip, bypass_muted);
 
-                                clip.start();
+                                // Registered before start() so an ultra-short clip
+                                // cannot finish before we are listening.
+                                clip.addLineListener(end_listener);
 
-                                clip.loop(Clip.LOOP_CONTINUOUSLY);
+                                clip.start();
                             }
 
-                            Helpers.parkThreadMicros(clip.getMicrosecondLength());
+                            try {
+                                // Bounded only as a guard against a dropped event;
+                                // the natural STOP releases long before this fires.
+                                finished.await(clip.getMicrosecondLength() / 1000 + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                            } finally {
+                                clip.removeLineListener(end_listener);
+                            }
 
                             synchronized (clip) {
                                 if (clip.isRunning()) {

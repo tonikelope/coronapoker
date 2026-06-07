@@ -125,15 +125,20 @@ public class VoiceMessageManager {
             return;
         }
 
+        if (!GameFrame.VOICE_MESSAGES) {
+            warning("audio.notas_desactivadas");
+            return;
+        }
+
         if (!AudioDeviceManager.isMicEnabled()) {
-            micWarning();
+            warning("audio.microfono_no_configurado");
             return;
         }
 
         VoiceRecorder recorder = new VoiceRecorder();
 
         if (!recorder.start()) {
-            micWarning();
+            warning("audio.microfono_no_configurado");
             return;
         }
 
@@ -208,14 +213,14 @@ public class VoiceMessageManager {
         });
     }
 
-    private static void micWarning() {
+    private static void warning(String i18n_key) {
 
         // Key auto-repeat must not stack popups
         if (WARNING_SHOWING.compareAndSet(false, true)) {
 
             Helpers.threadRun(() -> {
                 try {
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getContentPane(), Translator.translate("audio.microfono_no_configurado"));
+                    Helpers.mostrarMensajeError(GameFrame.getInstance().getContentPane(), Translator.translate(i18n_key));
                 } finally {
                     WARNING_SHOWING.set(false);
                 }

@@ -2661,6 +2661,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                 });
                                                             });
                                                             break;
+                                                        case "VOICEMSGRULE":
+                                                            Helpers.threadRun(() -> {
+                                                                GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
+                                                                Helpers.GUIRun(() -> {
+                                                                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
+                                                                });
+                                                            });
+                                                            break;
                                                         case "RIT_VOTE_REQ":
                                                             Helpers.threadRun(() -> {
                                                                 try {
@@ -3900,7 +3908,9 @@ public class WaitingRoomFrame extends JFrame {
 
     public void recibirNotaVoz(String nick, byte[] audio) {
 
-        if (audio == null || audio.length == 0 || audio.length > MAX_VOICE_MESSAGE_BYTES) {
+        // The rule guard also runs on the host: with voice messages disabled,
+        // notes from rogue clients are neither processed nor relayed.
+        if (!GameFrame.VOICE_MESSAGES || audio == null || audio.length == 0 || audio.length > MAX_VOICE_MESSAGE_BYTES) {
             return;
         }
 

@@ -588,6 +588,12 @@ public class Audio {
 
             con.setUseCaches(false);
 
+            // TTS_LOCK is held while downloading: without timeouts a hung
+            // connection would block TTS (and pool threads) forever.
+            con.setConnectTimeout(5000);
+
+            con.setReadTimeout(10000);
+
             try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
 
                 byte[] buffer = new byte[1024];
@@ -688,6 +694,12 @@ public class Audio {
                             con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
 
                             con.setUseCaches(false);
+
+                            // TTS_LOCK is held while downloading: without timeouts a hung
+                            // connection would block TTS (and pool threads) forever.
+                            con.setConnectTimeout(5000);
+
+                            con.setReadTimeout(10000);
 
                             filename = Helpers.genRandomString(30);
 

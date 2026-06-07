@@ -137,7 +137,9 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
                 Audio.MASTER_VOLUME = Helpers.floatClean(val / 100f, 2);
 
-                // Same debounce as the global shortcut
+                // Immediate effect; the debounced timer only adds the beep
+                Audio.refreshALLVolumes(false);
+
                 if (Audio.VOLUME_TIMER.isRunning()) {
                     Audio.VOLUME_TIMER.restart();
                 } else {

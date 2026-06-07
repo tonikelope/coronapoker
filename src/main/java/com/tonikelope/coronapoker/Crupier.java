@@ -8997,8 +8997,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // Visual del board (revelar/destacar) con los ganadores+perdedores del pot
-        // principal, ANTES de vaciar 'jugadas'.
-        this.showdown(new HashMap<>(jugadas), ganadores);
+        // principal, ANTES de vaciar 'jugadas'. null en el diferido: run-it-twice
+        // conserva su flujo de atenuado propio (ya desenfocó arriba en este
+        // settleRunItTwiceBoard), no se difiere a la pasada 2.
+        this.showdown(new HashMap<>(jugadas), ganadores, null);
 
         for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
             GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad[0]) + ")");
@@ -13418,7 +13420,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    public void showdown(HashMap<Player, Hand> perdedores, HashMap<Player, Hand> ganadores) {
+    public void showdown(HashMap<Player, Hand> perdedores, HashMap<Player, Hand> ganadores, java.util.List<Card> diferir_desenfoque) {
         int pivote;
 
         // 1. Determinar quién es el primero en enseñar (último agresor o el siguiente al dealer)
@@ -13599,6 +13601,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pos = (pos + 1) % GameFrame.getInstance().getJugadores().size();
 
         } while (pos != pivote);
+
+        // El atenuado (desenfocar) de las cartas que NO entran en la jugada
+        // ganadora se aplica AQUÍ, tras la pasada 2, no en el cálculo del
+        // settle: si se hiciera antes, una hole card aún TAPADA (un rival que
+        // todavía no ha destapado en la pasada 1) mostraría su dorso atenuado
+        // (IMAGEN_TRASERA_B) y filtraría que esa carta no cuenta antes de
+        // verla. Diferirlo mantiene todas las cartas brillantes durante los
+        // destapes secuenciales y solo las atenúa al revelar los veredictos,
+        // como en una mesa real. null = el caller atenúa por su cuenta
+        // (run-it-twice conserva su flujo propio).
+        if (diferir_desenfoque != null) {
+            for (Card carta : diferir_desenfoque) {
+                carta.desenfocar();
+            }
+        }
     }
 
     public void startIWTSTHPlayersBlinking() {
@@ -13962,6 +13979,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         float[] cantidad_pagar_ganador = this.calcularBoteParaGanador(this.bote.getTotal() + this.bote_sobrante, ganadores.size());
                                         this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
                                         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+                                        // Cartas a atenuar: NO se desenfocan aquí (settle), se
+                                        // difieren a tras la pasada 2 del showdown para no filtrar
+                                        // el dorso atenuado de cartas aún tapadas (ver showdown()).
+                                        ArrayList<Card> diferir_dim = new ArrayList<>();
                                         Player unganador = null;
 
                                         for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
@@ -13974,10 +13995,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 }
                                             }
                                             if (!cartas.contains(ganador.getHoleCard1())) {
-                                                ganador.getHoleCard1().desenfocar();
+                                                diferir_dim.add(ganador.getHoleCard1());
                                             }
                                             if (!cartas.contains(ganador.getHoleCard2())) {
-                                                ganador.getHoleCard2().desenfocar();
+                                                diferir_dim.add(ganador.getHoleCard2());
                                             }
                                             jugadas.remove(ganador);
                                             ganador.pagar(cantidad_pagar_ganador[0], null);
@@ -13989,7 +14010,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                                             if (!cartas_usadas_jugadas.contains(carta)) {
-                                                carta.desenfocar();
+                                                diferir_dim.add(carta);
                                             }
                                         }
 
@@ -14000,7 +14021,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
-                                        this.showdown(jugadas, ganadores);
+                                        this.showdown(jugadas, ganadores, diferir_dim);
                                         Helpers.GUIRun(() -> {
                                             setPotBackground(Color.GREEN);
                                             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
@@ -14014,6 +14035,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         this.beneficio_bote_principal = cantidad_pagar_ganador[0] - this.bote.getBet();
                                         String bote_tapete = "#1{" + Helpers.float2String(this.bote.getTotal()) + "}";
                                         ArrayList<Card> cartas_usadas_jugadas = new ArrayList<>();
+                                        // Cartas a atenuar: NO se desenfocan aquí (settle), se
+                                        // difieren a tras la pasada 2 del showdown para no filtrar
+                                        // el dorso atenuado de cartas aún tapadas (ver showdown()).
+                                        ArrayList<Card> diferir_dim = new ArrayList<>();
                                         Player unganador = null;
 
                                         for (Map.Entry<Player, Hand> entry : ganadores.entrySet()) {
@@ -14026,10 +14051,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 }
                                             }
                                             if (!cartas.contains(ganador.getHoleCard1())) {
-                                                ganador.getHoleCard1().desenfocar();
+                                                diferir_dim.add(ganador.getHoleCard1());
                                             }
                                             if (!cartas.contains(ganador.getHoleCard2())) {
-                                                ganador.getHoleCard2().desenfocar();
+                                                diferir_dim.add(ganador.getHoleCard2());
                                             }
                                             jugadas.remove(entry.getKey());
                                             ganador.pagar(cantidad_pagar_ganador[0], 1);
@@ -14042,7 +14067,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                                         for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
                                             if (!cartas_usadas_jugadas.contains(carta)) {
-                                                carta.desenfocar();
+                                                diferir_dim.add(carta);
                                             }
                                         }
 
@@ -14053,7 +14078,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             GameFrame.getInstance().getRegistro().print(perdedor.getNickname() + " " + Translator.translate("game.pierde_bote_principal") + Helpers.float2String(cantidad_pagar_ganador[0]) + ")");
                                         }
 
-                                        this.showdown(jugadas, ganadores);
+                                        this.showdown(jugadas, ganadores, diferir_dim);
 
                                         HandPot current_pot = this.bote.getSidePot();
                                         int conta_bote_secundario = 2;

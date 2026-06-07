@@ -736,6 +736,11 @@ public class Audio {
 
                         TTS_PLAYER = new CoronaMP3FilePlayer();
 
+                        // Pre-roll: the music line still holds a small tail of
+                        // pre-duck audio, so give the duck time to reach the
+                        // speakers before the voice starts.
+                        Helpers.parkThreadMillis(300);
+
                         float volume = (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
 
                         try {

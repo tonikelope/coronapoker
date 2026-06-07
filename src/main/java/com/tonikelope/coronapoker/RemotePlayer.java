@@ -40,6 +40,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -3016,17 +3017,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             String msg = jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)");
 
-            if (msg.length() > MAX_ACTION_HAND_LENGTH + 2) {
+            Font base_font = (orig_action_font != null) ? orig_action_font : player_action.getFont();
 
-                if (orig_action_font == null) {
-                    orig_action_font = player_action.getFont();
-                    player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
-                }
+            Insets insets = player_action.getInsets();
+
+            int available_width = (player_action.getWidth() > 0 ? player_action.getWidth() : player_action.getPreferredSize().width) - (insets != null ? insets.left + insets.right : 0);
+
+            Font fitted_font = Helpers.fitFontToWidth(player_action, msg, base_font, available_width, Math.max(9, Math.round(base_font.getSize() * 0.5f)));
+
+            if (fitted_font.getSize() < base_font.getSize()) {
+                orig_action_font = base_font;
+                player_action.setFont(fitted_font);
 
             } else if (orig_action_font != null) {
                 player_action.setFont(orig_action_font);
                 orig_action_font = null;
-
             }
 
             player_action.setText(msg);

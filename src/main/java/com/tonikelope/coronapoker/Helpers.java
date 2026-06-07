@@ -1007,8 +1007,23 @@ public class Helpers {
         if (nanos > 0L) {
             long end = System.nanoTime() + nanos;
 
+            boolean interrupted = false;
+
             while (System.nanoTime() < end) {
+
+                // parkNanos returns immediately while the interrupt flag is set,
+                // turning this loop into a busy-spin (e.g. pool shutdownNow during
+                // a clip wait). Clear the flag so the park is effective and restore
+                // it afterwards so callers still observe the cancellation.
+                if (Thread.interrupted()) {
+                    interrupted = true;
+                }
+
                 LockSupport.parkNanos(end - System.nanoTime());
+            }
+
+            if (interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
     }

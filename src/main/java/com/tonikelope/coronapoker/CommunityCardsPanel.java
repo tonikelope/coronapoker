@@ -661,6 +661,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
+        if (evt != null && SwingUtilities.isRightMouseButton(evt)) {
+            AudioSettingsDialog.showSpeakerPopup(sound_icon, GameFrame.getInstance(), evt.getX(), evt.getY());
+            return;
+        }
+
         GameFrame.getInstance().getSonidos_menu().doClick();
     }//GEN-LAST:event_sound_iconMouseClicked
 

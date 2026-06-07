@@ -60,6 +60,7 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.BooleanControl;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.JLabel;
 import javax.swing.Timer;
 
@@ -72,13 +73,14 @@ public class Audio {
     public volatile static boolean AUDIO_AVAILABLE = true;
     public static volatile float MASTER_VOLUME;
     public static final float TTS_VOLUME = 2.0f;
+    // Music attenuation while the TTS voice speaks (~ -10.5 dB)
+    public static final float TTS_DUCKING = 0.3f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/background_music.mp3", 0.4f);
     public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/stats_music.mp3", 0.3f);
     public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/waiting_room.mp3", 0.9f);
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/about_music.mp3", 0.9f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_LOOP = new ConcurrentHashMap<>();
-    public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
@@ -89,7 +91,6 @@ public class Audio {
     public static final Timer VOLUME_TIMER;
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
-    public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean MUTED_MP3_LOOP = false;
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
@@ -177,7 +178,13 @@ public class Audio {
 
     public static float findSoundVolume(String sound) {
 
-        return CUSTOM_VOLUMES.containsKey(sound) ? (MASTER_VOLUME > 0f ? CUSTOM_VOLUMES.get(sound) * MASTER_VOLUME : 0f) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((CoronaMP3FilePlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? (MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f) : (MASTER_VOLUME > 0f ? MASTER_VOLUME : 0f));
+        if (MASTER_VOLUME <= 0f) {
+            return 0f;
+        }
+
+        Float custom = CUSTOM_VOLUMES.get(sound);
+
+        return custom != null ? custom * MASTER_VOLUME : MASTER_VOLUME;
     }
 
     private static InputStream getSoundInputStream(String sound) {
@@ -243,7 +250,6 @@ public class Audio {
                 try {
 
                     refreshALLWAVVolume();
-                    refreshALLMP3Volume();
                     refreshALLMP3LoopVolume();
                     refreshTTSVolume();
 
@@ -259,11 +265,14 @@ public class Audio {
 
     public static void refreshTTSVolume() {
 
-        if (TTS_PLAYER != null) {
+        // Local snapshot: TTS() nulls the volatile field when playback ends.
+        CoronaMP3FilePlayer tts_player = TTS_PLAYER;
+
+        if (tts_player != null) {
             if (!GameFrame.SONIDOS) {
-                TTS_PLAYER.setVolume(0f);
+                tts_player.setVolume(0f);
             } else {
-                TTS_PLAYER.setVolume(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
+                tts_player.setVolume(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
             }
         }
 
@@ -288,20 +297,6 @@ public class Audio {
         }
     }
 
-    public static void refreshALLMP3Volume() {
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-                setMP3PlayerVolume(entry.getKey(), entry.getValue());
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error setting MP3 volume: {0}", ex.getMessage());
-            }
-
-        }
-
-    }
-
     public static void refreshALLMP3LoopVolume() {
 
         for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
@@ -316,23 +311,25 @@ public class Audio {
 
     }
 
-    public static void setMP3LoopPlayerVolume(String sound, CoronaMP3FilePlayer player) {
+    public static float effectiveLoopVolume(String sound) {
 
-        if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-            player.setVolume(0f);
-        } else {
-            player.setVolume(findSoundVolume(sound));
+        // Single source of truth for MP3 loop volume
+        if (!GameFrame.SONIDOS || MUTED_MP3_LOOP || MP3_LOOP_MUTED.contains(sound)) {
+            return 0f;
         }
 
+        // With sounds enabled, MUTED_ALL is only ever raised while the TTS
+        // voice speaks (muteAllExceptMp3Loops): duck the music under it.
+        if (MUTED_ALL) {
+            return findSoundVolume(sound) * TTS_DUCKING;
+        }
+
+        return findSoundVolume(sound);
     }
 
-    public static void setMP3PlayerVolume(String sound, CoronaMP3FilePlayer player) {
+    public static void setMP3LoopPlayerVolume(String sound, CoronaMP3FilePlayer player) {
 
-        if (!GameFrame.SONIDOS) {
-            player.setVolume(0f);
-        } else {
-            player.setVolume(findSoundVolume(sound));
-        }
+        player.setVolume(effectiveLoopVolume(sound));
 
     }
 
@@ -340,11 +337,26 @@ public class Audio {
 
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
+        boolean mute_supported = clip.isControlSupported(BooleanControl.Type.MUTE);
+
         if (!GameFrame.SONIDOS || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
-            ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
+
+            if (mute_supported) {
+                ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
+            } else {
+                gainControl.setValue(gainControl.getMinimum());
+            }
+
         } else {
             float db = Helpers.floatClean(20f * (float) Math.log10(findSoundVolume(sound)), 2);
-            gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
+
+            gainControl.setValue(Math.min(Math.max(db, gainControl.getMinimum()), gainControl.getMaximum()));
+
+            if (mute_supported) {
+                // A clip muted earlier (e.g. created while MASTER_VOLUME was 0) must
+                // become audible again when the volume is raised mid-play.
+                ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(false);
+            }
         }
     }
 
@@ -374,42 +386,34 @@ public class Audio {
                     long durationMicros = (long) (1000000.0f * frames / frameRate);
 
                     // 2. Request physical audio hardware in an inner try-with-resources
-                    try (final Clip clip = AudioSystem.getClip()) {
+                    try (final Clip clip = AudioDeviceManager.getClip()) {
 
-                        if (force_close && WAVS_RESOURCES.get(sound) != null) {
+                        // Single lookup: stopWavResource() may remove the map entry at any
+                        // time, so the queue must never be re-fetched (a null re-fetch NPEs
+                        // and the generic catch used to blacklist the sound for the session).
+                        final ConcurrentLinkedQueue<Clip> clip_queue = WAVS_RESOURCES.computeIfAbsent(sound, k -> new ConcurrentLinkedQueue<>());
 
-                            synchronized (WAVS_RESOURCES.get(sound)) {
-                                for (Clip c : WAVS_RESOURCES.get(sound)) {
+                        try {
 
-                                    if (c != null) {
-                                        synchronized (c) {
-                                            if (c.isOpen() && c.isRunning()) {
-                                                c.stop();
+                            synchronized (clip_queue) {
+
+                                if (force_close) {
+
+                                    for (Clip c : clip_queue) {
+
+                                        if (c != null) {
+                                            synchronized (c) {
+                                                if (c.isOpen() && c.isRunning()) {
+                                                    c.stop();
+                                                }
                                             }
                                         }
                                     }
+
+                                    clip_queue.clear();
                                 }
-                                WAVS_RESOURCES.get(sound).clear();
 
-                                WAVS_RESOURCES.get(sound).add(clip);
-
-                                clip.open(audioInputStream);
-
-                                setClipVolume(sound, clip, bypass_muted);
-
-                                clip.start();
-
-                                clip.loop(Clip.LOOP_CONTINUOUSLY);
-
-                            }
-
-                        } else {
-
-                            WAVS_RESOURCES.putIfAbsent(sound, new ConcurrentLinkedQueue<>());
-
-                            synchronized (WAVS_RESOURCES.get(sound)) {
-
-                                WAVS_RESOURCES.get(sound).add(clip);
+                                clip_queue.add(clip);
 
                                 clip.open(audioInputStream);
 
@@ -419,18 +423,19 @@ public class Audio {
 
                                 clip.loop(Clip.LOOP_CONTINUOUSLY);
                             }
-                        }
 
-                        Helpers.parkThreadMicros(clip.getMicrosecondLength());
+                            Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
-                        synchronized (clip) {
-                            if (clip.isRunning()) {
-                                clip.stop();
+                            synchronized (clip) {
+                                if (clip.isRunning()) {
+                                    clip.stop();
+                                }
                             }
-                        }
 
-                        if (WAVS_RESOURCES.get(sound) != null) {
-                            WAVS_RESOURCES.get(sound).remove(clip);
+                        } finally {
+                            // Always deregister (also on LineUnavailable, which used to leak
+                            // one queue entry per play while no audio device was present).
+                            clip_queue.remove(clip);
                         }
 
                         // --- SUCCESS ZONE ---
@@ -454,28 +459,18 @@ public class Audio {
                         return true; // Return true to signal that the "playback" finished normally
 
                     }
-                } catch (Exception ex) {
+                } catch (UnsupportedAudioFileException | IOException ex) {
                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0} | Exception: {1}", new Object[]{sound, ex.getMessage()});
-                    // Blacklist file on hard failure (e.g. corrupted header) to prevent future spam
+                    // Blacklist only on hard FILE failures (corrupted header, unreadable
+                    // stream) to prevent future spam.
                     BLACKLISTED_SOUNDS.add(sound);
+                } catch (Exception ex) {
+                    // Transient failure (e.g. a concurrent stop) — do NOT blacklist.
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0} | Exception: {1}", new Object[]{sound, ex.getMessage()});
                 }
             }
         }
         return false;
-    }
-
-    public static synchronized int getTotalLoopMp3Playing() {
-
-        int tot = 0;
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
-
-            if (entry.getValue().isPlaying()) {
-                tot++;
-            }
-        }
-
-        return tot;
     }
 
     public static boolean isLoopMp3Playing() {
@@ -511,18 +506,12 @@ public class Audio {
 
                     try {
 
-                        float vol;
-
-                        if (!GameFrame.SONIDOS || MP3_LOOP_MUTED.contains(sound)) {
-                            vol = 0f;
-                        } else {
-                            vol = findSoundVolume(sound);
-                        }
+                        float vol = effectiveLoopVolume(sound);
 
                         InputStream is = getSoundInputStream(sound);
                         if (is == null) {
                             // File not found or stream is dead, break the infinite loop
-                            MP3_LOOP.remove(sound);
+                            MP3_LOOP.remove(sound, audio_player);
                             break;
                         }
 
@@ -549,11 +538,14 @@ public class Audio {
                         // Irrecoverable error for this specific file
                         Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "MP3 Loop irrecoverable exception for {0}: {1}", new Object[]{sound, ex.getMessage()});
                         BLACKLISTED_SOUNDS.add(sound);
-                        MP3_LOOP.remove(sound);
+                        MP3_LOOP.remove(sound, audio_player);
                         break; // Kill the infinite loop immediately
                     }
 
-                } while (MP3_LOOP.containsKey(sound));
+                    // Generation check: a concurrent restart of this sound replaces the
+                    // map entry with a fresh player, which must end THIS loop too (the
+                    // old containsKey check kept zombie threads looping forever).
+                } while (MP3_LOOP.get(sound) == audio_player);
             });
 
         }
@@ -576,6 +568,12 @@ public class Audio {
             con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
 
             con.setUseCaches(false);
+
+            // TTS_LOCK is held while downloading: without timeouts a hung
+            // connection would block TTS (and pool threads) forever.
+            con.setConnectTimeout(5000);
+
+            con.setReadTimeout(10000);
 
             try (InputStream is = con.getInputStream(); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(System.getProperty("java.io.tmpdir") + "/" + filename + ".txt"))) {
 
@@ -677,6 +675,12 @@ public class Audio {
                             con.addRequestProperty("User-Agent", Helpers.USER_AGENT_WEB_BROWSER);
 
                             con.setUseCaches(false);
+
+                            // TTS_LOCK is held while downloading: without timeouts a hung
+                            // connection would block TTS (and pool threads) forever.
+                            con.setConnectTimeout(5000);
+
+                            con.setReadTimeout(10000);
 
                             filename = Helpers.genRandomString(30);
 
@@ -864,9 +868,7 @@ public class Audio {
         if (player != null) {
             try {
 
-                if (!MUTED_ALL && !MUTED_MP3_LOOP) {
-                    player.setVolume(findSoundVolume(sound));
-                }
+                player.setVolume(effectiveLoopVolume(sound));
 
             } catch (Exception ex) {
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting MP3 loop: {0}", ex.getMessage());
@@ -910,6 +912,29 @@ public class Audio {
         }
     }
 
+    public static void restartCurrentLoopMp3Resources() {
+
+        ArrayList<String> sounds = new ArrayList<>(MP3_LOOP.keySet());
+
+        ArrayList<String> muted = new ArrayList<>(MP3_LOOP_MUTED);
+
+        for (String sound : sounds) {
+            stopLoopMp3(sound);
+        }
+
+        // stopLoopMp3 clears the logical mute flags: restore them BEFORE
+        // replaying so the new players start silent where they should.
+        for (String sound : muted) {
+            if (!MP3_LOOP_MUTED.contains(sound)) {
+                MP3_LOOP_MUTED.add(sound);
+            }
+        }
+
+        for (String sound : sounds) {
+            playLoopMp3Resource(sound);
+        }
+    }
+
     public static void stopAllCurrentLoopMp3Resource() {
 
         Iterator<Map.Entry<String, CoronaMP3FilePlayer>> iterator = MP3_LOOP.entrySet().iterator();
@@ -936,8 +961,6 @@ public class Audio {
 
         MUTED_ALL = true;
 
-        muteAllMp3();
-
         muteAllLoopMp3();
 
         muteAllWav();
@@ -948,9 +971,10 @@ public class Audio {
 
         MUTED_ALL = true;
 
-        muteAllMp3();
-
         muteAllWav();
+
+        // Not muted, ducked: the music drops under the TTS voice
+        refreshALLMP3LoopVolume();
 
     }
 
@@ -979,31 +1003,7 @@ public class Audio {
 
         MUTED_MP3_LOOP = true;
 
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
-
-            try {
-                entry.getValue().setVolume(0f);
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all MP3 loops: {0}", ex.getMessage());
-            }
-
-        }
-
-    }
-
-    public static void muteAllMp3() {
-
-        MUTED_MP3 = true;
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-                entry.getValue().setVolume(0f);
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all MP3s: {0}", ex.getMessage());
-            }
-
-        }
+        refreshALLMP3LoopVolume();
 
     }
 
@@ -1011,36 +1011,8 @@ public class Audio {
 
         MUTED_MP3_LOOP = false;
 
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
+        refreshALLMP3LoopVolume();
 
-            try {
-
-                if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
-                    entry.getValue().setVolume(findSoundVolume(entry.getKey()));
-                }
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3 loops: {0}", ex.getMessage());
-            }
-        }
-    }
-
-    public static void unmuteAllMp3() {
-
-        MUTED_MP3 = false;
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-
-                if (!MUTED_ALL) {
-                    entry.getValue().setVolume(findSoundVolume(entry.getKey()));
-                }
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3s: {0}", ex.getMessage());
-            }
-        }
     }
 
     public static void unmuteAllWav() {
@@ -1056,9 +1028,9 @@ public class Audio {
                 try {
 
                     if (c != null && c.isOpen()) {
-                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                        gainControl.setValue(Helpers.floatClean(20 * (float) Math.log10(findSoundVolume(entry.getKey())), 3));
-                        ((BooleanControl) c.getControl(BooleanControl.Type.MUTE)).setValue(false);
+                        // Delegate: handles volume 0 via MUTE instead of feeding
+                        // log10(0) = -Infinity into the gain control.
+                        setClipVolume(entry.getKey(), c, false);
                     }
 
                 } catch (Exception ex) {
@@ -1072,8 +1044,6 @@ public class Audio {
 
         MUTED_ALL = false;
 
-        unmuteAllMp3();
-
         unmuteAllLoopMp3();
 
         unmuteAllWav();
@@ -1084,7 +1054,10 @@ public class Audio {
 
         for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().isPlaying()) {
+            // Skip logically muted loops: with two loops alive (e.g. waiting room
+            // music over the muted background music) the CHM iteration order would
+            // otherwise decide which one the caller gets.
+            if (entry.getValue().isPlaying() && !MP3_LOOP_MUTED.contains(entry.getKey())) {
                 return entry.getKey();
             }
         }

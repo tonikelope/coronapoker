@@ -33,9 +33,6 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Image;
 import java.awt.KeyboardFocusManager;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.PointerInfo;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -1251,52 +1248,29 @@ public class Init extends JFrame {
 
     private static void antiScreensaver() {
 
-        // Robot creado UNA sola vez y reutilizado (antes se instanciaba uno por
-        // tick). Si el entorno es headless / sin Robot, se desactiva limpio.
-        final Robot rob;
+        // Robot solo para el FALLBACK de tecla (plataformas sin vía nativa de
+        // wake-lock). En Windows/Linux la vía nativa no lo necesita; si no se
+        // puede crear (headless), seguimos sin fallback.
+        Robot rob;
         try {
             rob = new Robot();
         } catch (AWTException ex) {
-            LOGGER.log(Level.SEVERE, "Anti-screensaver disabled: Robot unavailable", ex);
-            return;
+            LOGGER.log(Level.WARNING, "Robot unavailable — anti-screensaver key fallback disabled", ex);
+            rob = null;
         }
+        final Robot fallback_robot = rob;
 
         // Timer daemon: un único hilo para toda la vida de la app, daemon para
-        // que jamás impida el cierre de la JVM.
+        // que jamás impida el cierre de la JVM. SetThreadExecutionState es
+        // por-hilo, así que el wake-lock se refresca SIEMPRE desde este hilo.
         java.util.Timer screensaver = new java.util.Timer("anti-screensaver", true);
 
         screensaver.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
-
-                    try {
-                        PointerInfo pi = MouseInfo.getPointerInfo();
-                        if (pi == null) {
-                            return;
-                        }
-                        Point p = pi.getLocation();
-
-                        // Jiggle REAL: desplazar el cursor 1px y devolverlo a su
-                        // posición exacta. Moverlo a su MISMA posición (delta
-                        // cero, como hacía antes) no resetea de forma fiable el
-                        // idle timer del SO —Windows filtra el movimiento sin
-                        // delta y el protector de pantalla saltaba igual—. Un
-                        // micro-movimiento real sí lo registran Windows, macOS y
-                        // Linux por igual, y vuelve tan rápido que es
-                        // imperceptible. dx hacia el interior para no chocar con
-                        // el borde derecho (donde x+1 se recortaría a x y no
-                        // habría movimiento).
-                        int dx = (p.x > 0) ? -1 : 1;
-                        rob.mouseMove(p.x + dx, p.y);
-                        rob.mouseMove(p.x, p.y);
-
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                    }
-                }
+                boolean fullscreen = GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen();
+                ScreenWakeLock.refresh(fullscreen, fallback_robot);
             }
-
         }, ANTI_SCREENSAVER_DELAY, ANTI_SCREENSAVER_DELAY);
     }
 

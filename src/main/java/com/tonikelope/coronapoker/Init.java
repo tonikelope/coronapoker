@@ -93,6 +93,7 @@ public class Init extends JFrame {
     public static final String CACHE_DIR = CORONA_DIR + "/Cache";
     public static final String CHAT_IMAGE_CACHE = CORONA_DIR + "/ChatImagesCache";
     public static final String SCREENSHOTS_DIR = CORONA_DIR + "/Screenshots";
+    public static final String VOICE_DIR = CORONA_DIR + "/voice";
     public static final int DEADLOCK_DETECT_WAIT = 5000;
     public static String SQL_FILE;
     public static final int ANTI_SCREENSAVER_DELAY = 60000; //Ms
@@ -472,6 +473,12 @@ public class Init extends JFrame {
         KeyboardFocusManager kfm = KeyboardFocusManager.getCurrentKeyboardFocusManager();
 
         kfm.addKeyEventDispatcher((KeyEvent e) -> {
+
+            // Configurable push-to-record key (voice messages, in game only)
+            if (VoiceMessageManager.handleKeyEvent(e)) {
+                return true;
+            }
+
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             if (actionMap.containsKey(keyStroke)) {
                 final Action a = actionMap.get(keyStroke);

@@ -31,6 +31,9 @@ package com.tonikelope.coronapoker;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.KeyEventDispatcher;
+import java.awt.KeyboardFocusManager;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
@@ -66,9 +69,11 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JList<String> output_list;
     private final JList<String> capture_list;
     private final JCheckBox mic_checkbox;
+    private final JButton voice_key_button;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
     private volatile boolean loading = true;
+    private volatile KeyEventDispatcher key_capture_dispatcher = null;
 
     // Right-click menu shared by every speaker icon
     public static void showSpeakerPopup(java.awt.Component invoker, java.awt.Frame parent, int x, int y) {
@@ -231,10 +236,19 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
             }
         });
 
+        voice_key_button = new JButton(KeyEvent.getKeyText(VoiceMessageManager.getVoiceKey()));
+
+        voice_key_button.addActionListener(e -> startVoiceKeyCapture());
+
+        JPanel voice_key_panel = new JPanel(new BorderLayout(10, 0));
+        voice_key_panel.add(new JLabel(Translator.translate("audio.tecla_nota_voz")), BorderLayout.CENTER);
+        voice_key_panel.add(voice_key_button, BorderLayout.EAST);
+
         JPanel mic_panel = new JPanel(new BorderLayout());
         mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.microfono")));
         mic_panel.add(mic_checkbox, BorderLayout.NORTH);
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
+        mic_panel.add(voice_key_panel, BorderLayout.SOUTH);
 
         JPanel devices_panel = new JPanel(new GridLayout(1, 2, 10, 0));
         devices_panel.add(output_panel);
@@ -280,6 +294,9 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
                 INSTANCE = null;
 
+                // Closing mid-capture must not leak the dispatcher
+                stopVoiceKeyCapture();
+
                 // The master volume persists across sessions
                 Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
 
@@ -300,6 +317,49 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         loading = false;
 
         INSTANCE = this;
+    }
+
+    private void startVoiceKeyCapture() {
+
+        if (key_capture_dispatcher != null) {
+            return;
+        }
+
+        // While capturing, the global hook must not react to the current key
+        VoiceMessageManager.setCapturingKey(true);
+
+        voice_key_button.setText(Translator.translate("audio.pulsa_una_tecla"));
+
+        key_capture_dispatcher = (KeyEvent e) -> {
+
+            if (e.getID() == KeyEvent.KEY_PRESSED) {
+
+                // ESC cancels, anything else becomes the new key
+                if (e.getKeyCode() != KeyEvent.VK_ESCAPE) {
+                    VoiceMessageManager.setVoiceKey(e.getKeyCode());
+                }
+
+                stopVoiceKeyCapture();
+
+                return true;
+            }
+
+            return false;
+        };
+
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(key_capture_dispatcher);
+    }
+
+    private void stopVoiceKeyCapture() {
+
+        if (key_capture_dispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(key_capture_dispatcher);
+            key_capture_dispatcher = null;
+        }
+
+        voice_key_button.setText(KeyEvent.getKeyText(VoiceMessageManager.getVoiceKey()));
+
+        VoiceMessageManager.setCapturingKey(false);
     }
 
     // List index 0 is the system default entry; devices start at index 1.

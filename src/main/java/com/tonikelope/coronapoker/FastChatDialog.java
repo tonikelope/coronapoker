@@ -101,7 +101,7 @@ public final class FastChatDialog extends JDialog {
 
     public void refreshChatHistory() {
         Helpers.GUIRun(() -> {
-            history_chat.setText(GameFrame.getInstance().getSala_espera().getChat_text().toString().trim());
+            history_chat.setText(WaitingRoomFrame.cleanVoiceNoteTokens(GameFrame.getInstance().getSala_espera().getChat_text().toString().trim()));
             chat_panel.repaint();
         });
     }

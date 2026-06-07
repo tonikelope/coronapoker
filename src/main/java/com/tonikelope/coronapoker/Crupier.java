@@ -13911,6 +13911,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 });
             }
         }
+
+        // Notas de voz en recover: mismo patrón default-agnóstico que RIT
+        if (GameFrame.VOICE_MESSAGES_RECOVER != null) {
+            final boolean recovered_voice = GameFrame.VOICE_MESSAGES_RECOVER;
+            GameFrame.VOICE_MESSAGES_RECOVER = null;
+            if (recovered_voice != GameFrame.VOICE_MESSAGES) {
+                Helpers.GUIRun(() -> {
+                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(!recovered_voice);
+                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.doClick();
+                });
+            }
+        }
     }
 
     @Override

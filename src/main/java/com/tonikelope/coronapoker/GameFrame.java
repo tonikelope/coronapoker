@@ -130,6 +130,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
+    public static volatile boolean VOICE_MESSAGES = true;
     public static volatile boolean RUN_IT_TWICE = false;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
@@ -288,6 +289,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile Boolean IWTSTH_RULE_RECOVER = null;
     public static volatile Integer RABBIT_HUNTING_RECOVER = null;
     public static volatile Boolean RUN_IT_TWICE_RECOVER = null;
+    public static volatile Boolean VOICE_MESSAGES_RECOVER = null;
     public static volatile String PASSWORD_RECOVER = null;
 
     public static GameFrame getInstance() {
@@ -298,13 +300,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         boolean iwtsth = (IWTSTH_RULE_RECOVER != null ? IWTSTH_RULE_RECOVER : IWTSTH_RULE);
         int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
         boolean runittwice = (RUN_IT_TWICE_RECOVER != null ? RUN_IT_TWICE_RECOVER : RUN_IT_TWICE);
+        boolean voicemsg = (VOICE_MESSAGES_RECOVER != null ? VOICE_MESSAGES_RECOVER : VOICE_MESSAGES);
         return "IWTSTH=" + (iwtsth ? "1" : "0")
                 + "#RABBIT=" + rabbit
                 + "#DIFFICULTY=" + Bot.DIFFICULTY.name()
                 + "#BLIND_CAP=" + BLIND_CAP
                 + "#REBUY_LIMIT=" + REBUY_LIMIT
                 + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0")
-                + "#RUNITWICE=" + (runittwice ? "1" : "0");
+                + "#RUNITWICE=" + (runittwice ? "1" : "0")
+                + "#VOICEMSG=" + (voicemsg ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -351,6 +355,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "RUNITWICE":
                     RUN_IT_TWICE_RECOVER = "1".equals(val);
+                    break;
+                case "VOICEMSG":
+                    VOICE_MESSAGES_RECOVER = "1".equals(val);
                     break;
             }
         }
@@ -487,6 +494,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.RABBIT_HUNTING = 0;
 
         GameFrame.RUN_IT_TWICE = false;
+
+        GameFrame.VOICE_MESSAGES = true;
 
         // Defensivo: sin resetear estos statics, una partida que acaba con
         // force_recover=true deja contaminada la siguiente partida fresh
@@ -2275,6 +2284,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             iwtsth_rule_menu.setEnabled(false);
             Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
             Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
+            Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setEnabled(false);
         }
 
         if (!menu_cinematicas.isEnabled()) {
@@ -2595,6 +2605,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.IWTSTH_RULE_RECOVER = recover ? GameFrame.IWTSTH_RULE : null;
                 GameFrame.RABBIT_HUNTING_RECOVER = recover ? GameFrame.RABBIT_HUNTING : null;
                 GameFrame.RUN_IT_TWICE_RECOVER = recover ? GameFrame.RUN_IT_TWICE : null;
+                GameFrame.VOICE_MESSAGES_RECOVER = recover ? GameFrame.VOICE_MESSAGES : null;
             }
 
             GameFrame.PASSWORD_RECOVER = recover ? WaitingRoomFrame.getInstance().getPassword() : null;
@@ -2740,6 +2751,40 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 if (GameFrame.CHAT_IMAGES_INGAME) {
                                     jugador.setNotifyImageChatLabel((URL) tts[1]);
+                                }
+
+                            } else if (tts[1] instanceof byte[]) {
+
+                                temp_notify_blocked = (GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).isNotify_blocked());
+
+                                jugador.setNotifyTTSChatLabel();
+
+                                if (GameFrame.SONIDOS && !temp_notify_blocked) {
+                                    Audio.playVoiceMessage((byte[]) tts[1], jugador.getChat_notify_label());
+                                } else {
+
+                                    Helpers.GUIRun(() -> {
+                                        if (temp_notify_blocked) {
+                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + Translator.translate("audio.nota_de_voz"), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
+                                        } else {
+                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + Translator.translate("audio.nota_de_voz"), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
+                                        }
+
+                                        notify_dialog.setLocation(notify_dialog.getParent().getLocation());
+
+                                        notify_dialog.setVisible(true);
+                                    });
+
+                                    Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
+
+                                    Helpers.GUIRun(() -> {
+                                        if (notify_dialog != null) {
+                                            notify_dialog.setVisible(false);
+                                            notify_dialog.dispose();
+                                            notify_dialog = null;
+                                        }
+                                    });
+
                                 }
 
                             } else {

@@ -345,11 +345,26 @@ public class Audio {
 
         FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
+        boolean mute_supported = clip.isControlSupported(BooleanControl.Type.MUTE);
+
         if (!GameFrame.SONIDOS || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
-            ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
+
+            if (mute_supported) {
+                ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
+            } else {
+                gainControl.setValue(gainControl.getMinimum());
+            }
+
         } else {
             float db = Helpers.floatClean(20f * (float) Math.log10(findSoundVolume(sound)), 2);
-            gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
+
+            gainControl.setValue(Math.min(Math.max(db, gainControl.getMinimum()), gainControl.getMaximum()));
+
+            if (mute_supported) {
+                // A clip muted earlier (e.g. created while MASTER_VOLUME was 0) must
+                // become audible again when the volume is raised mid-play.
+                ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(false);
+            }
         }
     }
 
@@ -1052,9 +1067,9 @@ public class Audio {
                 try {
 
                     if (c != null && c.isOpen()) {
-                        FloatControl gainControl = (FloatControl) c.getControl(FloatControl.Type.MASTER_GAIN);
-                        gainControl.setValue(Helpers.floatClean(20 * (float) Math.log10(findSoundVolume(entry.getKey())), 3));
-                        ((BooleanControl) c.getControl(BooleanControl.Type.MUTE)).setValue(false);
+                        // Delegate: handles volume 0 via MUTE instead of feeding
+                        // log10(0) = -Infinity into the gain control.
+                        setClipVolume(entry.getKey(), c, false);
                     }
 
                 } catch (Exception ex) {

@@ -866,6 +866,13 @@ public class Participant implements Runnable {
                                 }
                                 sala_espera.recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
                                 break;
+                            case "VOICEMSG":
+                                if (partes_comando.length == 3) {
+                                    byte[] audio_nota = Base64.getDecoder().decode(partes_comando[2]);
+                                    // recibirNotaVoz re-validates the size cap and relays to the rest
+                                    sala_espera.recibirNotaVoz(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), audio_nota);
+                                }
+                                break;
                             case "CONF":
                                 WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.valueOf(partes_comando[1])});
                                 synchronized (WaitingRoomFrame.getInstance().getReceived_confirmations()) {

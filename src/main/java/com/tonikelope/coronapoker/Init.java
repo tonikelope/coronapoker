@@ -373,6 +373,8 @@ public class Init extends JFrame {
                         Audio.VOLUME_TIMER.start();
                     }
 
+                    AudioSettingsDialog.refreshVolume();
+
                     if (!GameFrame.SONIDOS) {
                         if (GameFrame.getInstance() != null) {
                             GameFrame.getInstance().getSonidos_menu().doClick();
@@ -422,6 +424,8 @@ public class Init extends JFrame {
                     } else {
                         Audio.VOLUME_TIMER.start();
                     }
+
+                    AudioSettingsDialog.refreshVolume();
                 }
 
                 if (VOLUME_DIALOG != null) {

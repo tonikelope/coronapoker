@@ -338,23 +338,48 @@ public class Participant implements Runnable {
                         }
                     } else {
                         switch (partes_comando[0]) {
+                            // Control frames mal formados (PING/PONG/PONG2 sin el
+                            // contador numérico) NO deben tumbar este hilo lector:
+                            // un Integer.parseInt sobre un frame corrupto lanzaba
+                            // NumberFormatException/AIOOBE que rompía el reader y
+                            // dejaba al peer ZOMBIE — sin el markExitAndNotify ni el
+                            // broadcast TIMEOUT del camino de desconexión normal, así
+                            // que el resto de la mesa seguía esperándolo. Un peer
+                            // honesto (misma versión) siempre manda el contador;
+                            // ignorar el frame corrupto es estrictamente más seguro
+                            // que matar la conexión a medias.
                             case "PING":
-                                writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                if (partes_comando.length >= 2) {
+                                    try {
+                                        writeCommandFromServer("PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                    } catch (NumberFormatException nfe) {
+                                    }
+                                }
                                 try {
                                     socket_reader_queue.put(mensaje_recibido);
                                 } catch (Exception ex) {
                                 }
                                 break;
                             case "PONG":
-                                pong = Integer.valueOf(partes_comando[1]);
-                                synchronized (ping_pong_lock) {
-                                    ping_pong_lock.notifyAll();
+                                if (partes_comando.length >= 2) {
+                                    try {
+                                        pong = Integer.valueOf(partes_comando[1]);
+                                    } catch (NumberFormatException nfe) {
+                                    }
+                                    synchronized (ping_pong_lock) {
+                                        ping_pong_lock.notifyAll();
+                                    }
                                 }
                                 break;
                             case "PONG2":
-                                pong2 = Integer.valueOf(partes_comando[1]);
-                                synchronized (ping_pong_lock) {
-                                    ping_pong_lock.notifyAll();
+                                if (partes_comando.length >= 2) {
+                                    try {
+                                        pong2 = Integer.valueOf(partes_comando[1]);
+                                    } catch (NumberFormatException nfe) {
+                                    }
+                                    synchronized (ping_pong_lock) {
+                                        ping_pong_lock.notifyAll();
+                                    }
                                 }
                                 break;
                             default:

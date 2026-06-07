@@ -824,15 +824,21 @@ public class Audio {
 
         // Same pipeline as TTS: serialized under TTS_LOCK (a voice message and
         // a TTS never talk over each other) and played through TTS_PLAYER so
-        // the volume refresh and the emergency stop also reach it.
+        // the volume refresh and the emergency stop also reach it. The label
+        // is null for chat replays, which may also run in the waiting room
+        // (no GameFrame).
         synchronized (TTS_LOCK) {
 
             muteAllExceptMp3Loops();
 
             Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+                if (GameFrame.getInstance() != null) {
+                    GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+                }
 
-                chat_notify_label.setVisible(true);
+                if (chat_notify_label != null) {
+                    chat_notify_label.setVisible(true);
+                }
             });
 
             TTS_PLAYER = new CoronaMP3FilePlayer();
@@ -859,9 +865,13 @@ public class Audio {
             Helpers.pausar(500);
 
             Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+                if (GameFrame.getInstance() != null) {
+                    GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+                }
 
-                chat_notify_label.setVisible(false);
+                if (chat_notify_label != null) {
+                    chat_notify_label.setVisible(false);
+                }
             });
         }
     }

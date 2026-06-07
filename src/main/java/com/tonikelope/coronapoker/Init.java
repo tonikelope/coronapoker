@@ -35,6 +35,7 @@ import java.awt.Image;
 import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.PointerInfo;
 import java.awt.Robot;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -105,7 +106,6 @@ public class Init extends JFrame {
     public static volatile String WINDOW_TITLE = "CoronaPoker " + AboutDialog.VERSION;
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
-    public static volatile Boolean ANTI_SCREENSAVER_KEY_PRESSED = false;
     public static volatile Init VENTANA_INICIO = null;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
@@ -1251,7 +1251,19 @@ public class Init extends JFrame {
 
     private static void antiScreensaver() {
 
-        java.util.Timer screensaver = new java.util.Timer();
+        // Robot creado UNA sola vez y reutilizado (antes se instanciaba uno por
+        // tick). Si el entorno es headless / sin Robot, se desactiva limpio.
+        final Robot rob;
+        try {
+            rob = new Robot();
+        } catch (AWTException ex) {
+            LOGGER.log(Level.SEVERE, "Anti-screensaver disabled: Robot unavailable", ex);
+            return;
+        }
+
+        // Timer daemon: un único hilo para toda la vida de la app, daemon para
+        // que jamás impida el cierre de la JVM.
+        java.util.Timer screensaver = new java.util.Timer("anti-screensaver", true);
 
         screensaver.schedule(new TimerTask() {
             @Override
@@ -1259,12 +1271,27 @@ public class Init extends JFrame {
                 if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
 
                     try {
+                        PointerInfo pi = MouseInfo.getPointerInfo();
+                        if (pi == null) {
+                            return;
+                        }
+                        Point p = pi.getLocation();
 
-                        Point mouseLoc = MouseInfo.getPointerInfo().getLocation();
-                        Robot rob = new Robot();
-                        rob.mouseMove(mouseLoc.x, mouseLoc.y);
+                        // Jiggle REAL: desplazar el cursor 1px y devolverlo a su
+                        // posición exacta. Moverlo a su MISMA posición (delta
+                        // cero, como hacía antes) no resetea de forma fiable el
+                        // idle timer del SO —Windows filtra el movimiento sin
+                        // delta y el protector de pantalla saltaba igual—. Un
+                        // micro-movimiento real sí lo registran Windows, macOS y
+                        // Linux por igual, y vuelve tan rápido que es
+                        // imperceptible. dx hacia el interior para no chocar con
+                        // el borde derecho (donde x+1 se recortaría a x y no
+                        // habría movimiento).
+                        int dx = (p.x > 0) ? -1 : 1;
+                        rob.mouseMove(p.x + dx, p.y);
+                        rob.mouseMove(p.x, p.y);
 
-                    } catch (AWTException ex) {
+                    } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }

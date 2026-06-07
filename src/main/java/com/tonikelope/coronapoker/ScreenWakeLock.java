@@ -28,9 +28,6 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import com.sun.jna.Library;
-import com.sun.jna.Native;
-import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.WinBase;
 import java.awt.Robot;
@@ -39,25 +36,23 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Mantiene la pantalla despierta mientras la partida está en pantalla completa,
- * SIN simular actividad de usuario donde el sistema operativo ofrece una API
- * nativa para ello:
+ * Mantiene la pantalla despierta mientras la partida está en pantalla completa.
  *
  * <ul>
  *   <li><b>Windows</b>: {@code SetThreadExecutionState} (Kernel32, vía JNA). Le
- *       dice al SO "no apagues la pantalla ni suspendas" — no toca ratón ni
- *       teclado. Es por-hilo, así que siempre se invoca desde el mismo hilo del
- *       timer; al cerrar la app el SO libera el estado solo.</li>
- *   <li><b>Linux (X11)</b>: {@code XResetScreenSaver} de libX11 — resetea el
- *       temporizador del salvapantallas sin inyectar input.</li>
- *   <li><b>Resto (macOS, Wayland sin XWayland, o si la vía nativa falla)</b>:
- *       fallback a una tecla no-op (F15) vía Robot. No mueve el cursor (a
- *       diferencia de un "jiggle" de ratón, no dispara hover) y es inocua, pero
- *       sí simula input — solo se usa donde no hay alternativa nativa limpia.</li>
+ *       dice al SO "no apagues la pantalla ni suspendas" — NO simula input
+ *       (no toca ratón ni teclado). Es por-hilo, así que siempre se invoca desde
+ *       el mismo hilo del timer; al cerrar la app el SO libera el estado solo.</li>
+ *   <li><b>Linux y macOS</b>: no hay API nativa de inhibición accesible de forma
+ *       limpia y uniforme (en Linux variaría entre X11 y Wayland, y D-Bus exigiría
+ *       otra dependencia), así que se usa una tecla no-op (F15) vía Robot: NO mueve
+ *       el cursor —a diferencia de un "jiggle" de ratón, no dispara hover— y es
+ *       inocua. Es el único punto donde se simula input, deliberadamente, por no
+ *       haber alternativa nativa limpia, y funciona igual en X11 y Wayland.</li>
  * </ul>
  *
- * Todo fallo nativo (JNA ausente, libX11 ausente en Wayland puro, etc.) se
- * captura y degrada al fallback sin romper nada: la clase nunca propaga.
+ * Cualquier fallo de la vía nativa de Windows (JNA ausente, etc.) se captura y
+ * degrada al fallback de tecla sin romper: la clase nunca propaga.
  *
  * @author tonikelope
  */
@@ -65,22 +60,7 @@ public final class ScreenWakeLock {
 
     private static final Logger LOGGER = Logger.getLogger(ScreenWakeLock.class.getName());
 
-    // X11: ScreenSaverReset / no-op para XForceScreenSaver no hace falta; usamos
-    // XResetScreenSaver, que resetea el contador del salvapantallas del display.
-    private interface X11 extends Library {
-
-        Pointer XOpenDisplay(String name);
-
-        int XResetScreenSaver(Pointer display);
-
-        int XFlush(Pointer display);
-
-        int XCloseDisplay(Pointer display);
-    }
-
     private static volatile boolean native_unavailable = false;
-    private static volatile X11 x11 = null;
-    private static volatile boolean x11_load_tried = false;
 
     private ScreenWakeLock() {
     }
@@ -92,51 +72,28 @@ public final class ScreenWakeLock {
      *
      * @param fullscreen true si el juego está en pantalla completa (único estado
      * en el que se mantiene la pantalla despierta).
-     * @param fallback_robot Robot reutilizable para el fallback de tecla; puede
-     * ser null (entonces el fallback simplemente no actúa).
+     * @param fallback_robot Robot reutilizable para el fallback de tecla
+     * (Linux/macOS); puede ser null (entonces el fallback simplemente no actúa).
      */
     public static void refresh(boolean fullscreen, Robot fallback_robot) {
 
-        if (!native_unavailable) {
+        // Windows: API nativa, sin simular input.
+        if (Helpers.OSValidator.isWindows() && !native_unavailable) {
             try {
-                if (Helpers.OSValidator.isWindows()) {
-                    // ES_CONTINUOUS hace el estado persistente para este hilo;
-                    // con los flags de display/sistema en fullscreen se mantiene
-                    // despierto, y sin ellos (solo ES_CONTINUOUS) se libera.
-                    int flags = WinBase.ES_CONTINUOUS
-                            | (fullscreen ? (WinBase.ES_DISPLAY_REQUIRED | WinBase.ES_SYSTEM_REQUIRED) : 0);
-                    Kernel32.INSTANCE.SetThreadExecutionState(flags);
-                    return;
-                } else if (Helpers.OSValidator.isUnix()) {
-                    // Fuera de fullscreen no hay nada que hacer: XResetScreenSaver
-                    // solo resetea el contador, no instala un lock persistente.
-                    if (!fullscreen) {
-                        return;
-                    }
-                    X11 lib = x11Lib();
-                    if (lib != null) {
-                        Pointer display = lib.XOpenDisplay(null);
-                        if (display != null) {
-                            try {
-                                lib.XResetScreenSaver(display);
-                                lib.XFlush(display);
-                            } finally {
-                                lib.XCloseDisplay(display);
-                            }
-                            return;
-                        }
-                    }
-                    // libX11 no disponible (Wayland puro/headless): NO hacemos
-                    // return — caemos al fallback de tecla de abajo.
-                }
-                // macOS / otros: no hay vía nativa sin dependencias extra → fallback.
+                // ES_CONTINUOUS hace el estado persistente para este hilo; con
+                // los flags de display/sistema en fullscreen se mantiene
+                // despierto, y sin ellos (solo ES_CONTINUOUS) se libera.
+                int flags = WinBase.ES_CONTINUOUS
+                        | (fullscreen ? (WinBase.ES_DISPLAY_REQUIRED | WinBase.ES_SYSTEM_REQUIRED) : 0);
+                Kernel32.INSTANCE.SetThreadExecutionState(flags);
+                return;
             } catch (Throwable t) {
                 native_unavailable = true;
                 LOGGER.log(Level.WARNING, "Native screen wake-lock unavailable — falling back to no-op key", t);
             }
         }
 
-        // Fallback (macOS/otros, o si la vía nativa falló): tecla no-op. No mueve
+        // Linux / macOS (o Windows si la vía nativa falló): tecla no-op. No mueve
         // el cursor, así que no dispara eventos de hover; solo en fullscreen.
         if (fullscreen && fallback_robot != null) {
             try {
@@ -148,24 +105,5 @@ public final class ScreenWakeLock {
                 LOGGER.log(Level.FINE, "No-op key fallback failed", ex);
             }
         }
-    }
-
-    private static X11 x11Lib() {
-        if (!x11_load_tried) {
-            synchronized (ScreenWakeLock.class) {
-                if (!x11_load_tried) {
-                    try {
-                        x11 = Native.load("X11", X11.class);
-                    } catch (Throwable t) {
-                        // Wayland puro sin libX11, o headless: nos quedaremos en
-                        // el fallback de tecla.
-                        LOGGER.log(Level.INFO, "libX11 not available — no native screen wake-lock on this Linux session", t);
-                        x11 = null;
-                    }
-                    x11_load_tried = true;
-                }
-            }
-        }
-        return x11;
     }
 }

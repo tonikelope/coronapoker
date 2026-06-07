@@ -189,6 +189,21 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public CommunityCardsPanel() {
         Helpers.GUIRunAndWait(() -> {
             initComponents();
+
+            // La altura del panel NO debe cambiar cuando hand_label se oculta en
+            // el showdown / entre manos: comparte la fila inferior del GroupLayout
+            // y al hacerse invisible el layout dejaba de reservarle altura, la
+            // fila encogía unos píxeles y el panel daba un salto vertical.
+            // honorsVisibility=false hace que su layout reserve SIEMPRE el espacio
+            // (su preferred size, que escala con el zoom — no es una altura fija).
+            // NOTA: NO se aplica a bet_label. bet_label comparte su fila horizontal
+            // con pot_panel (pot_panel crece a MAX, luego gap, luego bet_label), y
+            // reservarle el ancho cuando se oculta impediría que la pot_label se
+            // expanda a TODO el ancho en el showdown. Como bet_label y pot_label
+            // tienen la misma fuente/icono/borde vertical, ocultar bet_label no
+            // altera la altura de esa fila, así que no necesita el honorsVisibility.
+            ((javax.swing.GroupLayout) hand_panel.getLayout()).setHonorsVisibility(hand_label, false);
+
             Helpers.translateComponents(this, false);
             last_hand_panel.setVisible(false);
             hand_limit_spinner.setVisible(false);

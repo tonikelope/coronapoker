@@ -41,7 +41,9 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.ListSelectionModel;
@@ -66,6 +68,22 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
     private volatile boolean loading = true;
+
+    // Right-click menu shared by every speaker icon
+    public static void showSpeakerPopup(java.awt.Component invoker, java.awt.Frame parent, int x, int y) {
+
+        JPopupMenu popup = new JPopupMenu();
+
+        JMenuItem settings_item = new JMenuItem(Translator.translate("audio.ajustes"));
+
+        settings_item.addActionListener(e -> open(parent));
+
+        popup.add(settings_item);
+
+        Helpers.updateFonts(popup, Helpers.GUI_FONT, null);
+
+        popup.show(invoker, x, y);
+    }
 
     public static void open(java.awt.Frame parent) {
 

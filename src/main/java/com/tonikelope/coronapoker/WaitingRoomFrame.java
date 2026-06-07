@@ -154,6 +154,7 @@ public class WaitingRoomFrame extends JFrame {
     private static final Pattern CHAT_IMG_PATTERN = Pattern.compile("img(s?)://([^ \r\n]+)");
     private static final Pattern CHAT_LINK_OR_IMG_PATTERN = Pattern.compile("(?:http|img)s?://[^ \r\n]+");
     private static final Pattern CHAT_EMOJI_PATTERN = Pattern.compile("#([0-9]+)#");
+    private static final Pattern CHAT_VOICE_NOTE_PATTERN = Pattern.compile("@@voicenote:([A-Za-z0-9._-]+)@@");
 
     public static final long PING_INTERVAL_MS = 5000;
     // Umbral de PONGs consecutivos perdidos antes de cerrar el socket por nuestra cuenta.
@@ -634,6 +635,9 @@ public class WaitingRoomFrame extends JFrame {
 
             msg = parseImagesChat(msg, image_align, nick.equals(this.local_nick));
 
+            // Before the emoji pass: the voice note line emits a #1138# emoji
+            msg = parseVoiceNoteChat(msg);
+
             msg = parseEmojiChat(msg);
 
             msg = parseBBCODEChat(msg);
@@ -728,6 +732,41 @@ public class WaitingRoomFrame extends JFrame {
 
     private String removeLinksImagesChat(String message) {
         return CHAT_LINK_OR_IMG_PATTERN.matcher(message).replaceAll("");
+    }
+
+    private String parseVoiceNoteChat(String message) {
+
+        Matcher matcher = CHAT_VOICE_NOTE_PATTERN.matcher(message);
+
+        return matcher.replaceAll("#1138# <a id='voicenote_$1' href='voicenote:$1'><b>" + Matcher.quoteReplacement(Translator.translate("audio.nota_de_voz")) + "</b></a>");
+    }
+
+    // Swaps the chat line of a voice note between [Nota de voz] and
+    // [Reproduciendo...] while it plays
+    public void setVoiceNoteChatLabel(String filename, boolean playing) {
+
+        Helpers.GUIRun(() -> {
+            try {
+                javax.swing.text.html.HTMLDocument doc = (javax.swing.text.html.HTMLDocument) chat.getDocument();
+
+                javax.swing.text.Element element = doc.getElement("voicenote_" + filename);
+
+                if (element != null) {
+                    doc.setOuterHTML(element, "<a id='voicenote_" + filename + "' href='voicenote:" + filename + "'><b>" + Translator.translate(playing ? "audio.reproduciendo" : "audio.nota_de_voz") + "</b></a>");
+                }
+            } catch (Exception ex) {
+            }
+        });
+    }
+
+    public void chatHTMLAppendVoiceNote(String nick, String filename) {
+
+        String hora = Helpers.getLocalTimeString();
+
+        // The plain history (FastChat renders it as raw text) gets the clean label
+        chat_text.append(nick + ":(" + hora + ") " + Translator.translate("audio.nota_de_voz") + "\n");
+
+        HTMLEditorKitAppend(txtChat2HTML(nick + ":(" + hora + ") @@voicenote:" + filename + "@@\n"));
     }
 
     private String parseEmojiChat(String message) {
@@ -895,7 +934,15 @@ public class WaitingRoomFrame extends JFrame {
         chat.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
 
-                Helpers.openBrowserURL(e.getURL().toString());
+                // Custom scheme: getURL() is null for it, use the description
+                if (e.getDescription() != null && e.getDescription().startsWith("voicenote:")) {
+
+                    VoiceMessageManager.playFromChat(e.getDescription().substring("voicenote:".length()));
+
+                } else if (e.getURL() != null) {
+
+                    Helpers.openBrowserURL(e.getURL().toString());
+                }
 
                 chat_box.requestFocus();
             }
@@ -3914,13 +3961,14 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
 
-        chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + Translator.translate("audio.nota_de_voz") + "\n");
+        final String voice_filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + ".wav";
 
-        // Identified copy on disk so chat can replay voice messages in the future
+        chatHTMLAppendVoiceNote(nick, voice_filename);
+
+        // Identified copy on disk, replayable by clicking its chat line
         Helpers.threadRun(() -> {
             try {
-                String filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + ".wav";
-                Files.write(Paths.get(Init.VOICE_DIR + "/" + filename), audio);
+                Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
             }

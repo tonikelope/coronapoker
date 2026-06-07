@@ -238,6 +238,59 @@ public class VoiceMessageManager {
         });
     }
 
+    /**
+     * Plays a stored voice note when its chat line is clicked. The line shows
+     * [Reproduciendo...] while it plays and reverts afterwards; clicking
+     * another note cuts the current one (whose label reverts on its own).
+     */
+    public static void playFromChat(String filename) {
+
+        // The href travels inside chat HTML: never let it escape VOICE_DIR
+        if (filename == null || !filename.matches("[A-Za-z0-9._-]+")) {
+            return;
+        }
+
+        WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
+
+        if (sala == null) {
+            return;
+        }
+
+        java.io.File file = new java.io.File(Init.VOICE_DIR + "/" + filename);
+
+        if (!file.isFile()) {
+            // Deleted from disk
+            warning("audio.nota_no_encontrada");
+            return;
+        }
+
+        CoronaMP3FilePlayer current = Audio.TTS_PLAYER;
+
+        if (current != null) {
+            current.stop();
+        }
+
+        Helpers.threadRun(() -> {
+
+            byte[] wav;
+
+            try {
+                wav = java.nio.file.Files.readAllBytes(file.toPath());
+            } catch (Exception ex) {
+                warning("audio.nota_no_encontrada");
+                return;
+            }
+
+            sala.setVoiceNoteChatLabel(filename, true);
+
+            try {
+                Audio.playVoiceMessage(wav, null);
+            } finally {
+                sala.setVoiceNoteChatLabel(filename, false);
+            }
+        });
+    }
+
     private static void warning(String i18n_key) {
 
         // Key auto-repeat must not stack popups
@@ -245,7 +298,10 @@ public class VoiceMessageManager {
 
             Helpers.threadRun(() -> {
                 try {
-                    Helpers.mostrarMensajeError(GameFrame.getInstance().getContentPane(), Translator.translate(i18n_key));
+                    java.awt.Container parent = GameFrame.getInstance() != null ? GameFrame.getInstance().getContentPane()
+                            : (WaitingRoomFrame.getInstance() != null ? WaitingRoomFrame.getInstance().getContentPane() : Init.VENTANA_INICIO);
+
+                    Helpers.mostrarMensajeError(parent, Translator.translate(i18n_key));
                 } finally {
                     WARNING_SHOWING.set(false);
                 }

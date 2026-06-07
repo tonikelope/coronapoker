@@ -56,6 +56,13 @@ public class VoiceRecorder {
     // done by the manager on the key HOLD time, so short notes survive.
     public static final int MIN_MILLIS = 100;
     public static final float SAMPLE_RATE = 16000f;
+    // Silence gate: a note needs at least MIN_VOICE_WINDOWS windows of
+    // SILENCE_WINDOW_MILLIS whose RMS reaches SILENCE_RMS, otherwise it is
+    // discarded as empty (key held without speaking). The threshold sits well
+    // below quiet speech but above typical ambient/mic noise floors.
+    public static final int SILENCE_RMS = 250;
+    public static final int SILENCE_WINDOW_MILLIS = 50;
+    public static final int MIN_VOICE_WINDOWS = 2;
 
     public static final AudioFormat PCM_FORMAT = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, SAMPLE_RATE, 16, 1, 2, SAMPLE_RATE, false);
     private static final AudioFormat ULAW_FORMAT = new AudioFormat(AudioFormat.Encoding.ULAW, SAMPLE_RATE, 8, 1, 1, SAMPLE_RATE, false);
@@ -201,9 +208,14 @@ public class VoiceRecorder {
             return null;
         }
 
-        try {
+        byte[] pcm_bytes = pcm.toByteArray();
 
-            byte[] pcm_bytes = pcm.toByteArray();
+        // Nothing spoken: do not send a note of pure silence
+        if (!containsVoice(pcm_bytes)) {
+            return null;
+        }
+
+        try {
 
             AudioInputStream pcm_stream = new AudioInputStream(new ByteArrayInputStream(pcm_bytes), PCM_FORMAT, pcm_bytes.length / PCM_FORMAT.getFrameSize());
 
@@ -220,6 +232,42 @@ public class VoiceRecorder {
             Logger.getLogger(VoiceRecorder.class.getName()).log(Level.SEVERE, "Voice message encoding failed: {0}", ex.getMessage());
             return null;
         }
+    }
+
+    // Windowed RMS scan over the 16-bit little-endian PCM: true if enough
+    // windows rise above the ambient noise floor.
+    private static boolean containsVoice(byte[] pcm_bytes) {
+
+        int window_bytes = Math.round(SAMPLE_RATE * 2 * SILENCE_WINDOW_MILLIS / 1000f);
+
+        window_bytes -= window_bytes % 2;
+
+        if (window_bytes <= 0) {
+            return true;
+        }
+
+        int voiced_windows = 0;
+
+        for (int off = 0; off + window_bytes <= pcm_bytes.length; off += window_bytes) {
+
+            long sum = 0L;
+
+            for (int i = 0; i < window_bytes; i += 2) {
+                int sample = (short) ((pcm_bytes[off + i] & 0xFF) | (pcm_bytes[off + i + 1] << 8));
+                sum += (long) sample * sample;
+            }
+
+            if (Math.sqrt(sum / (double) (window_bytes / 2)) >= SILENCE_RMS) {
+
+                voiced_windows++;
+
+                if (voiced_windows >= MIN_VOICE_WINDOWS) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void closeLine() {

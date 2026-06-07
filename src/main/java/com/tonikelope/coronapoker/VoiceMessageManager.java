@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.BorderFactory;
@@ -264,7 +265,9 @@ public class VoiceMessageManager {
 
             JLabel message = new JLabel(Translator.translate("audio.suelta_para_enviar"), JLabel.CENTER);
             message.setForeground(Color.WHITE);
-            message.setIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/talk.png")));
+            // talk.png is 596x460: half size so the text leads the dialog
+            message.setIcon(new ImageIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/talk.png")).getImage().getScaledInstance(298, 230, Image.SCALE_SMOOTH)));
+            message.setIconTextGap(15);
 
             JProgressBar bar = new JProgressBar();
             bar.setForeground(Color.WHITE);
@@ -281,7 +284,7 @@ public class VoiceMessageManager {
 
             Helpers.updateFonts(dialog, Helpers.GUI_FONT, null);
 
-            message.setFont(message.getFont().deriveFont(Font.BOLD, 28f));
+            message.setFont(message.getFont().deriveFont(Font.BOLD, 34f));
 
             dialog.pack();
 

@@ -49,7 +49,12 @@ import javax.sound.sampled.TargetDataLine;
 public class VoiceRecorder {
 
     public static final int MAX_SECONDS = 15;
-    public static final int MIN_MILLIS = 300;
+    // Tail grace after releasing the key: the last syllable is still in the
+    // air (and in the capture buffer) at that instant.
+    public static final int TAIL_MILLIS = 250;
+    // Accidental-tap threshold. It includes TAIL_MILLIS of grace audio, so a
+    // quick tap (~tap + tail) still falls below it.
+    public static final int MIN_MILLIS = 600;
     public static final float SAMPLE_RATE = 16000f;
 
     private static final AudioFormat PCM_FORMAT = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, SAMPLE_RATE, 16, 1, 2, SAMPLE_RATE, false);
@@ -106,6 +111,25 @@ public class VoiceRecorder {
                     pcm.write(buffer, 0, n);
                 }
 
+                // Tail flush: stop capturing and pull what the hardware had
+                // already buffered. Closing right away discarded it and
+                // clipped the end of the recording.
+                try {
+                    line.stop();
+                } catch (Exception ex) {
+                }
+
+                while (pcm.size() < MAX_PCM_BYTES && line.available() > 0) {
+
+                    int n = line.read(buffer, 0, Math.min(Math.min(buffer.length, line.available()), MAX_PCM_BYTES - pcm.size()));
+
+                    if (n <= 0) {
+                        break;
+                    }
+
+                    pcm.write(buffer, 0, n);
+                }
+
             } catch (Exception ex) {
                 Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "Capture error: {0}", ex.getMessage());
             } finally {
@@ -124,13 +148,20 @@ public class VoiceRecorder {
      */
     public byte[] stop() {
 
+        // Tail grace: keep capturing briefly so the last word survives the
+        // key release. The recording dialog is already gone at this point.
+        Helpers.parkThreadMillis(TAIL_MILLIS);
+
         recording = false;
 
-        // Unblock the pending line.read()
-        closeLine();
-
         try {
-            finished.await();
+            // The reader wakes from its pending read() in <= 100ms of audio,
+            // flushes the line tail and counts down. The timeout is a safety
+            // net against a capture line gone catatonic.
+            if (!finished.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                closeLine();
+                finished.await(1, java.util.concurrent.TimeUnit.SECONDS);
+            }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

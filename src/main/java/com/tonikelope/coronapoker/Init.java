@@ -1129,7 +1129,23 @@ public class Init extends JFrame {
         Crupier.warmShuffleAnimCache();
 
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
-        Audio.MASTER_VOLUME = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
+
+        // A corrupt master_volume used to cascade: >1.0 overflows the gain control
+        // (misdiagnosed as a missing audio device) and NaN poisons floatClean.
+        float master_volume;
+
+        try {
+            master_volume = Float.parseFloat(Helpers.PROPERTIES.getProperty("master_volume", "0.8"));
+        } catch (NumberFormatException ex) {
+            master_volume = Float.NaN;
+        }
+
+        if (Float.isNaN(master_volume) || master_volume < 0f || master_volume > 1f) {
+            LOGGER.log(Level.WARNING, "Invalid master_volume property, falling back to default.");
+            master_volume = 0.8f;
+        }
+
+        Audio.MASTER_VOLUME = master_volume;
 
         if (!GameFrame.SONIDOS) {
             Audio.muteAll();

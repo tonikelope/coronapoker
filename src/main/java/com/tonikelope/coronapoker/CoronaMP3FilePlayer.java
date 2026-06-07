@@ -37,10 +37,16 @@ import javax.sound.sampled.FloatControl;
 
 public class CoronaMP3FilePlayer {
 
+    // MASTER_GAIN is applied to the samples when they are WRITTEN to the line,
+    // so the line buffer length is exactly the latency of any volume change
+    // (TTS ducking, mutes, volume keys). Keep it short but underrun-safe.
+    private static final int LINE_BUFFER_MILLIS = 120;
+
     private volatile SourceDataLine line = null;
     private volatile boolean playing = false;
     private volatile boolean paused = false;
     private volatile boolean stopped = false;
+    private volatile boolean silent = false;
     private final Object pause_lock = new Object();
 
     public boolean isPlaying() {
@@ -78,7 +84,7 @@ public class CoronaMP3FilePlayer {
 
             if (line != null) {
                 try {
-                    line.open(outFormat);
+                    line.open(outFormat, lineBufferBytes(outFormat));
                     setVolume(volume);
                     line.start();
                     playing = true;
@@ -154,6 +160,18 @@ public class CoronaMP3FilePlayer {
                     float db = Helpers.floatClean(20f * (float) Math.log10(vol), 3);
                     gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
                 }
+
+                boolean was_silent = silent;
+
+                silent = (vol == 0f);
+
+                // Instant mute/unmute: the buffered tail still carries the OLD
+                // gain (loud when muting, silent when unmuting), so drop it.
+                // Only on the zero crossing: plain volume moves and the TTS
+                // duck must not skip audio.
+                if (silent != was_silent) {
+                    line.flush();
+                }
             } catch (Exception ex) {
                 // Some lines don't support volume control
             }
@@ -166,8 +184,24 @@ public class CoronaMP3FilePlayer {
         return new AudioFormat(PCM_SIGNED, rate, 16, ch, ch * 2, rate, false);
     }
 
+    private static int lineBufferBytes(AudioFormat format) {
+
+        int frame_size = Math.max(1, format.getFrameSize());
+
+        int bytes = Math.round(format.getFrameRate() * frame_size * LINE_BUFFER_MILLIS / 1000f);
+
+        return Math.max(frame_size * 1024, bytes - bytes % frame_size);
+    }
+
     private void stream(AudioInputStream in, SourceDataLine line) throws IOException {
-        final byte[] buffer = new byte[65536];
+
+        // Write in chunks well below the line buffer: audio already written
+        // plays at the old gain, so big chunks delay every volume change.
+        int frame_size = Math.max(1, line.getFormat().getFrameSize());
+        int chunk = Math.max(2048, line.getBufferSize() / 4);
+        chunk -= chunk % frame_size;
+
+        final byte[] buffer = new byte[chunk];
         int n = -1;
 
         while (line.isOpen() && playing && !stopped && !Thread.currentThread().isInterrupted() && (n = in.read(buffer)) != -1) {

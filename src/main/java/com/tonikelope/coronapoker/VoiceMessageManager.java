@@ -54,9 +54,6 @@ public class VoiceMessageManager {
 
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
     public static final float DIALOG_OPACITY = 0.8f;
-    // Below this key-hold time the press is an accidental tap and the note is
-    // discarded. Short intentional notes hold the key well past this.
-    public static final int MIN_HOLD_MILLIS = 200;
 
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
@@ -65,7 +62,6 @@ public class VoiceMessageManager {
     private static volatile JProgressBar RECORD_BAR = null;
     private static volatile javax.swing.Timer AUTO_SEND_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
-    private static volatile long PRESS_TIME = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     static {
@@ -163,8 +159,6 @@ public class VoiceMessageManager {
             return;
         }
 
-        PRESS_TIME = System.currentTimeMillis();
-
         VoiceRecorder recorder = new VoiceRecorder();
 
         RECORDER = recorder;
@@ -202,10 +196,11 @@ public class VoiceMessageManager {
         WAIT_KEY_RELEASE = false;
 
         if (RECORDER != null) {
-            // A tap below the hold threshold is accidental: tear down without
-            // sending. Intent is measured on the KEY, not on the audio length,
-            // so short notes survive.
-            stopAndSend(System.currentTimeMillis() - PRESS_TIME < MIN_HOLD_MILLIS);
+            // Releasing before the talk-now dialog appears means the mic was
+            // still opening (or it was just an accidental tap): cancel like
+            // WhatsApp instead of sending an empty or clipped note. Once the
+            // dialog is up it is the honest commitment point, so the note ships.
+            stopAndSend(RECORD_DIALOG == null);
         }
     }
 

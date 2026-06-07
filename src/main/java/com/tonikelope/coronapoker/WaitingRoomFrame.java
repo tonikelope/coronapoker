@@ -734,11 +734,30 @@ public class WaitingRoomFrame extends JFrame {
         return CHAT_LINK_OR_IMG_PATTERN.matcher(message).replaceAll("");
     }
 
+    // Whole line (emoji included) lives INSIDE the anchor so clicking the
+    // emoji also plays, and the playing/idle swap keeps the emoji.
+    private String voiceNoteAnchorHTML(String filename, boolean playing) {
+
+        String emoji = EmojiPanel.EMOJI_SRC.size() >= 1138
+                ? "<img align='middle' src='" + EmojiPanel.EMOJI_SRC.get(1138 - 1) + "' />&nbsp;" : "";
+
+        return "<a id='voicenote_" + filename + "' href='voicenote:" + filename + "'>" + emoji + "<b>"
+                + Translator.translate(playing ? "audio.reproduciendo" : "audio.nota_de_voz") + "</b></a>";
+    }
+
     private String parseVoiceNoteChat(String message) {
 
         Matcher matcher = CHAT_VOICE_NOTE_PATTERN.matcher(message);
 
-        return matcher.replaceAll("#1138# <a id='voicenote_$1' href='voicenote:$1'><b>" + Matcher.quoteReplacement(Translator.translate("audio.nota_de_voz")) + "</b></a>");
+        StringBuilder out = new StringBuilder();
+
+        while (matcher.find()) {
+            matcher.appendReplacement(out, Matcher.quoteReplacement(voiceNoteAnchorHTML(matcher.group(1), false)));
+        }
+
+        matcher.appendTail(out);
+
+        return out.toString();
     }
 
     // Swaps the chat line of a voice note between [Nota de voz] and
@@ -752,7 +771,7 @@ public class WaitingRoomFrame extends JFrame {
                 javax.swing.text.Element element = doc.getElement("voicenote_" + filename);
 
                 if (element != null) {
-                    doc.setOuterHTML(element, "<a id='voicenote_" + filename + "' href='voicenote:" + filename + "'><b>" + Translator.translate(playing ? "audio.reproduciendo" : "audio.nota_de_voz") + "</b></a>");
+                    doc.setOuterHTML(element, voiceNoteAnchorHTML(filename, playing));
                 }
             } catch (Exception ex) {
             }
@@ -5559,19 +5578,18 @@ public class WaitingRoomFrame extends JFrame {
                 return false;
             }
 
-            // The click must land ON the glyphs, not past the end of the line
-            // (viewToModel clamps to the nearest position)
-            java.awt.geom.Rectangle2D caret_rect = chat.modelToView2D(pos);
-
-            if (caret_rect == null
-                    || evt.getY() < caret_rect.getY() || evt.getY() >= caret_rect.getY() + caret_rect.getHeight()
-                    || Math.abs(evt.getX() - caret_rect.getX()) > 30) {
-                return false;
-            }
-
             javax.swing.text.html.HTMLDocument doc = (javax.swing.text.html.HTMLDocument) chat.getDocument();
 
-            javax.swing.text.AttributeSet anchor = (javax.swing.text.AttributeSet) doc.getCharacterElement(pos).getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+            // viewToModel returns an insertion position: a click on the right
+            // half of the last glyph maps to the run end, so probe both sides
+            javax.swing.text.Element run = doc.getCharacterElement(pos);
+
+            javax.swing.text.AttributeSet anchor = (javax.swing.text.AttributeSet) run.getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+
+            if (anchor == null && pos > 0) {
+                run = doc.getCharacterElement(pos - 1);
+                anchor = (javax.swing.text.AttributeSet) run.getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+            }
 
             if (anchor == null) {
                 return false;
@@ -5580,6 +5598,18 @@ public class WaitingRoomFrame extends JFrame {
             Object href = anchor.getAttribute(javax.swing.text.html.HTML.Attribute.HREF);
 
             if (href == null || !href.toString().startsWith("voicenote:")) {
+                return false;
+            }
+
+            // The click must land on the anchor's painted box (with margin for
+            // baseline-aligned rows and HiDPI rounding), not on the empty space
+            // viewToModel clamps from
+            java.awt.Rectangle box = chat.modelToView2D(run.getStartOffset()).getBounds()
+                    .union(chat.modelToView2D(run.getEndOffset()).getBounds());
+
+            box.grow(12, 16);
+
+            if (!box.contains(evt.getPoint())) {
                 return false;
             }
 

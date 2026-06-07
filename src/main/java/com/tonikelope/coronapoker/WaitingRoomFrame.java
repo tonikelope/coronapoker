@@ -934,17 +934,15 @@ public class WaitingRoomFrame extends JFrame {
         chat.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
 
-                // Custom scheme: getURL() is null for it, use the description
-                if (e.getDescription() != null && e.getDescription().startsWith("voicenote:")) {
-
-                    VoiceMessageManager.playFromChat(e.getDescription().substring("voicenote:".length()));
-
-                } else if (e.getURL() != null) {
+                // Voice note anchors are handled by the manual hit-test in
+                // chatMouseClicked (the stock LinkController is unreliable
+                // with custom schemes): guard against double handling here.
+                if (e.getURL() != null) {
 
                     Helpers.openBrowserURL(e.getURL().toString());
-                }
 
-                chat_box.requestFocus();
+                    chat_box.requestFocus();
+                }
             }
         });
 
@@ -5534,6 +5532,14 @@ public class WaitingRoomFrame extends JFrame {
 
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_chatMouseClicked
 
+        // Manual hit-test for voice note anchors: the html32 DTD parser and
+        // the stock LinkController do not get along with custom schemes, so
+        // the hyperlink route is unreliable here. A link click must also NOT
+        // toggle the scroll-freeze below.
+        if (javax.swing.SwingUtilities.isLeftMouseButton(evt) && clickVoiceNoteAt(evt)) {
+            return;
+        }
+
         if (!chat.isFocusable()) {
             this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
             this.chat_scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -5543,6 +5549,48 @@ public class WaitingRoomFrame extends JFrame {
             chat.requestFocus();
         }
     }// GEN-LAST:event_chatMouseClicked
+
+    private boolean clickVoiceNoteAt(java.awt.event.MouseEvent evt) {
+
+        try {
+            int pos = chat.viewToModel2D(evt.getPoint());
+
+            if (pos < 0) {
+                return false;
+            }
+
+            // The click must land ON the glyphs, not past the end of the line
+            // (viewToModel clamps to the nearest position)
+            java.awt.geom.Rectangle2D caret_rect = chat.modelToView2D(pos);
+
+            if (caret_rect == null
+                    || evt.getY() < caret_rect.getY() || evt.getY() >= caret_rect.getY() + caret_rect.getHeight()
+                    || Math.abs(evt.getX() - caret_rect.getX()) > 30) {
+                return false;
+            }
+
+            javax.swing.text.html.HTMLDocument doc = (javax.swing.text.html.HTMLDocument) chat.getDocument();
+
+            javax.swing.text.AttributeSet anchor = (javax.swing.text.AttributeSet) doc.getCharacterElement(pos).getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+
+            if (anchor == null) {
+                return false;
+            }
+
+            Object href = anchor.getAttribute(javax.swing.text.html.HTML.Attribute.HREF);
+
+            if (href == null || !href.toString().startsWith("voicenote:")) {
+                return false;
+            }
+
+            VoiceMessageManager.playFromChat(href.toString().substring("voicenote:".length()));
+
+            return true;
+
+        } catch (Exception ex) {
+            return false;
+        }
+    }
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowDeactivated
         // La sala de espera es una ventana normal: no se aferra al foco. Durante

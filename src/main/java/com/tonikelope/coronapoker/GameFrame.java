@@ -2125,6 +2125,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         ascensor_menu.setEnabled(sonidos_menu.isSelected());
 
+        // "Ajustes" at the bottom of the audio block in Preferencias, opening
+        // the audio settings dialog (added by hand: initComponents is generated)
+        javax.swing.JMenuItem audio_settings_menu = new javax.swing.JMenuItem(Translator.translate("menu.ajustes"));
+        audio_settings_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        audio_settings_menu.putClientProperty("i18n.key", "menu.ajustes");
+        audio_settings_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
+        audio_settings_menu.addActionListener(e -> AudioSettingsDialog.open(this));
+
+        int tts_menu_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(tts_menu);
+
+        opciones_menu.insert(audio_settings_menu, tts_menu_index >= 0 ? tts_menu_index + 1 : opciones_menu.getMenuComponentCount());
+
         tts_menu.setSelected(GameFrame.SONIDOS_TTS);
 
         tts_menu.setEnabled(sonidos_menu.isSelected());

@@ -75,12 +75,15 @@ public class VoiceRecorder {
     /**
      * Opens the microphone and captures in a pool thread until stop() or the
      * MAX_SECONDS cap. Blocking (the device open takes 100-400ms): call it
-     * off the EDT, and only show the recording UI once it returns true — the
-     * line is live from that very moment. Returns false if no capture line
-     * can be opened. The line is fully closed after every note (an open mic
-     * is audible as background noise on some setups).
+     * off the EDT. Returns false if no capture line can be opened.
+     *
+     * on_live runs ONCE (on the capture thread) when the first real audio
+     * arrives from the device: line.start() returns before the driver is
+     * actually delivering samples, so this is the only honest talk-now
+     * signal. The line is fully closed after every note (an open mic is
+     * audible as background noise on some setups).
      */
-    public boolean start() {
+    public boolean start(Runnable on_live) {
 
         try {
 
@@ -108,7 +111,10 @@ public class VoiceRecorder {
 
         Helpers.threadRun(() -> {
 
-            byte[] buffer = new byte[3200];
+            // 50ms chunks: quick first-data signal and a short stop latency
+            byte[] buffer = new byte[1600];
+
+            boolean live = false;
 
             try {
 
@@ -118,6 +124,17 @@ public class VoiceRecorder {
 
                     if (n <= 0) {
                         break;
+                    }
+
+                    if (!live) {
+                        live = true;
+                        if (on_live != null) {
+                            try {
+                                on_live.run();
+                            } catch (Exception ex) {
+                                Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "on_live callback error: {0}", ex.getMessage());
+                            }
+                        }
                     }
 
                     pcm.write(buffer, 0, n);

@@ -153,11 +153,13 @@ public class VoiceMessageManager {
         Helpers.threadRun(() -> {
 
             // Opening the mic takes 100-400ms and the past cannot be captured:
-            // the dialog only shows once capture is LIVE, so it doubles as the
-            // talk-now signal (and the EDT never blocks on the driver).
-            if (recorder.start()) {
+            // the dialog only shows when the FIRST audio arrives from the
+            // device (line.start() returns before the driver really delivers),
+            // so it is an honest talk-now signal. The EDT never blocks on the
+            // driver.
+            if (recorder.start(() -> showRecordDialogAndArmTimer(recorder))) {
 
-                showRecordDialogAndArmTimer(recorder);
+                // Dialog and timer are armed by the on_live callback
 
             } else if (RECORDER == recorder) {
 

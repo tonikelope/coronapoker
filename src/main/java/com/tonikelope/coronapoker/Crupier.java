@@ -791,7 +791,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> iwtsth_requests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> rabbit_players = new ConcurrentHashMap<>();
-    private final HashMap<String, Float[]> auditor = new HashMap<>();
+    // ConcurrentHashMap (no HashMap): se escribe bajo lock_contabilidad
+    // (auditorCuentas, updateExitPlayers) pero se ITERA fuera de ese lock,
+    // bajo SQL_LOCK, en sqlNewHand/sqlUpdateHandEnd. Como el orden global es
+    // lock_contabilidad → SQL_LOCK, no se puede tomar lock_contabilidad dentro
+    // del SQL_LOCK para proteger la iteración sin invertir el orden y arriesgar
+    // un AB-BA con el snapshot de finTransmision. Con un HashMap llano, un exit
+    // en otro hilo (finTransmision → auditorCuentas.put) concurrente con la
+    // iteración del crupier reventaba con ConcurrentModificationException (o
+    // peor, corrupción de la tabla en un resize). El CHM da iteración
+    // débilmente consistente y sin excepción, que es justo lo que necesita un
+    // volcado de balances best-effort durante el cierre.
+    private final ConcurrentHashMap<String, Float[]> auditor = new ConcurrentHashMap<>();
     private final Object lock_ciegas = new Object();
     private final Object lock_apuestas = new Object();
     private final Object lock_contabilidad = new Object();
@@ -3125,7 +3136,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return bote;
     }
 
-    public HashMap<String, Float[]> getAuditor() {
+    public Map<String, Float[]> getAuditor() {
         return auditor;
     }
 
@@ -6651,9 +6662,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            String[] balance_float = new String[auditor.size()];
-
-            int i = 0;
+            // ArrayList (no String[auditor.size()] indexado): con auditor ya
+            // ConcurrentHashMap, size() y entrySet() pueden quedar desalineados
+            // si otro hilo (finTransmision -> auditorCuentas) inserta durante la
+            // iteración → un array predimensionado por size() petaría con
+            // ArrayIndexOutOfBounds. Acumular en lista crece sin ese supuesto.
+            ArrayList<String> balance_float = new ArrayList<>();
 
             for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
 
@@ -6665,26 +6679,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack()
                                 + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f),
                                 jugador.getBuyin());
-                        balance_float[i] = Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
+                        balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
                                 + "|"
                                 + String.valueOf(jugador.getStack()
                                         + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
                                         : 0f))
                                 + "|" + String.valueOf(jugador.getBuyin())
-                                + "|" + String.valueOf(getRebuyCount(jugador.getNickname()));
+                                + "|" + String.valueOf(getRebuyCount(jugador.getNickname())));
                     } else {
 
                         Float[] pasta = entry.getValue();
                         sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
-                        balance_float[i] = Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
+                        balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
                                 + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]))
-                                + "|" + String.valueOf(getRebuyCount(entry.getKey()));
+                                + "|" + String.valueOf(getRebuyCount(entry.getKey())));
                     }
                 } catch (Exception ex) {
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
-
-                i++;
             }
 
             LOGGER.log(Level.INFO, () -> "Balance after hand " + String.valueOf(conta_mano) + " -> " + String.join("@", balance_float));

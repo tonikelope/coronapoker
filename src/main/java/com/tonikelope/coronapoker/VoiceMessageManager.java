@@ -151,6 +151,10 @@ public class VoiceMessageManager {
 
         RECORDER = recorder;
 
+        // Total local silence while recording: the mic must not pick up
+        // music, effects or other voices.
+        Audio.setVoiceRecording(true);
+
         Helpers.threadRun(() -> {
 
             // Opening the mic takes 100-400ms and the past cannot be captured:
@@ -167,6 +171,8 @@ public class VoiceMessageManager {
                 RECORDER = null;
 
                 WAIT_KEY_RELEASE = true;
+
+                Audio.setVoiceRecording(false);
 
                 warning("audio.microfono_no_configurado");
             }
@@ -208,6 +214,9 @@ public class VoiceMessageManager {
         Helpers.threadRun(() -> {
 
             byte[] wav = recorder.stop();
+
+            // The tail grace is over: lift the local recording silence
+            Audio.setVoiceRecording(false);
 
             WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
 

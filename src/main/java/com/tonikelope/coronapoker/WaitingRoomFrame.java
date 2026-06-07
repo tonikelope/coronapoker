@@ -778,14 +778,11 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
-    public void chatHTMLAppendVoiceNote(String nick, String filename) {
+    // The plain-text chat views (FastChat) show voice notes with their clean
+    // label instead of the internal token
+    public static String cleanVoiceNoteTokens(String text) {
 
-        String hora = Helpers.getLocalTimeString();
-
-        // The plain history (FastChat renders it as raw text) gets the clean label
-        chat_text.append(nick + ":(" + hora + ") " + Translator.translate("audio.nota_de_voz") + "\n");
-
-        HTMLEditorKitAppend(txtChat2HTML(nick + ":(" + hora + ") @@voicenote:" + filename + "@@\n"));
+        return CHAT_VOICE_NOTE_PATTERN.matcher(text).replaceAll(Matcher.quoteReplacement(Translator.translate("audio.nota_de_voz")));
     }
 
     private String parseEmojiChat(String message) {
@@ -3980,7 +3977,10 @@ public class WaitingRoomFrame extends JFrame {
 
         final String voice_filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + ".wav";
 
-        chatHTMLAppendVoiceNote(nick, voice_filename);
+        // The token goes into the PLAIN history on purpose: the chat window
+        // rebuilds its whole HTML from chat_text (in-game reopen), so the
+        // anchor must be regenerable from there. FastChat cleans the token.
+        chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") @@voicenote:" + voice_filename + "@@\n");
 
         // Identified copy on disk, replayable by clicking its chat line
         Helpers.threadRun(() -> {

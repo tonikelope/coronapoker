@@ -260,11 +260,14 @@ public class Audio {
 
     public static void refreshTTSVolume() {
 
-        if (TTS_PLAYER != null) {
+        // Local snapshot: TTS() nulls the volatile field when playback ends.
+        CoronaMP3FilePlayer tts_player = TTS_PLAYER;
+
+        if (tts_player != null) {
             if (!GameFrame.SONIDOS) {
-                TTS_PLAYER.setVolume(0f);
+                tts_player.setVolume(0f);
             } else {
-                TTS_PLAYER.setVolume(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
+                tts_player.setVolume(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
             }
         }
 
@@ -1107,7 +1110,10 @@ public class Audio {
 
         for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
 
-            if (entry.getValue().isPlaying()) {
+            // Skip logically muted loops: with two loops alive (e.g. waiting room
+            // music over the muted background music) the CHM iteration order would
+            // otherwise decide which one the caller gets.
+            if (entry.getValue().isPlaying() && !MP3_LOOP_MUTED.contains(entry.getKey())) {
                 return entry.getKey();
             }
         }

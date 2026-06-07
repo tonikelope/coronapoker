@@ -54,6 +54,8 @@ import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -152,6 +154,7 @@ public class WaitingRoomFrame extends JFrame {
     private static final Pattern CHAT_IMG_PATTERN = Pattern.compile("img(s?)://([^ \r\n]+)");
     private static final Pattern CHAT_LINK_OR_IMG_PATTERN = Pattern.compile("(?:http|img)s?://[^ \r\n]+");
     private static final Pattern CHAT_EMOJI_PATTERN = Pattern.compile("#([0-9]+)#");
+    private static final Pattern CHAT_VOICE_NOTE_PATTERN = Pattern.compile("@@voicenote:([A-Za-z0-9._-]+)@@");
 
     public static final long PING_INTERVAL_MS = 5000;
     // Umbral de PONGs consecutivos perdidos antes de cerrar el socket por nuestra cuenta.
@@ -166,6 +169,8 @@ public class WaitingRoomFrame extends JFrame {
     public static final int GEN_PASS_LENGTH = 14;
     public static final int CLIENT_REC_WAIT = 5;
     public static final int ANTI_FLOOD_CHAT = 1000;
+    // 15s of u-law 16kHz is ~240KB; headroom for the WAV header
+    public static final int MAX_VOICE_MESSAGE_BYTES = 320 * 1024;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean
             .parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
@@ -630,6 +635,9 @@ public class WaitingRoomFrame extends JFrame {
 
             msg = parseImagesChat(msg, image_align, nick.equals(this.local_nick));
 
+            // Before the emoji pass: the voice note line emits a #1138# emoji
+            msg = parseVoiceNoteChat(msg);
+
             msg = parseEmojiChat(msg);
 
             msg = parseBBCODEChat(msg);
@@ -724,6 +732,104 @@ public class WaitingRoomFrame extends JFrame {
 
     private String removeLinksImagesChat(String message) {
         return CHAT_LINK_OR_IMG_PATTERN.matcher(message).replaceAll("");
+    }
+
+    // Whole line (emoji included) lives INSIDE the anchor so clicking the
+    // emoji also plays
+    private String voiceNoteAnchorHTML(String filename) {
+
+        String emoji = EmojiPanel.EMOJI_SRC.size() >= 1138
+                ? "<img align='middle' src='" + EmojiPanel.EMOJI_SRC.get(1138 - 1) + "' />&nbsp;" : "";
+
+        return "<a id='voicenote_" + filename + "' href='voicenote:" + filename + "'>" + emoji + "<b>"
+                + Translator.translate("audio.nota_de_voz") + "</b></a>";
+    }
+
+    private String parseVoiceNoteChat(String message) {
+
+        Matcher matcher = CHAT_VOICE_NOTE_PATTERN.matcher(message);
+
+        StringBuilder out = new StringBuilder();
+
+        while (matcher.find()) {
+            matcher.appendReplacement(out, Matcher.quoteReplacement(voiceNoteAnchorHTML(matcher.group(1))));
+        }
+
+        matcher.appendTail(out);
+
+        return out.toString();
+    }
+
+    // Swaps the chat line of a voice note between [Nota de voz] and
+    // [Reproduciendo...] while it plays. Pure text surgery: getElement(id)
+    // lands on the FIRST leaf carrying the id (the emoji img, which inherits
+    // the anchor attributes), so re-inserting HTML there ACCUMULATED labels.
+    // Instead, the text run after the img is replaced in place keeping its
+    // attributes (anchor, id and bold survive, the emoji is untouched).
+    public void setVoiceNoteChatLabel(String filename, boolean playing) {
+
+        Helpers.GUIRun(() -> {
+            try {
+                javax.swing.text.html.HTMLDocument doc = (javax.swing.text.html.HTMLDocument) chat.getDocument();
+
+                javax.swing.text.Element first = doc.getElement("voicenote_" + filename);
+
+                if (first == null) {
+                    return;
+                }
+
+                String target_id = "voicenote_" + filename;
+
+                int pos = first.getStartOffset();
+
+                int text_start = -1, text_end = -1;
+
+                javax.swing.text.AttributeSet text_attrs = null;
+
+                while (pos < doc.getLength()) {
+
+                    javax.swing.text.Element run = doc.getCharacterElement(pos);
+
+                    javax.swing.text.AttributeSet a = (javax.swing.text.AttributeSet) run.getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+
+                    if (a == null || !target_id.equals(a.getAttribute(javax.swing.text.html.HTML.Attribute.ID))) {
+                        break;
+                    }
+
+                    if ("img".equals(run.getName())) {
+                        // The label is the contiguous text segment AFTER the emoji
+                        text_start = -1;
+                    } else {
+                        if (text_start < 0) {
+                            text_start = run.getStartOffset();
+                        }
+                        text_end = run.getEndOffset();
+                        text_attrs = run.getAttributes();
+                    }
+
+                    pos = run.getEndOffset();
+                }
+
+                if (text_start < 0 || text_attrs == null) {
+                    return;
+                }
+
+                javax.swing.text.SimpleAttributeSet attrs = new javax.swing.text.SimpleAttributeSet(text_attrs);
+
+                doc.remove(text_start, text_end - text_start);
+
+                doc.insertString(text_start, Translator.translate(playing ? "audio.reproduciendo" : "audio.nota_de_voz"), attrs);
+
+            } catch (Exception ex) {
+            }
+        });
+    }
+
+    // The plain-text chat views (FastChat) show voice notes with their clean
+    // label instead of the internal token
+    public static String cleanVoiceNoteTokens(String text) {
+
+        return CHAT_VOICE_NOTE_PATTERN.matcher(text).replaceAll(Matcher.quoteReplacement(Translator.translate("audio.nota_de_voz")));
     }
 
     private String parseEmojiChat(String message) {
@@ -891,9 +997,15 @@ public class WaitingRoomFrame extends JFrame {
         chat.addHyperlinkListener(e -> {
             if (HyperlinkEvent.EventType.ACTIVATED.equals(e.getEventType())) {
 
-                Helpers.openBrowserURL(e.getURL().toString());
+                // Voice note anchors are handled by the manual hit-test in
+                // chatMouseClicked (the stock LinkController is unreliable
+                // with custom schemes): guard against double handling here.
+                if (e.getURL() != null) {
 
-                chat_box.requestFocus();
+                    Helpers.openBrowserURL(e.getURL().toString());
+
+                    chat_box.requestFocus();
+                }
             }
         });
 
@@ -2082,6 +2194,11 @@ public class WaitingRoomFrame extends JFrame {
                                             String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
                                             recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
                                             break;
+                                        case "VOICEMSG":
+                                            if (partes_comando.length == 3) {
+                                                recibirNotaVoz(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), Base64.getDecoder().decode(partes_comando[2]));
+                                            }
+                                            break;
                                         case "EXIT":
                                             exit = true;
                                             mostrarMensajeError(THIS, Translator.translate("game.el_servidor_ha_cancelado_la"));
@@ -2649,6 +2766,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                 GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
                                                                     Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
+                                                                });
+                                                            });
+                                                            break;
+                                                        case "VOICEMSGRULE":
+                                                            Helpers.threadRun(() -> {
+                                                                GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
+                                                                Helpers.GUIRun(() -> {
+                                                                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
                                                                 });
                                                             });
                                                             break;
@@ -3887,6 +4012,111 @@ public class WaitingRoomFrame extends JFrame {
      */
     public Helpers.TelemetryFrame getLatest_telemetry() {
         return latest_telemetry;
+    }
+
+    public void recibirNotaVoz(String nick, byte[] audio) {
+
+        // The rule guard also runs on the host: with voice messages disabled,
+        // notes from rogue clients are neither processed nor relayed.
+        if (!GameFrame.VOICE_MESSAGES || audio == null || audio.length == 0 || audio.length > MAX_VOICE_MESSAGE_BYTES) {
+            return;
+        }
+
+        final String voice_filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + ".wav";
+
+        // The token goes into the PLAIN history on purpose: the chat window
+        // rebuilds its whole HTML from chat_text (in-game reopen), so the
+        // anchor must be regenerable from there. FastChat cleans the token.
+        chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") @@voicenote:" + voice_filename + "@@\n");
+
+        // Identified copy on disk, replayable by clicking its chat line
+        Helpers.threadRun(() -> {
+            try {
+                Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
+            }
+        });
+
+        Helpers.GUIRun(() -> {
+            if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {
+
+                if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                    GameFrame.getInstance().getFastchat_dialog().refreshChatHistory();
+                }
+
+                if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
+
+                    GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, audio});
+
+                    synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
+                        GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
+                    }
+                }
+            }
+        });
+
+        if (this.server) {
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+
+            // Thread-safe iteration snapshot
+            ArrayList<Participant> targets;
+            synchronized (participantes) {
+                targets = new ArrayList<>(participantes.values());
+            }
+
+            for (Participant p : targets) {
+                try {
+                    if (p != null && !p.isCpu() && !p.getNick().equals(nick)) {
+                        String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                + Base64.getEncoder().encodeToString(audio);
+
+                        p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
+                    }
+                } catch (IOException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public void enviarNotaVoz(String nick, byte[] audio) {
+
+        Helpers.threadRun(() -> {
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+
+            if (!server) {
+                try {
+                    String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                            + Base64.getEncoder().encodeToString(audio);
+                    writeCommandToServer(
+                            Helpers.encryptCommand(comando, getLocal_client_aes_key(), iv, getLocal_client_hmac_key()));
+                } catch (IOException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+            } else {
+                // Snapshot values to prevent ConcurrentModificationException
+                ArrayList<Participant> targets;
+                synchronized (participantes) {
+                    targets = new ArrayList<>(participantes.values());
+                }
+
+                for (Participant participante : targets) {
+                    try {
+                        if (participante != null && !participante.isCpu()) {
+                            String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                    + Base64.getEncoder().encodeToString(audio);
+                            participante.writeCommandFromServer(Helpers.encryptCommand(comando,
+                                    participante.getAes_key(), iv, participante.getHmac_key()));
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        });
     }
 
     public void enviarMensajeChat(String nick, String msg) {
@@ -5368,6 +5598,14 @@ public class WaitingRoomFrame extends JFrame {
 
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_chatMouseClicked
 
+        // Manual hit-test for voice note anchors: the html32 DTD parser and
+        // the stock LinkController do not get along with custom schemes, so
+        // the hyperlink route is unreliable here. A link click must also NOT
+        // toggle the scroll-freeze below.
+        if (javax.swing.SwingUtilities.isLeftMouseButton(evt) && clickVoiceNoteAt(evt)) {
+            return;
+        }
+
         if (!chat.isFocusable()) {
             this.chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
             this.chat_scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -5377,6 +5615,59 @@ public class WaitingRoomFrame extends JFrame {
             chat.requestFocus();
         }
     }// GEN-LAST:event_chatMouseClicked
+
+    private boolean clickVoiceNoteAt(java.awt.event.MouseEvent evt) {
+
+        try {
+            int pos = chat.viewToModel2D(evt.getPoint());
+
+            if (pos < 0) {
+                return false;
+            }
+
+            javax.swing.text.html.HTMLDocument doc = (javax.swing.text.html.HTMLDocument) chat.getDocument();
+
+            // viewToModel returns an insertion position: a click on the right
+            // half of the last glyph maps to the run end, so probe both sides
+            javax.swing.text.Element run = doc.getCharacterElement(pos);
+
+            javax.swing.text.AttributeSet anchor = (javax.swing.text.AttributeSet) run.getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+
+            if (anchor == null && pos > 0) {
+                run = doc.getCharacterElement(pos - 1);
+                anchor = (javax.swing.text.AttributeSet) run.getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+            }
+
+            if (anchor == null) {
+                return false;
+            }
+
+            Object href = anchor.getAttribute(javax.swing.text.html.HTML.Attribute.HREF);
+
+            if (href == null || !href.toString().startsWith("voicenote:")) {
+                return false;
+            }
+
+            // The click must land on the anchor's painted box (with margin for
+            // baseline-aligned rows and HiDPI rounding), not on the empty space
+            // viewToModel clamps from
+            java.awt.Rectangle box = chat.modelToView2D(run.getStartOffset()).getBounds()
+                    .union(chat.modelToView2D(run.getEndOffset()).getBounds());
+
+            box.grow(12, 16);
+
+            if (!box.contains(evt.getPoint())) {
+                return false;
+            }
+
+            VoiceMessageManager.playFromChat(href.toString().substring("voicenote:".length()));
+
+            return true;
+
+        } catch (Exception ex) {
+            return false;
+        }
+    }
 
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {// GEN-FIRST:event_formWindowDeactivated
         // La sala de espera es una ventana normal: no se aferra al foco. Durante

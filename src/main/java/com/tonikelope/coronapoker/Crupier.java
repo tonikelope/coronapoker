@@ -8739,7 +8739,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             compartidas.add(GameFrame.getInstance().getRiver());
         }
 
-        boolean animacion = GameFrame.ANIMACION_CARTAS;
+        // Con el jugador local ya fuera de la timba el rewind pasa a la ruta
+        // seca (dorso directo, sin beats ni deal.wav): el reparto de SIDE-B
+        // tiene que completarse igualmente (lleva medio bote), pero corre bajo
+        // lock_contabilidad y cada pausa cosmética retrasa la salida real
+        // (finTransmision espera ese lock para el snapshot del auditor).
+        boolean animacion = GameFrame.ANIMACION_CARTAS && !GameFrame.getInstance().getLocalPlayer().isExit();
 
         Helpers.GUIRunAndWait(() -> {
             // Corridas → fuera de la mesa (resetearCarta invisible) si hay
@@ -8887,9 +8892,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         float paidA = settleRunItTwiceBoard(resisten, 0, wonAnySide);
         GameFrame.getInstance().getRegistro().print(Translator.translate("runittwice.log_fin_a"));
 
-        if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()) {
+        if (!GameFrame.TEST_MODE && !isFin_de_la_transmision()
+                && !GameFrame.getInstance().getLocalPlayer().isExit()) {
             // Pausa para asimilar SIDE-A = la MISMA que la pausa de la cola tras
             // SIDE-B (1.5x con side pots), para que ambas caras esperen igual.
+            // El guard de isExit() (mismo criterio que la pausa entre manos del
+            // bucle principal) es crítico aquí: esta pausa corre BAJO
+            // lock_contabilidad y finTransmision se queda esperando ese lock,
+            // así que isFin_de_la_transmision() jamás puede izarse a tiempo.
             this.pausaConBarra(this.bote.getSide_pot_count() == 0 ? PAUSA_ENTRE_MANOS : Math.round(1.5f * PAUSA_ENTRE_MANOS));
         }
 
@@ -12772,6 +12782,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void mostrarAnimacionDestaparCartaComunitaria(Card carta) {
 
+        // Jugador local fuera de la timba (o transmisión ya terminada): nadie
+        // mira la mesa y el hilo de salida puede estar esperando a que este
+        // destape (y el resto del showdown, bajo lock_contabilidad) termine.
+        // Volteo lógico seco — calcularJugadas necesita la carta destapada —
+        // sin GIF, sin pausa y sin checkPause.
+        if (GameFrame.getInstance().getLocalPlayer().isExit() || isFin_de_la_transmision()) {
+            carta.destapar(false);
+            return;
+        }
+
         URL url_icon = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(carta) : null;
 
         if (url_icon != null) {
@@ -13261,9 +13281,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // turno del bot tras un all-in y los destapes animados (resistencia y
     // showdown), que no deben pisar la animación central.
     private void esperarFinCinematicaAllin() {
-        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()) {
+        // isExit(): si el jugador local ha salido no hay cinemática que
+        // respetar, y esta espera puede estar corriendo bajo lock_contabilidad
+        // (showdown) reteniendo a finTransmision — el flag de fin no puede
+        // izarse hasta soltar el lock, así que no basta con chequearlo.
+        while (Init.PLAYING_CINEMATIC && !isFin_de_la_transmision()
+                && !GameFrame.getInstance().getLocalPlayer().isExit()) {
             synchronized (Init.LOCK_CINEMATICS) {
-                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()) {
+                if (!Init.PLAYING_CINEMATIC || isFin_de_la_transmision()
+                        || GameFrame.getInstance().getLocalPlayer().isExit()) {
                     break;
                 }
                 try {
@@ -13453,6 +13479,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.setTiempo_pausa(tiempo);
 
         while (getTiempoPausa() > 0) {
+
+            // El jugador local ha salido de la timba: la pausa es puro tiempo
+            // para que los humanos asimilen lo ocurrido y aquí ya no queda
+            // humano que mire. Cortarla importa especialmente cuando corre
+            // bajo lock_contabilidad (pausa entre caras del run-it-twice):
+            // finTransmision necesita ese lock ANTES de poder izar
+            // fin_de_la_transmision, así que el flag de fin no puede ser
+            // quien la aborte — isExit() sí, porque se pone sin locks.
+            if (GameFrame.getInstance().getLocalPlayer().isExit()) {
+                break;
+            }
 
             synchronized (lock_pausa_barra) {
                 try {

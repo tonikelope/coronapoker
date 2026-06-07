@@ -30,7 +30,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.awt.GridLayout;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
@@ -39,9 +38,12 @@ import java.awt.event.WindowEvent;
 import java.util.List;
 import javax.sound.sampled.Mixer;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenuItem;
@@ -54,9 +56,9 @@ import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
 
 /**
- * Audio settings: master volume (the same one driven by the global volume
- * shortcut, persisted across sessions), output device and microphone device
- * selection. Opened by right-clicking any of the speaker icons.
+ * Audio settings, opened by right-clicking any of the speaker icons. Every
+ * change applies and persists immediately (the master volume is the same
+ * value the global Shift+Up/Down shortcut drives).
  *
  * @author tonikelope
  */
@@ -69,8 +71,8 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JList<String> output_list;
     private final JList<String> capture_list;
     private final JCheckBox mic_checkbox;
-    private JCheckBox play_own_checkbox;
-    private JCheckBox block_notes_checkbox;
+    private final JCheckBox play_own_checkbox;
+    private final JCheckBox block_notes_checkbox;
     private final JButton voice_key_button;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
@@ -153,6 +155,12 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
                     Audio.VOLUME_TIMER.start();
                 }
             }
+
+            // Persist once the drag ends (not on every tick)
+            if (!loading && !volume_slider.getValueIsAdjusting()) {
+                Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+                Helpers.savePropertiesFile();
+            }
         });
 
         JPanel volume_panel = new JPanel(new BorderLayout(10, 0));
@@ -171,7 +179,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
         output_list = new JList<>(output_model);
         output_list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        output_list.setVisibleRowCount(6);
+        output_list.setVisibleRowCount(4);
         output_list.setSelectedIndex(findDeviceIndex(output_devices, AudioDeviceManager.getOutputDevice()));
 
         output_list.addListSelectionListener(e -> {
@@ -203,9 +211,14 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         output_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_salida")));
         output_panel.add(new JScrollPane(output_list), BorderLayout.CENTER);
 
-        // --- Microphone (capture device selection only; capture itself is not
-        // wired yet) ---
+        // --- Input device: microphone ---
         mic_checkbox = new JCheckBox(Translator.translate("audio.microfono_activado"), AudioDeviceManager.isMicEnabled());
+
+        mic_checkbox.addActionListener(e -> {
+            AudioDeviceManager.setMicEnabled(mic_checkbox.isSelected());
+
+            refreshVoiceControlsEnabled();
+        });
 
         DefaultListModel<String> capture_model = new DefaultListModel<>();
 
@@ -217,14 +230,8 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
         capture_list = new JList<>(capture_model);
         capture_list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        capture_list.setVisibleRowCount(6);
+        capture_list.setVisibleRowCount(4);
         capture_list.setSelectedIndex(findDeviceIndex(capture_devices, AudioDeviceManager.getCaptureDevice()));
-
-        mic_checkbox.addActionListener(e -> {
-            AudioDeviceManager.setMicEnabled(mic_checkbox.isSelected());
-
-            refreshVoiceControlsEnabled();
-        });
 
         capture_list.addListSelectionListener(e -> {
             if (!loading && !e.getValueIsAdjusting()) {
@@ -245,10 +252,13 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         voice_key_panel.add(new JLabel(Translator.translate("audio.tecla_nota_voz")), BorderLayout.CENTER);
         voice_key_panel.add(voice_key_button, BorderLayout.EAST);
 
-        play_own_checkbox = new JCheckBox(Translator.translate("audio.reproducir_mis_notas"), AudioDeviceManager.isPlayOwnVoiceMessages());
+        JPanel mic_panel = new JPanel(new BorderLayout(0, 5));
+        mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_entrada")));
+        mic_panel.add(mic_checkbox, BorderLayout.NORTH);
+        mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
+        mic_panel.add(voice_key_panel, BorderLayout.SOUTH);
 
-        play_own_checkbox.addActionListener(e -> AudioDeviceManager.setPlayOwnVoiceMessages(play_own_checkbox.isSelected()));
-
+        // --- Voice note options ---
         block_notes_checkbox = new JCheckBox(Translator.translate("audio.bloquear_notas"), AudioDeviceManager.isBlockVoiceMessages());
 
         block_notes_checkbox.addActionListener(e -> {
@@ -257,25 +267,27 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
             refreshVoiceControlsEnabled();
         });
 
-        JPanel mic_north_panel = new JPanel(new GridLayout(2, 1, 0, 5));
-        mic_north_panel.add(block_notes_checkbox);
-        mic_north_panel.add(mic_checkbox);
+        play_own_checkbox = new JCheckBox(Translator.translate("audio.reproducir_mis_notas"), AudioDeviceManager.isPlayOwnVoiceMessages());
 
-        JPanel mic_south_panel = new JPanel(new GridLayout(2, 1, 0, 5));
-        mic_south_panel.add(play_own_checkbox);
-        mic_south_panel.add(voice_key_panel);
-
-        JPanel mic_panel = new JPanel(new BorderLayout());
-        mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.microfono")));
-        mic_panel.add(mic_north_panel, BorderLayout.NORTH);
-        mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
-        mic_panel.add(mic_south_panel, BorderLayout.SOUTH);
+        play_own_checkbox.addActionListener(e -> AudioDeviceManager.setPlayOwnVoiceMessages(play_own_checkbox.isSelected()));
 
         refreshVoiceControlsEnabled();
 
-        JPanel devices_panel = new JPanel(new GridLayout(1, 2, 10, 0));
-        devices_panel.add(output_panel);
-        devices_panel.add(mic_panel);
+        // --- Vertical stack: output, input, block, play-own ---
+        JPanel center_panel = new JPanel();
+        center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.Y_AXIS));
+
+        output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        block_notes_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+
+        center_panel.add(output_panel);
+        center_panel.add(Box.createVerticalStrut(10));
+        center_panel.add(mic_panel);
+        center_panel.add(Box.createVerticalStrut(10));
+        center_panel.add(block_notes_checkbox);
+        center_panel.add(play_own_checkbox);
 
         // --- Buttons ---
         JButton ok_button = new JButton(Translator.translate("ui.aceptar"));
@@ -288,10 +300,12 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         JPanel content = new JPanel(new BorderLayout(10, 10));
         content.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         content.add(volume_panel, BorderLayout.NORTH);
-        content.add(devices_panel, BorderLayout.CENTER);
+        content.add(center_panel, BorderLayout.CENTER);
         content.add(button_panel, BorderLayout.SOUTH);
 
         setContentPane(content);
+
+        getRootPane().setDefaultButton(ok_button);
 
         addWindowListener(new WindowAdapter() {
 

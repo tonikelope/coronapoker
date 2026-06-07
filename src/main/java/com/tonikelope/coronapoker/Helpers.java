@@ -2961,6 +2961,39 @@ public class Helpers {
         }
     }
 
+    /**
+     * Returns the largest variant of {@code base_font} (never larger than its
+     * own size) whose rendering of {@code text} fits within
+     * {@code available_width} pixels, measured with {@code label}'s font
+     * metrics. The size is shrunk one point at a time down to {@code min_size};
+     * if the text still overflows at the floor, that floor variant is returned.
+     * When the available width is unknown (component not laid out yet) the base
+     * font is returned untouched.
+     */
+    public static Font fitFontToWidth(JLabel label, String text, Font base_font, int available_width, int min_size) {
+
+        if (label == null || text == null || base_font == null || available_width <= 0) {
+            return base_font;
+        }
+
+        if (label.getFontMetrics(base_font).stringWidth(text) <= available_width) {
+            return base_font;
+        }
+
+        Font candidate = base_font;
+
+        for (int size = base_font.getSize() - 1; size >= min_size; size--) {
+
+            candidate = base_font.deriveFont(base_font.getStyle(), (float) size);
+
+            if (label.getFontMetrics(candidate).stringWidth(text) <= available_width) {
+                return candidate;
+            }
+        }
+
+        return candidate;
+    }
+
     public static Font createAndRegisterFont(InputStream stream) {
 
         Font font = null;

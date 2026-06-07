@@ -95,6 +95,11 @@ public class Audio {
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
     public volatile static boolean MUTED_MP3_LOOP = false;
+    // Total local silence while recording a voice message (the mic must not
+    // pick up music, effects or other voices). Derived state: every volume
+    // law consults it, so overlapping TTS/note playback windows cannot undo
+    // it and the right state is restored whenever it drops.
+    public volatile static boolean VOICE_RECORDING = false;
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
     // Blacklist for missing or corrupted sound files to prevent console flooding
@@ -292,7 +297,7 @@ public class Audio {
         CoronaMP3FilePlayer tts_player = TTS_PLAYER;
 
         if (tts_player != null) {
-            if (!GameFrame.SONIDOS) {
+            if (!GameFrame.SONIDOS || VOICE_RECORDING) {
                 tts_player.setVolume(0f);
             } else {
                 tts_player.setVolume(MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f);
@@ -337,7 +342,7 @@ public class Audio {
     public static float effectiveLoopVolume(String sound) {
 
         // Single source of truth for MP3 loop volume
-        if (!GameFrame.SONIDOS || MUTED_MP3_LOOP || MP3_LOOP_MUTED.contains(sound)) {
+        if (!GameFrame.SONIDOS || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
             return 0f;
         }
 
@@ -362,7 +367,7 @@ public class Audio {
 
         boolean mute_supported = clip.isControlSupported(BooleanControl.Type.MUTE);
 
-        if (!GameFrame.SONIDOS || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
+        if (!GameFrame.SONIDOS || VOICE_RECORDING || findSoundVolume(sound) == 0f || ((MUTED_ALL || MUTED_WAV) && !bypass_muted)) {
 
             if (mute_supported) {
                 ((BooleanControl) clip.getControl(BooleanControl.Type.MUTE)).setValue(true);
@@ -765,7 +770,7 @@ public class Audio {
                         // messages).
                         Helpers.parkThreadMillis(100);
 
-                        float volume = (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
+                        float volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
 
                         try {
 
@@ -802,6 +807,15 @@ public class Audio {
         }
     }
 
+    public static void setVoiceRecording(boolean recording) {
+
+        VOICE_RECORDING = recording;
+
+        // Reapply every volume law: silence on raise, and on drop restore
+        // whatever the remaining flags dictate (e.g. a TTS window still open)
+        refreshALLVolumes(false);
+    }
+
     public static void playVoiceMessage(byte[] wav, JLabel chat_notify_label) {
 
         if (wav == null || wav.length == 0) {
@@ -828,7 +842,7 @@ public class Audio {
             // own, so a long wait here just delays the voice.
             Helpers.parkThreadMillis(100);
 
-            float volume = (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
+            float volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
 
             try {
 

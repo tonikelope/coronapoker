@@ -79,7 +79,6 @@ public class Audio {
     public static final Map.Entry<String, Float> ABOUT_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/about_music.mp3", 0.9f);
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_LOOP = new ConcurrentHashMap<>();
-    public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     public static final Object TTS_LOCK = new Object();
@@ -90,7 +89,6 @@ public class Audio {
     public static final Timer VOLUME_TIMER;
     public volatile static boolean MUTED_ALL = false;
     public volatile static boolean MUTED_WAV = false;
-    public volatile static boolean MUTED_MP3 = false;
     public volatile static boolean MUTED_MP3_LOOP = false;
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
@@ -178,7 +176,13 @@ public class Audio {
 
     public static float findSoundVolume(String sound) {
 
-        return CUSTOM_VOLUMES.containsKey(sound) ? (MASTER_VOLUME > 0f ? CUSTOM_VOLUMES.get(sound) * MASTER_VOLUME : 0f) : (TTS_PLAYER != null && MP3_RESOURCES.containsKey(sound) && ((CoronaMP3FilePlayer) MP3_RESOURCES.get(sound)) == TTS_PLAYER ? (MASTER_VOLUME > 0f ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f) : (MASTER_VOLUME > 0f ? MASTER_VOLUME : 0f));
+        if (MASTER_VOLUME <= 0f) {
+            return 0f;
+        }
+
+        Float custom = CUSTOM_VOLUMES.get(sound);
+
+        return custom != null ? custom * MASTER_VOLUME : MASTER_VOLUME;
     }
 
     private static InputStream getSoundInputStream(String sound) {
@@ -244,7 +248,6 @@ public class Audio {
                 try {
 
                     refreshALLWAVVolume();
-                    refreshALLMP3Volume();
                     refreshALLMP3LoopVolume();
                     refreshTTSVolume();
 
@@ -292,20 +295,6 @@ public class Audio {
         }
     }
 
-    public static void refreshALLMP3Volume() {
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-                setMP3PlayerVolume(entry.getKey(), entry.getValue());
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error setting MP3 volume: {0}", ex.getMessage());
-            }
-
-        }
-
-    }
-
     public static void refreshALLMP3LoopVolume() {
 
         for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
@@ -331,16 +320,6 @@ public class Audio {
     public static void setMP3LoopPlayerVolume(String sound, CoronaMP3FilePlayer player) {
 
         player.setVolume(effectiveLoopVolume(sound));
-
-    }
-
-    public static void setMP3PlayerVolume(String sound, CoronaMP3FilePlayer player) {
-
-        if (!GameFrame.SONIDOS) {
-            player.setVolume(0f);
-        } else {
-            player.setVolume(findSoundVolume(sound));
-        }
 
     }
 
@@ -482,20 +461,6 @@ public class Audio {
             }
         }
         return false;
-    }
-
-    public static synchronized int getTotalLoopMp3Playing() {
-
-        int tot = 0;
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
-
-            if (entry.getValue().isPlaying()) {
-                tot++;
-            }
-        }
-
-        return tot;
     }
 
     public static boolean isLoopMp3Playing() {
@@ -962,8 +927,6 @@ public class Audio {
 
         MUTED_ALL = true;
 
-        muteAllMp3();
-
         muteAllLoopMp3();
 
         muteAllWav();
@@ -973,8 +936,6 @@ public class Audio {
     public static void muteAllExceptMp3Loops() {
 
         MUTED_ALL = true;
-
-        muteAllMp3();
 
         muteAllWav();
 
@@ -1017,22 +978,6 @@ public class Audio {
 
     }
 
-    public static void muteAllMp3() {
-
-        MUTED_MP3 = true;
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-                entry.getValue().setVolume(0f);
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all MP3s: {0}", ex.getMessage());
-            }
-
-        }
-
-    }
-
     public static void unmuteAllLoopMp3() {
 
         MUTED_MP3_LOOP = false;
@@ -1047,24 +992,6 @@ public class Audio {
 
             } catch (Exception ex) {
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3 loops: {0}", ex.getMessage());
-            }
-        }
-    }
-
-    public static void unmuteAllMp3() {
-
-        MUTED_MP3 = false;
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_RESOURCES.entrySet()) {
-
-            try {
-
-                if (!MUTED_ALL) {
-                    entry.getValue().setVolume(findSoundVolume(entry.getKey()));
-                }
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3s: {0}", ex.getMessage());
             }
         }
     }
@@ -1097,8 +1024,6 @@ public class Audio {
     public static void unmuteAll() {
 
         MUTED_ALL = false;
-
-        unmuteAllMp3();
 
         unmuteAllLoopMp3();
 

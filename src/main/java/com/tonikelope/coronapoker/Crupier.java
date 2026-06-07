@@ -890,6 +890,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // siguiente y desharía la corrección en memoria del conta_win. Tras los dos
     // boards se escribe UNA fila consolidada (pay total + winner = ganó algún side).
     private volatile boolean rit_suppress_showdown_sql = false;
+    // Mano anulada por MISDEAL (cancelarManoYDevolverApuestas ya devolvió las
+    // apuestas, rollbackAbortedHand cerró la mano en SQL e izó
+    // fin_de_la_transmision). Señal para los caminos que liquidaron dinero
+    // ANTES del aborto — el settle de CARA-A del run-it-twice — de que deben
+    // revertir su parte (el refund fue ÍNTEGRO) y no escribir SQL de showdown
+    // ni re-estampar la mano que el rollback dejó cerrada con pot=0.
+    private volatile boolean mano_anulada = false;
     private volatile GameOverDialog gameover_dialog = null;
     private volatile String dealer_nick = null;
     private volatile String big_blind_nick = null;
@@ -4995,6 +5002,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (isFin_de_la_transmision()) {
             return;
         }
+        // Antes del refund: los caminos con dinero ya liquidado en esta mano
+        // (settle de CARA-A del run-it-twice) leen este flag al volver del
+        // reparto abortado para revertir su parte. volatile + mismo hilo (host)
+        // o publicación vía el breakout de la cola (cliente) lo hacen visible.
+        this.mano_anulada = true;
         LOGGER.log(Level.WARNING, "MISDEAL triggered: {0}", motivo);
         // Defense in depth: if a recovery dragon was left open (e.g. a
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
@@ -5998,6 +6010,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Defensivo: si una mano anterior abortó entre los dos boards con el SQL
         // del showdown silenciado, lo reactivamos al empezar la mano nueva.
         this.rit_suppress_showdown_sql = false;
+        // Defensivo por el mismo motivo: tras un MISDEAL no hay más manos en
+        // este Crupier (fin_de_la_transmision queda izado), pero si alguna vez
+        // lo hubiera, una mano nueva nunca debe arrancar marcada como anulada.
+        this.mano_anulada = false;
         this.ultimo_raise = 0f;
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
@@ -8814,9 +8830,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         procesarCartasResistencia(resisten, false);
 
         // conta_win: snapshot para corregir el doble incremento de showdown().
+        // pagar: snapshot para poder REVERTIR el settle de CARA-A si el reparto
+        // de CARA-B aborta en MISDEAL (cancelarManoYDevolverApuestas anula la
+        // mano ENTERA con refund íntegro de apuestas; dejar el medio bote de
+        // CARA-A pendiente en pagar duplicaría dinero en todo lo que lee
+        // stack+getPagar(): auditor, balance_backup.txt y filas de balance).
+        //
+        // Snapshot sobre TODOS los jugadores, no solo resisten: el pot principal
+        // paga a resisten, pero los side pots pagan a HandPot.getPlayers(), y un
+        // jugador que hizo all-in y luego SALIÓ (isExit) queda fuera de resisten
+        // —el run loop lo filtra antes de genSidePots— pero sigue siendo
+        // elegible en su side pot y puede cobrar en CARA-A. Snapshotear/revertir
+        // solo resisten dejaría su medio bote sin revertir. Para los jugadores
+        // que el settle no toca, el snapshot == valor actual y restaurar es no-op.
         HashMap<Player, Integer> contaWinSnapshot = new HashMap<>();
-        for (Player p : resisten) {
+        HashMap<Player, Float> pagarSnapshot = new HashMap<>();
+        for (Player p : GameFrame.getInstance().getJugadores()) {
             contaWinSnapshot.put(p, p.getContaWin());
+            pagarSnapshot.put(p, p.getPagar());
         }
         java.util.HashSet<Player> wonAnySide = new java.util.HashSet<>();
 
@@ -8891,6 +8922,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Igual que tras el run-out normal (Crupier ~12232): oculta la bet_label
         // de calle antes del showdown de CARA-B.
         GameFrame.getInstance().hideTapeteApuestas();
+
+        // CARA-B abortó en MISDEAL: la mano entera está ANULADA
+        // (cancelarManoYDevolverApuestas devolvió todas las apuestas y
+        // rollbackAbortedHand la cerró en SQL con pot=0 y balances
+        // post-refund). El settle de CARA-A debe revertirse — quedó pendiente
+        // en pagar y nadie lo va a consolidar, pero el auditor y el
+        // balance_backup.txt leen stack+getPagar() y le abonarían al ganador
+        // de A un medio bote que los demás ya recuperaron con el refund.
+        // conta_win vuelve al snapshot (una mano anulada no cuenta victorias)
+        // y NO se escriben filas de showdown de una mano anulada. El abort
+        // sin MISDEAL (p.ej. fin por salida del propio jugador local) sigue
+        // el camino de siempre: CARA-A liquidada se queda como está.
+        if (!dealt && this.mano_anulada) {
+            for (Player p : GameFrame.getInstance().getJugadores()) {
+                p.setPagar(pagarSnapshot.get(p));
+                p.setContaWin(contaWinSnapshot.get(p));
+            }
+            this.rit_suppress_showdown_sql = false;
+            return;
+        }
 
         float paidB = 0f;
         if (dealt && !isFin_de_la_transmision()) {
@@ -14112,7 +14163,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 this.soundShowdown();
                             }
 
-                            sqlUpdateHandEnd(sql_bote_total);
+                            // Mano anulada por MISDEAL: rollbackAbortedHand ya
+                            // la cerró (end estampado, pot=0, balances
+                            // post-refund). Re-estamparla aquí escribiría
+                            // pot=sql_bote_total (capturado ANTES del aborto,
+                            // ≠0 si CARA-B del run-it-twice abortó tras
+                            // capturarlo) sobre el pot=0 explícito del
+                            // rollback, y el backup de balances de una mano
+                            // anulada es el de la mano anterior (el refund
+                            // íntegro restaura los stacks pre-mano).
+                            if (!this.mano_anulada) {
+                                sqlUpdateHandEnd(sql_bote_total);
+                            }
 
                             if (this.update_game_seats) {
                                 String players = "";

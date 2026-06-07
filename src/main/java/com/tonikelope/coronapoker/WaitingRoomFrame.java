@@ -3637,9 +3637,20 @@ public class WaitingRoomFrame extends JFrame {
                                     revalidate();
                                     repaint();
                                 });
+                                // El containsKey de la comprobación temprana
+                                // (NICKFAIL) corre FUERA de lock_new_client y
+                                // varios JOIN simultáneos tienen un hilo cada
+                                // uno: dos clientes con el mismo nick podían
+                                // pasar aquel check antes de que ninguno
+                                // insertara y acabar sobrescribiéndose en
+                                // participantes (el primer socket/hilos quedaba
+                                // huérfano pero vivo). Se RE-comprueba el nick
+                                // aquí dentro, bajo el mismo lock que la
+                                // inserción, cerrando la ventana TOCTOU.
                                 if (participantes.size() < MAX_PARTICIPANTES
                                         && !WaitingRoomFrame.getInstance().isPartida_empezando()
-                                        && !WaitingRoomFrame.getInstance().isPartida_empezada()) {
+                                        && !WaitingRoomFrame.getInstance().isPartida_empezada()
+                                        && !participantes.containsKey(client_nick)) {
                                     // Handshake completado: el Participant toma control del socket
                                     // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
                                     // el deadline del handshake.
@@ -3695,7 +3706,7 @@ public class WaitingRoomFrame extends JFrame {
                                 } else {
                                     try (client_socket) {
                                         LOGGER.log(Level.INFO,
-                                                "{0} could not connect properly (game full or already started)",
+                                                "{0} could not connect properly (game full, already started, or nick claimed by a concurrent join)",
                                                 client_nick);
                                     }
                                 }

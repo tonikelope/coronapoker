@@ -54,9 +54,6 @@ public class VoiceMessageManager {
 
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
     public static final float DIALOG_OPACITY = 0.8f;
-    // Below this key-hold time the press is an accidental tap and the note is
-    // discarded. Short intentional notes hold the key well past this.
-    public static final int MIN_HOLD_MILLIS = 200;
 
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
@@ -65,7 +62,6 @@ public class VoiceMessageManager {
     private static volatile JProgressBar RECORD_BAR = null;
     private static volatile javax.swing.Timer AUTO_SEND_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
-    private static volatile long PRESS_TIME = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     static {
@@ -105,7 +101,19 @@ public class VoiceMessageManager {
      */
     public static boolean handleKeyEvent(KeyEvent e) {
 
-        if (CAPTURING_KEY || e.getKeyCode() != VOICE_KEY || GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
+        if (CAPTURING_KEY || GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
+            return false;
+        }
+
+        // WhatsApp-style cancel: while the voice key is still held and a note is
+        // being recorded, BACKSPACE discards it instead of sending. Only acts
+        // when a recorder is live, so it never swallows backspace otherwise.
+        if (RECORDER != null && e.getID() == KeyEvent.KEY_PRESSED && e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+            cancel();
+            return true;
+        }
+
+        if (e.getKeyCode() != VOICE_KEY) {
             return false;
         }
 
@@ -151,8 +159,6 @@ public class VoiceMessageManager {
             return;
         }
 
-        PRESS_TIME = System.currentTimeMillis();
-
         VoiceRecorder recorder = new VoiceRecorder();
 
         RECORDER = recorder;
@@ -190,11 +196,25 @@ public class VoiceMessageManager {
         WAIT_KEY_RELEASE = false;
 
         if (RECORDER != null) {
-            // A tap below the hold threshold is accidental: tear down without
-            // sending. Intent is measured on the KEY, not on the audio length,
-            // so short notes survive.
-            stopAndSend(System.currentTimeMillis() - PRESS_TIME < MIN_HOLD_MILLIS);
+            // Releasing before the talk-now dialog appears means the mic was
+            // still opening (or it was just an accidental tap): cancel like
+            // WhatsApp instead of sending an empty or clipped note. Once the
+            // dialog is up it is the honest commitment point, so the note ships.
+            stopAndSend(RECORD_DIALOG == null);
         }
+    }
+
+    private static void cancel() {
+
+        if (RECORDER == null) {
+            return;
+        }
+
+        // Holding the voice key past the cancel must not start a fresh note:
+        // it is ignored until the key is physically released.
+        WAIT_KEY_RELEASE = true;
+
+        stopAndSend(true);
     }
 
     private static void stopAndSend(boolean discard) {
@@ -339,6 +359,18 @@ public class VoiceMessageManager {
             // talk.png is 596x460: half size so the text leads the dialog
             message.setIcon(new ImageIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/talk.png")).getImage().getScaledInstance(298, 230, Image.SCALE_SMOOTH)));
             message.setIconTextGap(15);
+            message.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+
+            JLabel cancel_hint = new JLabel(Translator.translate("audio.borrar_para_cancelar"), JLabel.CENTER);
+            cancel_hint.setForeground(Color.WHITE);
+            cancel_hint.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+
+            JPanel center = new JPanel();
+            center.setOpaque(false);
+            center.setLayout(new javax.swing.BoxLayout(center, javax.swing.BoxLayout.Y_AXIS));
+            center.add(message);
+            center.add(javax.swing.Box.createVerticalStrut(10));
+            center.add(cancel_hint);
 
             JProgressBar bar = new JProgressBar();
             bar.setForeground(Color.WHITE);
@@ -348,7 +380,7 @@ public class VoiceMessageManager {
             JPanel panel = new JPanel(new BorderLayout(15, 15));
             panel.setBackground(new Color(180, 0, 0));
             panel.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35));
-            panel.add(message, BorderLayout.CENTER);
+            panel.add(center, BorderLayout.CENTER);
             panel.add(bar, BorderLayout.SOUTH);
 
             dialog.setContentPane(panel);
@@ -356,6 +388,8 @@ public class VoiceMessageManager {
             Helpers.updateFonts(dialog, Helpers.GUI_FONT, null);
 
             message.setFont(message.getFont().deriveFont(Font.BOLD, 34f));
+
+            cancel_hint.setFont(cancel_hint.getFont().deriveFont(Font.PLAIN, 18f));
 
             dialog.pack();
 

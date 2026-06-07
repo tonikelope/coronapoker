@@ -735,14 +735,14 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     // Whole line (emoji included) lives INSIDE the anchor so clicking the
-    // emoji also plays, and the playing/idle swap keeps the emoji.
-    private String voiceNoteAnchorHTML(String filename, boolean playing) {
+    // emoji also plays
+    private String voiceNoteAnchorHTML(String filename) {
 
         String emoji = EmojiPanel.EMOJI_SRC.size() >= 1138
                 ? "<img align='middle' src='" + EmojiPanel.EMOJI_SRC.get(1138 - 1) + "' />&nbsp;" : "";
 
         return "<a id='voicenote_" + filename + "' href='voicenote:" + filename + "'>" + emoji + "<b>"
-                + Translator.translate(playing ? "audio.reproduciendo" : "audio.nota_de_voz") + "</b></a>";
+                + Translator.translate("audio.nota_de_voz") + "</b></a>";
     }
 
     private String parseVoiceNoteChat(String message) {
@@ -752,7 +752,7 @@ public class WaitingRoomFrame extends JFrame {
         StringBuilder out = new StringBuilder();
 
         while (matcher.find()) {
-            matcher.appendReplacement(out, Matcher.quoteReplacement(voiceNoteAnchorHTML(matcher.group(1), false)));
+            matcher.appendReplacement(out, Matcher.quoteReplacement(voiceNoteAnchorHTML(matcher.group(1))));
         }
 
         matcher.appendTail(out);
@@ -761,18 +761,65 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     // Swaps the chat line of a voice note between [Nota de voz] and
-    // [Reproduciendo...] while it plays
+    // [Reproduciendo...] while it plays. Pure text surgery: getElement(id)
+    // lands on the FIRST leaf carrying the id (the emoji img, which inherits
+    // the anchor attributes), so re-inserting HTML there ACCUMULATED labels.
+    // Instead, the text run after the img is replaced in place keeping its
+    // attributes (anchor, id and bold survive, the emoji is untouched).
     public void setVoiceNoteChatLabel(String filename, boolean playing) {
 
         Helpers.GUIRun(() -> {
             try {
                 javax.swing.text.html.HTMLDocument doc = (javax.swing.text.html.HTMLDocument) chat.getDocument();
 
-                javax.swing.text.Element element = doc.getElement("voicenote_" + filename);
+                javax.swing.text.Element first = doc.getElement("voicenote_" + filename);
 
-                if (element != null) {
-                    doc.setOuterHTML(element, voiceNoteAnchorHTML(filename, playing));
+                if (first == null) {
+                    return;
                 }
+
+                String target_id = "voicenote_" + filename;
+
+                int pos = first.getStartOffset();
+
+                int text_start = -1, text_end = -1;
+
+                javax.swing.text.AttributeSet text_attrs = null;
+
+                while (pos < doc.getLength()) {
+
+                    javax.swing.text.Element run = doc.getCharacterElement(pos);
+
+                    javax.swing.text.AttributeSet a = (javax.swing.text.AttributeSet) run.getAttributes().getAttribute(javax.swing.text.html.HTML.Tag.A);
+
+                    if (a == null || !target_id.equals(a.getAttribute(javax.swing.text.html.HTML.Attribute.ID))) {
+                        break;
+                    }
+
+                    if ("img".equals(run.getName())) {
+                        // The label is the contiguous text segment AFTER the emoji
+                        text_start = -1;
+                    } else {
+                        if (text_start < 0) {
+                            text_start = run.getStartOffset();
+                        }
+                        text_end = run.getEndOffset();
+                        text_attrs = run.getAttributes();
+                    }
+
+                    pos = run.getEndOffset();
+                }
+
+                if (text_start < 0 || text_attrs == null) {
+                    return;
+                }
+
+                javax.swing.text.SimpleAttributeSet attrs = new javax.swing.text.SimpleAttributeSet(text_attrs);
+
+                doc.remove(text_start, text_end - text_start);
+
+                doc.insertString(text_start, Translator.translate(playing ? "audio.reproduciendo" : "audio.nota_de_voz"), attrs);
+
             } catch (Exception ex) {
             }
         });

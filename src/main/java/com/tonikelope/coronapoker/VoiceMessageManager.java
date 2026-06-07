@@ -336,11 +336,11 @@ public class VoiceMessageManager {
 
             JProgressBar bar = new JProgressBar();
             bar.setForeground(Color.WHITE);
-            bar.setBackground(new Color(120, 0, 0));
+            bar.setBackground(new Color(0, 85, 0));
             bar.setBorderPainted(false);
 
             JPanel panel = new JPanel(new BorderLayout(15, 15));
-            panel.setBackground(new Color(180, 0, 0));
+            panel.setBackground(new Color(0, 130, 0));
             panel.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35));
             panel.add(message, BorderLayout.CENTER);
             panel.add(bar, BorderLayout.SOUTH);

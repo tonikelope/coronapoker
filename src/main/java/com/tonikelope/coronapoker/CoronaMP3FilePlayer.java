@@ -27,8 +27,6 @@ import java.util.logging.Logger;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine.Info;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.UnsupportedAudioFileException;
@@ -42,6 +40,7 @@ public class CoronaMP3FilePlayer {
     private volatile SourceDataLine line = null;
     private volatile boolean playing = false;
     private volatile boolean paused = false;
+    private volatile boolean stopped = false;
     private final Object pause_lock = new Object();
 
     public boolean isPlaying() {
@@ -65,11 +64,17 @@ public class CoronaMP3FilePlayer {
 
         try (final AudioInputStream in = is) {
 
+            // stop() may win the race before playback begins (the old "if
+            // (playing)" guard lost that stop and the whole track played as a
+            // zombie). A stopped player can never start again.
+            if (stopped) {
+                return;
+            }
+
             final AudioFormat outFormat = getOutFormat(in.getFormat());
-            final Info info = new Info(SourceDataLine.class, outFormat);
 
             // This is where the flood happens if the audio device is busy or missing
-            line = (SourceDataLine) AudioSystem.getLine(info);
+            line = AudioDeviceManager.getSourceDataLine(outFormat);
 
             if (line != null) {
                 try {
@@ -111,6 +116,9 @@ public class CoronaMP3FilePlayer {
     }
 
     public void stop() {
+
+        stopped = true;
+
         if (playing) {
             try {
                 playing = false;
@@ -162,8 +170,8 @@ public class CoronaMP3FilePlayer {
         final byte[] buffer = new byte[65536];
         int n = -1;
 
-        while (line.isOpen() && playing && !Thread.currentThread().isInterrupted() && (n = in.read(buffer)) != -1) {
-            while (paused && line.isOpen() && playing && !Thread.currentThread().isInterrupted()) {
+        while (line.isOpen() && playing && !stopped && !Thread.currentThread().isInterrupted() && (n = in.read(buffer)) != -1) {
+            while (paused && line.isOpen() && playing && !stopped && !Thread.currentThread().isInterrupted()) {
                 synchronized (pause_lock) {
                     try {
                         pause_lock.wait(1000);
@@ -176,7 +184,7 @@ public class CoronaMP3FilePlayer {
                 }
             }
 
-            if (line.isOpen() && playing) {
+            if (line.isOpen() && playing && !stopped) {
                 line.write(buffer, 0, n);
             }
         }

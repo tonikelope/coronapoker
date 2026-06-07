@@ -2343,9 +2343,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 getCrupier().setFin_de_la_transmision(true);
 
-                if (Audio.TTS_PLAYER != null) {
+                CoronaMP3FilePlayer tts_player = Audio.TTS_PLAYER;
+
+                if (tts_player != null) {
                     try {
-                        Audio.TTS_PLAYER.stop();
+                        tts_player.stop();
                     } catch (Exception ex) {
                         Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                     }

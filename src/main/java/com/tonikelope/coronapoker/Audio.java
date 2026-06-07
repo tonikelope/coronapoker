@@ -73,6 +73,8 @@ public class Audio {
     public volatile static boolean AUDIO_AVAILABLE = true;
     public static volatile float MASTER_VOLUME;
     public static final float TTS_VOLUME = 2.0f;
+    // Music attenuation while the TTS voice speaks (~ -10.5 dB)
+    public static final float TTS_DUCKING = 0.3f;
     public static final Map.Entry<String, Float> ASCENSOR_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/background_music.mp3", 0.4f);
     public static final Map.Entry<String, Float> STATS_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/stats_music.mp3", 0.3f);
     public static final Map.Entry<String, Float> WAITING_ROOM_VOLUME = new ConcurrentHashMap.SimpleEntry<>("misc/waiting_room.mp3", 0.9f);
@@ -311,10 +313,18 @@ public class Audio {
 
     public static float effectiveLoopVolume(String sound) {
 
-        // Single source of truth for MP3 loop volume. MUTED_ALL is deliberately
-        // NOT consulted: the only MUTED_ALL window with sounds enabled is TTS
-        // playback (muteAllExceptMp3Loops), where loops must keep playing.
-        return (!GameFrame.SONIDOS || MUTED_MP3_LOOP || MP3_LOOP_MUTED.contains(sound)) ? 0f : findSoundVolume(sound);
+        // Single source of truth for MP3 loop volume
+        if (!GameFrame.SONIDOS || MUTED_MP3_LOOP || MP3_LOOP_MUTED.contains(sound)) {
+            return 0f;
+        }
+
+        // With sounds enabled, MUTED_ALL is only ever raised while the TTS
+        // voice speaks (muteAllExceptMp3Loops): duck the music under it.
+        if (MUTED_ALL) {
+            return findSoundVolume(sound) * TTS_DUCKING;
+        }
+
+        return findSoundVolume(sound);
     }
 
     public static void setMP3LoopPlayerVolume(String sound, CoronaMP3FilePlayer player) {
@@ -858,9 +868,7 @@ public class Audio {
         if (player != null) {
             try {
 
-                if (!MUTED_ALL && !MUTED_MP3_LOOP) {
-                    player.setVolume(findSoundVolume(sound));
-                }
+                player.setVolume(effectiveLoopVolume(sound));
 
             } catch (Exception ex) {
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting MP3 loop: {0}", ex.getMessage());
@@ -965,6 +973,9 @@ public class Audio {
 
         muteAllWav();
 
+        // Not muted, ducked: the music drops under the TTS voice
+        refreshALLMP3LoopVolume();
+
     }
 
     public static void muteAllWav() {
@@ -992,15 +1003,7 @@ public class Audio {
 
         MUTED_MP3_LOOP = true;
 
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
-
-            try {
-                entry.getValue().setVolume(0f);
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting all MP3 loops: {0}", ex.getMessage());
-            }
-
-        }
+        refreshALLMP3LoopVolume();
 
     }
 
@@ -1008,18 +1011,8 @@ public class Audio {
 
         MUTED_MP3_LOOP = false;
 
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
+        refreshALLMP3LoopVolume();
 
-            try {
-
-                if (!MP3_LOOP_MUTED.contains(entry.getKey()) && !MUTED_ALL) {
-                    entry.getValue().setVolume(findSoundVolume(entry.getKey()));
-                }
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all MP3 loops: {0}", ex.getMessage());
-            }
-        }
     }
 
     public static void unmuteAllWav() {

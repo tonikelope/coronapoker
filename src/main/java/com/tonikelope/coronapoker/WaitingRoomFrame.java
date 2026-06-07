@@ -4045,7 +4045,11 @@ public class WaitingRoomFrame extends JFrame {
                     GameFrame.getInstance().getFastchat_dialog().refreshChatHistory();
                 }
 
-                if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
+                // Self-block silences every incoming note; own notes auto-play
+                // locally as send confirmation only if that option is enabled
+                if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS
+                        && !AudioDeviceManager.isBlockVoiceMessages()
+                        && (!nick.equals(local_nick) || AudioDeviceManager.isPlayOwnVoiceMessages())) {
 
                     GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, audio});
 

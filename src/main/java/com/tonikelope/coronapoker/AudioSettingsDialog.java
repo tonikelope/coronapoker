@@ -69,6 +69,8 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JList<String> output_list;
     private final JList<String> capture_list;
     private final JCheckBox mic_checkbox;
+    private JCheckBox play_own_checkbox;
+    private JCheckBox block_notes_checkbox;
     private final JButton voice_key_button;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
@@ -217,12 +219,11 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         capture_list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         capture_list.setVisibleRowCount(6);
         capture_list.setSelectedIndex(findDeviceIndex(capture_devices, AudioDeviceManager.getCaptureDevice()));
-        capture_list.setEnabled(mic_checkbox.isSelected());
 
         mic_checkbox.addActionListener(e -> {
             AudioDeviceManager.setMicEnabled(mic_checkbox.isSelected());
 
-            capture_list.setEnabled(mic_checkbox.isSelected());
+            refreshVoiceControlsEnabled();
         });
 
         capture_list.addListSelectionListener(e -> {
@@ -244,11 +245,33 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         voice_key_panel.add(new JLabel(Translator.translate("audio.tecla_nota_voz")), BorderLayout.CENTER);
         voice_key_panel.add(voice_key_button, BorderLayout.EAST);
 
+        play_own_checkbox = new JCheckBox(Translator.translate("audio.reproducir_mis_notas"), AudioDeviceManager.isPlayOwnVoiceMessages());
+
+        play_own_checkbox.addActionListener(e -> AudioDeviceManager.setPlayOwnVoiceMessages(play_own_checkbox.isSelected()));
+
+        block_notes_checkbox = new JCheckBox(Translator.translate("audio.bloquear_notas"), AudioDeviceManager.isBlockVoiceMessages());
+
+        block_notes_checkbox.addActionListener(e -> {
+            AudioDeviceManager.setBlockVoiceMessages(block_notes_checkbox.isSelected());
+
+            refreshVoiceControlsEnabled();
+        });
+
+        JPanel mic_north_panel = new JPanel(new GridLayout(2, 1, 0, 5));
+        mic_north_panel.add(block_notes_checkbox);
+        mic_north_panel.add(mic_checkbox);
+
+        JPanel mic_south_panel = new JPanel(new GridLayout(2, 1, 0, 5));
+        mic_south_panel.add(play_own_checkbox);
+        mic_south_panel.add(voice_key_panel);
+
         JPanel mic_panel = new JPanel(new BorderLayout());
         mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.microfono")));
-        mic_panel.add(mic_checkbox, BorderLayout.NORTH);
+        mic_panel.add(mic_north_panel, BorderLayout.NORTH);
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
-        mic_panel.add(voice_key_panel, BorderLayout.SOUTH);
+        mic_panel.add(mic_south_panel, BorderLayout.SOUTH);
+
+        refreshVoiceControlsEnabled();
 
         JPanel devices_panel = new JPanel(new GridLayout(1, 2, 10, 0));
         devices_panel.add(output_panel);
@@ -317,6 +340,22 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         loading = false;
 
         INSTANCE = this;
+    }
+
+    // Self-block governs every voice note control; the capture list also
+    // needs the mic itself enabled
+    private void refreshVoiceControlsEnabled() {
+
+        boolean blocked = block_notes_checkbox.isSelected();
+
+        mic_checkbox.setEnabled(!blocked);
+        capture_list.setEnabled(!blocked && mic_checkbox.isSelected());
+        play_own_checkbox.setEnabled(!blocked);
+        voice_key_button.setEnabled(!blocked);
+
+        if (blocked) {
+            stopVoiceKeyCapture();
+        }
     }
 
     private void startVoiceKeyCapture() {

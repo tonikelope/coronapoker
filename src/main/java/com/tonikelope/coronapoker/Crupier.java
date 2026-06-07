@@ -10169,7 +10169,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.apuestas = 0f;
             actualizarContadoresTapete();
-            GameFrame.getInstance().hideTapeteApuestas();
+            // bet_label NO se oculta entre calles: queda visible mostrando
+            // "CALLE: ---" para que su icono de pot permanezca fijo (sin el
+            // parpadeo de ocultarse y reaparecer en cada calle). Se oculta de
+            // verdad tras la fase de apuestas, antes del showdown
+            // (hideTapeteApuestas en el bucle de Crupier.run y en el run-it-twice).
 
             if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
                 boolean firstResistencia = !this.destapar_resistencia;

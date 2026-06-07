@@ -48,6 +48,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.ListSelectionModel;
 import javax.swing.WindowConstants;
+import javax.swing.border.TitledBorder;
 
 /**
  * Audio settings: master volume (the same one driven by the global volume
@@ -284,7 +285,13 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
             }
         });
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        Helpers.updateFonts(this, Helpers.GUI_FONT, 1.2f);
+
+        // TitledBorder is not a component: updateFonts cannot reach the frame
+        // titles, so they are matched to the scaled GUI font by hand.
+        ((TitledBorder) volume_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        ((TitledBorder) output_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        ((TitledBorder) mic_panel.getBorder()).setTitleFont(volume_value_label.getFont());
 
         pack();
 

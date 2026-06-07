@@ -166,6 +166,8 @@ public class WaitingRoomFrame extends JFrame {
     public static final int GEN_PASS_LENGTH = 14;
     public static final int CLIENT_REC_WAIT = 5;
     public static final int ANTI_FLOOD_CHAT = 1000;
+    // 15s of u-law 16kHz is ~240KB; headroom for the WAV header
+    public static final int MAX_VOICE_MESSAGE_BYTES = 320 * 1024;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean
             .parseBoolean(Helpers.PROPERTIES.getProperty("chat_game_notifications", "true"));
     private static volatile WaitingRoomFrame THIS = null;
@@ -2082,6 +2084,11 @@ public class WaitingRoomFrame extends JFrame {
                                             String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
                                             recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
                                             break;
+                                        case "VOICEMSG":
+                                            if (partes_comando.length == 3) {
+                                                recibirNotaVoz(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), Base64.getDecoder().decode(partes_comando[2]));
+                                            }
+                                            break;
                                         case "EXIT":
                                             exit = true;
                                             mostrarMensajeError(THIS, Translator.translate("game.el_servidor_ha_cancelado_la"));
@@ -3887,6 +3894,95 @@ public class WaitingRoomFrame extends JFrame {
      */
     public Helpers.TelemetryFrame getLatest_telemetry() {
         return latest_telemetry;
+    }
+
+    public void recibirNotaVoz(String nick, byte[] audio) {
+
+        if (audio == null || audio.length == 0 || audio.length > MAX_VOICE_MESSAGE_BYTES) {
+            return;
+        }
+
+        chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + Translator.translate("audio.nota_de_voz") + "\n");
+
+        Helpers.GUIRun(() -> {
+            if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {
+
+                if (GameFrame.getInstance().getFastchat_dialog() != null) {
+                    GameFrame.getInstance().getFastchat_dialog().refreshChatHistory();
+                }
+
+                if (WaitingRoomFrame.CHAT_GAME_NOTIFICATIONS) {
+
+                    GameFrame.NOTIFY_CHAT_QUEUE.add(new Object[]{nick, audio});
+
+                    synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
+                        GameFrame.NOTIFY_CHAT_QUEUE.notifyAll();
+                    }
+                }
+            }
+        });
+
+        if (this.server) {
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+
+            // Thread-safe iteration snapshot
+            ArrayList<Participant> targets;
+            synchronized (participantes) {
+                targets = new ArrayList<>(participantes.values());
+            }
+
+            for (Participant p : targets) {
+                try {
+                    if (p != null && !p.isCpu() && !p.getNick().equals(nick)) {
+                        String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                + Base64.getEncoder().encodeToString(audio);
+
+                        p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
+                    }
+                } catch (IOException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    public void enviarNotaVoz(String nick, byte[] audio) {
+
+        Helpers.threadRun(() -> {
+            byte[] iv = new byte[16];
+            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+
+            if (!server) {
+                try {
+                    String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                            + Base64.getEncoder().encodeToString(audio);
+                    writeCommandToServer(
+                            Helpers.encryptCommand(comando, getLocal_client_aes_key(), iv, getLocal_client_hmac_key()));
+                } catch (IOException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+            } else {
+                // Snapshot values to prevent ConcurrentModificationException
+                ArrayList<Participant> targets;
+                synchronized (participantes) {
+                    targets = new ArrayList<>(participantes.values());
+                }
+
+                for (Participant participante : targets) {
+                    try {
+                        if (participante != null && !participante.isCpu()) {
+                            String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                    + Base64.getEncoder().encodeToString(audio);
+                            participante.writeCommandFromServer(Helpers.encryptCommand(comando,
+                                    participante.getAes_key(), iv, participante.getHmac_key()));
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        });
     }
 
     public void enviarMensajeChat(String nick, String msg) {

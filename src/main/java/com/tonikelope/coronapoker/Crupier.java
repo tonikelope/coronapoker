@@ -12542,16 +12542,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
-    // Destape sin animación de un rival con el MISMO ritmo que el camino
-    // animado, solo que cada carta aparece de golpe con su uncover.wav en
-    // vez de girar — espejo de las comunitarias con las animaciones
-    // desactivadas (pausa + destape seco con audio): izquierda → pausa →
-    // derecha, y el llamante pone su etiqueta justo después, como con el
-    // giro. Mismo lock y re-check anti-duplicados que el camino animado
-    // (reentrante si se llega desde sus fallbacks internos). El try/finally
-    // garantiza el destape lógico de la segunda carta aunque la pausa muera
-    // por cancelación cooperativa.
-    private void destaparCartasJugadorSecuencial(RemotePlayer jugador) {
+    // Destape sin animación de un rival, espejo del camino animado: las dos
+    // hole cards aparecen de golpe A LA VEZ con UN solo uncover.wav (la
+    // izquierda con audio, la derecha sin), en vez de girar. Sin pausa
+    // intermedia — ambas se voltean en el mismo instante para aligerar el
+    // showdown, igual criterio que el giro animado. Mismo lock y re-check
+    // anti-duplicados que el camino animado (reentrante si se llega desde sus
+    // fallbacks internos).
+    private void destaparCartasJugadorSeco(RemotePlayer jugador) {
 
         synchronized (jugador.getDestape_animado_lock()) {
 
@@ -12564,33 +12562,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             jugador.prepararDestapeAnimado();
 
-            try {
-                c1.destapar();
-
-                if (!GameFrame.TEST_MODE) {
-                    Helpers.pausar(PAUSA_DESTAPAR_CARTA);
-                }
-            } finally {
-                c2.destapar();
-            }
+            c1.destapar();
+            c2.destapar(false);
         }
     }
 
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
     // el mismo motor que las comunitarias (ANIMACION_CARTAS + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
-    // giran SECUENCIALMENTE con ciclo completo (la izquierda gira y aterriza
-    // en su carta estática antes de que la derecha empiece) sobre overlays
-    // efímeros, y el método BLOQUEA hasta que el giro termina (nunca llamar
-    // desde el EDT): así el llamante no actualiza las etiquetas de
-    // gana/pierde/jugada hasta que el destape se ha visto entero.
+    // giran A LA VEZ (overlays en paralelo, un solo uncover.wav) sobre
+    // overlays efímeros, y el método BLOQUEA hasta que el giro termina (nunca
+    // llamar desde el EDT): así el llamante no actualiza las etiquetas de
+    // gana/pierde/jugada hasta que el destape se ha visto entero. El orden
+    // ENTRE jugadores lo marca el llamante, un rival tras otro.
     //
     // Escalera de fallbacks:
     //   1) animaciones ON + GIF por carta → giro animado (uncover por carta).
     //   2) rival destapable pero sin animación posible (animaciones OFF,
     //      baraja sin GIFs, decode fallido, valores cambiados) →
-    //      destaparCartasJugadorSecuencial: mismo ritmo, destapes secos con
-    //      su audio, como las comunitarias sin animaciones.
+    //      destaparCartasJugadorSeco: las dos a la vez con un solo uncover.wav,
+    //      como las comunitarias sin animaciones.
     //   3) resto (LocalPlayer — sus cartas nunca están tapadas en su propia
     //      pantalla —, cartas ya destapadas, sin valor) → destape clásico
     //      destaparCartas(sound); el flag sound aplica SOLO aquí.
@@ -12614,7 +12605,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         URL url2 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c2) : null;
 
         if (url1 == null || url2 == null) {
-            destaparCartasJugadorSecuencial(rp);
+            destaparCartasJugadorSeco(rp);
             return;
         }
 
@@ -12646,7 +12637,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (anim1 == null || anim2 == null) {
-                    destaparCartasJugadorSecuencial(rp);
+                    destaparCartasJugadorSeco(rp);
                     return;
                 }
 
@@ -12658,7 +12649,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // carta que aterriza debajo.
                 if (!anim1.card.equals(c1.toShortString()) || !anim2.card.equals(c2.toShortString())) {
                     LOGGER.log(Level.WARNING, "Card values changed between flip GIF decode and playback (plain uncover fallback)");
-                    destaparCartasJugadorSecuencial(rp);
+                    destaparCartasJugadorSeco(rp);
                     return;
                 }
 
@@ -12670,30 +12661,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 rp.prepararDestapeAnimado();
 
-                // SECUENCIAL de ciclo completo: la izquierda gira Y ATERRIZA
-                // en su carta estática (destape síncrono + retirada de su
-                // overlay, una llamada entera) antes de que la derecha
-                // empiece su giro. Dejar la primera congelada en su último
-                // frame mientras gira la segunda y "bajar" las dos a la vez
-                // quedaba mal. delay_end asimétrico a propósito: la primera
-                // conserva su beat de 100ms antes de que arranque la segunda,
-                // pero la segunda va a 0 para que lo que siga al destape (la
-                // jugada en etiqueta neutra del showdown) entre JUSTO al
-                // terminar el giro — destaparSync ya dejó la estática debajo
-                // y el overlay se retira sin parpadeo.
+                // Las DOS hole cards del jugador giran A LA VEZ en una sola
+                // llamada (playCardFlipOverlays ya anima varias cartas en
+                // paralelo, cada overlay centrado sobre la suya) con UN único
+                // uncover.wav para las dos, para aligerar el showdown. El orden
+                // ENTRE jugadores no cambia: el llamante sigue invocando este
+                // método un rival tras otro. delay_end=0 para que lo que siga
+                // (la jugada en etiqueta neutra del showdown) entre JUSTO al
+                // terminar el giro — destaparSync deja la estática debajo de
+                // cada carta y los overlays se retiran sin parpadeo.
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
-                        new Card[]{c1},
-                        new PreRenderedGif[]{anim1.anim},
-                        new int[]{anim1.display_w},
-                        new int[]{dh1},
-                        CARD_ANIMATION_DELAY,
-                        "misc/uncover.wav");
-
-                GameFrame.getInstance().getTapete().playCardFlipOverlays(
-                        new Card[]{c2},
-                        new PreRenderedGif[]{anim2.anim},
-                        new int[]{anim2.display_w},
-                        new int[]{dh2},
+                        new Card[]{c1, c2},
+                        new PreRenderedGif[]{anim1.anim, anim2.anim},
+                        new int[]{anim1.display_w, anim2.display_w},
+                        new int[]{dh1, dh2},
                         0,
                         "misc/uncover.wav");
 

@@ -376,7 +376,7 @@ public class Audio {
                     long durationMicros = (long) (1000000.0f * frames / frameRate);
 
                     // 2. Request physical audio hardware in an inner try-with-resources
-                    try (final Clip clip = AudioSystem.getClip()) {
+                    try (final Clip clip = AudioDeviceManager.getClip()) {
 
                         // Single lookup: stopWavResource() may remove the map entry at any
                         // time, so the queue must never be re-fetched (a null re-fetch NPEs
@@ -901,6 +901,29 @@ public class Audio {
                 }
 
             }
+        }
+    }
+
+    public static void restartCurrentLoopMp3Resources() {
+
+        ArrayList<String> sounds = new ArrayList<>(MP3_LOOP.keySet());
+
+        ArrayList<String> muted = new ArrayList<>(MP3_LOOP_MUTED);
+
+        for (String sound : sounds) {
+            stopLoopMp3(sound);
+        }
+
+        // stopLoopMp3 clears the logical mute flags: restore them BEFORE
+        // replaying so the new players start silent where they should.
+        for (String sound : muted) {
+            if (!MP3_LOOP_MUTED.contains(sound)) {
+                MP3_LOOP_MUTED.add(sound);
+            }
+        }
+
+        for (String sound : sounds) {
+            playLoopMp3Resource(sound);
         }
     }
 

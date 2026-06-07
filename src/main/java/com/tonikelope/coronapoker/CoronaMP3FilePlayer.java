@@ -27,8 +27,6 @@ import java.util.logging.Logger;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine.Info;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.UnsupportedAudioFileException;
@@ -74,10 +72,9 @@ public class CoronaMP3FilePlayer {
             }
 
             final AudioFormat outFormat = getOutFormat(in.getFormat());
-            final Info info = new Info(SourceDataLine.class, outFormat);
 
             // This is where the flood happens if the audio device is busy or missing
-            line = (SourceDataLine) AudioSystem.getLine(info);
+            line = AudioDeviceManager.getSourceDataLine(outFormat);
 
             if (line != null) {
                 try {

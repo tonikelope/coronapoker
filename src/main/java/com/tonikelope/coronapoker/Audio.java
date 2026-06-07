@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -83,6 +84,7 @@ public class Audio {
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
+    private static final AtomicBoolean VOLUME_REFRESH_QUEUED = new AtomicBoolean(false);
     public static final Object TTS_LOCK = new Object();
     public static final Object VOL_LOCK = new Object();
     public static final Object CLIP_STOP_LOCK = new Object();
@@ -244,7 +246,25 @@ public class Audio {
 
     public static void refreshALLVolumes() {
 
+        refreshALLVolumes(true);
+
+    }
+
+    public static void refreshALLVolumes(boolean confirmation_sound) {
+
+        // Quick refreshes fire on every keystroke / slider tick: coalesce them.
+        // The debounced VOLUME_TIMER still runs a full refresh (with the
+        // confirmation beep) at the end, so no final state is ever missed.
+        if (!confirmation_sound && !VOLUME_REFRESH_QUEUED.compareAndSet(false, true)) {
+            return;
+        }
+
         Helpers.threadRun(() -> {
+
+            if (!confirmation_sound) {
+                VOLUME_REFRESH_QUEUED.set(false);
+            }
+
             synchronized (VOL_LOCK) {
 
                 try {
@@ -253,7 +273,9 @@ public class Audio {
                     refreshALLMP3LoopVolume();
                     refreshTTSVolume();
 
-                    playWavResource("misc/volume_change.wav");
+                    if (confirmation_sound) {
+                        playWavResource("misc/volume_change.wav");
+                    }
 
                 } catch (Exception ex) {
                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error refreshing volumes: {0}", ex.getMessage());

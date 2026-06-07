@@ -367,6 +367,9 @@ public class Init extends JFrame {
                 if (Audio.MASTER_VOLUME > 0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME - 0.01f, 2);
 
+                    // Immediate effect; the debounced timer only adds the beep
+                    Audio.refreshALLVolumes(false);
+
                     if (Audio.VOLUME_TIMER.isRunning()) {
                         Audio.VOLUME_TIMER.restart();
                     } else {
@@ -418,6 +421,9 @@ public class Init extends JFrame {
 
                 if (Audio.MASTER_VOLUME < 1.0f) {
                     Audio.MASTER_VOLUME = Helpers.floatClean(Audio.MASTER_VOLUME + 0.01f, 2);
+
+                    // Immediate effect; the debounced timer only adds the beep
+                    Audio.refreshALLVolumes(false);
 
                     if (Audio.VOLUME_TIMER.isRunning()) {
                         Audio.VOLUME_TIMER.restart();

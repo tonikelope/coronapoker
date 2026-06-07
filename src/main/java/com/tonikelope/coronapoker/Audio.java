@@ -822,8 +822,10 @@ public class Audio {
 
             TTS_PLAYER = new CoronaMP3FilePlayer();
 
-            // Pre-roll: let the duck reach the speakers before the voice starts
-            Helpers.parkThreadMillis(300);
+            // Short pre-roll: the duck lands in <= the music line buffer
+            // (120ms) and opening the voice line below takes >= 100ms on its
+            // own, so a long wait here just delays the voice.
+            Helpers.parkThreadMillis(100);
 
             float volume = (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
 

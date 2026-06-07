@@ -104,6 +104,11 @@ public class VoiceMessageManager {
             return false;
         }
 
+        // A letter configured as voice key must not swallow chat typing
+        if (e.getComponent() instanceof javax.swing.text.JTextComponent) {
+            return false;
+        }
+
         if (e.getID() == KeyEvent.KEY_PRESSED) {
             keyPressed();
             return true;

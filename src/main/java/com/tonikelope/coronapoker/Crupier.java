@@ -50,6 +50,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.text.MessageFormat;
 import java.sql.ResultSet;
@@ -5123,24 +5124,59 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // SQL vacio -> dealer_nick=null -> repartir() petaba +
         // balance vacio -> players quedaban spectator sin cartas.
         if (sqlite_id_hand > 0) {
+            // Cierre de la mano anulada (marcar end + pot=0 y escribir los
+            // balances post-refund) en UNA transaccion. Con autocommit por
+            // defecto cada statement se commiteaba por separado, asi que un
+            // crash entre el UPDATE hand y los INSERT de balance dejaba la mano
+            // marcada como cerrada pero con balances PARCIALES, y el recovery
+            // (que lee balances de MAX(hand.id)) hacia volver a algun jugador
+            // con stack/buyin por defecto -> auditor mismatch. Agrupar en
+            // transaccion garantiza todo-o-nada: si el proceso muere antes del
+            // commit, SQLite (journal clasico + synchronous=FULL) revierte y la
+            // mano queda SIN cerrar (estado consistente que el recovery sabe
+            // manejar), nunca a medias.
             synchronized (GameFrame.SQL_LOCK) {
-                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE hand SET end=?, pot=0 WHERE id=?")) {
-                    statement.setQueryTimeout(30);
-                    statement.setLong(1, System.currentTimeMillis());
-                    statement.setInt(2, sqlite_id_hand);
-                    statement.executeUpdate();
-                } catch (SQLException ex) {
-                    LOGGER.log(Level.SEVERE, "Failed to mark aborted hand as ended", ex);
-                }
-            }
-            try {
-                for (Player j : GameFrame.getInstance().getJugadores()) {
-                    if (j != null && !j.isExit()) {
-                        sqlNewHandBalance(j.getNickname(), Helpers.floatClean(j.getStack()), j.getBuyin());
+                Connection con = null;
+                boolean prev_autocommit = true;
+                boolean tx = false;
+                try {
+                    con = Helpers.getSQLITE();
+                    prev_autocommit = con.getAutoCommit();
+                    con.setAutoCommit(false);
+                    tx = true;
+
+                    try (PreparedStatement statement = con.prepareStatement("UPDATE hand SET end=?, pot=0 WHERE id=?")) {
+                        statement.setQueryTimeout(30);
+                        statement.setLong(1, System.currentTimeMillis());
+                        statement.setInt(2, sqlite_id_hand);
+                        statement.executeUpdate();
+                    }
+
+                    for (Player j : GameFrame.getInstance().getJugadores()) {
+                        if (j != null && !j.isExit()) {
+                            sqlNewHandBalance(j.getNickname(), Helpers.floatClean(j.getStack()), j.getBuyin());
+                        }
+                    }
+
+                    con.commit();
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE, "Failed to persist aborted-hand close — rolling back", ex);
+                    if (tx && con != null) {
+                        try {
+                            con.rollback();
+                        } catch (SQLException e2) {
+                            LOGGER.log(Level.SEVERE, "Aborted-hand close rollback failed", e2);
+                        }
+                    }
+                } finally {
+                    if (tx && con != null) {
+                        try {
+                            con.setAutoCommit(prev_autocommit);
+                        } catch (SQLException e3) {
+                            LOGGER.log(Level.SEVERE, "Aborted-hand close autocommit restore failed", e3);
+                        }
                     }
                 }
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, "Failed to persist post-MISDEAL balance", ex);
             }
         }
         // Refs in-memory: el Crupier sera destruido por RESET_GAME tras
@@ -6663,21 +6699,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void sqlUpdateHandEnd(float bote_tot) {
         synchronized (GameFrame.SQL_LOCK) {
 
-            PreparedStatement statement;
-            try {
-                statement = Helpers.getSQLITE().prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?");
-                statement.setQueryTimeout(30);
-                statement.setLong(1, System.currentTimeMillis());
-                statement.setFloat(2, Helpers.floatClean(bote_tot));
-                statement.setInt(3, this.sqlite_id_hand);
-                statement.executeUpdate();
-
-                statement.close();
-
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-
             // ArrayList (no String[auditor.size()] indexado): con auditor ya
             // ConcurrentHashMap, size() y entrySet() pueden quedar desalineados
             // si otro hilo (finTransmision -> auditorCuentas) inserta durante la
@@ -6685,33 +6706,78 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // ArrayIndexOutOfBounds. Acumular en lista crece sin ese supuesto.
             ArrayList<String> balance_float = new ArrayList<>();
 
-            for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
+            // UPDATE hand + los balances de la mano en UNA transaccion: con
+            // autocommit por defecto cada statement se commiteaba aparte, asi
+            // que un crash entre el UPDATE hand y los UPDATE de balance dejaba
+            // la mano cerrada con balances PARCIALES y el recovery (lee balances
+            // de MAX(hand.id)) hacia volver a algun jugador con stack por
+            // defecto. Agrupar en transaccion da todo-o-nada (mismo criterio que
+            // rollbackAbortedHand). El backup forense en disco y el play_time
+            // van DESPUES del commit: no son parte del estado atomico de la mano.
+            Connection con = null;
+            boolean prev_autocommit = true;
+            boolean tx = false;
+            try {
+                con = Helpers.getSQLITE();
+                prev_autocommit = con.getAutoCommit();
+                con.setAutoCommit(false);
+                tx = true;
 
-                Player jugador = nick2player.get(entry.getKey());
+                try (PreparedStatement statement = con.prepareStatement("UPDATE hand SET end=?, pot=? WHERE id=?")) {
+                    statement.setQueryTimeout(30);
+                    statement.setLong(1, System.currentTimeMillis());
+                    statement.setFloat(2, Helpers.floatClean(bote_tot));
+                    statement.setInt(3, this.sqlite_id_hand);
+                    statement.executeUpdate();
+                }
 
-                try {
-                    if (jugador != null) {
+                for (Map.Entry<String, Float[]> entry : auditor.entrySet()) {
 
-                        sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack()
-                                + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f),
-                                jugador.getBuyin());
-                        balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
-                                + "|"
-                                + String.valueOf(jugador.getStack()
-                                        + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
-                                        : 0f))
-                                + "|" + String.valueOf(jugador.getBuyin())
-                                + "|" + String.valueOf(getRebuyCount(jugador.getNickname())));
-                    } else {
+                    Player jugador = nick2player.get(entry.getKey());
 
-                        Float[] pasta = entry.getValue();
-                        sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
-                        balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
-                                + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]))
-                                + "|" + String.valueOf(getRebuyCount(entry.getKey())));
+                    try {
+                        if (jugador != null) {
+
+                            sqlUpdateHandBalance(jugador.getNickname(), jugador.getStack()
+                                    + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar() : 0f),
+                                    jugador.getBuyin());
+                            balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
+                                    + "|"
+                                    + String.valueOf(jugador.getStack()
+                                            + (Helpers.float1DSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
+                                            : 0f))
+                                    + "|" + String.valueOf(jugador.getBuyin())
+                                    + "|" + String.valueOf(getRebuyCount(jugador.getNickname())));
+                        } else {
+
+                            Float[] pasta = entry.getValue();
+                            sqlUpdateHandBalance(entry.getKey(), pasta[0], Math.round(pasta[1]));
+                            balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
+                                    + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]))
+                                    + "|" + String.valueOf(getRebuyCount(entry.getKey())));
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
-                } catch (Exception ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+
+                con.commit();
+            } catch (Exception ex) {
+                LOGGER.log(Level.SEVERE, "Failed to persist hand-end close — rolling back", ex);
+                if (tx && con != null) {
+                    try {
+                        con.rollback();
+                    } catch (SQLException e2) {
+                        LOGGER.log(Level.SEVERE, "Hand-end close rollback failed", e2);
+                    }
+                }
+            } finally {
+                if (tx && con != null) {
+                    try {
+                        con.setAutoCommit(prev_autocommit);
+                    } catch (SQLException e3) {
+                        LOGGER.log(Level.SEVERE, "Hand-end close autocommit restore failed", e3);
+                    }
                 }
             }
 
@@ -6731,14 +6797,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 LOGGER.log(Level.SEVERE, null, ex);
             }
 
-            try {
-                statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?");
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET play_time=? WHERE id=?")) {
                 statement.setQueryTimeout(30);
                 statement.setLong(1, GameFrame.getInstance().getConta_tiempo_juego());
                 statement.setInt(2, this.sqlite_id_game);
                 statement.executeUpdate();
-
-                statement.close();
 
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);

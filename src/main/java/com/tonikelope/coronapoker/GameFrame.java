@@ -2125,6 +2125,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         ascensor_menu.setEnabled(sonidos_menu.isSelected());
 
+        // "Ajustes" at the bottom of the audio block in Preferencias, opening
+        // the audio settings dialog (added by hand: initComponents is generated)
+        javax.swing.JMenuItem audio_settings_menu = new javax.swing.JMenuItem(Translator.translate("menu.ajustes"));
+        audio_settings_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        audio_settings_menu.putClientProperty("i18n.key", "menu.ajustes");
+        audio_settings_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
+        audio_settings_menu.addActionListener(e -> AudioSettingsDialog.open(this));
+
+        int tts_menu_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(tts_menu);
+
+        opciones_menu.insert(audio_settings_menu, tts_menu_index >= 0 ? tts_menu_index + 1 : opciones_menu.getMenuComponentCount());
+
         tts_menu.setSelected(GameFrame.SONIDOS_TTS);
 
         tts_menu.setEnabled(sonidos_menu.isSelected());
@@ -2757,34 +2769,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 temp_notify_blocked = (GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).isNotify_blocked());
 
-                                jugador.setNotifyTTSChatLabel();
-
+                                // Muted or blocked sender: nothing at all (no dialog,
+                                // no avatar emoji) — the chat line is the notification
                                 if (GameFrame.SONIDOS && !temp_notify_blocked) {
+
+                                    jugador.setNotifyTTSChatLabel();
+
                                     Audio.playVoiceMessage((byte[]) tts[1], jugador.getChat_notify_label());
-                                } else {
-
-                                    Helpers.GUIRun(() -> {
-                                        if (temp_notify_blocked) {
-                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + Translator.translate("audio.nota_de_voz"), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
-                                        } else {
-                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + Translator.translate("audio.nota_de_voz"), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
-                                        }
-
-                                        notify_dialog.setLocation(notify_dialog.getParent().getLocation());
-
-                                        notify_dialog.setVisible(true);
-                                    });
-
-                                    Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
-
-                                    Helpers.GUIRun(() -> {
-                                        if (notify_dialog != null) {
-                                            notify_dialog.setVisible(false);
-                                            notify_dialog.dispose();
-                                            notify_dialog = null;
-                                        }
-                                    });
-
                                 }
 
                             } else {

@@ -140,6 +140,12 @@ public class VoiceMessageManager {
             return;
         }
 
+        // Self-block is symmetric: no incoming auto-play AND no sending
+        if (AudioDeviceManager.isBlockVoiceMessages()) {
+            warning("audio.notas_bloqueadas");
+            return;
+        }
+
         if (!AudioDeviceManager.isMicEnabled()) {
             warning("audio.microfono_no_configurado");
             return;

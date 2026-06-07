@@ -5065,6 +5065,13 @@ public class Helpers {
                     }
                 };
 
+                Action audioSettingsAction = new AbstractAction(Translator.translate("menu.ajustes")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        AudioSettingsDialog.open(GameFrame.getInstance());
+                    }
+                };
+
                 Action voiceMessagesRuleAction = new AbstractAction(Translator.translate("menu.notas_de_voz")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -5209,6 +5216,12 @@ public class Helpers {
                 SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
                 SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
                 SONIDO_MENU.add(SONIDOS_TTS_MENU);
+
+                SONIDO_MENU.addSeparator();
+
+                JMenuItem audio_settings_item = new LeftClickMenuItem(audioSettingsAction);
+                audio_settings_item.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
+                SONIDO_MENU.add(audio_settings_item);
 
                 // === CUSTOMIZATION submenu (decks + mats) ===
                 PERSONALIZACION_MENU = new JMenu(Translator.translate("menu.personalizacion"));

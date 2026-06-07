@@ -54,7 +54,20 @@ public class AudioDeviceManager {
 
     private static volatile String OUTPUT_DEVICE = Helpers.PROPERTIES.getProperty("audio_output_device", DEFAULT_DEVICE);
     private static volatile String CAPTURE_DEVICE = Helpers.PROPERTIES.getProperty("audio_capture_device", DEFAULT_DEVICE);
-    private static volatile boolean MIC_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_mic_enabled", "false"));
+    private static volatile boolean MIC_ENABLED = micEnabledDefault();
+
+    private static boolean micEnabledDefault() {
+
+        String prop = Helpers.PROPERTIES.getProperty("audio_mic_enabled");
+
+        if (prop != null) {
+            // The user already made a choice: respect it
+            return Boolean.parseBoolean(prop);
+        }
+
+        // Default: enabled whenever the system has a capture device
+        return !getCaptureDevices().isEmpty();
+    }
 
     private static volatile boolean OUTPUT_FALLBACK_WARNED = false;
 

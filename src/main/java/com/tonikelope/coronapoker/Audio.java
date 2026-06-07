@@ -60,6 +60,7 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.BooleanControl;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.JLabel;
 import javax.swing.Timer;
 
@@ -376,40 +377,32 @@ public class Audio {
                     // 2. Request physical audio hardware in an inner try-with-resources
                     try (final Clip clip = AudioSystem.getClip()) {
 
-                        if (force_close && WAVS_RESOURCES.get(sound) != null) {
+                        // Single lookup: stopWavResource() may remove the map entry at any
+                        // time, so the queue must never be re-fetched (a null re-fetch NPEs
+                        // and the generic catch used to blacklist the sound for the session).
+                        final ConcurrentLinkedQueue<Clip> clip_queue = WAVS_RESOURCES.computeIfAbsent(sound, k -> new ConcurrentLinkedQueue<>());
 
-                            synchronized (WAVS_RESOURCES.get(sound)) {
-                                for (Clip c : WAVS_RESOURCES.get(sound)) {
+                        try {
 
-                                    if (c != null) {
-                                        synchronized (c) {
-                                            if (c.isOpen() && c.isRunning()) {
-                                                c.stop();
+                            synchronized (clip_queue) {
+
+                                if (force_close) {
+
+                                    for (Clip c : clip_queue) {
+
+                                        if (c != null) {
+                                            synchronized (c) {
+                                                if (c.isOpen() && c.isRunning()) {
+                                                    c.stop();
+                                                }
                                             }
                                         }
                                     }
+
+                                    clip_queue.clear();
                                 }
-                                WAVS_RESOURCES.get(sound).clear();
 
-                                WAVS_RESOURCES.get(sound).add(clip);
-
-                                clip.open(audioInputStream);
-
-                                setClipVolume(sound, clip, bypass_muted);
-
-                                clip.start();
-
-                                clip.loop(Clip.LOOP_CONTINUOUSLY);
-
-                            }
-
-                        } else {
-
-                            WAVS_RESOURCES.putIfAbsent(sound, new ConcurrentLinkedQueue<>());
-
-                            synchronized (WAVS_RESOURCES.get(sound)) {
-
-                                WAVS_RESOURCES.get(sound).add(clip);
+                                clip_queue.add(clip);
 
                                 clip.open(audioInputStream);
 
@@ -419,18 +412,19 @@ public class Audio {
 
                                 clip.loop(Clip.LOOP_CONTINUOUSLY);
                             }
-                        }
 
-                        Helpers.parkThreadMicros(clip.getMicrosecondLength());
+                            Helpers.parkThreadMicros(clip.getMicrosecondLength());
 
-                        synchronized (clip) {
-                            if (clip.isRunning()) {
-                                clip.stop();
+                            synchronized (clip) {
+                                if (clip.isRunning()) {
+                                    clip.stop();
+                                }
                             }
-                        }
 
-                        if (WAVS_RESOURCES.get(sound) != null) {
-                            WAVS_RESOURCES.get(sound).remove(clip);
+                        } finally {
+                            // Always deregister (also on LineUnavailable, which used to leak
+                            // one queue entry per play while no audio device was present).
+                            clip_queue.remove(clip);
                         }
 
                         // --- SUCCESS ZONE ---
@@ -454,10 +448,14 @@ public class Audio {
                         return true; // Return true to signal that the "playback" finished normally
 
                     }
-                } catch (Exception ex) {
+                } catch (UnsupportedAudioFileException | IOException ex) {
                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0} | Exception: {1}", new Object[]{sound, ex.getMessage()});
-                    // Blacklist file on hard failure (e.g. corrupted header) to prevent future spam
+                    // Blacklist only on hard FILE failures (corrupted header, unreadable
+                    // stream) to prevent future spam.
                     BLACKLISTED_SOUNDS.add(sound);
+                } catch (Exception ex) {
+                    // Transient failure (e.g. a concurrent stop) — do NOT blacklist.
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "ERROR -> {0} | Exception: {1}", new Object[]{sound, ex.getMessage()});
                 }
             }
         }

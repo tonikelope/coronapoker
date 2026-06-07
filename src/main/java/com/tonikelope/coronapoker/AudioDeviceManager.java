@@ -55,6 +55,8 @@ public class AudioDeviceManager {
     private static volatile String OUTPUT_DEVICE = Helpers.PROPERTIES.getProperty("audio_output_device", DEFAULT_DEVICE);
     private static volatile String CAPTURE_DEVICE = Helpers.PROPERTIES.getProperty("audio_capture_device", DEFAULT_DEVICE);
     private static volatile boolean MIC_ENABLED = micEnabledDefault();
+    private static volatile boolean PLAY_OWN_VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_play_own_voice", "true"));
+    private static volatile boolean BLOCK_VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_block_voice_messages", "false"));
 
     private static boolean micEnabledDefault() {
 
@@ -108,6 +110,32 @@ public class AudioDeviceManager {
         MIC_ENABLED = enabled;
 
         Helpers.PROPERTIES.setProperty("audio_mic_enabled", String.valueOf(enabled));
+
+        Helpers.savePropertiesFile();
+    }
+
+    public static boolean isPlayOwnVoiceMessages() {
+        return PLAY_OWN_VOICE_MESSAGES;
+    }
+
+    public static boolean isBlockVoiceMessages() {
+        return BLOCK_VOICE_MESSAGES;
+    }
+
+    public static void setBlockVoiceMessages(boolean blocked) {
+
+        BLOCK_VOICE_MESSAGES = blocked;
+
+        Helpers.PROPERTIES.setProperty("audio_block_voice_messages", String.valueOf(blocked));
+
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setPlayOwnVoiceMessages(boolean enabled) {
+
+        PLAY_OWN_VOICE_MESSAGES = enabled;
+
+        Helpers.PROPERTIES.setProperty("audio_play_own_voice", String.valueOf(enabled));
 
         Helpers.savePropertiesFile();
     }

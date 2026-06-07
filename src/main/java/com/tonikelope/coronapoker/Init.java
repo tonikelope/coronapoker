@@ -852,6 +852,12 @@ public class Init extends JFrame {
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
+        // evt is null when invoked from the keyboard shortcut
+        if (evt != null && javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+            AudioSettingsDialog.showSpeakerPopup(sound_icon, this, evt.getX(), evt.getY());
+            return;
+        }
+
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
         Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");

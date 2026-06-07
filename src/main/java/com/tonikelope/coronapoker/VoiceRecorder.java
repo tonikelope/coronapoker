@@ -52,12 +52,12 @@ public class VoiceRecorder {
     // Tail grace after releasing the key: the last syllable is still in the
     // air (and in the capture buffer) at that instant.
     public static final int TAIL_MILLIS = 250;
-    // Accidental-tap threshold. It includes TAIL_MILLIS of grace audio, so a
-    // quick tap (~tap + tail) still falls below it.
-    public static final int MIN_MILLIS = 600;
+    // Safety floor only (empty/dead captures): intentional-tap filtering is
+    // done by the manager on the key HOLD time, so short notes survive.
+    public static final int MIN_MILLIS = 100;
     public static final float SAMPLE_RATE = 16000f;
 
-    private static final AudioFormat PCM_FORMAT = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, SAMPLE_RATE, 16, 1, 2, SAMPLE_RATE, false);
+    public static final AudioFormat PCM_FORMAT = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, SAMPLE_RATE, 16, 1, 2, SAMPLE_RATE, false);
     private static final AudioFormat ULAW_FORMAT = new AudioFormat(AudioFormat.Encoding.ULAW, SAMPLE_RATE, 8, 1, 1, SAMPLE_RATE, false);
     private static final int MAX_PCM_BYTES = Math.round(SAMPLE_RATE) * 2 * MAX_SECONDS;
     private static final int MIN_PCM_BYTES = Math.round(SAMPLE_RATE * 2 * MIN_MILLIS / 1000f);
@@ -66,6 +66,7 @@ public class VoiceRecorder {
     private final CountDownLatch finished = new CountDownLatch(1);
     private volatile TargetDataLine line = null;
     private volatile boolean recording = false;
+    private volatile boolean stop_requested = false;
 
     public boolean isRecording() {
         return recording;
@@ -73,7 +74,11 @@ public class VoiceRecorder {
 
     /**
      * Opens the microphone and captures in a pool thread until stop() or the
-     * MAX_SECONDS cap. Returns false if the capture line cannot be opened.
+     * MAX_SECONDS cap. Blocking (the device open takes 100-400ms): call it
+     * off the EDT, and only show the recording UI once it returns true — the
+     * line is live from that very moment. Returns false if no capture line
+     * can be opened. The line is fully closed after every note (an open mic
+     * is audible as background noise on some setups).
      */
     public boolean start() {
 
@@ -90,6 +95,13 @@ public class VoiceRecorder {
             closeLine();
             finished.countDown();
             return false;
+        }
+
+        if (stop_requested) {
+            // Released before the line was ready: nothing worth keeping
+            closeLine();
+            finished.countDown();
+            return true;
         }
 
         recording = true;
@@ -147,6 +159,8 @@ public class VoiceRecorder {
      * it is shorter than MIN_MILLIS (accidental key tap) or empty.
      */
     public byte[] stop() {
+
+        stop_requested = true;
 
         // Tail grace: keep capturing briefly so the last word survives the
         // key release. The recording dialog is already gone at this point.

@@ -53,6 +53,9 @@ public class VoiceMessageManager {
 
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
     public static final float DIALOG_OPACITY = 0.8f;
+    // Below this key-hold time the press is an accidental tap and the note is
+    // discarded. Short intentional notes hold the key well past this.
+    public static final int MIN_HOLD_MILLIS = 200;
 
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
@@ -61,6 +64,7 @@ public class VoiceMessageManager {
     private static volatile JProgressBar RECORD_BAR = null;
     private static volatile javax.swing.Timer AUTO_SEND_TIMER = null;
     private static volatile boolean WAIT_KEY_RELEASE = false;
+    private static volatile long PRESS_TIME = 0L;
     private static final AtomicBoolean WARNING_SHOWING = new AtomicBoolean(false);
 
     static {
@@ -140,29 +144,30 @@ public class VoiceMessageManager {
             return;
         }
 
-        VoiceRecorder recorder = new VoiceRecorder();
+        PRESS_TIME = System.currentTimeMillis();
 
-        if (!recorder.start()) {
-            warning("audio.microfono_no_configurado");
-            return;
-        }
+        VoiceRecorder recorder = new VoiceRecorder();
 
         RECORDER = recorder;
 
-        showRecordDialog();
+        Helpers.threadRun(() -> {
 
-        // Safety net: keeping the key held past the cap sends automatically
-        // (the recorder stops feeding at MAX_SECONDS anyway).
-        javax.swing.Timer auto_send = new javax.swing.Timer(VoiceRecorder.MAX_SECONDS * 1000, e -> {
-            WAIT_KEY_RELEASE = true;
-            stopAndSend();
+            // Opening the mic takes 100-400ms and the past cannot be captured:
+            // the dialog only shows once capture is LIVE, so it doubles as the
+            // talk-now signal (and the EDT never blocks on the driver).
+            if (recorder.start()) {
+
+                showRecordDialogAndArmTimer(recorder);
+
+            } else if (RECORDER == recorder) {
+
+                RECORDER = null;
+
+                WAIT_KEY_RELEASE = true;
+
+                warning("audio.microfono_no_configurado");
+            }
         });
-
-        auto_send.setRepeats(false);
-
-        AUTO_SEND_TIMER = auto_send;
-
-        auto_send.start();
     }
 
     private static void keyReleased() {
@@ -170,11 +175,14 @@ public class VoiceMessageManager {
         WAIT_KEY_RELEASE = false;
 
         if (RECORDER != null) {
-            stopAndSend();
+            // A tap below the hold threshold is accidental: tear down without
+            // sending. Intent is measured on the KEY, not on the audio length,
+            // so short notes survive.
+            stopAndSend(System.currentTimeMillis() - PRESS_TIME < MIN_HOLD_MILLIS);
         }
     }
 
-    private static void stopAndSend() {
+    private static void stopAndSend(boolean discard) {
 
         VoiceRecorder recorder = RECORDER;
 
@@ -200,8 +208,8 @@ public class VoiceMessageManager {
 
             WaitingRoomFrame sala = WaitingRoomFrame.getInstance();
 
-            // null = too short (accidental tap)
-            if (wav != null && sala != null) {
+            // null = nothing meaningful captured
+            if (!discard && wav != null && sala != null) {
 
                 String nick = sala.getLocal_nick();
 
@@ -233,13 +241,16 @@ public class VoiceMessageManager {
         }
     }
 
-    private static void showRecordDialog() {
+    private static void showRecordDialogAndArmTimer(VoiceRecorder recorder) {
 
         Helpers.GUIRun(() -> {
 
             GameFrame game_frame = GameFrame.getInstance();
 
-            if (game_frame == null || RECORDER == null) {
+            // The key may have been released while the mic was opening: the
+            // EDT serializes this against keyReleased, so the check is race
+            // free and no orphan dialog can appear.
+            if (game_frame == null || RECORDER != recorder) {
                 return;
             }
 
@@ -283,6 +294,19 @@ public class VoiceMessageManager {
             dialog.setVisible(true);
 
             Helpers.smoothCountdown(bar, VoiceRecorder.MAX_SECONDS);
+
+            // Safety net: keeping the key held past the cap sends automatically
+            // (the recorder stops feeding at MAX_SECONDS anyway).
+            javax.swing.Timer auto_send = new javax.swing.Timer(VoiceRecorder.MAX_SECONDS * 1000, e -> {
+                WAIT_KEY_RELEASE = true;
+                stopAndSend(false);
+            });
+
+            auto_send.setRepeats(false);
+
+            AUTO_SEND_TIMER = auto_send;
+
+            auto_send.start();
         });
     }
 

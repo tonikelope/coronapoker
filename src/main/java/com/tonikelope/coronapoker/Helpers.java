@@ -2548,7 +2548,7 @@ public class Helpers {
 
     public static void createIfNoExistsCoronaDirs() {
 
-        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, CHAT_IMAGE_CACHE}; //OJO AL ORDEN POR EL CORONA_DIR!
+        String[] dirs = new String[]{CORONA_DIR, LOGS_DIR, DEBUG_DIR, SCREENSHOTS_DIR, CACHE_DIR, CHAT_IMAGE_CACHE, Init.VOICE_DIR}; //OJO AL ORDEN POR EL CORONA_DIR!
 
         for (String d : dirs) {
             if (!Files.isDirectory(Paths.get(d))) {

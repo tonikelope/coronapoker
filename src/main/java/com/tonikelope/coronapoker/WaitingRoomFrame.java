@@ -54,6 +54,8 @@ import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -3903,6 +3905,16 @@ public class WaitingRoomFrame extends JFrame {
         }
 
         chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") " + Translator.translate("audio.nota_de_voz") + "\n");
+
+        // Identified copy on disk so chat can replay voice messages in the future
+        Helpers.threadRun(() -> {
+            try {
+                String filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + ".wav";
+                Files.write(Paths.get(Init.VOICE_DIR + "/" + filename), audio);
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
+            }
+        });
 
         Helpers.GUIRun(() -> {
             if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {

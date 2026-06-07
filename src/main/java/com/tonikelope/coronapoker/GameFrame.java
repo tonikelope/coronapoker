@@ -2742,6 +2742,40 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                     jugador.setNotifyImageChatLabel((URL) tts[1]);
                                 }
 
+                            } else if (tts[1] instanceof byte[]) {
+
+                                temp_notify_blocked = (GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).isNotify_blocked());
+
+                                jugador.setNotifyTTSChatLabel();
+
+                                if (GameFrame.SONIDOS && !temp_notify_blocked) {
+                                    Audio.playVoiceMessage((byte[]) tts[1], jugador.getChat_notify_label());
+                                } else {
+
+                                    Helpers.GUIRun(() -> {
+                                        if (temp_notify_blocked) {
+                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + Translator.translate("audio.nota_de_voz"), Color.YELLOW, Color.BLACK, getClass().getResource("/images/sound_b.png"), null);
+                                        } else {
+                                            notify_dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, "[" + nick + "]: " + Translator.translate("audio.nota_de_voz"), Color.RED, Color.WHITE, getClass().getResource("/images/mute.png"), null);
+                                        }
+
+                                        notify_dialog.setLocation(notify_dialog.getParent().getLocation());
+
+                                        notify_dialog.setVisible(true);
+                                    });
+
+                                    Helpers.pausar(TTS_NO_SOUND_TIMEOUT);
+
+                                    Helpers.GUIRun(() -> {
+                                        if (notify_dialog != null) {
+                                            notify_dialog.setVisible(false);
+                                            notify_dialog.dispose();
+                                            notify_dialog = null;
+                                        }
+                                    });
+
+                                }
+
                             } else {
 
                                 temp_notify_blocked = (GameFrame.getInstance().getLocalPlayer() != jugador && ((RemotePlayer) jugador).isNotify_blocked());

@@ -32,6 +32,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -797,6 +798,54 @@ public class Audio {
                 }
 
             }
+        }
+    }
+
+    public static void playVoiceMessage(byte[] wav, JLabel chat_notify_label) {
+
+        if (wav == null || wav.length == 0) {
+            return;
+        }
+
+        // Same pipeline as TTS: serialized under TTS_LOCK (a voice message and
+        // a TTS never talk over each other) and played through TTS_PLAYER so
+        // the volume refresh and the emergency stop also reach it.
+        synchronized (TTS_LOCK) {
+
+            muteAllExceptMp3Loops();
+
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getSonidos_menu().setEnabled(false);
+
+                chat_notify_label.setVisible(true);
+            });
+
+            TTS_PLAYER = new CoronaMP3FilePlayer();
+
+            // Pre-roll: let the duck reach the speakers before the voice starts
+            Helpers.parkThreadMillis(300);
+
+            float volume = (GameFrame.SONIDOS && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
+
+            try {
+
+                TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
+
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message playback error: {0}", ex.getMessage());
+            } finally {
+                TTS_PLAYER = null;
+            }
+
+            unmuteAll();
+
+            Helpers.pausar(500);
+
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getSonidos_menu().setEnabled(true);
+
+                chat_notify_label.setVisible(false);
+            });
         }
     }
 

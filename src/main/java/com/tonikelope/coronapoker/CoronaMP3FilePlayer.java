@@ -42,6 +42,7 @@ public class CoronaMP3FilePlayer {
     private volatile SourceDataLine line = null;
     private volatile boolean playing = false;
     private volatile boolean paused = false;
+    private volatile boolean stopped = false;
     private final Object pause_lock = new Object();
 
     public boolean isPlaying() {
@@ -64,6 +65,13 @@ public class CoronaMP3FilePlayer {
     public void play(AudioInputStream is, float volume) {
 
         try (final AudioInputStream in = is) {
+
+            // stop() may win the race before playback begins (the old "if
+            // (playing)" guard lost that stop and the whole track played as a
+            // zombie). A stopped player can never start again.
+            if (stopped) {
+                return;
+            }
 
             final AudioFormat outFormat = getOutFormat(in.getFormat());
             final Info info = new Info(SourceDataLine.class, outFormat);
@@ -111,6 +119,9 @@ public class CoronaMP3FilePlayer {
     }
 
     public void stop() {
+
+        stopped = true;
+
         if (playing) {
             try {
                 playing = false;
@@ -162,8 +173,8 @@ public class CoronaMP3FilePlayer {
         final byte[] buffer = new byte[65536];
         int n = -1;
 
-        while (line.isOpen() && playing && !Thread.currentThread().isInterrupted() && (n = in.read(buffer)) != -1) {
-            while (paused && line.isOpen() && playing && !Thread.currentThread().isInterrupted()) {
+        while (line.isOpen() && playing && !stopped && !Thread.currentThread().isInterrupted() && (n = in.read(buffer)) != -1) {
+            while (paused && line.isOpen() && playing && !stopped && !Thread.currentThread().isInterrupted()) {
                 synchronized (pause_lock) {
                     try {
                         pause_lock.wait(1000);
@@ -176,7 +187,7 @@ public class CoronaMP3FilePlayer {
                 }
             }
 
-            if (line.isOpen() && playing) {
+            if (line.isOpen() && playing && !stopped) {
                 line.write(buffer, 0, n);
             }
         }

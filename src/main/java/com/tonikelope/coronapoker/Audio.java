@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -100,6 +101,12 @@ public class Audio {
     // law consults it, so overlapping TTS/note playback windows cannot undo
     // it and the right state is restored whenever it drops.
     public volatile static boolean VOICE_RECORDING = false;
+    // Reference count of active recordings. A fast re-record (release the voice
+    // key and hold it again within the previous note's tail grace) overlaps two
+    // recording windows; the older note's stop() must not lift the silence under
+    // the newer one. Counting keeps VOICE_RECORDING true while ANY recording is
+    // live, regardless of which thread increments/decrements first.
+    private final static AtomicInteger VOICE_RECORDING_COUNT = new AtomicInteger(0);
     public volatile static CoronaMP3FilePlayer TTS_PLAYER = null;
 
     // Blacklist for missing or corrupted sound files to prevent console flooding
@@ -835,7 +842,13 @@ public class Audio {
 
     public static void setVoiceRecording(boolean recording) {
 
-        VOICE_RECORDING = recording;
+        // Count overlapping recordings instead of a plain toggle: the silence
+        // stays up while ANY note is still being captured, so a fast re-record
+        // is not un-muted by the previous note's stop() on another thread.
+        int active = recording ? VOICE_RECORDING_COUNT.incrementAndGet()
+                : VOICE_RECORDING_COUNT.updateAndGet(n -> n > 0 ? n - 1 : 0);
+
+        VOICE_RECORDING = active > 0;
 
         // Reapply every volume law: silence on raise, and on drop restore
         // whatever the remaining flags dictate (e.g. a TTS window still open)

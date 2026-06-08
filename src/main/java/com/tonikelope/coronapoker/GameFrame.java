@@ -2634,6 +2634,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.RABBIT_HUNTING_RECOVER = recover ? GameFrame.RABBIT_HUNTING : null;
                 GameFrame.RUN_IT_TWICE_RECOVER = recover ? GameFrame.RUN_IT_TWICE : null;
                 GameFrame.VOICE_MESSAGES_RECOVER = recover ? GameFrame.VOICE_MESSAGES : null;
+                GameFrame.TTS_SERVER_RECOVER = recover ? GameFrame.TTS_SERVER : null;
             }
 
             GameFrame.PASSWORD_RECOVER = recover ? WaitingRoomFrame.getInstance().getPassword() : null;

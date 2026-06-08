@@ -1707,9 +1707,21 @@ public class WaitingRoomFrame extends JFrame {
                         }
                     } else {
                         switch (partes_comando[0]) {
+                            // A malformed control frame (PING/PONG/PONG2 without its
+                            // counter) must NOT kill the reader thread: that would leave
+                            // the client zombie, blocked forever on the consumer's take()
+                            // with no null-read to trigger reconnection. A peer on the
+                            // same version always sends the counter, so ignoring the
+                            // corrupt frame is strictly safer (mirrors the server-side
+                            // guard in Participant.runSocketReaderThread).
                             case "PING":
-                                writeCommandToServer(
-                                        "PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                if (partes_comando.length >= 2) {
+                                    try {
+                                        writeCommandToServer(
+                                                "PONG#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 1));
+                                    } catch (NumberFormatException nfe) {
+                                    }
+                                }
                                 try {
                                     net_client.getLocal_client_socket_reader_queue().put(mensaje_recibido);
                                 } catch (InterruptedException ex) {
@@ -1719,15 +1731,25 @@ public class WaitingRoomFrame extends JFrame {
                                 break;
 
                             case "PONG":
-                                net_client.setRemote_server_pong(Integer.valueOf(partes_comando[1]));
-                                synchronized (ping_pong_lock) {
-                                    ping_pong_lock.notifyAll();
+                                if (partes_comando.length >= 2) {
+                                    try {
+                                        net_client.setRemote_server_pong(Integer.valueOf(partes_comando[1]));
+                                    } catch (NumberFormatException nfe) {
+                                    }
+                                    synchronized (ping_pong_lock) {
+                                        ping_pong_lock.notifyAll();
+                                    }
                                 }
                                 break;
                             case "PONG2":
-                                net_client.setRemote_server_pong2(Integer.valueOf(partes_comando[1]));
-                                synchronized (ping_pong_lock) {
-                                    ping_pong_lock.notifyAll();
+                                if (partes_comando.length >= 2) {
+                                    try {
+                                        net_client.setRemote_server_pong2(Integer.valueOf(partes_comando[1]));
+                                    } catch (NumberFormatException nfe) {
+                                    }
+                                    synchronized (ping_pong_lock) {
+                                        ping_pong_lock.notifyAll();
+                                    }
                                 }
                                 break;
                             default:

@@ -5108,18 +5108,7 @@ public class Helpers {
                 Action voiceMessagesRuleAction = new AbstractAction(Translator.translate("menu.notas_de_voz")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
-
-                        GameFrame.VOICE_MESSAGES = VOICE_MESSAGES_MENU.isSelected();
-
-                        Helpers.threadRun(() -> {
-                            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("VOICEMSGRULE#" + (GameFrame.VOICE_MESSAGES ? "1" : "0"), null);
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                // Persiste la regla para que sobreviva a un detener+recuperar
-                                // de la timba (igual que IWTSTH/rabbit/RIT).
-                                GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
-                            }
-                        });
+                        GameFrame.getInstance().getVoice_messages_menu().doClick();
                     }
                 };
 
@@ -5250,6 +5239,11 @@ public class Helpers {
                 SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
                 SONIDO_MENU.add(SONIDOS_TTS_MENU);
 
+                VOICE_MESSAGES_MENU = new LeftClickCheckBoxMenuItem(voiceMessagesRuleAction);
+                VOICE_MESSAGES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
+                VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
+                SONIDO_MENU.add(VOICE_MESSAGES_MENU);
+
                 SONIDO_MENU.addSeparator();
 
                 JMenuItem audio_settings_item = new LeftClickMenuItem(audioSettingsAction);
@@ -5316,11 +5310,6 @@ public class Helpers {
                 RUN_IT_TWICE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
                 RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
                 popup.add(RUN_IT_TWICE_MENU);
-
-                VOICE_MESSAGES_MENU = new LeftClickCheckBoxMenuItem(voiceMessagesRuleAction);
-                VOICE_MESSAGES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
-                VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
-                popup.add(VOICE_MESSAGES_MENU);
 
                 popup.add(RABBIT_MENU);
 

@@ -187,8 +187,13 @@ public class Participant implements Runnable {
 
         if (avatar != null) {
             try {
-                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", new File(avatar.getAbsolutePath() + "_chat"));
-                avatar_chat_src = new File(avatar.getAbsolutePath() + "_chat").toURI().toURL().toExternalForm();
+                // The peer's avatar lives in tmpdir; its _chat thumbnail is a
+                // sibling temp file. Clean it up on exit (the base avatar is
+                // already deleteOnExit-registered at its creation site).
+                File avatar_chat = new File(avatar.getAbsolutePath() + "_chat");
+                avatar_chat.deleteOnExit();
+                ImageIO.write(Helpers.toBufferedImage(new ImageIcon(new ImageIcon(avatar.getAbsolutePath()).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH)).getImage()), "png", avatar_chat);
+                avatar_chat_src = avatar_chat.toURI().toURL().toExternalForm();
             } catch (IOException ex) {
                 avatar_chat_src = getClass().getResource("/images/avatar_default_chat.png").toExternalForm();
             }

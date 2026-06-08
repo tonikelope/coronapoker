@@ -158,7 +158,10 @@ public class CoronaMP3FilePlayer {
                     gainControl.setValue(gainControl.getMinimum());
                 } else {
                     float db = Helpers.floatClean(20f * (float) Math.log10(vol), 3);
-                    gainControl.setValue(db >= gainControl.getMinimum() ? db : gainControl.getMinimum());
+                    // Clamp to BOTH ends like Audio.setClipVolume: a vol>1 (db>0) above
+                    // the control maximum would make setValue throw IllegalArgumentException,
+                    // swallowed below, leaving the volume silently unchanged.
+                    gainControl.setValue(Math.min(Math.max(db, gainControl.getMinimum()), gainControl.getMaximum()));
                 }
 
                 boolean was_silent = silent;

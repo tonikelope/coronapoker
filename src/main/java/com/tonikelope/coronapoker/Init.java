@@ -1049,6 +1049,12 @@ public class Init extends JFrame {
         //ensureRequiredJvmParameters(args, Init.class);
         setupConsoleLogger();
 
+        // Startup housekeeping: cap the unbounded growth of persisted voice notes.
+        // Runs here (not in loadPropertiesFile) because the configurable retention
+        // lives in AudioDeviceManager, whose static init reads Helpers.PROPERTIES;
+        // by now setupConsoleLogger has forced Helpers to load it.
+        Helpers.purgeOldVoiceNotes();
+
         startDeadlockDetector();
 
         if (GameFrame.TEST_MODE) {

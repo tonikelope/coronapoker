@@ -2115,6 +2115,7 @@ public class WaitingRoomFrame extends JFrame {
                                 if (server_avatar_base64.length() > 0) {
                                     int file_id = Math.abs(Helpers.CSPRNG_GENERATOR.nextInt());
                                     server_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(server_nick) + "_avatar" + file_id);
+                                    server_avatar.deleteOnExit();
                                     try (FileOutputStream os = new FileOutputStream(server_avatar)) {
                                         os.write(Base64.getDecoder().decode(server_avatar_base64));
                                     }
@@ -3191,6 +3192,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 }
                                                                 if (partes_comando.length >= 6 && !"*".equals(partes_comando[5])) {
                                                                     avatarNew = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(nickNew) + "_avatar" + String.valueOf(file_id));
+                                                                    avatarNew.deleteOnExit();
                                                                     try (FileOutputStream os = new FileOutputStream(avatarNew)) {
                                                                         os.write(Base64.getDecoder().decode(partes_comando[5]));
                                                                     } catch (Exception e) {
@@ -3254,6 +3256,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                             fid *= -1;
                                                                         }
                                                                         list_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(list_nick) + "_avatar" + String.valueOf(fid));
+                                                                        list_avatar.deleteOnExit();
                                                                         try (FileOutputStream os = new FileOutputStream(list_avatar)) {
                                                                             os.write(Base64.getDecoder().decode(user_parts[2]));
                                                                         } catch (Exception e) {
@@ -3779,6 +3782,7 @@ public class WaitingRoomFrame extends JFrame {
                                 }
                                 client_avatar = new File(System.getProperty("java.io.tmpdir") + "/corona_" + Helpers.safeNickForFilename(client_nick)
                                         + "_avatar" + String.valueOf(file_id));
+                                client_avatar.deleteOnExit();
 
                                 try (FileOutputStream os = new FileOutputStream(client_avatar)) {
                                     os.write(Base64.getDecoder().decode(client_avatar_base64));

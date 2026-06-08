@@ -12795,12 +12795,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     return;
                 }
 
-                // Vista compacta: las hole cards van achatadas a media altura y
-                // el overlay se achata igual (GifLabel estira a bounds) para
-                // casar con la carta de debajo.
-                int dh1 = (GameFrame.VISTA_COMPACTA > 0 && c1.isCompactable()) ? Math.round(anim1.display_h / 2f) : anim1.display_h;
-                int dh2 = (GameFrame.VISTA_COMPACTA > 0 && c2.isCompactable()) ? Math.round(anim2.display_h / 2f) : anim2.display_h;
-
                 rp.prepararDestapeAnimado();
 
                 // Las DOS hole cards del jugador giran A LA VEZ en una sola
@@ -12812,11 +12806,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // (la jugada en etiqueta neutra del showdown) entre JUSTO al
                 // terminar el giro — destaparSync deja la estática debajo de
                 // cada carta y los overlays se retiran sin parpadeo.
+                // El overlay gira a proporción natural (display_w x display_h),
+                // como las comunitarias en showCentralFrames: en vista compacta
+                // achatar solo la altura (la anchura seguía completa) estiraba el
+                // frame a una caja ancha-y-baja y la carta salía deformada. La
+                // estática de debajo sí va achatada, pero destaparSync la coloca
+                // bajo el último frame, así que el cambio de tamaño se hace sin
+                // que se pinte ningún hueco — igual que en las comunitarias.
                 GameFrame.getInstance().getTapete().playCardFlipOverlays(
                         new Card[]{c1, c2},
                         new PreRenderedGif[]{anim1.anim, anim2.anim},
                         new int[]{anim1.display_w, anim2.display_w},
-                        new int[]{dh1, dh2},
+                        new int[]{anim1.display_h, anim2.display_h},
                         0,
                         "misc/uncover.wav");
 

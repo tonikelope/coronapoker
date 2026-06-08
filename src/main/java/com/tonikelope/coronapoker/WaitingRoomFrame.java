@@ -4110,27 +4110,33 @@ public class WaitingRoomFrame extends JFrame {
         });
 
         if (this.server) {
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            // Relay off the peer's reader thread: a large note (~427KB) to N
+            // peers (some slow or mid-reconnect, where getAes_key can block up
+            // to ~1s) would otherwise stall the sender's reader thread and delay
+            // its game commands (head-of-line). Same pattern as enviarNotaVoz.
+            Helpers.threadRun(() -> {
+                byte[] iv = new byte[16];
+                Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
-            // Thread-safe iteration snapshot
-            ArrayList<Participant> targets;
-            synchronized (participantes) {
-                targets = new ArrayList<>(participantes.values());
-            }
-
-            for (Participant p : targets) {
-                try {
-                    if (p != null && !p.isCpu() && !p.getNick().equals(nick)) {
-                        String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                + Base64.getEncoder().encodeToString(audio);
-
-                        p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
-                    }
-                } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
+                // Thread-safe iteration snapshot
+                ArrayList<Participant> targets;
+                synchronized (participantes) {
+                    targets = new ArrayList<>(participantes.values());
                 }
-            }
+
+                for (Participant p : targets) {
+                    try {
+                        if (p != null && !p.isCpu() && !p.getNick().equals(nick)) {
+                            String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
+                                    + Base64.getEncoder().encodeToString(audio);
+
+                            p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
+                        }
+                    } catch (IOException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                    }
+                }
+            });
         }
     }
 

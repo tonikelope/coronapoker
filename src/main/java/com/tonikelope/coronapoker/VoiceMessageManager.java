@@ -354,12 +354,16 @@ public class VoiceMessageManager {
 
             dialog.setFocusableWindowState(false);
 
-            JLabel message = new JLabel(Translator.translate("audio.suelta_para_enviar"), JLabel.CENTER);
-            message.setForeground(Color.WHITE);
+            JLabel title = new JLabel(Translator.translate("audio.grabando_nota_de_voz"), JLabel.CENTER);
+            title.setForeground(Color.WHITE);
             // talk.png is 596x460: half size so the text leads the dialog
-            message.setIcon(new ImageIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/talk.png")).getImage().getScaledInstance(298, 230, Image.SCALE_SMOOTH)));
-            message.setIconTextGap(15);
-            message.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+            title.setIcon(new ImageIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/talk.png")).getImage().getScaledInstance(298, 230, Image.SCALE_SMOOTH)));
+            title.setIconTextGap(15);
+            title.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+
+            JLabel send_hint = new JLabel(Translator.translate("audio.suelta_para_enviar"), JLabel.CENTER);
+            send_hint.setForeground(Color.WHITE);
+            send_hint.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 
             JLabel cancel_hint = new JLabel(Translator.translate("audio.borrar_para_cancelar"), JLabel.CENTER);
             cancel_hint.setForeground(Color.WHITE);
@@ -368,7 +372,9 @@ public class VoiceMessageManager {
             JPanel center = new JPanel();
             center.setOpaque(false);
             center.setLayout(new javax.swing.BoxLayout(center, javax.swing.BoxLayout.Y_AXIS));
-            center.add(message);
+            center.add(title);
+            center.add(javax.swing.Box.createVerticalStrut(15));
+            center.add(send_hint);
             center.add(javax.swing.Box.createVerticalStrut(10));
             center.add(cancel_hint);
 
@@ -387,7 +393,9 @@ public class VoiceMessageManager {
 
             Helpers.updateFonts(dialog, Helpers.GUI_FONT, null);
 
-            message.setFont(message.getFont().deriveFont(Font.BOLD, 34f));
+            title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
+
+            send_hint.setFont(send_hint.getFont().deriveFont(Font.BOLD, 22f));
 
             cancel_hint.setFont(cancel_hint.getFont().deriveFont(Font.PLAIN, 18f));
 

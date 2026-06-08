@@ -73,6 +73,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JCheckBox mic_checkbox;
     private final JCheckBox play_own_checkbox;
     private final JCheckBox block_notes_checkbox;
+    private final JCheckBox block_tts_local_checkbox;
     private final JButton voice_key_button;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
@@ -256,7 +257,6 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_entrada")));
         mic_panel.add(mic_checkbox, BorderLayout.NORTH);
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
-        mic_panel.add(voice_key_panel, BorderLayout.SOUTH);
 
         // --- Voice note options ---
         block_notes_checkbox = new JCheckBox(Translator.translate("audio.bloquear_notas"), AudioDeviceManager.isBlockVoiceMessages());
@@ -273,21 +273,41 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
         refreshVoiceControlsEnabled();
 
-        // --- Vertical stack: output, input, block, play-own ---
+        JPanel notes_panel = new JPanel();
+        notes_panel.setLayout(new BoxLayout(notes_panel, BoxLayout.Y_AXIS));
+        notes_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.notas_de_voz")));
+
+        voice_key_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        block_notes_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+
+        notes_panel.add(voice_key_panel);
+        notes_panel.add(Box.createVerticalStrut(5));
+        notes_panel.add(block_notes_checkbox);
+        notes_panel.add(play_own_checkbox);
+
+        // --- Local TTS block (only mutes TTS for me; the global on/off is the
+        // host rule in the TTS (global) menu item) ---
+        block_tts_local_checkbox = new JCheckBox(Translator.translate("audio.bloquear_tts_local"), AudioDeviceManager.isBlockTtsLocal());
+
+        block_tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(block_tts_local_checkbox.isSelected()));
+
+        // --- Vertical stack: output, input, voice notes, local TTS block ---
         JPanel center_panel = new JPanel();
         center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.Y_AXIS));
 
         output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        block_notes_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        notes_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        block_tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         center_panel.add(output_panel);
         center_panel.add(Box.createVerticalStrut(10));
         center_panel.add(mic_panel);
         center_panel.add(Box.createVerticalStrut(10));
-        center_panel.add(block_notes_checkbox);
-        center_panel.add(play_own_checkbox);
+        center_panel.add(notes_panel);
+        center_panel.add(Box.createVerticalStrut(10));
+        center_panel.add(block_tts_local_checkbox);
 
         // --- Buttons ---
         JButton ok_button = new JButton(Translator.translate("ui.aceptar"));
@@ -348,6 +368,11 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         ((TitledBorder) volume_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) output_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) mic_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+
+        // In the vertical BoxLayout the key row must keep its natural height
+        // instead of stretching to fill the leftover space.
+        voice_key_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, voice_key_panel.getPreferredSize().height));
 
         pack();
 

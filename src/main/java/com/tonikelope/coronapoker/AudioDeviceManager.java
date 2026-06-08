@@ -57,6 +57,7 @@ public class AudioDeviceManager {
     private static volatile boolean MIC_ENABLED = micEnabledDefault();
     private static volatile boolean PLAY_OWN_VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_play_own_voice", "true"));
     private static volatile boolean BLOCK_VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_block_voice_messages", "false"));
+    private static volatile boolean BLOCK_TTS_LOCAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_block_tts_local", "false"));
 
     private static boolean micEnabledDefault() {
 
@@ -127,6 +128,19 @@ public class AudioDeviceManager {
         BLOCK_VOICE_MESSAGES = blocked;
 
         Helpers.PROPERTIES.setProperty("audio_block_voice_messages", String.valueOf(blocked));
+
+        Helpers.savePropertiesFile();
+    }
+
+    public static boolean isBlockTtsLocal() {
+        return BLOCK_TTS_LOCAL;
+    }
+
+    public static void setBlockTtsLocal(boolean blocked) {
+
+        BLOCK_TTS_LOCAL = blocked;
+
+        Helpers.PROPERTIES.setProperty("audio_block_tts_local", String.valueOf(blocked));
 
         Helpers.savePropertiesFile();
     }

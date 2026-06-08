@@ -1799,6 +1799,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return tts_menu;
     }
 
+    public JCheckBoxMenuItem getVoice_messages_menu() {
+        return voice_messages_menu;
+    }
+
     public void setTapeteApuestas(float apuestas) {
 
         Helpers.GUIRun(() -> {
@@ -2119,6 +2123,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         ascensor_menu.setSelected(GameFrame.MUSICA_AMBIENTAL);
 
+        voice_messages_menu.setSelected(GameFrame.VOICE_MESSAGES);
+
         auto_fit_zoom_menu.setSelected(GameFrame.AUTO_ZOOM);
 
         sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
@@ -2133,9 +2139,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         audio_settings_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
         audio_settings_menu.addActionListener(e -> AudioSettingsDialog.open(this));
 
-        int tts_menu_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(tts_menu);
+        int voice_messages_menu_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(voice_messages_menu);
 
-        opciones_menu.insert(audio_settings_menu, tts_menu_index >= 0 ? tts_menu_index + 1 : opciones_menu.getMenuComponentCount());
+        opciones_menu.insert(audio_settings_menu, voice_messages_menu_index >= 0 ? voice_messages_menu_index + 1 : opciones_menu.getMenuComponentCount());
 
         tts_menu.setSelected(GameFrame.SONIDOS_TTS);
 
@@ -2296,6 +2302,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             iwtsth_rule_menu.setEnabled(false);
             Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
             Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
+            voice_messages_menu.setEnabled(false);
             Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setEnabled(false);
         }
 
@@ -2882,6 +2889,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         sonidos_chorra_menu = new javax.swing.JCheckBoxMenuItem();
         ascensor_menu = new javax.swing.JCheckBoxMenuItem();
         tts_menu = new javax.swing.JCheckBoxMenuItem();
+        voice_messages_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator1 = new javax.swing.JPopupMenu.Separator();
         confirmar_menu = new javax.swing.JCheckBoxMenuItem();
         auto_action_menu = new javax.swing.JCheckBoxMenuItem();
@@ -3166,6 +3174,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         opciones_menu.add(tts_menu);
+
+        voice_messages_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        voice_messages_menu.setSelected(true);
+        voice_messages_menu.setText("Notas de voz");
+        voice_messages_menu.putClientProperty("i18n.key", "menu.notas_de_voz");
+        voice_messages_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/voice.png"))); // NOI18N
+        voice_messages_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                voice_messages_menuActionPerformed(evt);
+            }
+        });
+        opciones_menu.add(voice_messages_menu);
 
         opciones_menu.add(jSeparator1);
 
@@ -4629,6 +4649,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }//GEN-LAST:event_iwtsth_rule_menuActionPerformed
 
+    private void voice_messages_menuActionPerformed(java.awt.event.ActionEvent evt) {
+
+        GameFrame.VOICE_MESSAGES = voice_messages_menu.isSelected();
+
+        Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
+
+        Helpers.threadRun(() -> {
+            getCrupier().broadcastGAMECommandFromServer("VOICEMSGRULE#" + (GameFrame.VOICE_MESSAGES ? "1" : "0"), null);
+
+            if (isPartida_local()) {
+                // Persiste la regla para que sobreviva a un detener+recuperar
+                // de la timba (igual que IWTSTH/rabbit/RIT).
+                GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
+            }
+        });
+    }
+
     private void chat_image_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_image_menuActionPerformed
         // TODO add your handling code here:
         GameFrame.CHAT_IMAGES_INGAME = chat_image_menu.isSelected();
@@ -4915,6 +4952,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JCheckBoxMenuItem sonidos_menu;
     private javax.swing.JCheckBoxMenuItem time_menu;
     private javax.swing.JCheckBoxMenuItem tts_menu;
+    private javax.swing.JCheckBoxMenuItem voice_messages_menu;
     private javax.swing.JMenu zoom_menu;
     private javax.swing.JMenuItem zoom_menu_in;
     private javax.swing.JMenuItem zoom_menu_out;

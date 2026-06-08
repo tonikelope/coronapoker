@@ -2773,6 +2773,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             Helpers.threadRun(() -> {
                                                                 GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
+                                                                    GameFrame.getInstance().getVoice_messages_menu().setSelected(GameFrame.VOICE_MESSAGES);
                                                                     Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
                                                                 });
                                                             });

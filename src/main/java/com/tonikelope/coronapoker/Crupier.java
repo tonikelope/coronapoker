@@ -13918,8 +13918,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.VOICE_MESSAGES_RECOVER = null;
             if (recovered_voice != GameFrame.VOICE_MESSAGES) {
                 Helpers.GUIRun(() -> {
-                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(!recovered_voice);
-                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.doClick();
+                    GameFrame.getInstance().getVoice_messages_menu().setSelected(!recovered_voice);
+                    GameFrame.getInstance().getVoice_messages_menu().doClick();
                 });
             }
         }

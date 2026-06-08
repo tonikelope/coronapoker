@@ -1050,10 +1050,13 @@ public class Init extends JFrame {
         setupConsoleLogger();
 
         // Startup housekeeping: cap the unbounded growth of persisted voice notes.
-        // Runs here (not in loadPropertiesFile) because the configurable retention
-        // lives in AudioDeviceManager, whose static init reads Helpers.PROPERTIES;
-        // by now setupConsoleLogger has forced Helpers to load it.
-        Helpers.purgeOldVoiceNotes();
+        // Off the boot path on a background thread: it has zero dependency on the
+        // rest of startup (notes only matter when a chat line is clicked later),
+        // and it pulls in AudioDeviceManager whose init enumerates audio mixers
+        // (tens-to-hundreds of ms on Windows). Not in loadPropertiesFile because
+        // the configurable retention lives in AudioDeviceManager, whose static
+        // init reads Helpers.PROPERTIES (still null during that early phase).
+        Helpers.threadRun(Helpers::purgeOldVoiceNotes);
 
         startDeadlockDetector();
 

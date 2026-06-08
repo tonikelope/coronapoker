@@ -864,13 +864,18 @@ public class Participant implements Runnable {
                                 } else {
                                     mensaje = "";
                                 }
-                                sala_espera.recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
+                                // Attribute to this peer's AUTHENTICATED nick, not the
+                                // one carried in the frame: a rogue client must not be
+                                // able to post chat as another player.
+                                sala_espera.recibirMensajeChat(nick, mensaje);
                                 break;
                             case "VOICEMSG":
                                 if (partes_comando.length == 3) {
                                     byte[] audio_nota = Base64.getDecoder().decode(partes_comando[2]);
-                                    // recibirNotaVoz re-validates the size cap and relays to the rest
-                                    sala_espera.recibirNotaVoz(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), audio_nota);
+                                    // recibirNotaVoz re-validates the size cap and relays to the rest.
+                                    // Attribute to the authenticated nick, not the frame's, so a note
+                                    // cannot be spoofed as another player.
+                                    sala_espera.recibirNotaVoz(nick, audio_nota);
                                 }
                                 break;
                             case "CONF":

@@ -39,7 +39,7 @@ In password-protected games the symmetric channel keys are derived from the pass
 Any cryptographic anomaly — an off-curve point, a bad Ed25519 signature, a mismatched community reveal, an early-cascade attack — flips an atomic lockdown flag that immediately aborts the hand and refuses further commands from the offending peer, logged with a precise reason.
 
 ### Fully decentralised
-Pure P2P, no central servers, no accounts and no telemetry. Your game exists only between the machines at the table.
+Pure P2P, no central servers, no accounts and no third party logs. Your game exists only between the machines at the table.
 
 > Full cryptographic spec (cascade flow, key schedule, HandStateChain seed, receipt format, recovery fossil layout) lives in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 

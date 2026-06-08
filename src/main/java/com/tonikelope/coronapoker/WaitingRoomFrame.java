@@ -4034,16 +4034,33 @@ public class WaitingRoomFrame extends JFrame {
         // The token goes into the PLAIN history on purpose: the chat window
         // rebuilds its whole HTML from chat_text (in-game reopen), so the
         // anchor must be regenerable from there. FastChat cleans the token.
-        chatHTMLAppend(nick + ":(" + Helpers.getLocalTimeString() + ") @@voicenote:" + voice_filename + "@@\n");
+        final String anchor = nick + ":(" + Helpers.getLocalTimeString() + ") @@voicenote:" + voice_filename + "@@\n";
 
-        // Identified copy on disk, replayable by clicking its chat line
-        Helpers.threadRun(() -> {
+        if (nick.equals(local_nick)) {
+            // Our OWN note (rendered on a pool thread): write SYNCHRONOUSLY before
+            // publishing the clickable anchor so an immediate click on it cannot
+            // race the write and wrongly report "note not found". No reader thread
+            // is blocked here.
             try {
                 Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
             }
-        });
+            chatHTMLAppend(anchor);
+        } else {
+            // A note RECEIVED from a peer: recibirNotaVoz runs on that peer's socket
+            // reader thread, so write ASYNC (as master did) to avoid head-of-line
+            // blocking its game commands. The click-before-write race here is the
+            // rare pre-existing one and not worth stalling the reader for.
+            chatHTMLAppend(anchor);
+            Helpers.threadRun(() -> {
+                try {
+                    Files.write(Paths.get(Init.VOICE_DIR + "/" + voice_filename), audio);
+                } catch (Exception ex) {
+                    LOGGER.log(Level.WARNING, "Could not persist voice message: {0}", ex.getMessage());
+                }
+            });
+        }
 
         Helpers.GUIRun(() -> {
             if (WaitingRoomFrame.getInstance().isPartida_empezada() && !isActive()) {

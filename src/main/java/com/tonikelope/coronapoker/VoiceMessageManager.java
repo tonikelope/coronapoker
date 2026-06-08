@@ -167,26 +167,34 @@ public class VoiceMessageManager {
         // music, effects or other voices.
         Audio.setVoiceRecording(true);
 
+        // Shared teardown for a recording that produced nothing usable: the
+        // line never opened, or it opened but stayed silent (catatonic device).
+        // The RECORDER == recorder guard makes it safe against a fresh note
+        // already started on the held key.
+        Runnable dead_mic_cleanup = () -> {
+            if (RECORDER == recorder) {
+                RECORDER = null;
+                WAIT_KEY_RELEASE = true;
+                Audio.setVoiceRecording(false);
+                warning("audio.microfono_no_configurado");
+            }
+        };
+
         Helpers.threadRun(() -> {
 
             // Opening the mic takes 100-400ms and the past cannot be captured:
             // the dialog only shows when the FIRST audio arrives from the
             // device (line.start() returns before the driver really delivers),
             // so it is an honest talk-now signal. The EDT never blocks on the
-            // driver.
-            if (recorder.start(() -> showRecordDialogAndArmTimer(recorder))) {
+            // driver. on_no_data fires the same teardown if the line opened but
+            // the device never delivered a sample.
+            if (recorder.start(() -> showRecordDialogAndArmTimer(recorder), dead_mic_cleanup)) {
 
                 // Dialog and timer are armed by the on_live callback
 
-            } else if (RECORDER == recorder) {
+            } else {
 
-                RECORDER = null;
-
-                WAIT_KEY_RELEASE = true;
-
-                Audio.setVoiceRecording(false);
-
-                warning("audio.microfono_no_configurado");
+                dead_mic_cleanup.run();
             }
         });
     }

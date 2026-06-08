@@ -143,6 +143,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -826,6 +827,44 @@ public class Helpers {
                     .filter(Files::isRegularFile)
                     .map(Path::toFile)
                     .forEach(File::delete);
+
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    // Voice notes are persisted to disk so they replay by clicking their chat
+    // line, but nothing ever purged VOICE_DIR: it grew without bound across
+    // sessions. Drop notes older than this many days at startup (best-effort);
+    // recent ones survive so an in-game reopen can still replay the current
+    // session's notes. NOT done on RESET_GAME for that exact reason.
+    private static final long VOICE_NOTE_MAX_AGE_DAYS = 7;
+
+    public static void purgeOldVoiceNotes() {
+
+        long cutoff = System.currentTimeMillis() - VOICE_NOTE_MAX_AGE_DAYS * 24L * 60L * 60L * 1000L;
+
+        // No FOLLOW_LINKS: never traverse a symlink out of VOICE_DIR and delete an
+        // external .wav. The app never creates symlinks here, but this closes the hole.
+        try (Stream<Path> notes = Files.walk(Paths.get(Init.VOICE_DIR))) {
+            notes.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".wav"))
+                    .filter(p -> p.toFile().lastModified() < cutoff)
+                    .forEach(p -> {
+                        // best-effort delete with exit-cleanup fallback (typically
+                        // an AV still holding the handle), same as the gifsicle sweep.
+                        try {
+                            if (!p.toFile().delete()) {
+                                p.toFile().deleteOnExit();
+                            }
+                        } catch (Exception ex) {
+                            try {
+                                p.toFile().deleteOnExit();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    });
 
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class
@@ -3022,6 +3061,9 @@ public class Helpers {
     public static Properties loadPropertiesFile() {
 
         createIfNoExistsCoronaDirs();
+
+        // Startup housekeeping: cap the unbounded growth of persisted voice notes.
+        purgeOldVoiceNotes();
 
         File properties = new File(PROPERTIES_FILE);
 

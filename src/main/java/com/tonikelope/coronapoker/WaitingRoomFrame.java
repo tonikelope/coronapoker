@@ -2773,6 +2773,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             Helpers.threadRun(() -> {
                                                                 GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
+                                                                    GameFrame.getInstance().getVoice_messages_menu().setSelected(GameFrame.VOICE_MESSAGES);
                                                                     Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
                                                                 });
                                                             });
@@ -3039,8 +3040,14 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "TTS":
-                                                            // El host activa o desactiva el TTS para los clientes.
-                                                            GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
+                                                            // El host activa o desactiva el TTS (global) para todos.
+                                                            Helpers.threadRun(() -> {
+                                                                GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
+                                                                Helpers.GUIRun(() -> {
+                                                                    GameFrame.getInstance().getTts_menu().setSelected(GameFrame.TTS_SERVER);
+                                                                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.TTS_SERVER);
+                                                                });
+                                                            });
                                                             break;
                                                         case "PAUSE":
                                                             // El host avisa al resto de clientes de que alguien pulsó pausa

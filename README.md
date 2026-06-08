@@ -24,7 +24,7 @@ https://github.com/tonikelope/coronapoker/assets/1344008/88ee3491-459f-43e7-8f62
 CoronaPoker was built with one non-negotiable principle: **nobody should ever be able to cheat, spy or tamper — including the host.**
 
 ### Zero-trust deck protocol
-Every card is shuffled and locked collectively by **every player at the table** through a commutative Mental Poker (SRA) protocol implemented from scratch over **Ristretto255** (a prime-order group over edwards25519, pure-Java engine validated against the RFC 9496 test vectors). Every de-lock in the deal carries a non-interactive **DLEQ proof chained to the committed deck**, so the host cannot use a peer as a *blinded-decryption oracle* to peek at cards. The whole shuffle and rotation are additionally proven to be an honest permutation with a zero-knowledge **verifiable shuffle** (Bayer–Groth + batch-DLEQ), broadcast and re-verified independently by every player, so a malicious host cannot duplicate a card or relocate a pocket card into the community half to read it. The deck uses a **dual-lock architecture**: pocket cards stay sealed end-to-end until showdown, community cards rotate to a separate lock that the host can partially unlock per street. **No single participant — not even the host — can see another player's pocket cards or peek at community cards before they are legitimately revealed.** Each hand is re-shuffled collectively, so card distribution is verifiable and unbiasable.
+Every card is shuffled and locked collectively by **every player at the table** through a commutative Mental Poker (SRA) protocol, with a zero-knowledge **verifiable shuffle** that every player re-checks independently — so a malicious host cannot peek, duplicate or relocate a card. Pocket cards stay sealed end-to-end until showdown; community cards unlock per street. **No single participant — not even the host — can see another player's hole cards or peek at the board before it is legitimately revealed**, and each hand is re-shuffled collectively, so distribution is verifiable and unbiasable. *(Built from scratch over Ristretto255, with DLEQ-chained dealing and a Bayer–Groth shuffle — full details in the spec linked below.)*
 
 ### Per-nick cryptographic identity & signed actions
 Every player carries a persistent **Ed25519 keypair** stored locally with restricted ACLs (POSIX 0600 / Windows ICACLS-locked). Every betting action, every community-card reveal and every showdown reveal is signed under a domain-separated context. A **hash chain** ratchets over each hand (`H_{t+1} = SHA-256(record || sig)`), committing every peer to the exact action history. After the hand, peers exchange short **receipts** (`HAND_ID || H_final || flags || sig`); divergent receipts surface as a logged dispute. A first-contact identicon dialog lets two players verify each other's pubkey out-of-band (TOFU).
@@ -74,11 +74,9 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Pause & join** | Pause anytime; new players can be added to a running session |
 | **IWTSTH** | "I Want To See That Hand"  |
 | **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable |
-| **Run It Twice** | When the action closes with a multi-way all-in, the involved human players vote whether to deal the remaining board twice. Simple majority decides — a tie (or the 15s vote timeout, counted as a NO) falls back to a single board; bots follow the humans. Each (side)pot is split between the two run-outs. Host-toggleable. |
+| **Run It Twice** | On a multi-way all-in, the involved players vote to deal the remaining board twice and split each (side)pot between the two run-outs. Simple majority, host-toggleable. |
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
 | **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (high card → royal flush) so newcomers learn how rankings form, browsed with up/down keys |
-| **Crash recovery** | Continue last game from the local SQLite checkpoint, including mid-hand state, signed action history and crypto fossil |
-| **Recent-server list** | Persisted history of past tables for one-click reconnect (browse with ↑/↓ in the Join dialog) |
 
 ---
 

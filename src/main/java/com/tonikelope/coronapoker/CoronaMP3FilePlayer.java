@@ -129,8 +129,14 @@ public class CoronaMP3FilePlayer {
             try {
                 playing = false;
                 if (line != null) {
-                    line.drain();
+                    // Emergency cut: stop the presentation and DISCARD the buffered
+                    // tail (flush) instead of draining it. drain() blocks the caller
+                    // until the tail finishes playing — wrong for a stop (a cancel
+                    // must not keep playing audio) and it can stall the EDT when stop()
+                    // is called from a UI thread if the output device is wedged. The
+                    // natural end of play() still drain()s, where the rest must be heard.
                     line.stop();
+                    line.flush();
                 }
             } catch (Exception ex) {
                 // Silently ignore stop errors

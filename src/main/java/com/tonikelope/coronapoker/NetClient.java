@@ -31,7 +31,8 @@ package com.tonikelope.coronapoker;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
@@ -54,7 +55,10 @@ public class NetClient {
     private final ConcurrentLinkedQueue<Object[]> received_confirmations = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> late_clients_warning = new ConcurrentLinkedQueue<>();
     private final LinkedBlockingQueue<String> local_client_socket_reader_queue = new LinkedBlockingQueue<>();
-    private final HashMap<String, Integer> cliente_last_received = new HashMap<>();
+    // Concurrent: written/read by the consumer thread (containsKey/get/put for GAME
+    // command dedup) and clear()-ed by the reader thread on a null-read. A plain
+    // HashMap raced across those two threads could corrupt the table during a resize.
+    private final Map<String, Integer> cliente_last_received = new ConcurrentHashMap<>();
     private final Object local_client_socket_lock = new Object();
     private final Object lock_reconnect = new Object();
     private final Object lock_client_reconnect = new Object();
@@ -106,7 +110,7 @@ public class NetClient {
         return local_client_socket_reader_queue;
     }
 
-    public HashMap<String, Integer> getCliente_last_received() {
+    public Map<String, Integer> getCliente_last_received() {
         return cliente_last_received;
     }
 

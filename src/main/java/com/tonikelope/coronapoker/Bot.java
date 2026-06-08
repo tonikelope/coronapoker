@@ -204,6 +204,11 @@ public class Bot {
     private volatile int previousStreet = -1;
     private volatile boolean scareCardDetected = false;
     private volatile double lastEffectiveStrength = 0.5;
+    // Bet size computed during computeRawDecision (for the EV of BET) and reused
+    // verbatim by the dealer when it executes the bet. getBetSize() embeds RNG
+    // (sizing jitter, recreational sizing), so recomputing it for the wire would
+    // make the executed amount differ from the one the decision was evaluated on.
+    private volatile float lastBetSize = 0f;
 
     private volatile Position cachedPosition = Position.UNKNOWN;
     private volatile BoardTexture cachedTexture = null;
@@ -480,6 +485,7 @@ public class Bot {
         previousPpot = 0.0;
         aggressiveLine = false;
         lastEffectiveStrength = 0.5;
+        lastBetSize = 0f;
         cachedPosition = Position.UNKNOWN;
         cachedTexture = null;
         cachedTextureBoardSize = -1;
@@ -509,7 +515,9 @@ public class Bot {
     }
 
     public float getBetSize() {
-        return getBetSize(lastEffectiveStrength);
+        // Return the size computed during the decision, NOT a fresh one: a new
+        // call would draw new RNG and bet a different amount than the EV used.
+        return lastBetSize;
     }
 
     public float getBetSize(double effectiveStrength) {
@@ -697,8 +705,16 @@ public class Bot {
 
         if (street == Crupier.PREFLOP) {
             int decision = calculatePreflopAction(betCount, activePlayers);
-            if (decision == Player.BET && currentProfile != Profile.STATION) {
-                cBetInitiative = true;
+            if (decision == Player.BET) {
+                if (currentProfile != Profile.STATION) {
+                    cBetInitiative = true;
+                }
+                // The preflop branch returns before the postflop EV-sizing step,
+                // so cache the bet size here too: getBetSize() (read by the dealer)
+                // returns lastBetSize, and a recreational mistake never turns a
+                // non-BET into a BET, so caching only on BET is sufficient. Matches
+                // master, which computed this lazily via getBetSize(lastEffectiveStrength).
+                lastBetSize = getBetSize(lastEffectiveStrength);
             }
             return decision;
         }
@@ -845,6 +861,9 @@ public class Bot {
         double evCall = (callCost > 0) ? (winProb * (impliedPot + callCost)) - ((1.0 - winProb) * callCost) : 0;
         double foldEquity = calculateFoldEquity(targetStats, boardTexture, betCount, street);
         double raiseAmount = getBetSize(effectiveStrength);
+        // Cache the size the decision is evaluated on; the dealer reuses it
+        // verbatim instead of redrawing the RNG-laced sizing.
+        lastBetSize = (float) raiseAmount;
         double raiseCost = raiseAmount - cpuPlayer.getBet();
         double evRaise = (foldEquity * pot) + ((1.0 - foldEquity) * ((winProb * (pot + raiseCost)) - ((1.0 - winProb) * raiseCost)));
 

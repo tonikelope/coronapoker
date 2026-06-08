@@ -3068,9 +3068,6 @@ public class Helpers {
 
         createIfNoExistsCoronaDirs();
 
-        // Startup housekeeping: cap the unbounded growth of persisted voice notes.
-        purgeOldVoiceNotes();
-
         File properties = new File(PROPERTIES_FILE);
 
         if (!properties.exists() || !properties.canRead()) {

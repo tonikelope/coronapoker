@@ -83,7 +83,7 @@ public class VoiceRecorder {
      * signal. The line is fully closed after every note (an open mic is
      * audible as background noise on some setups).
      */
-    public boolean start(Runnable on_live) {
+    public boolean start(Runnable on_live, Runnable on_no_data) {
 
         try {
 
@@ -165,6 +165,19 @@ public class VoiceRecorder {
                 recording = false;
                 closeLine();
                 finished.countDown();
+
+                // Line opened but the device never delivered a single sample
+                // (catatonic mic): the manager never got its on_live talk-now
+                // signal and nobody asked to stop, so the global recording
+                // silence would stay stuck until the key is physically released.
+                // Let the manager clean up now instead.
+                if (!live && !stop_requested && on_no_data != null) {
+                    try {
+                        on_no_data.run();
+                    } catch (Exception ex) {
+                        Logger.getLogger(VoiceRecorder.class.getName()).log(Level.WARNING, "on_no_data callback error: {0}", ex.getMessage());
+                    }
+                }
             }
         });
 

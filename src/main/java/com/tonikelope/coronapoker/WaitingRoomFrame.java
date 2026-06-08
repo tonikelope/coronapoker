@@ -4071,7 +4071,10 @@ public class WaitingRoomFrame extends JFrame {
             return;
         }
 
-        final String voice_filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + ".wav";
+        // Random suffix on top of millis+nick: two notes from the same nick within
+        // the same millisecond (a rogue client flooding raw VOICEMSG frames) would
+        // otherwise collide and the first chat anchor would replay the second audio.
+        final String voice_filename = System.currentTimeMillis() + "_" + nick.replaceAll("[^a-zA-Z0-9._-]", "_") + "_" + Helpers.genRandomString(8) + ".wav";
 
         // The token goes into the PLAIN history on purpose: the chat window
         // rebuilds its whole HTML from chat_text (in-game reopen), so the

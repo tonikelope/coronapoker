@@ -3493,6 +3493,25 @@ public class WaitingRoomFrame extends JFrame {
                     }
 
                     partes = recibido.split("#");
+
+                    // Guard before touching partes[1]: a payload without the version
+                    // segment would throw AIOOBE into the general catch, which does NOT
+                    // close the socket (FD leak). Close it here, in a branch where the
+                    // socket has not yet been handed to a Participant, mirroring the
+                    // recibido == null path above.
+                    if (partes.length < 2) {
+                        LOGGER.log(Level.WARNING,
+                                "Handshake aborted: malformed payload (expected nick#version#...).");
+                        try {
+                            if (!client_socket.isClosed()) {
+                                client_socket.close();
+                            }
+                        } catch (Exception ex) {
+                        }
+                        net_server.getClient_threads().remove(Thread.currentThread().threadId());
+                        return;
+                    }
+
                     String client_nick = new String(Base64.getDecoder().decode(partes[0]), "UTF-8");
 
                     String client_version = partes[1];

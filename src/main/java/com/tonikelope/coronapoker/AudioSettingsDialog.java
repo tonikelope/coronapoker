@@ -43,6 +43,7 @@ import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -75,6 +76,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JCheckBox block_notes_checkbox;
     private final JCheckBox block_tts_local_checkbox;
     private final JButton voice_key_button;
+    private final JComboBox<String> retention_combo;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
     private volatile boolean loading = true;
@@ -271,6 +273,39 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
         play_own_checkbox.addActionListener(e -> AudioDeviceManager.setPlayOwnVoiceMessages(play_own_checkbox.isSelected()));
 
+        // --- Retention: days a stored voice note survives before the startup
+        // purge drops it (0 = forever). Parallel to VOICE_NOTE_RETENTION_OPTIONS.
+        retention_combo = new JComboBox<>();
+
+        int retention_index = 0;
+
+        for (int i = 0; i < AudioDeviceManager.VOICE_NOTE_RETENTION_OPTIONS.length; i++) {
+
+            int days = AudioDeviceManager.VOICE_NOTE_RETENTION_OPTIONS[i];
+
+            retention_combo.addItem(days == AudioDeviceManager.VOICE_NOTE_RETENTION_KEEP_FOREVER
+                    ? Translator.translate("audio.retencion_siempre")
+                    : Translator.translate("audio.retencion_dias", days));
+
+            if (days == AudioDeviceManager.getVoiceNoteRetentionDays()) {
+                retention_index = i;
+            }
+        }
+
+        retention_combo.setSelectedIndex(retention_index);
+
+        retention_combo.addActionListener(e -> {
+            int index = retention_combo.getSelectedIndex();
+
+            if (index >= 0) {
+                AudioDeviceManager.setVoiceNoteRetentionDays(AudioDeviceManager.VOICE_NOTE_RETENTION_OPTIONS[index]);
+            }
+        });
+
+        JPanel retention_panel = new JPanel(new BorderLayout(10, 0));
+        retention_panel.add(new JLabel(Translator.translate("audio.conservar_notas")), BorderLayout.CENTER);
+        retention_panel.add(retention_combo, BorderLayout.EAST);
+
         refreshVoiceControlsEnabled();
 
         JPanel notes_panel = new JPanel();
@@ -280,11 +315,14 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         voice_key_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         block_notes_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         notes_panel.add(voice_key_panel);
         notes_panel.add(Box.createVerticalStrut(5));
         notes_panel.add(block_notes_checkbox);
         notes_panel.add(play_own_checkbox);
+        notes_panel.add(Box.createVerticalStrut(5));
+        notes_panel.add(retention_panel);
 
         // --- Local TTS block (only mutes TTS for me; the global on/off is the
         // host rule in the TTS (global) menu item) ---
@@ -370,9 +408,10 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         ((TitledBorder) mic_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
 
-        // In the vertical BoxLayout the key row must keep its natural height
-        // instead of stretching to fill the leftover space.
+        // In the vertical BoxLayout the key and retention rows must keep their
+        // natural height instead of stretching to fill the leftover space.
         voice_key_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, voice_key_panel.getPreferredSize().height));
+        retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
 
         pack();
 

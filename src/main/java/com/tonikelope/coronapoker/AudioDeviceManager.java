@@ -59,6 +59,28 @@ public class AudioDeviceManager {
     private static volatile boolean BLOCK_VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_block_voice_messages", "false"));
     private static volatile boolean BLOCK_TTS_LOCAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("audio_block_tts_local", "false"));
 
+    // Days a persisted voice note survives on disk before the startup purge
+    // drops it. 0 means "keep forever" (never purged).
+    public static final int VOICE_NOTE_RETENTION_KEEP_FOREVER = 0;
+    public static final int[] VOICE_NOTE_RETENTION_OPTIONS = {7, 15, 30, 90, VOICE_NOTE_RETENTION_KEEP_FOREVER};
+    private static volatile int VOICE_NOTE_RETENTION_DAYS = voiceNoteRetentionDaysDefault();
+
+    private static int voiceNoteRetentionDaysDefault() {
+
+        try {
+            int days = Integer.parseInt(Helpers.PROPERTIES.getProperty("audio_voice_note_retention_days", "90"));
+
+            for (int option : VOICE_NOTE_RETENTION_OPTIONS) {
+                if (option == days) {
+                    return days;
+                }
+            }
+        } catch (NumberFormatException ex) {
+        }
+
+        return 90;
+    }
+
     private static boolean micEnabledDefault() {
 
         String prop = Helpers.PROPERTIES.getProperty("audio_mic_enabled");
@@ -150,6 +172,19 @@ public class AudioDeviceManager {
         PLAY_OWN_VOICE_MESSAGES = enabled;
 
         Helpers.PROPERTIES.setProperty("audio_play_own_voice", String.valueOf(enabled));
+
+        Helpers.savePropertiesFile();
+    }
+
+    public static int getVoiceNoteRetentionDays() {
+        return VOICE_NOTE_RETENTION_DAYS;
+    }
+
+    public static void setVoiceNoteRetentionDays(int days) {
+
+        VOICE_NOTE_RETENTION_DAYS = days;
+
+        Helpers.PROPERTIES.setProperty("audio_voice_note_retention_days", String.valueOf(days));
 
         Helpers.savePropertiesFile();
     }

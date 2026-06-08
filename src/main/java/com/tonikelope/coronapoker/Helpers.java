@@ -836,14 +836,20 @@ public class Helpers {
 
     // Voice notes are persisted to disk so they replay by clicking their chat
     // line, but nothing ever purged VOICE_DIR: it grew without bound across
-    // sessions. Drop notes older than this many days at startup (best-effort);
-    // recent ones survive so an in-game reopen can still replay the current
-    // session's notes. NOT done on RESET_GAME for that exact reason.
-    private static final long VOICE_NOTE_MAX_AGE_DAYS = 7;
-
+    // sessions. Drop notes older than the user-configured retention (audio
+    // settings, default 90 days) at startup (best-effort); recent ones survive
+    // so an in-game reopen can still replay the current session's notes. NOT
+    // done on RESET_GAME for that exact reason.
     public static void purgeOldVoiceNotes() {
 
-        long cutoff = System.currentTimeMillis() - VOICE_NOTE_MAX_AGE_DAYS * 24L * 60L * 60L * 1000L;
+        int retention_days = AudioDeviceManager.getVoiceNoteRetentionDays();
+
+        // "Keep forever": nothing to purge
+        if (retention_days == AudioDeviceManager.VOICE_NOTE_RETENTION_KEEP_FOREVER) {
+            return;
+        }
+
+        long cutoff = System.currentTimeMillis() - (long) retention_days * 24L * 60L * 60L * 1000L;
 
         // No FOLLOW_LINKS: never traverse a symlink out of VOICE_DIR and delete an
         // external .wav. The app never creates symlinks here, but this closes the hole.

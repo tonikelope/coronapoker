@@ -134,7 +134,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean RUN_IT_TWICE = false;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
-    public static volatile boolean SONIDOS_TTS = true;
     public static volatile boolean MUSICA_AMBIENTAL = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonido_ascensor", "true"));
     public static volatile boolean AUTO_FULLSCREEN = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_fullscreen", "false"));
     public static volatile boolean SHOW_CLOCK = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("show_time", "false"));
@@ -290,6 +289,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile Integer RABBIT_HUNTING_RECOVER = null;
     public static volatile Boolean RUN_IT_TWICE_RECOVER = null;
     public static volatile Boolean VOICE_MESSAGES_RECOVER = null;
+    public static volatile Boolean TTS_SERVER_RECOVER = null;
     public static volatile String PASSWORD_RECOVER = null;
 
     public static GameFrame getInstance() {
@@ -301,6 +301,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int rabbit = (RABBIT_HUNTING_RECOVER != null ? RABBIT_HUNTING_RECOVER : RABBIT_HUNTING);
         boolean runittwice = (RUN_IT_TWICE_RECOVER != null ? RUN_IT_TWICE_RECOVER : RUN_IT_TWICE);
         boolean voicemsg = (VOICE_MESSAGES_RECOVER != null ? VOICE_MESSAGES_RECOVER : VOICE_MESSAGES);
+        boolean tts = (TTS_SERVER_RECOVER != null ? TTS_SERVER_RECOVER : TTS_SERVER);
         return "IWTSTH=" + (iwtsth ? "1" : "0")
                 + "#RABBIT=" + rabbit
                 + "#DIFFICULTY=" + Bot.DIFFICULTY.name()
@@ -308,7 +309,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#REBUY_LIMIT=" + REBUY_LIMIT
                 + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0")
                 + "#RUNITWICE=" + (runittwice ? "1" : "0")
-                + "#VOICEMSG=" + (voicemsg ? "1" : "0");
+                + "#VOICEMSG=" + (voicemsg ? "1" : "0")
+                + "#TTS=" + (tts ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -358,6 +360,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "VOICEMSG":
                     VOICE_MESSAGES_RECOVER = "1".equals(val);
+                    break;
+                case "TTS":
+                    TTS_SERVER_RECOVER = "1".equals(val);
                     break;
             }
         }
@@ -496,6 +501,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.RUN_IT_TWICE = false;
 
         GameFrame.VOICE_MESSAGES = true;
+
+        GameFrame.TTS_SERVER = true;
 
         // Defensivo: sin resetear estos statics, una partida que acaba con
         // force_recover=true deja contaminada la siguiente partida fresh
@@ -2143,7 +2150,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         opciones_menu.insert(audio_settings_menu, voice_messages_menu_index >= 0 ? voice_messages_menu_index + 1 : opciones_menu.getMenuComponentCount());
 
-        tts_menu.setSelected(GameFrame.SONIDOS_TTS);
+        tts_menu.setSelected(GameFrame.TTS_SERVER);
 
         tts_menu.setEnabled(sonidos_menu.isSelected());
 
@@ -2304,6 +2311,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
             voice_messages_menu.setEnabled(false);
             Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setEnabled(false);
+            tts_menu.setEnabled(false);
+            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(false);
         }
 
         if (!menu_cinematicas.isEnabled()) {
@@ -2791,7 +2800,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                                 jugador.setNotifyTTSChatLabel();
 
-                                if (GameFrame.SONIDOS && GameFrame.SONIDOS_TTS && GameFrame.TTS_SERVER && !temp_notify_blocked) {
+                                if (GameFrame.SONIDOS && GameFrame.TTS_SERVER && !AudioDeviceManager.isBlockTtsLocal() && !temp_notify_blocked) {
                                     Audio.TTS((String) tts[1], jugador.getChat_notify_label());
                                 } else {
 
@@ -3166,7 +3175,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         tts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         tts_menu.setSelected(true);
-        tts_menu.setText("TTS");
+        tts_menu.setText("TTS (global)");
+        tts_menu.putClientProperty("i18n.key", "menu.tts");
         tts_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/voice.png"))); // NOI18N
         tts_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -3177,7 +3187,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         voice_messages_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         voice_messages_menu.setSelected(true);
-        voice_messages_menu.setText("Notas de voz");
+        voice_messages_menu.setText("Notas de voz (global)");
         voice_messages_menu.putClientProperty("i18n.key", "menu.notas_de_voz");
         voice_messages_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/voice.png"))); // NOI18N
         voice_messages_menu.addActionListener(new java.awt.event.ActionListener() {
@@ -3711,8 +3721,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         this.ascensor_menu.setEnabled(GameFrame.SONIDOS);
 
-        if (GameFrame.TTS_SERVER) {
+        // El TTS (global) es un control del host: en clientes el menu queda
+        // deshabilitado y el sonido local no debe reactivarlo.
+        if (isPartida_local()) {
             this.tts_menu.setEnabled(GameFrame.SONIDOS);
+            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
         }
 
         if (!GameFrame.SONIDOS) {
@@ -3729,8 +3742,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
 
         Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
-
-        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
     }//GEN-LAST:event_sonidos_menuActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -4331,71 +4342,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }//GEN-LAST:event_shortcuts_menuActionPerformed
 
     private void tts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tts_menuActionPerformed
-        // TODO add your handling code here:
 
-        GameFrame.SONIDOS_TTS = this.tts_menu.isSelected();
+        // Regla global del host (como las notas de voz): habilita/deshabilita
+        // el TTS para todos. El bloqueo "solo para mi" vive en los ajustes de
+        // audio (AudioDeviceManager.isBlockTtsLocal). El menu esta deshabilitado
+        // para los clientes, asi que el handler solo corre en el host.
+        GameFrame.TTS_SERVER = this.tts_menu.isSelected();
 
-        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
+        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.TTS_SERVER);
 
-        if (GameFrame.SONIDOS_TTS) {
+        Helpers.threadRun(() -> {
+            getCrupier().broadcastGAMECommandFromServer("TTS#" + (GameFrame.TTS_SERVER ? "1" : "0"), null);
 
-            if (!GameFrame.TTS_SERVER && GameFrame.getInstance().isPartida_local()) {
-
-                GameFrame.TTS_SERVER = true;
-
-                tts_menu.setEnabled(false);
-
-                Helpers.threadRun(() -> {
-                    getCrupier().broadcastGAMECommandFromServer("TTS#1", null);
-                    Helpers.GUIRun(() -> {
-                        tts_menu.setEnabled(true);
-
-                        tts_menu.setOpaque(false);
-
-                        tts_menu.setBackground(null);
-
-                        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(false);
-
-                        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(null);
-
-                        InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("sound.tts_activado_por_el_servidor"), new Color(0, 130, 0), Color.WHITE, null, NOTIFICATION_TIMEOUT);
-
-                        dialog.setLocation(dialog.getParent().getLocation());
-
-                        dialog.setVisible(true);
-                    });
-                });
-
+            if (isPartida_local()) {
+                // Persiste la regla para que sobreviva a un detener+recuperar
+                // de la timba (igual que IWTSTH/rabbit/RIT/notas de voz).
+                GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
             }
-
-        } else if (GameFrame.getInstance().isPartida_local() && Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("chat.desactivar_el_chat_de_voz"), new ImageIcon(Init.class.getResource("/images/mute_b.png"))) == 0) {
-
-            GameFrame.TTS_SERVER = false;
-
-            tts_menu.setEnabled(false);
-
-            Helpers.threadRun(() -> {
-                getCrupier().broadcastGAMECommandFromServer("TTS#0", null);
-                Helpers.GUIRun(() -> {
-                    tts_menu.setEnabled(true);
-
-                    tts_menu.setBackground(Color.RED);
-
-                    tts_menu.setOpaque(true);
-
-                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setBackground(Color.RED);
-
-                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setOpaque(true);
-
-                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false, Translator.translate("sound.tts_desactivado_por_el_servidor"), Color.RED, Color.WHITE, null, NOTIFICATION_TIMEOUT);
-
-                    dialog.setLocation(dialog.getParent().getLocation());
-
-                    dialog.setVisible(true);
-                });
-            });
-
-        }
+        });
     }//GEN-LAST:event_tts_menuActionPerformed
 
     public RebuyDialog getRebuy_dialog() {

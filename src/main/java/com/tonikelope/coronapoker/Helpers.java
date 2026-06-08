@@ -5235,7 +5235,7 @@ public class Helpers {
 
                 SONIDOS_TTS_MENU = new LeftClickCheckBoxMenuItem(TTSAction);
                 SONIDOS_TTS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
-                SONIDOS_TTS_MENU.setSelected(GameFrame.SONIDOS_TTS);
+                SONIDOS_TTS_MENU.setSelected(GameFrame.TTS_SERVER);
                 SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
                 SONIDO_MENU.add(SONIDOS_TTS_MENU);
 

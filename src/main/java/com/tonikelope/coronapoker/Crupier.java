@@ -13923,6 +13923,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 });
             }
         }
+
+        // TTS global en recover: mismo patrón default-agnóstico que las notas de voz
+        if (GameFrame.TTS_SERVER_RECOVER != null) {
+            final boolean recovered_tts = GameFrame.TTS_SERVER_RECOVER;
+            GameFrame.TTS_SERVER_RECOVER = null;
+            if (recovered_tts != GameFrame.TTS_SERVER) {
+                Helpers.GUIRun(() -> {
+                    GameFrame.getInstance().getTts_menu().setSelected(!recovered_tts);
+                    GameFrame.getInstance().getTts_menu().doClick();
+                });
+            }
+        }
     }
 
     @Override

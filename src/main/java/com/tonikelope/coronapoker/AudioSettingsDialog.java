@@ -73,6 +73,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JCheckBox mic_checkbox;
     private final JCheckBox play_own_checkbox;
     private final JCheckBox block_notes_checkbox;
+    private final JCheckBox block_tts_local_checkbox;
     private final JButton voice_key_button;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
@@ -285,19 +286,28 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         notes_panel.add(block_notes_checkbox);
         notes_panel.add(play_own_checkbox);
 
-        // --- Vertical stack: output, input, voice notes ---
+        // --- Local TTS block (only mutes TTS for me; the global on/off is the
+        // host rule in the TTS (global) menu item) ---
+        block_tts_local_checkbox = new JCheckBox(Translator.translate("audio.bloquear_tts_local"), AudioDeviceManager.isBlockTtsLocal());
+
+        block_tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(block_tts_local_checkbox.isSelected()));
+
+        // --- Vertical stack: output, input, voice notes, local TTS block ---
         JPanel center_panel = new JPanel();
         center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.Y_AXIS));
 
         output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         notes_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        block_tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         center_panel.add(output_panel);
         center_panel.add(Box.createVerticalStrut(10));
         center_panel.add(mic_panel);
         center_panel.add(Box.createVerticalStrut(10));
         center_panel.add(notes_panel);
+        center_panel.add(Box.createVerticalStrut(10));
+        center_panel.add(block_tts_local_checkbox);
 
         // --- Buttons ---
         JButton ok_button = new JButton(Translator.translate("ui.aceptar"));

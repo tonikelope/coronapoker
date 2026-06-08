@@ -32,6 +32,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntConsumer;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -75,6 +76,10 @@ public class RunItTwiceDialog extends JDialog {
     private static final float DIALOG_OPACITY = 0.8f;
 
     private volatile int vote = VOTE_PENDING;
+    // Gate so only the FIRST cast wins: the EDT button click and the countdown
+    // timeout's automatic NORMAL can race; without this both could pass the
+    // check-then-act and fire the listener twice.
+    private final AtomicBoolean vote_cast = new AtomicBoolean(false);
     private volatile boolean disposing = false;
     private volatile IntConsumer vote_listener = null;
 
@@ -240,7 +245,7 @@ public class RunItTwiceDialog extends JDialog {
     }
 
     private void castVote(int v) {
-        if (vote != VOTE_PENDING) {
+        if (!vote_cast.compareAndSet(false, true)) {
             return;
         }
         vote = v;

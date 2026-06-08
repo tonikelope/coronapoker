@@ -2185,6 +2185,13 @@ public class WaitingRoomFrame extends JFrame {
 
                                 if (!POISON_PILL.equals(recibido)) {
                                     String[] partes_comando = recibido.split("#");
+
+                                    // A single malformed/unprocessable frame (missing segment,
+                                    // bad number, etc.) must NOT tear down the whole game session
+                                    // via the outer catch: log it and skip to the next frame, like
+                                    // the host does per-command. The switch body keeps its original
+                                    // indentation on purpose to keep this a minimal, merge-safe diff.
+                                    try {
                                     switch (partes_comando[0]) {
                                         case "PING":
                                             writeCommandToServer("PONG2#" + String.valueOf(Integer.parseInt(partes_comando[1]) + 2));
@@ -3305,6 +3312,19 @@ public class WaitingRoomFrame extends JFrame {
                                             break;
                                         default:
                                             break;
+                                    }
+                                    } catch (Exception frame_ex) {
+                                        // If the game was reset/torn down under us (RESET race:
+                                        // resetInstance() ran while frames were still buffered),
+                                        // let it propagate to the outer handler to end/reconnect
+                                        // the consumer, exactly as master did — instead of
+                                        // NPE-spinning over the remaining frames against a null
+                                        // GameFrame. Only fires when no game is live, so it can
+                                        // never tear down an active session.
+                                        if (GameFrame.getInstance() == null) {
+                                            throw frame_ex;
+                                        }
+                                        LOGGER.log(Level.WARNING, "Discarding unprocessable command frame from server", frame_ex);
                                     }
                                 } else {
                                     if (!exit && !WaitingRoomFrame.getInstance().isExit()) {

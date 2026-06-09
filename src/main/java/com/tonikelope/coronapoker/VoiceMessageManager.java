@@ -31,7 +31,6 @@ package com.tonikelope.coronapoker;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.BorderFactory;
@@ -364,8 +363,8 @@ public class VoiceMessageManager {
 
             JLabel title = new JLabel(Translator.translate("audio.grabando_nota_de_voz"), JLabel.CENTER);
             title.setForeground(Color.WHITE);
-            // talk.png is 596x460: half size so the text leads the dialog
-            title.setIcon(new ImageIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/talk.png")).getImage().getScaledInstance(298, 230, Image.SCALE_SMOOTH)));
+            // microphone.png is 256x256: used at native size, no scaling
+            title.setIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/microphone.png")));
             title.setIconTextGap(15);
             title.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 

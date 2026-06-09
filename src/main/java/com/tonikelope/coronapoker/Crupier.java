@@ -2127,7 +2127,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * PHASE A.1: firma (HAND_ID || nick || pocketKey) con la privkey LOCAL bajo
-     * el dominio SHOWDOWN_V1, para acompañar la pocketKey en el wire SHOWCARDS
+     * el dominio SHOWDOWN, para acompañar la pocketKey en el wire SHOWCARDS
      * / RESP_SHOWDOWN_KEY. La sig demuestra que la clave fue autorizada por
      * quien la posee:
      *
@@ -7178,7 +7178,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     /**
      * Receipt blob layout: {@code HAND_ID(16) || H_final(32) ||
      * flags(1) || sig(64)} = 113 bytes. The flags byte sits BETWEEN H_final and
-     * sig so the sig (over RECEIPT_V2 || HAND_ID || H_final || flags) covers it.
+     * sig so the sig (over RECEIPT || HAND_ID || H_final || flags) covers it.
      *
      * <p>Flag bits:
      * <ul>

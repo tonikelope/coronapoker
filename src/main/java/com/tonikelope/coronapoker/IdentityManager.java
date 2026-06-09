@@ -57,7 +57,7 @@ import java.util.logging.Logger;
  *   - Re-initialization with a different nick swaps the keypair (testing scenario).
  *
  * Domain separators are required for every sign/verify call to prevent cross-protocol
- * signature confusion. Example: "ACTION_V1\0", "JOIN_V1\0", "RECEIPT_V1\0".
+ * signature confusion. Example: "ACTION\0", "JOIN\0", "RECEIPT\0".
  */
 public final class IdentityManager {
 
@@ -252,7 +252,7 @@ public final class IdentityManager {
     /**
      * Signs (domain || data) with this installation's Ed25519 private key. The domain
      * separator is mandatory and must be a unique non-empty byte string per protocol
-     * context (e.g. "ACTION_V1\0", "JOIN_V1\0"). Returns a 64-byte signature.
+     * context (e.g. "ACTION\0", "JOIN\0"). Returns a 64-byte signature.
      */
     public byte[] sign(byte[] domain, byte[] data) {
         if (!isReady()) {
@@ -310,11 +310,11 @@ public final class IdentityManager {
      * CanonicalActionRecord so a signature cannot be replayed in any other protocol
      * context.
      */
-    private static final byte[] ACTION_DOMAIN = "ACTION_V1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] ACTION_DOMAIN = "ACTION\0".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Signs a CanonicalActionRecord with this installation's privkey under the
-     * ACTION_V1 domain. The host uses this both for its own player actions and for
+     * ACTION domain. The host uses this both for its own player actions and for
      * actions it issues on behalf of others (auto-folds with voluntary=0, bot
      * actions). The caller is responsible for building the record with the correct
      * PLAYER_ID and FLAGS bits.
@@ -328,7 +328,7 @@ public final class IdentityManager {
 
     /**
      * Verifies a per-action signature against the given raw 32-byte Ed25519 pubkey
-     * under the ACTION_V1 domain. Returns false on any error or mismatch. Caller
+     * under the ACTION domain. Returns false on any error or mismatch. Caller
      * is responsible for picking the right pubkey using the §10 consolidated
      * receiver rule (voluntary bit + bot check).
      */
@@ -344,19 +344,18 @@ public final class IdentityManager {
     // ===== RECEIPT helpers (flags byte) =====
 
     /**
-     * Domain separator for end-of-hand consensus receipts (spec §6.2). Bumped
-     * to V2 with the addition of the 1-byte flags field (bit0 = the issuer
-     * observed an invalid Ed25519 signature on at least one ACTION or
-     * COMM_REVEAL during the hand). V1 receipts (no flags) are wire-incompatible
-     * — within-session version pinning already prevents mixing.
+     * Domain separator for end-of-hand consensus receipts (spec §6.2). The
+     * signed payload carries a 1-byte flags field (bit0 = the issuer observed
+     * an invalid Ed25519 signature on at least one ACTION or COMM_REVEAL during
+     * the hand), so a relay cannot strip the bit when forwarding the receipt.
      */
-    private static final byte[] RECEIPT_DOMAIN = "RECEIPT_V2\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] RECEIPT_DOMAIN = "RECEIPT\0".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Canonical payload for a receipt: {@code HAND_ID || H_final || flags}. The
      * flags byte is part of what gets signed so the host (or any relay) cannot
      * silently strip the "saw_invalid_sig" bit when forwarding a receipt to
-     * other peers. The domain separator "RECEIPT_V2\0" is applied by
+     * other peers. The domain separator "RECEIPT\0" is applied by
      * sign/verify, not embedded here.
      */
     public static byte[] receiptPayload(byte[] handId, byte[] hFinal, byte flags) {
@@ -376,7 +375,7 @@ public final class IdentityManager {
 
     /**
      * Signs an end-of-hand receipt {@code (HAND_ID || H_final || flags)} with
-     * this installation's privkey under the RECEIPT_V2 domain. Returns the
+     * this installation's privkey under the RECEIPT domain. Returns the
      * 64-byte Ed25519 signature. The on-wire receipt is the concatenation
      * {@code HAND_ID || H_final || flags || sig}; the wire encoder lives in
      * {@link Crupier} so the format stays close to its consumer.
@@ -400,14 +399,14 @@ public final class IdentityManager {
 
     // ===== SHOWDOWN_REVEAL helpers =====
 
-    private static final byte[] SHOWDOWN_DOMAIN = "SHOWDOWN_V1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SHOWDOWN_DOMAIN = "SHOWDOWN\0".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Canonical payload signed dentro de un SHOWCARDS / RESP_SHOWDOWN_KEY:
      * {@code HAND_ID || nick_utf8 || pocketKey(32)}. La sig demuestra que la
      * pocket-key específica del nick fue autoriza por su Ed25519 privkey, así
      * un host MitM no puede substituirla ni atribuirla al peer equivocado. El
-     * dominio "SHOWDOWN_V1\0" se aplica en sign/verify, no se embebe aquí.
+     * dominio "SHOWDOWN\0" se aplica en sign/verify, no se embebe aquí.
      */
     public static byte[] showdownPayload(byte[] handId, String nick, byte[] pocketKey) {
         if (handId == null || handId.length != CanonicalActionRecord.HAND_ID_BYTES) {
@@ -430,7 +429,7 @@ public final class IdentityManager {
 
     /**
      * Firma una SHOWCARDS reveal {@code (HAND_ID || nick || pocketKey)} con la
-     * privkey de esta instalación bajo el dominio SHOWDOWN_V1. Devuelve la sig
+     * privkey de esta instalación bajo el dominio SHOWDOWN. Devuelve la sig
      * Ed25519 de 64 bytes que viaja en RESP_SHOWDOWN_KEY y SHOWCARDS.
      */
     public byte[] signShowdownReveal(byte[] handId, String nick, byte[] pocketKey) {
@@ -452,12 +451,12 @@ public final class IdentityManager {
 
     // ===== JOIN_IDENTITY helpers =====
 
-    private static final byte[] JOIN_DOMAIN = "JOIN_V1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] JOIN_DOMAIN = "JOIN\0".getBytes(StandardCharsets.UTF_8);
 
     /**
      * Canonical payload signed inside a JOIN_IDENTITY self_sig: NFC-normalized nick UTF-8
      * concatenated with session_id and the 32-byte raw pubkey. The domain separator
-     * "JOIN_V1\0" is applied by sign/verify, not embedded in this byte string.
+     * "JOIN\0" is applied by sign/verify, not embedded in this byte string.
      */
     public static byte[] joinPayload(byte[] sessionId, String nick, byte[] rawPubKey) {
         if (sessionId == null || sessionId.length == 0) {
@@ -483,7 +482,7 @@ public final class IdentityManager {
 
     /**
      * Signs a JOIN_IDENTITY self-attestation for this installation. The returned 64-byte
-     * Ed25519 signature commits to (session_id, nick, own pubkey) under the JOIN_V1 domain.
+     * Ed25519 signature commits to (session_id, nick, own pubkey) under the JOIN domain.
      */
     public byte[] signJoin(byte[] sessionId, String nick) {
         return sign(JOIN_DOMAIN, joinPayload(sessionId, nick, getPublicKey()));

@@ -120,7 +120,7 @@ public class WaitingRoomFrame extends JFrame {
     public static final String POISON_PILL = "___SOCKET_BYE___";
     public static final int PING_PONG_TIMEOUT = 10000;
     // Read deadline aplicado al socket durante el handshake (magic bytes + ECDH +
-    // session_id + JOIN_V1 + NICKOK/intro/chat-history). Un peer legitimo completa
+    // session_id + JOIN + NICKOK/intro/chat-history). Un peer legitimo completa
     // este intercambio en <1s; el unico caso real que se aproxima al limite es una
     // primera generacion de Ed25519 keypair en CPU muy lenta. Damos 30s de margen.
     //
@@ -2019,7 +2019,7 @@ public class WaitingRoomFrame extends JFrame {
                     // Identity: augment the first command with the JOIN_IDENTITY marker, this
                     // installation's Ed25519 pubkey, and a self_sig that binds it to the session_id
                     // received during the handshake. Field layout (6 fields):
-                    //   nick_b64 # version # avatar_b64_or_* # JOIN_V1 # pubkey_b64 # self_sig_b64
+                    //   nick_b64 # version # avatar_b64_or_* # JOIN # pubkey_b64 # self_sig_b64
                     // The server validates self_sig before adding the client to the participants
                     // list; an invalid signature closes the socket.
                     IdentityManager im = IdentityManager.getInstance();
@@ -2033,7 +2033,7 @@ public class WaitingRoomFrame extends JFrame {
                     writeCommandToServer(Helpers.encryptCommand(Base64.getEncoder().encodeToString(local_nick.getBytes("UTF-8"))
                             + "#" + AboutDialog.VERSION
                             + (avatar_bytes != null ? "#" + Base64.getEncoder().encodeToString(avatar_bytes) : "#*")
-                            + "#JOIN_V1"
+                            + "#JOIN"
                             + "#" + pubkeyB64
                             + "#" + selfSigB64,
                             aesKey, hmacKey));
@@ -3756,8 +3756,8 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
                     } else if (participantes.containsKey(client_nick)) {
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
-                    } else if (partes.length != 6 || !"JOIN_V1".equals(partes[3])) {
-                        // Identity: clients on the new wire MUST send a JOIN_V1 payload
+                    } else if (partes.length != 6 || !"JOIN".equals(partes[3])) {
+                        // Identity: clients on the new wire MUST send a JOIN payload
                         // with pubkey + self_sig. Anything else is a misformatted client and
                         // gets the same response as a version mismatch.
                         LOGGER.log(Level.WARNING, "Client {0} sent malformed JOIN (fields={1}, marker={2})",

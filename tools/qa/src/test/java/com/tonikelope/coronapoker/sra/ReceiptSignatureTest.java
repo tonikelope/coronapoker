@@ -2,15 +2,15 @@
  * EC-Identity v1 (commit 6): unit tests for the end-of-hand consensus
  * receipt signing scheme.
  *
- * Receipt payload = HAND_ID(16) || H_final(32). Signed under the
- * RECEIPT_V1\0 domain so a receipt sig cannot be replayed as an ACTION sig
+ * Receipt payload = HAND_ID(16) || H_final(32) || flags(1). Signed under the
+ * RECEIPT\0 domain so a receipt sig cannot be replayed as an ACTION sig
  * (and vice versa). Verifies the same invariants we expect on the wire:
  *
  *   - Sign/verify roundtrip on the same keypair.
  *   - Receipt sig produced by peer A does NOT verify as peer B's receipt
  *     (the canonical "host signs in your name" attack).
  *   - Mutating any byte of HAND_ID or H_final invalidates the sig.
- *   - The RECEIPT_V1 domain is mandatory: an ACTION_V1 sig over the same
+ *   - The RECEIPT domain is mandatory: an ACTION sig over the same
  *     bytes does NOT verify as a receipt sig.
  */
 package com.tonikelope.coronapoker.sra;
@@ -90,9 +90,9 @@ public class ReceiptSignatureTest {
     }
 
     @Test
-    public void actionV1SigIsNotAcceptedAsReceipt() throws Exception {
-        // Domain separation: an ACTION_V1 sig over the same exact bytes
-        // (HAND_ID || H_final concatenated) must NOT verify as RECEIPT_V1.
+    public void actionSigIsNotAcceptedAsReceipt() throws Exception {
+        // Domain separation: an ACTION sig over the same exact bytes
+        // (HAND_ID || H_final || flags concatenated) must NOT verify as a RECEIPT.
         // We bypass the public helpers to construct such a sig deliberately
         // and assert verifyReceipt rejects it.
         byte[] handId = sampleHandId(0x10);
@@ -101,11 +101,11 @@ public class ReceiptSignatureTest {
 
         Method sign = IdentityManager.class.getDeclaredMethod("sign", byte[].class, byte[].class);
         sign.setAccessible(true);
-        byte[] actionDomain = "ACTION_V1\0".getBytes("UTF-8");
+        byte[] actionDomain = "ACTION\0".getBytes("UTF-8");
         byte[] actionSig = (byte[]) sign.invoke(peerA, actionDomain, payload);
 
         assertFalse(IdentityManager.verifyReceipt(peerAPub, handId, hFinal, (byte) 0, actionSig),
-                "ACTION_V1 sig must NOT pass as a RECEIPT_V1 sig");
+                "ACTION sig must NOT pass as a RECEIPT sig");
     }
 
     @Test

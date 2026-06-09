@@ -51,7 +51,7 @@ Pockets never receive community-key unlocks. Community cards never receive pocke
 
 ### 2.3 Showdown reveal
 
-When a player reaches showdown they broadcast `RESP_SHOWDOWN_KEY` containing their `k_pocket` and a 64-byte Ed25519 signature over `"SHOWDOWN_V1" || HAND_ID || nick || k_pocket`. Every peer:
+When a player reaches showdown they broadcast `RESP_SHOWDOWN_KEY` containing their `k_pocket` and a 64-byte Ed25519 signature over `"SHOWDOWN" || HAND_ID || nick || k_pocket`. Every peer:
 
 - Validates the signature against the peer's pinned Ed25519 pubkey.
 - Applies `k_pocket` to the single-locked residual the peer received during dealing.
@@ -70,7 +70,7 @@ An SRA cascade has a subtle, devastating weakness if de-locks are unauthenticate
 
 **The attack.** The host holds a peer's single-locked pocket point `P = k·G_card` (broadcast as `POCKET_CARDS`). It picks a random blinding scalar `r`, sends the peer `r·P` (relabelled as another slot, fresh tag) and asks it to "unlock". The peer applies `k⁻¹` → `r·G_card`, which is **not** a genesis card (it is blinded), so a genesis-only check passes and the peer returns it. The host multiplies by `r⁻¹` and recovers `G_card` — the hole card. Multiplicative blinding slips straight past a genesis-only check.
 
-**The fix — chained de-locking with DLEQ proofs.** Each peer commits, per hand, to `K = k·B` for both its pocket and community scalars; these commitments travel in the `MEGAPACKET` and are **bound into `H_0`** (HAND_V2, §5.2). When a peer strips its lock it publishes, alongside the result, a Chaum-Pedersen **DLEQ proof** that it used exactly its committed `k` ([`Dleq.java`](../src/main/java/com/tonikelope/coronapoker/crypto/Dleq.java), [`VerifiableUnlock.java`](../src/main/java/com/tonikelope/coronapoker/crypto/VerifiableUnlock.java)). De-locks form a **chain** that must start at the committed `MEGAPACKET` point and where every link carries a valid proof under a committed key ([`DealChain.java`](../src/main/java/com/tonikelope/coronapoker/crypto/DealChain.java)).
+**The fix — chained de-locking with DLEQ proofs.** Each peer commits, per hand, to `K = k·B` for both its pocket and community scalars; these commitments travel in the `MEGAPACKET` and are **bound into `H_0`** (§5.2). When a peer strips its lock it publishes, alongside the result, a Chaum-Pedersen **DLEQ proof** that it used exactly its committed `k` ([`Dleq.java`](../src/main/java/com/tonikelope/coronapoker/crypto/Dleq.java), [`VerifiableUnlock.java`](../src/main/java/com/tonikelope/coronapoker/crypto/VerifiableUnlock.java)). De-locks form a **chain** that must start at the committed `MEGAPACKET` point and where every link carries a valid proof under a committed key ([`DealChain.java`](../src/main/java/com/tonikelope/coronapoker/crypto/DealChain.java)).
 
 A blinded `r·P` cannot anchor: the chain would not start at the committed bytes, and **nobody committed the factor `r`**, so no valid proof exists — the peer refuses. The host can only ask peers to de-lock points that provably descend from the committed deck, i.e. the legitimate dealing.
 
@@ -148,10 +148,10 @@ Four application-level contexts are signed under distinct prefixes so a signatur
 
 | Context | What it signs |
 |---|---|
-| `"ACTION_V1"` | A `CanonicalActionRecord` (see §5) — every bet, check, call, fold, raise, all-in, community announce |
-| `"RECEIPT_V2"` | `HAND_ID \|\| H_final \|\| flags` — the final receipt sent to every peer at the end of the hand |
-| `"SHOWDOWN_V1"` | `HAND_ID \|\| nick \|\| k_pocket` — releasing one's pocket key at showdown |
-| `"JOIN_V1"` | The join handshake commitment that pins the pubkey on first contact |
+| `"ACTION"` | A `CanonicalActionRecord` (see §5) — every bet, check, call, fold, raise, all-in, community announce |
+| `"RECEIPT"` | `HAND_ID \|\| H_final \|\| flags` — the final receipt sent to every peer at the end of the hand |
+| `"SHOWDOWN"` | `HAND_ID \|\| nick \|\| k_pocket` — releasing one's pocket key at showdown |
+| `"JOIN"` | The join handshake commitment that pins the pubkey on first contact |
 
 The internal spec [`ec-identity-spec.md`](ec-identity-spec.md) covers each context in full detail (replay defenses, encoding rules, what each field commits to).
 
@@ -190,7 +190,7 @@ This encoder is the **single source of truth** for action serialization; any oth
 
 ### 5.2 Chain
 
-Each hand opens with `H_0`, a SHA-256 commitment that binds: the domain separator, the `HAND_ID`, the player set, **every peer's per-hand key commitments** `K_pocket = k_pocket·B` and `K_community = k_community·B`, and the cascaded-deck hash. Those `K` commitments are exactly what the verifiable dealing checks its DLEQ proofs against (§2.5) — the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. The **exact byte layout** (HAND_V2, with HAND_V1 — no `K` commitments — as a compatibility fallback; [`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start`/`startV2`) is specified once in [`ec-identity-spec.md`](ec-identity-spec.md) §5.1 — the single source of truth for the format.
+Each hand opens with `H_0`, a SHA-256 commitment that binds: the domain separator, the `HAND_ID`, the player set, **every peer's per-hand key commitments** `K_pocket = k_pocket·B` and `K_community = k_community·B`, and the cascaded-deck hash. Those `K` commitments are exactly what the verifiable dealing checks its DLEQ proofs against (§2.5) — the keys a peer must prove it used are fixed at hand start, in the same chain every peer commits to. The **exact byte layout** ([`HandStateChain.java`](../src/main/java/com/tonikelope/coronapoker/HandStateChain.java) `start`) is specified once in [`ec-identity-spec.md`](ec-identity-spec.md) §5.1 — the single source of truth for the format.
 
 Then every action ratchets the chain:
 
@@ -222,7 +222,7 @@ Where:
 - `flags.bit0` is set if the peer observed any invalid Ed25519 signature during the hand.
 - `flags.bit1` is set if the peer could **not** confirm the honest-shuffle proof (`DUALLOCK_BUNDLE`, §2.6) for this hand's deck. This binds the verifiable-shuffle verdict into the signed record, so the receipt attests deck honesty — not just action agreement. A peer sets the bit verified when it checks the bundle (client), when its background full-chain self-verify passes (host), or when it restores a hand on recover (the deck was verified pre-crash and the fossil is the peer's own). Otherwise the bit stays unverified.
 - `flags.bit2` **qualifies** bit1: it is set only when the peer expected a proof (a fresh deal, not a recover) and **no** `DUALLOCK_BUNDLE` ever arrived for this deck. It distinguishes a host that **withholds** the proof (bit1+bit2 — suspicious, even if only some peers are starved) from a **slow peer** whose bundle did arrive but whose verification queue has not finished yet (bit1 only — benign, self-correcting). The reception marker is set when the command arrives, before parsing, so an extremely slow verifier never trips bit2.
-- `sig` is `Ed25519(privkey, "RECEIPT_V2" || HAND_ID || H_final || flags)`. All flag bits are inside the signed payload, so a host relay cannot strip them.
+- `sig` is `Ed25519(privkey, "RECEIPT" || HAND_ID || H_final || flags)`. All flag bits are inside the signed payload, so a host relay cannot strip them.
 
 The host gathers the receipts from every peer and relays them to every other peer. The consensus check ([`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) — `waitForHandverifyTrigger` and the surrounding consensus loop) reports the strongest anomaly it finds, in priority order: **divergent** `H_final` (alert) > **missing** receipt (warning) > `flags.bit0` **invalid-sig-seen** (warning) > `flags.bit1+bit2` **no-shuffle-proof** (warning) > `flags.bit1` alone **deck-pending** (silent) > clean (info).
 

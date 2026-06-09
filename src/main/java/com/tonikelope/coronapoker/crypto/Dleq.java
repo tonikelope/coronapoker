@@ -35,7 +35,7 @@ import java.security.MessageDigest;
  */
 public final class Dleq {
 
-    private static final byte[] DOMAIN = "SRA_DLEQ_V1\0".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    private static final byte[] DOMAIN = "SRA_DLEQ\0".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     private static final BigInteger L = EdwardsPoint.L;
     public static final int PROOF_BYTES = 64;
 

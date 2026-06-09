@@ -7017,6 +7017,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
 
+        // Duración del vuelo de cada carta tapada (centro→asiento). Escala con
+        // el nº de jugadores como la pausa pero con un suelo más alto para que
+        // el arco se lea aún en mesa llena. El vuelo es bloqueante, así que en
+        // modo animación sustituye a la pausa entre cartas.
+        int flight_dur = Math.max(150, pausa);
+
         if (!animacion) {
 
             for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -7069,19 +7075,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (jugador.isActivo() && animacion) {
 
-                Audio.playWavResource("misc/deal.wav", false);
+                final Card hc1 = jugador.getHoleCard1();
+                final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
 
-                if (jugador == GameFrame.getInstance().getLocalPlayer()) {
+                // La carta tapada vuela del centro al asiento; al aterrizar la
+                // sienta (deal.wav lo dispara el propio vuelo al lanzar). Para
+                // el jugador local, además, revela su valor real (que ya se
+                // extrajo de la bóveda C).
+                Runnable seat = es_local
+                        ? () -> {
+                            hc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
+                            hc1.destapar(false);
+                        }
+                        : () -> hc1.iniciarCarta();
 
-                    // Las cartas ya se extrajeron de la bóveda C, las seteamos aquí.
-                    jugador.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
-                    jugador.getHoleCard1().destapar(false);
+                GameFrame.getInstance().getTapete().flyCardToSeat(hc1, flight_dur, "misc/deal.wav", seat);
 
-                } else {
-
-                    jugador.getHoleCard1().iniciarCarta();
-
-                }
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
                 Audio.playWavResource("misc/deal.wav", false);
@@ -7091,7 +7100,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
-            if (jugador.isActivo()) {
+            // En modo animación el vuelo ya consumió el tiempo (bloqueante).
+            if (jugador.isActivo() && !animacion) {
                 Helpers.pausar(pausa);
             }
 
@@ -7106,17 +7116,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (jugador.isActivo() && animacion) {
 
-                Audio.playWavResource("misc/deal.wav", false);
+                final Card hc2 = jugador.getHoleCard2();
+                final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
 
-                if (jugador == GameFrame.getInstance().getLocalPlayer()) {
+                Runnable seat = es_local
+                        ? () -> {
+                            hc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
+                            hc2.destapar(false);
+                        }
+                        : () -> hc2.iniciarCarta();
 
-                    jugador.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
-                    jugador.getHoleCard2().destapar(false);
+                GameFrame.getInstance().getTapete().flyCardToSeat(hc2, flight_dur, "misc/deal.wav", seat);
 
-                } else {
-
-                    jugador.getHoleCard2().iniciarCarta();
-                }
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
                 Audio.playWavResource("misc/deal.wav", false);
@@ -7126,7 +7137,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             }
 
-            if (jugador.isActivo()) {
+            // En modo animación el vuelo ya consumió el tiempo (bloqueante).
+            if (jugador.isActivo() && !animacion) {
                 Helpers.pausar(pausa);
             }
 

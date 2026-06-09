@@ -251,6 +251,14 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         return card_image;
     }
 
+    // Dorso de la baraja actual, ya escalado al tamaño de carta vigente (lo
+    // mantiene updateCachedImages con el zoom). Lo usa la animación de reparto
+    // (carta viajera) para mostrar la misma imagen que la carta tapada que va a
+    // aparecer en el asiento, de modo que el relevo viajera→asiento es idéntico.
+    public static ImageIcon getBackImage() {
+        return IMAGEN_TRASERA;
+    }
+
     private static ImageIcon createCardImageIcon(String path) {
 
         Image img;

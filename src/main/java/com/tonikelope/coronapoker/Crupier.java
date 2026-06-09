@@ -3501,8 +3501,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void actualizarContadoresTapete() {
 
-        GameFrame.getInstance().setTapeteBote(this.bote_total, this.beneficio_bote_principal);
-        GameFrame.getInstance().setTapeteApuestas(this.apuestas);
+        // Run-it-twice: durante el run-out de cada cara la label muestra la MITAD
+        // que ESA cara juega (no el bote total): es lo que de verdad se reparte
+        // en cada board. Las dos mitades de splitPotForRunItTwice son iguales, así
+        // que el índice de board es indiferente. Fuera de RIT (tag null) → total.
+        float pot_show = this.rit_pot_board_tag != null
+                ? splitPotForRunItTwice(this.bote_total)[0]
+                : this.bote_total;
+
+        GameFrame.getInstance().setTapeteBote(pot_show, this.beneficio_bote_principal);
+
+        if (this.destapar_resistencia) {
+            // Run-out all-in (normal o run-it-twice): ya no hay apuestas. Se oculta
+            // la bet_label de calle y el bote se centra ocupando todo el ancho —
+            // exactamente el estado al que llega el showdown, que solo le añade el
+            // fondo verde. Así la label no salta de sitio al cerrarse la mano.
+            GameFrame.getInstance().hideTapeteApuestas();
+            Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
+                    .getPot_label().setHorizontalAlignment(JLabel.CENTER));
+        } else {
+            GameFrame.getInstance().setTapeteApuestas(this.apuestas);
+        }
+
         GameFrame.getInstance().setTapeteCiegas(this.ciega_pequeña, this.ciega_grande);
         GameFrame.getInstance().setTapeteMano(this.conta_mano);
     }
@@ -8484,7 +8504,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters, p.getAes_key(), iv, p.getHmac_key()));
+            // El bote viaja como float crudo: cada cliente lo formatea con su
+            // propio locale (float2String depende de GameFrame.LANGUAGE).
+            p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);
         }
@@ -8546,9 +8568,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         final int totalVotersFinal = totalVoters;
+        final String potText = Helpers.float2String(this.bote_total);
         final RunItTwiceDialog[] hd = new RunItTwiceDialog[1];
         if (localIsVoter) {
-            Helpers.GUIRunAndWait(() -> hd[0] = new RunItTwiceDialog(GameFrame.getInstance(), RIT_VOTE_TIMEOUT, totalVotersFinal));
+            Helpers.GUIRunAndWait(() -> hd[0] = new RunItTwiceDialog(GameFrame.getInstance(), RIT_VOTE_TIMEOUT, totalVotersFinal, potText));
             Helpers.GUIRun(() -> hd[0].setVisible(true));
         }
         final RunItTwiceDialog hostDialog = hd[0];
@@ -8659,9 +8682,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // ---- Run-it-twice: lado CLIENTE (reacciona a RIT_VOTE_* del host) -------
 
-    public void showRitClientVoteDialog(int timeout, int totalVoters) {
+    public void showRitClientVoteDialog(int timeout, int totalVoters, float pot) {
         Helpers.GUIRun(() -> {
-            RunItTwiceDialog d = new RunItTwiceDialog(GameFrame.getInstance(), timeout, totalVoters);
+            RunItTwiceDialog d = new RunItTwiceDialog(GameFrame.getInstance(), timeout, totalVoters, Helpers.float2String(pot));
             d.setVoteListener((v) -> Helpers.threadRun(() -> {
                 try {
                     String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
@@ -8979,8 +9002,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (!ok) {
                 return false;
             }
-            // Igual que el run-out normal: actualiza pot/bet/ciegas. La bet_label
-            // se ocultará con hideTapeteApuestas antes del showdown de CARA-B.
+            // Igual que el run-out normal: actualiza el bote (centrado, sin
+            // bet_label, que actualizarContadoresTapete oculta en el run-out).
             actualizarContadoresTapete();
             destaparCartaComunitaria(s, resisten);
         }
@@ -9062,14 +9085,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         // ---- SIDE-B: rewind + reparto ----
         // Solo deshacemos el coloreado del showdown de SIDE-A (pot_panel opaco
-        // verde, pot_label verde/centrada) para volver al estado de REPARTO. A
-        // partir de ahí CARA-B se comporta IGUAL que CARA-A: el run-out muestra
-        // pot/bet labels vía actualizarContadoresTapete y se ocultan con
-        // hideTapeteApuestas antes del showdown.
+        // verde) para volver al estado de REPARTO. A partir de ahí CARA-B se
+        // comporta IGUAL que CARA-A: el run-out muestra SOLO el bote (centrado,
+        // sin bet_label) vía actualizarContadoresTapete. La alineación se mantiene
+        // CENTER (el run-out ya centra), igual que el showdown que viene después.
         Helpers.GUIRun(() -> {
             CommunityCardsPanel cc = GameFrame.getInstance().getTapete().getCommunityCards();
             cc.getPot_panel().setOpaque(false);
-            cc.getPot_label().setHorizontalAlignment(JLabel.LEADING);
+            cc.getPot_label().setHorizontalAlignment(JLabel.CENTER);
             cc.getPot_label().setForeground(cc.getBet_label().getForeground());
             cc.getHand_label().setVisible(false);
         });
@@ -9082,12 +9105,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // settleRunItTwiceBoard(.,1,.) lo recalcula para el showdown de SIDE-B.
         this.beneficio_bote_principal = null;
         // La pot_label pasa a marcar CARA-B y se repinta YA, ANTES del rewind
-        // animado, en estado de reparto (bote TOTAL, igual que durante el
+        // animado, en estado de reparto (la MITAD de CARA-B, igual que durante el
         // run-out de CARA-A): sin el repintado arrastraría el texto del settle
         // de CARA-A (con su etiqueta CARA-A) durante toda la animación del
         // re-reparto y hasta que se complete la primera calle de SIDE-B.
         this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_b");
-        GameFrame.getInstance().setTapeteBote(this.bote_total, this.beneficio_bote_principal);
+        GameFrame.getInstance().setTapeteBote(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
         for (Player p : resisten) {
             p.repaintLastAction();
         }
@@ -9196,13 +9219,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             jugadas.remove(ganador);
             ganador.pagar(cantidad[0], null);
-            // Franja negra: marca el pot principal como #1 SOLO si hay side pots
-            // (si no, la label de franja ni se muestra). Dedup entre boards.
-            if (this.bote.getSidePot() != null) {
-                ganador.marcarBotePot(1);
-            }
-            // NO decrementamos bote_total: es UN bote corrido dos veces, ambas
-            // caras muestran el bote TOTAL durante el reparto (la cola lo pone a 0).
+            // La franja "#1" del bote principal NO se pinta aquí: se difiere a
+            // DESPUÉS de this.showdown() (más abajo) para no adelantarse a los
+            // veredictos GANA/PIERDE. Igual que en el showdown normal y que las
+            // marcas de los botes laterales (que ya van tras el showdown).
+            // NO decrementamos bote_total: es UN bote corrido dos veces y la
+            // variable conserva el total en ambas caras (la cola lo pone a 0 al
+            // cerrar la mano). La LABEL sí muestra la mitad de cada cara, pero eso
+            // es solo presentación (splitPotForRunItTwice en el run-out / paidShow
+            // en el showdown), no toca la contabilidad.
             paidThisBoard += cantidad[0];
             GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_2") + Helpers.float2String(cantidad[0]) + ") -> " + jugada);
         }
@@ -9231,6 +9256,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // conserva su flujo de atenuado propio (ya desenfocó arriba en este
         // settleRunItTwiceBoard), no se difiere a la pasada 2.
         this.showdown(new HashMap<>(jugadas), ganadores, null);
+
+        // Franja "#1" del bote principal: tras el showdown (no antes), y solo si
+        // hay side pots. marcarBotePot deduplica entre CARA-A y CARA-B.
+        if (this.bote.getSidePot() != null) {
+            for (Player ganador_principal : ganadores.keySet()) {
+                ganador_principal.marcarBotePot(1);
+            }
+        }
 
         for (Map.Entry<Player, Hand> e : jugadas.entrySet()) {
             GameFrame.getInstance().getRegistro().print(e.getKey().getNickname() + " " + Translator.translate("game.pierde_bote") + Helpers.float2String(cantidad[0]) + ")");
@@ -10401,11 +10434,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.apuestas = 0f;
             actualizarContadoresTapete();
-            // bet_label NO se oculta entre calles: queda visible mostrando
+            // Entre calles de APUESTAS la bet_label queda visible mostrando
             // "CALLE: ---" para que su icono de pot permanezca fijo (sin el
-            // parpadeo de ocultarse y reaparecer en cada calle). Se oculta de
-            // verdad tras la fase de apuestas, antes del showdown
-            // (hideTapeteApuestas en el bucle de Crupier.run y en el run-it-twice).
+            // parpadeo de ocultarse y reaparecer en cada calle). En el RUN-OUT
+            // all-in (destapar_resistencia) actualizarContadoresTapete ya la
+            // oculta y centra el bote, así que solo se ve la pot_label.
 
             if (resisten.size() > 1 && puedenApostar(resisten) <= 1) {
                 boolean firstResistencia = !this.destapar_resistencia;
@@ -10423,6 +10456,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Helpers.GUIRunAndWait(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false));
                 }
                 this.destapar_resistencia = true;
+                // Arranca el run-out: oculta ya la bet_label y centra el bote
+                // (actualizarContadoresTapete lo hace al ver destapar_resistencia),
+                // antes del giro de cartas de los rivales, no solo al destapar la
+                // siguiente calle.
+                actualizarContadoresTapete();
                 if (resisten.contains(GameFrame.getInstance().getLocalPlayer())) {
                     GameFrame.getInstance().getLocalPlayer().desactivarControles();
                 }
@@ -14324,7 +14362,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                 diferir_dim.add(ganador.getHoleCard2());
                                             }
                                             jugadas.remove(entry.getKey());
-                                            ganador.pagar(cantidad_pagar_ganador[0], 1);
+                                            // sec_pot=null: paga sin pintar la franja "#1" todavía.
+                                            // La marca se difiere a DESPUÉS de this.showdown() (más
+                                            // abajo), para no adelantar el resultado del bote
+                                            // principal a los veredictos GANA/PIERDE (pasada 2 del
+                                            // showdown). Las marcas de los botes laterales ya se
+                                            // pintan tras el showdown, en su bucle.
+                                            ganador.pagar(cantidad_pagar_ganador[0], null);
                                             this.bote_total -= cantidad_pagar_ganador[0];
                                             jugada = entry.getValue();
                                             GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_principal") + Helpers.float2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
@@ -14346,6 +14390,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         }
 
                                         this.showdown(jugadas, ganadores, diferir_dim);
+
+                                        // Franja "#1" del bote principal: se pinta AHORA, tras el
+                                        // showdown (veredictos de la pasada 2), no en el pagar de
+                                        // arriba. Estamos en la rama con side pots, así que la marca
+                                        // procede; las de los botes laterales se añaden en el bucle.
+                                        for (Player ganador_principal : ganadores.keySet()) {
+                                            ganador_principal.marcarBotePot(1);
+                                        }
 
                                         HandPot current_pot = this.bote.getSidePot();
                                         int conta_bote_secundario = 2;

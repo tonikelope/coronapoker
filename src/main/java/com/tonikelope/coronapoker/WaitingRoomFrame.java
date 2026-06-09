@@ -2813,7 +2813,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     int rit_timeout = Integer.parseInt(partes_comando[3]);
                                                                     int rit_total = Integer.parseInt(partes_comando[4]);
-                                                                    GameFrame.getInstance().getCrupier().showRitClientVoteDialog(rit_timeout, rit_total);
+                                                                    float rit_pot = Float.parseFloat(partes_comando[5]);
+                                                                    GameFrame.getInstance().getCrupier().showRitClientVoteDialog(rit_timeout, rit_total, rit_pot);
                                                                 } catch (Exception e) {
                                                                 }
                                                             });

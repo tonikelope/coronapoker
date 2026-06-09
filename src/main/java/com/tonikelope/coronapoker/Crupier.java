@@ -885,6 +885,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // calles POSTERIORES son las "corridas" (se rebobinan para SIDE-B); las de
     // esta calle y anteriores son compartidas. -1 = no hubo all-in run-out.
     private volatile int rit_allin_street = -1;
+    // Cartas comunitarias que salieron en CARA-A en las calles posteriores al
+    // all-in (las "corridas"). El reparto real de CARA-B NO las repone, así que
+    // la simulacion de Montecarlo de CARA-B debe excluirlas de la baraja. Se
+    // capturan antes de que rebobinarComunitariasSideB sobrescriba esas cartas
+    // con los valores de CARA-B. Vacia fuera de run-it-twice.
+    private final ArrayList<Integer> rit_side_a_runout_cards = new ArrayList<>();
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
@@ -6072,6 +6078,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rit_allin_street = -1;
 
+        this.rit_side_a_runout_cards.clear();
+
         this.rit_pot_board_tag = null;
 
         // Defensivo: si una mano anterior abortó entre los dos boards con el SQL
@@ -9113,6 +9121,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().setTapeteBote(splitPotForRunItTwice(this.bote_total)[0], this.beneficio_bote_principal);
         for (Player p : resisten) {
             p.repaintLastAction();
+        }
+        // Captura de las comunitarias de CARA-A (las "corridas": calles
+        // posteriores al all-in) ANTES de que rebobinarComunitariasSideB las
+        // sobrescriba con los valores de CARA-B. El reparto real de CARA-B no
+        // repone estas cartas, así que la simulación de Montecarlo de CARA-B
+        // tiene que excluirlas de la baraja (mismo criterio de calle que el
+        // rewind). Las compartidas (calle del all-in y anteriores) ya están en
+        // el board que monteCarlo retira por su cuenta.
+        this.rit_side_a_runout_cards.clear();
+        CommunityCardsPanel ccA = GameFrame.getInstance().getTapete().getCommunityCards();
+        if (this.rit_allin_street < FLOP) {
+            this.rit_side_a_runout_cards.add(ccA.getFlop1().getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(ccA.getFlop2().getCartaComoEntero());
+            this.rit_side_a_runout_cards.add(ccA.getFlop3().getCartaComoEntero());
+        }
+        if (this.rit_allin_street < TURN) {
+            this.rit_side_a_runout_cards.add(ccA.getTurn().getCartaComoEntero());
+        }
+        if (this.rit_allin_street < RIVER) {
+            this.rit_side_a_runout_cards.add(ccA.getRiver().getCartaComoEntero());
         }
         // Rewind: retirar las comunitarias corridas y re-repartirlas boca abajo
         // con la animación de reparto del juego.
@@ -15226,6 +15254,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             deck.remove((Integer) p.getHoleCard2().getCartaComoEntero());
 
             stats.put(p, new Integer[]{iterations, 0, 0, 0});
+        }
+
+        // Run-it-twice CARA-B: las comunitarias que salieron en CARA-A NO se
+        // reponen en el reparto real de CARA-B (la baraja sigue cascadeando sin
+        // repetir), así que la simulación debe excluirlas. No son board actual
+        // ni hole cards, de modo que aún están en deck; removerlas evita tratar
+        // como disponibles hasta 5 cartas (all-in pre-flop) que CARA-B nunca
+        // puede recibir.
+        if (this.run_it_twice_side_b) {
+            for (Integer cartaCaraA : this.rit_side_a_runout_cards) {
+                deck.remove(cartaCaraA);
+            }
         }
 
         for (int m = 0; m < iterations; m++) {

@@ -2664,6 +2664,146 @@ public class Helpers {
     }
 
     /**
+     * Añade al JPasswordField un botón "ojo" anclado a su borde derecho que
+     * revela la contraseña en claro MIENTRAS se mantiene pulsado (ratón) y la
+     * vuelve a ocultar al soltar (incluso si se suelta fuera del botón).
+     *
+     * Autocontenido: solo toca el propio field (su layout manager y su margen
+     * derecho), de modo que funciona con cualquier layout padre —GroupLayout,
+     * BorderLayout— sin reestructurarlo ni tocar el .form de NetBeans. El botón
+     * se posiciona a mano al borde derecho real (ignora el inset), y el margen
+     * derecho reservado evita que el texto/caret pase por debajo del ojo. El
+     * icono se dibuja vectorialmente (sin assets). Idempotente.
+     */
+    public static void attachPasswordRevealButton(final javax.swing.JPasswordField field) {
+        if (field == null) {
+            return;
+        }
+        final char echo = field.getEchoChar();
+        if (echo == 0) {
+            return; // ya se muestra en claro: nada que togglear
+        }
+        for (java.awt.Component existing : field.getComponents()) {
+            if (existing instanceof javax.swing.JButton) {
+                return; // ya enganchado
+            }
+        }
+
+        final int side = Math.max(14, field.getFont().getSize());
+        final javax.swing.JButton eye = new javax.swing.JButton(new EyeIcon(side));
+        eye.setFocusable(false);
+        eye.setRolloverEnabled(false);
+        eye.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        eye.setContentAreaFilled(false);
+        eye.setOpaque(false);
+        eye.setMargin(new java.awt.Insets(0, 0, 0, 0));
+        eye.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        eye.setToolTipText(Translator.translate("auth.mostrar_password_pulsar"));
+
+        // isPressed cubre el hold con ratón (vuelve a false al soltar en
+        // cualquier sitio): revela mientras está pulsado, oculta al soltar.
+        eye.getModel().addChangeListener(new javax.swing.event.ChangeListener() {
+            @Override
+            public void stateChanged(javax.swing.event.ChangeEvent e) {
+                field.setEchoChar(eye.getModel().isPressed() ? (char) 0 : echo);
+            }
+        });
+
+        // El texto del field lo pinta su UI hasta el inset derecho; el botón lo
+        // colocamos a mano al borde derecho real (más allá del inset), así no
+        // se solapan. El margen derecho reservado = ancho del ojo + holgura.
+        final int reserve = side + 6;
+        field.setLayout(new java.awt.LayoutManager() {
+            @Override
+            public void layoutContainer(java.awt.Container parent) {
+                java.awt.Dimension bs = eye.getPreferredSize();
+                int x = parent.getWidth() - bs.width - 3;
+                int y = Math.max(0, (parent.getHeight() - bs.height) / 2);
+                eye.setBounds(x, y, bs.width, bs.height);
+            }
+
+            @Override
+            public java.awt.Dimension preferredLayoutSize(java.awt.Container parent) {
+                return parent.getSize();
+            }
+
+            @Override
+            public java.awt.Dimension minimumLayoutSize(java.awt.Container parent) {
+                return new java.awt.Dimension(0, 0);
+            }
+
+            @Override
+            public void addLayoutComponent(String name, java.awt.Component comp) {
+            }
+
+            @Override
+            public void removeLayoutComponent(java.awt.Component comp) {
+            }
+        });
+        field.add(eye);
+
+        java.awt.Insets m = field.getMargin();
+        if (m == null) {
+            m = new java.awt.Insets(0, 0, 0, 0);
+        }
+        field.setMargin(new java.awt.Insets(m.top, m.left, m.bottom, m.right + reserve));
+    }
+
+    /**
+     * Icono vectorial de un ojo (contorno de almendra + pupila) para el botón
+     * de revelar contraseña. Escala con el tamaño pedido; sin ficheros de
+     * imagen. Antialiased.
+     */
+    private static final class EyeIcon implements javax.swing.Icon {
+
+        private final int size;
+
+        EyeIcon(int size) {
+            this.size = size;
+        }
+
+        @Override
+        public int getIconWidth() {
+            return size;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return size;
+        }
+
+        @Override
+        public void paintIcon(java.awt.Component c, java.awt.Graphics g, int x, int y) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                float w = size;
+                float h = size;
+                float cx = x + w / 2f;
+                float cy = y + h / 2f;
+                float eyeW = w * 0.92f;
+                float eyeH = h * 0.55f;
+                g2.setColor(new java.awt.Color(0x42, 0x42, 0x42));
+                g2.setStroke(new java.awt.BasicStroke(Math.max(1f, size / 12f),
+                        java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+                float left = cx - eyeW / 2f;
+                float right = cx + eyeW / 2f;
+                java.awt.geom.GeneralPath almond = new java.awt.geom.GeneralPath();
+                almond.moveTo(left, cy);
+                almond.quadTo(cx, cy - eyeH, right, cy);
+                almond.quadTo(cx, cy + eyeH, left, cy);
+                almond.closePath();
+                g2.draw(almond);
+                float pr = h * 0.17f;
+                g2.fill(new java.awt.geom.Ellipse2D.Float(cx - pr, cy - pr, pr * 2f, pr * 2f));
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
+    /**
      * Genera una contraseña aleatoria FUERTE con CSPRNG (no Random) usando
      * un alphabet diseñado para ser FÁCIL DE DICTAR / TIPEAR a mano:
      * solo minúsculas + dígitos (36 chars). Sin mayúsculas (evita confusión

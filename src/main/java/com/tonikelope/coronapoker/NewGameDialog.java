@@ -132,6 +132,7 @@ public class NewGameDialog extends JDialog {
         initComponents();
 
         Helpers.attachPasswordStrengthHint(pass_text);
+        Helpers.attachPasswordRevealButton(pass_text);
 
         update = true;
 
@@ -310,6 +311,7 @@ public class NewGameDialog extends JDialog {
         initComponents();
 
         Helpers.attachPasswordStrengthHint(pass_text);
+        Helpers.attachPasswordRevealButton(pass_text);
 
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
 

@@ -1787,11 +1787,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void setTapeteBote(float bote, Float beneficio) {
 
         // Run-it-twice: marca a qué cara (CARA-A/CARA-B) corresponde lo mostrado
-        // mientras se corren los dos boards (null fuera de run-it-twice).
+        // mientras se corren los dos boards (null fuera de run-it-twice). La cara
+        // va en el PREFIJO ("BOTE (CARA-A): X") en vez de un sufijo al final.
         final String rit_tag = getCrupier() != null ? getCrupier().getRitPotBoardTag() : null;
+        final String prefix = rit_tag != null
+                ? Translator.translate("runittwice.pot_label_full", rit_tag)
+                : Translator.translate("game.bote_2");
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(Translator.translate("game.bote_2") + " " + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : "") + (rit_tag != null ? " [" + rit_tag + "]" : ""));
+            tapete.getCommunityCards().getPot_label().setText(prefix + " " + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
         });
     }
 

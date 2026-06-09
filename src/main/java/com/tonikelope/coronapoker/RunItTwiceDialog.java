@@ -90,15 +90,17 @@ public class RunItTwiceDialog extends JDialog {
     private final String normal_label;
     private final String rit_label;
     private final String pending_label_text;
+    private final String pot_text;
     private final int total_voters;
 
     private volatile int tally_normal = 0;
     private volatile int tally_rit = 0;
 
-    public RunItTwiceDialog(java.awt.Frame parent, int timeout, int totalVoters) {
+    public RunItTwiceDialog(java.awt.Frame parent, int timeout, int totalVoters, String potText) {
         super(parent, true);
 
         total_voters = totalVoters;
+        pot_text = potText;
         normal_label = Translator.translate("runittwice.btn_normal");
         rit_label = Translator.translate("runittwice.btn_run_it_twice");
         pending_label_text = Translator.translate("runittwice.pending_players");
@@ -132,6 +134,15 @@ public class RunItTwiceDialog extends JDialog {
         question.setAlignmentX(Component.CENTER_ALIGNMENT);
         question.setHorizontalAlignment(SwingConstants.CENTER);
 
+        // Bote total en juego: la cifra que se reparte una o dos veces. Se
+        // muestra para que cada votante decida con el dinero a la vista (el
+        // diálogo tapa la pot_label del tapete que normalmente lo enseña).
+        JLabel pot_label = new JLabel(Translator.translate("game.bote_2") + " " + pot_text);
+        pot_label.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 28));
+        pot_label.setForeground(new Color(0, 110, 0));
+        pot_label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pot_label.setHorizontalAlignment(SwingConstants.CENTER);
+
         normal_button.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, 36));
         normal_button.setBackground(new Color(120, 120, 120));
         normal_button.setForeground(Color.WHITE);
@@ -164,6 +175,8 @@ public class RunItTwiceDialog extends JDialog {
         panel.add(title);
         panel.add(javax.swing.Box.createVerticalStrut(6));
         panel.add(question);
+        panel.add(javax.swing.Box.createVerticalStrut(6));
+        panel.add(pot_label);
         panel.add(javax.swing.Box.createVerticalStrut(6));
         panel.add(buttons);
         panel.add(javax.swing.Box.createVerticalStrut(8));

@@ -15316,7 +15316,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     int compare = Bot.HANDEVALUATOR.compareHands(cards7_iteration.get(p), best);
 
                     if (compare == 1) {
+                        // Nuevo mejor: el empate previo era contra una mano ya
+                        // superada, así que deja de contar. Sin este reset el
+                        // flag (global a la iteración) quedaría pegado a true y
+                        // el ganador único final se registraría como empate.
                         best = cards7_iteration.get(p);
+                        tie = false;
                     } else if (compare == 0) {
                         tie = true;
                     }

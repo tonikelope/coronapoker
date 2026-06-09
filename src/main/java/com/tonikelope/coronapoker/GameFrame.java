@@ -1801,8 +1801,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void setTapeteBote(String bote) {
 
+        // Mismo prefijo RIT-aware que la sobrecarga (float, Float): el desglose
+        // por bote del run-it-twice lleva la cara ("BOTE (CARA-A): #1{..}+#2{..}").
+        // Fuera de RIT (tag null) → "BOTE:", idéntico a antes.
+        final String rit_tag = getCrupier() != null ? getCrupier().getRitPotBoardTag() : null;
+        final String prefix = rit_tag != null
+                ? Translator.translate("runittwice.pot_label_full", rit_tag)
+                : Translator.translate("game.bote_2");
+
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(Translator.translate("game.bote_2") + " " + bote);
+            tapete.getCommunityCards().getPot_label().setText(prefix + " " + bote);
         });
     }
 

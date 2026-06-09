@@ -9325,6 +9325,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        // Desglose por bote para la pot_label cuando hay side pots (como el
+        // showdown normal): #1{mitad principal} + #2{mitad lateral} ... con la
+        // MITAD que ESTA cara juega. El beneficio NO va aquí (es ambiguo con
+        // varios botes); el beneficio por jugador ya está en la franja negra.
+        // El bote principal se muestra sin sobrante (igual que el modo normal).
+        String bote_tapete = "#1{" + Helpers.float2String(splitPotForRunItTwice(this.bote.getTotal())[board]) + "}";
+
         // ---- Side pots ----
         HandPot current_pot = this.bote.getSidePot();
         int sec = 2;
@@ -9333,6 +9340,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // Pot lateral no disputado: refund íntegro, UNA sola vez (SIDE-A);
                 // no se parte entre boards (no hay competición).
                 if (board == 0) {
+                    // Solo aparece en el desglose de CARA-A (en CARA-B no se paga).
+                    bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.float2String(current_pot.getTotal()) + "}";
                     Player only = current_pot.getPlayers().get(0);
                     only.pagar(current_pot.getTotal(), null);
                     only.marcarBotePot(sec);
@@ -9345,6 +9354,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 HashMap<Player, Hand> sganadores = this.calcularGanadores(new HashMap<>(sjugadas));
                 float sHalf = splitPotForRunItTwice(current_pot.getTotal())[board];
                 float[] sCantidad = this.calcularBoteParaGanador(sHalf, sganadores.size());
+                bote_tapete = bote_tapete + " + #" + String.valueOf(sec) + "{" + Helpers.float2String(sHalf) + "}";
                 for (Map.Entry<Player, Hand> e : sganadores.entrySet()) {
                     Player ganador = e.getKey();
                     Hand jugada = e.getValue();
@@ -9367,16 +9377,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             sec++;
         }
 
-        // Label del bote: muestra lo repartido en ESTE board, con fondo verde y
-        // texto centrado (como el showdown normal). Sin esto la label heredaba
-        // color/alineación de la fase de apuestas y se veía rara.
-        final float paidShow = paidThisBoard;
-        setPotBackground(Color.GREEN);
-        Helpers.GUIRun(() -> {
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
-            GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
-        });
-        GameFrame.getInstance().setTapeteBote(paidShow, this.beneficio_bote_principal);
+        // Label del bote de ESTE board, centrada (como el showdown normal):
+        // - con side pots: desglose por bote (fondo negro/blanco), SIN beneficio
+        //   en paréntesis (ambiguo con varios botes; el beneficio por jugador va
+        //   en la franja negra), igual que el showdown normal con side pots.
+        // - un único bote: número repartido + beneficio (fondo verde).
+        if (this.bote.getSidePot() != null) {
+            setPotBackground(Color.BLACK);
+            final String bote_tapete_final = bote_tapete;
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
+            });
+            GameFrame.getInstance().setTapeteBote(bote_tapete_final);
+        } else {
+            final float paidShow = paidThisBoard;
+            setPotBackground(Color.GREEN);
+            Helpers.GUIRun(() -> {
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.BLACK);
+                GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setHorizontalAlignment(JLabel.CENTER);
+            });
+            GameFrame.getInstance().setTapeteBote(paidShow, this.beneficio_bote_principal);
+        }
 
         return paidThisBoard;
     }

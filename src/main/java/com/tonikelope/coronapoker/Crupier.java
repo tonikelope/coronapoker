@@ -321,10 +321,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; // 2 players
     // Cadencia FIJA (no escala con jugadores) del reparto boca abajo de las 5
-    // comunitarias, para que las cinco vayan a la misma velocidad. Junto con
-    // force_close=true en su deal.wav evita el solape/saturación de líneas de
-    // mixer (el clip dura ~459 ms, más que cualquier cadencia escalada).
-    public static final int PAUSA_REPARTO_COMUNITARIA = 220;
+    // comunitarias, para que las cinco vayan a la misma velocidad. A 240 ms con
+    // un deal.wav de ~459 ms se solapan COMO MUCHO 2 líneas de mixer a la vez:
+    // ni saturación ni golpes caídos, y SIN force_close (que cortaría el clip
+    // anterior a mitad de muestra y reintroduce el clic que el motor de audio
+    // ya había eliminado).
+    public static final int PAUSA_REPARTO_COMUNITARIA = 240;
     public static final int CARD_ANIMATION_DELAY = 100;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
@@ -7156,11 +7158,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().checkPause();
 
             if (animacion) {
-                // force_close=true: cada golpe corta el anterior, así las líneas
-                // de mixer nunca se solapan ni saturan (el deal.wav dura más que
-                // la cadencia) y las 5 comunitarias suenan limpias y a la MISMA
-                // velocidad. Cadencia fija (no escala con jugadores).
-                Audio.playWavResource("misc/deal.wav", true);
+                // force_close=false: cada golpe se deja terminar natural (sin
+                // cortar el anterior a mitad → sin clic). La cadencia fija de
+                // PAUSA_REPARTO_COMUNITARIA mantiene el solape en ≤2 líneas, así
+                // las 5 comunitarias suenan limpias y a la MISMA velocidad sin
+                // saturar el mixer.
+                Audio.playWavResource("misc/deal.wav", false);
                 carta.iniciarCarta();
                 Helpers.pausar(PAUSA_REPARTO_COMUNITARIA);
             } else {

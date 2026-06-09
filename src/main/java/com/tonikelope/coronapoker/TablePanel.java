@@ -481,6 +481,218 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // Animación de reparto: una carta TAPADA viaja desde el centro de la mesa
+    // hasta el asiento de destino, ROTADA según el ángulo origen→destino, y
+    // describiendo un arco suave con easeOut (arranque rápido, frenada suave).
+    // Al aterrizar ejecuta onLand (que sienta la carta tapada en el asiento) y,
+    // tras un breve dwell de relevo, retira la viajera SIN hueco: la viajera
+    // muestra el MISMO dorso (Card.getBackImage) y aterriza recta y centrada
+    // sobre el asiento, así el relevo viajera→carta es pixel-idéntico.
+    //
+    // Geometría-agnóstica: lee la posición real del target en pantalla, así
+    // sirve para los 9 tableros, con zoom y HiDPI sin tocar nada. Bloquea al
+    // llamante (hilo del crupier, NUNCA EDT) hasta el aterrizaje + dwell. Si
+    // algo impide la animación (sin dorso, target fuera de pantalla, fin de
+    // transmisión) ejecuta onLand en seco y vuelve.
+    public void flyCardToSeat(final Card target, final int duration_ms, final String audio, final Runnable onLand) {
+
+        // --- Afinado de la animación (tunables) ---
+        // Offset (rad) sumado al ángulo origen→destino (0 = la carta se alinea
+        // con la dirección de viaje; +PI/2 alinea el eje largo con el trayecto).
+        final double ROT_OFFSET = 0.0;
+        // Endereza a vertical al final del viaje para encajar con la carta del
+        // asiento (que está recta) y que el relevo no tenga pop de rotación. Si
+        // se desea que aterrice girada, poner a false.
+        final boolean STRAIGHTEN_ON_LAND = true;
+
+        final ImageIcon back = Card.getBackImage();
+
+        if (target == null || back == null || back.getIconWidth() <= 0
+                || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+            if (onLand != null) {
+                Helpers.GUIRunAndWait(onLand);
+            }
+            return;
+        }
+
+        final int dw = back.getIconWidth();
+        final int dh = back.getIconHeight();
+        // Cuadrado que contiene la carta a CUALQUIER ángulo (su diagonal), para
+        // no redimensionar la viajera mientras gira.
+        final int box = (int) Math.ceil(Math.hypot(dw, dh));
+
+        final java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
+        final javax.swing.Timer[] holder = new javax.swing.Timer[1];
+        final FlyingCard[] travelerHolder = new FlyingCard[1];
+
+        Helpers.GUIRunAndWait(() -> {
+            try {
+                if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                    if (onLand != null) {
+                        onLand.run();
+                    }
+                    finished.countDown();
+                    return;
+                }
+
+                // Centros en coordenadas locales del tapete.
+                final double toCx = target.getLocationOnScreen().getX() + target.getWidth() / 2.0 - getLocationOnScreen().getX();
+                final double toCy = target.getLocationOnScreen().getY() + target.getHeight() / 2.0 - getLocationOnScreen().getY();
+                final double fromCx = getWidth() / 2.0;
+                final double fromCy = getHeight() / 2.0;
+
+                final double theta = Math.atan2(toCy - fromCy, toCx - fromCx) + ROT_OFFSET;
+
+                // Punto de control del arco: medio del trayecto desplazado
+                // perpendicular, con altura acotada.
+                final double mx = (fromCx + toCx) / 2.0, my = (fromCy + toCy) / 2.0;
+                final double vx = toCx - fromCx, vy = toCy - fromCy;
+                final double len = Math.hypot(vx, vy);
+                final double arc = Math.min(len * 0.16, dh);
+                final double nx = (len > 1) ? -vy / len : 0.0;
+                final double ny = (len > 1) ? vx / len : 0.0;
+                final double ctrlX = mx + nx * arc;
+                final double ctrlY = my + ny * arc;
+
+                if (audio != null) {
+                    Audio.playWavResource(audio, false);
+                }
+
+                final FlyingCard traveler = new FlyingCard(back.getImage(), dw, dh);
+                traveler.setSize(box, box);
+                traveler.setAngle(theta);
+                traveler.setCenter(fromCx, fromCy);
+                add(traveler, JLayeredPane.DRAG_LAYER);
+                travelerHolder[0] = traveler;
+
+                final long t0 = System.nanoTime();
+
+                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                holder[0] = player;
+
+                player.addActionListener(e -> {
+                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+                    double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
+
+                    // easeOut cuadrático para la posición.
+                    double s = 1.0 - (1.0 - u) * (1.0 - u);
+                    double is = 1.0 - s;
+                    double x = is * is * fromCx + 2 * is * s * ctrlX + s * s * toCx;
+                    double y = is * is * fromCy + 2 * is * s * ctrlY + s * s * toCy;
+
+                    // Enderezado: mantiene theta el grueso del viaje y baja a 0
+                    // al final (smoothstep 0.55→1) para aterrizar recta como el
+                    // asiento (relevo sin pop de rotación).
+                    double st = STRAIGHTEN_ON_LAND ? smoothstep(0.55, 1.0, u) : 0.0;
+                    traveler.setAngle(theta * (1.0 - st));
+                    traveler.setCenter(x, y);
+                    traveler.repaint();
+
+                    if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                        player.stop();
+                        if (onLand != null) {
+                            // Sienta la carta (refresco async); la viajera sigue
+                            // encima mostrando el mismo dorso → sin hueco.
+                            onLand.run();
+                        }
+                        finished.countDown();
+                    }
+                });
+
+                player.start();
+
+            } catch (Exception ex) {
+                // P.ej. IllegalComponentStateException si el target dejó de
+                // estar en pantalla: limpiar y sentar en seco.
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                if (travelerHolder[0] != null) {
+                    remove(travelerHolder[0]);
+                }
+                if (onLand != null) {
+                    onLand.run();
+                }
+                repaint();
+                finished.countDown();
+            }
+        });
+
+        try {
+            finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                    "deal flying card", ex);
+        }
+
+        // Dwell de relevo: la carta del asiento se pinta async bajo la viajera
+        // (mismo dorso, misma posición) y al retirarla el relevo es idéntico.
+        // No es un timeout defensivo: es el solape del relevo sin hueco.
+        Helpers.parkThreadMillis(40);
+
+        final FlyingCard traveler = travelerHolder[0];
+        Helpers.GUIRunAndWait(() -> {
+            if (traveler != null) {
+                java.awt.Rectangle b = traveler.getBounds();
+                remove(traveler);
+                repaint(b);
+            }
+        });
+
+        Helpers.GUIRun(() -> {
+            if (holder[0] != null) {
+                holder[0].stop();
+            }
+        });
+    }
+
+    // smoothstep clásico (Hermite): 0 en x≤a, 1 en x≥b, suave en medio.
+    private static double smoothstep(double a, double b, double x) {
+        double t = Math.max(0.0, Math.min(1.0, (x - a) / (b - a)));
+        return t * t * (3.0 - 2.0 * t);
+    }
+
+    // Componente efímero de la carta viajera: pinta un dorso (ya rasterizado y
+    // escalado) rotado un ángulo arbitrario sobre un lienzo cuadrado, centrado.
+    // Transparente fuera de la carta. Sin estado de Swing pesado.
+    private static final class FlyingCard extends javax.swing.JComponent {
+
+        private final java.awt.Image img;
+        private final int dw;
+        private final int dh;
+        private volatile double angle = 0.0;
+
+        FlyingCard(java.awt.Image img, int dw, int dh) {
+            this.img = img;
+            this.dw = dw;
+            this.dh = dh;
+            setOpaque(false);
+        }
+
+        void setAngle(double a) {
+            this.angle = a;
+        }
+
+        void setCenter(double cx, double cy) {
+            setLocation((int) Math.round(cx - getWidth() / 2.0), (int) Math.round(cy - getHeight() / 2.0));
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                        java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                g2.rotate(angle, w / 2.0, h / 2.0);
+                g2.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh, null);
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
     // Variante en bucle de showCentralFrames para el GIF de barajado: repite la
     // animación (centrada, con el audio re-disparado en cada ciclo y cortado en
     // audio_stop_frame, mismo contrato que addAudio(1, stop)) hasta que el

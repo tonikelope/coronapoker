@@ -8562,10 +8562,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         broadcastRitTally(0, 0, hostDialog);
 
-        // Mayoría simple: se espera a que voten todos los implicados o al timeout
-        // (no se cierra al primer NORMAL como en la unanimidad), porque un NORMAL
-        // ya no decide por sí solo.
-        while (votes.size() < totalVoters
+        // Unanimidad: run-it-twice solo si TODOS los implicados votan RIT. En
+        // cuanto alguien vota NORMAL se cierra la votación de inmediato (un solo
+        // NO basta para descartar el reparto doble) y se juega board único; no
+        // se espera a los votos que falten.
+        boolean any_normal = false;
+
+        while (votes.size() < totalVoters && !any_normal
                 && !isFin_de_la_transmision() && System.currentTimeMillis() < deadlineMs) {
 
             boolean changed = false;
@@ -8612,9 +8615,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
                 broadcastRitTally(n, r, hostDialog);
+                if (n > 0) {
+                    // Unanimidad rota: cerramos ya, sin esperar al resto.
+                    any_normal = true;
+                }
             }
 
-            if (votes.size() < totalVoters) {
+            if (!any_normal && votes.size() < totalVoters) {
                 synchronized (this.getReceived_commands()) {
                     try {
                         this.getReceived_commands().wait(200);
@@ -8626,6 +8633,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
+        // Unanimidad: RIT solo si nadie votó NORMAL y todos llegaron a votar
+        // RIT. Cualquier NORMAL, o votos que no llegaron a tiempo (timeout/caída,
+        // que cuentan como NORMAL), -> board único.
+        boolean agreed = !any_normal && votes.size() == totalVoters;
+
         int n = 0, r = 0;
         for (int v : votes.values()) {
             if (v == RunItTwiceDialog.VOTE_NORMAL) {
@@ -8634,12 +8646,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 r++;
             }
         }
-        // Los que no llegaron a votar (timeout/caída) cuentan como NORMAL.
         n += (totalVoters - votes.size());
-
-        // Mayoría simple: RIT solo si los votos RUN-IT-TWICE SUPERAN a los NORMAL.
-        // En caso de empate (o minoría) -> board único (desempate a NORMAL).
-        boolean agreed = r > n;
 
         broadcastRitTally(n, r, hostDialog);
         broadcastRitClose(agreed ? 1 : 0);

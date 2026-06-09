@@ -102,6 +102,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean utg = false;
     private volatile boolean spectator = false;
     private volatile float pagar = 0f;
+    // Línea base de 'pagar' al empezar la CARA actual del run-it-twice (0 en
+    // CARA-A, el total de CARA-A al entrar en CARA-B). El dinero ganado en la
+    // cara es 'pagar - pagar_face_base', derivado de la única contabilidad real
+    // (pagar), así que no puede desincronizarse. Fuera de RIT no se usa.
+    private volatile float pagar_face_base = 0f;
     private volatile float bote = 0f;
     private volatile Float last_bote = null;
     private volatile boolean exit = false;
@@ -554,7 +559,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void refreshSecPotLabel() {
 
-        if (Helpers.float1DSecureCompare(0f, pagar) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
+        // En run-it-twice la franja es POR CARA: cada cara reparte la MITAD del
+        // bote, así que muestra el dinero ganado en ELLA (pagar - pagar_face_base)
+        // y el beneficio contra la mitad del bote. Fuera de RIT (tag null) →
+        // pagar y bote enteros, como siempre.
+        final boolean is_rit = GameFrame.getInstance().getCrupier().getRitPotBoardTag() != null;
+
+        final float fullbote = last_bote != null ? last_bote : bote;
+
+        final float mibote = is_rit ? Crupier.splitPotForRunItTwice(fullbote)[0] : fullbote;
+
+        final float dinero = is_rit ? Helpers.floatClean(pagar - pagar_face_base) : pagar;
+
+        if (Helpers.float1DSecureCompare(0f, dinero) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
 
             Helpers.GUIRun(() -> {
                 sec_pot_win_label.setBackground(Color.BLACK);
@@ -579,9 +596,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     botes[i++] = "#" + String.valueOf(b);
                 }
 
-                float mibote = last_bote != null ? last_bote : bote;
-
-                sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.float2String(pagar) + " (" + Helpers.float2String(pagar - mibote) + ")");
+                sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.float2String(dinero) + " (" + Helpers.float2String(dinero - mibote) + ")");
 
                 sec_pot_win_label.setVisible(true);
             });
@@ -1049,6 +1064,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.loser = false;
         // Limpia la franja de side pots de SIDE-A (se recalcula en SIDE-B).
         this.botes_secundarios.clear();
+        // Línea base de CARA-B = lo acumulado en CARA-A: la franja de CARA-B
+        // muestra 'pagar - base', es decir SOLO lo que se gane en CARA-B (pagar
+        // sigue acumulando ambas caras para la contabilidad).
+        this.pagar_face_base = this.pagar;
         // Re-enfoca las hole cards: el showdown de SIDE-A atenúa las de los
         // perdedores; en SIDE-B deben volver a verse brillantes (se reevalúan).
         Helpers.GUIRun(() -> {
@@ -2267,6 +2286,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.notify_blocked = false;
 
         this.botes_secundarios.clear();
+
+        this.pagar_face_base = 0f;
 
         this.winner = false;
 

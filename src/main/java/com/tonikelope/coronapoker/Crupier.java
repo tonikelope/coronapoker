@@ -320,6 +320,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; // 2 players
+    // Cadencia FIJA (no escala con jugadores) del reparto boca abajo de las 5
+    // comunitarias, para que las cinco vayan a la misma velocidad. Junto con
+    // force_close=true en su deal.wav evita el solape/saturación de líneas de
+    // mixer (el clip dura ~459 ms, más que cualquier cadencia escalada).
+    public static final int PAUSA_REPARTO_COMUNITARIA = 220;
     public static final int CARD_ANIMATION_DELAY = 100;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
@@ -7151,11 +7156,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().checkPause();
 
             if (animacion) {
-                Audio.playWavResource("misc/deal.wav", false);
+                // force_close=true: cada golpe corta el anterior, así las líneas
+                // de mixer nunca se solapan ni saturan (el deal.wav dura más que
+                // la cadencia) y las 5 comunitarias suenan limpias y a la MISMA
+                // velocidad. Cadencia fija (no escala con jugadores).
+                Audio.playWavResource("misc/deal.wav", true);
                 carta.iniciarCarta();
+                Helpers.pausar(PAUSA_REPARTO_COMUNITARIA);
+            } else {
+                Helpers.pausar(pausa);
             }
-
-            Helpers.pausar(pausa);
         }
 
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();

@@ -504,6 +504,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         // asiento (que está recta) y que el relevo no tenga pop de rotación. Si
         // se desea que aterrice girada, poner a false.
         final boolean STRAIGHTEN_ON_LAND = true;
+        // Velocidad constante: la duración se deriva de la distancia recorrida,
+        // medida en ALTURAS DE CARTA (invariante al zoom), así todas las cartas
+        // viajan a la misma velocidad visual sin importar el asiento (parece que
+        // el crupier las tira todas con la misma fuerza). Con false se usa
+        // duration_ms (duración fija por carta, comportamiento anterior).
+        final boolean CONSTANT_SPEED = true;
+        final double MS_PER_CARDHEIGHT = 120.0; // ms por cada altura-de-carta de distancia
+        final int SPEED_MIN_MS = 120;
+        final int SPEED_MAX_MS = 320;
 
         final ImageIcon back = Card.getBackImage();
 
@@ -554,6 +563,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 final double ctrlX = mx + nx * arc;
                 final double ctrlY = my + ny * arc;
 
+                // Duración efectiva: con velocidad constante, proporcional a la
+                // distancia en alturas-de-carta (acotada); si no, la pasada.
+                final int eff_dur = CONSTANT_SPEED
+                        ? (int) Math.round(Math.max(SPEED_MIN_MS,
+                                Math.min(SPEED_MAX_MS, (len / dh) * MS_PER_CARDHEIGHT)))
+                        : duration_ms;
+
                 if (audio != null) {
                     Audio.playWavResource(audio, false);
                 }
@@ -572,7 +588,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                 player.addActionListener(e -> {
                     long elapsed = (System.nanoTime() - t0) / 1_000_000L;
-                    double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
+                    double u = Math.min(1.0, (double) elapsed / Math.max(1, eff_dur));
 
                     // easeOut cuadrático para la posición.
                     double s = 1.0 - (1.0 - u) * (1.0 - u);

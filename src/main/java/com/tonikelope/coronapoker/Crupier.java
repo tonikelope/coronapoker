@@ -7205,25 +7205,55 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // mesa) de "peer lento que aun no termino" (benigno, solo evidencia forense). Tambien va firmado.
     private static final int RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF = 2;
 
-    private void requestShowdownKeys(ArrayList<Player> inShowdown) {
-        // Consensus: trigger barrier + receipt exchange + unanimous
-        // consensus check. Synchronous on both host and client so the disputed_hands
-        // row, popup and JUL log are all in place before the payout code that follows
-        // this call begins. The outcome is signaletic only — §6.3/§6.4 mandate the
-        // hand always settles.
+    /**
+     * Consensus barrier — runs BEFORE the payout, once per hand in each showdown
+     * branch. The host fires the bare {@code HANDVERIFY} trigger and every client
+     * waits for it. This is also the sole point where a late MISDEAL aborts the
+     * hand cleanly, before any chip moves: {@code waitForHandverifyTrigger} runs
+     * {@code cancelarManoYDevolverApuestas} (which sets {@code mano_anulada} and
+     * {@code fin_de_la_transmision}), so the downstream settlement short-circuits
+     * and {@link #runSettlementConsensus} is skipped under its {@code !mano_anulada}
+     * gate — exactly the swallow-the-bail behaviour of the old single function.
+     *
+     * <p>The receipt exchange used to live here too; it now runs AFTER settlement
+     * (see {@link #runSettlementConsensus}) so the receipt's {@code H_final}
+     * commits the payout as well — the single-consensus design documented in
+     * {@code docs/audit/settlement-digest-design.md}.
+     */
+    private void awaitHandverifyBarrier() {
         try {
             if (GameFrame.getInstance().isPartida_local()) {
                 // HOST: fire the trigger (sync, confirmed) so every connected client wakes
                 // up its own consensus phase before we start emitting receipts.
                 broadcastGAMECommandFromServer("HANDVERIFY", null, true);
             } else {
-                if (!waitForHandverifyTrigger()) {
-                    // MISDEAL was received and cancelarManoYDevolverApuestas ran. Bail —
-                    // no consensus phase on cancelled hands.
-                    return;
-                }
+                // Client waits for the trigger. A MISDEAL polled here cancels the hand
+                // inside waitForHandverifyTrigger (sets mano_anulada + fin_de_la_transmision);
+                // we just return and the gated settlement-consensus never runs.
+                waitForHandverifyTrigger();
             }
+        } catch (RuntimeException ex) {
+            LOGGER.log(Level.SEVERE, "awaitHandverifyBarrier failed", ex);
+        }
+    }
 
+    /**
+     * Consensus — runs AFTER the payout, once per hand at hand close. Absorbs this
+     * peer's independently-computed {@link SettlementRecord} table (who put in how
+     * much, who was paid how much, plus the odd-chip remainder) into the chain as
+     * the terminal record, so {@code H_final} commits the money movement — not just
+     * the actions and board — then builds, exchanges and cross-checks the closing
+     * receipt over that {@code H_final}. Two peers that computed a different payout
+     * from the same verified inputs diverge on {@code H_final} and
+     * {@link #runConsensusCheck} reports it.
+     *
+     * <p>Called under {@code !mano_anulada} and BEFORE {@code resetBote()} purges
+     * the per-hand contributions, so {@code getBote()/getPagar()} are final. Hands
+     * without a chain (legacy interop / chain init failure) skip silently. The
+     * outcome is signaletic only — the hand always settles.
+     */
+    private void runSettlementConsensus() {
+        try {
             // Snapshot the hand state. Even if a follow-up readyForNextHand resets the
             // chain or generates a new HAND_ID, we keep working with the values that
             // existed at hand-close. Hands that never built a chain (legacy interop or
@@ -7232,6 +7262,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (chainSnap == null) {
                 return;
             }
+
+            // Absorb this peer's settlement table as the chain's terminal record, fixing
+            // H_final to also commit the payout. Every peer runs the same deterministic
+            // settlement, so honest peers converge; a divergent payout diverges H_final.
+            // Defensive: never absorb twice for the same hand.
+            if (!chainSnap.isSettlementAbsorbed()) {
+                java.util.List<SettlementRecord.Entry> entries = collectSettlementEntries();
+                if (entries.isEmpty()) {
+                    return;
+                }
+                long sobranteCents = CanonicalActionRecord.amountToCents(
+                        Math.max(0f, Helpers.floatClean(this.bote_sobrante)));
+                byte[] table = SettlementRecord.encode(chainSnap.getHandId(), entries, sobranteCents);
+                chainSnap.absorbSettlement(table);
+            }
+
             final byte[] handIdSnap = chainSnap.getHandId();
             final byte[] hFinalSnap = chainSnap.getCurrentHash();
 
@@ -7318,7 +7364,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (misdealAbort) {
-                    cancelarManoYDevolverApuestas(misdealMotivo, false);
+                    // Post-payout: this consensus runs AFTER the chips moved, so a MISDEAL
+                    // here is anomalous — the barrier (awaitHandverifyBarrier) already
+                    // committed to closing the hand, and §8.2 uses FORFEIT, never MISDEAL,
+                    // at showdown. Refunding now would double-pay (bote returns to the stack
+                    // without clawing back the pagar). We therefore do NOT cancel: log loudly
+                    // and stop the attestation; the hand stays settled.
+                    LOGGER.log(Level.SEVERE,
+                            "Unexpected MISDEAL during post-payout settlement consensus (motivo={0}) — ignored, hand already settled",
+                            misdealMotivo);
                     return;
                 }
 
@@ -7353,8 +7407,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             expected = computeExpectedConsensusSigners();
             runConsensusCheck(receipts, expected, handIdSnap, hFinalSnap);
         } catch (RuntimeException ex) {
-            LOGGER.log(Level.SEVERE, "requestShowdownKeys failed", ex);
+            LOGGER.log(Level.SEVERE, "runSettlementConsensus failed", ex);
         }
+    }
+
+    /**
+     * Builds this peer's settlement-table entries from the final per-player
+     * accounting at hand close — one {@link SettlementRecord.Entry} per
+     * participant that contributed to the pot or was paid from it, using
+     * canonical player ids and integer cents (host-independent). MUST be called
+     * before {@code resetBote()} purges the per-hand contributions. Players who
+     * neither contributed nor were paid are skipped. Bots are included under
+     * their own nick; the host signs the receipt that commits the whole table.
+     *
+     * <p>{@code getBote()} (total invested across all streets) and
+     * {@code getPagar()} (chips awarded) are both non-negative; the conversion to
+     * cents goes through {@link CanonicalActionRecord#amountToCents(float)} so
+     * every peer derives byte-identical amounts from the same float arithmetic.
+     */
+    private java.util.List<SettlementRecord.Entry> collectSettlementEntries() {
+        java.util.List<SettlementRecord.Entry> entries = new java.util.ArrayList<>();
+        for (Player jugador : GameFrame.getInstance().getJugadores()) {
+            if (jugador == null) {
+                continue;
+            }
+            long boteCents = CanonicalActionRecord.amountToCents(
+                    Math.max(0f, Helpers.floatClean(jugador.getBote())));
+            long pagarCents = CanonicalActionRecord.amountToCents(
+                    Math.max(0f, Helpers.floatClean(jugador.getPagar())));
+            if (boteCents == 0L && pagarCents == 0L) {
+                continue;
+            }
+            byte[] pid = CanonicalActionRecord.playerIdFromNick(jugador.getNickname());
+            entries.add(new SettlementRecord.Entry(pid, boteCents, pagarCents));
+        }
+        return entries;
     }
 
     /**
@@ -8906,7 +8993,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // (el board final en pantalla) para la cola común (actualizarCartasPerdedores).
     private void resolverRunItTwiceShowdown(ArrayList<Player> resisten) {
         // Cartas ya reveladas en el all-in; mirror del showdown normal (idempotente).
-        requestShowdownKeys(resisten);
+        awaitHandverifyBarrier();
         procesarCartasResistencia(resisten, false);
 
         // conta_win: snapshot para corregir el doble incremento de showdown().
@@ -14089,7 +14176,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             switch (resisten.size()) {
                                 case 0:
                                     // Math yes, GUI no.
-                                    requestShowdownKeys(new ArrayList<Player>());
+                                    awaitHandverifyBarrier();
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
                                     GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + " " + Helpers.float2String(this.bote.getTotal() + this.bote_sobrante) + " " + Translator.translate("action.sin_tener_que_mostrar"));
@@ -14107,7 +14194,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                     break;
                                 case 1:
-                                    requestShowdownKeys(new ArrayList<Player>());
+                                    awaitHandverifyBarrier();
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
                                     resisten.get(0).setWinner(resisten.contains(GameFrame.getInstance().getLocalPlayer()) ? Translator.translate("ui.ganas_3") : Translator.translate("ui.gana_3"));
@@ -14140,7 +14227,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     break;
                                 default:
                                     // Everyone shows their cards and GUI updates
-                                    requestShowdownKeys(resisten);
+                                    awaitHandverifyBarrier();
                                     procesarCartasResistencia(resisten, false);
                                     if (!this.destapar_resistencia) {
                                         Helpers.pausar(Crupier.PAUSA_ANTES_DE_SHOWDOWN * 1000);
@@ -14320,6 +14407,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // anulada es el de la mano anterior (el refund
                             // íntegro restaura los stacks pre-mano).
                             if (!this.mano_anulada) {
+                                // Settlement attestation: absorb who-won-how-much into H_final and
+                                // run the closing receipt consensus over it. Here getBote()/getPagar()
+                                // are final (the payout above is done) and not yet purged by the
+                                // resetBote() loop below, and the hand was not voided. Once per hand,
+                                // common to every branch (showdown, fold, run-it-twice).
+                                runSettlementConsensus();
                                 sqlUpdateHandEnd(sql_bote_total);
                             }
 

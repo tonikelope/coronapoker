@@ -16,6 +16,7 @@ This layer addresses vectors that the raw mental-poker cascade alone cannot dete
 |---|---|
 | Hostile host substituting another player's identity | Ed25519 long-term keys + silent TOFU pinning + optional OOB fingerprint comparison via identicons |
 | Hostile host rewriting hand history (action injection, reordering) | Per-action Ed25519 signatures + `H_t` hash chain with `PREV_H` binding |
+| Hostile host or peer reporting a false pot payout | Each peer recomputes the hand's settlement independently and binds it into `H_final` as a terminal record (§5.3); a divergent payout diverges the signed receipt |
 | Network MITM on the ECDH handshake | `Helpers.deriveChannelSecret` (HMAC-SHA512 binding with the shared password) + session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Cross-recipient board fork (host announces different community cards to different peers) | Per-recipient encrypted community pieces decoded locally, cross-checked against a host-signed `ACTION_COMMUNITY` reveal absorbed into every peer's `H_t` |
 | Post-game disputes about what actions occurred | Final receipts signed with Ed25519 identity keys, archivable as evidence |
@@ -277,6 +278,29 @@ The signature is included so that verifying `H_final` implicitly verifies that e
 
 Intermediate `H_t` values are **not** broadcast in production; the chain is verified only at hand close, via receipts (§6). A development-only assertion mode can broadcast and compare intermediate `H_t` across peers, but it is never enabled in release builds (broadcasting intermediate values would correlate chain state with public actions).
 
+### 5.3 Terminal settlement record
+
+After the last action and community-card reveal, the chain absorbs one terminal record committing the hand's **settlement** — the money movement, not just the actions and board. Every peer computes it locally from inputs it has already verified (the showdown cards resolved to genesis, the bets committed in `H_t`), so honest peers produce byte-identical tables and a peer reporting a different payout diverges on `H_final`.
+
+Layout ([`SettlementRecord.java`](../src/main/java/com/tonikelope/coronapoker/SettlementRecord.java), big-endian, no padding):
+
+```
+HAND_ID(16) || N(uint8)
+  || per participant, sorted ascending by PLAYER_ID:
+       PLAYER_ID(32) || bote_cents(int64) || pagar_cents(int64)
+  || sobrante_cents(int64)        // odd-chip remainder, credited to no player
+```
+
+`bote_cents` is the player's total contribution to the pot, `pagar_cents` the chips it was paid, `sobrante_cents` the table-level odd-chip remainder. Amounts are integer cents at chip precision (host-independent); participants are sorted by `PLAYER_ID` so map iteration order does not affect the bytes, and only those with a non-zero contribution or payout are listed.
+
+Absorb (a distinct domain separator keeps a settlement table from ever being parsed as an action record):
+
+```
+H_final = SHA-256("SETTLE\0" || H_t || settlement_table)
+```
+
+The record carries no per-actor signature: it rides the closing receipt, whose `"RECEIPT"` signature already covers `H_final` (§6), and it adds no wire message — the absorb is local, attested by the existing receipt exchange. Cross-platform reproducibility relies on the same rules as §4.2 (cents at chip precision, big-endian, canonical `PLAYER_ID`).
+
 ---
 
 ## 6. Receipt and consensus
@@ -300,6 +324,7 @@ receipt = HAND_ID(16) || H_final(32) || flags(1) || sig(64)        = 113 bytes
 sig = Ed25519.sign(my_privkey, "RECEIPT\0" || HAND_ID || H_final || flags)
 ```
 
+- `H_final` is the chain value after the terminal settlement absorb (§5.3), so a matching receipt attests agreement on the pot payout as well as the action history and board.
 - `flags.bit0` (`RECEIPT_FLAG_BIT_INVALID_SIG_SEEN`) is set when the issuer observed at least one invalid Ed25519 action signature during the hand.
 - `flags.bit1` (`RECEIPT_FLAG_BIT_DECK_UNVERIFIED`) is set when the issuer could not confirm the honest-shuffle proof (`DUALLOCK_BUNDLE`) for this hand's deck.
 - `flags.bit2` (`RECEIPT_FLAG_BIT_NO_SHUFFLE_PROOF`) qualifies bit1: set only when a proof was expected (fresh deal) and none arrived — host withholding, as opposed to a slow local verifier. See [`SECURITY.md`](SECURITY.md) §6 for the full bit1/bit2 policy.

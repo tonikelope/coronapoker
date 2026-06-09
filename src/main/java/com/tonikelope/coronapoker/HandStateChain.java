@@ -75,17 +75,27 @@ public final class HandStateChain {
      */
     public static final byte[] DOMAIN_HAND = "HAND\0".getBytes(StandardCharsets.UTF_8);
 
+    /**
+     * Domain separator for the terminal settlement record (§ end-of-hand). Kept
+     * distinct from {@link #DOMAIN_HAND} and from any action-record bytes so a
+     * settlement table can never be confused with — or replayed as — an action
+     * absorb. The terminator NUL guards against prefix collisions.
+     */
+    public static final byte[] DOMAIN_SETTLE = "SETTLE\0".getBytes(StandardCharsets.UTF_8);
+
     /** Length in bytes of {@code H_t}. */
     public static final int HASH_BYTES = 32;
 
     private final byte[] handId;
     private byte[] currentHash;
     private int absorbedActions;
+    private boolean settlementAbsorbed;
 
     private HandStateChain(byte[] handId, byte[] h0) {
         this.handId = handId.clone();
         this.currentHash = h0;
         this.absorbedActions = 0;
+        this.settlementAbsorbed = false;
     }
 
     /**
@@ -236,6 +246,51 @@ public final class HandStateChain {
         System.arraycopy(sig, 0, preimage, record.length, sig.length);
         this.currentHash = sha256(preimage);
         this.absorbedActions++;
+        return getCurrentHash();
+    }
+
+    /** Whether the terminal settlement record has already been absorbed. */
+    public boolean isSettlementAbsorbed() {
+        return settlementAbsorbed;
+    }
+
+    /**
+     * Absorbs the terminal settlement table (who contributed and who was paid)
+     * into the chain, fixing {@code H_final} to also commit the money movement —
+     * not just the actions and board. Unlike {@link #absorb(byte[], byte[])} this
+     * is not an action record and carries no per-actor signature: every peer
+     * computes the same {@link SettlementRecord} table independently from already
+     * verified inputs, absorbs it here, and the closing receipt (signed over
+     * {@code H_final}) is what attests it. Two peers that disagree on the payout
+     * therefore diverge on {@code H_final} and the consensus check catches it.
+     *
+     * <p>Ratchet: {@code H_final = SHA-256(DOMAIN_SETTLE || H_t || settlementTable)}.
+     * Binding the current {@code H_t} chains the settlement to the exact action
+     * history; the distinct domain prevents any cross-interpretation with an
+     * action absorb.
+     *
+     * <p>Terminal and idempotent-guarded: calling it twice on the same chain is a
+     * programming error (a hand settles once) and throws.
+     *
+     * @param settlementTable canonical bytes from {@link SettlementRecord#encode}
+     * @return the new {@code H_final} (defensive copy)
+     */
+    public byte[] absorbSettlement(byte[] settlementTable) {
+        if (settlementTable == null || settlementTable.length == 0) {
+            throw new IllegalArgumentException("settlementTable required");
+        }
+        if (settlementAbsorbed) {
+            throw new IllegalStateException("settlement already absorbed for this hand");
+        }
+        byte[] preimage = new byte[DOMAIN_SETTLE.length + HASH_BYTES + settlementTable.length];
+        int p = 0;
+        System.arraycopy(DOMAIN_SETTLE, 0, preimage, p, DOMAIN_SETTLE.length);
+        p += DOMAIN_SETTLE.length;
+        System.arraycopy(currentHash, 0, preimage, p, HASH_BYTES);
+        p += HASH_BYTES;
+        System.arraycopy(settlementTable, 0, preimage, p, settlementTable.length);
+        this.currentHash = sha256(preimage);
+        this.settlementAbsorbed = true;
         return getCurrentHash();
     }
 

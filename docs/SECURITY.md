@@ -12,6 +12,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 | Hostile host trying to peek at community cards before their street | Yes | Same verifiable-dealing chain applied to the community deal + GATE-6 genesis check; the street gate only opens in lockstep with local betting (§2.5, §8) |
 | Hostile host **smuggling** a card (duplicate, or relocate a pocket into the community half) to read it | Closed | The shuffle and rotation are proven honest with a zero-knowledge **verifiable shuffle** (§2.6), broadcast and verified **independently by every peer** against its own deck; a smuggle is a non-permutation that no proof can pass. Anti-replay on the rotation and the real-time de-lock guards (§2.5) remain as the inner layer |
 | Hostile host or peer rewriting hand history | Yes | Per-action Ed25519 signatures + `H_t` ratchet committed by every peer in a signed receipt |
+| Hostile host or peer reporting a false pot payout | Yes | Every peer recomputes the hand's settlement independently and binds it into `H_final` as a terminal record; a divergent payout diverges the signed receipt (§5.4) |
 | Network MITM on the ECDH handshake | Yes (with password) | HMAC-SHA512 binding of the shared secret to a table password; session-key identicon for OOB compare (waiting room, right-click your own nick) |
 | Replay or tampering of game commands on the wire | Yes | AES-256-CBC with per-command IV + HMAC-SHA256 over `IV \|\| ciphertext` |
 | Java deserialization gadgets via RECOVERDATA | Yes | Strict `ObjectInputFilter` whitelist (HashMap / String / numeric boxes only, 10 MB cap, depth 20) |
@@ -206,6 +207,21 @@ Signatures land **inside** the ratchet: tampering with a record OR with the sign
 
 The same record format covers community-card reveals (`ACTION_COMMUNITY`). The host signs the announcement; every recipient verifies and absorbs. Without this, a hostile host could announce a different flop to different peers and leave no chain-level evidence — with this, the announcement is part of `H_t`, so the divergence becomes observable in the receipt.
 
+### 5.4 Terminal settlement record
+
+After the last action and community reveal, each peer folds the hand's **settlement** into the chain as a terminal record: the per-player amounts contributed to the pot and paid from it, plus the odd-chip remainder. Every peer computes the settlement independently from the same inputs — the showdown cards it verified against genesis and the bets already committed in the chain — so honest peers produce the same table, and a peer that reports a different payout diverges on `H_final`.
+
+```
+settlement = HAND_ID(16) || N(uint8)
+             || per participant, sorted by PLAYER_ID:
+                  PLAYER_ID(32) || bote_cents(int64 BE) || pagar_cents(int64 BE)
+             || sobrante_cents(int64 BE)        // odd-chip remainder, credited to no player
+
+H_final = SHA-256("SETTLE\0" || H_t || settlement)
+```
+
+Amounts are integer cents (chip precision, host-independent) and participants are sorted by `PLAYER_ID`, so map iteration order never changes the bytes ([`SettlementRecord.java`](../src/main/java/com/tonikelope/coronapoker/SettlementRecord.java) is the single source of truth for the layout). The record carries no separate signature — it rides the closing receipt, whose Ed25519 signature already covers `H_final`, and no extra wire message is involved: the settlement is a local absorb attested by the same receipt exchange (§6).
+
 ---
 
 ## 6. Receipts & consensus
@@ -218,7 +234,7 @@ HAND_ID(16) || H_final(32) || flags(1) || sig(64)   =  113 bytes
 
 Where:
 
-- `H_final` is the final value of the `H_t` ratchet.
+- `H_final` is the final value of the `H_t` ratchet, closing over the terminal settlement record (§5.4) after the last action and community reveal — so a matching `H_final` attests agreement on the pot payout as well as the action history and board.
 - `flags.bit0` is set if the peer observed any invalid Ed25519 signature during the hand.
 - `flags.bit1` is set if the peer could **not** confirm the honest-shuffle proof (`DUALLOCK_BUNDLE`, §2.6) for this hand's deck. This binds the verifiable-shuffle verdict into the signed record, so the receipt attests deck honesty — not just action agreement. A peer sets the bit verified when it checks the bundle (client), when its background full-chain self-verify passes (host), or when it restores a hand on recover (the deck was verified pre-crash and the fossil is the peer's own). Otherwise the bit stays unverified.
 - `flags.bit2` **qualifies** bit1: it is set only when the peer expected a proof (a fresh deal, not a recover) and **no** `DUALLOCK_BUNDLE` ever arrived for this deck. It distinguishes a host that **withholds** the proof (bit1+bit2 — suspicious, even if only some peers are starved) from a **slow peer** whose bundle did arrive but whose verification queue has not finished yet (bit1 only — benign, self-correcting). The reception marker is set when the command arrives, before parsing, so an extremely slow verifier never trips bit2.

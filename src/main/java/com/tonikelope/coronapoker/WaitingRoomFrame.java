@@ -5374,6 +5374,7 @@ public class WaitingRoomFrame extends JFrame {
     private void promptAndSetNewPassword() {
         javax.swing.JPasswordField field = new javax.swing.JPasswordField(20);
         Helpers.attachPasswordStrengthHint(field);
+        Helpers.attachPasswordRevealButton(field);
         javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.BorderLayout(0, 6));
         panel.add(new javax.swing.JLabel(Translator.translate("auth.input_nueva_password")),
                 java.awt.BorderLayout.NORTH);

@@ -509,7 +509,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         // viajan a la misma velocidad visual sin importar el asiento (parece que
         // el crupier las tira todas con la misma fuerza). Con false se usa
         // duration_ms (duración fija por carta, comportamiento anterior).
-        final boolean CONSTANT_SPEED = true;
+        final boolean CONSTANT_SPEED = false;
         final double MS_PER_CARDHEIGHT = 120.0; // ms por cada altura-de-carta de distancia
         final int SPEED_MIN_MS = 120;
         final int SPEED_MAX_MS = 320;

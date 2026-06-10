@@ -889,14 +889,51 @@ public class Audio {
 
             float volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
 
+            // true once the line opened (played, finished or played silent); false
+            // ONLY when the output line could not be opened at all.
+            boolean line_opened;
+
             try {
 
-                TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
+                line_opened = TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
 
             } catch (Exception ex) {
+                // Decode/stream error: not a line-open failure, retrying would not help
+                line_opened = true;
                 Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message playback error: {0}", ex.getMessage());
             } finally {
                 TTS_PLAYER = null;
+            }
+
+            // The output line can fail to open for an instant when the record/duck
+            // volume churn (mute on F9, unmute on release, duck again on playback)
+            // leaves the device momentarily busy: the note would be dropped silently
+            // (the talk icon shows but nothing plays). One retry after a short settle
+            // recovers it; if it still fails the note stays clickable in the chat.
+            // The happy path never enters here, so playback that already works is
+            // byte-for-byte unchanged.
+            if (!line_opened) {
+
+                float retry_volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
+
+                // Skip the retry only if it would be silent anyway (sound off, or a
+                // fresh recording reopened the mic): nothing to recover then.
+                if (retry_volume > 0f) {
+
+                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Voice message output line unavailable, retrying once");
+
+                    Helpers.parkThreadMillis(150);
+
+                    TTS_PLAYER = new CoronaMP3FilePlayer();
+
+                    try {
+                        TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), retry_volume);
+                    } catch (Exception ex) {
+                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message retry playback error: {0}", ex.getMessage());
+                    } finally {
+                        TTS_PLAYER = null;
+                    }
+                }
             }
 
             unmuteAll();

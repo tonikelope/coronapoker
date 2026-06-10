@@ -320,13 +320,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int RIVER = 4;
     public static final int SHOWDOWN = 5;
     public static final int REPARTIR_PAUSA = 250; // 2 players
-    // Cadencia FIJA (no escala con jugadores) del reparto boca abajo de las 5
-    // comunitarias, para que las cinco vayan a la misma velocidad. A 240 ms con
-    // un deal.wav de ~459 ms se solapan COMO MUCHO 2 líneas de mixer a la vez:
-    // ni saturación ni golpes caídos, y SIN force_close (que cortaría el clip
-    // anterior a mitad de muestra y reintroduce el clic que el motor de audio
-    // ya había eliminado).
-    public static final int PAUSA_REPARTO_COMUNITARIA = 240;
     public static final int CARD_ANIMATION_DELAY = 100;
     // Confirmación diagnóstica (una vez por sesión) de qué motor reproduce los giros de carta
     private static volatile boolean PRE_RENDERED_ENGINE_LOGGED = false;
@@ -2301,6 +2294,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public String getDealer_nick() {
         return dealer_nick;
+    }
+
+    // Carta-ancla del asiento del dealer: origen del vuelo de reparto (las
+    // cartas salen de las manos del dealer hacia el resto de asientos y las
+    // posiciones comunitarias). Devuelve su primera hole card como punto fijo,
+    // o null si el dealer no se puede resolver (el vuelo parte entonces del
+    // centro de la mesa).
+    private Card getDealerSeatAnchor() {
+        if (this.dealer_nick == null) {
+            return null;
+        }
+        for (Player p : GameFrame.getInstance().getJugadores()) {
+            if (this.dealer_nick.equals(p.getNickname())) {
+                return p.getHoleCard1();
+            }
+        }
+        return null;
     }
 
     public String getBb_nick() {
@@ -7071,6 +7081,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
+        // Asiento del dealer: ancla de origen del vuelo de reparto.
+        final Card deal_origin = getDealerSeatAnchor();
+
         int j, pivote = (i + 1) % GameFrame.getInstance().getJugadores().size();
 
         j = pivote;
@@ -7085,7 +7098,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final Card hc1 = jugador.getHoleCard1();
                 final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
 
-                // La carta tapada vuela del centro al asiento; al aterrizar la
+                // La carta tapada vuela del dealer al asiento; al aterrizar la
                 // sienta (deal.wav lo dispara el propio vuelo al lanzar). Para
                 // el jugador local, además, revela su valor real (que ya se
                 // extrajo de la bóveda C).
@@ -7096,7 +7109,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         : () -> hc1.iniciarCarta();
 
-                GameFrame.getInstance().getTapete().flyCardToSeat(hc1, flight_dur, "misc/deal.wav", seat);
+                GameFrame.getInstance().getTapete().flyCardToSeat(hc1, deal_origin, flight_dur, "misc/deal.wav", seat);
 
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -7133,7 +7146,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         : () -> hc2.iniciarCarta();
 
-                GameFrame.getInstance().getTapete().flyCardToSeat(hc2, flight_dur, "misc/deal.wav", seat);
+                GameFrame.getInstance().getTapete().flyCardToSeat(hc2, deal_origin, flight_dur, "misc/deal.wav", seat);
 
             } else if (jugador.isActivo() && jugador == GameFrame.getInstance().getLocalPlayer()) {
 
@@ -7158,14 +7171,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().checkPause();
 
             if (animacion) {
-                // force_close=false: cada golpe se deja terminar natural (sin
-                // cortar el anterior a mitad → sin clic). La cadencia fija de
-                // PAUSA_REPARTO_COMUNITARIA mantiene el solape en ≤2 líneas, así
-                // las 5 comunitarias suenan limpias y a la MISMA velocidad sin
-                // saturar el mixer.
-                Audio.playWavResource("misc/deal.wav", false);
-                carta.iniciarCarta();
-                Helpers.pausar(PAUSA_REPARTO_COMUNITARIA);
+                // Cada comunitaria vuela tapada desde el dealer a su posición y
+                // se sienta al aterrizar (misma mecánica/velocidad que las hole
+                // cards). El vuelo es bloqueante, así que consume el tiempo entre
+                // cartas y dispara deal.wav al lanzar.
+                final Card cc = carta;
+                GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, "misc/deal.wav", () -> cc.iniciarCarta());
             } else {
                 Helpers.pausar(pausa);
             }
@@ -8981,16 +8992,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         // Re-reparto animado: un beat con el hueco vacío para que el rewind se
-        // lea, y cada corrida vuelve boca abajo con la cadencia de repartir().
+        // lea, y cada corrida vuelve boca abajo VOLANDO desde el dealer (mismo
+        // sistema/velocidad que repartir()).
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
+        int flight_dur = Math.max(150, pausa);
+        final Card deal_origin = getDealerSeatAnchor();
 
         Helpers.pausar(pausa);
 
         for (Card carta : corridas) {
             GameFrame.getInstance().checkPause();
-            Audio.playWavResource("misc/deal.wav", false);
-            carta.iniciarCarta();
-            Helpers.pausar(pausa);
+            final Card cc = carta;
+            GameFrame.getInstance().getTapete().flyCardToSeat(cc, deal_origin, flight_dur, "misc/deal.wav", () -> cc.iniciarCarta());
         }
     }
 

@@ -481,20 +481,21 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
-    // Animación de reparto: una carta TAPADA viaja desde el centro de la mesa
-    // hasta el asiento de destino, ROTADA según el ángulo origen→destino, y
-    // describiendo un arco suave con easeOut (arranque rápido, frenada suave).
+    // Animación de reparto: una carta TAPADA viaja desde el asiento del DEALER
+    // de la mano (carta-ancla origin) hasta el destino, ROTADA según el ángulo
+    // origen→destino, y describiendo un arco suave con easeOut (arranque rápido,
+    // frenada suave). Si origin es null parte del centro de la mesa (retrocompat).
     // Al aterrizar ejecuta onLand (que sienta la carta tapada en el asiento) y,
     // tras un breve dwell de relevo, retira la viajera SIN hueco: la viajera
     // muestra el MISMO dorso (Card.getBackImage) y aterriza recta y centrada
     // sobre el asiento, así el relevo viajera→carta es pixel-idéntico.
     //
-    // Geometría-agnóstica: lee la posición real del target en pantalla, así
-    // sirve para los 9 tableros, con zoom y HiDPI sin tocar nada. Bloquea al
-    // llamante (hilo del crupier, NUNCA EDT) hasta el aterrizaje + dwell. Si
-    // algo impide la animación (sin dorso, target fuera de pantalla, fin de
-    // transmisión) ejecuta onLand en seco y vuelve.
-    public void flyCardToSeat(final Card target, final int duration_ms, final String audio, final Runnable onLand) {
+    // Geometría-agnóstica: lee la posición real de target (y de origin) en
+    // pantalla, así sirve para los 9 tableros, con zoom y HiDPI sin tocar nada.
+    // Bloquea al llamante (hilo del crupier, NUNCA EDT) hasta el aterrizaje +
+    // dwell. Si algo impide la animación (sin dorso, target fuera de pantalla,
+    // fin de transmisión) ejecuta onLand en seco y vuelve.
+    public void flyCardToSeat(final Card target, final Card origin, final int duration_ms, final String audio, final Runnable onLand) {
 
         // --- Afinado de la animación (tunables) ---
         // Offset (rad) sumado al ángulo origen→destino (0 = la carta se alinea
@@ -547,8 +548,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 // Centros en coordenadas locales del tapete.
                 final double toCx = target.getLocationOnScreen().getX() + target.getWidth() / 2.0 - getLocationOnScreen().getX();
                 final double toCy = target.getLocationOnScreen().getY() + target.getHeight() / 2.0 - getLocationOnScreen().getY();
-                final double fromCx = getWidth() / 2.0;
-                final double fromCy = getHeight() / 2.0;
+                // Origen: asiento del dealer (carta-ancla); si no se da o no
+                // está en pantalla (p.ej. dealer retirado), el centro de la
+                // mesa (comportamiento anterior).
+                final double fromCx, fromCy;
+                if (origin != null && origin.isShowing()) {
+                    fromCx = origin.getLocationOnScreen().getX() + origin.getWidth() / 2.0 - getLocationOnScreen().getX();
+                    fromCy = origin.getLocationOnScreen().getY() + origin.getHeight() / 2.0 - getLocationOnScreen().getY();
+                } else {
+                    fromCx = getWidth() / 2.0;
+                    fromCy = getHeight() / 2.0;
+                }
 
                 final double theta = Math.atan2(toCy - fromCy, toCx - fromCx) + ROT_OFFSET;
 

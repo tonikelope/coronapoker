@@ -878,6 +878,40 @@ public class Helpers {
         }
     }
 
+    // User-triggered wipe from the audio settings: drops EVERY stored note
+    // regardless of retention. Returns the count actually removed (handles still
+    // held by an AV are scheduled for exit-cleanup and not counted). Best-effort,
+    // same delete/fallback policy as the retention purge above.
+    public static int purgeAllVoiceNotes() {
+
+        int[] deleted = {0};
+
+        try (Stream<Path> notes = Files.walk(Paths.get(Init.VOICE_DIR))) {
+            notes.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().endsWith(".wav"))
+                    .forEach(p -> {
+                        try {
+                            if (p.toFile().delete()) {
+                                deleted[0]++;
+                            } else {
+                                p.toFile().deleteOnExit();
+                            }
+                        } catch (Exception ex) {
+                            try {
+                                p.toFile().deleteOnExit();
+                            } catch (Exception ignored) {
+                            }
+                        }
+                    });
+
+        } catch (Exception ex) {
+            Logger.getLogger(Helpers.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return deleted[0];
+    }
+
     //card_id es baraja_valor_palo, por ejemplo "coronapoker_7_P"
     public static ImageIcon genGifsicleCardAnimation(URL url, float zoom, String card_id) {
 

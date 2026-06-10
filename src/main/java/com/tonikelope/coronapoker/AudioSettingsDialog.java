@@ -77,6 +77,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
     private final JCheckBox block_tts_local_checkbox;
     private final JButton voice_key_button;
     private final JComboBox<String> retention_combo;
+    private final JButton purge_button;
     private final List<Mixer.Info> output_devices;
     private final List<Mixer.Info> capture_devices;
     private volatile boolean loading = true;
@@ -306,6 +307,22 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         retention_panel.add(new JLabel(Translator.translate("audio.conservar_notas")), BorderLayout.CENTER);
         retention_panel.add(retention_combo, BorderLayout.EAST);
 
+        // Manual wipe: drops every stored note now, independent of retention and
+        // of the self-block toggle (you may want to clear disk even while blocking).
+        purge_button = new JButton(Translator.translate("audio.purgar_notas"));
+
+        purge_button.addActionListener(e -> {
+            if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("audio.purgar_notas_confirm")) == javax.swing.JOptionPane.YES_OPTION) {
+                Helpers.threadRun(() -> {
+                    int deleted = Helpers.purgeAllVoiceNotes();
+                    Helpers.GUIRun(() -> Helpers.mostrarMensajeInformativo(this, Translator.translate("audio.purgar_notas_resultado", deleted)));
+                });
+            }
+        });
+
+        JPanel purge_panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        purge_panel.add(purge_button);
+
         refreshVoiceControlsEnabled();
 
         JPanel notes_panel = new JPanel();
@@ -316,6 +333,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         block_notes_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         notes_panel.add(voice_key_panel);
         notes_panel.add(Box.createVerticalStrut(5));
@@ -323,6 +341,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         notes_panel.add(play_own_checkbox);
         notes_panel.add(Box.createVerticalStrut(5));
         notes_panel.add(retention_panel);
+        notes_panel.add(purge_panel);
 
         // --- Local TTS block (only mutes TTS for me; the global on/off is the
         // host rule in the TTS (global) menu item) ---
@@ -412,6 +431,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         // natural height instead of stretching to fill the leftover space.
         voice_key_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, voice_key_panel.getPreferredSize().height));
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
+        purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
         pack();
 

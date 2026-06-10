@@ -9140,7 +9140,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             cc.getPot_panel().setOpaque(false);
             cc.getPot_label().setHorizontalAlignment(JLabel.CENTER);
             cc.getPot_label().setForeground(cc.getBet_label().getForeground());
-            cc.getHand_label().setVisible(false);
+            // El contador de manos sigue siendo el de ESTA mano (CARA-B es el mismo
+            // reparto): debe quedar VISIBLE durante el rewind, igual que en el run-out
+            // de CARA-A y que el reparto normal (~6288). Ocultarlo dejaba el hand_panel
+            // amarillo de la última mano SIN número (parecía "texto en blanco" sobre
+            // amarillo); el foreground negro ya lo fijó last_hand_on y nadie lo cambia.
+            cc.getHand_label().setVisible(true);
         });
         // La barra arranca llena para CARA-B (tras la pausa quedó vacía).
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 100);

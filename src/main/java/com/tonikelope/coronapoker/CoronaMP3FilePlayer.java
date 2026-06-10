@@ -57,16 +57,23 @@ public class CoronaMP3FilePlayer {
         return paused;
     }
 
-    public void play(String path, float volume) {
+    public boolean play(String path, float volume) {
         try {
-            play(getAudioInputStream(new File(path)), volume);
+            return play(getAudioInputStream(new File(path)), volume);
         } catch (UnsupportedAudioFileException | IOException ex) {
             // Log as warning only, as it's a file issue, not necessarily a crash
             Logger.getLogger(CoronaMP3FilePlayer.class.getName()).log(Level.WARNING, "Cannot play file {0}: {1}", new Object[]{path, ex.getMessage()});
+            return false;
         }
     }
 
-    public void play(AudioInputStream is, float volume) {
+    // Returns true once the output line was opened (played, finished, was cancelled
+    // mid-way or played silent), false ONLY when the line could never be obtained or
+    // opened (device busy/missing). That lets a caller retry the genuine line failure
+    // without re-firing a normal finish, a cancel or a volume-0 silent play.
+    public boolean play(AudioInputStream is, float volume) {
+
+        boolean line_opened = false;
 
         try (final AudioInputStream in = is) {
 
@@ -74,7 +81,7 @@ public class CoronaMP3FilePlayer {
             // (playing)" guard lost that stop and the whole track played as a
             // zombie). A stopped player can never start again.
             if (stopped) {
-                return;
+                return true;
             }
 
             final AudioFormat outFormat = getOutFormat(in.getFormat());
@@ -85,6 +92,7 @@ public class CoronaMP3FilePlayer {
             if (line != null) {
                 try {
                     line.open(outFormat, lineBufferBytes(outFormat));
+                    line_opened = true;
                     setVolume(volume);
                     line.start();
                     playing = true;
@@ -119,6 +127,8 @@ public class CoronaMP3FilePlayer {
         } finally {
             playing = false;
         }
+
+        return line_opened;
     }
 
     public void stop() {

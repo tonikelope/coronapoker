@@ -13603,7 +13603,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // key dispara lockdown — no plaintext que aceptar a ciegas.
 
                 if (destapar) {
-                    Audio.playWavResource("misc/uncover.wav", false);
+                    // Sin uncover.wav de batch aquí: cada giro por jugador ya
+                    // reproduce su propio uncover (caminos animado y seco lo
+                    // suenan SIEMPRE, ignorando el flag sound, igual que en
+                    // showdown). Un uncover explícito previo se duplicaba con el
+                    // del primer giro y, por la carrera entre su force_close=false
+                    // y el force_close=true del giro, unas veces se cortaba a
+                    // media muestra y otras se solapaba/repetía con el giro y la
+                    // primera comunitaria del run-out.
 
                     // Destapamos las cartas de los jugadores involucrados,
                     // SECUENCIAL por jugador: cada giro animado bloquea (hilo
@@ -13627,7 +13634,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 recibirCartasResistencia(resisten);
 
                 if (destapar) {
-                    Audio.playWavResource("misc/uncover.wav", false);
+                    // Sin uncover.wav de batch aquí: cada giro por jugador ya
+                    // reproduce su propio uncover (caminos animado y seco lo
+                    // suenan SIEMPRE, ignorando el flag sound, igual que en
+                    // showdown). Un uncover explícito previo se duplicaba con el
+                    // del primer giro y, por la carrera entre su force_close=false
+                    // y el force_close=true del giro, unas veces se cortaba a
+                    // media muestra y otras se solapaba/repetía con el giro y la
+                    // primera comunitaria del run-out.
 
                     // Destapamos las cartas de los jugadores involucrados,
                     // SECUENCIAL por jugador (ver rama del host).

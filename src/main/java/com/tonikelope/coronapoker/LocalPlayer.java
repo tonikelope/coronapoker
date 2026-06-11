@@ -476,7 +476,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     try {
                         gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
-                    } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                    } catch (InterruptedException | java.util.concurrent.BrokenBarrierException | java.util.concurrent.TimeoutException ex) {
                         Helpers.logCooperativeCancellation(Logger.getLogger(GifAnimationDialog.class.getName()),
                                 "local chat GIF barrier", ex);
                     } catch (Exception ex) {

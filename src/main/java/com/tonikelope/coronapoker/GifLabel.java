@@ -94,7 +94,19 @@ public class GifLabel extends JLabel {
     }
 
     public void setBarrier(CyclicBarrier barrier) {
+
+        CyclicBarrier previous = gif_barrier;
+
         gif_barrier = barrier;
+
+        // A superseding notify reuses this shared label: break the previous
+        // rendezvous at once so its waiters (the notify thread, the finished-GIF
+        // callback and any action cinematic awaiting it) cancel cooperatively
+        // instead of each parking until GIF_BARRIER_TIMEOUT. The happy path never
+        // installs a second barrier on the same label, so it never resets here.
+        if (previous != null && previous != barrier) {
+            previous.reset();
+        }
     }
 
     public CyclicBarrier getGif_barrier() {
@@ -191,7 +203,7 @@ public class GifLabel extends JLabel {
             Helpers.threadRun(() -> {
                 try {
                     gif_barrier.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
-                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException | java.util.concurrent.TimeoutException ex) {
                     Helpers.logCooperativeCancellation(Logger.getLogger(GifLabel.class.getName()),
                             "GIF label barrier", ex);
                 } catch (Exception ex) {

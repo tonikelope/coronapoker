@@ -521,6 +521,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return panel_cartas;
     }
 
+    // La ficha local reposa abajo-izquierda de la primera hole card (mismo
+    // anclaje que refreshPositionChipIcons): (0, holeCard1.height - chip.height)
+    // dentro de panel_cartas. Devuelve su centro en pantalla, o null si el
+    // asiento no está visible.
+    @Override
+    public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h) {
+        if (panel_cartas == null || !panel_cartas.isShowing()) {
+            return null;
+        }
+        java.awt.Point tl = new java.awt.Point(0, getHoleCard1().getHeight() - chip_h);
+        javax.swing.SwingUtilities.convertPointToScreen(tl, panel_cartas);
+        return new java.awt.geom.Point2D.Double(tl.getX() + chip_w / 2.0, tl.getY() + chip_h / 2.0);
+    }
+
     public boolean isBotonMostrarActivado() {
         return getPlayer_allin_button().isEnabled() && isBoton_mostrar();
     }

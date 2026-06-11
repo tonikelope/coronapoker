@@ -123,6 +123,17 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     void refreshPos();
 
+    // Refresca el icono de ficha de posición (dealer/ciegas) y su visibilidad.
+    public void refreshPositionChipIcons();
+
+    // Etiqueta de la ficha de posición (dealer/ciega) sobre el asiento.
+    public JLabel getChip_label();
+
+    // Centro en pantalla donde reposa la ficha de posición de este asiento para
+    // una ficha de tamaño (chip_w, chip_h); null si el asiento no está en
+    // pantalla. Debe llamarse en el EDT (lee la jerarquía Swing).
+    public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h);
+
     public void nuevaMano();
 
     public void esTuTurno();

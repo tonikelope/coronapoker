@@ -2313,6 +2313,105 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return null;
     }
 
+    // Anima el deslizamiento de las fichas de posición (dealer/ciegas) del asiento
+    // de su portador anterior al del nuevo, en paralelo y justo antes del barajado.
+    // Reproduce lo que muestra refreshPositionChipIcons: por prioridad BB > SB >
+    // DEALER hay como mucho un portador visible por ficha (en heads-up el dealer
+    // coincide con la ciega → no hay botón). Bloquea hasta el aterrizaje. Respeta
+    // la opción de animación y se salta en RECOVER/fin de transmisión.
+    private void animateChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
+
+        if (!GameFrame.ANIMACION_CARTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
+            return;
+        }
+
+        final java.util.Map<String, Player> n2p = getNick2player();
+        final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
+        // Asientos cuya ficha estática se oculta durante el vuelo: SOLO los
+        // destinos de vuelos reales, para que una ficha que NO se mueve no
+        // parpadee (caso dead dealer sin retroceso, etc.).
+        final java.util.List<Player> to_hide = new java.util.ArrayList<>();
+
+        // Ciega grande: siempre se pinta.
+        addChipFlight(flights, to_hide, n2p, prev_bb_nick, this.big_blind_nick, Helpers.IMAGEN_BB, false);
+
+        // Ciega pequeña: solo si su asiento es distinto del de la ciega grande.
+        String new_sb_holder = chipHolder(this.small_blind_nick, this.big_blind_nick, null);
+        String old_sb_holder = chipHolder(prev_sb_nick, prev_bb_nick, null);
+        addChipFlight(flights, to_hide, n2p, old_sb_holder, new_sb_holder, Helpers.IMAGEN_SB, false);
+
+        // Botón del dealer: solo si su asiento es distinto del de ambas ciegas
+        // (en heads-up dealer == ciega pequeña → sin botón visible). Si es un
+        // DEAD DEALER (el jugador que debía recibir el botón se fue y este
+        // retrocede al dealer anterior) el botón sale del CENTRO de la mesa —su
+        // asiento de origen ya no existe— con la imagen dead_dealer.
+        final boolean dead = isDead_dealer();
+        String new_dealer_holder = chipHolder(this.dealer_nick, this.big_blind_nick, this.small_blind_nick);
+        String old_dealer_holder = chipHolder(prev_dealer_nick, prev_bb_nick, prev_sb_nick);
+        addChipFlight(flights, to_hide, n2p, old_dealer_holder, new_dealer_holder,
+                dead ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER, dead);
+
+        if (flights.isEmpty()) {
+            return;
+        }
+
+        // Misma duración (velocidad) que el vuelo de cada carta del reparto.
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
+        final int flight_dur = Math.max(150, pausa);
+
+        // Oculta las fichas estáticas de los asientos destino para que durante el
+        // deslizamiento solo se vean las viajeras.
+        Helpers.GUIRunAndWait(() -> {
+            for (Player p : to_hide) {
+                p.getChip_label().setVisible(false);
+            }
+        });
+
+        // Al aterrizar repone cada ficha con su icono/visibilidad correctos (bajo
+        // la viajera → relevo sin hueco).
+        GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
+            for (Player p : to_hide) {
+                p.refreshPositionChipIcons();
+            }
+        });
+    }
+
+    // Devuelve el nick que MUESTRA su ficha, o null si ese rol no se pinta por
+    // compartir asiento con uno de mayor prioridad (BB > SB > DEALER), replicando
+    // refreshPositionChipIcons.
+    private static String chipHolder(String nick, String higher1, String higher2) {
+        if (nick == null) {
+            return null;
+        }
+        if (nick.equals(higher1) || (higher2 != null && nick.equals(higher2))) {
+            return null;
+        }
+        return nick;
+    }
+
+    // Añade un vuelo de ficha del portador anterior al nuevo y registra su asiento
+    // destino en to_hide. Se salta si el rol no se pinta (newNick null) o el nuevo
+    // portador no se resuelve. Con fromCenter la ficha sale del CENTRO de la mesa
+    // (primera mano o dead dealer: el asiento de origen ya no existe) y NO se aplica
+    // el filtro de "sin movimiento"; en caso normal, origen = asiento anterior y se
+    // omite si no hay movimiento (mismo asiento).
+    private void addChipFlight(java.util.List<TablePanel.ChipFlight> flights, java.util.List<Player> to_hide,
+            java.util.Map<String, Player> n2p, String oldNick, String newNick, ImageIcon sprite, boolean fromCenter) {
+        if (newNick == null || sprite == null) {
+            return;
+        }
+        Player to = n2p.get(newNick);
+        if (to == null) {
+            return;
+        }
+        Player from = fromCenter ? null : ((oldNick != null) ? n2p.get(oldNick) : null);
+        if (!fromCenter && from == to) {
+            return;
+        }
+        flights.add(new TablePanel.ChipFlight(from, to, sprite));
+        to_hide.add(to);
+    }
+
     public String getBb_nick() {
         return big_blind_nick;
     }
@@ -6068,6 +6167,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("game.mano_2") + " ("
                 + String.valueOf(this.conta_mano) + ") ***************");
 
+        // Snapshot de los portadores ANTES de rotar, para animar el deslizamiento
+        // de las fichas (dealer/ciegas) del asiento anterior al nuevo. En la
+        // primera mano son null → las fichas salen del centro de la mesa.
+        final String prev_dealer_nick = this.dealer_nick;
+        final String prev_sb_nick = this.small_blind_nick;
+        final String prev_bb_nick = this.big_blind_nick;
+
         if (!GameFrame.RECOVER) {
             this.setPositions();
         }
@@ -6290,6 +6396,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             });
 
             actualizarContadoresTapete();
+
+            // Desliza las fichas de posición (dealer/ciegas) de su portador
+            // anterior al nuevo, justo antes del barajado central. Bloquea hasta
+            // que aterrizan. Respeta la opción de animación (camino sin animación
+            // intacto) y se salta en RECOVER/fin de transmisión.
+            animateChipRotation(prev_dealer_nick, prev_sb_nick, prev_bb_nick);
 
             Object shuffle_lock = new Object();
             // barajando here means "SRA cascade still running, keep looping the shuffle

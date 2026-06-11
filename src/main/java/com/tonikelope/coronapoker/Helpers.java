@@ -2122,6 +2122,132 @@ public class Helpers {
 
     }
 
+    /**
+     * Raw-bytes sibling of {@link #encryptString(String, SecretKeySpec, byte[], SecretKeySpec)}:
+     * encrypts the given payload bytes (no UTF-8 string round-trip, no Base64) and
+     * returns {@code HMAC(32) || IV(16) || AES-CBC/PKCS5(payload)} as raw bytes — the
+     * exact same wire structure encryptString produces, minus the trailing Base64.
+     *
+     * Used as the body of a binary {@link WireFrame} so blobs (voice notes, avatars) ride
+     * the channel without the double Base64 inflation of the text command path.
+     * encryptString/decryptString are intentionally left untouched.
+     */
+    public static byte[] encryptBytes(byte[] payload, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
+
+        if (payload != null) {
+            try {
+                Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+                cifrado.init(Cipher.ENCRYPT_MODE, aes_key, new IvParameterSpec(iv));
+
+                byte[] cmsg = cifrado.doFinal(payload);
+
+                byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+
+                System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
+                System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
+
+                if (hmac_key != null) {
+
+                    byte[] full_msg = new byte[32 + iv.length + cmsg.length];
+
+                    Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+                    sha256_HMAC.init(hmac_key);
+
+                    byte[] hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+                    System.arraycopy(hmac, 0, full_msg, 0, hmac.length);
+                    System.arraycopy(iv_cmsg, 0, full_msg, hmac.length, iv_cmsg.length);
+
+                    return full_msg;
+                }
+
+                return iv_cmsg;
+
+            } catch (IllegalStateException | InvalidAlgorithmParameterException | InvalidKeyException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        return null;
+    }
+
+    public static byte[] encryptBytes(byte[] payload, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
+
+        byte[] iv = new byte[16];
+
+        Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+
+        return encryptBytes(payload, aes_key, iv, hmac_key);
+
+    }
+
+    /**
+     * Raw-bytes sibling of {@link #decryptString(String, SecretKeySpec, SecretKeySpec)}:
+     * takes the raw {@code HMAC(32) || IV(16) || ciphertext} bytes (no Base64 decode),
+     * verifies the HMAC in constant time, AES-decrypts and returns the plaintext bytes
+     * (no UTF-8 string round-trip). Throws {@link KeyException} on HMAC mismatch, the
+     * same contract decryptString uses.
+     */
+    public static byte[] decryptBytes(byte[] full_msg, SecretKeySpec aes_key, SecretKeySpec hmac_key) throws KeyException {
+
+        if (full_msg != null) {
+            try {
+
+                Cipher cifrado = Cipher.getInstance("AES/CBC/PKCS5Padding");
+
+                byte[] hmac = new byte[32];
+
+                byte[] iv = new byte[cifrado.getBlockSize()];
+
+                byte[] cmsg;
+
+                if (hmac_key != null) {
+
+                    cmsg = new byte[full_msg.length - hmac.length - iv.length];
+
+                    System.arraycopy(full_msg, 0, hmac, 0, hmac.length);
+                    System.arraycopy(full_msg, hmac.length, iv, 0, iv.length);
+                    System.arraycopy(full_msg, hmac.length + iv.length, cmsg, 0, cmsg.length);
+
+                    byte[] iv_cmsg = new byte[iv.length + cmsg.length];
+
+                    System.arraycopy(iv, 0, iv_cmsg, 0, iv.length);
+                    System.arraycopy(cmsg, 0, iv_cmsg, iv.length, cmsg.length);
+
+                    Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
+
+                    sha256_HMAC.init(hmac_key);
+
+                    byte[] current_hmac = sha256_HMAC.doFinal(iv_cmsg);
+
+                    if (!MessageDigest.isEqual(hmac, current_hmac)) {
+                        throw new KeyException("BAD HMAC or BAD KEY");
+                    }
+                } else {
+
+                    cmsg = new byte[full_msg.length - iv.length];
+
+                    System.arraycopy(full_msg, 0, iv, 0, iv.length);
+                    System.arraycopy(full_msg, iv.length, cmsg, 0, cmsg.length);
+
+                }
+
+                cifrado.init(Cipher.DECRYPT_MODE, aes_key, new IvParameterSpec(iv));
+
+                return cifrado.doFinal(cmsg);
+
+            } catch (IllegalStateException | InvalidAlgorithmParameterException | NoSuchAlgorithmException | BadPaddingException | IllegalBlockSizeException | NoSuchPaddingException ex) {
+                Logger.getLogger(Helpers.class
+                        .getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return null;
+
+    }
+
     public static String encryptCommand(String command, SecretKeySpec aes_key, byte[] iv, SecretKeySpec hmac_key) {
 
         return ("*" + Helpers.encryptString(command, aes_key, iv, hmac_key));

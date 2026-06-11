@@ -1239,6 +1239,10 @@ public class WaitingRoomFrame extends JFrame {
         net_client.writeCommand(command);
     }
 
+    public void writeBinaryToServer(byte[] frameBody) {
+        net_client.writeBinary(frameBody);
+    }
+
     public void writeCommandFromServer(String command, Socket socket) {
         net_server.writeCommand(command, socket);
     }
@@ -2222,11 +2226,6 @@ public class WaitingRoomFrame extends JFrame {
                                         case "CHAT":
                                             String mensaje = (partes_comando.length == 3) ? new String(Base64.getDecoder().decode(partes_comando[2]), "UTF-8") : "";
                                             recibirMensajeChat(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), mensaje);
-                                            break;
-                                        case "VOICEMSG":
-                                            if (partes_comando.length == 3) {
-                                                recibirNotaVoz(new String(Base64.getDecoder().decode(partes_comando[1]), "UTF-8"), Base64.getDecoder().decode(partes_comando[2]));
-                                            }
                                             break;
                                         case "EXIT":
                                             exit = true;
@@ -4158,8 +4157,7 @@ public class WaitingRoomFrame extends JFrame {
             // to ~1s) would otherwise stall the sender's reader thread and delay
             // its game commands (head-of-line). Same pattern as enviarNotaVoz.
             Helpers.threadRun(() -> {
-                byte[] iv = new byte[16];
-                Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+                byte[] voicePayload = BinaryWire.encodeVoice(nick, audio);
 
                 // Thread-safe iteration snapshot
                 ArrayList<Participant> targets;
@@ -4170,12 +4168,9 @@ public class WaitingRoomFrame extends JFrame {
                 for (Participant p : targets) {
                     try {
                         if (p != null && !p.isCpu() && !p.getNick().equals(nick)) {
-                            String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                    + Base64.getEncoder().encodeToString(audio);
-
-                            p.writeCommandFromServer(Helpers.encryptCommand(comando, p.getAes_key(), iv, p.getHmac_key()));
+                            p.writeBinaryFromServer(Helpers.encryptBytes(voicePayload, p.getAes_key(), p.getHmac_key()));
                         }
-                    } catch (IOException ex) {
+                    } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
                 }
@@ -4186,18 +4181,11 @@ public class WaitingRoomFrame extends JFrame {
     public void enviarNotaVoz(String nick, byte[] audio) {
 
         Helpers.threadRun(() -> {
-            byte[] iv = new byte[16];
-            Helpers.CSPRNG_GENERATOR.nextBytes(iv);
+            byte[] voicePayload = BinaryWire.encodeVoice(nick, audio);
 
             if (!server) {
-                try {
-                    String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                            + Base64.getEncoder().encodeToString(audio);
-                    writeCommandToServer(
-                            Helpers.encryptCommand(comando, getLocal_client_aes_key(), iv, getLocal_client_hmac_key()));
-                } catch (IOException ex) {
-                    LOGGER.log(Level.SEVERE, null, ex);
-                }
+                writeBinaryToServer(Helpers.encryptBytes(voicePayload,
+                        getLocal_client_aes_key(), getLocal_client_hmac_key()));
             } else {
                 // Snapshot values to prevent ConcurrentModificationException
                 ArrayList<Participant> targets;
@@ -4208,10 +4196,8 @@ public class WaitingRoomFrame extends JFrame {
                 for (Participant participante : targets) {
                     try {
                         if (participante != null && !participante.isCpu()) {
-                            String comando = "VOICEMSG#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
-                                    + Base64.getEncoder().encodeToString(audio);
-                            participante.writeCommandFromServer(Helpers.encryptCommand(comando,
-                                    participante.getAes_key(), iv, participante.getHmac_key()));
+                            participante.writeBinaryFromServer(Helpers.encryptBytes(voicePayload,
+                                    participante.getAes_key(), participante.getHmac_key()));
                         }
                     } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE, null, ex);

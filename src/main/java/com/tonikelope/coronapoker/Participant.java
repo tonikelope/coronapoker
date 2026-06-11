@@ -629,6 +629,34 @@ public class Participant implements Runnable {
     }
 
     /**
+     * Binary sibling of {@link #writeCommandFromServer(String)}: writes a binary
+     * {@link WireFrame} (a voice/avatar blob) to this peer. Synchronizes on the same
+     * OutputStream monitor as the text writers, so a binary frame and a text line can
+     * never interleave on the socket.
+     */
+    public boolean writeBinaryFromServer(byte[] frameBody) {
+        while (resetting_socket || force_reset_socket) {
+            synchronized (getParticipant_socket_lock()) {
+                try {
+                    getParticipant_socket_lock().wait(1000);
+                } catch (Exception ex) {
+                }
+            }
+        }
+        try {
+            synchronized (this.socket.getOutputStream()) {
+                WireFrame.writeBinary(this.socket.getOutputStream(), frameBody);
+                return false;
+            }
+        } catch (IOException ex) {
+            if (!exit && !resetting_socket && !force_reset_socket) {
+                markExitAndNotify("binary write failed (socket closed)");
+            }
+        }
+        return true;
+    }
+
+    /**
      * Marca este Participant como exit=true Y propaga al Player asociado
      * (RemotePlayer.setExit), notifica todos los waits posibles, y despierta
      * la queue de comandos del Crupier para que cualquier wait que espere
@@ -683,18 +711,48 @@ public class Participant implements Runnable {
         }
         synchronized (getInput_stream_reader()) {
             try {
-                WireFrame.Result frame = WireFrame.read(getInput_stream_reader(), Helpers.MAX_COMMAND_LINE_CHARS);
-                if (frame == null) {
-                    return null;
+                while (true) {
+                    WireFrame.Result frame = WireFrame.read(getInput_stream_reader(), Helpers.MAX_COMMAND_LINE_CHARS);
+                    if (frame == null) {
+                        return null;
+                    }
+                    if (frame.isBinary()) {
+                        // Binary voice/avatar frame: handle inline and read the next one.
+                        // Voice is an order-independent side channel, so processing it on
+                        // the reader thread (rather than via the text command queue) is
+                        // safe, and recibirNotaVoz offloads its heavy work asynchronously.
+                        handleBinaryFromClient(frame.binary());
+                        continue;
+                    }
+                    // Text frame body is the exact line readBoundedLine returned, so
+                    // decryptCommand is unchanged.
+                    return Helpers.decryptCommand(frame.text(), getAes_key(), getHmac_key());
                 }
-                // Phase 1: only text frames travel the wire (binary voice/avatar frames
-                // arrive from the next phase). A text frame body is the exact line
-                // readBoundedLine used to return, so decryptCommand is unchanged.
-                return Helpers.decryptCommand(frame.text(), getAes_key(), getHmac_key());
             } catch (Exception ex) {
             }
         }
         return null;
+    }
+
+    /**
+     * Decrypts and dispatches a binary frame received from this peer. A voice note is
+     * attributed to the connection's AUTHENTICATED nick (never the frame's claimed
+     * nick), preserving the anti-spoof guarantee of the legacy VOICEMSG text path.
+     * A malformed or HMAC-failing frame is dropped without tearing down the reader.
+     */
+    private void handleBinaryFromClient(byte[] frameBody) {
+        try {
+            byte[] payload = Helpers.decryptBytes(frameBody, getAes_key(), getHmac_key());
+            if (payload == null) {
+                return;
+            }
+            BinaryWire.Decoded decoded = BinaryWire.decode(payload);
+            if (decoded.type == BinaryWire.TYPE_VOICE) {
+                sala_espera.recibirNotaVoz(nick, decoded.payload);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Dropped malformed binary frame from peer {0}", nick);
+        }
     }
 
     public void socketClose() {
@@ -877,15 +935,6 @@ public class Participant implements Runnable {
                                 // one carried in the frame: a rogue client must not be
                                 // able to post chat as another player.
                                 sala_espera.recibirMensajeChat(nick, mensaje);
-                                break;
-                            case "VOICEMSG":
-                                if (partes_comando.length == 3) {
-                                    byte[] audio_nota = Base64.getDecoder().decode(partes_comando[2]);
-                                    // recibirNotaVoz re-validates the size cap and relays to the rest.
-                                    // Attribute to the authenticated nick, not the frame's, so a note
-                                    // cannot be spoofed as another player.
-                                    sala_espera.recibirNotaVoz(nick, audio_nota);
-                                }
                                 break;
                             case "CONF":
                                 WaitingRoomFrame.getInstance().getReceived_confirmations().add(new Object[]{nick, Integer.valueOf(partes_comando[1])});

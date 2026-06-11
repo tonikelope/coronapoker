@@ -4542,14 +4542,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                             this.active_crypto_ring = ringList.toArray(new String[0]);
 
-                            byte[] visual = this.local_original_cards;
-                            if (visual != null && visual.length == 2) {
-                                Player myPlayer = GameFrame.getInstance().getLocalPlayer();
-                                myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
-                                myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
-                                myPlayer.getHoleCard1().destapar(false);
-                                myPlayer.getHoleCard2().destapar(false);
-                            }
+                            // Las hole cards del jugador local NO se destapan aqui:
+                            // se quedan reseteadas (resetearCarta(false) en NUEVA_MANO,
+                            // igual que las de los remotos) para que repartir() las
+                            // revele al aterrizar el vuelo de reparto, idéntico a una
+                            // mano normal. local_original_cards ya lleva su valor para
+                            // el onLand del vuelo. Destaparlas aqui las mostraba boca
+                            // arriba antes de la animacion (solo afectaba al local).
 
                             // Recovery: restore HAND_ID from SQL
                             // and re-init HandStateChain. Without this the chain
@@ -4780,14 +4779,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         this.active_crypto_ring = ringList.toArray(new String[0]);
 
-                        byte[] visual = this.local_original_cards;
-                        if (visual != null && visual.length == 2) {
-                            Player myPlayer = GameFrame.getInstance().getLocalPlayer();
-                            myPlayer.getHoleCard1().iniciarConValorNumerico((visual[0] & 0xFF) + 1);
-                            myPlayer.getHoleCard2().iniciarConValorNumerico((visual[1] & 0xFF) + 1);
-                            myPlayer.getHoleCard1().destapar(false);
-                            myPlayer.getHoleCard2().destapar(false);
-                        }
+                        // Las hole cards del jugador local NO se destapan aqui:
+                        // se quedan reseteadas (resetearCarta(false) en NUEVA_MANO,
+                        // igual que las de los remotos) para que repartir() las
+                        // revele al aterrizar el vuelo de reparto, idéntico a una
+                        // mano normal. local_original_cards ya lleva su valor para
+                        // el onLand del vuelo. Destaparlas aqui las mostraba boca
+                        // arriba antes de la animacion (solo afectaba al local).
 
                         // Recovery: symmetric with host branch —
                         // restore HAND_ID from the map (sent by host) and re-init

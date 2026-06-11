@@ -719,6 +719,195 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
+    // Vuelo de una ficha de posición (dealer/ciega): su sprite (ya escalado),
+    // el asiento de origen (portador anterior; null = centro de la mesa, p.ej.
+    // primera mano) y el de destino (portador nuevo).
+    public static final class ChipFlight {
+
+        private final Player from;
+        private final Player to;
+        private final ImageIcon sprite;
+
+        public ChipFlight(Player from, Player to, ImageIcon sprite) {
+            this.from = from;
+            this.to = to;
+            this.sprite = sprite;
+        }
+    }
+
+    // Desliza VARIAS fichas de posición a la vez (dealer + ciegas) de su asiento
+    // anterior al nuevo, justo antes del barajado central. Reutiliza la cinemática
+    // del vuelo de reparto (easeOut cuadrático + arco bezier perpendicular acotado,
+    // tick de 10 ms con nanoTime, duración fija = misma velocidad que las cartas),
+    // pero todas las fichas viajan en paralelo (una sola Timer) para no encadenar
+    // pausas. Geometría-agnóstica: lee la posición real de cada asiento en pantalla.
+    // Bloquea al llamante (hilo del crupier, NUNCA EDT) hasta el aterrizaje + dwell.
+    // onLand (si no es null) se ejecuta en el EDT al tocar todas el destino, ANTES
+    // del dwell, para reponer las fichas estáticas bajo las viajeras (relevo sin
+    // hueco). Si la animación está desactivada o no hay vuelos, no hace nada.
+    public void flyChipsToSeats(final java.util.List<ChipFlight> flights, final int duration_ms, final Runnable onLand) {
+
+        if (flights == null || flights.isEmpty()
+                || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+            return;
+        }
+
+        final java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
+        final javax.swing.Timer[] holder = new javax.swing.Timer[1];
+        final java.util.List<FlyingCard> travelers = new java.util.ArrayList<>();
+
+        Helpers.GUIRunAndWait(() -> {
+            try {
+                if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                    if (onLand != null) {
+                        onLand.run();
+                    }
+                    finished.countDown();
+                    return;
+                }
+
+                final double tableCx = getWidth() / 2.0;
+                final double tableCy = getHeight() / 2.0;
+                final double originX = getLocationOnScreen().getX();
+                final double originY = getLocationOnScreen().getY();
+
+                // Trayectoria precomputada por ficha: {fromX, fromY, ctrlX, ctrlY, toX, toY}.
+                final java.util.List<double[]> paths = new java.util.ArrayList<>();
+
+                for (ChipFlight f : flights) {
+                    if (f == null || f.to == null || f.sprite == null) {
+                        continue;
+                    }
+                    final int w = f.sprite.getIconWidth();
+                    final int h = f.sprite.getIconHeight();
+                    if (w <= 0 || h <= 0) {
+                        continue;
+                    }
+
+                    final java.awt.geom.Point2D toScr = f.to.getPositionChipScreenCenter(w, h);
+                    if (toScr == null) {
+                        continue;
+                    }
+                    final double toCx = toScr.getX() - originX;
+                    final double toCy = toScr.getY() - originY;
+
+                    final double fromCx, fromCy;
+                    final java.awt.geom.Point2D fromScr = (f.from != null) ? f.from.getPositionChipScreenCenter(w, h) : null;
+                    if (fromScr != null) {
+                        fromCx = fromScr.getX() - originX;
+                        fromCy = fromScr.getY() - originY;
+                    } else {
+                        fromCx = tableCx;
+                        fromCy = tableCy;
+                    }
+
+                    // Punto de control del arco: medio del trayecto desplazado
+                    // perpendicular, acotado (idéntico al vuelo de cartas).
+                    final double mx = (fromCx + toCx) / 2.0, my = (fromCy + toCy) / 2.0;
+                    final double vx = toCx - fromCx, vy = toCy - fromCy;
+                    final double len = Math.hypot(vx, vy);
+                    final double arc = Math.min(len * 0.16, h);
+                    final double nx = (len > 1) ? -vy / len : 0.0;
+                    final double ny = (len > 1) ? vx / len : 0.0;
+                    final double ctrlX = mx + nx * arc;
+                    final double ctrlY = my + ny * arc;
+
+                    final int box = (int) Math.ceil(Math.hypot(w, h));
+                    final FlyingCard traveler = new FlyingCard(f.sprite.getImage(), w, h);
+                    traveler.setSize(box, box);
+                    traveler.setAngle(0.0);
+                    traveler.setCenter(fromCx, fromCy);
+                    add(traveler, JLayeredPane.DRAG_LAYER);
+                    travelers.add(traveler);
+                    paths.add(new double[]{fromCx, fromCy, ctrlX, ctrlY, toCx, toCy});
+                }
+
+                if (travelers.isEmpty()) {
+                    if (onLand != null) {
+                        onLand.run();
+                    }
+                    finished.countDown();
+                    return;
+                }
+
+                final long t0 = System.nanoTime();
+                final boolean[] landed = {false};
+
+                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+                holder[0] = player;
+
+                player.addActionListener(e -> {
+                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+                    double u = Math.min(1.0, (double) elapsed / Math.max(1, duration_ms));
+
+                    // easeOut cuadrático para la posición (mismo que el reparto).
+                    double s = 1.0 - (1.0 - u) * (1.0 - u);
+                    double is = 1.0 - s;
+
+                    for (int k = 0; k < travelers.size(); k++) {
+                        double[] p = paths.get(k);
+                        double x = is * is * p[0] + 2 * is * s * p[2] + s * s * p[4];
+                        double y = is * is * p[1] + 2 * is * s * p[3] + s * s * p[5];
+                        FlyingCard traveler = travelers.get(k);
+                        traveler.setCenter(x, y);
+                        traveler.repaint();
+                    }
+
+                    if (u >= 1.0 || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                        player.stop();
+                        if (!landed[0]) {
+                            landed[0] = true;
+                            // Repone las fichas estáticas bajo las viajeras (mismo
+                            // sprite, misma posición) → relevo sin hueco al retirarlas.
+                            if (onLand != null) {
+                                onLand.run();
+                            }
+                        }
+                        finished.countDown();
+                    }
+                });
+
+                player.start();
+
+            } catch (Exception ex) {
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                for (FlyingCard traveler : travelers) {
+                    remove(traveler);
+                }
+                if (onLand != null) {
+                    onLand.run();
+                }
+                repaint();
+                finished.countDown();
+            }
+        });
+
+        try {
+            finished.await(GifLabel.GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Helpers.logCooperativeCancellation(Logger.getLogger(TablePanel.class.getName()),
+                    "chip flight", ex);
+        }
+
+        // Dwell de relevo: la ficha estática (repuesta en onLand) se pinta async
+        // bajo la viajera, así al retirarla el relevo es idéntico (sin parpadeo).
+        Helpers.parkThreadMillis(40);
+
+        Helpers.GUIRunAndWait(() -> {
+            for (FlyingCard traveler : travelers) {
+                java.awt.Rectangle b = traveler.getBounds();
+                remove(traveler);
+                repaint(b);
+            }
+        });
+
+        Helpers.GUIRun(() -> {
+            if (holder[0] != null) {
+                holder[0].stop();
+            }
+        });
+    }
+
     // Variante en bucle de showCentralFrames para el GIF de barajado: repite la
     // animación (centrada, con el audio re-disparado en cada ciclo y cortado en
     // audio_stop_frame, mismo contrato que addAudio(1, stop)) hasta que el

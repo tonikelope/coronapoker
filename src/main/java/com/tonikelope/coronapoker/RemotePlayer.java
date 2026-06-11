@@ -622,6 +622,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return panel_cartas;
     }
 
+    // La ficha remota reposa en la esquina superior-izquierda de panel_cartas
+    // (mismo anclaje que refreshPositionChipIcons): (0, 0). Devuelve su centro
+    // en pantalla, o null si el asiento no está visible.
+    @Override
+    public java.awt.geom.Point2D getPositionChipScreenCenter(int chip_w, int chip_h) {
+        if (panel_cartas == null || !panel_cartas.isShowing()) {
+            return null;
+        }
+        java.awt.Point tl = new java.awt.Point(0, 0);
+        javax.swing.SwingUtilities.convertPointToScreen(tl, panel_cartas);
+        return new java.awt.geom.Point2D.Double(tl.getX() + chip_w / 2.0, tl.getY() + chip_h / 2.0);
+    }
+
     @Override
     public boolean isTimeout() {
         return timeout;

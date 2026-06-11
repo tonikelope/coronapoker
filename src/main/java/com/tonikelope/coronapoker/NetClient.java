@@ -28,7 +28,7 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
-import java.io.BufferedReader;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Map;
@@ -64,7 +64,7 @@ public class NetClient {
     private final Object lock_client_reconnect = new Object();
 
     private volatile Socket local_client_socket = null;
-    private volatile BufferedReader local_client_buffer_read_is = null;
+    private volatile BufferedInputStream local_client_buffer_read_is = null;
     private volatile SecretKeySpec local_client_aes_key = null;
     private volatile SecretKeySpec local_client_hmac_key = null;
     private volatile SecretKeySpec local_client_hmac_key_orig = null;
@@ -136,11 +136,11 @@ public class NetClient {
         this.local_client_socket = s;
     }
 
-    public BufferedReader getLocal_client_buffer_read_is() {
+    public BufferedInputStream getLocal_client_buffer_read_is() {
         return local_client_buffer_read_is;
     }
 
-    public void setLocal_client_buffer_read_is(BufferedReader r) {
+    public void setLocal_client_buffer_read_is(BufferedInputStream r) {
         this.local_client_buffer_read_is = r;
     }
 
@@ -336,9 +336,12 @@ public class NetClient {
         synchronized (local_client_buffer_read_is) {
             try {
                 last_read_hmac_failure = false;
-                return Helpers.decryptCommand(
-                        Helpers.readBoundedLine(local_client_buffer_read_is, Helpers.MAX_COMMAND_LINE_CHARS),
-                        local_client_aes_key, local_client_hmac_key);
+                WireFrame.Result frame = WireFrame.read(local_client_buffer_read_is, Helpers.MAX_COMMAND_LINE_CHARS);
+                if (frame == null) {
+                    return null;
+                }
+                // Phase 1: text frames only; body is the legacy line, decrypt unchanged.
+                return Helpers.decryptCommand(frame.text(), local_client_aes_key, local_client_hmac_key);
             } catch (java.security.KeyException ex) {
                 last_read_hmac_failure = true;
                 LOGGER.log(Level.SEVERE, "Channel HMAC verification failed (wrong password or MITM)", ex);

@@ -39,14 +39,13 @@ import java.awt.Frame;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.AdjustmentEvent;
-import java.io.BufferedReader;
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
@@ -421,7 +420,7 @@ public class WaitingRoomFrame extends JFrame {
 
     }
 
-    public BufferedReader getLocal_client_buffer_read_is() {
+    public BufferedInputStream getLocal_client_buffer_read_is() {
         return net_client != null ? net_client.getLocal_client_buffer_read_is() : null;
     }
 
@@ -1393,8 +1392,7 @@ public class WaitingRoomFrame extends JFrame {
 
                         newSock.getOutputStream().flush();
 
-                        net_client.setLocal_client_buffer_read_is(new BufferedReader(
-                                new InputStreamReader(newSock.getInputStream())));
+                        net_client.setLocal_client_buffer_read_is(new BufferedInputStream(newSock.getInputStream()));
 
                         // Esperar ack explícito del server: RECONNECT_OK acepta, cualquier
                         // RECONNECT_DENIED#<reason> o cierre limpio del socket significa
@@ -1424,9 +1422,10 @@ public class WaitingRoomFrame extends JFrame {
                             // este readLine sin cap consumiría memoria hasta OOM. La
                             // protección de SoTimeout cubre hangs pero NO OOM por líneas
                             // largas.
-                            ackLine = Helpers.readBoundedLine(
+                            WireFrame.Result ackFrame = WireFrame.read(
                                     net_client.getLocal_client_buffer_read_is(),
                                     Helpers.MAX_COMMAND_LINE_CHARS);
+                            ackLine = (ackFrame == null) ? null : ackFrame.text();
                         } catch (java.net.SocketTimeoutException ste) {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
                             ackLine = null;
@@ -2038,7 +2037,7 @@ public class WaitingRoomFrame extends JFrame {
                             + "#" + selfSigB64,
                             aesKey, hmacKey));
 
-                    net_client.setLocal_client_buffer_read_is(new BufferedReader(new InputStreamReader(sock.getInputStream())));
+                    net_client.setLocal_client_buffer_read_is(new BufferedInputStream(sock.getInputStream()));
                     recibido = readCommandFromServer();
 
                     if (recibido == null) {

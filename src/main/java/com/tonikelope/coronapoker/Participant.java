@@ -9,10 +9,9 @@ import static com.tonikelope.coronapoker.GameFrame.WAIT_QUEUES;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.PING_INTERVAL_MS;
 import static com.tonikelope.coronapoker.WaitingRoomFrame.POISON_PILL;
 import java.awt.Image;
-import java.io.BufferedReader;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -57,7 +56,7 @@ public class Participant implements Runnable {
     private volatile Socket socket = null;
     private volatile Socket recon_socket = null;
     private volatile boolean exit = false;
-    private volatile BufferedReader input_stream_reader = null;
+    private volatile BufferedInputStream input_stream_reader = null;
     private volatile Integer pong;
     private volatile Integer pong2;
     private volatile boolean cpu = false;
@@ -551,7 +550,7 @@ public class Participant implements Runnable {
         return aes_key;
     }
 
-    public BufferedReader getInput_stream_reader() {
+    public BufferedInputStream getInput_stream_reader() {
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {
                 try {
@@ -684,9 +683,14 @@ public class Participant implements Runnable {
         }
         synchronized (getInput_stream_reader()) {
             try {
-                return Helpers.decryptCommand(
-                        Helpers.readBoundedLine(getInput_stream_reader(), Helpers.MAX_COMMAND_LINE_CHARS),
-                        getAes_key(), getHmac_key());
+                WireFrame.Result frame = WireFrame.read(getInput_stream_reader(), Helpers.MAX_COMMAND_LINE_CHARS);
+                if (frame == null) {
+                    return null;
+                }
+                // Phase 1: only text frames travel the wire (binary voice/avatar frames
+                // arrive from the next phase). A text frame body is the exact line
+                // readBoundedLine used to return, so decryptCommand is unchanged.
+                return Helpers.decryptCommand(frame.text(), getAes_key(), getHmac_key());
             } catch (Exception ex) {
             }
         }
@@ -748,7 +752,7 @@ public class Participant implements Runnable {
             this.socket = socket;
             if (this.socket != null) {
                 try {
-                    this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+                    this.input_stream_reader = new BufferedInputStream(this.socket.getInputStream());
                 } catch (Exception ex) {
                 }
             }
@@ -763,7 +767,7 @@ public class Participant implements Runnable {
         synchronized (getParticipant_socket_lock()) {
             try {
                 this.socket = this.recon_socket;
-                this.input_stream_reader = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+                this.input_stream_reader = new BufferedInputStream(this.socket.getInputStream());
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
                 if (!isForce_reset_socket()) {

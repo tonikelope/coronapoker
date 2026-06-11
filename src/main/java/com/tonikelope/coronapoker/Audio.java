@@ -855,6 +855,20 @@ public class Audio {
         refreshALLVolumes(false);
     }
 
+    // Bounded recovery for the output line being momentarily busy right after a
+    // recording (capture-line close + the mute/unmute/duck volume churn). The
+    // extra latency is only paid when the first open fails: (ATTEMPTS - 1)
+    // backoffs at most. The happy path opens on the first attempt.
+    private static final int VOICE_LINE_OPEN_ATTEMPTS = 4;
+    private static final int VOICE_LINE_OPEN_BACKOFF_MILLIS = 120;
+
+    // The voice/TTS line gain: silent when sound is off, while a recording is
+    // live (the mic must not capture the playback) or when the master is muted.
+    private static float voiceLineVolume() {
+        return (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f)
+                ? Math.min(TTS_VOLUME * MASTER_VOLUME, 1f) : 0f;
+    }
+
     public static void playVoiceMessage(byte[] wav, JLabel chat_notify_label) {
 
         if (wav == null || wav.length == 0) {
@@ -880,6 +894,8 @@ public class Audio {
                 }
             });
 
+            // Created before the pre-roll so a concurrent stop() (e.g. clicking
+            // another note) during it still cancels this playback, as before.
             TTS_PLAYER = new CoronaMP3FilePlayer();
 
             // Short pre-roll: the duck lands in <= the music line buffer
@@ -887,53 +903,45 @@ public class Audio {
             // own, so a long wait here just delays the voice.
             Helpers.parkThreadMillis(100);
 
-            float volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
+            // true once the output line opened (played, finished or played
+            // silent); false ONLY when the line could not be opened at all.
+            boolean line_opened = false;
 
-            // true once the line opened (played, finished or played silent); false
-            // ONLY when the output line could not be opened at all.
-            boolean line_opened;
+            // The output line can be momentarily unavailable right after a
+            // recording: closing the capture line plus the mute/unmute/duck
+            // churn leave the device busy for a few tens of ms, so a single
+            // open would drop the note silently (the talk icon shows but
+            // nothing plays). Wait it out with a small bounded backoff. The
+            // happy path opens on the first attempt and is byte-for-byte
+            // unchanged. A silent attempt (sound off, or a fresh recording
+            // reopened the mic) or a dead audio device is never retried: there
+            // is no audibility to recover by waiting.
+            for (int attempt = 0; attempt < VOICE_LINE_OPEN_ATTEMPTS && !line_opened; attempt++) {
 
-            try {
+                if (attempt > 0) {
+                    Helpers.parkThreadMillis(VOICE_LINE_OPEN_BACKOFF_MILLIS);
+                    TTS_PLAYER = new CoronaMP3FilePlayer();
+                }
 
-                line_opened = TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
+                float volume = voiceLineVolume();
 
-            } catch (Exception ex) {
-                // Decode/stream error: not a line-open failure, retrying would not help
-                line_opened = true;
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message playback error: {0}", ex.getMessage());
-            } finally {
-                TTS_PLAYER = null;
+                try {
+                    line_opened = TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), volume);
+                } catch (Exception ex) {
+                    // Decode/stream error: not a line-open failure, retrying would not help
+                    line_opened = true;
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message playback error: {0}", ex.getMessage());
+                } finally {
+                    TTS_PLAYER = null;
+                }
+
+                if (!line_opened && (volume == 0f || !AUDIO_AVAILABLE)) {
+                    break;
+                }
             }
 
-            // The output line can fail to open for an instant when the record/duck
-            // volume churn (mute on F9, unmute on release, duck again on playback)
-            // leaves the device momentarily busy: the note would be dropped silently
-            // (the talk icon shows but nothing plays). One retry after a short settle
-            // recovers it; if it still fails the note stays clickable in the chat.
-            // The happy path never enters here, so playback that already works is
-            // byte-for-byte unchanged.
-            if (!line_opened) {
-
-                float retry_volume = (GameFrame.SONIDOS && !VOICE_RECORDING && MASTER_VOLUME > 0f) ? (TTS_VOLUME * MASTER_VOLUME > 1f ? 1f : TTS_VOLUME * MASTER_VOLUME) : 0f;
-
-                // Skip the retry only if it would be silent anyway (sound off, or a
-                // fresh recording reopened the mic): nothing to recover then.
-                if (retry_volume > 0f) {
-
-                    Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Voice message output line unavailable, retrying once");
-
-                    Helpers.parkThreadMillis(150);
-
-                    TTS_PLAYER = new CoronaMP3FilePlayer();
-
-                    try {
-                        TTS_PLAYER.play(AudioSystem.getAudioInputStream(new ByteArrayInputStream(wav)), retry_volume);
-                    } catch (Exception ex) {
-                        Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Voice message retry playback error: {0}", ex.getMessage());
-                    } finally {
-                        TTS_PLAYER = null;
-                    }
-                }
+            if (!line_opened && AUDIO_AVAILABLE && voiceLineVolume() > 0f) {
+                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Voice message output line unavailable; note stays clickable in the chat");
             }
 
             unmuteAll();

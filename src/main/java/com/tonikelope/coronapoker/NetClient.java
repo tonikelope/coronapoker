@@ -336,12 +336,19 @@ public class NetClient {
         synchronized (local_client_buffer_read_is) {
             try {
                 last_read_hmac_failure = false;
-                WireFrame.Result frame = WireFrame.read(local_client_buffer_read_is, Helpers.MAX_COMMAND_LINE_CHARS);
-                if (frame == null) {
-                    return null;
+                while (true) {
+                    WireFrame.Result frame = WireFrame.read(local_client_buffer_read_is, Helpers.MAX_COMMAND_LINE_CHARS);
+                    if (frame == null) {
+                        return null;
+                    }
+                    if (frame.isBinary()) {
+                        // Binary voice/avatar frame relayed by the host: handle inline and
+                        // read the next frame. Order-independent side channel (see Participant).
+                        handleBinaryFromServer(frame.binary());
+                        continue;
+                    }
+                    return Helpers.decryptCommand(frame.text(), local_client_aes_key, local_client_hmac_key);
                 }
-                // Phase 1: text frames only; body is the legacy line, decrypt unchanged.
-                return Helpers.decryptCommand(frame.text(), local_client_aes_key, local_client_hmac_key);
             } catch (java.security.KeyException ex) {
                 last_read_hmac_failure = true;
                 LOGGER.log(Level.SEVERE, "Channel HMAC verification failed (wrong password or MITM)", ex);
@@ -351,5 +358,59 @@ public class NetClient {
         }
 
         return null;
+    }
+
+    /**
+     * Decrypts and dispatches a binary frame relayed by the host. The host is trusted
+     * to label the sender, so a voice note uses the frame's carried nick (parity with
+     * the client side of the legacy VOICEMSG text relay). A malformed or HMAC-failing
+     * frame is dropped without disturbing the command stream.
+     */
+    private void handleBinaryFromServer(byte[] frameBody) {
+        try {
+            byte[] payload = Helpers.decryptBytes(frameBody, local_client_aes_key, local_client_hmac_key);
+            if (payload == null) {
+                return;
+            }
+            BinaryWire.Decoded decoded = BinaryWire.decode(payload);
+            if (decoded.type == BinaryWire.TYPE_VOICE) {
+                waiting_room.recibirNotaVoz(decoded.nick, decoded.payload);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "Dropped malformed binary frame from server", ex);
+        }
+    }
+
+    /**
+     * Binary sibling of {@link #writeCommand(String)}: writes a binary {@link WireFrame}
+     * (a voice/avatar blob) to the server. Holds the same socket lock as the text writer,
+     * so a binary frame and a text line never interleave on the channel.
+     */
+    public void writeBinary(byte[] frameBody) {
+        while (reconnecting) {
+            synchronized (local_client_socket_lock) {
+                try {
+                    local_client_socket_lock.wait(1000);
+                } catch (InterruptedException ex) {
+                    Helpers.logCooperativeCancellation(LOGGER, "reconnect wait", ex);
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+
+        synchronized (local_client_socket_lock) {
+            Socket s = local_client_socket;
+            if (s == null) {
+                LOGGER.log(Level.WARNING, "Client binary write skipped — socket not yet available");
+                return;
+            }
+            try {
+                WireFrame.writeBinary(s.getOutputStream(), frameBody);
+            } catch (IOException ex) {
+                LOGGER.log(Level.WARNING, "Client binary write failed — socket dead, forcing reconnect", ex);
+                closeClientSocket();
+            }
+        }
     }
 }

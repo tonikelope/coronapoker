@@ -3358,6 +3358,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // Arranca el visual de cuenta atrás de game over (GIF sobre las cartas en
+    // modo CINEMATICAS, o cuenta atrás numérica en la action label) de los
+    // arruinados que SON humanos remotos. Idempotente (setRebuying ignora si ya
+    // está activo o si el jugador salió/es espectador), así que es seguro
+    // llamarlo dos veces: una pronto (a la vez que el game over local) y otra
+    // dentro de recibirRebuys para el caso en que el local no esté arruinado.
+    private void startRebuyingVisuals(ArrayList<String> nicks) {
+        for (String nick : nicks) {
+            Player jugador = nick2player.get(nick);
+            Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
+            if (jugador instanceof RemotePlayer && !jugador.isExit()
+                    && participante != null && !participante.isCpu()) {
+                ((RemotePlayer) jugador).setRebuying(true);
+            }
+        }
+    }
+
     private void recibirRebuys(ArrayList<String> pending) {
 
         // Barra de tiempo según el modo local (mismo snapshot de CINEMATICAS
@@ -3380,14 +3397,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // humanos arruinados mientras deciden en su máquina (sin sincronía con
         // su GameOverDialog real — cosmético). Bots fuera: en el host ni
         // entran en pending y en los clientes su REBUY llega al instante.
-        for (String nick : pending) {
-            Player jugador = nick2player.get(nick);
-            Participant participante = GameFrame.getInstance().getParticipantes().get(nick);
-            if (jugador instanceof RemotePlayer && !jugador.isExit()
-                    && participante != null && !participante.isCpu()) {
-                ((RemotePlayer) jugador).setRebuying(true);
-            }
-        }
+        startRebuyingVisuals(pending);
 
         long start_time = System.currentTimeMillis();
         long barra_start = start_time;
@@ -14895,6 +14905,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void checkRebuyTime() {
 
+        // Reset defensivo: solo el game over local interactivo lo pone a true
+        // (más abajo) para silenciar los GIF remotos mientras su diálogo es el
+        // dueño del audio. Limpiarlo al entrar evita que un flag colgado de una
+        // mano anterior deje mudos los GIF remotos de la siguiente.
+        RemotePlayer.LOCAL_GAMEOVER_OWNS_AUDIO = false;
+
         ArrayList<String> rebuy_players = new ArrayList<>();
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
@@ -14927,6 +14943,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
             if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+
+                // El local también está en game over interactivo: su diálogo es
+                // el dueño del game_over.wav de cuenta atrás (y lo corta al
+                // decidir), así que los GIF de los arruinados remotos arrancan
+                // YA —a la vez que el game over local, sobre la mesa viva (luces
+                // apagadas)— pero MUDOS. recibirRebuys volverá a invocarlos como
+                // no-op idempotente.
+                RemotePlayer.LOCAL_GAMEOVER_OWNS_AUDIO = true;
+                startRebuyingVisuals(rebuy_players);
 
                 Helpers.GUIRunAndWait(() -> {
                     if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
@@ -15073,6 +15098,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.recibirRebuys(rebuy_players);
         }
+
+        // Cerrado el ciclo de rebuy: el diálogo local ya no es dueño de ningún
+        // audio (además del reset defensivo al entrar la próxima mano).
+        RemotePlayer.LOCAL_GAMEOVER_OWNS_AUDIO = false;
 
         this.rebuy_time = false;
 

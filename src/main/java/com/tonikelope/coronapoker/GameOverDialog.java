@@ -221,7 +221,16 @@ public class GameOverDialog extends JDialog {
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
         // TODO add your handling code here:
-        GameFrame.getInstance().getTapete().hideALL();
+
+        // El game over DIRECTO (sin decisión posible) mantiene el apagón
+        // clásico de toda la mesa. El game over INTERACTIVO (continuar /
+        // espectador) deja su caja de GIF encima de la mesa VIVA: jugadores y
+        // los GIF de game over de los arruinados remotos quedan visibles detrás
+        // (con las luces apagadas), para que el local vea el estado de la mesa
+        // mientras decide.
+        if (direct_gameover) {
+            GameFrame.getInstance().getTapete().hideALL();
+        }
 
         if (GameFrame.getInstance().getFastchat_dialog() != null) {
             GameFrame.getInstance().getFastchat_dialog().setVisible(false);
@@ -274,7 +283,11 @@ public class GameOverDialog extends JDialog {
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         // TODO add your handling code here:
 
-        GameFrame.getInstance().getTapete().showALL();
+        // Solo el game over directo había ocultado la mesa (ver formWindowOpened);
+        // el interactivo no toca la visibilidad, así que nada que restaurar.
+        if (direct_gameover) {
+            GameFrame.getInstance().getTapete().showALL();
+        }
 
         if (last_mp3_loop != null) {
             Audio.unmuteLoopMp3(last_mp3_loop);

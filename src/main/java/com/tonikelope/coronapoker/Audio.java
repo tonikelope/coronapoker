@@ -430,6 +430,9 @@ public class Audio {
             // pre-start gate below cancels the playback instead of starting late.
             final long start_stop_seq = stopSeq(sound).get();
 
+            // Only read again to quantify a lost race in the rare cancel log below.
+            final long play_begin_ns = System.nanoTime();
+
             InputStream sound_stream;
             if ((sound_stream = getSoundInputStream(sound)) != null) {
 
@@ -509,6 +512,18 @@ public class Audio {
                                         clip.addLineListener(end_listener);
                                         clip.start();
                                         started = true;
+                                    } else {
+                                        // The line finished opening only after a
+                                        // stopWavResource(sound) had already been issued.
+                                        // Without this gate the clip would start late and
+                                        // play to its full length past the stop. Silent on
+                                        // the happy path: this fires only when the open
+                                        // actually lost the play/stop race, so it never
+                                        // floods the log — it is the diagnostic for the
+                                        // stale-sound-bleeding-into-the-next-phase bug.
+                                        Logger.getLogger(Audio.class.getName()).log(Level.WARNING,
+                                                "WAV playback of {0} cancelled at the start gate after {1} ms: a stop arrived while the output line was still opening (play/stop race caught).",
+                                                new Object[]{sound, (System.nanoTime() - play_begin_ns) / 1_000_000L});
                                     }
                                 }
                             }

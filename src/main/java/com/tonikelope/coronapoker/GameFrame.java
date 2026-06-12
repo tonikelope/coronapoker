@@ -2405,6 +2405,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 Audio.stopAllWavResources();
 
+                Audio.closeAllPreloadedWavs();
+
                 Helpers.GUIRun(() -> {
                     GameFrame.getInstance().getTapete().hideALL();
 
@@ -2654,6 +2656,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Audio.stopAllCurrentLoopMp3Resource();
 
             Audio.stopAllWavResources();
+
+            Audio.closeAllPreloadedWavs();
 
             GameLogDialog.resetLOG();
 

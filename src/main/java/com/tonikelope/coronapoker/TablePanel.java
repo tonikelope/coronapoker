@@ -935,8 +935,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 getCentral_label().setFrameOverride(anim.getFrame(0));
                 getCentral_label().setVisible(true);
 
+                // El audio del barajado va SINCRONIZADO a la vuelta del gif:
+                // arranca con el primer frame y se corta al final de la vuelta;
+                // si el gif da otra vuelta, vuelve a arrancar de cero. Clip
+                // pre-abierto y reutilizado -> arrancar/parar es instantaneo, sin
+                // un open por ciclo que pueda perder la carrera y quedarse mudo.
                 if (audio != null) {
-                    Audio.playWavResource(audio);
+                    Audio.playPreloadedWav(audio);
                 }
 
                 final long[] t0 = {System.nanoTime()};
@@ -951,9 +956,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 player.addActionListener(e -> {
 
                     if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-                        if (audio_on[0]) {
+                        if (audio != null && audio_on[0]) {
                             audio_on[0] = false;
-                            Audio.stopWavResource(audio);
+                            Audio.stopPreloadedWav(audio);
                         }
                         player.stop();
                         finished.countDown();
@@ -964,10 +969,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
                     int idx = anim.frameAt(elapsed);
 
-                    // Ventana de audio 1..audio_stop_frame (1-based) de cada ciclo
+                    // Corte temprano del audio en audio_stop_frame (antes del último
+                    // frame): deja que el buffer de salida del dispositivo drene
+                    // antes de que la vuelta acabe visualmente, para que el sonido no
+                    // se oiga un pelín después de que la animación desaparezca.
                     if (audio_on[0] && idx + 1 >= audio_stop_frame) {
                         audio_on[0] = false;
-                        Audio.stopWavResource(audio);
+                        Audio.stopPreloadedWav(audio);
                     }
 
                     if (idx != painted[0]) {
@@ -981,19 +989,23 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     if (elapsed >= total_ms) {
 
                         if (keep_looping.getAsBoolean()) {
-                            // Rebobinado exacto: nuevo origen de tiempos y audio
-                            // re-disparado, sin gap entre ciclos.
+                            // Nueva vuelta del gif: rebobinado exacto de tiempos y
+                            // el audio vuelve a arrancar de cero (se cortará otra vez
+                            // en audio_stop_frame de esta vuelta).
                             t0[0] = System.nanoTime();
                             painted[0] = 0;
                             getCentral_label().setFrameOverride(anim.getFrame(0));
                             if (audio != null) {
-                                if (audio_on[0]) {
-                                    Audio.stopWavResource(audio);
-                                }
                                 audio_on[0] = true;
-                                Audio.playWavResource(audio);
+                                Audio.playPreloadedWav(audio);
                             }
                         } else {
+                            // Fin del barajado: el audio ya se cortó en
+                            // audio_stop_frame; cierre defensivo por si no se alcanzó.
+                            if (audio != null && audio_on[0]) {
+                                audio_on[0] = false;
+                                Audio.stopPreloadedWav(audio);
+                            }
                             player.stop();
                             finished.countDown();
                         }

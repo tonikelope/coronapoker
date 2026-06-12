@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -85,6 +86,15 @@ public class Audio {
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
+    // Per-sound monotonic stop sequence backing the authoritative WAV stop:
+    // stopWavResource bumps it synchronously on the caller's thread and a play
+    // reads it before acquiring the output line, then re-checks it under the
+    // clip's monitor right before start(). A stop that lands while the line is
+    // still opening (the open can stall for ~1s when the device is busy, e.g.
+    // right after the game-over/rebuy sounds) is then honored at that gate
+    // instead of being lost — which used to leave the just-opened clip running
+    // to its full length, bleeding the previous sound into what came next.
+    private static final ConcurrentHashMap<String, AtomicLong> WAV_STOP_SEQ = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     private static final AtomicBoolean VOLUME_REFRESH_QUEUED = new AtomicBoolean(false);
     public static final Object TTS_LOCK = new Object();
@@ -395,6 +405,11 @@ public class Audio {
         }
     }
 
+    // Backing accessor for the per-sound authoritative stop sequence.
+    private static AtomicLong stopSeq(String sound) {
+        return WAV_STOP_SEQ.computeIfAbsent(sound, k -> new AtomicLong());
+    }
+
     public static boolean playWavResourceAndWait(String sound) {
 
         return playWavResourceAndWait(sound, true, false);
@@ -408,6 +423,12 @@ public class Audio {
             if (BLACKLISTED_SOUNDS.contains(sound)) {
                 return false;
             }
+
+            // Authoritative-stop watermark, read before the output line is
+            // acquired (the open can stall while the device is busy): a
+            // stopWavResource(sound) landing during the open bumps this and the
+            // pre-start gate below cancels the playback instead of starting late.
+            final long start_stop_seq = stopSeq(sound).get();
 
             InputStream sound_stream;
             if ((sound_stream = getSoundInputStream(sound)) != null) {
@@ -446,6 +467,8 @@ public class Audio {
                             }
                         };
 
+                        boolean started = false;
+
                         try {
 
                             synchronized (clip_queue) {
@@ -472,24 +495,37 @@ public class Audio {
 
                                 setClipVolume(sound, clip, bypass_muted);
 
-                                // Registered before start() so an ultra-short clip
-                                // cannot finish before we are listening.
-                                clip.addLineListener(end_listener);
-
-                                clip.start();
+                                // Start under the clip's own monitor — the same one
+                                // stopWavResource takes — so the start and a
+                                // concurrent stop cannot interleave: either we see
+                                // its bumped sequence and never start, or we start
+                                // first and it finds the clip running and stops it. A
+                                // stop that landed while the line was opening is
+                                // honored here instead of leaking a full-length clip.
+                                synchronized (clip) {
+                                    if (stopSeq(sound).get() == start_stop_seq) {
+                                        // Registered before start() so an ultra-short
+                                        // clip cannot finish before we are listening.
+                                        clip.addLineListener(end_listener);
+                                        clip.start();
+                                        started = true;
+                                    }
+                                }
                             }
 
-                            try {
-                                // Bounded only as a guard against a dropped event;
-                                // the natural STOP releases long before this fires.
-                                finished.await(clip.getMicrosecondLength() / 1000 + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
-                            } finally {
-                                clip.removeLineListener(end_listener);
-                            }
+                            if (started) {
+                                try {
+                                    // Bounded only as a guard against a dropped event;
+                                    // the natural STOP releases long before this fires.
+                                    finished.await(clip.getMicrosecondLength() / 1000 + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                                } finally {
+                                    clip.removeLineListener(end_listener);
+                                }
 
-                            synchronized (clip) {
-                                if (clip.isRunning()) {
-                                    clip.stop();
+                                synchronized (clip) {
+                                    if (clip.isRunning()) {
+                                        clip.stop();
+                                    }
                                 }
                             }
 
@@ -975,6 +1011,13 @@ public class Audio {
     }
 
     public static void stopWavResource(String sound) {
+
+        // Authoritative stop marker: bumped synchronously on the caller's thread
+        // (before the async clip work) so a play whose output line is still
+        // opening observes it at its pre-start gate and cancels, instead of
+        // starting late and playing on past the stop.
+        stopSeq(sound).incrementAndGet();
+
         Helpers.threadRun(() -> {
             ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 

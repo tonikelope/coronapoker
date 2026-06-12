@@ -55,7 +55,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -86,15 +85,13 @@ public class Audio {
     public static final Map<String, Float> CUSTOM_VOLUMES = Map.ofEntries(ASCENSOR_VOLUME, STATS_VOLUME, WAITING_ROOM_VOLUME, ABOUT_VOLUME);
     public static final ConcurrentHashMap<String, CoronaMP3FilePlayer> MP3_LOOP = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, ConcurrentLinkedQueue<Clip>> WAVS_RESOURCES = new ConcurrentHashMap<>();
-    // Per-sound monotonic stop sequence backing the authoritative WAV stop:
-    // stopWavResource bumps it synchronously on the caller's thread and a play
-    // reads it before acquiring the output line, then re-checks it under the
-    // clip's monitor right before start(). A stop that lands while the line is
-    // still opening (the open can stall for ~1s when the device is busy, e.g.
-    // right after the game-over/rebuy sounds) is then honored at that gate
-    // instead of being lost — which used to leave the just-opened clip running
-    // to its full length, bleeding the previous sound into what came next.
-    private static final ConcurrentHashMap<String, AtomicLong> WAV_STOP_SEQ = new ConcurrentHashMap<>();
+    // Reusable pre-opened clips for animation-synced SFX (the shuffle). A normal
+    // play acquires and opens a fresh line every time; for a sound that must
+    // start/stop in lockstep with each GIF cycle, that per-cycle open() can stall
+    // on a busy device and overshoot the cycle's stop, leaving the cycle silent.
+    // A preloaded clip opens the line ONCE and is then started/rewound/stopped
+    // instantly, so it can never lose that race.
+    public static final ConcurrentHashMap<String, Clip> PRELOADED_WAVS = new ConcurrentHashMap<>();
     public static final ConcurrentLinkedQueue<String> MP3_LOOP_MUTED = new ConcurrentLinkedQueue<>();
     private static final AtomicBoolean VOLUME_REFRESH_QUEUED = new AtomicBoolean(false);
     public static final Object TTS_LOCK = new Object();
@@ -340,6 +337,17 @@ public class Audio {
                 }
             }
         }
+
+        for (Map.Entry<String, Clip> entry : PRELOADED_WAVS.entrySet()) {
+            try {
+                Clip c = entry.getValue();
+                if (c != null && c.isOpen()) {
+                    setClipVolume(entry.getKey(), c, false);
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error setting preloaded WAV volume: {0}", ex.getMessage());
+            }
+        }
     }
 
     public static void refreshALLMP3LoopVolume() {
@@ -405,11 +413,6 @@ public class Audio {
         }
     }
 
-    // Backing accessor for the per-sound authoritative stop sequence.
-    private static AtomicLong stopSeq(String sound) {
-        return WAV_STOP_SEQ.computeIfAbsent(sound, k -> new AtomicLong());
-    }
-
     public static boolean playWavResourceAndWait(String sound) {
 
         return playWavResourceAndWait(sound, true, false);
@@ -423,15 +426,6 @@ public class Audio {
             if (BLACKLISTED_SOUNDS.contains(sound)) {
                 return false;
             }
-
-            // Authoritative-stop watermark, read before the output line is
-            // acquired (the open can stall while the device is busy): a
-            // stopWavResource(sound) landing during the open bumps this and the
-            // pre-start gate below cancels the playback instead of starting late.
-            final long start_stop_seq = stopSeq(sound).get();
-
-            // Only read again to quantify a lost race in the rare cancel log below.
-            final long play_begin_ns = System.nanoTime();
 
             InputStream sound_stream;
             if ((sound_stream = getSoundInputStream(sound)) != null) {
@@ -470,8 +464,6 @@ public class Audio {
                             }
                         };
 
-                        boolean started = false;
-
                         try {
 
                             synchronized (clip_queue) {
@@ -498,49 +490,24 @@ public class Audio {
 
                                 setClipVolume(sound, clip, bypass_muted);
 
-                                // Start under the clip's own monitor — the same one
-                                // stopWavResource takes — so the start and a
-                                // concurrent stop cannot interleave: either we see
-                                // its bumped sequence and never start, or we start
-                                // first and it finds the clip running and stops it. A
-                                // stop that landed while the line was opening is
-                                // honored here instead of leaking a full-length clip.
-                                synchronized (clip) {
-                                    if (stopSeq(sound).get() == start_stop_seq) {
-                                        // Registered before start() so an ultra-short
-                                        // clip cannot finish before we are listening.
-                                        clip.addLineListener(end_listener);
-                                        clip.start();
-                                        started = true;
-                                    } else {
-                                        // The line finished opening only after a
-                                        // stopWavResource(sound) had already been issued.
-                                        // Without this gate the clip would start late and
-                                        // play to its full length past the stop. Silent on
-                                        // the happy path: this fires only when the open
-                                        // actually lost the play/stop race, so it never
-                                        // floods the log — it is the diagnostic for the
-                                        // stale-sound-bleeding-into-the-next-phase bug.
-                                        Logger.getLogger(Audio.class.getName()).log(Level.WARNING,
-                                                "WAV playback of {0} cancelled at the start gate after {1} ms: a stop arrived while the output line was still opening (play/stop race caught).",
-                                                new Object[]{sound, (System.nanoTime() - play_begin_ns) / 1_000_000L});
-                                    }
-                                }
+                                // Registered before start() so an ultra-short clip
+                                // cannot finish before we are listening.
+                                clip.addLineListener(end_listener);
+
+                                clip.start();
                             }
 
-                            if (started) {
-                                try {
-                                    // Bounded only as a guard against a dropped event;
-                                    // the natural STOP releases long before this fires.
-                                    finished.await(clip.getMicrosecondLength() / 1000 + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
-                                } finally {
-                                    clip.removeLineListener(end_listener);
-                                }
+                            try {
+                                // Bounded only as a guard against a dropped event;
+                                // the natural STOP releases long before this fires.
+                                finished.await(clip.getMicrosecondLength() / 1000 + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                            } finally {
+                                clip.removeLineListener(end_listener);
+                            }
 
-                                synchronized (clip) {
-                                    if (clip.isRunning()) {
-                                        clip.stop();
-                                    }
+                            synchronized (clip) {
+                                if (clip.isRunning()) {
+                                    clip.stop();
                                 }
                             }
 
@@ -1026,13 +993,6 @@ public class Audio {
     }
 
     public static void stopWavResource(String sound) {
-
-        // Authoritative stop marker: bumped synchronously on the caller's thread
-        // (before the async clip work) so a play whose output line is still
-        // opening observes it at its pre-start gate and cancels, instead of
-        // starting late and playing on past the stop.
-        stopSeq(sound).incrementAndGet();
-
         Helpers.threadRun(() -> {
             ConcurrentLinkedQueue<Clip> list = WAVS_RESOURCES.remove(sound);
 
@@ -1051,6 +1011,112 @@ public class Audio {
             }
         });
 
+    }
+
+    // Open (once) and keep a reusable clip for a sound. Idempotent; safe to call
+    // off the EDT before an animation. No-op in TEST_MODE, for blacklisted/missing
+    // files, or when no audio device is available.
+    public static void preloadWav(String sound) {
+
+        if (GameFrame.TEST_MODE || BLACKLISTED_SOUNDS.contains(sound) || PRELOADED_WAVS.containsKey(sound)) {
+            return;
+        }
+
+        InputStream sound_stream = getSoundInputStream(sound);
+
+        if (sound_stream == null) {
+            return;
+        }
+
+        try (final BufferedInputStream bis = new BufferedInputStream(sound_stream); final javax.sound.sampled.AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(bis)) {
+
+            Clip clip = AudioDeviceManager.getClip();
+
+            clip.open(audioInputStream);
+
+            // A concurrent preload of the same sound loses the race: keep the first.
+            if (PRELOADED_WAVS.putIfAbsent(sound, clip) != null) {
+                clip.close();
+            } else if (!AUDIO_AVAILABLE) {
+                AUDIO_AVAILABLE = true;
+                Logger.getLogger(Audio.class.getName()).log(Level.INFO, "Audio device detected. Sound effects restored.");
+            }
+
+        } catch (IllegalArgumentException | javax.sound.sampled.LineUnavailableException ex) {
+            if (AUDIO_AVAILABLE) {
+                AUDIO_AVAILABLE = false;
+                Logger.getLogger(Audio.class.getName()).log(Level.WARNING, "Preload: no audio device for {0}.", sound);
+            }
+        } catch (UnsupportedAudioFileException | IOException ex) {
+            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Preload ERROR -> {0} | {1}", new Object[]{sound, ex.getMessage()});
+            BLACKLISTED_SOUNDS.add(sound);
+        } catch (Exception ex) {
+            Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Preload ERROR -> {0} | {1}", new Object[]{sound, ex.getMessage()});
+        }
+    }
+
+    // (Re)start a preloaded sound from frame 0 — instant, no line acquisition, so
+    // it never loses a race against a concurrent stop. Lazily preloads if needed.
+    public static void playPreloadedWav(String sound) {
+
+        Clip clip = PRELOADED_WAVS.get(sound);
+
+        if (clip == null) {
+            preloadWav(sound);
+            clip = PRELOADED_WAVS.get(sound);
+        }
+
+        if (clip != null) {
+            synchronized (clip) {
+                if (clip.isOpen()) {
+                    clip.stop();
+                    clip.flush();
+                    clip.setFramePosition(0);
+                    setClipVolume(sound, clip, false);
+                    clip.start();
+                }
+            }
+        }
+    }
+
+    public static void stopPreloadedWav(String sound) {
+
+        Clip clip = PRELOADED_WAVS.get(sound);
+
+        if (clip != null) {
+            synchronized (clip) {
+                if (clip.isOpen()) {
+                    // stop + flush: descarta el buffer de salida pendiente para que
+                    // el corte sea EXACTO (sin cola que se oiga después del frame de
+                    // corte), igual que CoronaMP3FilePlayer.stop() hace con su línea.
+                    clip.stop();
+                    clip.flush();
+                }
+            }
+        }
+    }
+
+    public static void closePreloadedWav(String sound) {
+
+        Clip clip = PRELOADED_WAVS.remove(sound);
+
+        if (clip != null) {
+            synchronized (clip) {
+                try {
+                    clip.stop();
+                    clip.close();
+                } catch (Exception ex) {
+                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error closing preloaded WAV {0}: {1}", new Object[]{sound, ex.getMessage()});
+                }
+            }
+        }
+    }
+
+    public static void closeAllPreloadedWavs() {
+
+        for (String sound : new ArrayList<>(PRELOADED_WAVS.keySet())) {
+            closePreloadedWav(sound);
+        }
     }
 
     public static void stopLoopMp3(String sound) {
@@ -1242,6 +1308,16 @@ public class Audio {
                 }
             }
         }
+
+        for (Clip c : PRELOADED_WAVS.values()) {
+            try {
+                if (c != null && c.isOpen()) {
+                    ((BooleanControl) c.getControl(BooleanControl.Type.MUTE)).setValue(true);
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error muting preloaded WAV: {0}", ex.getMessage());
+            }
+        }
     }
 
     public static void muteAllLoopMp3() {
@@ -1281,6 +1357,17 @@ public class Audio {
                 } catch (Exception ex) {
                     Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting all WAVs: {0}", ex.getMessage());
                 }
+            }
+        }
+
+        for (Map.Entry<String, Clip> entry : PRELOADED_WAVS.entrySet()) {
+            try {
+                Clip c = entry.getValue();
+                if (c != null && c.isOpen()) {
+                    setClipVolume(entry.getKey(), c, false);
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error unmuting preloaded WAV: {0}", ex.getMessage());
             }
         }
     }

@@ -329,8 +329,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // rondan los 43 MB gracias al fast path indexado; un shuffle.gif de mod que
     // estime por encima cae a la ruta legacy Toolkit en vez de tragarse la RAM)
     public static final long PRE_RENDERED_SHUFFLE_MAX_BYTES = 64L * 1024 * 1024;
-    // Frame (1-based) de cada ciclo del GIF de barajado en el que se corta
-    // shuffle.wav, el mismo en el motor pre-decodificado y en la ruta legacy
+    // Frame (1-based) de cada vuelta del gif en el que se CORTA shuffle.wav, antes
+    // del ultimo frame a proposito: deja margen para que el buffer de salida del
+    // dispositivo (que va por detras) termine de drenar ANTES de que la vuelta
+    // acabe visualmente. Si se corta justo al final, el sonido se oye un pelin
+    // despues de que la animacion desaparece.
     public static final int SHUFFLE_AUDIO_STOP_FRAME = 53;
     // Caché del shuffle.gif pre-decodificado de la baraja ACTUAL (una sola
     // entrada, keyed por URL): el decode de ~0,5 s se paga una única vez por
@@ -6410,6 +6413,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean[] gif_thread_done = {false};
 
             Helpers.threadRun(() -> {
+                // Abre (una vez) y reutiliza la linea de audio del barajado ANTES
+                // de animar y fuera del EDT: arrancar el sonido en cada vuelta del
+                // gif sera instantaneo, sin un open por ciclo que pueda llegar
+                // tarde y quedarse mudo.
+                if (!isFin_de_la_transmision()) {
+                    Audio.preloadWav("misc/shuffle.wav");
+                }
+
                 URL url_icon = shuffleGifUrl();
                 if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
 
@@ -6435,12 +6446,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "misc/shuffle.wav", SHUFFLE_AUDIO_STOP_FRAME, () -> barajando);
                     } else {
                         ImageIcon icon = new ImageIcon(url_icon);
-                        // Loop the shuffle GIF (with audio re-triggered each cycle) until the
-                        // SRA cascade finishes. Minimum 1 full cycle thanks to do-while.
-                        // delay_end=0 keeps the gap between cycles to the bare EDT round-trip.
+                        // Loop the shuffle GIF until the SRA cascade finishes (min 1
+                        // full pass thanks to the do-while). The audio is synced to
+                        // each GIF pass with the pre-opened clip: start at the pass
+                        // start, stop when the pass (showCentralImage) returns.
                         do {
-                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true,
-                                    "misc/shuffle.wav", 1, SHUFFLE_AUDIO_STOP_FRAME);
+                            Audio.playPreloadedWav("misc/shuffle.wav");
+                            GameFrame.getInstance().getTapete().showCentralImage(icon, 0, 0, true, null, 0, 0);
+                            Audio.stopPreloadedWav("misc/shuffle.wav");
                         } while (barajando && !isFin_de_la_transmision());
                     }
 
@@ -6482,6 +6495,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
+
+                    Audio.stopPreloadedWav("misc/shuffle.wav");
+
                     return false;
                 }
 
@@ -6508,6 +6524,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
+
+            // El barajado termino: corta el audio antes de repartir. Las rutas de
+            // animacion ya lo paran al salir; esto cubre cualquier borde.
+            Audio.stopPreloadedWav("misc/shuffle.wav");
 
             repartir();
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);

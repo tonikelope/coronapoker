@@ -2498,7 +2498,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (atRebuyLimit(nick)) {
                     denied_by_limit = true;
                 } else {
-                    this.rebuy_now.put(nick, buyin);
+                    // El host es el banco: el importe de un rebuy SIEMPRE está en
+                    // [1, BUYIN] (el spinner del RebuyDialog ya lo acota). Un cliente
+                    // manipulado podría mandar REBUYNOW#nick#<entero arbitrario>; lo
+                    // acotamos aquí para que no pueda fabricar fichas ni dejar el stack
+                    // negativo. El centinela -1 del toggle-off local no llega aquí
+                    // (cae en la rama remove).
+                    int safe_buyin = Math.max(1, Math.min(buyin, GameFrame.BUYIN));
+                    if (safe_buyin != buyin) {
+                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} out of range [1,{2}] — clamped to {3}",
+                                new Object[]{buyin, nick, GameFrame.BUYIN, safe_buyin});
+                    }
+                    this.rebuy_now.put(nick, safe_buyin);
                 }
             } else {
                 this.rebuy_now.remove(nick);
@@ -3453,7 +3464,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } else if (atRebuyLimit(nick)) {
                                     jugador.setSpectator(null);
                                 } else {
-                                    rebuy_now.put(nick, Integer.parseInt(partes[4]));
+                                    // Mismo blindaje que rebuyNow: el host acota el importe
+                                    // a [1, BUYIN] para que un cliente manipulado no fabrique
+                                    // fichas vía REBUY#...#<entero arbitrario>.
+                                    int raw_rebuy = Integer.parseInt(partes[4]);
+                                    int safe_rebuy = Math.max(1, Math.min(raw_rebuy, GameFrame.BUYIN));
+                                    if (safe_rebuy != raw_rebuy) {
+                                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} out of range [1,{2}] — clamped to {3}",
+                                                new Object[]{raw_rebuy, nick, GameFrame.BUYIN, safe_rebuy});
+                                    }
+                                    rebuy_now.put(nick, safe_rebuy);
                                 }
                             } else if (atRebuyLimit(nick)) {
                                 jugador.setSpectator(null);

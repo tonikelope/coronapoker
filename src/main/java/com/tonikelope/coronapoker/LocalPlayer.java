@@ -31,7 +31,6 @@ package com.tonikelope.coronapoker;
 import static com.tonikelope.coronapoker.GameFrame.GUI_RENDER_WAIT;
 import static com.tonikelope.coronapoker.GameFrame.NOTIFY_INGAME_GIF_REPEAT;
 import static com.tonikelope.coronapoker.GameFrame.TTS_NO_SOUND_TIMEOUT;
-import static com.tonikelope.coronapoker.Helpers.bufferedImagesEqual;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_BACK_COLOR;
 import static com.tonikelope.coronapoker.RemotePlayer.RERAISE_FORE_COLOR;
 import static com.tonikelope.coronapoker.GifLabel.GIF_BARRIER_TIMEOUT;
@@ -88,16 +87,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         };
     }
 
-    public static String[] getPositionsLabels() {
-        return new String[]{
-            Translator.translate("position.small_blind"),
-            Translator.translate("position.big_blind"),
-            Translator.translate("position.dealer")
-        };
-    }
-
     public static String[][] ACTIONS_LABELS = getActionsLabels();
-    public static String[] POSITIONS_LABELS = getPositionsLabels();
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 550;
     public static final int MIN_ACTION_HEIGHT = 45;
@@ -106,7 +96,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentHashMap<JButton, Boolean> action_button_armed = new ConcurrentHashMap<>();
     private final Object pre_pulsar_lock = new Object();
     private final Object zoom_lock = new Object();
-    private final Object radar_lock = new Object();
     private final Object rabbit_lock = new Object();
 
     private volatile String nickname;
@@ -156,7 +145,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
     private volatile boolean reraise;
     private volatile int conta_win = 0;
-    private volatile boolean radar_ckecking = false;
     private volatile int conta_rabbit = 0;
 
     private volatile float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
@@ -312,41 +300,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             getPlayer_action().setText(jugada);
 
         });
-    }
-
-    public boolean secureHideHoleCards(long pause, long timeout) throws Exception {
-
-        long time_limit = System.currentTimeMillis() + timeout;
-
-        Rectangle r1 = new Rectangle((int) panel_cartas.getLocationOnScreen().getX(), (int) panel_cartas.getLocationOnScreen().getY(), panel_cartas.getWidth(), panel_cartas.getHeight());
-
-        Robot robot = new Robot();
-
-        BufferedImage c1 = robot.createScreenCapture(r1); //Captura el panel de las cartas con las cartas visibles
-
-        Helpers.GUIRun(() -> {
-            holeCard1.setSecure_hidden(true);
-            holeCard1.getCard_image().setVisible(false);
-            holeCard2.setSecure_hidden(true);
-            holeCard2.getCard_image().setVisible(false);
-            paintImmediately(panel_cartas.getBounds());
-        });
-
-        BufferedImage c2 = robot.createScreenCapture(r1); //Aquí normalmente las cartas seguirán aún visibles (depende del SO)
-
-        while (System.currentTimeMillis() < time_limit && bufferedImagesEqual(c1, c2)) {
-
-            //Mientras las cartas sigan visibles en pantalla
-            Helpers.pausar(pause);
-
-            if (System.currentTimeMillis() < time_limit) {
-                c2 = robot.createScreenCapture(r1);
-            }
-        }
-
-        Helpers.pausar(50); //Hay que esperar un extra para asegurarnos que la imagen nueva es estable y evitar capturar las cartas en una transición (con algo de transparencia) (RARO)
-
-        return (System.currentTimeMillis() >= time_limit);
     }
 
     public void refreshNotifyChatLabel() {

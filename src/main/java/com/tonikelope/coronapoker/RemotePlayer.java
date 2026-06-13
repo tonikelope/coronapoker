@@ -78,16 +78,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         };
     }
 
-    public static String[] getPositionsLabels() {
-        return new String[]{
-            Translator.translate("position.small_blind"),
-            Translator.translate("position.big_blind"),
-            Translator.translate("position.dealer")
-        };
-    }
-
     public static volatile String[][] ACTIONS_LABELS = getActionsLabels();
-    public static volatile String[] POSITIONS_LABELS = getPositionsLabels();
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;

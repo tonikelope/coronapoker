@@ -519,9 +519,7 @@ public class Init extends JFrame {
 
     public void translateGlobalLabels() {
         LocalPlayer.ACTIONS_LABELS = LocalPlayer.getActionsLabels();
-        LocalPlayer.POSITIONS_LABELS = LocalPlayer.getPositionsLabels();
         RemotePlayer.ACTIONS_LABELS = RemotePlayer.getActionsLabels();
-        RemotePlayer.POSITIONS_LABELS = RemotePlayer.getPositionsLabels();
         Hand.NOMBRES_JUGADAS = Hand.getNombreJugadas();
 
     }

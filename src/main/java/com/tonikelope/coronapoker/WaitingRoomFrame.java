@@ -3963,6 +3963,18 @@ public class WaitingRoomFrame extends JFrame {
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
+                // Cualquier excepción que llega aquí ocurrió en el handshake temprano
+                // (lectura de magic/pubkey, ECDH, parse de versión, ramas de rechazo,
+                // verifyJoinSelfSig) — SIEMPRE antes del bloque synchronized(lock_new_client),
+                // cuyo handoff a Participant tiene su propio catch interno. Por tanto el
+                // socket nunca se entregó a un peer: cerrarlo cierra la fuga residual de FDs
+                // sin riesgo de cerrar un socket vivo ya en manos de un Participant.
+                if (client_socket != null) {
+                    try {
+                        client_socket.close();
+                    } catch (Exception ignored) {
+                    }
+                }
             }
             net_server.getClient_threads().remove(Thread.currentThread().threadId());
         });

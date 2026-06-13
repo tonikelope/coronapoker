@@ -499,29 +499,6 @@ public class Helpers {
         }
     }
 
-    public static boolean bufferedImagesEqual(BufferedImage img1, BufferedImage img2) {
-        if (img1.getWidth() == img2.getWidth() && img1.getHeight() == img2.getHeight()) {
-            for (int x = 0; x < img1.getWidth(); x++) {
-                for (int y = 0; y < img1.getHeight(); y++) {
-                    if (img1.getRGB(x, y) != img2.getRGB(x, y)) {
-                        return false;
-                    }
-                }
-            }
-        } else {
-            return false;
-        }
-        return true;
-    }
-
-    public static void forceRepaintComponentNow(JComponent c) {
-        Helpers.GUIRun(() -> {
-
-            c.revalidate();
-            c.repaint();
-        });
-    }
-
     public static String[] runProcess(String[] command) {
         Process process = null;
         try {
@@ -618,11 +595,6 @@ public class Helpers {
             image.setCursor(defCursor);
             image.repaint();
         }
-    }
-
-    public static BufferedImage convertToGrayScale(BufferedImage image) {
-        ColorConvertOp colorConvert = new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_GRAY), null);
-        return colorConvert.filter(image, null);
     }
 
     public static String downloadUpdater() throws IOException {
@@ -3043,15 +3015,6 @@ public class Helpers {
         return rop.filter(colorConvert.filter(source, null), null);
     }
 
-    public static BufferedImage setColorImageOpacity(BufferedImage source, float opacity) {
-
-        float[] scales = {1f, 1f, 1f, opacity};
-        float[] offsets = new float[4];
-        RescaleOp rop = new RescaleOp(scales, offsets, null);
-
-        return rop.filter(source, null);
-    }
-
     //Thanks -> https://stackoverflow.com/a/7603815
     public static BufferedImage makeImageRoundedCorner(Image image, int cornerRadius) {
         // Obtener las dimensiones de la imagen original
@@ -4595,23 +4558,6 @@ public class Helpers {
     public static int float1DSecureCompare(float val1, float val2) {
 
         return Float.compare(floatClean(val1), floatClean(val2));
-    }
-
-    public static HashMap<Object, Object> reverseHashMap(HashMap<Object, Object> map) {
-
-        HashMap<Object, Object> reverse = new HashMap<>();
-
-        for (Map.Entry<Object, Object> entry : map.entrySet()) {
-
-            Object key = entry.getKey();
-
-            Object value = entry.getValue();
-
-            reverse.put(value, key);
-
-        }
-
-        return reverse;
     }
 
     public static boolean isNumeric(String str) {

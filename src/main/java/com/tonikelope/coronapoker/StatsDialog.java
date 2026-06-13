@@ -324,7 +324,7 @@ public class StatsDialog extends JFrame {
             int columnCount = metaData.getColumnCount();
 
             for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")));
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
             }
 
             Object[] row = new Object[columnCount];
@@ -1168,7 +1168,7 @@ public class StatsDialog extends JFrame {
                 int columnCount = metaData.getColumnCount();
 
                 for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                    tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex).replace("_", " ")));
+                    tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
                 }
 
                 Object[] row = new Object[columnCount];

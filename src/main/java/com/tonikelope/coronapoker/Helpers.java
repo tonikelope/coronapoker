@@ -128,6 +128,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -240,7 +241,14 @@ public class Helpers {
     // el check de arranque reintenta en silencio (Init.UPDATE_CHECK_RETRIES)
     // y un GitHub lento no debe retener nada.
     public static final int HTTP_TIMEOUT = 5000;
-    public static final ConcurrentHashMap<Component, Integer> ORIGINAL_FONT_SIZE = new ConcurrentHashMap<>();
+    // Claves DÉBILES: un componente vivo siempre está fuertemente referenciado por
+    // su contenedor, así que su entrada permanece mientras se usa; cuando el diálogo
+    // que lo contiene se dispose()a y se deja de referenciar, el GC evicta la entrada
+    // sola. Esto evita la fuga lenta que tenía el ConcurrentHashMap (cada reapertura
+    // de PauseDialog/ShortcutsDialog dejaba clavado todo su árbol de componentes).
+    // Solo se accede por put/get/containsKey (nunca se itera), así que synchronizedMap
+    // basta para la seguridad de hilos.
+    public static final Map<Component, Integer> ORIGINAL_FONT_SIZE = Collections.synchronizedMap(new WeakHashMap<>());
     public static final String PROPERTIES_FILE = Init.CORONA_DIR + "/coronapoker.properties";
     // Tope superior de tamaño de una línea de comando (post-Base64 + cifrado + HMAC).
     // Cubre con margen el mensaje más grande que el protocolo legítimo puede generar

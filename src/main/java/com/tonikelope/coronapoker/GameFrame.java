@@ -1203,11 +1203,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         boolean paused = false;
 
-        while (GameFrame.getInstance() != null && (timba_pausada || GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
+        synchronized (lock_pause) {
+            while (GameFrame.getInstance() != null && (timba_pausada || GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
 
-            paused = true;
+                paused = true;
 
-            synchronized (lock_pause) {
                 try {
                     lock_pause.wait(GameFrame.WAIT_PAUSE);
                 } catch (InterruptedException ex) {
@@ -1221,7 +1221,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 }
             }
-
         }
 
         return paused;
@@ -2973,17 +2972,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                     synchronized (GameFrame.NOTIFY_CHAT_QUEUE) {
 
-                        try {
-                            GameFrame.NOTIFY_CHAT_QUEUE.wait(1000);
-                        } catch (InterruptedException ex) {
-                            Thread.currentThread().interrupt();
-                            // Expected during pool shutdown — TTS watchdog
-                            // task is being cancelled cooperatively. Bail
-                            // out of the outer while loop so we don't spin
-                            // re-entering wait() with the interrupt flag.
-                            Logger.getLogger(GameFrame.class.getName()).log(Level.INFO,
-                                    "TTS watchdog wait interrupted (cooperative cancellation)");
-                            return;
+                        // Re-check inside the monitor before parking: a producer
+                        // that enqueued + notified between the drain loop above and
+                        // this synchronized block would otherwise have its notify
+                        // lost, delaying the message up to the full timeout.
+                        if (GameFrame.NOTIFY_CHAT_QUEUE.isEmpty() && !crupier.isFin_de_la_transmision()) {
+                            try {
+                                GameFrame.NOTIFY_CHAT_QUEUE.wait(1000);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                                // Expected during pool shutdown — TTS watchdog
+                                // task is being cancelled cooperatively. Bail
+                                // out of the outer while loop so we don't spin
+                                // re-entering wait() with the interrupt flag.
+                                Logger.getLogger(GameFrame.class.getName()).log(Level.INFO,
+                                        "TTS watchdog wait interrupted (cooperative cancellation)");
+                                return;
+                            }
                         }
                     }
 

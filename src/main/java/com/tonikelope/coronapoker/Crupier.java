@@ -3046,9 +3046,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 });
 
-                                while (Init.PLAYING_CINEMATIC && !gif_dialog.isForce_exit()) {
-
-                                    synchronized (Init.LOCK_CINEMATICS) {
+                                synchronized (Init.LOCK_CINEMATICS) {
+                                    while (Init.PLAYING_CINEMATIC && !gif_dialog.isForce_exit()) {
 
                                         try {
                                             Init.LOCK_CINEMATICS.wait(1000);
@@ -10365,14 +10364,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
-                    do {
-                        synchronized (getLock_apuestas()) {
+                    synchronized (getLock_apuestas()) {
+                        while (current_player.isTurno()) {
                             try {
                                 getLock_apuestas().wait(WAIT_QUEUES);
                             } catch (InterruptedException ex) {
                             }
                         }
-                    } while (current_player.isTurno());
+                    }
 
                     decision = current_player.getDecision();
                     action = new Object[]{decision, current_player.getBet(), null};
@@ -10570,14 +10569,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                do {
-                    synchronized (getLock_apuestas()) {
+                synchronized (getLock_apuestas()) {
+                    while (current_player.isTurno()) {
                         try {
                             getLock_apuestas().wait(WAIT_QUEUES);
                         } catch (InterruptedException ex) {
                         }
                     }
-                } while (current_player.isTurno());
+                }
 
                 // Identity: absorb the (record || sig) bytes into H_t.
                 // Same call on host and every client, so the chain stays byte-identical
@@ -11309,23 +11308,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void waitRabbitProcessing() {
 
-        boolean pending;
+        synchronized (lock_rabbit) {
 
-        do {
-            pending = false;
+            boolean pending = true;
 
-            for (Map.Entry<String, Boolean> entry : rabbit_players.entrySet()) {
+            while (pending) {
 
-                pending = entry.getValue();
+                pending = false;
 
-                if (pending) {
-                    break;
+                for (Map.Entry<String, Boolean> entry : rabbit_players.entrySet()) {
+                    if (entry.getValue()) {
+                        pending = true;
+                        break;
+                    }
                 }
 
-            }
-
-            if (pending) {
-                synchronized (lock_rabbit) {
+                if (pending) {
                     try {
                         lock_rabbit.wait(1000);
                     } catch (InterruptedException ex) {
@@ -11334,8 +11332,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
             }
-
-        } while (pending);
+        }
     }
 
     /**

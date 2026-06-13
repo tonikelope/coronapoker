@@ -3383,7 +3383,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
-    private void recibirRebuys(ArrayList<String> pending) {
+    private void recibirRebuys(ArrayList<String> pending, boolean skip_countdown) {
 
         // Barra de tiempo según el modo local (mismo snapshot de CINEMATICAS
         // que decide el visual de los arruinados en setRebuying):
@@ -3405,7 +3405,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // humanos arruinados mientras deciden en su máquina (sin sincronía con
         // su GameOverDialog real — cosmético). Bots fuera: en el host ni
         // entran en pending y en los clientes su REBUY llega al instante.
-        startRebuyingVisuals(pending);
+        // skip_countdown: el LOCAL también se arruinó, así que este recibirRebuys
+        // corre DESPUÉS de su game-over modal y una cuenta atrás remota saldría
+        // desincronizada → no se lanza; abajo solo se refleja el desenlace (RECOMPRA).
+        if (!skip_countdown) {
+            startRebuyingVisuals(pending);
+        }
 
         long start_time = System.currentTimeMillis();
         long barra_start = start_time;
@@ -3449,7 +3454,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     ? (!partes[4].equals("0") && !atRebuyLimit(nick))
                                     : !atRebuyLimit(nick);
                             if (jugador instanceof RemotePlayer) {
-                                ((RemotePlayer) jugador).setRebuying(false, recompra);
+                                if (skip_countdown) {
+                                    // No se lanzó cuenta atrás remota (local también
+                                    // arruinado): solo reflejamos el desenlace.
+                                    ((RemotePlayer) jugador).showRebuyOutcome(recompra);
+                                } else {
+                                    ((RemotePlayer) jugador).setRebuying(false, recompra);
+                                }
                             }
 
                             if (GameFrame.getInstance().isPartida_local()) {
@@ -14924,24 +14935,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.rebuy_time = !rebuy_players.isEmpty();
 
-        if (GameFrame.getInstance().getLocalPlayer().isActivo()
+        // El local también se arruinó: su game-over modal corre ANTES de
+        // recibirRebuys, así que una cuenta atrás remota saldría desincronizada.
+        // En ese caso recibirRebuys NO la lanza y solo muestra el desenlace
+        // (RECOMPRA) de cada remoto.
+        boolean local_ruined = GameFrame.getInstance().getLocalPlayer().isActivo()
                 && Helpers.float1DSecureCompare(Helpers.floatClean(GameFrame.getInstance().getLocalPlayer().getStack())
-                        + Helpers.floatClean(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0) {
+                        + Helpers.floatClean(GameFrame.getInstance().getLocalPlayer().getPagar()), 0f) == 0;
+
+        if (local_ruined) {
 
             this.rebuy_time = true;
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
             if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-
-                // El local también está en game over interactivo: su diálogo es
-                // el dueño del game_over.wav de cuenta atrás (y lo corta al
-                // decidir), así que los GIF de los arruinados remotos arrancan
-                // YA —a la vez que el game over local, sobre la mesa viva (luces
-                // apagadas)— pero MUDOS. recibirRebuys volverá a invocarlos como
-                // no-op idempotente.
-                RemotePlayer.LOCAL_GAMEOVER_OWNS_AUDIO = true;
-                startRebuyingVisuals(rebuy_players);
 
                 Helpers.GUIRunAndWait(() -> {
                     if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
@@ -15086,7 +15094,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
-            this.recibirRebuys(rebuy_players);
+            this.recibirRebuys(rebuy_players, local_ruined);
         }
 
         // Cerrado el ciclo de rebuy: el diálogo local ya no es dueño de ningún

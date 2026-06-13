@@ -1816,6 +1816,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void downgradeAndRefreshTapete() {
 
+        // Si la partida ya terminó (p.ej. el server decide salir en la misma mano
+        // en que un jugador se fue y el tablero se acorta), NO reconstruir la mesa:
+        // el TablePanelFactory crea un tablero nuevo con paneles VISIBLES por
+        // defecto que, encolado en el EDT, saldría DESPUÉS del hideALL del balance
+        // final (race factoría-vs-salida → los jugadores reaparecían sobre el
+        // balance). Sin next hand, no hay nada que reconstruir.
+        if (getCrupier() != null && getCrupier().isFin_de_la_transmision()) {
+            return;
+        }
+
         TablePanel nuevo_tapete = TablePanelFactory.downgradePanel(tapete);
 
         if (nuevo_tapete != null) {
@@ -1830,6 +1840,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 zoomables = new ZoomableInterface[]{tapete};
                 frame_layer = new JLayer<>(tapete, capa_brillo);
                 GameFrame.getInstance().getContentPane().add(frame_layer);
+
+                // TOCTOU: si la partida terminó mientras se construía/swapeaba el
+                // tablero acortado, sus paneles (visibles por defecto) NO deben
+                // aparecer sobre el balance final (la otra mitad de la race).
+                if (getCrupier() != null && getCrupier().isFin_de_la_transmision()) {
+                    nuevo_tapete.hideALL();
+                }
 
                 Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
 

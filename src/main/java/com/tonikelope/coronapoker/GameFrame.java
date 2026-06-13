@@ -130,7 +130,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
-    public static volatile boolean VOICE_MESSAGES = true;
+    public static volatile boolean VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("voice_messages", "true"));
     public static volatile boolean RUN_IT_TWICE = false;
     public static volatile boolean SONIDOS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos", "true")) && !TEST_MODE;
     public static volatile boolean SONIDOS_CHORRA = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sonidos_chorra", "false"));
@@ -152,7 +152,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
     public static volatile boolean RECOVER = false;
     public static volatile Boolean MAC_NATIVE_FULLSCREEN = null;
-    public static volatile boolean TTS_SERVER = true;
+    public static volatile boolean TTS_SERVER = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("tts_server", "true"));
     public static volatile int RECOVER_ID = -1;
     public static volatile String UGI = null;
     public final static int UGI_LENGTH = 50;
@@ -500,9 +500,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         GameFrame.RUN_IT_TWICE = false;
 
-        GameFrame.VOICE_MESSAGES = true;
-
-        GameFrame.TTS_SERVER = true;
+        // Reglas globales (TTS / notas de voz): NO se resetean. Si el servidor
+        // las sobreescribió durante la timba se quedan así; su valor se persiste
+        // como propiedad y es la preselección para la próxima partida.
 
         // Defensivo: sin resetear estos statics, una partida que acaba con
         // force_recover=true deja contaminada la siguiente partida fresh
@@ -754,12 +754,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // asumiendo que wait(1000) habia esperado el periodo completo; un notify
             // (o un spurious wakeup) violaba esa premisa.
             long deadline = System.currentTimeMillis() + AUTO_ZOOM_TIMEOUT;
-            while (!full_screen) {
-                long remaining = deadline - System.currentTimeMillis();
-                if (remaining <= 0) {
-                    break;
-                }
-                synchronized (full_screen_lock) {
+            // Comprobación de full_screen DENTRO del synchronized: fuera, el
+            // toggle podía poner full_screen=true + notifyAll entre el chequeo y
+            // el wait, perdiéndose la notificación y durmiendo hasta el timeout.
+            synchronized (full_screen_lock) {
+                while (!full_screen) {
+                    long remaining = deadline - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        break;
+                    }
                     try {
                         full_screen_lock.wait(remaining);
                     } catch (InterruptedException ex) {
@@ -868,24 +871,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return animacion_menu;
     }
 
-    public JCheckBoxMenuItem getAscensor_menu() {
-        return ascensor_menu;
-    }
-
     public JMenuItem getChat_menu() {
         return chat_menu;
     }
 
     public JMenuItem getRegistro_menu() {
         return registro_menu;
-    }
-
-    public JCheckBoxMenuItem getSonidos_chorra_menu() {
-        return sonidos_chorra_menu;
-    }
-
-    public JCheckBoxMenuItem getSonidos_menu() {
-        return sonidos_menu;
     }
 
     public JCheckBoxMenuItem getTime_menu() {
@@ -1085,8 +1076,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             carta.refreshCard();
         }
 
-        while (notifier.size() < players.length * 2) {
-            synchronized (notifier) {
+        // Comprobación DENTRO del synchronized: fuera, la última carta podía
+        // add()+notifyAll entre el size() y el wait y se perdía la notificación
+        // (atasco de ~1s por barrera). Mismo arreglo en todas las esperas de
+        // notifier de zoom/refresco.
+        synchronized (notifier) {
+            while (notifier.size() < players.length * 2) {
                 try {
                     notifier.wait(1000);
                 } catch (InterruptedException ex) {
@@ -1635,7 +1630,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         GameFrame.key_event_dispatcher = (KeyEvent e) -> {
             KeyStroke keyStroke = KeyStroke.getKeyStrokeForEvent(e);
             JFrame frame = GameFrame.getInstance();
-            if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !zoom_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
+            if (actionMap.containsKey(keyStroke) && !file_menu.isSelected() && !apariencia_menu.isSelected() && !opciones_menu.isSelected() && !help_menu.isSelected() && (frame.isActive() || (pausa_dialog != null && pausa_dialog.hasFocus()) || (crupier.isFin_de_la_transmision() && keyStroke.equals(KeyStroke.getKeyStroke(KeyEvent.VK_S, KeyEvent.ALT_DOWN_MASK))))) {
                 final Action a = actionMap.get(keyStroke);
                 final ActionEvent ae = new ActionEvent(e.getSource(), e.getID(), null);
                 Helpers.GUIRun(() -> {
@@ -1758,10 +1753,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             });
         }
 
-        while (mynotifier.size() < zoomables.length) {
-
-            synchronized (mynotifier) {
-
+        synchronized (mynotifier) {
+            while (mynotifier.size() < zoomables.length) {
                 try {
                     mynotifier.wait(1000);
                 } catch (InterruptedException ex) {
@@ -1812,14 +1805,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.GUIRun(() -> {
             tapete.getCommunityCards().getPot_label().setText(prefix + " " + bote);
         });
-    }
-
-    public JCheckBoxMenuItem getTts_menu() {
-        return tts_menu;
-    }
-
-    public JCheckBoxMenuItem getVoice_messages_menu() {
-        return voice_messages_menu;
     }
 
     public void setTapeteApuestas(float apuestas) {
@@ -1954,14 +1939,99 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 Helpers.setScaledIconLabel(tapete.getCommunityCards().getSound_icon(), getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), CommunityCardsPanel.SOUND_ICON_WIDTH, CommunityCardsPanel.SOUND_ICON_WIDTH);
             });
         }
+    }
 
-        Helpers.GUIRun(() -> {
-            sonidos_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
+    // === Controles de audio: fuente única de verdad ===
+    // Toda la lógica de aplicar/persistir/difundir vive aquí. El diálogo de
+    // ajustes de audio y los callsites (icono de altavoz, recover, atajos de
+    // teclado) llaman a estos métodos. Ya no hay controles de audio en el menú
+    // ni en el popup, así que no se sincroniza nada con ellos. Los tres
+    // controles que NO son reglas de host (sonido, coña, música) son estáticos:
+    // valen también desde la ventana de inicio, donde aún no hay GameFrame.
+    public static void setSonidos(boolean on) {
 
-            if (Helpers.TapetePopupMenu.SONIDOS_MENU != null) {
-                Helpers.TapetePopupMenu.SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(getClass().getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
-            }
-        });
+        GameFrame.SONIDOS = on;
+
+        Helpers.PROPERTIES.setProperty("sonidos", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        if (!on) {
+            Audio.muteAll();
+        } else {
+            Audio.unmuteAll();
+        }
+
+        // Refresca el icono de altavoz en el contexto que exista (tapete en
+        // juego, ventana de inicio en el arranque).
+        if (getInstance() != null) {
+            getInstance().updateSoundIcon();
+        }
+
+        Init.refreshSoundIcon();
+
+        WaitingRoomFrame.refreshSoundIcon();
+    }
+
+    public static void setSonidosChorra(boolean on) {
+
+        GameFrame.SONIDOS_CHORRA = on;
+
+        Helpers.PROPERTIES.setProperty("sonidos_chorra", String.valueOf(on));
+        Helpers.savePropertiesFile();
+    }
+
+    public static void setMusicaAmbiental(boolean on) {
+
+        GameFrame.MUSICA_AMBIENTAL = on;
+
+        Helpers.PROPERTIES.setProperty("sonido_ascensor", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        // Un único toggle para la música de juego y la de la sala de espera:
+        // el flag lo gobierna effectiveLoopVolume; aquí solo refrescamos el
+        // volumen del loop que esté sonando para que se oiga al instante.
+        Audio.refreshLoopVolume(Audio.ASCENSOR_VOLUME.getKey());
+        Audio.refreshLoopVolume(Audio.WAITING_ROOM_VOLUME.getKey());
+    }
+
+    // Regla global del host: habilita/deshabilita el TTS para todos. El bloqueo
+    // "solo para mí" vive aparte (AudioDeviceManager.isBlockTtsLocal). Es
+    // estático y persiste la preferencia local para poder preseleccionarla
+    // antes de la partida; solo difunde a los clientes si eres anfitrión.
+    public static void setTTSGlobal(boolean on) {
+
+        GameFrame.TTS_SERVER = on;
+
+        Helpers.PROPERTIES.setProperty("tts_server", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                gf.getCrupier().broadcastGAMECommandFromServer("TTS#" + (on ? "1" : "0"), null);
+                // Persiste la regla para que sobreviva a un detener+recuperar.
+                GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+            });
+        }
+    }
+
+    // Regla global del host: habilita/deshabilita las notas de voz para todos.
+    public static void setVoiceMessages(boolean on) {
+
+        GameFrame.VOICE_MESSAGES = on;
+
+        Helpers.PROPERTIES.setProperty("voice_messages", String.valueOf(on));
+        Helpers.savePropertiesFile();
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                gf.getCrupier().broadcastGAMECommandFromServer("VOICEMSGRULE#" + (on ? "1" : "0"), null);
+                GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+            });
+        }
     }
 
     public JCheckBoxMenuItem getCompact_menu() {
@@ -2136,37 +2206,86 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_action_menu.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
 
-        sonidos_menu.setSelected(GameFrame.SONIDOS);
-
-        sonidos_chorra_menu.setSelected(GameFrame.SONIDOS_CHORRA);
-
-        ascensor_menu.setSelected(GameFrame.MUSICA_AMBIENTAL);
-
-        voice_messages_menu.setSelected(GameFrame.VOICE_MESSAGES);
-
         auto_fit_zoom_menu.setSelected(GameFrame.AUTO_ZOOM);
 
-        sonidos_chorra_menu.setEnabled(sonidos_menu.isSelected());
-
-        ascensor_menu.setEnabled(sonidos_menu.isSelected());
-
-        // "Ajustes" at the bottom of the audio block in Preferencias, opening
-        // the audio settings dialog (added by hand: initComponents is generated)
-        javax.swing.JMenuItem audio_settings_menu = new javax.swing.JMenuItem(Translator.translate("menu.ajustes"));
+        // Toda la configuración de audio vive ahora en el diálogo de ajustes de
+        // audio. En el menú Preferencias solo queda esta entrada que lo abre
+        // (añadida a mano: initComponents es código generado).
+        javax.swing.JMenuItem audio_settings_menu = new javax.swing.JMenuItem(Translator.translate("audio.ajustes"));
         audio_settings_menu.setFont(new java.awt.Font("Dialog", 0, 14));
-        audio_settings_menu.putClientProperty("i18n.key", "menu.ajustes");
-        audio_settings_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
+        audio_settings_menu.putClientProperty("i18n.key", "audio.ajustes");
+        audio_settings_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")));
         audio_settings_menu.addActionListener(e -> AudioSettingsDialog.open(this));
+        opciones_menu.insert(audio_settings_menu, 0);
 
-        int voice_messages_menu_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(voice_messages_menu);
-
-        opciones_menu.insert(audio_settings_menu, voice_messages_menu_index >= 0 ? voice_messages_menu_index + 1 : opciones_menu.getMenuComponentCount());
-
-        tts_menu.setSelected(GameFrame.TTS_SERVER);
-
-        tts_menu.setEnabled(sonidos_menu.isSelected());
+        // Run It Twice: entrada en Preferencias junto a IWTSTH (añadida a mano,
+        // como la del popup). Misma regla global del host.
+        run_it_twice_menu = new javax.swing.JCheckBoxMenuItem();
+        run_it_twice_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        run_it_twice_menu.putClientProperty("i18n.key", "menu.regla_run_it_twice");
+        run_it_twice_menu.setText(Translator.translate("menu.regla_run_it_twice"));
+        run_it_twice_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")));
+        run_it_twice_menu.setSelected(GameFrame.RUN_IT_TWICE);
+        run_it_twice_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                run_it_twice_menuActionPerformed(evt);
+            }
+        });
+        int iwtsth_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(iwtsth_rule_menu);
+        opciones_menu.insert(run_it_twice_menu, iwtsth_index >= 0 ? iwtsth_index + 1 : opciones_menu.getMenuComponentCount());
 
         generarBarajasMenu();
+
+        // === Menú "Apariencia" en el menú-bar, lo más parecido al popup del
+        // tapete: agrupa pantalla completa, zoom, vista compacta, reloj,
+        // cinemáticas, animación e imágenes del chat + confirmar + barajas y
+        // tapetes. Se re-parentan los ítems ya existentes (añadirlos a un menú
+        // nuevo los quita de su menú anterior), sin tocar el código generado. El
+        // antiguo menú Zoom desaparece del bar (sus controles van dentro). ===
+        apariencia_menu = new javax.swing.JMenu(Translator.translate("menu.apariencia"));
+        apariencia_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        apariencia_menu.putClientProperty("i18n.key", "menu.apariencia");
+        apariencia_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/tiny.png")));
+
+        apariencia_menu.add(full_screen_menu);
+        apariencia_menu.add(auto_fullscreen_menu);
+        apariencia_menu.add(compact_menu);
+
+        // zoom_menu queda solo con los controles de zoom (lo demás ya se movió);
+        // quitar los separadores que arrastraban a esos ítems.
+        zoom_menu.remove(jSeparator5);
+        zoom_menu.remove(jSeparator6);
+        apariencia_menu.add(zoom_menu);
+
+        apariencia_menu.add(time_menu);
+        apariencia_menu.add(menu_cinematicas);
+        apariencia_menu.add(animacion_menu);
+        apariencia_menu.add(chat_image_menu);
+        apariencia_menu.addSeparator();
+        apariencia_menu.add(menu_barajas);
+        apariencia_menu.add(menu_tapetes);
+
+        // Preferencias pierde los ítems de apariencia; limpiar separadores sueltos.
+        opciones_menu.remove(jSeparator1);
+        opciones_menu.remove(jSeparator7);
+        opciones_menu.remove(jSeparator8);
+        opciones_menu.remove(decks_separator);
+
+        // Rabbit junto a las otras reglas (IWTSTH/RIT), sin separador en medio.
+        opciones_menu.remove(jSeparator10);
+
+        // "Confirmar todas las acciones" justo debajo de "Botones AUTO".
+        opciones_menu.remove(confirmar_menu);
+        int auto_action_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
+        opciones_menu.insert(confirmar_menu, auto_action_index >= 0 ? auto_action_index + 1 : opciones_menu.getMenuComponentCount());
+
+        // "Detener la timba" y "Salir" juntos, sin separador entre ambos.
+        file_menu.remove(jSeparator11);
+
+        // Apariencia es un submenú DENTRO de Preferencias (no un menú propio del
+        // menú-bar), arriba del todo. El antiguo menú Zoom del bar desaparece:
+        // sus controles viven ahora dentro de Apariencia.
+        opciones_menu.insert(apariencia_menu, 0);
 
         menu_tapete_verde.setSelected(false);
         menu_tapete_azul.setSelected(false);
@@ -2320,11 +2439,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.MAX_HANDS_MENU.setEnabled(false);
             iwtsth_rule_menu.setEnabled(false);
             Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
+            run_it_twice_menu.setEnabled(false);
             Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
-            voice_messages_menu.setEnabled(false);
-            Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setEnabled(false);
-            tts_menu.setEnabled(false);
-            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(false);
         }
 
         if (!menu_cinematicas.isEnabled()) {
@@ -2911,11 +3027,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         auto_fullscreen_menu = new javax.swing.JCheckBoxMenuItem();
         full_screen_menu = new javax.swing.JMenuItem();
         opciones_menu = new javax.swing.JMenu();
-        sonidos_menu = new javax.swing.JCheckBoxMenuItem();
-        sonidos_chorra_menu = new javax.swing.JCheckBoxMenuItem();
-        ascensor_menu = new javax.swing.JCheckBoxMenuItem();
-        tts_menu = new javax.swing.JCheckBoxMenuItem();
-        voice_messages_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator1 = new javax.swing.JPopupMenu.Separator();
         confirmar_menu = new javax.swing.JCheckBoxMenuItem();
         auto_action_menu = new javax.swing.JCheckBoxMenuItem();
@@ -3154,65 +3265,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         opciones_menu.putClientProperty("i18n.key", "menu.preferencias");
         opciones_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
 
-        sonidos_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        sonidos_menu.setSelected(true);
-        sonidos_menu.setText("SONIDOS (ALT+S)");
-        sonidos_menu.putClientProperty("i18n.key", "menu.sonidos");
-        sonidos_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png"))); // NOI18N
-        sonidos_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                sonidos_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(sonidos_menu);
-
-        sonidos_chorra_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        sonidos_chorra_menu.setSelected(true);
-        sonidos_chorra_menu.setText("Sonidos de coña");
-        sonidos_chorra_menu.putClientProperty("i18n.key", "menu.sonidos_de_cona");
-        sonidos_chorra_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/joke.png"))); // NOI18N
-        sonidos_chorra_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                sonidos_chorra_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(sonidos_chorra_menu);
-
-        ascensor_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        ascensor_menu.setSelected(true);
-        ascensor_menu.setText("Música ambiental");
-        ascensor_menu.putClientProperty("i18n.key", "menu.musica_ambiental");
-        ascensor_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/music.png"))); // NOI18N
-        ascensor_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                ascensor_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(ascensor_menu);
-
-        tts_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        tts_menu.setSelected(true);
-        tts_menu.setText("TTS (global)");
-        tts_menu.putClientProperty("i18n.key", "menu.tts");
-        tts_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/voice.png"))); // NOI18N
-        tts_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                tts_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(tts_menu);
-
-        voice_messages_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        voice_messages_menu.setSelected(true);
-        voice_messages_menu.setText("Notas de voz (global)");
-        voice_messages_menu.putClientProperty("i18n.key", "menu.notas_de_voz");
-        voice_messages_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/voice.png"))); // NOI18N
-        voice_messages_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                voice_messages_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(voice_messages_menu);
 
         opciones_menu.add(jSeparator1);
 
@@ -3723,44 +3775,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }//GEN-LAST:event_chat_menuActionPerformed
 
-    private void sonidos_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sonidos_menuActionPerformed
-        // TODO add your handling code here:
-
-        GameFrame.SONIDOS = this.sonidos_menu.isSelected();
-
-        Helpers.PROPERTIES.setProperty("sonidos", String.valueOf(GameFrame.SONIDOS));
-
-        Helpers.savePropertiesFile();
-
-        updateSoundIcon();
-
-        this.sonidos_chorra_menu.setEnabled(GameFrame.SONIDOS);
-
-        this.ascensor_menu.setEnabled(GameFrame.SONIDOS);
-
-        // El TTS (global) es un control del host: en clientes el menu queda
-        // deshabilitado y el sonido local no debe reactivarlo.
-        if (isPartida_local()) {
-            this.tts_menu.setEnabled(GameFrame.SONIDOS);
-            Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
-        }
-
-        if (!GameFrame.SONIDOS) {
-
-            Audio.muteAll();
-
-        } else {
-
-            Audio.unmuteAll();
-        }
-
-        Helpers.TapetePopupMenu.SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
-
-        Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
-
-        Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
-    }//GEN-LAST:event_sonidos_menuActionPerformed
-
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
         // TODO add your handling code here:
         this.exit_menu.doClick();
@@ -3779,35 +3793,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.TapetePopupMenu.RELOJ_MENU.setSelected(GameFrame.SHOW_CLOCK);
     }//GEN-LAST:event_time_menuActionPerformed
-
-    private void sonidos_chorra_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sonidos_chorra_menuActionPerformed
-        // TODO add your handling code here:
-        GameFrame.SONIDOS_CHORRA = this.sonidos_chorra_menu.isSelected();
-
-        Helpers.PROPERTIES.setProperty("sonidos_chorra", String.valueOf(this.sonidos_chorra_menu.isSelected()));
-
-        Helpers.savePropertiesFile();
-
-        Helpers.TapetePopupMenu.SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
-
-    }//GEN-LAST:event_sonidos_chorra_menuActionPerformed
-
-    private void ascensor_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ascensor_menuActionPerformed
-        // TODO add your handling code here:
-        GameFrame.MUSICA_AMBIENTAL = this.ascensor_menu.isSelected();
-
-        Helpers.PROPERTIES.setProperty("sonido_ascensor", String.valueOf(this.ascensor_menu.isSelected()));
-
-        Helpers.savePropertiesFile();
-
-        if (this.ascensor_menu.isSelected()) {
-            Audio.unmuteLoopMp3("misc/background_music.mp3");
-        } else {
-            Audio.muteLoopMp3("misc/background_music.mp3");
-        }
-
-        Helpers.TapetePopupMenu.SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
-    }//GEN-LAST:event_ascensor_menuActionPerformed
 
     private void jugadas_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jugadas_menuActionPerformed
         // TODO add your handling code here:
@@ -4358,27 +4343,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }//GEN-LAST:event_shortcuts_menuActionPerformed
 
-    private void tts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_tts_menuActionPerformed
-
-        // Regla global del host (como las notas de voz): habilita/deshabilita
-        // el TTS para todos. El bloqueo "solo para mi" vive en los ajustes de
-        // audio (AudioDeviceManager.isBlockTtsLocal). El menu esta deshabilitado
-        // para los clientes, asi que el handler solo corre en el host.
-        GameFrame.TTS_SERVER = this.tts_menu.isSelected();
-
-        Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.TTS_SERVER);
-
-        Helpers.threadRun(() -> {
-            getCrupier().broadcastGAMECommandFromServer("TTS#" + (GameFrame.TTS_SERVER ? "1" : "0"), null);
-
-            if (isPartida_local()) {
-                // Persiste la regla para que sobreviva a un detener+recuperar
-                // de la timba (igual que IWTSTH/rabbit/RIT/notas de voz).
-                GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
-            }
-        });
-    }//GEN-LAST:event_tts_menuActionPerformed
-
     public RebuyDialog getRebuy_dialog() {
         return rebuy_dialog;
     }
@@ -4630,23 +4594,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }//GEN-LAST:event_iwtsth_rule_menuActionPerformed
 
-    private void voice_messages_menuActionPerformed(java.awt.event.ActionEvent evt) {
-
-        GameFrame.VOICE_MESSAGES = voice_messages_menu.isSelected();
-
-        Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
-
-        Helpers.threadRun(() -> {
-            getCrupier().broadcastGAMECommandFromServer("VOICEMSGRULE#" + (GameFrame.VOICE_MESSAGES ? "1" : "0"), null);
-
-            if (isPartida_local()) {
-                // Persiste la regla para que sobreviva a un detener+recuperar
-                // de la timba (igual que IWTSTH/rabbit/RIT).
-                GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
-            }
-        });
-    }
-
     private void chat_image_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_image_menuActionPerformed
         // TODO add your handling code here:
         GameFrame.CHAT_IMAGES_INGAME = chat_image_menu.isSelected();
@@ -4876,10 +4823,46 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         exit_menuActionPerformed(evt);
     }//GEN-LAST:event_halt_game_menuActionPerformed
 
+    // Run It Twice: entrada en el menú Preferencias idéntica a la del popup y a
+    // la regla IWTSTH. Campo a mano (fuera del bloque generado por el editor) y
+    // mismo patrón de sincronización menú↔popup que IWTSTH.
+    private javax.swing.JCheckBoxMenuItem run_it_twice_menu;
+
+    // Menú "Apariencia" del menú-bar (construido a mano re-parentando ítems);
+    // es uno de los menús de nivel superior, así que el dispatcher de teclas lo
+    // consulta para no robar atajos mientras está abierto.
+    private javax.swing.JMenu apariencia_menu;
+
+    public javax.swing.JCheckBoxMenuItem getRun_it_twice_menu() {
+        return run_it_twice_menu;
+    }
+
+    private void run_it_twice_menuActionPerformed(java.awt.event.ActionEvent evt) {
+
+        run_it_twice_menu.setEnabled(false);
+
+        Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
+
+        Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(run_it_twice_menu.isSelected());
+
+        Helpers.threadRun(() -> {
+            synchronized (crupier.getLock_fin_mano()) {
+                GameFrame.RUN_IT_TWICE = run_it_twice_menu.isSelected();
+                getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (GameFrame.RUN_IT_TWICE ? "1" : "0"), null);
+                if (isPartida_local()) {
+                    GameFrame.persistRecoverSettings(getCrupier().getSqlite_game_id());
+                    Helpers.GUIRun(() -> {
+                        run_it_twice_menu.setEnabled(true);
+                        Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true);
+                    });
+                }
+            }
+        });
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
     private javax.swing.JCheckBoxMenuItem animacion_menu;
-    private javax.swing.JCheckBoxMenuItem ascensor_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
     private javax.swing.JCheckBoxMenuItem auto_fit_zoom_menu;
     private javax.swing.JCheckBoxMenuItem auto_fullscreen_menu;
@@ -4929,11 +4912,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JMenuItem robert_rules_menu;
     private javax.swing.JPopupMenu.Separator server_separator_menu;
     private javax.swing.JMenuItem shortcuts_menu;
-    private javax.swing.JCheckBoxMenuItem sonidos_chorra_menu;
-    private javax.swing.JCheckBoxMenuItem sonidos_menu;
     private javax.swing.JCheckBoxMenuItem time_menu;
-    private javax.swing.JCheckBoxMenuItem tts_menu;
-    private javax.swing.JCheckBoxMenuItem voice_messages_menu;
     private javax.swing.JMenu zoom_menu;
     private javax.swing.JMenuItem zoom_menu_in;
     private javax.swing.JMenuItem zoom_menu_out;

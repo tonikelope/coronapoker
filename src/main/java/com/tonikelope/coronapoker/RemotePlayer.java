@@ -2020,10 +2020,8 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             }
 
-            while (mynotifier.size() < 2) {
-
-                synchronized (mynotifier) {
-
+            synchronized (mynotifier) {
+                while (mynotifier.size() < 2) {
                     try {
                         mynotifier.wait(1000);
 

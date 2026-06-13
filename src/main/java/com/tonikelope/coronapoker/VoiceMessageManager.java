@@ -134,6 +134,30 @@ public class VoiceMessageManager {
         return false;
     }
 
+    /**
+     * Press-to-record entry point for the in-game mic button (left mouse button
+     * held down). It behaves exactly like holding the voice key: starts a
+     * recording under the same guards (voice messages enabled, not blocked, mic
+     * ready) and the same on-screen dialog / auto-send safety net.
+     */
+    public static void buttonPressed() {
+
+        if (CAPTURING_KEY || GameFrame.getInstance() == null || WaitingRoomFrame.getInstance() == null) {
+            return;
+        }
+
+        keyPressed();
+    }
+
+    /**
+     * Release entry point for the in-game mic button: stops and sends the note
+     * exactly like releasing the voice key (or cancels it if the talk-now
+     * dialog had not appeared yet).
+     */
+    public static void buttonReleased() {
+        keyReleased();
+    }
+
     private static void keyPressed() {
 
         // Key auto-repeat fires PRESSED again while held, and after an

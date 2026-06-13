@@ -76,6 +76,21 @@ public class StatsDialog extends JFrame {
     private volatile boolean backup = false;
     private volatile int last_button = 0;
 
+    // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
+    // compartida + lectura de logs/chat) en UN solo hilo. Antes,
+    // game_comboItemStateChanged disparaba loadGameData + loadHands + el stat A LA VEZ
+    // sobre la misma conexión, colisionando — causa del freeze histórico de la ventana
+    // de stats tras el balance (el driver serializa el acceso a la conexión y, con el
+    // ResultSet leído en el EDT, un worker retenía la conexión mientras pintaba,
+    // bloqueando a los otros hasta el timeout de 30s). Serializar en un executor de un
+    // hilo elimina la contención. Visor de instancia única; el hilo es daemon y se
+    // apaga en formWindowClosed.
+    private final java.util.concurrent.ExecutorService stats_db_executor = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "stats-db");
+        t.setDaemon(true);
+        return t;
+    });
+
     private static StatsDialog INSTANCE;
 
     /**
@@ -184,7 +199,7 @@ public class StatsDialog extends JFrame {
 
         setExtendedState(getExtendedState() | java.awt.Frame.MAXIMIZED_BOTH);
 
-        Helpers.threadRun(this::loadGames);
+        stats_db_executor.submit(this::loadGames);
 
         init = false;
     }
@@ -257,7 +272,7 @@ public class StatsDialog extends JFrame {
 
         hand_combo.setVisible(false);
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 ResultSet rs;
                 if (game_combo.getSelectedIndex() > 0) {
@@ -535,7 +550,7 @@ public class StatsDialog extends JFrame {
                 + " GROUP BY t1.JUGADOR"
                 + " ORDER BY \"stats.efectividad\" DESC";
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (game_combo.getSelectedIndex() > 0) {
@@ -672,7 +687,7 @@ public class StatsDialog extends JFrame {
                 + " GROUP BY t1.JUGADOR"
                 + " ORDER BY \"game.manos_3\" DESC";
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (game_combo.getSelectedIndex() > 0) {
@@ -819,7 +834,7 @@ public class StatsDialog extends JFrame {
                 + " GROUP BY \"player.jugador\""
                 + " ORDER BY \"stats.roi\" DESC";
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (hand_combo.getSelectedIndex() > 0) {
@@ -939,7 +954,7 @@ public class StatsDialog extends JFrame {
 
         game_combo_blocked = true;
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
                 try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
@@ -996,7 +1011,7 @@ public class StatsDialog extends JFrame {
         cargando.setVisible(true);
         setEnabled(false);
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
           try {
             String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
@@ -1121,7 +1136,7 @@ public class StatsDialog extends JFrame {
 
     private void loadShowdownData(int id_hand) {
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 String sql = "SELECT player AS \"player.jugador\", winner as \"ui.gana_3\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val AS \"ui.jugada\", ROUND(pay,1) as \"action.pagar\", ROUND(profit,1) as \"ui.beneficio\" FROM showdown WHERE id_hand=? order by \"ui.gana_3\" DESC,\"action.pagar\" DESC";
 
@@ -1262,7 +1277,7 @@ public class StatsDialog extends JFrame {
         final String SQL_ALL = "SELECT player AS \"player.jugador\", ROUND(AVG(response_time), 1) AS \"ui.tiempo\""
                 + " FROM action GROUP BY \"player.jugador\" ORDER BY \"ui.tiempo\" DESC";
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
                 if (hand_combo.getSelectedIndex() > 0) {
@@ -1358,7 +1373,7 @@ public class StatsDialog extends JFrame {
         setEnabled(false);
         hand_combo_blocked = true;
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             try {
                 String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
                 try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
@@ -2248,6 +2263,10 @@ public class StatsDialog extends JFrame {
         // TODO add your handling code here:
         INSTANCE = null;
 
+        // shutdownNow (no bloqueante): interrumpe cualquier consulta en vuelo al cerrar
+        // la ventana. El hilo es daemon, así que aunque quedara algo no impide salir.
+        stats_db_executor.shutdownNow();
+
         Audio.stopLoopMp3("misc/stats_music.mp3");
 
         if (last_mp3_loop != null) {
@@ -2264,7 +2283,7 @@ public class StatsDialog extends JFrame {
 
             Audio.playWavResource("misc/toilet.wav");
 
-            Helpers.threadRun(() -> {
+            stats_db_executor.submit(() -> {
                 if (!backup) {
 
                     try {
@@ -2302,7 +2321,7 @@ public class StatsDialog extends JFrame {
             game_combo_filter.setBackground(Color.YELLOW);
         }
 
-        Helpers.threadRun(() -> {
+        stats_db_executor.submit(() -> {
             loadGames();
             Helpers.GUIRunAndWait(() -> {
                 game_combo.setSelectedIndex(0);
@@ -2354,7 +2373,7 @@ public class StatsDialog extends JFrame {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-            Helpers.threadRun(() -> {
+            stats_db_executor.submit(() -> {
                 try {
                     String log1 = Files.readString(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log"), StandardCharsets.UTF_8).replaceAll(">>>>>>>>>>>>>>>>>>>>>>>>>>>>", "&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;").replaceAll("<<<<<<<<<<<<<<<<<<<<<<<<<<<<", "&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;").replaceAll("[*]{15} [^*]+ [*]{15}", "<b>$0</b>").replaceAll("\n", "<br>");
                     Helpers.GUIRun(() -> {
@@ -2388,7 +2407,7 @@ public class StatsDialog extends JFrame {
         if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate("player.eliminar_todas_las_timbas_donde"), new ImageIcon(Init.class.getResource("/images/mantenimiento.png"))) == 0) {
             Audio.playWavResource("misc/toilet.wav");
 
-            Helpers.threadRun(() -> {
+            stats_db_executor.submit(() -> {
                 if (!backup) {
 
                     try {
@@ -2456,7 +2475,7 @@ public class StatsDialog extends JFrame {
 
             String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
 
-            Helpers.threadRun(() -> {
+            stats_db_executor.submit(() -> {
                 try {
                     String chat_log;
                     if (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html"))) {

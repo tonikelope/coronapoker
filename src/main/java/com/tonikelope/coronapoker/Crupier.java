@@ -789,7 +789,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public final ConcurrentHashMap<String, byte[]> single_locked_pocket_cards = new ConcurrentHashMap<>();
 
     private final ConcurrentLinkedQueue<String> received_commands = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<String> acciones = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> acciones_locales_recuperadas = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<String, Integer> rebuy_now = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Integer> rebuy_counts = new ConcurrentHashMap<>();
@@ -6683,52 +6682,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+                boolean exists;
 
-                statement.setQueryTimeout(30);
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
 
-                statement.setInt(1, this.sqlite_id_hand);
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, this.sqlite_id_hand);
+                    statement.setString(2, current_player.getNickname());
+                    statement.setInt(3, this.conta_accion);
 
-                statement.setString(2, current_player.getNickname());
+                    try (ResultSet rs = statement.executeQuery()) {
+                        exists = rs.next();
+                    }
+                }
 
-                statement.setInt(3, this.conta_accion);
-
-                ResultSet rs = statement.executeQuery();
-
-                if (rs.next()) {
+                if (exists) {
                     // Existe la acción de ese jugador en esa mano, ahora vamos a ver si coincide lo
                     // que tenemos guardado con lo que ha enviado el servidor/jugador
 
                     sql = "SELECT player FROM action WHERE id_hand=? and player=? and counter=? and action=?"
                             + (current_player.getDecision() >= Player.BET ? " and bet=?" : "");
 
-                    statement = Helpers.getSQLITE().prepareStatement(sql);
+                    try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
 
-                    statement.setQueryTimeout(30);
+                        statement.setQueryTimeout(30);
+                        statement.setInt(1, this.sqlite_id_hand);
+                        statement.setString(2, current_player.getNickname());
+                        statement.setInt(3, this.conta_accion);
+                        statement.setInt(4, current_player.getDecision());
 
-                    statement.setInt(1, this.sqlite_id_hand);
+                        if (current_player.getDecision() >= Player.BET) {
+                            statement.setFloat(5, Helpers.floatClean(current_player.getBet()));
+                        }
 
-                    statement.setString(2, current_player.getNickname());
-
-                    statement.setInt(3, this.conta_accion);
-
-                    statement.setInt(4, current_player.getDecision());
-
-                    if (current_player.getDecision() >= Player.BET) {
-                        statement.setFloat(5, Helpers.floatClean(current_player.getBet()));
+                        try (ResultSet rs = statement.executeQuery()) {
+                            ret = rs.next();
+                        }
                     }
-
-                    rs = statement.executeQuery();
-
-                    ret = rs.next();
 
                 } else {
                     // No existe esa acción para ese jugador, por lo que no podemos comparar y por
                     // tanto nos fiamos de lo que envía el servidor/jugador
                     ret = true;
                 }
-
-                statement.close();
 
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -7044,16 +7040,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     break;
             }
 
-            PreparedStatement statement;
-            try {
-                statement = Helpers.getSQLITE().prepareStatement(sql);
+            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setString(1, String.join("#", jugadores.toArray(new String[0])));
                 statement.setString(2, cards);
                 statement.setInt(3, this.sqlite_id_hand);
                 statement.executeUpdate();
-
-                statement.close();
 
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -7075,10 +7067,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (GameFrame.SQL_LOCK) {
 
-            PreparedStatement statement;
-            try {
-                statement = Helpers.getSQLITE()
-                        .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?)");
+            try (PreparedStatement statement = Helpers.getSQLITE()
+                    .prepareStatement("INSERT INTO balance(id_hand, player, stack, buyin, rebuy_count) VALUES (?,?,?,?,?)")) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, this.sqlite_id_hand);
                 statement.setString(2, nick);
@@ -7086,8 +7076,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 statement.setInt(4, buyin);
                 statement.setInt(5, getRebuyCount(nick));
                 statement.executeUpdate();
-
-                statement.close();
 
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -7098,10 +7086,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void sqlUpdateHandBalance(String nick, float stack, int buyin) {
         synchronized (GameFrame.SQL_LOCK) {
-            PreparedStatement statement;
-            try {
-                statement = Helpers.getSQLITE()
-                        .prepareStatement("UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? and player=?");
+            try (PreparedStatement statement = Helpers.getSQLITE()
+                    .prepareStatement("UPDATE balance SET stack=?, buyin=?, rebuy_count=? WHERE id_hand=? and player=?")) {
                 statement.setQueryTimeout(30);
                 statement.setFloat(1, Helpers.floatClean(stack));
                 statement.setInt(2, buyin);
@@ -7109,8 +7095,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 statement.setInt(4, this.sqlite_id_hand);
                 statement.setString(5, nick);
                 statement.executeUpdate();
-
-                statement.close();
 
             } catch (SQLException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -10644,13 +10628,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     resisten.remove(current_player);
                 }
 
-                try {
-                    this.acciones.add(java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
-                            + "#" + String.valueOf(decision)
-                            + (decision == Player.BET ? "#" + String.valueOf((float) action[1]) : ""));
-                } catch (Exception ex) {
-                }
-
                 this.conta_accion++;
 
                 if (!isCryptoReplay) {
@@ -12441,46 +12418,45 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 String sql = "select hand.id as hand_id, hand.end as hand_end, hand.preflop_players as preflop_players, hand.hand_id_b64 as hand_id_b64, server, game.start, buyin, rebuy, play_time, (SELECT count(hand.id) from hand where hand.id_game=?) as conta_mano, round(hand.sbval,2) as sbval, round((hand.sbval*2),2) as bbval, blinds_time, blinds_time_type, hand.blinds_double as blinds_double, hand.dealer as dealer, hand.sb as sb, hand.bb as bb from game,hand where hand.id=(SELECT max(hand.id) from hand,game where hand.id_game=game.id and hand.id_game=?) and game.id=hand.id_game and hand.id_game=?";
 
-                PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql);
+                try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
 
-                statement.setQueryTimeout(30);
+                    statement.setQueryTimeout(30);
+                    statement.setInt(1, this.sqlite_id_game);
+                    statement.setInt(2, this.sqlite_id_game);
+                    statement.setInt(3, this.sqlite_id_game);
 
-                statement.setInt(1, this.sqlite_id_game);
+                    try (ResultSet rs = statement.executeQuery()) {
 
-                statement.setInt(2, this.sqlite_id_game);
+                        rs.next();
 
-                statement.setInt(3, this.sqlite_id_game);
-
-                ResultSet rs = statement.executeQuery();
-
-                rs.next();
-
-                map = new HashMap<>();
-                map.put("start", rs.getLong("start"));
-                map.put("hand_id", rs.getInt("hand_id"));
-                map.put("hand_end", rs.getLong("hand_end"));
-                map.put("server", rs.getString("server"));
-                map.put("preflop_players", rs.getString("preflop_players"));
-                // Recovery: cryptographic HAND_ID (16 bytes,
-                // base64) needed to re-seed HandStateChain.start with the same
-                // value the original hand used. Nullable — recovery falls back
-                // to "chain stays null" (legacy degraded mode) when missing.
-                String handIdB64 = rs.getString("hand_id_b64");
-                if (handIdB64 != null) {
-                    map.put("hand_id_b64", handIdB64);
+                        map = new HashMap<>();
+                        map.put("start", rs.getLong("start"));
+                        map.put("hand_id", rs.getInt("hand_id"));
+                        map.put("hand_end", rs.getLong("hand_end"));
+                        map.put("server", rs.getString("server"));
+                        map.put("preflop_players", rs.getString("preflop_players"));
+                        // Recovery: cryptographic HAND_ID (16 bytes,
+                        // base64) needed to re-seed HandStateChain.start with the same
+                        // value the original hand used. Nullable — recovery falls back
+                        // to "chain stays null" (legacy degraded mode) when missing.
+                        String handIdB64 = rs.getString("hand_id_b64");
+                        if (handIdB64 != null) {
+                            map.put("hand_id_b64", handIdB64);
+                        }
+                        map.put("buyin", rs.getInt("buyin"));
+                        map.put("rebuy", rs.getBoolean("rebuy"));
+                        map.put("play_time", rs.getLong("play_time"));
+                        map.put("conta_mano", rs.getInt("conta_mano"));
+                        map.put("sbval", rs.getFloat("sbval"));
+                        map.put("bbval", rs.getFloat("bbval"));
+                        map.put("blinds_time", rs.getInt("blinds_time"));
+                        map.put("blinds_time_type", rs.getInt("blinds_time_type"));
+                        map.put("blinds_double", rs.getInt("blinds_double"));
+                        map.put("dealer", rs.getString("dealer"));
+                        map.put("sb", rs.getString("sb"));
+                        map.put("bb", rs.getString("bb"));
+                    }
                 }
-                map.put("buyin", rs.getInt("buyin"));
-                map.put("rebuy", rs.getBoolean("rebuy"));
-                map.put("play_time", rs.getLong("play_time"));
-                map.put("conta_mano", rs.getInt("conta_mano"));
-                map.put("sbval", rs.getFloat("sbval"));
-                map.put("bbval", rs.getFloat("bbval"));
-                map.put("blinds_time", rs.getInt("blinds_time"));
-                map.put("blinds_time_type", rs.getInt("blinds_time_type"));
-                map.put("blinds_double", rs.getInt("blinds_double"));
-                map.put("dealer", rs.getString("dealer"));
-                map.put("sb", rs.getString("sb"));
-                map.put("bb", rs.getString("bb"));
 
                 if (include_balance) {
 
@@ -12517,28 +12493,26 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
 
-                        statement = Helpers.getSQLITE().prepareStatement(sql);
+                        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
 
-                        statement.setQueryTimeout(30);
+                            statement.setQueryTimeout(30);
+                            statement.setInt(1, this.sqlite_id_game);
+                            statement.setInt(2, this.sqlite_id_game);
 
-                        statement.setInt(1, this.sqlite_id_game);
+                            try (ResultSet rs = statement.executeQuery()) {
 
-                        statement.setInt(2, this.sqlite_id_game);
+                                ArrayList<String> balance = new ArrayList<>();
 
-                        rs = statement.executeQuery();
+                                while (rs.next()) {
 
-                        ArrayList<String> balance = new ArrayList<>();
+                                    balance.add(
+                                            Base64.getEncoder().encodeToString(rs.getString("PLAYER").getBytes("UTF-8")) + "|"
+                                            + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN") + "|" + rs.getInt("REBUY_COUNT"));
+                                }
 
-                        while (rs.next()) {
-
-                            balance.add(
-                                    Base64.getEncoder().encodeToString(rs.getString("PLAYER").getBytes("UTF-8")) + "|"
-                                    + rs.getFloat("STACK") + "|" + rs.getInt("BUYIN") + "|" + rs.getInt("REBUY_COUNT"));
+                                map.put("balance", String.join("@", balance));
+                            }
                         }
-
-                        map.put("balance", String.join("@", balance));
-
-                        statement.close();
                     }
                 }
 

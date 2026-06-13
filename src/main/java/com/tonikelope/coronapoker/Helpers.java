@@ -613,6 +613,13 @@ public class Helpers {
 
             con.setUseCaches(false);
 
+            // Sin timeouts, un GitHub colgado dejaba este hilo de descarga
+            // bloqueado para siempre (el usuario veía "preparando actualización"
+            // eterno). Connect corto; read holgado porque es una descarga real
+            // (no aborta una descarga lenta-pero-viva, sí una conexión muerta).
+            con.setConnectTimeout(HTTP_TIMEOUT);
+            con.setReadTimeout(60000);
+
             updater_path = System.getProperty("java.io.tmpdir") + "/coronaupdater.jar";
 
             try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(updater_path))) {

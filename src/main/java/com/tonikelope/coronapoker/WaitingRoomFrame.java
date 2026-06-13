@@ -297,6 +297,20 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
+    // Refresca el icono de altavoz de la sala según SONIDOS. Lo usa
+    // GameFrame.setSonidos para que el cambio hecho desde el diálogo de ajustes
+    // de audio se vea aquí.
+    public static void refreshSoundIcon() {
+
+        WaitingRoomFrame sala = getInstance();
+
+        if (sala != null) {
+            Helpers.GUIRun(() -> {
+                Helpers.setScaledIconLabel(sala.sound_icon, WaitingRoomFrame.class.getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+            });
+        }
+    }
+
     public void setExit(boolean exit) {
         this.exit = exit;
     }
@@ -2793,18 +2807,18 @@ public class WaitingRoomFrame extends JFrame {
                                                             Helpers.threadRun(() -> {
                                                                 GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
                                                                 Helpers.GUIRun(() -> {
+                                                                    if (GameFrame.getInstance() != null) {
+                                                                        GameFrame.getInstance().getRun_it_twice_menu().setSelected(GameFrame.RUN_IT_TWICE);
+                                                                    }
                                                                     Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
                                                                 });
                                                             });
                                                             break;
                                                         case "VOICEMSGRULE":
-                                                            Helpers.threadRun(() -> {
-                                                                GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
-                                                                Helpers.GUIRun(() -> {
-                                                                    GameFrame.getInstance().getVoice_messages_menu().setSelected(GameFrame.VOICE_MESSAGES);
-                                                                    Helpers.TapetePopupMenu.VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
-                                                                });
-                                                            });
+                                                            // Regla global del host. El diálogo de ajustes de
+                                                            // audio refleja el flag al abrirse; no hay control
+                                                            // en menú/popup que sincronizar.
+                                                            GameFrame.VOICE_MESSAGES = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "RIT_VOTE_REQ":
                                                             Helpers.threadRun(() -> {
@@ -3070,13 +3084,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
                                                         case "TTS":
                                                             // El host activa o desactiva el TTS (global) para todos.
-                                                            Helpers.threadRun(() -> {
-                                                                GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
-                                                                Helpers.GUIRun(() -> {
-                                                                    GameFrame.getInstance().getTts_menu().setSelected(GameFrame.TTS_SERVER);
-                                                                    Helpers.TapetePopupMenu.SONIDOS_TTS_MENU.setSelected(GameFrame.TTS_SERVER);
-                                                                });
-                                                            });
+                                                            // El diálogo de ajustes de audio refleja el flag al
+                                                            // abrirse; no hay control en menú/popup que sincronizar.
+                                                            GameFrame.TTS_SERVER = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "PAUSE":
                                                             // El host avisa al resto de clientes de que alguien pulsó pausa

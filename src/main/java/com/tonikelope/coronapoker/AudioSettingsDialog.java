@@ -67,6 +67,12 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
     private static volatile AudioSettingsDialog INSTANCE = null;
 
+    private final JCheckBox sonidos_checkbox;
+    private final JCheckBox sonidos_chorra_checkbox;
+    private final JCheckBox musica_checkbox;
+    private final JCheckBox tts_checkbox;
+    private final JCheckBox voice_messages_checkbox;
+    private final boolean global_rules_locked;
     private final JSlider volume_slider;
     private final JLabel volume_value_label;
     private final JList<String> output_list;
@@ -89,6 +95,8 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         JPopupMenu popup = new JPopupMenu();
 
         JMenuItem settings_item = new JMenuItem(Translator.translate("audio.ajustes"));
+
+        settings_item.setIcon(new javax.swing.ImageIcon(AudioSettingsDialog.class.getResource("/images/menu/gear.png")));
 
         settings_item.addActionListener(e -> open(parent));
 
@@ -171,6 +179,40 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         volume_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.volumen_general")));
         volume_panel.add(volume_slider, BorderLayout.CENTER);
         volume_panel.add(volume_value_label, BorderLayout.EAST);
+
+        // --- Sonido y música (lo que antes vivía en el menú y el popup) ---
+        // TTS (global) y Notas de voz (global) son reglas de la timba: se pueden
+        // preseleccionar antes de jugar, pero si eres CLIENTE en partida el
+        // servidor manda y quedan en gris (su valor sobreescribe y se queda así).
+        global_rules_locked = GameFrame.getInstance() != null && !GameFrame.getInstance().isPartida_local();
+
+        sonidos_checkbox = new JCheckBox(Translator.translate("audio.sonidos"), GameFrame.SONIDOS);
+        sonidos_checkbox.addActionListener(e -> {
+            GameFrame.setSonidos(sonidos_checkbox.isSelected());
+            refreshSoundControlsEnabled();
+        });
+
+        sonidos_chorra_checkbox = new JCheckBox(Translator.translate("menu.sonidos_de_cona"), GameFrame.SONIDOS_CHORRA);
+        sonidos_chorra_checkbox.addActionListener(e -> GameFrame.setSonidosChorra(sonidos_chorra_checkbox.isSelected()));
+
+        musica_checkbox = new JCheckBox(Translator.translate("audio.musica_ambiente"), GameFrame.MUSICA_AMBIENTAL);
+        musica_checkbox.addActionListener(e -> GameFrame.setMusicaAmbiental(musica_checkbox.isSelected()));
+
+        tts_checkbox = new JCheckBox(Translator.translate("menu.tts"), GameFrame.TTS_SERVER);
+        tts_checkbox.addActionListener(e -> GameFrame.setTTSGlobal(tts_checkbox.isSelected()));
+
+        voice_messages_checkbox = new JCheckBox(Translator.translate("menu.notas_de_voz"), GameFrame.VOICE_MESSAGES);
+        voice_messages_checkbox.addActionListener(e -> GameFrame.setVoiceMessages(voice_messages_checkbox.isSelected()));
+
+        JPanel sound_music_panel = new JPanel();
+        sound_music_panel.setLayout(new BoxLayout(sound_music_panel, BoxLayout.Y_AXIS));
+        sound_music_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.sonido_musica")));
+        sonidos_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        sonidos_chorra_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        musica_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        sound_music_panel.add(sonidos_checkbox);
+        sound_music_panel.add(sonidos_chorra_checkbox);
+        sound_music_panel.add(musica_checkbox);
 
         // --- Output device ---
         DefaultListModel<String> output_model = new DefaultListModel<>();
@@ -343,28 +385,70 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         notes_panel.add(retention_panel);
         notes_panel.add(purge_panel);
 
-        // --- Local TTS block (only mutes TTS for me; the global on/off is the
-        // host rule in the TTS (global) menu item) ---
+        // --- Voz (TTS): bloqueo local (la regla global vive más abajo) ---
         block_tts_local_checkbox = new JCheckBox(Translator.translate("audio.bloquear_tts_local"), AudioDeviceManager.isBlockTtsLocal());
-
         block_tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(block_tts_local_checkbox.isSelected()));
+        block_tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        // --- Vertical stack: output, input, voice notes, local TTS block ---
-        JPanel center_panel = new JPanel();
-        center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.Y_AXIS));
+        JPanel tts_panel = new JPanel();
+        tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
+        tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
+        tts_panel.add(block_tts_local_checkbox);
 
+        // --- Ajustes globales (solo server): reglas de la timba (TTS y notas de
+        // voz). Preseleccionables; si eres cliente en partida mandan las del
+        // servidor y quedan en gris (la nota lo avisa). ---
+        // Ancho fijo en el HTML para que el texto ajuste a varias líneas dentro
+        // de la columna y no se corte.
+        JLabel global_note = new JLabel("<html><div style='width:240px'>" + Translator.translate("audio.ajustes_locales_ignorados") + "</div></html>");
+        global_note.setForeground(java.awt.Color.GRAY);
+        global_note.setVisible(global_rules_locked);
+
+        tts_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        voice_messages_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        global_note.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+
+        JPanel global_panel = new JPanel();
+        global_panel.setLayout(new BoxLayout(global_panel, BoxLayout.Y_AXIS));
+        global_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.ajustes_globales_server")));
+        global_panel.add(tts_checkbox);
+        global_panel.add(voice_messages_checkbox);
+        global_panel.add(global_note);
+
+        refreshSoundControlsEnabled();
+
+        // --- Dos columnas para que el diálogo sea apaisado y entre en
+        // resoluciones bajas: izquierda sonido + dispositivos, derecha voz ---
+        sound_music_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         output_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         notes_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        block_tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        tts_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        global_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
-        center_panel.add(output_panel);
-        center_panel.add(Box.createVerticalStrut(10));
-        center_panel.add(mic_panel);
-        center_panel.add(Box.createVerticalStrut(10));
-        center_panel.add(notes_panel);
-        center_panel.add(Box.createVerticalStrut(10));
-        center_panel.add(block_tts_local_checkbox);
+        JPanel left_col = new JPanel();
+        left_col.setLayout(new BoxLayout(left_col, BoxLayout.Y_AXIS));
+        left_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
+        left_col.add(sound_music_panel);
+        left_col.add(Box.createVerticalStrut(10));
+        left_col.add(output_panel);
+        left_col.add(Box.createVerticalStrut(10));
+        left_col.add(mic_panel);
+
+        JPanel right_col = new JPanel();
+        right_col.setLayout(new BoxLayout(right_col, BoxLayout.Y_AXIS));
+        right_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
+        right_col.add(notes_panel);
+        right_col.add(Box.createVerticalStrut(10));
+        right_col.add(tts_panel);
+        right_col.add(Box.createVerticalStrut(10));
+        right_col.add(global_panel);
+
+        JPanel center_panel = new JPanel();
+        center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.X_AXIS));
+        center_panel.add(left_col);
+        center_panel.add(Box.createHorizontalStrut(15));
+        center_panel.add(right_col);
 
         // --- Buttons ---
         JButton ok_button = new JButton(Translator.translate("ui.aceptar"));
@@ -423,9 +507,12 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         // TitledBorder is not a component: updateFonts cannot reach the frame
         // titles, so they are matched to the scaled GUI font by hand.
         ((TitledBorder) volume_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        ((TitledBorder) sound_music_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) output_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) mic_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        ((TitledBorder) tts_panel.getBorder()).setTitleFont(volume_value_label.getFont());
+        ((TitledBorder) global_panel.getBorder()).setTitleFont(volume_value_label.getFont());
 
         // In the vertical BoxLayout the key and retention rows must keep their
         // natural height instead of stretching to fill the leftover space.
@@ -433,11 +520,33 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
         purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
+        // Estos paneles solo llevan checkboxes y son más estrechos que el título
+        // de su borde. Se estiran al ancho de su columna (sin recortar alto) para
+        // que el título quepa entero. DESPUÉS de updateFonts: el alto preferido ya
+        // refleja la fuente escalada y el contenido no se corta por abajo.
+        sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
+        tts_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, tts_panel.getPreferredSize().height));
+        global_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, global_panel.getPreferredSize().height));
+
         pack();
 
         loading = false;
 
         INSTANCE = this;
+    }
+
+    // El sonido maestro gobierna coña y música. Las reglas globales (TTS y
+    // notas de voz) se pueden preseleccionar siempre, salvo cuando eres cliente
+    // en partida: ahí mandan las del servidor y quedan en gris.
+    private void refreshSoundControlsEnabled() {
+
+        boolean on = sonidos_checkbox.isSelected();
+
+        sonidos_chorra_checkbox.setEnabled(on);
+        musica_checkbox.setEnabled(on);
+
+        tts_checkbox.setEnabled(!global_rules_locked);
+        voice_messages_checkbox.setEnabled(!global_rules_locked);
     }
 
     // Self-block governs every voice note control; the capture list also

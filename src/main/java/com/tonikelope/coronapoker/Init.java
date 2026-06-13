@@ -353,7 +353,7 @@ public class Init extends JFrame {
             public void actionPerformed(ActionEvent e) {
 
                 if (GameFrame.getInstance() != null) {
-                    GameFrame.getInstance().getSonidos_menu().doClick();
+                    GameFrame.setSonidos(!GameFrame.SONIDOS);
                 } else if (VENTANA_INICIO.isVisible()) {
                     sound_iconMouseClicked(null);
                 } else {
@@ -381,7 +381,7 @@ public class Init extends JFrame {
 
                     if (!GameFrame.SONIDOS) {
                         if (GameFrame.getInstance() != null) {
-                            GameFrame.getInstance().getSonidos_menu().doClick();
+                            GameFrame.setSonidos(!GameFrame.SONIDOS);
                         } else if (VENTANA_INICIO.isVisible()) {
                             sound_iconMouseClicked(null);
                         } else {
@@ -412,7 +412,7 @@ public class Init extends JFrame {
 
                 if (!GameFrame.SONIDOS) {
                     if (GameFrame.getInstance() != null) {
-                        GameFrame.getInstance().getSonidos_menu().doClick();
+                        GameFrame.setSonidos(!GameFrame.SONIDOS);
                     } else if (VENTANA_INICIO.isVisible()) {
                         sound_iconMouseClicked(null);
                     } else {
@@ -862,6 +862,20 @@ public class Init extends JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    // Refresca el icono de altavoz de la ventana de inicio según SONIDOS. Lo
+    // usa GameFrame.setSonidos para que el cambio hecho desde el diálogo de
+    // ajustes de audio se vea aquí cuando aún no hay partida.
+    public static void refreshSoundIcon() {
+
+        Init ventana = VENTANA_INICIO;
+
+        if (ventana != null) {
+            Helpers.GUIRun(() -> {
+                Helpers.setScaledIconLabel(ventana.sound_icon, Init.class.getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+            });
+        }
+    }
+
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
 
@@ -1185,7 +1199,15 @@ public class Init extends JFrame {
             Audio.unmuteAll();
         }
 
-        Audio.playWavResource("misc/init.wav");
+        // El init.wav es el PRIMER sonido del proceso y salía cortado a veces:
+        // se reproducía mientras el SO aún despertaba el endpoint de audio.
+        // Caldeamos el dispositivo con una línea de silencio y SOLO después
+        // soltamos el init.wav, en un hilo aparte para no retrasar la ventana.
+        Helpers.threadRun(() -> {
+            Audio.warmAudioDevice();
+            Audio.playWavResourceAndWait("misc/init.wav");
+        });
+
         Audio.playLoopMp3Resource("misc/background_music.mp3");
 
         LOGGER.log(Level.INFO, "Loading GUI Window...");

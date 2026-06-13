@@ -666,7 +666,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             return;
         }
 
-        GameFrame.getInstance().getSonidos_menu().doClick();
+        GameFrame.setSonidos(!GameFrame.SONIDOS);
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
@@ -1010,10 +1010,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             });
         }
 
-        while (mynotifier.size() < zoomables.length) {
-
-            synchronized (mynotifier) {
-
+        synchronized (mynotifier) {
+            while (mynotifier.size() < zoomables.length) {
                 try {
                     mynotifier.wait(1000);
                 } catch (InterruptedException ex) {

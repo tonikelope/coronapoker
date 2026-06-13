@@ -5617,26 +5617,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // HAND_READY incondicionalmente, asi que el HAND_READY llega siempre.
             // No filtrarlos garantiza que el host nunca arranque la mano siguiente
             // antes de que un peer pasivo haya cerrado su mano previa.
-            boolean ready;
-            do {
-                ready = true;
-                for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                    Participant p = entry.getValue();
-                    if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())
-                            && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
-                        ready = false;
-                        break;
+            // La comprobación de "todos listos" va DENTRO del synchronized: si
+            // quedara fuera, un HAND_READY podía llegar (setNew_hand_ready +
+            // notifyAll) justo entre el chequeo y el wait y se perdía la
+            // notificación, durmiendo el NEW_HAND_READY_WAIT completo (~1s) aunque
+            // el peer ya estuviera listo.
+            synchronized (lock_nueva_mano) {
+                boolean ready = false;
+                while (!ready && !isFin_de_la_transmision()) {
+                    ready = true;
+                    for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+                        Participant p = entry.getValue();
+                        if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())
+                                && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
+                            ready = false;
+                            break;
+                        }
                     }
-                }
-                if (!ready) {
-                    synchronized (lock_nueva_mano) {
+                    if (!ready) {
                         try {
                             lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
                         } catch (InterruptedException ex) {
                         }
                     }
                 }
-            } while (!ready && !isFin_de_la_transmision());
+            }
 
             // Host ordena a todos que pueden empezar a procesar la cascada SRA.
             broadcastGAMECommandFromServer("START_SRA_CASCADE", null, true);
@@ -10686,7 +10691,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // puede cambiar cuando decidimos el voto (race-free). El menú se
                 // reactiva al empezar la siguiente mano (ver NUEVA_MANO en run()).
                 if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
-                    Helpers.GUIRunAndWait(() -> Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false));
+                    Helpers.GUIRunAndWait(() -> {
+                        GameFrame.getInstance().getRun_it_twice_menu().setEnabled(false);
+                        Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
+                    });
                 }
                 this.destapar_resistencia = true;
                 // Arranca el run-out: oculta ya la bet_label y centra el bote
@@ -14286,8 +14294,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.RUN_IT_TWICE_RECOVER = null;
             if (recovered != GameFrame.RUN_IT_TWICE) {
                 Helpers.GUIRun(() -> {
-                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(!recovered);
-                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.doClick();
+                    GameFrame.getInstance().getRun_it_twice_menu().setSelected(!recovered);
+                    GameFrame.getInstance().getRun_it_twice_menu().doClick();
                 });
             }
         }
@@ -14297,10 +14305,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean recovered_voice = GameFrame.VOICE_MESSAGES_RECOVER;
             GameFrame.VOICE_MESSAGES_RECOVER = null;
             if (recovered_voice != GameFrame.VOICE_MESSAGES) {
-                Helpers.GUIRun(() -> {
-                    GameFrame.getInstance().getVoice_messages_menu().setSelected(!recovered_voice);
-                    GameFrame.getInstance().getVoice_messages_menu().doClick();
-                });
+                GameFrame.setVoiceMessages(recovered_voice);
             }
         }
 
@@ -14309,10 +14314,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             final boolean recovered_tts = GameFrame.TTS_SERVER_RECOVER;
             GameFrame.TTS_SERVER_RECOVER = null;
             if (recovered_tts != GameFrame.TTS_SERVER) {
-                Helpers.GUIRun(() -> {
-                    GameFrame.getInstance().getTts_menu().setSelected(!recovered_tts);
-                    GameFrame.getInstance().getTts_menu().doClick();
-                });
+                GameFrame.setTTSGlobal(recovered_tts);
             }
         }
     }
@@ -14753,6 +14755,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 GameFrame.getInstance().getMenu_rabbit_bb().setEnabled(false);
                                 GameFrame.getInstance().getIwtsth_rule_menu().setEnabled(false);
                                 Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
+                                GameFrame.getInstance().getRun_it_twice_menu().setEnabled(false);
                                 Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
                                 Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
@@ -14839,6 +14842,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     gf.getMenu_rabbit_bb().setEnabled(true);
                                     gf.getIwtsth_rule_menu().setEnabled(true);
                                     Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
+                                    gf.getRun_it_twice_menu().setEnabled(true);
                                     Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
                                     Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);

@@ -4316,10 +4316,8 @@ public class Helpers {
                 }
             });
 
-            while (mynotifier.size() < threads) {
-
-                synchronized (mynotifier) {
-
+            synchronized (mynotifier) {
+                while (mynotifier.size() < threads) {
                     try {
                         mynotifier.wait(1000);
 
@@ -4484,10 +4482,8 @@ public class Helpers {
 
             }
 
-            while (mynotifier.size() < threads) {
-
-                synchronized (mynotifier) {
-
+            synchronized (mynotifier) {
+                while (mynotifier.size() < threads) {
                     try {
                         mynotifier.wait(1000);
 
@@ -5062,22 +5058,15 @@ public class Helpers {
         public static JMenu RABBIT_MENU = null;
         public static JMenu ZOOM_MENU = null;
         public static JMenu VISTA_MENU = null;
-        public static JMenu SONIDO_MENU = null;
-        public static JMenu PERSONALIZACION_MENU = null;
         public static JMenu AYUDA_MENU = null;
         public static JMenuItem MAX_HANDS_MENU;
         public static JMenuItem HALT_GAME_MENU;
         public static JCheckBoxMenuItem AUTO_FULLSCREEN_MENU;
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
-        public static JCheckBoxMenuItem SONIDOS_MENU;
-        public static JCheckBoxMenuItem SONIDOS_COMENTARIOS_MENU;
-        public static JCheckBoxMenuItem SONIDOS_MUSICA_MENU;
-        public static JCheckBoxMenuItem SONIDOS_TTS_MENU;
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem REBUY_NOW_MENU;
         public static JCheckBoxMenuItem IWTSTH_RULE_MENU;
         public static JCheckBoxMenuItem RUN_IT_TWICE_MENU;
-        public static JCheckBoxMenuItem VOICE_MESSAGES_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
         public static JCheckBoxMenuItem ANIMACION_MENU;
@@ -5295,34 +5284,6 @@ public class Helpers {
                     }
                 };
 
-                Action soundAction = new AbstractAction(Translator.translate("menu.sonidos")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getSonidos_menu().doClick();
-                    }
-                };
-
-                Action comentariosAction = new AbstractAction(Translator.translate("menu.sonidos_cona")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getSonidos_chorra_menu().doClick();
-                    }
-                };
-
-                Action musicaAction = new AbstractAction(Translator.translate("menu.musica_ambiental")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getAscensor_menu().doClick();
-                    }
-                };
-
-                Action TTSAction = new AbstractAction(Translator.translate("menu.tts")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getTts_menu().doClick();
-                    }
-                };
-
                 Action chatAction = new AbstractAction(Translator.translate("menu.ver_chat")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -5424,36 +5385,14 @@ public class Helpers {
                 Action runItTwiceRuleAction = new AbstractAction(Translator.translate("menu.regla_run_it_twice")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
-                        RUN_IT_TWICE_MENU.setEnabled(false);
-
-                        Helpers.threadRun(() -> {
-                            synchronized (GameFrame.getInstance().getCrupier().getLock_fin_mano()) {
-                                GameFrame.RUN_IT_TWICE = RUN_IT_TWICE_MENU.isSelected();
-                                GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (GameFrame.RUN_IT_TWICE ? "1" : "0"), null);
-                                if (GameFrame.getInstance().isPartida_local()) {
-                                    // Persiste la regla para que sobreviva a un detener+recuperar
-                                    // de la timba (igual que IWTSTH/rabbit).
-                                    GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
-                                    Helpers.GUIRun(() -> {
-                                        RUN_IT_TWICE_MENU.setEnabled(true);
-                                    });
-                                }
-                            }
-                        });
+                        GameFrame.getInstance().getRun_it_twice_menu().doClick();
                     }
                 };
 
-                Action audioSettingsAction = new AbstractAction(Translator.translate("menu.ajustes")) {
+                Action audioSettingsAction = new AbstractAction(Translator.translate("audio.ajustes")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         AudioSettingsDialog.open(GameFrame.getInstance());
-                    }
-                };
-
-                Action voiceMessagesRuleAction = new AbstractAction(Translator.translate("menu.notas_de_voz")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getVoice_messages_menu().doClick();
                     }
                 };
 
@@ -5492,8 +5431,8 @@ public class Helpers {
                     }
                 };
 
-                // === VIEW submenu (display toggles + zoom + UI behavior preferences) ===
-                VISTA_MENU = new JMenu(Translator.translate("menu.vista"));
+                // === APARIENCIA submenu (display toggles + zoom + decks + mats) ===
+                VISTA_MENU = new JMenu(Translator.translate("menu.apariencia"));
                 VISTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
 
                 FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(fullscreenAction);
@@ -5550,56 +5489,17 @@ public class Helpers {
                 CHAT_IMAGE_MENU.setSelected(GameFrame.CHAT_IMAGES_INGAME);
                 VISTA_MENU.add(CHAT_IMAGE_MENU);
 
+                // Barajas y tapetes dentro de Apariencia (antes en un submenú
+                // Personalización aparte, ya eliminado).
                 VISTA_MENU.addSeparator();
+                VISTA_MENU.add(BARAJAS_MENU);
+                VISTA_MENU.add(TAPETES_MENU);
 
-                CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);
-                CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
-                CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
-                VISTA_MENU.add(CONFIRM_MENU);
-
-                // === SOUND submenu ===
-                SONIDO_MENU = new JMenu(Translator.translate("menu.audio"));
-                SONIDO_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/sound.png")));
-
-                SONIDOS_MENU = new LeftClickCheckBoxMenuItem(soundAction);
-                SONIDOS_MENU.setSelected(GameFrame.SONIDOS);
-                SONIDOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource(GameFrame.SONIDOS ? "/images/menu/sound.png" : "/images/menu/mute.png")));
-                SONIDO_MENU.add(SONIDOS_MENU);
-
-                SONIDOS_COMENTARIOS_MENU = new LeftClickCheckBoxMenuItem(comentariosAction);
-                SONIDOS_COMENTARIOS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/joke.png")));
-                SONIDOS_COMENTARIOS_MENU.setSelected(GameFrame.SONIDOS_CHORRA);
-                SONIDOS_COMENTARIOS_MENU.setEnabled(GameFrame.SONIDOS);
-                SONIDO_MENU.add(SONIDOS_COMENTARIOS_MENU);
-
-                SONIDOS_MUSICA_MENU = new LeftClickCheckBoxMenuItem(musicaAction);
-                SONIDOS_MUSICA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/music.png")));
-                SONIDOS_MUSICA_MENU.setSelected(GameFrame.MUSICA_AMBIENTAL);
-                SONIDOS_MUSICA_MENU.setEnabled(GameFrame.SONIDOS);
-                SONIDO_MENU.add(SONIDOS_MUSICA_MENU);
-
-                SONIDOS_TTS_MENU = new LeftClickCheckBoxMenuItem(TTSAction);
-                SONIDOS_TTS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
-                SONIDOS_TTS_MENU.setSelected(GameFrame.TTS_SERVER);
-                SONIDOS_TTS_MENU.setEnabled(GameFrame.SONIDOS);
-                SONIDO_MENU.add(SONIDOS_TTS_MENU);
-
-                VOICE_MESSAGES_MENU = new LeftClickCheckBoxMenuItem(voiceMessagesRuleAction);
-                VOICE_MESSAGES_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/voice.png")));
-                VOICE_MESSAGES_MENU.setSelected(GameFrame.VOICE_MESSAGES);
-                SONIDO_MENU.add(VOICE_MESSAGES_MENU);
-
-                SONIDO_MENU.addSeparator();
-
+                // === Audio: una única entrada que abre el diálogo de ajustes ===
+                // Toda la configuración de audio (sonido, música ambiente, TTS,
+                // notas de voz, dispositivos...) vive en el diálogo de ajustes.
                 JMenuItem audio_settings_item = new LeftClickMenuItem(audioSettingsAction);
-                audio_settings_item.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
-                SONIDO_MENU.add(audio_settings_item);
-
-                // === CUSTOMIZATION submenu (decks + mats) ===
-                PERSONALIZACION_MENU = new JMenu(Translator.translate("menu.personalizacion"));
-                PERSONALIZACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
-                PERSONALIZACION_MENU.add(BARAJAS_MENU);
-                PERSONALIZACION_MENU.add(TAPETES_MENU);
+                audio_settings_item.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/sound.png")));
 
                 // === HELP submenu (shortcuts, rules, hand evaluator) ===
                 AYUDA_MENU = new JMenu(Translator.translate("menu.ayuda"));
@@ -5629,9 +5529,7 @@ public class Helpers {
                 popup.addSeparator();
 
                 popup.add(VISTA_MENU);
-                popup.add(SONIDO_MENU);
-                popup.add(PERSONALIZACION_MENU);
-                popup.add(AYUDA_MENU);
+                popup.add(audio_settings_item);
 
                 popup.addSeparator();
 
@@ -5640,11 +5538,20 @@ public class Helpers {
                 AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_MENU);
 
+                // Confirmar todas las acciones, justo debajo de Botones AUTO.
+                CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);
+                CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/confirmation.png")));
+                CONFIRM_MENU.setSelected(GameFrame.CONFIRM_ACTIONS);
+                popup.add(CONFIRM_MENU);
+
                 REBUY_NOW_MENU = new LeftClickCheckBoxMenuItem(rebuyNowAction);
                 REBUY_NOW_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rebuy.png")));
                 REBUY_NOW_MENU.setSelected(false);
                 REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(REBUY_NOW_MENU);
+
+                // Separador entre recomprar y las reglas de la timba.
+                popup.addSeparator();
 
                 IWTSTH_RULE_MENU = new LeftClickCheckBoxMenuItem(iwtsthRuleAction);
                 IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
@@ -5669,13 +5576,15 @@ public class Helpers {
                 MAX_HANDS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
                 popup.add(MAX_HANDS_MENU);
 
+                // Ayuda debajo de Límite de manos, aislada con sus separadores.
+                popup.addSeparator();
+                popup.add(AYUDA_MENU);
                 popup.addSeparator();
 
+                // Detener la timba y Salir juntos, sin separador entre ambos.
                 HALT_GAME_MENU = new LeftClickMenuItem(haltAction);
                 HALT_GAME_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/stop.png")));
                 popup.add(HALT_GAME_MENU);
-
-                popup.addSeparator();
 
                 JMenuItem exit_menu = new LeftClickMenuItem(exitAction);
                 exit_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/close.png")));

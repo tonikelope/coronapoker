@@ -1243,13 +1243,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             });
         }
 
-        while (mynotifier.size() < zoomables.length) {
-
-            synchronized (mynotifier) {
-
+        // La comprobación va DENTRO del synchronized: si quedara fuera, el último
+        // zoomable podía hacer add()+notifyAll justo entre el size() y el wait, se
+        // perdía la notificación y se dormía el 1000ms completo → atasco aleatorio
+        // de ~1s en el arranque (zoom inicial) mientras los zoomables rescalan.
+        synchronized (mynotifier) {
+            while (mynotifier.size() < zoomables.length) {
                 try {
                     mynotifier.wait(1000);
-
                 } catch (InterruptedException ex) {
                     Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
                 }

@@ -366,8 +366,14 @@ public class Audio {
 
     public static float effectiveLoopVolume(String sound) {
 
+        // "Música ambiente" (MUSICA_AMBIENTAL) gobierna las dos pistas de fondo:
+        // la del juego y la de la sala de espera. Vivir aquí (y no en
+        // MP3_LOOP_MUTED) hace que el flag valga desde el arranque y que un
+        // único toggle controle ambas desde cualquier parte del juego.
+        boolean ambient = ASCENSOR_VOLUME.getKey().equals(sound) || WAITING_ROOM_VOLUME.getKey().equals(sound);
+
         // Single source of truth for MP3 loop volume
-        if (!GameFrame.SONIDOS || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
+        if (!GameFrame.SONIDOS || (ambient && !GameFrame.MUSICA_AMBIENTAL) || MUTED_MP3_LOOP || VOICE_RECORDING || MP3_LOOP_MUTED.contains(sound)) {
             return 0f;
         }
 
@@ -384,6 +390,18 @@ public class Audio {
 
         player.setVolume(effectiveLoopVolume(sound));
 
+    }
+
+    // Re-aplica el volumen efectivo a un loop que esté sonando (no-op si no
+    // está activo). Lo usa el toggle de música ambiente para que el cambio se
+    // oiga al instante sin parar ni reabrir la línea.
+    public static void refreshLoopVolume(String sound) {
+
+        CoronaMP3FilePlayer player = MP3_LOOP.get(sound);
+
+        if (player != null) {
+            setMP3LoopPlayerVolume(sound, player);
+        }
     }
 
     public static void setClipVolume(String sound, Clip clip, boolean bypass_muted) {
@@ -808,8 +826,6 @@ public class Audio {
                         muteAllExceptMp3Loops();
 
                         Helpers.GUIRun(() -> {
-                            GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-
                             chat_notify_label.setVisible(true);
                         });
 
@@ -838,8 +854,6 @@ public class Audio {
                         Helpers.pausar(500);
 
                         Helpers.GUIRun(() -> {
-                            GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-
                             chat_notify_label.setVisible(false);
                         });
 
@@ -903,10 +917,6 @@ public class Audio {
             muteAllExceptMp3Loops();
 
             Helpers.GUIRun(() -> {
-                if (GameFrame.getInstance() != null) {
-                    GameFrame.getInstance().getSonidos_menu().setEnabled(false);
-                }
-
                 if (chat_notify_label != null) {
                     chat_notify_label.setVisible(true);
                 }
@@ -967,10 +977,6 @@ public class Audio {
             Helpers.pausar(500);
 
             Helpers.GUIRun(() -> {
-                if (GameFrame.getInstance() != null) {
-                    GameFrame.getInstance().getSonidos_menu().setEnabled(true);
-                }
-
                 if (chat_notify_label != null) {
                     chat_notify_label.setVisible(false);
                 }
@@ -1011,6 +1017,45 @@ public class Audio {
             }
         });
 
+    }
+
+    // El SO tarda en "despertar" el endpoint de audio la PRIMERA vez que se abre
+    // y arranca una línea en el proceso (en Windows, decenas a cientos de ms), y
+    // durante esa activación se comía los primeros samples del primer sonido
+    // audible: el init.wav del arranque salía cortado de vez en cuando. Esto
+    // reproduce una línea de SILENCIO síncrona para pagar ese arranque en frío
+    // sin que se oiga nada, dejando el dispositivo activo para que el primer
+    // sonido real salga entero. Best-effort: si no hay dispositivo o el formato
+    // no se soporta, se omite (el sonido saldrá como antes, sin empeorar nada).
+    public static void warmAudioDevice() {
+
+        if (GameFrame.TEST_MODE) {
+            return;
+        }
+
+        try {
+
+            javax.sound.sampled.AudioFormat format = new javax.sound.sampled.AudioFormat(44100f, 16, 2, true, false);
+
+            javax.sound.sampled.SourceDataLine line = AudioDeviceManager.getSourceDataLine(format);
+
+            try {
+                line.open(format);
+                line.start();
+
+                // ~30 ms de silencio: un ciclo de reproducción real completo,
+                // suficiente para que el endpoint termine de activarse.
+                byte[] silence = new byte[format.getFrameSize() * Math.round(format.getFrameRate() * 0.03f)];
+                line.write(silence, 0, silence.length);
+                line.drain();
+            } finally {
+                line.stop();
+                line.close();
+            }
+
+        } catch (Exception ex) {
+            Logger.getLogger(Audio.class.getName()).log(Level.FINE, "Audio device warm-up skipped: {0}", ex.getMessage());
+        }
     }
 
     // Open (once) and keep a reusable clip for a sound. Idempotent; safe to call

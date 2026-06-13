@@ -65,7 +65,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     public TapeteFastButtons() {
 
         initComponents();
-        botones = new Object[][]{{chat, "chat.png", "chat.chat_rapido"}, {image, "image.png", "chat.enviar_imagen"}, {compact, "compact.png", "view.vista_compacta"}, {zoom_in, "zoom_in.png", "view.aumentar_zoom"}, {zoom_reset, "zoom_reset.png", "view.reset_zoom"}, {zoom_out, "zoom_out.png", "view.reducir_zoom"}, {fullscreen, "fullscreen.png", "view.pantalla_completa"}, {log, "log.png", "log.registro"}, {rebuy, "rebuy.png", "rebuy.recomprar"}};
+        botones = new Object[][]{{chat, "chat.png", "chat.chat_rapido"}, {mic, "mic.png", "audio.boton_nota_voz"}, {image, "image.png", "chat.enviar_imagen"}, {compact, "compact.png", "view.vista_compacta"}, {zoom_in, "zoom_in.png", "view.aumentar_zoom"}, {zoom_reset, "zoom_reset.png", "view.reset_zoom"}, {zoom_out, "zoom_out.png", "view.reducir_zoom"}, {fullscreen, "fullscreen.png", "view.pantalla_completa"}, {log, "log.png", "log.registro"}, {rebuy, "rebuy.png", "rebuy.recomprar"}};
 
         for (Object[] b : botones) {
             Helpers.setScaledIconLabel(((JLabel) b[0]), getClass().getResource("/images/fast_panel/" + ((String) b[1])), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H), Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * H));
@@ -139,6 +139,8 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
                 if (((Component) b[0]) == image) {
                     ((Component) b[0]).setVisible(GameFrame.CHAT_IMAGES_INGAME);
+                } else if (((Component) b[0]) == mic) {
+                    ((Component) b[0]).setVisible(GameFrame.VOICE_MESSAGES);
                 } else {
                     ((Component) b[0]).setVisible(true);
                 }
@@ -166,6 +168,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
 
         menu = new javax.swing.JLabel();
         chat = new javax.swing.JLabel();
+        mic = new javax.swing.JLabel();
         image = new javax.swing.JLabel();
         rebuy = new javax.swing.JLabel();
         log = new javax.swing.JLabel();
@@ -201,6 +204,19 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
             }
         });
         add(chat);
+
+        mic.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/mic.png"))); // NOI18N
+        mic.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        mic.setFocusable(false);
+        mic.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                micMousePressed(evt);
+            }
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                micMouseReleased(evt);
+            }
+        });
+        add(mic);
 
         image.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/fast_panel/image.png"))); // NOI18N
         image.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -305,6 +321,22 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
         }
     }//GEN-LAST:event_chatMouseClicked
 
+    private void micMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_micMousePressed
+        // Hold left button to record a voice note (same as holding the voice key)
+        if (javax.swing.SwingUtilities.isLeftMouseButton(evt) && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+
+            VoiceMessageManager.buttonPressed();
+        }
+    }//GEN-LAST:event_micMousePressed
+
+    private void micMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_micMouseReleased
+        // Release sends (or cancels if the talk-now dialog had not appeared yet)
+        if (javax.swing.SwingUtilities.isLeftMouseButton(evt)) {
+
+            VoiceMessageManager.buttonReleased();
+        }
+    }//GEN-LAST:event_micMouseReleased
+
     private void imageMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_imageMouseClicked
 
         if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
@@ -384,6 +416,7 @@ public final class TapeteFastButtons extends javax.swing.JPanel implements Zooma
     private javax.swing.JLabel image;
     private javax.swing.JLabel log;
     private javax.swing.JLabel menu;
+    private javax.swing.JLabel mic;
     private javax.swing.JLabel rebuy;
     private javax.swing.JLabel zoom_in;
     private javax.swing.JLabel zoom_out;

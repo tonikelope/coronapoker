@@ -1253,7 +1253,15 @@ public class NewGameDialog extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void vamosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vamosActionPerformed
-        // TODO add your handling code here:
+        // Guard de re-entrada: en el flujo force_recover, formWindowActivated invoca
+        // este método directamente. Si un modal devolviera el foco al diálogo se
+        // encolaría una segunda activación que, sin guard, re-entraría y crearía un
+        // SEGUNDO WaitingRoomFrame (rama else, update=false). dialog_ok solo se pone
+        // a true tras un commit exitoso, así que cortar aquí no afecta a la primera
+        // llamada ni a reintentos tras error de validación (dejan dialog_ok=false).
+        if (dialog_ok) {
+            return;
+        }
         vamos.setEnabled(false);
 
         if (update) {

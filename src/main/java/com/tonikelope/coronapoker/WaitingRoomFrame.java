@@ -3723,6 +3723,10 @@ public class WaitingRoomFrame extends JFrame {
                         writeCommandFromServer(
                                 Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key),
                                 client_socket);
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
                     } else if (WaitingRoomFrame.getInstance().isPartida_empezando()
                             || WaitingRoomFrame.getInstance().isPartida_empezada()) {
                         writeCommandFromServer(Helpers.encryptCommand("YOUARELATE", aes_key, hmac_key), client_socket);
@@ -3761,10 +3765,23 @@ public class WaitingRoomFrame extends JFrame {
                         LOGGER.log(Level.WARNING,
                                 "User {0} arrived too late — denied", client_nick);
 
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
+
                     } else if (participantes.size() == MAX_PARTICIPANTES) {
                         writeCommandFromServer(Helpers.encryptCommand("NOSPACE", aes_key, hmac_key), client_socket);
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
                     } else if (participantes.containsKey(client_nick)) {
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
                     } else if (partes.length != 6 || !"JOIN".equals(partes[3])) {
                         // Identity: clients on the new wire MUST send a JOIN payload
                         // with pubkey + self_sig. Anything else is a misformatted client and
@@ -3772,6 +3789,10 @@ public class WaitingRoomFrame extends JFrame {
                         LOGGER.log(Level.WARNING, "Client {0} sent malformed JOIN (fields={1}, marker={2})",
                                 new Object[]{client_nick, partes.length, partes.length > 3 ? partes[3] : "(missing)"});
                         writeCommandFromServer(Helpers.encryptCommand("BADVERSION#" + AboutDialog.VERSION, aes_key, hmac_key), client_socket);
+                        try {
+                            client_socket.close();
+                        } catch (Exception ex) {
+                        }
                     } else if (!verifyJoinSelfSig(client_nick, partes[4], partes[5])) {
                         // Identity: self_sig invalid means either the client is on the
                         // wrong session_id (replay from another game) or has a tampered key.

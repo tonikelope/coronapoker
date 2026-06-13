@@ -1290,17 +1290,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     //RESET ZOOM
                     Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_reset()::doClick);
 
-                    while (!GameFrame.getInstance().getZoom_menu().isEnabled()) {
-                        synchronized (GameFrame.getInstance().getZoom_menu()) {
-
-                            try {
-                                GameFrame.getInstance().getZoom_menu().wait(1000);
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        }
-                    }
-
                     tapeteBottom = getLocationOnScreen().getY() + getHeight();
                     tapeteRight = getLocationOnScreen().getX() + getWidth();
                     playerBottom = ((JPanel) jugador).getLocationOnScreen().getY() + ((JPanel) jugador).getHeight();
@@ -1311,17 +1300,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                 while (playerBottom > tapeteBottom || playerRight > tapeteRight) {
 
                     Helpers.GUIRunAndWait(GameFrame.getInstance().getZoom_menu_out()::doClick);
-
-                    while (!GameFrame.getInstance().getZoom_menu().isEnabled()) {
-                        synchronized (GameFrame.getInstance().getZoom_menu()) {
-
-                            try {
-                                GameFrame.getInstance().getZoom_menu().wait(1000);
-                            } catch (InterruptedException ex) {
-                                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        }
-                    }
 
                     tapeteBottom = getLocationOnScreen().getY() + getHeight();
                     tapeteRight = getLocationOnScreen().getX() + getWidth();

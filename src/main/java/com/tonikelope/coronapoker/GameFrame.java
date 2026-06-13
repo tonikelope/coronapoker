@@ -585,10 +585,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
             }
 
-            synchronized (zoom_menu) {
-                zoom_menu.notifyAll();
-            }
-
             if (GameFrame.AUTO_ZOOM) {
                 Helpers.threadRun(() -> {
                     Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
@@ -2743,6 +2739,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (GameFrame.key_event_dispatcher != null) {
                     kfm.removeKeyEventDispatcher(GameFrame.key_event_dispatcher);
+                    GameFrame.key_event_dispatcher = null;
                 }
 
                 RESET_GAME(recover);
@@ -2948,7 +2945,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                                         notify_dialog.setVisible(true);
                                     });
 
-                                    Helpers.pausar(Math.max((long) Math.ceil(WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
+                                    Helpers.pausar(Math.max((long) Math.ceil((double) WaitingRoomFrame.getInstance().cleanTTSChatMessage((String) tts[1]).length() / 25) * 1000, TTS_NO_SOUND_TIMEOUT));
 
                                     Helpers.GUIRun(() -> {
                                         // Dispose + null antes de soltar la referencia: el
@@ -3646,11 +3643,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
 
             }
-            synchronized (zoom_menu) {
-
-                zoom_menu.notifyAll();
-
-            }
             if (GameFrame.AUTO_ZOOM) {
                 Helpers.threadRun(() -> {
                     Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
@@ -3686,11 +3678,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
 
                 }
-                synchronized (zoom_menu) {
-
-                    zoom_menu.notifyAll();
-
-                }
                 Helpers.savePropertiesFile();
             });
 
@@ -3720,11 +3707,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
 
                     shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
-
-                }
-                synchronized (zoom_menu) {
-
-                    zoom_menu.notifyAll();
 
                 }
                 if (GameFrame.AUTO_ZOOM) {

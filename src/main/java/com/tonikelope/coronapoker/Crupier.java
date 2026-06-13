@@ -448,7 +448,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
-    public static final boolean IWTSTH_BLINKING = true;
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
     public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre
@@ -10522,19 +10521,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                String comando = null;
-                try {
-                    // Action wire:
-                    //   ACTION#nickB64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
-                    comando = "ACTION#"
-                            + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes("UTF-8"))
-                            + "#" + decision
-                            + "#" + (decision == Player.BET ? String.valueOf((float) action[1]) : "0")
-                            + "#" + cinematicField
-                            + "#" + (localRecord != null ? java.util.Base64.getEncoder().encodeToString(localRecord) : "*")
-                            + "#" + (localSig != null ? java.util.Base64.getEncoder().encodeToString(localSig) : "*");
-                } catch (Exception ex) {
-                }
+                // Action wire:
+                //   ACTION#nickB64#decision#bet#cinematic_or_*#record_or_*#sig_or_*
+                String comando = "ACTION#"
+                        + java.util.Base64.getEncoder().encodeToString(current_player.getNickname().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        + "#" + decision
+                        + "#" + (decision == Player.BET ? String.valueOf((float) action[1]) : "0")
+                        + "#" + cinematicField
+                        + "#" + (localRecord != null ? java.util.Base64.getEncoder().encodeToString(localRecord) : "*")
+                        + "#" + (localSig != null ? java.util.Base64.getEncoder().encodeToString(localSig) : "*");
 
                 if (current_player == GameFrame.getInstance().getLocalPlayer()) {
                     if (GameFrame.getInstance().isPartida_local()) {
@@ -14127,7 +14122,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void startIWTSTHPlayersBlinking() {
 
-        if (GameFrame.IWTSTH_RULE && IWTSTH_BLINKING && isIWTSTH4LocalPlayerAuthorized()) {
+        if (GameFrame.IWTSTH_RULE && isIWTSTH4LocalPlayerAuthorized()) {
 
             Helpers.GUIRun(() -> {
                 for (RemotePlayer rp : GameFrame.getInstance().getTapete().getRemotePlayers()) {

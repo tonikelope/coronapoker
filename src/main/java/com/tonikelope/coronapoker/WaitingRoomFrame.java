@@ -176,7 +176,6 @@ public class WaitingRoomFrame extends JFrame {
 
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
-    private final Map<String, byte[]> localP2POriginalNonces = new ConcurrentHashMap<>();
     private final Object ping_pong_lock = new Object();
     private final Object lock_new_client = new Object();
     private final boolean server;
@@ -1849,9 +1848,15 @@ public class WaitingRoomFrame extends JFrame {
                 while (!exit && (net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null)
                         && System.currentTimeMillis() < end) {
                     synchronized (ping_pong_lock) {
-                        try {
-                            ping_pong_lock.wait(end - System.currentTimeMillis());
-                        } catch (InterruptedException ignored) {
+                        // Re-check dentro del monitor (igual que runPingPongThread del
+                        // Participant): cierra el missed-notify del PONG y evita
+                        // wait(0)/wait(<0) en la ventana de carrera del tiempo restante.
+                        long remaining = end - System.currentTimeMillis();
+                        if ((net_client.getRemote_server_pong() == null || net_client.getRemote_server_pong2() == null) && remaining > 0) {
+                            try {
+                                ping_pong_lock.wait(remaining);
+                            } catch (InterruptedException ignored) {
+                            }
                         }
                     }
 

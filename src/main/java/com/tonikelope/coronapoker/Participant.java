@@ -251,9 +251,18 @@ public class Participant implements Runnable {
 
                 while (!exit && (pong == null || pong2 == null) && System.currentTimeMillis() < end) {
                     synchronized (ping_pong_lock) {
-                        try {
-                            ping_pong_lock.wait(end - System.currentTimeMillis());
-                        } catch (InterruptedException ignored) {
+                        // Re-check dentro del monitor antes de dormir: un PONG que llega
+                        // entre la condición del while y la toma del lock perdería su
+                        // notify y dormiríamos hasta PING_PONG_TIMEOUT completo (lo que
+                        // puede disparar un cierre de socket espurio). El guard remaining>0
+                        // evita además wait(0)=espera indefinida y wait(<0)=IAE en la
+                        // ventana de carrera del cálculo del tiempo restante.
+                        long remaining = end - System.currentTimeMillis();
+                        if ((pong == null || pong2 == null) && remaining > 0) {
+                            try {
+                                ping_pong_lock.wait(remaining);
+                            } catch (InterruptedException ignored) {
+                            }
                         }
                     }
                     if (latency == -1 && pong != null && pong == ping + 1) {

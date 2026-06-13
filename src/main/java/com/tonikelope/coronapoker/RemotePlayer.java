@@ -2930,6 +2930,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    // Muestra SOLO el desenlace del rebuy (RECOMPRA con gafas) sin haber lanzado
+    // antes la cuenta atrás. Se usa cuando el jugador LOCAL también estaba
+    // arruinado: en ese caso recibirRebuys corre DESPUÉS de su game-over modal y
+    // un GIF de cuenta atrás remoto saldría desincronizado, así que no se lanza;
+    // basta con reflejar el resultado. El caso "no recompra" lo pinta setSpectator.
+    public void showRebuyOutcome(boolean recompro) {
+        Helpers.GUIRun(() -> {
+            if (recompro && !this.exit && !this.spectator) {
+                player_action.setText(Translator.translate("rebuy.recompra_4"));
+                setPlayerActionIcon("action/glasses.png");
+                repaint();
+            }
+        });
+    }
+
     // GIF de game over sobre las cartas mientras este arruinado decide la
     // recompra (solo lo lanza setRebuying en modo CINEMATICAS). El de cuenta
     // atrás se reproduce entero UNA vez, gobernado por sus frames (sin reloj)

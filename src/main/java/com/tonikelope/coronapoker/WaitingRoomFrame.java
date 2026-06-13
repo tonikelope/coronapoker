@@ -3496,11 +3496,14 @@ public class WaitingRoomFrame extends JFrame {
                 // exito (nuevoParticipante para JOIN limpio y resetSocket para reconexion).
                 client_socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
                 byte[] magic = new byte[Helpers.toByteArray(MAGIC_BYTES).length];
-                client_socket.getInputStream().read(magic);
+                // readFully (no read()): un magic partido por segmentación TCP dejaba el
+                // buffer a medias y rechazaba erróneamente a un cliente válido. El
+                // SoTimeout de arriba sigue cubriendo a un peer que no envíe suficiente.
+                DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
+                dIn.readFully(magic);
                 if (Helpers.toHexString(magic).toLowerCase().equals(MAGIC_BYTES)) {
 
                     /* INICIO INTERCAMBIO DE CLAVES LIMPIO */
-                    DataInputStream dIn = new DataInputStream(client_socket.getInputStream());
                     int length = dIn.readInt();
                     if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
                         throw new IOException("Handshake: invalid client pubkey length " + length

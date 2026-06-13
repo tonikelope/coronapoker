@@ -954,7 +954,7 @@ public class Init extends JFrame {
 
     private void formComponentHidden(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentHidden
         // TODO add your handling code here:
-        if (quote_timer.isRunning()) {
+        if (quote_timer != null && quote_timer.isRunning()) {
             quote_timer.stop();
         }
     }//GEN-LAST:event_formComponentHidden

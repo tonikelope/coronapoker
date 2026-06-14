@@ -752,7 +752,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
-                player_action.setText(Translator.translate("ui.se_pira"));
+                setActionTextFitted(Translator.translate("ui.se_pira"));
                 setPlayerActionIcon("exit.png");
                 player_action.setVisible(true);
 
@@ -854,7 +854,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 player_action.setForeground(Color.LIGHT_GRAY);
 
-                player_action.setText(Translator.translate("ui.pensando"));
+                setActionTextFitted(Translator.translate("ui.pensando"));
 
                 setPlayerActionIcon("action/thinking.png");
 
@@ -984,9 +984,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.GUIRun(() -> {
                     if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][1]);
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][1]);
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
                     }
 
                     setPlayerActionIcon("action/up.png");
@@ -1001,14 +1001,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // exactamente el mismo valor (ver nota en ALLIN).
                     final float bet_snapshot = bet;
                     if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.float1DSecureCompare(0f, apuesta_actual_snapshot) < 0) {
-                        player_action.setText((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet_snapshot - apuesta_actual_snapshot) + ")");
+                        setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet_snapshot - apuesta_actual_snapshot) + ")");
 
                         raise = true;
 
                         reraise = (conta_raise_snapshot > 0);
 
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet_snapshot));
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet_snapshot));
                     }
                     setPlayerActionIcon("action/bet.png");
                 });
@@ -1026,9 +1026,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // negativo en la etiqueta ("ALL IN (+-0.90)").
                     final float total_allin = bet + stack;
                     if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(total_allin - apuesta_actual_snapshot) + ")");
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(total_allin - apuesta_actual_snapshot) + ")");
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
                     }
                     setPlayerActionIcon("action/glasses.png");
                 });
@@ -1037,7 +1037,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
-                    player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                    setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
 
                     setPlayerActionIcon("action/down.png");
                 });
@@ -1437,7 +1437,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_action.setForeground(Color.WHITE);
                 }
 
-                player_action.setText(player_action.getText().equals(Translator.translate("ui.pierde_3")) ? Translator.translate("iwtsth.iwtsth") : Translator.translate("ui.pierde_3"));
+                setActionTextFitted(player_action.getText().equals(Translator.translate("ui.pierde_3")) ? Translator.translate("iwtsth.iwtsth") : Translator.translate("ui.pierde_3"));
             });
         });
 
@@ -2505,7 +2505,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.runWhenLaidOut(player_name, () -> {
                 if (isSpectator()) {
-                    player_action.setText(msg != null ? msg : Translator.translate("player.espectador"));
+                    setActionTextFitted(msg != null ? msg : Translator.translate("player.espectador"));
                     setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                 }
             });
@@ -2516,7 +2516,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void disablePlayerAction() {
 
         Helpers.GUIRun(() -> {
-            player_action.setText(" ");
+            setActionTextFitted(" ");
             player_action.setForeground(Color.LIGHT_GRAY);
             setActionBackground(new Color(204, 204, 204, 75));
             setPlayerActionIcon(null);
@@ -2833,7 +2833,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // cartas — entero UNA vez (por frames, sin reloj) y con su
                     // audio; al terminar queda fijo el de cero hasta que el
                     // rebuy se resuelva.
-                    player_action.setText(Translator.translate("rebuy.recompra_3"));
+                    setActionTextFitted(Translator.translate("rebuy.recompra_3"));
                     // repaint() del slot completo tras cada setText (mismo idiom
                     // que setPlayerActionIcon): el slot y el action panel son
                     // rounded rects opacos que NO pintan sus esquinas
@@ -2844,13 +2844,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 } else {
                     // Modo sin cinemáticas: cuenta atrás numérica en la label.
                     final int[] count = {GameOverDialog.REBUY_DIALOG_COUNTDOWN};
-                    player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
+                    setActionTextFitted(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
                     repaint();
                     rebuy_countdown_timer = new Timer(1000, (e) -> {
                         if (--count[0] > 0) {
-                            player_action.setText(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
+                            setActionTextFitted(Translator.translate("rebuy.recompra_3") + " (" + count[0] + ")");
                         } else {
-                            player_action.setText(Translator.translate("rebuy.recompra_3"));
+                            setActionTextFitted(Translator.translate("rebuy.recompra_3"));
                             ((Timer) e.getSource()).stop();
                         }
                         repaint();
@@ -2887,10 +2887,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         if (recompro) {
                             // Feedback del desenlace: recompró — fuera la
                             // calavera, gafas de sol.
-                            player_action.setText(Translator.translate("rebuy.recompra_4"));
+                            setActionTextFitted(Translator.translate("rebuy.recompra_4"));
                             setPlayerActionIcon("action/glasses.png");
                         } else {
-                            player_action.setText(rebuy_countdown_saved_text);
+                            setActionTextFitted(rebuy_countdown_saved_text);
                         }
                         repaint();
                     }
@@ -2908,7 +2908,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void showRebuyOutcome(boolean recompro) {
         Helpers.GUIRun(() -> {
             if (recompro && !this.exit && !this.spectator) {
-                player_action.setText(Translator.translate("rebuy.recompra_4"));
+                setActionTextFitted(Translator.translate("rebuy.recompra_4"));
                 setPlayerActionIcon("action/glasses.png");
                 repaint();
             }

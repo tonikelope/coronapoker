@@ -297,7 +297,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             setPlayerActionIcon("action/rabbit_action.png");
             setActionBackground(Color.BLUE);
             getPlayer_action().setForeground(Color.WHITE);
-            getPlayer_action().setText(jugada);
+            setActionTextFitted(jugada);
 
         });
     }
@@ -1718,6 +1718,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void resetGUI() {
         Helpers.GUIRunAndWait(() -> {
+            // Restaura la fuente del action label si una jugada larga la había
+            // encogido en la mano anterior (espejo de RemotePlayer.resetGUI).
+            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                player_action.setFont(orig_action_font);
+                orig_action_font = null;
+            }
+
             sec_pot_win_label.setVisible(false);
 
             setOpaque(false);
@@ -2575,7 +2582,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 // LIMPIEZA DE ETIQUETA: Evita el glitch de "HABLAS TÚ"
                                 player_action.putClientProperty("i18n.key", null);
-                                player_action.setText(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
+                                setActionTextFitted(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
 
                                 if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
@@ -2909,7 +2916,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             setActionBackground(Color.GREEN);
             player_action.setForeground(Color.BLACK);
-            player_action.setText(msg);
+            setActionTextFitted(msg);
             setPlayerActionIcon("action/happy.png");
 
             if (conta_win > 0) {
@@ -2982,7 +2989,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             holeCard1.desenfocar();
             holeCard2.desenfocar();
 
-            player_action.setText(msg);
+            setActionTextFitted(msg);
             setPlayerActionIcon("action/angry.png");
 
         });
@@ -3193,11 +3200,38 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
             player_action.putClientProperty("i18n.key", null); // Limpiamos fantasma
             player_action.setForeground(Color.WHITE);
-            player_action.setText(Translator.translate("ui.muestra_prefix") + jugada + Translator.translate("ui.suffix_close"));
+            setActionTextFitted(Translator.translate("ui.muestra_prefix") + jugada + Translator.translate("ui.suffix_close"));
         });
     }
 
     private volatile java.awt.Font orig_action_font = null;
+
+    /**
+     * Sets {@code msg} on the action label, auto-shrinking the font (measured
+     * with FontMetrics) so a long hand name fits the label width, and restoring
+     * the original size when it fits again. Must run on the EDT.
+     */
+    private void setActionTextFitted(String msg) {
+
+        java.awt.Font base_font = (orig_action_font != null) ? orig_action_font : player_action.getFont();
+
+        java.awt.Insets insets = player_action.getInsets();
+
+        int available_width = (player_action.getWidth() > 0 ? player_action.getWidth() : player_action.getPreferredSize().width) - (insets != null ? insets.left + insets.right : 0);
+
+        java.awt.Font fitted_font = Helpers.fitFontToWidth(player_action, msg, base_font, available_width, Math.max(9, Math.round(base_font.getSize() * 0.5f)));
+
+        if (fitted_font.getSize() < base_font.getSize()) {
+            orig_action_font = base_font;
+            player_action.setFont(fitted_font);
+
+        } else if (orig_action_font != null) {
+            player_action.setFont(orig_action_font);
+            orig_action_font = null;
+        }
+
+        player_action.setText(msg);
+    }
 
     // Jugada en etiqueta NEUTRA (gris en reposo, no el azul de showCards) durante el
     // destape secuencial del showdown — espejo de RemotePlayer.showJugadaNeutral pero
@@ -3205,20 +3239,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // nombres de jugada largos, igual que los remotos.
     public void showJugadaNeutral(String jugada) {
         Helpers.GUIRun(() -> {
-            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
-                player_action.setFont(orig_action_font);
-                orig_action_font = null;
-            }
-
             setActionBackground(new Color(204, 204, 204, 75));
             player_action.setForeground(Color.WHITE);
 
-            if (jugada.length() > RemotePlayer.MAX_ACTION_HAND_LENGTH) {
-                orig_action_font = player_action.getFont();
-                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * RemotePlayer.MAX_ACTION_HAND_LENGTH_ZOOM)));
-            }
-
-            player_action.setText(jugada);
+            setActionTextFitted(jugada);
         });
     }
 
@@ -3363,7 +3387,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             setActionBackground(ganador ? new Color(120, 200, 0) : new Color(230, 70, 0));
             player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
-            player_action.setText(jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)"));
+            setActionTextFitted(jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)"));
             setPlayerActionIcon(null);
         });
     }

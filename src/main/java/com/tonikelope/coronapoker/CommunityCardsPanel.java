@@ -88,6 +88,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return bet_label;
     }
 
+    public JPanel getCards_panel() {
+        return cards_panel;
+    }
+
     public JPanel getBlinds_panel() {
         return blinds_panel;
     }
@@ -176,10 +180,86 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         return lights_label;
     }
 
-    public void restoreBetLabelicon() {
+    // Centro en pantalla del ICONO (las fichas) del pot_label, calculado con
+    // layoutCompoundLabel para respetar alineación, insets e icon-text-gap, así
+    // las fichas voladoras aterrizan justo sobre el icono del bote (no sobre el
+    // texto). Devuelve null si el bote no está visible o no tiene icono.
+    public java.awt.geom.Point2D getPotIconScreenCenter() {
+
+        if (pot_label == null || !pot_label.isShowing() || pot_label.getIcon() == null) {
+            return null;
+        }
+
+        java.awt.Insets insets = pot_label.getInsets();
+        java.awt.Rectangle viewR = new java.awt.Rectangle(
+                insets.left, insets.top,
+                pot_label.getWidth() - insets.left - insets.right,
+                pot_label.getHeight() - insets.top - insets.bottom);
+        java.awt.Rectangle iconR = new java.awt.Rectangle();
+        java.awt.Rectangle textR = new java.awt.Rectangle();
+
+        javax.swing.SwingUtilities.layoutCompoundLabel(
+                pot_label, pot_label.getFontMetrics(pot_label.getFont()),
+                pot_label.getText(), pot_label.getIcon(),
+                pot_label.getVerticalAlignment(), pot_label.getHorizontalAlignment(),
+                pot_label.getVerticalTextPosition(), pot_label.getHorizontalTextPosition(),
+                viewR, iconR, textR, pot_label.getIconTextGap());
+
+        java.awt.Point p = new java.awt.Point(iconR.x + iconR.width / 2, iconR.y + iconR.height / 2);
+        javax.swing.SwingUtilities.convertPointToScreen(p, pot_label);
+        return new java.awt.geom.Point2D.Double(p.getX(), p.getY());
+    }
+
+    private javax.swing.Timer pot_flash_timer;
+    private Color pot_flash_restore;
+
+    public void flashPotLabelYellow() {
+        flashPotLabelYellow(null);
+    }
+
+    // Parpadeo breve del pot_label a amarillo: lo dispara la ficha voladora al
+    // aterrizar en el bote (señal de que el bote "absorbió" las fichas). Restaura
+    // el color que tenía antes del parpadeo. Reentrante: si llega otra ficha
+    // mientras parpadea, conserva el color original y reinicia la restauración.
+    //
+    // value_update (si no es null) se aplica DENTRO del mismo runnable del EDT, JUSTO
+    // ANTES de poner el amarillo: así el cambio de valor del bote y el parpadeo se
+    // pintan en el MISMO ciclo (el número y el color cambian a la vez, el color no se
+    // adelanta al número). El restore captura el color YA con el valor nuevo aplicado.
+    public void flashPotLabelYellow(Runnable value_update) {
 
         Helpers.GUIRun(() -> {
-            Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+            if (value_update != null) {
+                value_update.run();
+            }
+            if (pot_label == null) {
+                return;
+            }
+            if (pot_flash_timer == null || !pot_flash_timer.isRunning()) {
+                pot_flash_restore = pot_label.getForeground();
+            } else {
+                pot_flash_timer.stop();
+            }
+            pot_label.setForeground(Color.YELLOW);
+            pot_flash_timer = new javax.swing.Timer(170, e -> {
+                ((javax.swing.Timer) e.getSource()).stop();
+                if (pot_flash_restore != null) {
+                    pot_label.setForeground(pot_flash_restore);
+                }
+            });
+            pot_flash_timer.setRepeats(false);
+            pot_flash_timer.start();
+        });
+    }
+
+    public void restoreBetLabelicon() {
+
+        // El bet_label ya no lleva icono (muestra solo la calle): nos aseguramos de
+        // que quede sin icono al reiniciar la mano. Para volver a mostrar el icono
+        // del bote en el bet_label, reponer aquí (y en zoomIcons / runWhenLaidOut) el
+        // setScaledIconLabel(bet_label, "/images/pot.png", ...).
+        Helpers.GUIRun(() -> {
+            bet_label.setIcon(null);
         });
     }
 
@@ -244,7 +324,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
             Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
             Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
-            Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+            // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
             Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
             Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
 
@@ -954,7 +1034,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     panel_barra.setVisible(true);
                     Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
                     Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
-                    Helpers.setScaledIconLabel(bet_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
+                    // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
                     Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
                     Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
                 });

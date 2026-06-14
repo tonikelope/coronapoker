@@ -818,6 +818,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 player_action.setVisible(true);
                 chip_label.setVisible(false);
                 sec_pot_win_label.setVisible(false);
+                // Al abandonar, el overlay de coste de igualar ya no aplica: ocultarlo
+                // (no se refrescaría solo porque el local sale del bucle de apuestas).
+                GameFrame.getInstance().getTapete().hideCallCostOverlay();
             });
         }
     }
@@ -2595,6 +2598,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         GameFrame.getInstance().getCrupier().setCurrent_local_cinematic_b64(null);
 
                         Audio.playWavResource("misc/allin.wav");
+                        GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
                         desactivarControles();
 
@@ -2689,6 +2693,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
                         Audio.playWavResource("misc/call.wav");
+                        GameFrame.getInstance().getCrupier().launchChipToPot(this);
                     } else {
                         Audio.playWavResource("misc/check.wav");
                     }
@@ -2737,6 +2742,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     float bet_spinner_val = Helpers.floatClean(((BigDecimal) bet_spinner.getValue()).floatValue());
 
                     Audio.playWavResource("misc/bet.wav");
+                    GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
                     desactivarControles();
 
@@ -3188,6 +3194,31 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             player_action.putClientProperty("i18n.key", null); // Limpiamos fantasma
             player_action.setForeground(Color.WHITE);
             player_action.setText(Translator.translate("ui.muestra_prefix") + jugada + Translator.translate("ui.suffix_close"));
+        });
+    }
+
+    private volatile java.awt.Font orig_action_font = null;
+
+    // Jugada en etiqueta NEUTRA (gris en reposo, no el azul de showCards) durante el
+    // destape secuencial del showdown — espejo de RemotePlayer.showJugadaNeutral pero
+    // para la propia mano del local (que ya está boca arriba). Encoge la fuente con
+    // nombres de jugada largos, igual que los remotos.
+    public void showJugadaNeutral(String jugada) {
+        Helpers.GUIRun(() -> {
+            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
+                player_action.setFont(orig_action_font);
+                orig_action_font = null;
+            }
+
+            setActionBackground(new Color(204, 204, 204, 75));
+            player_action.setForeground(Color.WHITE);
+
+            if (jugada.length() > RemotePlayer.MAX_ACTION_HAND_LENGTH) {
+                orig_action_font = player_action.getFont();
+                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * RemotePlayer.MAX_ACTION_HAND_LENGTH_ZOOM)));
+            }
+
+            player_action.setText(jugada);
         });
     }
 

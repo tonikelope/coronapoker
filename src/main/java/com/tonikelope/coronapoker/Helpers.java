@@ -267,6 +267,7 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_SB = null;
     public static volatile ImageIcon IMAGEN_DEALER = null;
     public static volatile ImageIcon IMAGEN_DEAD_DEALER = null;
+    public static volatile ImageIcon IMAGEN_POT_CHIP = null;
 
     public volatile static SecureRandom CSPRNG_GENERATOR = null;
     public volatile static Properties PROPERTIES = isDesignTime() ? new Properties() : loadPropertiesFile();
@@ -5030,7 +5031,10 @@ public class Helpers {
         public static JCheckBoxMenuItem RUN_IT_TWICE_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
-        public static JCheckBoxMenuItem ANIMACION_MENU;
+        public static JCheckBoxMenuItem ANIM_REPARTO_MENU;
+        public static JCheckBoxMenuItem ANIM_CIEGAS_DEALER_MENU;
+        public static JCheckBoxMenuItem ANIM_APUESTAS_MENU;
+        public static JCheckBoxMenuItem COSTE_IGUALAR_MENU;
         public static JCheckBoxMenuItem CHAT_IMAGE_MENU;
         public static JCheckBoxMenuItem CINEMATICAS_MENU;
         public static JCheckBoxMenuItem AUTO_ACTION_MENU;
@@ -5371,10 +5375,24 @@ public class Helpers {
                     }
                 };
 
-                Action animacionAction = new AbstractAction(Translator.translate("menu.animacion_cartas")) {
+                Action animRepartoAction = new AbstractAction(Translator.translate("menu.efectos_animacion_reparto")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getAnimacion_menu().doClick();
+                        GameFrame.getInstance().getAnim_reparto_menu().doClick();
+                    }
+                };
+
+                Action animCiegasDealerAction = new AbstractAction(Translator.translate("menu.efectos_animacion_ciegas_dealer")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAnim_ciegas_dealer_menu().doClick();
+                    }
+                };
+
+                Action animApuestasAction = new AbstractAction(Translator.translate("menu.efectos_animacion_apuestas")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAnim_apuestas_menu().doClick();
                     }
                 };
 
@@ -5382,6 +5400,13 @@ public class Helpers {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getChat_image_menu().doClick();
+                    }
+                };
+
+                Action costeIgualarAction = new AbstractAction(Translator.translate("menu.coste_igualar")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getCoste_igualar_menu().doClick();
                     }
                 };
 
@@ -5440,15 +5465,33 @@ public class Helpers {
                 CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
                 VISTA_MENU.add(CINEMATICAS_MENU);
 
-                ANIMACION_MENU = new LeftClickCheckBoxMenuItem(animacionAction);
-                ANIMACION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
-                ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
-                VISTA_MENU.add(ANIMACION_MENU);
+                // Submenú "Efectos de animación" con tres efectos combinables.
+                JMenu efectos_anim_menu = new JMenu(Translator.translate("menu.animacion_de_cartas"));
+                efectos_anim_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
+
+                ANIM_REPARTO_MENU = new LeftClickCheckBoxMenuItem(animRepartoAction);
+                ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO);
+                efectos_anim_menu.add(ANIM_REPARTO_MENU);
+
+                ANIM_CIEGAS_DEALER_MENU = new LeftClickCheckBoxMenuItem(animCiegasDealerAction);
+                ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+                efectos_anim_menu.add(ANIM_CIEGAS_DEALER_MENU);
+
+                ANIM_APUESTAS_MENU = new LeftClickCheckBoxMenuItem(animApuestasAction);
+                ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
+                efectos_anim_menu.add(ANIM_APUESTAS_MENU);
+
+                VISTA_MENU.add(efectos_anim_menu);
 
                 CHAT_IMAGE_MENU = new LeftClickCheckBoxMenuItem(chatimageAction);
                 CHAT_IMAGE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat_image.png")));
                 CHAT_IMAGE_MENU.setSelected(GameFrame.CHAT_IMAGES_INGAME);
                 VISTA_MENU.add(CHAT_IMAGE_MENU);
+
+                COSTE_IGUALAR_MENU = new LeftClickCheckBoxMenuItem(costeIgualarAction);
+                COSTE_IGUALAR_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
+                COSTE_IGUALAR_MENU.setSelected(GameFrame.MOSTRAR_COSTE_IGUALAR);
+                VISTA_MENU.add(COSTE_IGUALAR_MENU);
 
                 // Barajas y tapetes dentro de Apariencia (antes en un submenú
                 // Personalización aparte, ya eliminado).

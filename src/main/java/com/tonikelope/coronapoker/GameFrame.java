@@ -141,7 +141,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
-    public static volatile boolean ANIMACION_CARTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
+    // Efectos de animación, ahora con granularidad: reparto/destapes de cartas,
+    // fichas de posición (ciegas+dealer) y ficha al bote (apuestas). Combinables
+    // independientemente; por defecto los tres activados. "animacion_reparto"
+    // conserva la clave histórica.
+    public static volatile boolean ANIMACION_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
+    public static volatile boolean ANIMACION_CIEGAS_DEALER = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
+    public static volatile boolean ANIMACION_APUESTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
+    // Overlay opcional sobre las comunitarias con el coste de igualar del jugador
+    // local (cuánto tendrá que poner cuando le toque). Por defecto activado.
+    public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
@@ -863,10 +872,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return auto_action_menu;
     }
 
-    public JCheckBoxMenuItem getAnimacion_menu() {
-        return animacion_menu;
-    }
-
     public JMenuItem getChat_menu() {
         return chat_menu;
     }
@@ -1099,6 +1104,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             jugador.refreshRebuyGifLabel();
         }
 
+        // El overlay de coste de igualar está posicionado en absoluto sobre las
+        // comunitarias: al cambiar la vista compacta (que puede mover/encoger el
+        // community panel) hay que recolocarlo/reescalarlo con la geometría nueva.
+        if (getCrupier() != null) {
+            getCrupier().refreshCallCostOverlay();
+        }
     }
 
     public boolean isGame_over_dialog() {
@@ -1804,10 +1815,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void setTapeteApuestas(float apuestas) {
 
+        // El bet_label muestra SOLO la calle actual (sin importe ni icono), para
+        // reducir ruido. El bote de la calle (Crupier.apuestas) se sigue calculando
+        // y pasando aquí: para volver a mostrarlo basta reañadirlo al setText.
         Helpers.GUIRun(() -> {
             String street = STREETS[getCrupier().getStreet() - 1];
 
-            tapete.getCommunityCards().getBet_label().setText(street + ": " + (Helpers.float1DSecureCompare(0f, apuestas) < 0 ? Helpers.float2String(apuestas) : "---"));
+            tapete.getCommunityCards().getBet_label().setText(street);
 
             tapete.getCommunityCards().getBet_label().setVisible(true);
         });
@@ -1912,6 +1926,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             // Making it invisible is enough. No need to revalidate/repaint an invisible component.
             tapete.getCommunityCards().getBet_label().setVisible(false);
         });
+
+        // Fin de las apuestas de la mano (showdown / run-out): el overlay de coste
+        // de igualar también deja de tener sentido.
+        tapete.hideCallCostOverlay();
 
     }
 
@@ -2212,8 +2230,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         chat_image_menu.setSelected(GameFrame.CHAT_IMAGES_INGAME);
 
-        animacion_menu.setSelected(GameFrame.ANIMACION_CARTAS);
-
         confirmar_menu.setSelected(GameFrame.CONFIRM_ACTIONS);
 
         auto_action_menu.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
@@ -2271,8 +2287,52 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         apariencia_menu.add(time_menu);
         apariencia_menu.add(menu_cinematicas);
-        apariencia_menu.add(animacion_menu);
+
+        // Submenú "Efectos de animación" con tres efectos combinables (reparto,
+        // ciegas+dealer, apuestas). Sustituye al antiguo checkbox único.
+        anim_reparto_menu = new javax.swing.JCheckBoxMenuItem();
+        anim_reparto_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        anim_reparto_menu.putClientProperty("i18n.key", "menu.efectos_animacion_reparto");
+        anim_reparto_menu.setText(Translator.translate("menu.efectos_animacion_reparto"));
+        anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO);
+        anim_reparto_menu.addActionListener(e -> setAnimEffect(ANIM_REPARTO, anim_reparto_menu.isSelected()));
+
+        anim_ciegas_dealer_menu = new javax.swing.JCheckBoxMenuItem();
+        anim_ciegas_dealer_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        anim_ciegas_dealer_menu.putClientProperty("i18n.key", "menu.efectos_animacion_ciegas_dealer");
+        anim_ciegas_dealer_menu.setText(Translator.translate("menu.efectos_animacion_ciegas_dealer"));
+        anim_ciegas_dealer_menu.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+        anim_ciegas_dealer_menu.addActionListener(e -> setAnimEffect(ANIM_CIEGAS_DEALER, anim_ciegas_dealer_menu.isSelected()));
+
+        anim_apuestas_menu = new javax.swing.JCheckBoxMenuItem();
+        anim_apuestas_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        anim_apuestas_menu.putClientProperty("i18n.key", "menu.efectos_animacion_apuestas");
+        anim_apuestas_menu.setText(Translator.translate("menu.efectos_animacion_apuestas"));
+        anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS);
+        anim_apuestas_menu.addActionListener(e -> setAnimEffect(ANIM_APUESTAS, anim_apuestas_menu.isSelected()));
+
+        javax.swing.JMenu efectos_anim_menu = new javax.swing.JMenu(Translator.translate("menu.animacion_de_cartas"));
+        efectos_anim_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        efectos_anim_menu.putClientProperty("i18n.key", "menu.animacion_de_cartas");
+        efectos_anim_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png")));
+        efectos_anim_menu.add(anim_reparto_menu);
+        efectos_anim_menu.add(anim_ciegas_dealer_menu);
+        efectos_anim_menu.add(anim_apuestas_menu);
+        apariencia_menu.add(efectos_anim_menu);
+
         apariencia_menu.add(chat_image_menu);
+
+        // Toggle "Coste de igualar": overlay sobre las comunitarias con lo que el
+        // jugador local tendrá que poner para igualar. Por defecto activado.
+        coste_igualar_menu = new javax.swing.JCheckBoxMenuItem();
+        coste_igualar_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        coste_igualar_menu.putClientProperty("i18n.key", "menu.coste_igualar");
+        coste_igualar_menu.setText(Translator.translate("menu.coste_igualar"));
+        coste_igualar_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
+        coste_igualar_menu.setSelected(GameFrame.MOSTRAR_COSTE_IGUALAR);
+        coste_igualar_menu.addActionListener(e -> setCosteIgualar(coste_igualar_menu.isSelected()));
+        apariencia_menu.add(coste_igualar_menu);
+
         apariencia_menu.addSeparator();
         apariencia_menu.add(menu_barajas);
         apariencia_menu.add(menu_tapetes);
@@ -3051,7 +3111,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         auto_action_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator7 = new javax.swing.JPopupMenu.Separator();
         menu_cinematicas = new javax.swing.JCheckBoxMenuItem();
-        animacion_menu = new javax.swing.JCheckBoxMenuItem();
         chat_image_menu = new javax.swing.JCheckBoxMenuItem();
         jSeparator8 = new javax.swing.JPopupMenu.Separator();
         time_menu = new javax.swing.JCheckBoxMenuItem();
@@ -3324,18 +3383,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             }
         });
         opciones_menu.add(menu_cinematicas);
-
-        animacion_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        animacion_menu.setSelected(true);
-        animacion_menu.setText("Animación de cartas");
-        animacion_menu.putClientProperty("i18n.key", "menu.animacion_de_cartas");
-        animacion_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/dealer.png"))); // NOI18N
-        animacion_menu.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                animacion_menuActionPerformed(evt);
-            }
-        });
-        opciones_menu.add(animacion_menu);
 
         chat_image_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         chat_image_menu.setSelected(true);
@@ -3901,22 +3948,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
     }//GEN-LAST:event_confirmar_menuActionPerformed
-
-    private void animacion_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_animacion_menuActionPerformed
-        // TODO add your handling code here:
-
-        GameFrame.ANIMACION_CARTAS = this.animacion_menu.isSelected();
-
-        Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(GameFrame.ANIMACION_CARTAS));
-
-        Helpers.savePropertiesFile();
-
-        Helpers.TapetePopupMenu.ANIMACION_MENU.setSelected(GameFrame.ANIMACION_CARTAS);
-
-        // Si las animaciones se acaban de activar, el warm-up de arranque se
-        // saltó el shuffle.gif: pre-decodificarlo ahora en background
-        Crupier.warmShuffleAnimCache();
-    }//GEN-LAST:event_animacion_menuActionPerformed
 
     private void auto_action_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_action_menuActionPerformed
         // TODO add your handling code here:
@@ -4837,6 +4868,101 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // consulta para no robar atajos mientras está abierto.
     private javax.swing.JMenu apariencia_menu;
 
+    // Submenú "Efectos de animación" (construido a mano): tres efectos
+    // combinables — reparto/destapes de cartas, fichas de posición (ciegas+dealer)
+    // y ficha al bote (apuestas). Campos a mano para sincronizar con el popup.
+    private javax.swing.JCheckBoxMenuItem anim_reparto_menu;
+    private javax.swing.JCheckBoxMenuItem anim_ciegas_dealer_menu;
+    private javax.swing.JCheckBoxMenuItem anim_apuestas_menu;
+
+    public static final int ANIM_REPARTO = 0;
+    public static final int ANIM_CIEGAS_DEALER = 1;
+    public static final int ANIM_APUESTAS = 2;
+
+    // Aplica el cambio de un efecto de animación (flag + persistencia) y refleja
+    // el estado en AMBOS menús (menú-bar y popup del tapete). Al activar el
+    // reparto re-calienta la caché del shuffle.gif (el warm-up de arranque pudo
+    // saltárselo si estaba desactivado).
+    public void setAnimEffect(int which, boolean value) {
+        switch (which) {
+            case ANIM_REPARTO:
+                GameFrame.ANIMACION_REPARTO = value;
+                Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(value));
+                break;
+            case ANIM_CIEGAS_DEALER:
+                GameFrame.ANIMACION_CIEGAS_DEALER = value;
+                Helpers.PROPERTIES.setProperty("animacion_ciegas_dealer", String.valueOf(value));
+                break;
+            case ANIM_APUESTAS:
+                GameFrame.ANIMACION_APUESTAS = value;
+                Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(value));
+                break;
+        }
+        Helpers.savePropertiesFile();
+        syncAnimationMenus();
+        if (which == ANIM_REPARTO && value) {
+            Crupier.warmShuffleAnimCache();
+        }
+    }
+
+    // Refleja los tres flags en los seis checkboxes (menú-bar + popup del tapete).
+    public void syncAnimationMenus() {
+        if (anim_reparto_menu != null) {
+            anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO);
+        }
+        if (anim_ciegas_dealer_menu != null) {
+            anim_ciegas_dealer_menu.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+        }
+        if (anim_apuestas_menu != null) {
+            anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_REPARTO_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
+        }
+    }
+
+    // Toggle de Apariencia: overlay de coste de igualar sobre las comunitarias.
+    private javax.swing.JCheckBoxMenuItem coste_igualar_menu;
+
+    public javax.swing.JCheckBoxMenuItem getCoste_igualar_menu() {
+        return coste_igualar_menu;
+    }
+
+    // Aplica el cambio del toggle (flag + persistencia), refleja en ambos menús
+    // (menú-bar y popup) y muestra/oculta el overlay de inmediato.
+    public void setCosteIgualar(boolean value) {
+        GameFrame.MOSTRAR_COSTE_IGUALAR = value;
+        Helpers.PROPERTIES.setProperty("mostrar_coste_igualar", String.valueOf(value));
+        Helpers.savePropertiesFile();
+        if (coste_igualar_menu != null) {
+            coste_igualar_menu.setSelected(value);
+        }
+        if (Helpers.TapetePopupMenu.COSTE_IGUALAR_MENU != null) {
+            Helpers.TapetePopupMenu.COSTE_IGUALAR_MENU.setSelected(value);
+        }
+        if (getCrupier() != null) {
+            getCrupier().refreshCallCostOverlay();
+        }
+    }
+
+    public javax.swing.JCheckBoxMenuItem getAnim_reparto_menu() {
+        return anim_reparto_menu;
+    }
+
+    public javax.swing.JCheckBoxMenuItem getAnim_ciegas_dealer_menu() {
+        return anim_ciegas_dealer_menu;
+    }
+
+    public javax.swing.JCheckBoxMenuItem getAnim_apuestas_menu() {
+        return anim_apuestas_menu;
+    }
+
     public javax.swing.JCheckBoxMenuItem getRun_it_twice_menu() {
         return run_it_twice_menu;
     }
@@ -4866,7 +4992,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem acerca_menu;
-    private javax.swing.JCheckBoxMenuItem animacion_menu;
     private javax.swing.JCheckBoxMenuItem auto_action_menu;
     private javax.swing.JCheckBoxMenuItem auto_fit_zoom_menu;
     private javax.swing.JCheckBoxMenuItem auto_fullscreen_menu;

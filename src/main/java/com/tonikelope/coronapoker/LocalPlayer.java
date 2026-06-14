@@ -701,7 +701,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.runWhenLaidOut(player_name, () -> {
                 if (isSpectator()) {
-                    player_action.setText(msg != null ? msg : Translator.translate("player.espectador"));
+                    setActionTextFitted(msg != null ? msg : Translator.translate("player.espectador"));
                     setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                 }
             });
@@ -813,7 +813,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 // everything anyway.
                 setActionBackground(new Color(255, 102, 0));
                 player_action.setForeground(Color.WHITE);
-                player_action.setText(Translator.translate("game.abandonas_la_timba"));
+                setActionTextFitted(Translator.translate("game.abandonas_la_timba"));
                 setPlayerActionIcon("exit.png");
                 player_action.setVisible(true);
                 chip_label.setVisible(false);
@@ -1307,6 +1307,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 // NOTA: Se ha borrado la línea Helpers.translateComponents(botonera, false) que machacaba los botones dinámicos.
                 Helpers.translateComponents(player_action, false);
 
+                // Reajusta la fuente al texto traducido (preserva la clave i18n: solo
+                // re-setea el mismo texto y, si cabe, restaura el tamaño original).
+                setActionTextFitted(player_action.getText());
+
                 setPlayerActionIcon("action/thinking.png");
 
                 Helpers.setSpinnerColors(bet_spinner, player_bet_button.getBackground(), player_bet_button.getForeground());
@@ -1709,7 +1713,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         Helpers.GUIRun(() -> {
             player_action.putClientProperty("i18n.key", null); // Asegura que se vacía la clave del traductor
-            player_action.setText(" ");
+            setActionTextFitted(" ");
             player_action.setForeground(Color.LIGHT_GRAY);
             setActionBackground(new Color(204, 204, 204, 75));
             setPlayerActionIcon(null);
@@ -3043,9 +3047,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                 Helpers.GUIRun(() -> {
                     if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][1]);
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][1]);
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
                     }
 
                     setPlayerActionIcon("action/up.png");
@@ -3060,13 +3064,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     // exactamente el mismo valor (ver nota en ALLIN).
                     final float bet_snapshot = bet;
                     if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.float1DSecureCompare(0f, apuesta_actual_snapshot) < 0) {
-                        player_action.setText((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet_snapshot - apuesta_actual_snapshot) + ")");
+                        setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet_snapshot - apuesta_actual_snapshot) + ")");
 
                         if (conta_raise_snapshot > 0) {
                             reraise = true;
                         }
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet_snapshot));
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet_snapshot));
                     }
                     setPlayerActionIcon("action/bet.png");
                 });
@@ -3084,9 +3088,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     // negativo en la etiqueta ("ALL IN (+-0.90)").
                     final float total_allin = bet + stack;
                     if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(total_allin - apuesta_actual_snapshot) + ")");
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(total_allin - apuesta_actual_snapshot) + ")");
                     } else {
-                        player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
                     }
                     setPlayerActionIcon("action/glasses.png");
                 });
@@ -3095,7 +3099,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
-                    player_action.setText(ACTIONS_LABELS[dec - 1][0]);
+                    setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
 
                     setPlayerActionIcon("action/down.png");
                 });

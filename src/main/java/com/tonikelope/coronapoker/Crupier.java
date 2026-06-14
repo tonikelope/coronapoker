@@ -936,6 +936,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Long last_iwtsth_rejected = null;
     private volatile int limpers;
     private volatile int game_recovered = 0;
+    // Recovery: true cuando recuperarDatosClavePartida ya rotó posiciones
+    // (setPositions en la rama de mano-fresh, saltar=true sin mano-en-curso).
+    // Lo lee el finally de NUEVA_MANO para NO volver a llamar setPositions y
+    // evitar una segunda rotación (calcularPosiciones no es idempotente: cada
+    // llamada avanza las ciegas/dealer un asiento). Sin esto, el dealer/ciegas
+    // saltaban un asiento y quedaba un botón de dealer fantasma del primer
+    // reparto sin limpiar.
+    private volatile boolean recovery_positions_set = false;
     private volatile Object[] ciegas_update = null;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
@@ -4463,6 +4471,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void recuperarDatosClavePartida() {
         LOGGER.log(Level.INFO, "ZERO-TRUST: starting recuperarDatosClavePartida");
 
+        this.recovery_positions_set = false;
+
         for (Player j : GameFrame.getInstance().getJugadores()) {
             if (j.getNickname().startsWith("CoronaBot$") && !GameFrame.getInstance().getParticipantes().containsKey(j.getNickname())) {
                 Participant dummy = new Participant(GameFrame.getInstance().getSala_espera(), j.getNickname(), null, null, null, null, true);
@@ -5165,6 +5175,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             } else {
                 setPositions();
+                // Posiciones ya rotadas y repintadas aquí: el finally de
+                // NUEVA_MANO NO debe volver a llamar setPositions (doble rotación).
+                this.recovery_positions_set = true;
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     jugador.refreshPos();
                 }
@@ -6463,7 +6476,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // recuperarDatosClavePartida (donde el if ahora gateado por
                     // game_recovered==1 calcula utg localmente sin esperar POSITIONS).
                     // Sin este gate, el observer caia en recibirPosiciones a timeout.
-                    if (this.game_recovered == 0) {
+                    //
+                    // recovery_positions_set evita la DOBLE rotación: si
+                    // recuperarDatosClavePartida ya llamó setPositions (rama
+                    // mano-fresh con saltar=true y sin mano-en-curso del host),
+                    // volver a llamarlo aquí avanzaba ciegas/dealer un segundo
+                    // asiento y dejaba un botón de dealer fantasma (el del primer
+                    // reparto, pintado por refreshPos y nunca limpiado). Solo
+                    // hace falta cuando recuperar NO rotó (host con mano-en-curso
+                    // pero un jugador del preflop se fue -> rama if sin setPositions).
+                    if (this.game_recovered == 0 && !this.recovery_positions_set) {
                         this.setPositions();
                     }
                 }

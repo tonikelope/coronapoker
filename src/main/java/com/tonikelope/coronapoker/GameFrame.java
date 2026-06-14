@@ -149,8 +149,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean ANIMACION_CIEGAS_DEALER = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
     public static volatile boolean ANIMACION_APUESTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
     // Overlay opcional sobre las comunitarias con el coste de igualar del jugador
-    // local (cuánto tendrá que poner cuando le toque). Por defecto activado.
-    public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));
+    // local (cuánto tendrá que poner cuando le toque). Por defecto desactivado.
+    public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "false"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();

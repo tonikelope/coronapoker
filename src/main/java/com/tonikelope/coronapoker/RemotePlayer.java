@@ -82,8 +82,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final Color[][] ACTIONS_COLORS = new Color[][]{new Color[]{Color.GRAY, Color.WHITE}, new Color[]{Color.WHITE, Color.BLACK}, new Color[]{Color.YELLOW, Color.BLACK}, new Color[]{Color.BLACK, Color.WHITE}};
     public static final int MIN_ACTION_WIDTH = 200;
     public static final int MIN_ACTION_HEIGHT = 45;
-    public static final int MAX_ACTION_HAND_LENGTH = 14;
-    public static final float MAX_ACTION_HAND_LENGTH_ZOOM = 0.80f;
 
     private volatile String nickname;
     private volatile float stack = 0f;
@@ -2047,23 +2045,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.conta_win++;
 
         Helpers.GUIRun(() -> {
-            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
-                player_action.setFont(orig_action_font);
-                orig_action_font = null;
-
-            }
-
             setPlayerBorder(Color.GREEN);
             setActionBackground(Color.GREEN);
             player_action.setForeground(Color.BLACK);
 
-            if (msg.length() > MAX_ACTION_HAND_LENGTH) {
-                orig_action_font = player_action.getFont();
-
-                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
-            }
-
-            player_action.setText(msg);
+            setActionTextFitted(msg);
 
             setPlayerActionIcon("action/happy.png");
 
@@ -2089,12 +2075,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.loser = true;
 
         Helpers.GUIRun(() -> {
-            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
-                player_action.setFont(orig_action_font);
-                orig_action_font = null;
-
-            }
-
             setPlayerBorder(Color.RED);
 
             if (!holeCard1.isTapada() || !GameFrame.getInstance().getCrupier().isIWTSTH4LocalPlayerAuthorized()) {
@@ -2112,12 +2092,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 holeCard2.setIwtsth_candidate(this);
             }
 
-            if (msg.length() > MAX_ACTION_HAND_LENGTH) {
-                orig_action_font = player_action.getFont();
-                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
-            }
-
-            player_action.setText(msg);
+            setActionTextFitted(msg);
 
             setPlayerActionIcon("action/angry.png");
 
@@ -2618,7 +2593,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             player_action.setForeground(Color.WHITE);
-            player_action.setText(jugada);
+            setActionTextFitted(jugada);
         });
     }
 
@@ -2717,20 +2692,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public void showJugadaNeutral(String jugada) {
 
         Helpers.GUIRun(() -> {
-            if (orig_action_font != null && orig_action_font.getSize() != player_action.getFont().getSize()) {
-                player_action.setFont(orig_action_font);
-                orig_action_font = null;
-            }
-
             setActionBackground(new Color(204, 204, 204, 75));
             player_action.setForeground(Color.WHITE);
 
-            if (jugada.length() > MAX_ACTION_HAND_LENGTH) {
-                orig_action_font = player_action.getFont();
-                player_action.setFont(orig_action_font.deriveFont(orig_action_font.getStyle(), Math.round(orig_action_font.getSize() * MAX_ACTION_HAND_LENGTH_ZOOM)));
-            }
-
-            player_action.setText(jugada);
+            setActionTextFitted(jugada);
         });
     }
 
@@ -3067,6 +3032,33 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    /**
+     * Sets {@code msg} on the action label, auto-shrinking the font (measured
+     * with FontMetrics) so a long hand name fits the label width, and restoring
+     * the original size when it fits again. Must run on the EDT.
+     */
+    private void setActionTextFitted(String msg) {
+
+        Font base_font = (orig_action_font != null) ? orig_action_font : player_action.getFont();
+
+        Insets insets = player_action.getInsets();
+
+        int available_width = (player_action.getWidth() > 0 ? player_action.getWidth() : player_action.getPreferredSize().width) - (insets != null ? insets.left + insets.right : 0);
+
+        Font fitted_font = Helpers.fitFontToWidth(player_action, msg, base_font, available_width, Math.max(9, Math.round(base_font.getSize() * 0.5f)));
+
+        if (fitted_font.getSize() < base_font.getSize()) {
+            orig_action_font = base_font;
+            player_action.setFont(fitted_font);
+
+        } else if (orig_action_font != null) {
+            player_action.setFont(orig_action_font);
+            orig_action_font = null;
+        }
+
+        player_action.setText(msg);
+    }
+
     @Override
     public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
 
@@ -3077,24 +3069,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             String msg = jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)");
 
-            Font base_font = (orig_action_font != null) ? orig_action_font : player_action.getFont();
-
-            Insets insets = player_action.getInsets();
-
-            int available_width = (player_action.getWidth() > 0 ? player_action.getWidth() : player_action.getPreferredSize().width) - (insets != null ? insets.left + insets.right : 0);
-
-            Font fitted_font = Helpers.fitFontToWidth(player_action, msg, base_font, available_width, Math.max(9, Math.round(base_font.getSize() * 0.5f)));
-
-            if (fitted_font.getSize() < base_font.getSize()) {
-                orig_action_font = base_font;
-                player_action.setFont(fitted_font);
-
-            } else if (orig_action_font != null) {
-                player_action.setFont(orig_action_font);
-                orig_action_font = null;
-            }
-
-            player_action.setText(msg);
+            setActionTextFitted(msg);
 
             setPlayerActionIcon(null);
         });

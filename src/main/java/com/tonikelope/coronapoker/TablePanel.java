@@ -793,9 +793,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     private static final class CallCostOverlayLabel extends javax.swing.JLabel {
 
         // Tunables de contraste/visibilidad.
-        private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 128);       // negro 50%
-        private final java.awt.Color halo = new java.awt.Color(255, 255, 255, 146); // blanco ~57% (mismo ratio respecto al relleno)
-        private static final float STROKE_RATIO = 0.02f; // grosor del halo ∝ tamaño de fuente
+        private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 140);
+        private final java.awt.Color halo = new java.awt.Color(255, 255, 255, 200);
+        private static final float STROKE_RATIO = 0.03f; // grosor del halo ∝ tamaño de fuente
 
         @Override
         protected void paintComponent(java.awt.Graphics g) {

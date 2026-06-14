@@ -794,7 +794,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         // Tunables de contraste/visibilidad.
         private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 140);
-        private final java.awt.Color halo = new java.awt.Color(255, 255, 255, 200);
+        private final java.awt.Color halo = new java.awt.Color(255, 255, 0, 200);
         private static final float STROKE_RATIO = 0.03f; // grosor del halo ∝ tamaño de fuente
 
         @Override

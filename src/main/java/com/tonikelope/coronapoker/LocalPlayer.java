@@ -2581,12 +2581,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     }
                                 }
                                 Hand jugada = new Hand(cartas_jugada);
-                                player_action.setForeground(Color.WHITE);
-                                setActionBackground(new Color(51, 153, 255));
 
-                                // LIMPIEZA DE ETIQUETA: Evita el glitch de "HABLAS TÚ"
-                                player_action.putClientProperty("i18n.key", null);
-                                setActionTextFitted(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
+                                // Las mutaciones de Swing deben ir en el EDT. GUIRun
+                                // (asíncrono) y NO GUIRunAndWait: estamos dentro de
+                                // lock_mostrar y bloquear el worker esperando al EDT
+                                // podría interbloquear. setActionBackground/Icon ya se
+                                // autoprotegen; aquí cubrimos setForeground/clientProperty/
+                                // setActionTextFitted, que mutaban el label en crudo.
+                                Helpers.GUIRun(() -> {
+                                    player_action.setForeground(Color.WHITE);
+                                    setActionBackground(new Color(51, 153, 255));
+
+                                    // LIMPIEZA DE ETIQUETA: Evita el glitch de "HABLAS TÚ"
+                                    player_action.putClientProperty("i18n.key", null);
+                                    setActionTextFitted(Translator.translate("ui.muestras") + jugada.getName() + Translator.translate("ui.suffix_close"));
+                                });
 
                                 if (GameFrame.SONIDOS_CHORRA && decision == Player.FOLD) {
 
@@ -2596,8 +2605,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
                                     GameFrame.getInstance().getRegistro().print(nickname + " " + Translator.translate("ui.muestra_2") + " " + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
                                 }
-                                Helpers.translateComponents(botonera, false);
-                                // (Línea de traducción problemática eliminada de aquí)
+                                Helpers.GUIRun(() -> Helpers.translateComponents(botonera, false));
                             }
                         }
                     });

@@ -56,6 +56,7 @@ public class GifLabel extends JLabel {
     private volatile boolean gif_finished = false;
     private volatile CyclicBarrier gif_barrier = null;
     private volatile boolean audio_playing = false;
+    private volatile Runnable audio_on_start = null;
 
     // Frame pre-decodificado servido por TablePanel.showCentralFrames (motor
     // con catch-up de los giros de carta). Mientras no es null tiene prioridad
@@ -121,10 +122,19 @@ public class GifLabel extends JLabel {
     }
 
     public void addAudio(String aud, int start_frame, int end_frame) {
+        addAudio(aud, start_frame, end_frame, null);
+    }
+
+    // Variante con callback que se ejecuta en el MISMO frame en que arranca el
+    // audio (audio_frame_start), para sincronizar un efecto visual con el sonido
+    // (p.ej. lanzar la ficha voladora al bote cuando suena el chip de un GIF de
+    // acción en modo cinemática). El callback se dispara una sola vez.
+    public void addAudio(String aud, int start_frame, int end_frame, Runnable on_audio_start) {
         if (!audio_playing && aud != null && (start_frame < end_frame || end_frame < 0) && start_frame > 0) {
             this.audio = aud;
             this.audio_frame_start = start_frame;
             this.audio_frame_end = end_frame;
+            this.audio_on_start = on_audio_start;
         }
     }
 
@@ -176,6 +186,12 @@ public class GifLabel extends JLabel {
                         audio_playing = true;
                     }
                     Audio.playWavResource(audio);
+                    // Efecto visual sincronizado con el arranque del audio (una vez).
+                    if (audio_on_start != null) {
+                        Runnable r = audio_on_start;
+                        audio_on_start = null;
+                        r.run();
+                    }
                 } else if (audio_playing && conta_frames == audio_frame_end) {
                     audio_playing = false;
                     Audio.stopWavResource(audio);

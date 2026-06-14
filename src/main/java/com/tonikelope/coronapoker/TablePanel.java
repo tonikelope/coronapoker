@@ -71,6 +71,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected final GifLabel central_label = new GifLabel();
 
+    // Overlay opcional sobre las comunitarias: muestra en grande el coste de igualar
+    // del jugador local — cuánto tendrá que poner cuando le toque. Texto con relleno
+    // negro semitransparente y halo blanco para leerse sobre cualquier fondo (cartas
+    // claras, dorsos oscuros, tapete) sin tapar. Se actualiza en vivo según suben las
+    // apuestas.
+    protected final CallCostOverlayLabel call_cost_label = new CallCostOverlayLabel();
+
     protected final TapeteFastButtons fastbuttons = new TapeteFastButtons();
 
     protected volatile Long central_label_thread = null;
@@ -135,6 +142,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             central_label.setBarrier(central_label_barrier);
             add(central_label, JLayeredPane.POPUP_LAYER);
+
+            // Overlay de coste de igualar: por encima de las comunitarias (capa
+            // PALETTE, debajo del shuffle/flying). Pinta su propio texto con halo
+            // (centrado), así que no necesita alignment ni foreground.
+            call_cost_label.setFocusable(false);
+            call_cost_label.setOpaque(false);
+            call_cost_label.setVisible(false);
+            add(call_cost_label, JLayeredPane.PALETTE_LAYER);
             addComponentListener(new ComponentResizeEndListener() {
                 @Override
                 public void resizeTimedOut() {
@@ -152,6 +167,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     }
 
                     fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
+
+                    // El overlay de coste de igualar está posicionado en absoluto:
+                    // tras un resize/zoom hay que recolocarlo sobre las comunitarias.
+                    if (call_cost_label.isVisible()) {
+                        layoutCallCostOverlay();
+                        call_cost_label.repaint();
+                    }
 
                     if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
                         GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -670,6 +692,143 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // Muestra/actualiza el overlay de coste de igualar centrado SOBRE las cartas
+    // comunitarias (geometría-agnóstico: lee la posición real de cards_panel en
+    // pantalla, así sirve para los 9 tableros con zoom y HiDPI). La fuente escala
+    // con la altura de las comunitarias para verse grande sin tapar nada (gris 50%).
+    public void updateCallCostOverlay(String text) {
+        Helpers.GUIRun(() -> {
+            call_cost_label.setText(text);
+            if (layoutCallCostOverlay()) {
+                call_cost_label.setVisible(true);
+                call_cost_label.repaint();
+            } else {
+                call_cost_label.setVisible(false);
+            }
+        });
+    }
+
+    public void hideCallCostOverlay() {
+        Helpers.GUIRun(() -> call_cost_label.setVisible(false));
+    }
+
+    private volatile boolean call_overlay_listener_attached = false;
+
+    // Recoloca y reescala el overlay para cubrir las comunitarias (posición =
+    // cards_panel) con una fuente proporcional a la altura REAL de una carta
+    // comunitaria — así el texto SIGUE a las comunitarias: encoge con la vista
+    // compacta y crece al ampliarse, y escala con el zoom. Devuelve false si las
+    // comunitarias no están en pantalla (entonces el overlay se oculta). Debe
+    // llamarse en el EDT.
+    private boolean layoutCallCostOverlay() {
+        try {
+            javax.swing.JPanel cards = getCommunityCards().getCards_panel();
+            Card[] comunes = getCommunityCards().getCartasComunes();
+            if (cards == null || comunes == null || comunes.length == 0 || comunes[0] == null) {
+                return false;
+            }
+            final Card ref = comunes[0];
+            // Escucha cambios de geometría para reescalar/recolocar el overlay solo.
+            attachCallOverlayResizeListener(ref);
+            if (!cards.isShowing() || !isShowing()) {
+                return false;
+            }
+            java.awt.Point cp = cards.getLocationOnScreen();
+            java.awt.Point origin = getLocationOnScreen();
+            call_cost_label.setBounds(cp.x - origin.x, cp.y - origin.y, cards.getWidth(), cards.getHeight());
+            int card_h = ref.getHeight();
+            float base = card_h > 0 ? card_h : cards.getHeight();
+            float size = Math.max(12f, base * 0.9f);
+            call_cost_label.setFont(call_cost_label.getFont().deriveFont(java.awt.Font.BOLD, size));
+            return true;
+        } catch (Exception ex) {
+            // P.ej. IllegalComponentStateException si cards_panel dejó de estar en
+            // pantalla justo ahora.
+            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
+    }
+
+    // Engancha (una sola vez) listeners que reescalan/recolocan el overlay cuando la
+    // geometría cambia, mientras esté visible. Escucha DOS cosas:
+    //   - la carta comunitaria: capta cambios de TAMAÑO (zoom, compacta que achica
+    //     las cartas) para recalcular la fuente.
+    //   - la CommunityCardsPanel entera: capta cambios de POSICIÓN/tamaño del conjunto
+    //     (p.ej. compacta MEDIA: solo encogen los remotes y el panel SUBE sin que la
+    //     carta cambie de tamaño ni de posición relativa → solo este lo detecta).
+    private void attachCallOverlayResizeListener(final Card ref) {
+        if (call_overlay_listener_attached) {
+            return;
+        }
+        call_overlay_listener_attached = true;
+        java.awt.event.ComponentAdapter relayout = new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                relayoutCallCostOverlayIfVisible();
+            }
+
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e) {
+                relayoutCallCostOverlayIfVisible();
+            }
+        };
+        ref.addComponentListener(relayout);
+        getCommunityCards().addComponentListener(relayout);
+    }
+
+    private void relayoutCallCostOverlayIfVisible() {
+        Helpers.GUIRun(() -> {
+            if (call_cost_label.isVisible()) {
+                layoutCallCostOverlay();
+                call_cost_label.repaint();
+            }
+        });
+    }
+
+    // Etiqueta del overlay de coste de igualar: pinta el texto centrado con relleno
+    // negro semitransparente y un contorno (halo) blanco, para que se lea sobre
+    // CUALQUIER fondo (cartas claras, dorsos oscuros, tapete) sin tapar. Hereda de
+    // JLabel para reutilizar setText/setFont/setBounds del posicionado; sobreescribe
+    // el pintado para dibujar el contorno (el JLabel normal no lo soporta).
+    private static final class CallCostOverlayLabel extends javax.swing.JLabel {
+
+        // Tunables de contraste/visibilidad.
+        private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 128);       // negro 50%
+        private final java.awt.Color halo = new java.awt.Color(255, 255, 255, 146); // blanco ~57% (mismo ratio respecto al relleno)
+        private static final float STROKE_RATIO = 0.02f; // grosor del halo ∝ tamaño de fuente
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            final String text = getText();
+            if (text == null || text.isEmpty()) {
+                return;
+            }
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                java.awt.Font font = getFont();
+                java.awt.font.TextLayout tl = new java.awt.font.TextLayout(text, font, g2.getFontRenderContext());
+                java.awt.geom.Rectangle2D b = tl.getBounds();
+                double x = (getWidth() - b.getWidth()) / 2.0 - b.getX();
+                double y = (getHeight() - b.getHeight()) / 2.0 - b.getY();
+                java.awt.Shape outline = tl.getOutline(java.awt.geom.AffineTransform.getTranslateInstance(x, y));
+
+                float stroke = Math.max(2f, font.getSize2D() * STROKE_RATIO);
+                g2.setStroke(new java.awt.BasicStroke(stroke, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+                g2.setColor(halo);
+                g2.draw(outline);
+                g2.setColor(fill);
+                g2.fill(outline);
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
     // smoothstep clásico (Hermite): 0 en x≤a, 1 en x≥b, suave en medio.
     private static double smoothstep(double a, double b, double x) {
         double t = Math.max(0.0, Math.min(1.0, (x - a) / (b - a)));
@@ -678,13 +837,17 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     // Componente efímero de la carta viajera: pinta un dorso (ya rasterizado y
     // escalado) rotado un ángulo arbitrario sobre un lienzo cuadrado, centrado.
-    // Transparente fuera de la carta. Sin estado de Swing pesado.
+    // Transparente fuera de la carta. Sin estado de Swing pesado. Admite además
+    // escala (1.0 = tamaño nominal) y opacidad (1.0 = opaco), por defecto neutras,
+    // para el efecto de reducción-y-desvanecido del aterrizaje de fichas en el bote.
     private static final class FlyingCard extends javax.swing.JComponent {
 
         private final java.awt.Image img;
         private final int dw;
         private final int dh;
         private volatile double angle = 0.0;
+        private volatile double scale = 1.0;
+        private volatile float alpha = 1.0f;
 
         FlyingCard(java.awt.Image img, int dw, int dh) {
             this.img = img;
@@ -695,6 +858,14 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
         void setAngle(double a) {
             this.angle = a;
+        }
+
+        void setScale(double s) {
+            this.scale = s;
+        }
+
+        void setAlpha(float a) {
+            this.alpha = a;
         }
 
         void setCenter(double cx, double cy) {
@@ -709,9 +880,18 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                         java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
                         java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                if (alpha < 1.0f) {
+                    g2.setComposite(java.awt.AlphaComposite.getInstance(
+                            java.awt.AlphaComposite.SRC_OVER, Math.max(0.0f, Math.min(1.0f, alpha))));
+                }
                 int w = getWidth();
                 int h = getHeight();
                 g2.rotate(angle, w / 2.0, h / 2.0);
+                if (scale != 1.0) {
+                    g2.translate(w / 2.0, h / 2.0);
+                    g2.scale(scale, scale);
+                    g2.translate(-w / 2.0, -h / 2.0);
+                }
                 g2.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh, null);
             } finally {
                 g2.dispose();
@@ -908,6 +1088,180 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // Vuelo de UNA ficha (sprite del bote) desde el asiento del jugador que acaba
+    // de meter dinero hasta el icono del pot_label (el bote). Misma cinemática que el vuelo
+    // de reparto/posición (easeOut cuadrático + arco bezier perpendicular acotado,
+    // tick de 10 ms con nanoTime, velocidad constante por altura de sprite para que
+    // todas las fichas viajen igual de rápido sin importar el asiento). A diferencia
+    // del relevo de las fichas de posición, aquí NO hay ficha estática que reponer:
+    // al aterrizar la viajera se ENCOGE y se desvanece (efecto de reducción), el
+    // pot_label parpadea en amarillo (señal de que absorbió las fichas) y la viajera
+    // se retira. Geometría-agnóstica: lee la posición real del asiento y del bote en
+    // pantalla, así sirve para los 9 tableros con zoom y HiDPI.
+    //
+    // NO bloquea: arranca en el EDT y devuelve el control de inmediato (la limpieza,
+    // el flash y onLand ocurren en el último tramo del propio timer). Pueden coexistir
+    // varias fichas en vuelo.
+    //
+    // onLand (si no es null) se ejecuta EXACTAMENTE UNA VEZ: en el instante en que la
+    // ficha toca el bote (a la vez que el parpadeo amarillo), para que el valor del
+    // pot_label se actualice justo al aterrizar. Si la animación no puede correr (sin
+    // sprite/origen visible o fin de transmisión) se ejecuta de inmediato para no dejar
+    // el pot_label sin actualizar.
+    public void flyChipToPot(final Player from, final ImageIcon sprite, final int shrink_ms, final Runnable onLand) {
+
+        // Velocidad constante medida en ALTURAS DE SPRITE (invariante al zoom),
+        // como el vuelo de reparto, para que todas las fichas viajen a la misma
+        // velocidad visual sin importar el asiento.
+        final double MS_PER_CHIPHEIGHT = 120.0;
+        final int SPEED_MIN_MS = 120;
+        final int SPEED_MAX_MS = 320;
+
+        // Garantía de ejecución única de onLand pase lo que pase (aterrizaje real o
+        // cualquier salida temprana), para no congelar el valor del pot_label.
+        final Runnable[] land_holder = {onLand};
+
+        if (sprite == null || from == null
+                || GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+            runOnce(land_holder);
+            return;
+        }
+
+        final int w = sprite.getIconWidth();
+        final int h = sprite.getIconHeight();
+        if (w <= 0 || h <= 0) {
+            runOnce(land_holder);
+            return;
+        }
+
+        Helpers.GUIRun(() -> {
+            try {
+                if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
+                    runOnce(land_holder);
+                    return;
+                }
+
+                final double originX = getLocationOnScreen().getX();
+                final double originY = getLocationOnScreen().getY();
+
+                // Origen: asiento del jugador (mismo anclaje que su ficha de
+                // posición). Si no está visible (asiento retirado, etc.) no animamos.
+                final java.awt.geom.Point2D fromScr = from.getPositionChipScreenCenter(w, h);
+                if (fromScr == null) {
+                    runOnce(land_holder);
+                    return;
+                }
+                final double fromCx = fromScr.getX() - originX;
+                final double fromCy = fromScr.getY() - originY;
+
+                // Destino: el ICONO (fichas) del pot_label. Si no está visible,
+                // el centro de la mesa.
+                final double toCx, toCy;
+                final java.awt.geom.Point2D potIcon = getCommunityCards().getPotIconScreenCenter();
+                if (potIcon != null) {
+                    toCx = potIcon.getX() - originX;
+                    toCy = potIcon.getY() - originY;
+                } else {
+                    toCx = getWidth() / 2.0;
+                    toCy = getHeight() / 2.0;
+                }
+
+                // Punto de control del arco: medio del trayecto desplazado
+                // perpendicular, acotado (idéntico al vuelo de cartas/fichas).
+                final double mx = (fromCx + toCx) / 2.0, my = (fromCy + toCy) / 2.0;
+                final double vx = toCx - fromCx, vy = toCy - fromCy;
+                final double len = Math.hypot(vx, vy);
+                final double arc = Math.min(len * 0.16, h);
+                final double nx = (len > 1) ? -vy / len : 0.0;
+                final double ny = (len > 1) ? vx / len : 0.0;
+                final double ctrlX = mx + nx * arc;
+                final double ctrlY = my + ny * arc;
+
+                final int fly_dur = (int) Math.round(Math.max(SPEED_MIN_MS,
+                        Math.min(SPEED_MAX_MS, (len / h) * MS_PER_CHIPHEIGHT)));
+
+                final int box = (int) Math.ceil(Math.hypot(w, h));
+                final FlyingCard traveler = new FlyingCard(sprite.getImage(), w, h);
+                traveler.setSize(box, box);
+                traveler.setAngle(0.0);
+                traveler.setCenter(fromCx, fromCy);
+                add(traveler, JLayeredPane.DRAG_LAYER);
+
+                final long t0 = System.nanoTime();
+                final boolean[] flashed = {false};
+
+                final javax.swing.Timer player = new javax.swing.Timer(PRE_RENDERED_TICK_MS, null);
+
+                player.addActionListener(e -> {
+                    long elapsed = (System.nanoTime() - t0) / 1_000_000L;
+
+                    boolean done = GameFrame.getInstance().getCrupier().isFin_de_la_transmision();
+
+                    if (!done && elapsed < fly_dur) {
+                        // Fase 1: vuelo al bote (easeOut cuadrático, como el reparto).
+                        double u = (double) elapsed / Math.max(1, fly_dur);
+                        double s = 1.0 - (1.0 - u) * (1.0 - u);
+                        double is = 1.0 - s;
+                        double x = is * is * fromCx + 2 * is * s * ctrlX + s * s * toCx;
+                        double y = is * is * fromCy + 2 * is * s * ctrlY + s * s * toCy;
+                        traveler.setCenter(x, y);
+                        traveler.repaint();
+                    } else if (!done) {
+                        // Fase 2: aterrizaje en el bote → encoge y se desvanece
+                        // (smoothstep para una reducción suave). Al tocar el bote
+                        // (primer tick de esta fase) el valor del pot_label se
+                        // actualiza Y parpadea en amarillo en el MISMO runnable del
+                        // EDT (número y color cambian a la vez, el color no se
+                        // adelanta al número).
+                        if (!flashed[0]) {
+                            flashed[0] = true;
+                            final Runnable land = land_holder[0];
+                            land_holder[0] = null; // consumido: el cleanup no lo re-ejecuta
+                            getCommunityCards().flashPotLabelYellow(land);
+                        }
+                        long se = elapsed - fly_dur;
+                        double su = Math.min(1.0, (double) se / Math.max(1, shrink_ms));
+                        double k = su * su * (3.0 - 2.0 * su);
+                        traveler.setCenter(toCx, toCy);
+                        traveler.setScale(1.0 - k);
+                        traveler.setAlpha((float) (1.0 - k));
+                        traveler.repaint();
+                        done = su >= 1.0;
+                    }
+
+                    if (done) {
+                        player.stop();
+                        java.awt.Rectangle b = traveler.getBounds();
+                        remove(traveler);
+                        repaint(b);
+                        // Salida por fin de transmisión antes de tocar el bote: onLand
+                        // no se ejecutó en la fase 2; ejecútalo ahora (no-op si ya corrió).
+                        runOnce(land_holder);
+                    }
+                });
+
+                player.start();
+
+            } catch (Exception ex) {
+                // P.ej. IllegalComponentStateException si el asiento dejó de estar
+                // en pantalla: simplemente no animamos.
+                Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                runOnce(land_holder);
+            }
+        });
+    }
+
+    // Ejecuta el Runnable del holder a lo sumo una vez (lo anula tras correr). Las
+    // rutas que lo invocan son mutuamente excluyentes (salida temprana en el hilo
+    // llamante, o ticks del timer en el EDT), así que no hay acceso concurrente.
+    private static void runOnce(Runnable[] holder) {
+        Runnable r = holder[0];
+        if (r != null) {
+            holder[0] = null;
+            r.run();
+        }
+    }
+
     // Variante en bucle de showCentralFrames para el GIF de barajado: repite la
     // animación (centrada, con el audio re-disparado en cada ciclo y cortado en
     // audio_stop_frame, mismo contrato que addAudio(1, stop)) hasta que el
@@ -1079,6 +1433,11 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             getCommunityCards().setVisible(false);
 
             central_label.setVisible(false);
+
+            // El overlay de coste de igualar vive en una capa propia del tapete:
+            // sin esto quedaría flotando en el centro al ocultarse la mesa (salir,
+            // game over, balance).
+            call_cost_label.setVisible(false);
         });
 
     }

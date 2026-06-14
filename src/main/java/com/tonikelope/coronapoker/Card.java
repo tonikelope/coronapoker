@@ -182,6 +182,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             Helpers.IMAGEN_SB = createPositionChipImageIcon(Player.SMALL_BLIND);
             Helpers.IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
             Helpers.IMAGEN_DEAD_DEALER = createPositionChipImageIcon(Player.DEAD_DEALER);
+            Helpers.IMAGEN_POT_CHIP = createPotChipImageIcon();
 
             if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
                 CARTAS_SONIDO = Arrays.asList(((String) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[2]).split(" *, *"));
@@ -223,6 +224,15 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         }
 
         return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Image.SCALE_SMOOTH));
+
+    }
+
+    // Ficha del bote (pot.png) ya escalada al tamaño de carta vigente, para la
+    // animación de fichas voladoras que viajan al bote cuando un jugador mete
+    // dinero. Mismo criterio de tamaño que las fichas de posición.
+    private static ImageIcon createPotChipImageIcon() {
+
+        return new ImageIcon(new ImageIcon(Card.class.getResource("/images/pot.png")).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.80f), Image.SCALE_SMOOTH));
 
     }
 

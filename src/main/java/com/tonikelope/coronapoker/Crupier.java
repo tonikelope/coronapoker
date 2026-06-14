@@ -411,7 +411,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // reactivadas) para que la primera mano no pague el decode de ~0,5 s
     public static void warmShuffleAnimCache() {
 
-        if (!GameFrame.ANIMACION_CARTAS) {
+        if (!GameFrame.ANIMACION_REPARTO) {
             return;
         }
 
@@ -862,6 +862,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile Player last_aggressor = null;
     private volatile boolean destapar_resistencia = false;
     private volatile boolean show_time = false;
+    // True desde que repartir() ha colocado las 5 comunitarias tapadas (y las hole
+    // cards) hasta el reset de la siguiente mano. Gatea el overlay de coste de
+    // igualar para que NO aparezca antes del reparto ni entre manos (al transicionar
+    // el tablero), solo durante las apuestas con las cartas ya en la mesa.
+    private volatile boolean community_cards_dealt = false;
     // Diálogo de votación run-it-twice activo en el CLIENTE (host-driven via RIT_VOTE_*).
     private volatile RunItTwiceDialog rit_client_dialog = null;
     // True mientras se reparte el segundo board (SIDE-B) de un run-it-twice. Abre
@@ -2322,7 +2327,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // la opción de animación y se salta en RECOVER/fin de transmisión.
     private void animateChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
 
-        if (!GameFrame.ANIMACION_CARTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
+        if (!GameFrame.ANIMACION_CIEGAS_DEALER || GameFrame.RECOVER || isFin_de_la_transmision()) {
             return;
         }
 
@@ -2411,6 +2416,46 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         flights.add(new TablePanel.ChipFlight(from, to, sprite));
         to_hide.add(to);
+    }
+
+    // Duración (ms) del encogido-y-desvanecido de la ficha al aterrizar en el bote.
+    private static final int POT_CHIP_SHRINK_MS = 320;
+
+    // Fichas voladoras al bote en vuelo. Mientras haya alguna, actualizarContadoresTapete
+    // NO refresca el VALOR del pot_label: ese refresco se difiere al aterrizaje de la
+    // ficha (su onLand), para que el valor del bote suba justo cuando la ficha lo toca
+    // y a la vez que el parpadeo amarillo (no antes, con la ficha aún en el aire).
+    private final java.util.concurrent.atomic.AtomicInteger pot_chips_in_flight = new java.util.concurrent.atomic.AtomicInteger(0);
+
+    public boolean isPotLabelValueDeferred() {
+        return pot_chips_in_flight.get() > 0;
+    }
+
+    // Lanza una ficha del bote volando desde el asiento del jugador que acaba de
+    // meter dinero (call/bet/all-in) hasta el icono del pot_label, con la misma
+    // velocidad/estilo que el vuelo de reparto y un encogido al aterrizar (que
+    // hace parpadear el pot_label en amarillo). La disparan los jugadores en el
+    // MISMO instante en que suena el sonido de fichas (call/bet/allin.wav), para
+    // que animación y sonido vayan sincronizados. Respeta la opción de animación y
+    // se salta en RECOVER/fin de transmisión. NO bloquea: la animación corre sola
+    // en el EDT y el llamante continúa de inmediato.
+    public void launchChipToPot(Player player) {
+
+        if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
+            return;
+        }
+
+        // Difiere el VALOR del pot_label hasta que la ficha aterrice: incrementa el
+        // contador antes de lanzar (sincrónico, así actualizarContadoresTapete ya lo ve
+        // diferido) y, en el aterrizaje (onLand, a la vez que el flash), lo decrementa y
+        // refresca el valor con el bote ya actualizado. Garantizado-una-vez por flyChipToPot.
+        pot_chips_in_flight.incrementAndGet();
+        GameFrame.getInstance().getTapete().flyChipToPot(player, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
+            pot_chips_in_flight.decrementAndGet();
+            // Solo el VALOR del bote (no actualizarContadoresTapete completo): así el
+            // aterrizaje no re-muestra la bet_label si el showdown ya la ocultó.
+            refreshTapeteBoteValue();
+        });
     }
 
     public String getBb_nick() {
@@ -3664,21 +3709,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public void actualizarContadoresTapete() {
 
-        // Run-it-twice: durante el run-out de cada cara la label muestra la MITAD
-        // que ESA cara juega (no el bote total): es lo que de verdad se reparte
-        // en cada board. Las dos mitades de splitPotForRunItTwice son iguales, así
-        // que el índice de board es indiferente. Fuera de RIT (tag null) → total.
-        float pot_show = this.rit_pot_board_tag != null
-                ? splitPotForRunItTwice(this.bote_total)[0]
-                : this.bote_total;
+        // Con fichas voladoras en vuelo el valor del bote se difiere a su aterrizaje
+        // (lo refresca el onLand de la ficha, a la vez que el parpadeo). El resto de
+        // contadores (apuesta de calle, ciegas, mano) sí se actualizan ya.
+        if (!isPotLabelValueDeferred()) {
+            refreshTapeteBoteValue();
+        }
 
-        GameFrame.getInstance().setTapeteBote(pot_show, this.beneficio_bote_principal);
-
-        if (this.destapar_resistencia) {
-            // Run-out all-in (normal o run-it-twice): ya no hay apuestas. Se oculta
-            // la bet_label de calle y el bote se centra ocupando todo el ancho —
-            // exactamente el estado al que llega el showdown, que solo le añade el
-            // fondo verde. Así la label no salta de sitio al cerrarse la mano.
+        if (this.destapar_resistencia || this.show_time) {
+            // Run-out all-in (normal o run-it-twice) o SHOWDOWN: ya no hay apuestas.
+            // Se oculta la bet_label de calle y el bote se centra ocupando todo el
+            // ancho — exactamente el estado al que llega el showdown, que solo le
+            // añade el fondo verde. Así la label no salta de sitio al cerrarse la
+            // mano. El gate por show_time evita además que un refresco tardío
+            // (editar ciegas, aterrizaje de una ficha, etc.) vuelva a mostrar la
+            // bet_label una vez empezado el showdown.
             GameFrame.getInstance().hideTapeteApuestas();
             Helpers.GUIRun(() -> GameFrame.getInstance().getTapete().getCommunityCards()
                     .getPot_label().setHorizontalAlignment(JLabel.CENTER));
@@ -3688,6 +3733,52 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         GameFrame.getInstance().setTapeteCiegas(this.ciega_pequeña, this.ciega_grande);
         GameFrame.getInstance().setTapeteMano(this.conta_mano);
+
+        refreshCallCostOverlay();
+    }
+
+    // Overlay opcional sobre las comunitarias: cuánto tendría que poner el jugador
+    // local para IGUALAR la apuesta actual (lo que le tocará cuando le llegue el
+    // turno). Se actualiza tras cada acción, así sube en vivo cuando alguien sube.
+    // Solo se muestra en fase de apuestas, con el local activo y algo por igualar;
+    // en otro caso se oculta. El importe se trunca al stack (no puedes poner más de
+    // lo que tienes). Respeta el toggle de Apariencia.
+    public void refreshCallCostOverlay() {
+        TablePanel tapete = GameFrame.getInstance().getTapete();
+        if (tapete == null) {
+            return;
+        }
+
+        LocalPlayer lp = GameFrame.getInstance().getLocalPlayer();
+
+        if (!GameFrame.MOSTRAR_COSTE_IGUALAR || !this.community_cards_dealt
+                || this.show_time || this.destapar_resistencia
+                || lp == null || !lp.isActivo() || lp.isExit()
+                || lp.getDecision() == Player.FOLD || lp.getDecision() == Player.ALLIN) {
+            tapete.hideCallCostOverlay();
+            return;
+        }
+
+        float cost = Helpers.floatClean(this.apuesta_actual - lp.getBet());
+
+        if (Helpers.float1DSecureCompare(0f, cost) >= 0) {
+            tapete.hideCallCostOverlay();
+            return;
+        }
+
+        float shown = Math.min(cost, Helpers.floatClean(lp.getStack()));
+        tapete.updateCallCostOverlay("+" + Helpers.float2String(shown));
+    }
+
+    // Refresca SOLO el valor del pot_label (sin tocar bet_label/ciegas/mano). Lo usa
+    // el aterrizaje de la ficha voladora para aplicar el valor del bote diferido sin
+    // re-mostrar el bet_label (que el showdown pudo ocultar). RIT: durante el run-out
+    // de cada cara muestra la MITAD que ESA cara juega; fuera de RIT, el total.
+    public void refreshTapeteBoteValue() {
+        float pot_show = this.rit_pot_board_tag != null
+                ? splitPotForRunItTwice(this.bote_total)[0]
+                : this.bote_total;
+        GameFrame.getInstance().setTapeteBote(pot_show, this.beneficio_bote_principal);
     }
 
     private void resetBetPlayerDecisions(ArrayList<Player> jugadores, String nick, boolean partial_raise) {
@@ -6102,6 +6193,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private boolean NUEVA_MANO() {
 
+        // Aún no se han repartido las comunitarias de esta mano: el overlay de coste
+        // de igualar permanece oculto hasta que repartir() las coloque.
+        this.community_cards_dealt = false;
+
         this.local_sra_lock = null;
         this.local_sra_unlock = null;
         this.local_sra_lock_community = null;
@@ -6465,7 +6560,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 URL url_icon = shuffleGifUrl();
-                if (url_icon != null && GameFrame.ANIMACION_CARTAS) {
+                if (url_icon != null && GameFrame.ANIMACION_REPARTO) {
 
                     // Motor pre-decodificado con catch-up también para el barajado:
                     // un único decode por baraja (normalmente ya caliente por el
@@ -7188,7 +7283,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void repartir() {
 
-        boolean animacion = GameFrame.ANIMACION_CARTAS;
+        boolean animacion = GameFrame.ANIMACION_REPARTO;
 
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
 
@@ -7341,6 +7436,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         GameFrame.getInstance().getLocalPlayer().ordenarCartas();
+
+        // Las 5 comunitarias tapadas (y las hole cards) ya están en la mesa: a
+        // partir de aquí el overlay de coste de igualar puede mostrarse.
+        this.community_cards_dealt = true;
     }
 
     /**
@@ -9126,7 +9225,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // tiene que completarse igualmente (lleva medio bote), pero corre bajo
         // lock_contabilidad y cada pausa cosmética retrasa la salida real
         // (finTransmision espera ese lock para el snapshot del auditor).
-        boolean animacion = GameFrame.ANIMACION_CARTAS && !GameFrame.getInstance().getLocalPlayer().isExit();
+        boolean animacion = GameFrame.ANIMACION_REPARTO && !GameFrame.getInstance().getLocalPlayer().isExit();
 
         Helpers.GUIRunAndWait(() -> {
             // Corridas → fuera de la mesa (resetearCarta invisible) si hay
@@ -13019,7 +13118,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // flip y flip y la cadencia del flop variaba de mano en mano.
     private void prefetchAnimacionDestaparCarta(Card carta) {
 
-        if (GameFrame.ANIMACION_CARTAS) {
+        if (GameFrame.ANIMACION_REPARTO) {
 
             URL url_icon = cardFlipGifUrl(carta);
 
@@ -13080,7 +13179,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
-    // el mismo motor que las comunitarias (ANIMACION_CARTAS + GIF de giro por
+    // el mismo motor que las comunitarias (ANIMACION_REPARTO + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
     // giran A LA VEZ (overlays en paralelo, un solo uncover.wav) sobre
     // overlays efímeros, y el método BLOQUEA hasta que el giro termina (nunca
@@ -13113,8 +13212,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         RemotePlayer rp = (RemotePlayer) jugador;
 
-        URL url1 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c1) : null;
-        URL url2 = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(c2) : null;
+        URL url1 = GameFrame.ANIMACION_REPARTO ? cardFlipGifUrl(c1) : null;
+        URL url2 = GameFrame.ANIMACION_REPARTO ? cardFlipGifUrl(c2) : null;
 
         if (url1 == null || url2 == null) {
             destaparCartasJugadorSeco(rp);
@@ -13213,7 +13312,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        URL url_icon = GameFrame.ANIMACION_CARTAS ? cardFlipGifUrl(carta) : null;
+        URL url_icon = GameFrame.ANIMACION_REPARTO ? cardFlipGifUrl(carta) : null;
 
         if (url_icon != null) {
 
@@ -14039,13 +14138,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (estaba_tapada) {
                         // Jugada en etiqueta NEUTRA (gris del label en reposo,
                         // no el azul del botón MOSTRAR): enseña QUÉ lleva sin
-                        // adelantar si gana. El LocalPlayer nunca entra aquí
-                        // (sus cartas nunca están tapadas en su pantalla).
+                        // adelantar si gana.
                         if (jugador_actual instanceof RemotePlayer) {
                             ((RemotePlayer) jugador_actual).showJugadaNeutral(jugada.getName());
                         }
 
                         alguno_destapado = true;
+                    } else if (jugador_actual == GameFrame.getInstance().getLocalPlayer()) {
+                        // El LocalPlayer ya ve sus cartas boca arriba (no hubo giro
+                        // que animar), pero su jugada debe pintarse en la etiqueta
+                        // NEUTRA durante el destape secuencial igual que al resto
+                        // (antes solo aparecía en la pasada 2, con ganadores/perdedores).
+                        ((LocalPlayer) jugador_actual).showJugadaNeutral(jugada.getName());
                     }
                 }
 
@@ -14373,9 +14477,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Audio.playWavResource("misc/startplay.wav");
         }
 
-        if (GameFrame.MUSICA_AMBIENTAL) {
-            Audio.unmuteLoopMp3("misc/background_music.mp3");
-        }
+        // Desmuteo SIEMPRE el loop de fondo al entrar al juego (la sala de espera lo
+        // dejó muteado por contexto). Quién decide si suena es MUSICA_AMBIENTAL vía
+        // effectiveLoopVolume (volumen 0 si está off). Si lo dejáramos muteado cuando
+        // el flag arranca en off, activarlo a mitad de partida no lo despertaría (el
+        // mute por contexto seguiría a 0) hasta salir a la pantalla principal.
+        Audio.unmuteLoopMp3("misc/background_music.mp3");
 
         GameFrame.getInstance().autoZoomFullScreen(GameFrame.AUTO_FULLSCREEN);
 

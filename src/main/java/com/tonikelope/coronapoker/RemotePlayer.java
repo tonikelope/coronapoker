@@ -492,9 +492,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                         Se meten en la propia label con addaudio para sincronizar cuando es necesario que el 
                                         audio empiece y acabe en un determinado frame exacto del gif. (El hilo que reproducirá este audio NO espera en la barrera) */
                                     if (getDecision() == Player.BET) {
-                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60);
+                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60,
+                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this));
                                     } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
-                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60);
+                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60,
+                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this));
                                     } else if (getDecision() == Player.CHECK) {
                                         getChat_notify_label().addAudio("misc/check.wav", 5, 14);
                                     }
@@ -1227,6 +1229,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } else {
             if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
                 Audio.playWavResource("misc/call.wav");
+                GameFrame.getInstance().getCrupier().launchChipToPot(this);
             } else {
                 Audio.playWavResource("misc/check.wav");
             }
@@ -1270,6 +1273,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
         } else {
             Audio.playWavResource("misc/bet.wav");
+            GameFrame.getInstance().getCrupier().launchChipToPot(this);
         }
 
         if (GameFrame.SONIDOS_CHORRA && raise) {
@@ -1285,6 +1289,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private void allin() {
 
         Audio.playWavResource("misc/allin.wav");
+        GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
         Init.PLAYING_CINEMATIC = true;
 

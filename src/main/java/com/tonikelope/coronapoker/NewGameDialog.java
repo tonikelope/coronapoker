@@ -115,10 +115,6 @@ public class NewGameDialog extends JDialog {
             return 2;
         }
 
-        if (Bot.DIFFICULTY == Bot.Difficulty.EXPERT) {
-            return 3;
-        }
-
         return 1;
     }
 
@@ -159,8 +155,6 @@ public class NewGameDialog extends JDialog {
             bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
 
             bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
-
-            bots_combobox_model.addElement(Translator.translate("ui.bots_experto"));
 
             bots_combobox.setModel(bots_combobox_model);
 
@@ -333,8 +327,6 @@ public class NewGameDialog extends JDialog {
             bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
 
             bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
-
-            bots_combobox_model.addElement(Translator.translate("ui.bots_experto"));
 
             bots_combobox.setModel(bots_combobox_model);
 
@@ -1900,9 +1892,6 @@ public class NewGameDialog extends JDialog {
                 break;
             case 2:
                 Bot.DIFFICULTY = Bot.Difficulty.HARD;
-                break;
-            case 3:
-                Bot.DIFFICULTY = Bot.Difficulty.EXPERT;
                 break;
             default:
                 Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;

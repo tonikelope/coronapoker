@@ -347,7 +347,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "DIFFICULTY":
                     try {
-                        Bot.DIFFICULTY = Bot.Difficulty.valueOf(val);
+                        // "EXPERT" is a legacy value from the old 4-level scheme;
+                        // it maps to the current top level HARD.
+                        Bot.DIFFICULTY = "EXPERT".equals(val)
+                                ? Bot.Difficulty.HARD
+                                : Bot.Difficulty.valueOf(val);
                     } catch (IllegalArgumentException ignore) {
                     }
                     break;

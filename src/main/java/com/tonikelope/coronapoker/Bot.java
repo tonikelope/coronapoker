@@ -60,7 +60,7 @@ public class Bot {
     public static volatile Difficulty DIFFICULTY = Difficulty.MEDIUM;
 
     public enum Difficulty {
-        EASY, MEDIUM, HARD, EXPERT
+        EASY, MEDIUM, HARD
     }
 
     public enum Position {
@@ -261,7 +261,7 @@ public class Bot {
 
     /**
      * Override the global {@link #DIFFICULTY} for this bot specifically. Used
-     * by mixed-matchup tests (e.g. EXPERT vs EASY in the same hand). Re-rolls
+     * by mixed-matchup tests (e.g. HARD vs EASY in the same hand). Re-rolls
      * the bot's personality so the new skill distribution applies. Passing
      * null returns to the global static fallback.
      */
@@ -346,8 +346,7 @@ public class Bot {
         // < regThreshold → REGULAR; otherwise → SHARK.
         //   EASY:    60 rec  / 32 reg /  8 shark   ("fun fish-fest")
         //   MEDIUM:  25 rec  / 55 reg / 20 shark   ("casual home game")
-        //   HARD:    10 rec  / 50 reg / 40 shark   ("experienced players")
-        //   EXPERT:   0 rec  / 35 reg / 65 shark   ("professional table")
+        //   HARD:     0 rec  / 35 reg / 65 shark   ("professional table")
         int recThreshold, regThreshold;
         switch (effectiveDifficulty()) {
             case EASY:
@@ -355,10 +354,6 @@ public class Bot {
                 regThreshold = 92;
                 break;
             case HARD:
-                recThreshold = 10;
-                regThreshold = 60;
-                break;
-            case EXPERT:
                 recThreshold = 0;
                 regThreshold = 35;
                 break;
@@ -389,7 +384,7 @@ public class Bot {
                 case MEDIUM:
                     stationCut = 55; lagCut = 78; tagCut = 92; // 55/23/14/8
                     break;
-                default: // HARD / EXPERT (rec is tiny anyway)
+                default: // HARD (rec is tiny anyway)
                     stationCut = 45; lagCut = 73; tagCut = 90; // 45/28/17/10
                     break;
             }
@@ -615,19 +610,18 @@ public class Bot {
 
     /**
      * Per-difficulty probability of replacing the bot's optimal-ish
-     * decision with a recognisable recreational poker mistake. EXPERT
-     * plays its baseline cleanly. Lower difficulties commit recognisable
-     * leaks (sticky call, hero fold, missed value bet, spewy preflop
-     * call) at increasing frequencies — the Stockfish pattern that
-     * guarantees EXPERT &gt; HARD &gt; MEDIUM &gt; EASY in bb/100 by
-     * construction, independent of any other calibration.
+     * decision with a recognisable recreational poker mistake. HARD (the
+     * top level) plays its baseline cleanly. Lower difficulties commit
+     * recognisable leaks (sticky call, hero fold, missed value bet, spewy
+     * preflop call) at increasing frequencies — the Stockfish pattern that
+     * guarantees HARD &gt; MEDIUM &gt; EASY in bb/100 by construction. The
+     * three rates are spaced wide (0 / 22 / 45) so each level is clearly
+     * distinguishable to a human within a single session.
      */
     private double mistakeRateForDifficulty() {
         switch (effectiveDifficulty()) {
-            case EXPERT:
-                return 0.00;
             case HARD:
-                return 0.10;
+                return 0.00;
             case MEDIUM:
                 return 0.22;
             case EASY:
@@ -842,7 +836,7 @@ public class Bot {
                 }
             }
             if (skillLevel == Skill.SHARK && effectiveDifficulty() != Difficulty.EASY) {
-                winProb += (effectiveDifficulty() == Difficulty.EXPERT ? 0.05 : 0.03);
+                winProb += (effectiveDifficulty() == Difficulty.HARD ? 0.05 : 0.03);
             }
         } else {
             if (onTilt) {
@@ -918,7 +912,7 @@ public class Bot {
             // disciplined and never bluffs into a player who never folds. A busted
             // draw or a hand that has been barrelling (aggressiveLine) bluffs a bit
             // more often — those stories are the most credible. Frequency scales
-            // with difficulty (EXPERT balances its range; EASY ~never bluffs).
+            // with difficulty (HARD balances its range; EASY ~never bluffs).
             if (skillLevel != Skill.RECREATIONAL
                     && activePlayers <= 2
                     && effectiveStrength < 0.35
@@ -950,9 +944,8 @@ public class Bot {
                 if (effectiveStrength > 0.65) {
                     cbetChance += 20;
                 }
-                if ((effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)
-                        && hasRangeAdvantageOverFlop()) {
-                    cbetChance += (effectiveDifficulty() == Difficulty.EXPERT ? 15 : 10);
+                if (effectiveDifficulty() == Difficulty.HARD && hasRangeAdvantageOverFlop()) {
+                    cbetChance += 15;
                     logVerbose("Range advantage detected on flop (high-card top-down).");
                 }
             }
@@ -1085,13 +1078,11 @@ public class Bot {
             return Player.CHECK;
         }
 
-        // Threshold for raise-for-value drops on HARD/EXPERT so sharks generate
-        // the AF=2-3 aggression industry regulars show, rather than calling down.
+        // Threshold for raise-for-value drops on HARD so sharks generate the
+        // AF=2-3 aggression industry regulars show, rather than calling down.
         double valueRaiseThreshold = STRENGTH_VALUE_RAISE;
-        if (effectiveDifficulty() == Difficulty.EXPERT) {
+        if (effectiveDifficulty() == Difficulty.HARD) {
             valueRaiseThreshold = 0.72;
-        } else if (effectiveDifficulty() == Difficulty.HARD) {
-            valueRaiseThreshold = 0.78;
         }
         if (evRaise > adjustedEvCall && evRaise > 0 && effectiveStrength > valueRaiseThreshold && currentProfile != Profile.STATION && betCount < MAX_BET_COUNT) {
             logVerbose("Raising for value. High EV.");
@@ -1103,9 +1094,8 @@ public class Bot {
         // that medium-strength raises against 5 calling opponents bleed
         // bb/100 catastrophically: callers see flops cheaply, out-equity the
         // raiser at showdown on average, and the inflated pot magnifies the
-        // loss. EXPERT vs 5 EASY measured -167 bb/100 with AF=2.15 versus
-        // HARD vs 5 EASY at +11 bb/100 with AF=1.78 — high aggression is
-        // directly responsible. The booster stays available HU where fold
+        // loss: high postflop aggression against multiple callers is directly
+        // responsible for it. The booster stays available heads-up, where fold
         // equity from a single opponent makes the math viable.
         boolean mediumRaiseEligible = effectiveStrength >= 0.40
                 && effectiveStrength < valueRaiseThreshold
@@ -1116,14 +1106,10 @@ public class Bot {
                 && currentProfile != Profile.NIT;
         if (mediumRaiseEligible) {
             int chance;
-            if (effectiveDifficulty() == Difficulty.EXPERT) {
+            if (effectiveDifficulty() == Difficulty.HARD) {
                 chance = (skillLevel == Skill.SHARK) ? 75
                         : (currentProfile == Profile.LAG) ? 55
                         : (currentProfile == Profile.TAG) ? 45 : 0;
-            } else if (effectiveDifficulty() == Difficulty.HARD) {
-                chance = (skillLevel == Skill.SHARK) ? 55
-                        : (currentProfile == Profile.LAG) ? 38
-                        : (currentProfile == Profile.TAG) ? 30 : 0;
             } else if (effectiveDifficulty() == Difficulty.MEDIUM) {
                 chance = (skillLevel == Skill.SHARK) ? 30
                         : (currentProfile == Profile.LAG) ? 18
@@ -1170,11 +1156,11 @@ public class Bot {
             return Player.CHECK;
         }
 
-        // MDF (Minimum Defense Frequency) bluffcatch guard. Only HARD/EXPERT sharks defend
+        // MDF (Minimum Defense Frequency) bluffcatch guard. Only HARD sharks defend
         // against half-pot-or-smaller river bets when the raw call EV is positive but a
         // profile-driven penalty (nit, scare card) flipped adjustedEvCall negative.
         if (skillLevel == Skill.SHARK
-                && (effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)
+                && effectiveDifficulty() == Difficulty.HARD
                 && evCall > 0 && adjustedEvCall <= 0
                 && street == Crupier.RIVER
                 && betRatio <= 1.0
@@ -1226,8 +1212,6 @@ public class Bot {
         if (effectiveDifficulty() == Difficulty.EASY) {
             foldEquity *= 0.7;
         } else if (effectiveDifficulty() == Difficulty.HARD) {
-            foldEquity *= 1.15;
-        } else if (effectiveDifficulty() == Difficulty.EXPERT) {
             foldEquity *= 1.25;
         }
 
@@ -1391,7 +1375,7 @@ public class Bot {
             // Heads-up BB defends wider than full-ring. Iteration 6 adds an
             // explicit difficulty offset on top of the profile rates so the
             // overall VPIP gradient slopes the right way: EASY plays loose
-            // (lots of defends, calling-station style), EXPERT plays tight
+            // (lots of defends, calling-station style), HARD plays tight
             // (disciplined sharks fold trash to a button open).
             if (headsUp && isBB) {
                 int defendChance;
@@ -1420,14 +1404,12 @@ public class Bot {
 
         if (isSB && betCount == 0) {
             if (handTier <= 4 && currentProfile != Profile.NIT) {
-                // Tier-4 marginal hands: HARD/EXPERT TAGs/SHARKs fold a slice
-                // rather than open every time. Iter 12 retunes back toward
-                // iter-9 values (20% HARD / 33% EXPERT) because iter 10's
-                // relaxation pushed HARD VPIP back into 54%, outside target.
+                // Tier-4 marginal hands: HARD TAGs/SHARKs fold a slice rather
+                // than open every time, keeping VPIP inside the target band.
                 if (handTier == 4 && currentProfile != Profile.STATION
                         && currentProfile != Profile.LAG
-                        && (effectiveDifficulty() == Difficulty.HARD || effectiveDifficulty() == Difficulty.EXPERT)) {
-                    int foldChance = (effectiveDifficulty() == Difficulty.EXPERT) ? 33 : 22;
+                        && effectiveDifficulty() == Difficulty.HARD) {
+                    int foldChance = 33;
                     if (randInt(100) < foldChance) {
                         logVerbose("Preflop HU SB tier-4 selective fold.");
                         return Player.FOLD;
@@ -1437,10 +1419,9 @@ public class Bot {
                 return Player.BET;
             }
             // Heads-up button opens trash wider than full-ring cutoff/button but
-            // not freely. Iteration 5 trim: previous 60% LAG/SHARK pushed HARD/EXPERT
-            // VPIP into the 75-78% range (target 38-50%). New targets put HU button
-            // open rates roughly at: NIT 45%, TAG 60%, STATION 70% (with limps),
-            // LAG 70%, SHARK 65% — covering the industry 60-80% band.
+            // not freely. HU button open rates land roughly at: NIT 45%, TAG 60%,
+            // STATION 70% (with limps), LAG 70%, SHARK 65% — within the industry
+            // 60-80% band.
             if (handTier == 5 && headsUp) {
                 int stealChance;
                 if (currentProfile == Profile.NIT) {
@@ -1737,7 +1718,7 @@ public class Bot {
 
     /**
      * Difficulty-driven shift applied to heads-up tier-4/5 steal and defense
-     * percentages. EASY pulls everything looser (more fish-style play), EXPERT
+     * percentages. EASY pulls everything looser (more fish-style play), HARD
      * pulls everything tighter (disciplined sharks fold trash). MEDIUM is the
      * neutral baseline. Combined with the profile-specific base rates this
      * gives the per-difficulty VPIP gradient that mixed personality pools
@@ -1750,8 +1731,6 @@ public class Bot {
             case MEDIUM:
                 return -16;
             case HARD:
-                return -38;
-            case EXPERT:
                 return -52;
             default:
                 return 0;
@@ -1777,10 +1756,8 @@ public class Bot {
      */
     private int riverBluffChance() {
         switch (effectiveDifficulty()) {
-            case EXPERT:
-                return 38;
             case HARD:
-                return 26;
+                return 38;
             case MEDIUM:
                 return 14;
             default:

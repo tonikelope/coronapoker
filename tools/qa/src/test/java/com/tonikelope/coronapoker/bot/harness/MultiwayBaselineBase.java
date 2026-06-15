@@ -60,7 +60,7 @@ abstract class MultiwayBaselineBase {
 
             int heroSeat = session % NUM_SEATS;
             Bot heroBot = new Bot(sim.player(heroSeat));
-            heroBot.setDifficulty(Bot.Difficulty.EXPERT);
+            heroBot.setDifficulty(Bot.Difficulty.HARD);
             sim.setBot(heroSeat, heroBot);
             for (int i = 0; i < NUM_SEATS; i++) {
                 if (i == heroSeat) {

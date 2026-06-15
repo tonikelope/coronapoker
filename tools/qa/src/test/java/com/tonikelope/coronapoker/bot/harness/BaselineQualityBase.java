@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Shared infrastructure for the per-archetype baseline quality tests. Each
- * concrete subclass pits EXPERT against one deterministic
+ * concrete subclass pits HARD against one deterministic
  * {@link FixedStrategyBot} archetype. Splitting one test per file lets
  * surefire fork each baseline matchup into its own JVM.
  *
@@ -46,11 +46,11 @@ abstract class BaselineQualityBase {
     }
 
     protected double runMatchup(String label, FixedStrategyBot.Strategy oppStrategy) {
-        BotStats aggExpert = new BotStats("EXPERT");
+        BotStats aggExpert = new BotStats("HARD");
         BotStats aggOpp = new BotStats(oppStrategy.name());
         int totalHands = SESSIONS * HANDS_PER_SESSION;
         System.out.println();
-        System.out.printf("--- Baseline matchup: EXPERT vs %s (%d hands) ---%n", oppStrategy.name(), totalHands);
+        System.out.printf("--- Baseline matchup: HARD vs %s (%d hands) ---%n", oppStrategy.name(), totalHands);
 
         for (int session = 0; session < SESSIONS; session++) {
             Bot.TRACKER_MEMORY.clear();

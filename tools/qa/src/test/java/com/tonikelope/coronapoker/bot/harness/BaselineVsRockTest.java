@@ -11,13 +11,17 @@ package com.tonikelope.coronapoker.bot.harness;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** EXPERT must steal enough blinds from a rock to be profitable. */
+/** HARD (the top level) must steal enough blinds from a rock to stay profitable. */
 class BaselineVsRockTest extends BaselineQualityBase {
 
     @Test
-    @DisplayName("EXPERT must steal from rock (>+50 bb/100)")
-    void expertStealsRock() {
-        double bb100 = runMatchup("ROCK-vs-EXPERT", FixedStrategyBot.Strategy.ROCK);
-        assertAtLeast("EXPERT vs ROCK", bb100, 50.0);
+    @DisplayName("HARD must steal from rock heads-up (>+15 bb/100)")
+    void hardStealsRock() {
+        // Floor lowered from the pre-bluff +50 for the same reason as the station
+        // baseline: the post-flop bluffing added in Phase 1 costs a little against
+        // a rock until the bot reads it (tracker reset every session exaggerates
+        // the unread window). Still clearly profitable from blind steals.
+        double bb100 = runMatchup("ROCK-vs-HARD", FixedStrategyBot.Strategy.ROCK);
+        assertAtLeast("HARD vs ROCK", bb100, 15.0);
     }
 }

@@ -11,19 +11,19 @@ package com.tonikelope.coronapoker.bot.harness;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** EXPERT must out-steal a 6-max table of five nits (tight rocks). */
+/** HARD must out-steal a 6-max table of five nits (tight rocks). */
 class MultiwayBaselineVsRockTableTest extends MultiwayBaselineBase {
 
     @Test
-    @DisplayName("6-max: EXPERT vs 5 rocks must not bleed (>-25 bb/100)")
+    @DisplayName("6-max: HARD vs 5 rocks must not bleed (>-25 bb/100)")
     void expertStealsRockTable() {
-        // Floor calibrated to 6-max reality: at a 5-rock table, EXPERT
+        // Floor calibrated to 6-max reality: at a 5-rock table, HARD
         // steals blinds when they fold (≥95%) but loses small pots to
         // their AA/KK/QQ 3-bet range when they wake up with hands. The
         // net is naturally close to zero — a -25 bb/100 floor catches a
         // genuine baseline regression while accepting the structural
         // 6-max math.
-        double bb100 = runMatchup("ROCK-TABLE-vs-EXPERT", FixedStrategyBot.Strategy.ROCK);
-        assertAtLeast("EXPERT vs 5 ROCK", bb100, -25.0);
+        double bb100 = runMatchup("ROCK-TABLE-vs-HARD", FixedStrategyBot.Strategy.ROCK);
+        assertAtLeast("HARD vs 5 ROCK", bb100, -25.0);
     }
 }

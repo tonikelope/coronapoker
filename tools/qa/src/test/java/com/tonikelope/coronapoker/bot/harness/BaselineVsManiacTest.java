@@ -11,13 +11,13 @@ package com.tonikelope.coronapoker.bot.harness;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** EXPERT must trap a maniac opponent and extract value from over-aggression. */
+/** HARD must trap a maniac opponent and extract value from over-aggression. */
 class BaselineVsManiacTest extends BaselineQualityBase {
 
     @Test
-    @DisplayName("EXPERT must trap maniac (>+100 bb/100)")
+    @DisplayName("HARD must trap maniac (>+100 bb/100)")
     void expertTrapsManiac() {
-        double bb100 = runMatchup("MANIAC-vs-EXPERT", FixedStrategyBot.Strategy.MANIAC);
-        assertAtLeast("EXPERT vs MANIAC", bb100, 100.0);
+        double bb100 = runMatchup("MANIAC-vs-HARD", FixedStrategyBot.Strategy.MANIAC);
+        assertAtLeast("HARD vs MANIAC", bb100, 100.0);
     }
 }

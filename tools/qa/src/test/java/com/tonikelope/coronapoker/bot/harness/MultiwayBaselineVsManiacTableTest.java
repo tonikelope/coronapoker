@@ -11,13 +11,13 @@ package com.tonikelope.coronapoker.bot.harness;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** EXPERT must trap five maniacs and extract value from over-aggression. */
+/** HARD must trap five maniacs and extract value from over-aggression. */
 class MultiwayBaselineVsManiacTableTest extends MultiwayBaselineBase {
 
     @Test
-    @DisplayName("6-max: EXPERT vs 5 maniacs must trap and print (>+100 bb/100)")
+    @DisplayName("6-max: HARD vs 5 maniacs must trap and print (>+100 bb/100)")
     void expertTrapsManiacTable() {
-        double bb100 = runMatchup("MANIAC-TABLE-vs-EXPERT", FixedStrategyBot.Strategy.MANIAC);
-        assertAtLeast("EXPERT vs 5 MANIAC", bb100, 100.0);
+        double bb100 = runMatchup("MANIAC-TABLE-vs-HARD", FixedStrategyBot.Strategy.MANIAC);
+        assertAtLeast("HARD vs 5 MANIAC", bb100, 100.0);
     }
 }

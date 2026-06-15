@@ -467,6 +467,20 @@ public final class HeadsUpSimulator {
     private void recordPostflopBetRaise(boolean actorIsA, int street, float toCall) {
         BotStats s = actorIsA ? statsA : statsB;
         s.postflopBetsRaises++;
+        // Classify the aggressive action by the made-hand strength behind it
+        // (value vs bluff) so the harness can measure how readable the bot is.
+        double strength = handStrengthOf(actorIsA ? p1 : p2);
+        if (strength >= BotStats.VALUE_BET_STRENGTH) {
+            s.postflopValueBets++;
+        } else if (strength <= BotStats.BLUFF_BET_STRENGTH) {
+            s.postflopBluffBets++;
+        }
+        if (street == Crupier.RIVER) {
+            s.riverBets++;
+            if (strength <= BotStats.BLUFF_BET_STRENGTH) {
+                s.riverBluffBets++;
+            }
+        }
         // C-bet detection: flop, first action by preflop aggressor, no bet yet faced
         if (street == Crupier.FLOP && toCall == 0f) {
             if (actorIsA && handCbetOppA && !handCbetDoneA) {
@@ -476,6 +490,16 @@ public final class HeadsUpSimulator {
             }
         }
         trackerFor(actorIsA ? p1 : p2).recordPostFlopBetOrRaise();
+    }
+
+    /** Raw equity of a player's hand vs one random hand on the current board. */
+    private double handStrengthOf(TestBotPlayer p) {
+        int bs = dealer.getBoardSize();
+        int[] board = new int[bs];
+        for (int i = 0; i < bs; i++) {
+            board[i] = dealer.getBoardCardIndex(i);
+        }
+        return evaluator.handStrength(p.getHoleCard1Index(), p.getHoleCard2Index(), board);
     }
 
     private void recordPostflopCall(boolean actorIsA) {

@@ -9,7 +9,7 @@
 package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,13 +29,13 @@ abstract class MultiwayBaselineBase {
 
     protected static final int NUM_SEATS = 6;
     // 200 × 50 = 10000 hands/matchup — the established working volume.
-    protected static final int SESSIONS = 200;
-    protected static final int HANDS_PER_SESSION = 50;
+    protected static final int SESSIONS = QaConfig.sessions(200);
+    protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
     protected static final long BASE_SEED = 0xBA5E11AAA6A60001L;
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
 
-    protected final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    protected final BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
 
     @BeforeAll
     static void silence() {

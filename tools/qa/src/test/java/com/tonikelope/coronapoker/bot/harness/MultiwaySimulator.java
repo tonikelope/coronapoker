@@ -545,11 +545,37 @@ public final class MultiwaySimulator {
 
     private void recordPostflopBetRaise(int seat, int street, float toCall) {
         stats[seat].postflopBetsRaises++;
+        // Classify the aggressive action by made-hand strength (value vs bluff)
+        // to measure readability/exploitability of the bot in the multi-way
+        // environment it is actually played in.
+        double strength = handStrengthOf(seat);
+        if (strength >= BotStats.VALUE_BET_STRENGTH) {
+            stats[seat].postflopValueBets++;
+        } else if (strength <= BotStats.BLUFF_BET_STRENGTH) {
+            stats[seat].postflopBluffBets++;
+        }
+        if (street == Crupier.RIVER) {
+            stats[seat].riverBets++;
+            if (strength <= BotStats.BLUFF_BET_STRENGTH) {
+                stats[seat].riverBluffBets++;
+            }
+        }
         if (street == Crupier.FLOP && toCall == 0f
                 && handCbetOpp[seat] && !handCbetDone[seat]) {
             handCbetDone[seat] = true;
         }
         trackerFor(players[seat]).recordPostFlopBetOrRaise();
+    }
+
+    /** Raw equity of a seat's hand vs one random hand on the current board. */
+    private double handStrengthOf(int seat) {
+        int bs = dealer.getBoardSize();
+        int[] board = new int[bs];
+        for (int i = 0; i < bs; i++) {
+            board[i] = dealer.getBoardCardIndex(i);
+        }
+        return evaluator.handStrength(
+                players[seat].getHoleCard1Index(), players[seat].getHoleCard2Index(), board);
     }
 
     private void recordPostflopCall(int seat) {

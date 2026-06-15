@@ -227,7 +227,7 @@ difficulties apart by bb/100 over the sample size.
 
 Every matchup is repeated across `SESSIONS_PER_MATCHUP` independent
 sessions of `HANDS_PER_SESSION` hands each (final-validation values:
-500 × 50 = 25 000 hands per matchup). For each session:
+200 × 50 = 10 000 hands per matchup; see § 10). For each session:
 
 - `OpponentTracker` is cleared because seat composition rolls between
   sessions.
@@ -376,8 +376,8 @@ mvn test
 
 Runs every test class (sanity, HU acid, 6-max acid, baseline-quality).
 Under `forkCount=0.6C` (≈ 5 concurrent JVMs on an 8-core machine) the
-full validation suite at 25 000 hands per matchup completes in roughly
-2 hours of wall-clock time. The forkCount is set in the project's
+full validation suite at 10 000 hands per matchup completes in roughly
+4 hours of wall-clock time (§ 10). The forkCount is set in the project's
 top-level `pom.xml` `maven-surefire-plugin` configuration.
 
 ### 9.2 Just the 6-max gradient tests
@@ -406,10 +406,28 @@ mvn test -Dtest=Multiway_ExpertVs5HardTest
 
 ### 9.6 Lowering volume for fast local iteration
 
-Edit `SESSIONS_PER_MATCHUP` in `MultiwayMatchupBase.java` and `SESSIONS`
-in `MultiwayBaselineBase.java`. 60 × 50 = 3 000 hands per matchup runs
-in roughly 10 minutes parallelised — useful when iterating on a leak
-identification, before re-running the 25 000-hand validation sweep.
+Volume is controlled at runtime — no source edits needed — via two system
+properties read by `QaConfig` and forwarded into the surefire forks:
+
+```sh
+mvn -o test -Dtest='Multiway_*Test' -Dqa.sessions=40 -Dqa.hands=25
+```
+
+`-Dqa.sessions` overrides `SESSIONS`/`SESSIONS_PER_MATCHUP` and `-Dqa.hands`
+overrides `HANDS_PER_SESSION` in every matchup/baseline base class; omitting
+them keeps the full validation volume (200 × 50 = 10 000 hands/matchup). The
+`BotBenchmarkTest` profile sweep keeps its own small fixed volume.
+
+In iteration mode read the **DELTA bb/100 and its direction**, not the
+PASS/FAIL verdict: the `|t| > 2` significance gate is calibrated for the full
+sample, so small-volume runs routinely report FAIL even when the DELTA is large
+and correctly signed (e.g. MEDIUM vs 5× EASY at 500 hands: DELTA +193, t=1.6 →
+FAIL on significance only). Re-run at full volume to sign off a change.
+
+Since the hand evaluator was memoized (`MemoizedAlbertaEvaluator`, ~7× faster
+than the raw Alberta path on Windows), a single 6-max matchup runs at roughly
+8 hands/second per fork: ~1 minute for a 500-hand smoke, ~6 minutes for a
+3 000-hand iteration pass, ~20 minutes for a full 10 000-hand matchup.
 
 ---
 

@@ -9,7 +9,7 @@
 package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,7 +48,7 @@ class BotBenchmarkTest {
     private static final float STARTING_STACK = 200f;
     private static final float BIG_BLIND = 2f;
 
-    private final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    private final BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
 
     @BeforeAll
     static void silenceBotChatter() {

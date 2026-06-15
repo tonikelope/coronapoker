@@ -9,7 +9,7 @@
 package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -33,8 +33,8 @@ abstract class BotMixedMatchupBase {
     // ~4 bb/100 — comfortably below the +50 PASS threshold so DELTAs
     // of +50 register as solid PASS rather than noise. Doubles
     // wall-clock runtime but the calibration signal becomes legible.
-    protected static final int SESSIONS_PER_MATCHUP = 200;
-    protected static final int HANDS_PER_SESSION = 50;
+    protected static final int SESSIONS_PER_MATCHUP = QaConfig.sessions(200);
+    protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
     protected static final long BASE_SEED = 0xC0C0FEEDDEADBEEFL;
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
@@ -43,7 +43,7 @@ abstract class BotMixedMatchupBase {
     protected static final double MIN_DELTA_BB100 = 50.0;
     protected static final double MIN_SIGNIFICANCE_SIGMAS = 2.0;
 
-    protected final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    protected final BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
 
     @BeforeAll
     static void silenceBotChatter() {

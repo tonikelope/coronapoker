@@ -9,7 +9,7 @@
 package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,8 +37,8 @@ abstract class MultiwayMatchupBase {
     // 200 × 50 = 10000 hands/matchup. The established working volume that
     // produces the AAA gradient verdicts on the user's hardware (8-core
     // 9800X3D) in ~4 hours wall-clock for the full nine-test suite.
-    protected static final int SESSIONS_PER_MATCHUP = 200;
-    protected static final int HANDS_PER_SESSION = 50;
+    protected static final int SESSIONS_PER_MATCHUP = QaConfig.sessions(200);
+    protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
     protected static final long BASE_SEED = 0xC0C0FEEDBA5E4321L;
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
@@ -49,7 +49,7 @@ abstract class MultiwayMatchupBase {
     protected static final double MIN_DELTA_BB100 = 30.0;
     protected static final double MIN_SIGNIFICANCE_SIGMAS = 2.0;
 
-    protected final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    protected final BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
 
     @BeforeAll
     static void silenceBotChatter() {

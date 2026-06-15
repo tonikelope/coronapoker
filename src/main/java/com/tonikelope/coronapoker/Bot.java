@@ -910,13 +910,28 @@ public class Bot {
                 logVerbose("River thin value bet (small).");
                 return Player.BET;
             }
-            if (skillLevel != Skill.RECREATIONAL && activePlayers <= 2 && previousPpot > 0.18 && effectiveStrength < 0.30 && foldEquity > 0.15 && randInt(100) < 30) {
-                logVerbose("River Bluff (Busted Draw).");
-                return Player.BET;
-            }
-            if (skillLevel != Skill.RECREATIONAL && activePlayers <= 2 && aggressiveLine && effectiveStrength < 0.35 && foldEquity > 0.20 && randInt(100) < 25) {
-                logVerbose("River Bluff (Aggressive Line follow-through).");
-                return Player.BET;
+            // Polarized river bluff. With no showdown value (air) and genuine
+            // fold equity against a single foldable opponent, represent the value
+            // range a balanced fraction of the time instead of always checking and
+            // giving up — otherwise a barrel on the river is a transparent "I have
+            // it" tell. foldEquity is 0 versus a calling station, so this stays
+            // disciplined and never bluffs into a player who never folds. A busted
+            // draw or a hand that has been barrelling (aggressiveLine) bluffs a bit
+            // more often — those stories are the most credible. Frequency scales
+            // with difficulty (EXPERT balances its range; EASY ~never bluffs).
+            if (skillLevel != Skill.RECREATIONAL
+                    && activePlayers <= 2
+                    && effectiveStrength < 0.35
+                    && foldEquity > 0.12
+                    && boardTexture.totalScore <= 3) {
+                int chance = riverBluffChance();
+                if (previousPpot > 0.18 || aggressiveLine) {
+                    chance += 12; // credible story: busted draw or prior aggression
+                }
+                if (randInt(100) < chance) {
+                    logVerbose("River polarized bluff.");
+                    return Player.BET;
+                }
             }
             return Player.CHECK;
         }
@@ -1745,6 +1760,26 @@ public class Bot {
             return 100;
         }
         return v;
+    }
+
+    /**
+     * Base frequency (percent) at which the bot fires a polarized river bluff
+     * with air when fold equity exists. Scales with difficulty so the river
+     * betting range stays balanced (value + bluffs) for the strong levels and
+     * the weak levels stay transparently value-only — part of the per-difficulty
+     * "feel" rather than only the mistake-injection rate.
+     */
+    private int riverBluffChance() {
+        switch (effectiveDifficulty()) {
+            case EXPERT:
+                return 38;
+            case HARD:
+                return 26;
+            case MEDIUM:
+                return 14;
+            default:
+                return 0; // EASY plays its river face-up
+        }
     }
 
     /**

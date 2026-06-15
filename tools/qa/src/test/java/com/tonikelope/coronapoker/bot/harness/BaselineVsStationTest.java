@@ -15,20 +15,18 @@ import org.junit.jupiter.api.Test;
 class BaselineVsStationTest extends BaselineQualityBase {
 
     @Test
-    @DisplayName("HARD must crush calling station heads-up (>+180 bb/100)")
+    @DisplayName("HARD must crush calling station heads-up (>+200 bb/100)")
     void hardCrushesStation() {
-        // Floor lowered from the pre-bluff +300. Once post-flop bluffing was added
-        // (Phase 1) the top level bleeds a little against a *pure* calling station
-        // it has not yet read: the harness clears the opponent tracker every
-        // session, so roughly the first ~10 hands bluff before isStation() fires
-        // and foldEquity drops to 0. Bluffing into an unknown opponent is +EV
-        // against the general population (most players fold sometimes); the
-        // never-folding station is the worst case for it, and the bot stops once
-        // it has the read — in a real long session the leak is negligible. +180
-        // still confirms a dominant value-extraction win rather than flagging that
-        // deliberate trade-off as a regression. (Multi-way, the real environment,
-        // is unaffected: HARD vs 5 stations prints +731 bb/100.)
+        // Floor +200 (was +300 pre-bluff). Post-flop bluffing (Phase 1) costs a
+        // little against a *pure* calling station the bot has not yet read — and the
+        // harness clears the tracker every session, exaggerating that unread window.
+        // The early station read (looksPassiveStation + the active-opponent
+        // fold-equity check) cuts those −EV bluffs fast, lifting this from ~+211 to
+        // ~+241 bb/100; the residue is the value c-bet line, correctly *kept*
+        // (against someone who calls anything a marginal c-bet is thin value, not a
+        // bluff). +200 confirms a dominant win without demanding the bot become a
+        // readable value-only robot. (Multi-way prints +700+ bb/100 vs 5 stations.)
         double bb100 = runMatchup("STATION-vs-HARD", FixedStrategyBot.Strategy.STATION);
-        assertAtLeast("HARD vs STATION", bb100, 180.0);
+        assertAtLeast("HARD vs STATION", bb100, 200.0);
     }
 }

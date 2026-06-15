@@ -15,13 +15,12 @@ import org.junit.jupiter.api.Test;
 class BaselineVsRockTest extends BaselineQualityBase {
 
     @Test
-    @DisplayName("HARD must steal from rock heads-up (>+15 bb/100)")
+    @DisplayName("HARD must steal from rock heads-up (>+20 bb/100)")
     void hardStealsRock() {
-        // Floor lowered from the pre-bluff +50 for the same reason as the station
-        // baseline: the post-flop bluffing added in Phase 1 costs a little against
-        // a rock until the bot reads it (tracker reset every session exaggerates
-        // the unread window). Still clearly profitable from blind steals.
+        // Floor +20 (was +50 pre-bluff). A rock folds almost everything, so the
+        // edge is blind-steal income; the small post-flop bluffing cost trims it
+        // a little. Measured ~+28 bb/100 with the early-read discipline in place.
         double bb100 = runMatchup("ROCK-vs-HARD", FixedStrategyBot.Strategy.ROCK);
-        assertAtLeast("HARD vs ROCK", bb100, 15.0);
+        assertAtLeast("HARD vs ROCK", bb100, 20.0);
     }
 }

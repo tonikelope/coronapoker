@@ -33,7 +33,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.tonikelope.qa</groupId>
     <artifactId>coronapoker-bot-tests</artifactId>
-    <version>21.17</version>
+    <version>21.56</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -43,7 +43,7 @@
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>21.17</coronapoker.version>
+        <coronapoker.version>21.56</coronapoker.version>
     </properties>
 
     <build>
@@ -67,6 +67,16 @@
                     <forkCount>0.6C</forkCount>
                     <reuseForks>false</reuseForks>
                     <runOrder>balanced</runOrder>
+                    <!-- Forward the iteration-volume knobs into each fork. When
+                         not supplied on the command line these arrive as the
+                         literal "${qa.sessions}", which QaConfig parses as
+                         "absent" and falls back to the per-test default. Lower
+                         the volume for fast local iteration, e.g.
+                         mvn -o test -Dqa.sessions=40 -Dqa.hands=25 -->
+                    <systemPropertyVariables>
+                        <qa.sessions>${qa.sessions}</qa.sessions>
+                        <qa.hands>${qa.hands}</qa.hands>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

@@ -44,6 +44,18 @@ public final class BotStats {
     public int postflopFolds;
     public int postflopChecks;
 
+    // Bet composition by made-hand strength at the moment of the aggressive
+    // action — how readable / exploitable the bot is. A bot that only ever
+    // fires with strong hands (bluff% ~ 0) is a transparent value-only player
+    // a human can fold against on sight; a human-like bot mixes in credible
+    // bluffs. Strength is raw equity vs one random hand (see the simulators).
+    public static final double VALUE_BET_STRENGTH = 0.66;
+    public static final double BLUFF_BET_STRENGTH = 0.45;
+    public int postflopValueBets;            // strength >= VALUE_BET_STRENGTH
+    public int postflopBluffBets;            // strength <= BLUFF_BET_STRENGTH
+    public int riverBets;                    // aggressive actions taken on the river
+    public int riverBluffBets;               // of those, with strength <= BLUFF_BET_STRENGTH
+
     // C-bet (preflop aggressor on flop) ---------------------------
     public int cbetOpportunities;            // flop seen with preflop initiative + first to act or checked-to
     public int cbetExecuted;
@@ -67,6 +79,10 @@ public final class BotStats {
         postflopCalls += other.postflopCalls;
         postflopFolds += other.postflopFolds;
         postflopChecks += other.postflopChecks;
+        postflopValueBets += other.postflopValueBets;
+        postflopBluffBets += other.postflopBluffBets;
+        riverBets += other.riverBets;
+        riverBluffBets += other.riverBluffBets;
         cbetOpportunities += other.cbetOpportunities;
         cbetExecuted += other.cbetExecuted;
         netChipsWon += other.netChipsWon;
@@ -103,6 +119,21 @@ public final class BotStats {
         return cbetOpportunities == 0 ? 0 : 100.0 * cbetExecuted / cbetOpportunities;
     }
 
+    /** Share of postflop bets/raises made with a weak hand (bluffs + air semibluffs). */
+    public double bluffBetPct() {
+        return postflopBetsRaises == 0 ? 0 : 100.0 * postflopBluffBets / postflopBetsRaises;
+    }
+
+    /** Share of postflop bets/raises made with a strong made hand (value). */
+    public double valueBetPct() {
+        return postflopBetsRaises == 0 ? 0 : 100.0 * postflopValueBets / postflopBetsRaises;
+    }
+
+    /** Share of river bets that are bluffs — the most telling readability metric. */
+    public double riverBluffPct() {
+        return riverBets == 0 ? 0 : 100.0 * riverBluffBets / riverBets;
+    }
+
     public double bbPer100(float bb) {
         return handsPlayed == 0 ? 0 : 100.0 * netChipsWon / (handsPlayed * bb);
     }
@@ -110,7 +141,8 @@ public final class BotStats {
     /** Format as a single-line summary for benchmark logs. */
     public String summary(float bb) {
         return String.format(
-                "%-22s n=%4d  VPIP=%5.1f%%  PFR=%5.1f%%  AF=%4.2f  WTSD=%5.1f%%  W$SD=%5.1f%%  cbet=%5.1f%%  Win=%5.1f%%  bb/100=%+7.1f",
-                label, handsPlayed, vpip(), pfr(), af(), wtsdPct(), wsdPct(), cbetPct(), winRatePct(), bbPer100(bb));
+                "%-22s n=%4d  VPIP=%5.1f%%  PFR=%5.1f%%  AF=%4.2f  WTSD=%5.1f%%  W$SD=%5.1f%%  cbet=%5.1f%%  bluff=%4.1f%%  rvBluff=%4.1f%%  Win=%5.1f%%  bb/100=%+7.1f",
+                label, handsPlayed, vpip(), pfr(), af(), wtsdPct(), wsdPct(), cbetPct(),
+                bluffBetPct(), riverBluffPct(), winRatePct(), bbPer100(bb));
     }
 }

@@ -9,7 +9,7 @@
 package com.tonikelope.coronapoker.bot.harness;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,13 +32,13 @@ abstract class BaselineQualityBase {
     // changes are distinguishable from noise. With paralelización
     // (forkCount=0.6C ≈ 5 forks) the four baseline matchups still
     // complete in roughly half the wall-clock of a serial run.
-    protected static final int SESSIONS = 200;
-    protected static final int HANDS_PER_SESSION = 50;
+    protected static final int SESSIONS = QaConfig.sessions(200);
+    protected static final int HANDS_PER_SESSION = QaConfig.hands(50);
     protected static final long BASE_SEED = 0xBA5E11AAACADE000L;
     protected static final float STARTING_STACK = 200f;
     protected static final float BIG_BLIND = 2f;
 
-    protected final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+    protected final BotEvaluator evaluator = new MemoizedAlbertaEvaluator();
 
     @BeforeAll
     static void silence() {

@@ -59,7 +59,7 @@ abstract class BaselineQualityBase {
 
             boolean expertIsA = (session % 2 == 0);
             Bot expertBot = new Bot(expertIsA ? sim.playerA() : sim.playerB());
-            expertBot.setDifficulty(Bot.Difficulty.EXPERT);
+            expertBot.setDifficulty(Bot.Difficulty.HARD);
             FixedStrategyBot oppBot = new FixedStrategyBot(
                     expertIsA ? sim.playerB() : sim.playerA(),
                     oppStrategy,

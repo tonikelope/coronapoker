@@ -67,9 +67,9 @@ class GameFlowSmoke {
     }
 
     @Test
-    @DisplayName("9-seat EXPERT table, 20 hands — invariants hold every hand")
-    void nineSeatExpertTable() {
-        runSession(9, Bot.Difficulty.EXPERT, 20, 3003L);
+    @DisplayName("9-seat HARD table, 20 hands — invariants hold every hand")
+    void nineSeatHardTable() {
+        runSession(9, Bot.Difficulty.HARD, 20, 3003L);
     }
 
     @Test

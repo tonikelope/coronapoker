@@ -13,6 +13,9 @@ import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
 import com.tonikelope.coronapoker.bot.harness.MultiwaySimulator;
 import com.tonikelope.coronapoker.bot.harness.TestBotPlayer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +56,13 @@ class GameFlowSmoke {
     private static final float EPS = 0.5f;
 
     private final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
+
+    @BeforeAll
+    static void silence() {
+        // The bot logs decisions at INFO; without this a 9-seat session spews
+        // thousands of [BOT AI] lines and drowns the test output.
+        Logger.getLogger(Bot.class.getName()).setLevel(Level.WARNING);
+    }
 
     @Test
     @DisplayName("3-seat MEDIUM table, 20 hands — invariants hold every hand")

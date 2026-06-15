@@ -85,7 +85,7 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 
 Not the fold-everything kind. CoronaPoker bots play like real opponents.
 
-- **4 difficulty levels** — Easy, Medium, Hard, Expert
+- **3 difficulty levels** — Easy, Medium, Hard — each clearly distinguishable within a single session
 - **3 skill tiers** assigned per bot, weighted by difficulty:
   - 🍿 **Recreational** — loose, emotional, prone to tilt after losses
   - 🛠️ **Regular** — solid fundamentals, occasional mistakes
@@ -96,10 +96,10 @@ Not the fold-everything kind. CoronaPoker bots play like real opponents.
   - 🎯 **TAG** — tight-aggressive, the textbook grinder
   - 💥 **LAG** — loose-aggressive, unpredictable and relentless
 - **Real poker engine** built on the Alberta hand evaluator + hand-potential — true equity, not lookup tables
-- Multi-street planning: **c-bets, semi-bluffs, slow-played traps, float plays, scare-card reads, MDF bluff-catching** and range-aware aggression
-- **Per-bot opponent tracking** (VPIP / PFR / AF / fold-to-cbet) — they remember your tendencies and exploit them
+- Multi-street planning: **c-bets, polarised river & turn bluffs, semi-bluffs, slow-played traps, float plays, scare-card reads, MDF bluff-catching** and range-aware aggression — they don't play their hand face-up
+- **Per-bot opponent tracking** (VPIP / PFR / AF, calling-station & maniac reads) — they remember your tendencies and *stop bluffing the player who never folds*
 - **Heads-up vs multi-way awareness** — ranges and bluff frequencies are gated to the table size
-- **Calibrated mistake injection** scaled by difficulty — Expert is razor-sharp, Easy makes human-shaped errors in the right spots
+- **Calibrated mistake injection** scaled by difficulty — Hard is razor-sharp, Easy makes human-shaped errors in the right spots
 - **Validated through AAA QA** — every release is benchmarked against fixed-strategy opponents over tens of thousands of hands before shipping
 
 ---

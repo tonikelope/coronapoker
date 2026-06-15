@@ -39,10 +39,12 @@ import javax.swing.JDialog;
 public class GameOverDialog extends JDialog {
 
     public static final int COUNTDOWN_PAUSE = 1350;
-    // Segundos del RebuyDialog del game over para decidir la recompra. Misma
-    // cifra que usa la cuenta atrás visual "¿RECOMPRA? (N)" que los demás ven
-    // en el RemotePlayer del arruinado (RemotePlayer.setRebuying).
-    public static final int REBUY_DIALOG_COUNTDOWN = 10;
+    // Segundos del RebuyDialog para decidir la recompra (game-over, recompra
+    // intra-partida y elección de buy-in al entrar al tablero comparten esta
+    // misma cifra). Es también la cuenta atrás visual "¿RECOMPRA? (N)" que los
+    // demás ven en el RemotePlayer del arruinado (RemotePlayer.setRebuying) y la
+    // ventana que el host espera las respuestas (Crupier.recibirRebuys).
+    public static final int REBUY_DIALOG_COUNTDOWN = 15;
     private volatile boolean continua = false;
     private volatile String last_mp3_loop = null;
     private volatile boolean direct_gameover = false;
@@ -299,7 +301,13 @@ public class GameOverDialog extends JDialog {
 
         dispose();
 
-        buyin_dialog = new RebuyDialog(GameFrame.getInstance(), true, false, REBUY_DIALOG_COUNTDOWN);
+        // Jugador arruinado (stack 0): rango segun modo. En fijo [1, BUYIN]
+        // default BUYIN (comportamiento de siempre); en variable [10BB, 100BB]
+        // default 50BB. El techo (cap) coincide con el headroom a stack 0.
+        int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
+        int rebuy_max = GameFrame.getBuyinCap();
+        int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+        buyin_dialog = new RebuyDialog(GameFrame.getInstance(), true, false, REBUY_DIALOG_COUNTDOWN, rebuy_min, rebuy_max, rebuy_def);
 
         buyin_dialog.setLocationRelativeTo(buyin_dialog.getParent());
 

@@ -2547,22 +2547,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         synchronized (lock_rebuynow) {
             boolean denied_by_limit = false;
+            boolean broadcast_now = true;
             if (!rebuy_now.containsKey(nick)) {
                 if (atRebuyLimit(nick)) {
                     denied_by_limit = true;
+                    broadcast_now = false;
                 } else {
-                    // El host es el banco: el importe de un rebuy SIEMPRE está en
-                    // [1, BUYIN] (el spinner del RebuyDialog ya lo acota). Un cliente
-                    // manipulado podría mandar REBUYNOW#nick#<entero arbitrario>; lo
-                    // acotamos aquí para que no pueda fabricar fichas ni dejar el stack
-                    // negativo. El centinela -1 del toggle-off local no llega aquí
-                    // (cae en la rama remove).
-                    int safe_buyin = Math.max(1, Math.min(buyin, GameFrame.BUYIN));
-                    if (safe_buyin != buyin) {
-                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} out of range [1,{2}] — clamped to {3}",
-                                new Object[]{buyin, nick, GameFrame.BUYIN, safe_buyin});
+                    // El host es el banco: acotamos el importe al headroom (techo de
+                    // mesa - stack actual) para que un cliente manipulado no fabrique
+                    // fichas ni supere el techo via REBUYNOW#nick#<entero arbitrario>.
+                    // El spinner del RebuyDialog ya lo acota; esto es la defensa. El
+                    // centinela -1 del toggle-off local no llega aquí (rama remove).
+                    Player jp = nick2player.get(nick);
+                    int headroom = GameFrame.rebuyHeadroom(jp != null ? jp.getStack() : 0f);
+                    int safe_buyin = Math.min(buyin, headroom);
+                    if (safe_buyin <= 0) {
+                        // Sin margen (ya en el techo): se ignora la solicitud. La UI
+                        // ya deberia haberlo impedido; aqui no izamos toggle ni
+                        // difundimos nada.
+                        LOGGER.log(Level.WARNING, "Rebuy request from {0} ignored: stack at table ceiling {1}",
+                                new Object[]{nick, GameFrame.getBuyinCap()});
+                        broadcast_now = false;
+                    } else {
+                        if (safe_buyin != buyin) {
+                            LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
+                                    new Object[]{buyin, nick, headroom, safe_buyin});
+                        }
+                        this.rebuy_now.put(nick, safe_buyin);
                     }
-                    this.rebuy_now.put(nick, safe_buyin);
                 }
             } else {
                 this.rebuy_now.remove(nick);
@@ -2576,7 +2588,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "REBUYDENIED#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
                                 + String.valueOf(GameFrame.REBUY_LIMIT),
                                 null, false);
-                    } else {
+                    } else if (broadcast_now) {
                         this.broadcastGAMECommandFromServer(
                                 "REBUYNOW#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")) + "#"
                                 + String.valueOf(buyin),
@@ -2586,7 +2598,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     LOGGER.log(Level.SEVERE, null, ex);
                 }
 
-            } else if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+            } else if (broadcast_now && nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 this.sendGAMECommandToServer("REBUYNOW#" + String.valueOf(buyin));
             }
@@ -3529,20 +3541,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     jugador.setSpectator(null);
                                 } else {
                                     // Mismo blindaje que rebuyNow: el host acota el importe
-                                    // a [1, BUYIN] para que un cliente manipulado no fabrique
-                                    // fichas vía REBUY#...#<entero arbitrario>.
+                                    // al headroom (techo de mesa - stack) para que un cliente
+                                    // manipulado no fabrique fichas ni supere el techo via
+                                    // REBUY#...#<entero arbitrario>.
                                     int raw_rebuy = Integer.parseInt(partes[4]);
-                                    int safe_rebuy = Math.max(1, Math.min(raw_rebuy, GameFrame.BUYIN));
+                                    int headroom = GameFrame.rebuyHeadroom(jugador.getStack());
+                                    int safe_rebuy = Math.min(raw_rebuy, headroom);
                                     if (safe_rebuy != raw_rebuy) {
-                                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} out of range [1,{2}] — clamped to {3}",
-                                                new Object[]{raw_rebuy, nick, GameFrame.BUYIN, safe_rebuy});
+                                        LOGGER.log(Level.WARNING, "Rebuy amount {0} from {1} exceeds headroom {2} — clamped to {3}",
+                                                new Object[]{raw_rebuy, nick, headroom, safe_rebuy});
                                     }
                                     rebuy_now.put(nick, safe_rebuy);
                                 }
                             } else if (atRebuyLimit(nick)) {
                                 jugador.setSpectator(null);
                             } else {
-                                rebuy_now.put(nick, GameFrame.BUYIN);
+                                rebuy_now.put(nick, GameFrame.rebuyHeadroom(jugador.getStack()));
                             }
                         } else {
                             rejected.add(comando);
@@ -3628,6 +3642,226 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
 
+        }
+
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+    }
+
+    // Fija el buy-in INICIAL de un jugador (modo variable). NO es una recompra:
+    // setea stack y buyin directamente (no usa reComprar -> sin CYAN, sin contar
+    // recompra, sin tocar rebuy_now). El auditor se siembra luego en
+    // auditorCuentas() al arrancar la mano 1 desde el getBuyin() ya fijado aqui.
+    private void aplicarBuyinInicial(String nick, int amount) {
+        Player jugador = nick2player.get(nick);
+        if (jugador == null) {
+            LOGGER.log(Level.WARNING, "Initial buy-in for unknown nick: {0}", nick);
+            return;
+        }
+        int safe = Math.max(GameFrame.getBuyinMin(), Math.min(amount, GameFrame.getBuyinMax()));
+        jugador.setStack(safe);
+        jugador.setBuyin(safe);
+    }
+
+    // Barrera de arranque en modo buy-in variable: al entrar al tablero (luces
+    // apagadas, antes de las animaciones de la mano 1) cada humano elige su
+    // buy-in en [10BB,100BB] (default 50BB) con la misma cuenta atras que la
+    // recompra. Reutiliza el mensaje GAME y la mecanica de recibirRebuys. NO se
+    // ejecuta en modo fijo (camino antiguo directo) ni en recover (los stacks
+    // vienen de balance).
+    private void solicitarBuyinsIniciales() {
+
+        if (GameFrame.FIXED_BUYIN || GameFrame.RECOVER) {
+            return;
+        }
+
+        final LocalPlayer local = GameFrame.getInstance().getLocalPlayer();
+        final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
+
+        Helpers.GUIRunAndWait(() -> {
+            if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                GameFrame.getInstance().getCapa_brillo().setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);
+                GameFrame.getInstance().getTapete().repaint();
+            }
+        });
+
+        final RebuyDialog[] dlg = new RebuyDialog[1];
+        Helpers.GUIRunAndWait(() -> {
+            dlg[0] = new RebuyDialog(GameFrame.getInstance(), true, false,
+                    GameOverDialog.REBUY_DIALOG_COUNTDOWN,
+                    GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), GameFrame.getBuyinDefault(),
+                    "rebuy.compra_inicial");
+            dlg[0].setDeferClose(true);
+            dlg[0].setLocationRelativeTo(dlg[0].getParent());
+        });
+
+        // Mostrar SIN bloquear este hilo: el crupier debe seguir para recolectar al
+        // resto. El dialogo es modal y, al aceptar (defer_close), pasa a "esperando
+        // a los demas jugadores" en vez de cerrarse; lo cierra el crupier al
+        // terminar la recoleccion.
+        Helpers.GUIRun(() -> dlg[0].setVisible(true));
+
+        // Espera la eleccion local (OK o auto-aceptar a los 15s).
+        while (!dlg[0].isRebuy() && !fin_de_la_transmision) {
+            Helpers.pausar(GameFrame.WAIT_QUEUES);
+        }
+
+        // El spinner ya acota a [10BB,100BB]; el clamp es defensivo.
+        int chosen = Math.max(GameFrame.getBuyinMin(),
+                Math.min((int) dlg[0].getRebuy_spinner().getValue(), GameFrame.getBuyinMax()));
+
+        ArrayList<String> pending = new ArrayList<>();
+
+        try {
+            // Cada peer auto-aplica su propio buy-in y NO se mete en su pending
+            // (igual que el arruinado local en el game-over): asi el host puede
+            // rebroadcast con skip=remitente sin que nadie espere su propio eco.
+            aplicarBuyinInicial(local.getNickname(), chosen);
+            String localCmd = "BUYIN#"
+                    + Base64.getEncoder().encodeToString(local.getNickname().getBytes("UTF-8"))
+                    + "#" + chosen;
+
+            if (GameFrame.getInstance().isPartida_local()) {
+                broadcastGAMECommandFromServer(localCmd, local.getNickname());
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                    if (jugador == local || jugador.isExit()) {
+                        continue;
+                    }
+                    Participant p = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+                    if (p != null && p.isCpu()) {
+                        int botbuy = GameFrame.getBuyinDefault();
+                        aplicarBuyinInicial(jugador.getNickname(), botbuy);
+                        broadcastGAMECommandFromServer("BUYIN#"
+                                + Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
+                                + "#" + botbuy, jugador.getNickname());
+                    } else {
+                        pending.add(jugador.getNickname());
+                    }
+                }
+            } else {
+                sendGAMECommandToServer(localCmd);
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                    if (jugador != local && !jugador.isExit()) {
+                        pending.add(jugador.getNickname());
+                    }
+                }
+            }
+        } catch (UnsupportedEncodingException ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+        }
+
+        recibirBuyinsIniciales(pending);
+
+        Helpers.GUIRunAndWait(() -> {
+            // Cierra el dialogo de "esperando a los demas" (ya estan todos).
+            dlg[0].dispose();
+            if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
+                GameFrame.getInstance().getCapa_brillo().setBrightness(old_brightness);
+                GameFrame.getInstance().getTapete().repaint();
+            }
+            // Re-sincroniza el icono de luces con el brillo restaurado (igual que el
+            // dialogo de recover, Crupier.java): este dialogo corre durante el
+            // montaje de la mesa, donde un render puede dejar el icono en "off"
+            // mientras las luces vuelven a "on" -> icono bloqueado/desincronizado.
+            GameFrame.getInstance().getTapete().getCommunityCards().refreshLightsIcon();
+        });
+    }
+
+    // Espera (host) los BUYIN de los clientes humanos o (cliente) los broadcasts
+    // del host, aplicandolos a medida que llegan. Mismo esqueleto que
+    // recibirRebuys: drena received_commands, reencola lo no-BUYIN, y el host
+    // tiene la misma ventana amplia (2*REBUY_TIMEOUT) para absorber desync; al
+    // expirar los pendientes (host) caen al default 50BB. El cliente no fuerza
+    // timeout: sigue al host hasta recibir todos los broadcasts.
+    private void recibirBuyinsIniciales(ArrayList<String> pending) {
+
+        Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
+
+        long start_time = System.currentTimeMillis();
+        boolean timeout = false;
+
+        while (!pending.isEmpty() && !timeout) {
+
+            synchronized (this.getReceived_commands()) {
+                ArrayList<String> rejected = new ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String comando = this.received_commands.poll();
+                    try {
+                        String[] partes = comando.split("#");
+                        if (partes.length >= 5 && partes[2].equals("BUYIN")) {
+                            String nick;
+                            try {
+                                nick = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            } catch (UnsupportedEncodingException ex) {
+                                LOGGER.log(Level.WARNING, "Badly-encoded nick in BUYIN", ex);
+                                continue;
+                            }
+                            int raw_buyin = Integer.parseInt(partes[4]);
+                            int safe_buyin = Math.max(GameFrame.getBuyinMin(), Math.min(raw_buyin, GameFrame.getBuyinMax()));
+                            if (safe_buyin != raw_buyin) {
+                                LOGGER.log(Level.WARNING, "Initial buy-in {0} from {1} out of range [{2},{3}] — clamped to {4}",
+                                        new Object[]{raw_buyin, nick, GameFrame.getBuyinMin(), GameFrame.getBuyinMax(), safe_buyin});
+                            }
+                            aplicarBuyinInicial(nick, safe_buyin);
+                            if (GameFrame.getInstance().isPartida_local()) {
+                                broadcastGAMECommandFromServer("BUYIN#" + partes[3] + "#" + safe_buyin, nick);
+                            }
+                            pending.remove(nick);
+                        } else {
+                            rejected.add(comando);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.log(Level.WARNING, "Exception while processing command in BUYIN wait: " + comando, ex);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                    rejected.clear();
+                }
+            }
+
+            if (!pending.isEmpty()) {
+
+                Iterator<String> iterator = pending.iterator();
+                while (iterator.hasNext()) {
+                    String nick = iterator.next();
+                    Player jp = nick2player.get(nick);
+                    if (jp != null && jp.isExit()) {
+                        iterator.remove();
+                    }
+                }
+
+                if (GameFrame.getInstance().checkPause()) {
+                    start_time = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() - start_time > 2 * GameFrame.REBUY_TIMEOUT) {
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        LOGGER.log(Level.INFO, "Initial buy-in timeout — pending players default to {0}", GameFrame.getBuyinDefault());
+                        for (String nick : pending) {
+                            Player jp = nick2player.get(nick);
+                            if (jp != null && !jp.isExit()) {
+                                int def = GameFrame.getBuyinDefault();
+                                aplicarBuyinInicial(nick, def);
+                                try {
+                                    broadcastGAMECommandFromServer("BUYIN#"
+                                            + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8"))
+                                            + "#" + def, null);
+                                } catch (UnsupportedEncodingException ex) {
+                                    LOGGER.log(Level.SEVERE, null, ex);
+                                }
+                            }
+                        }
+                        timeout = true;
+                    } else {
+                        start_time = System.currentTimeMillis();
+                    }
+                } else {
+                    synchronized (this.getReceived_commands()) {
+                        try {
+                            this.getReceived_commands().wait(WAIT_QUEUES);
+                        } catch (InterruptedException ex) {
+                        }
+                    }
+                }
+            }
         }
 
         Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
@@ -14448,7 +14682,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
-            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY), null);
+            broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY) + "#" + String.valueOf(GameFrame.FIXED_BUYIN), null);
         }
 
         if (GameFrame.RECOVER) {
@@ -14507,6 +14741,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Audio.unmuteLoopMp3("misc/background_music.mp3");
 
         GameFrame.getInstance().autoZoomFullScreen(GameFrame.AUTO_FULLSCREEN);
+
+        // Modo buy-in variable: cada humano elige su buy-in al entrar al tablero
+        // (luces apagadas) antes de la mano 1. No-op en modo fijo y en recover.
+        solicitarBuyinsIniciales();
 
         while (!fin_de_la_transmision) {
             try {
@@ -15206,12 +15444,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         rebuy_players.remove(jugador.getNickname());
 
-                        rebuy_now.put(jugador.getNickname(), GameFrame.BUYIN);
+                        // Recompra automatica de bot arruinado: en fijo recompra el
+                        // buy-in completo (como siempre); en variable, 50BB por
+                        // defecto (consistente con su buy-in de entrada).
+                        int botbuy = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+                        rebuy_now.put(jugador.getNickname(), botbuy);
 
                         try {
                             String comando = "REBUY#"
                                     + Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
-                                    + "#" + String.valueOf(GameFrame.BUYIN);
+                                    + "#" + String.valueOf(botbuy);
 
                             this.broadcastGAMECommandFromServer(comando, null);
 

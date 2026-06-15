@@ -121,6 +121,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
     public static volatile int BUYIN = 10;
+    public static volatile boolean FIXED_BUYIN = true; //true = todos arrancan con BUYIN (techo de recompra = BUYIN); false = cada jugador elige su buy-in al entrar al tablero en [10BB,100BB] (techo de recompra = 100BB)
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
@@ -319,7 +320,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#BOT_REBUY=" + (BOT_REBUY ? "1" : "0")
                 + "#RUNITWICE=" + (runittwice ? "1" : "0")
                 + "#VOICEMSG=" + (voicemsg ? "1" : "0")
-                + "#TTS=" + (tts ? "1" : "0");
+                + "#TTS=" + (tts ? "1" : "0")
+                + "#FIXED_BUYIN=" + (FIXED_BUYIN ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -373,8 +375,54 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 case "TTS":
                     TTS_SERVER_RECOVER = "1".equals(val);
                     break;
+                case "FIXED_BUYIN":
+                    FIXED_BUYIN = "1".equals(val);
+                    break;
             }
         }
+    }
+
+    // Buy-in range/ceiling helpers. The arithmetic lives in BuyinRules (pure,
+    // unit-tested); these bind it to the live game config (CIEGA_GRANDE, BUYIN,
+    // FIXED_BUYIN).
+    public static int getBuyinMin() {
+        return BuyinRules.min(CIEGA_GRANDE);
+    }
+
+    public static int getBuyinDefault() {
+        return BuyinRules.defaultBuyin(CIEGA_GRANDE);
+    }
+
+    public static int getBuyinMax() {
+        return BuyinRules.max(CIEGA_GRANDE);
+    }
+
+    // Per-table stack ceiling. In fixed mode nobody can hold more than the single
+    // buy-in everyone started with; in variable mode the ceiling is the maximum
+    // buy-in anybody could have chosen (100BB). Used to clamp every rebuy/top-up.
+    public static int getBuyinCap() {
+        return BuyinRules.cap(FIXED_BUYIN, BUYIN, CIEGA_GRANDE);
+    }
+
+    // Maximum a player may ADD to their stack via a rebuy/top-up without exceeding
+    // the table ceiling; 0 if already at (or over) it. Single source of truth for
+    // both the request-time clamp (host) and the apply-time re-check in reComprar
+    // (anti-stale / anti-cheat).
+    public static int rebuyHeadroom(float current_stack) {
+        return BuyinRules.headroom(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, current_stack);
+    }
+
+    // Marca CYAN del stack = el jugador ha hecho al menos una RE-compra (no la
+    // compra inicial). Cuenta recompras reales via el contador per-nick del
+    // crupier, asi que un jugador que en modo variable simplemente eligio un
+    // buy-in inicial mas profundo NO se marca. Null-safe (verde si aun no hay
+    // crupier, p.ej. durante el montaje de la mesa).
+    public static boolean hasRebought(String nick) {
+        // nick puede ser null durante el montaje de la mesa (setStack en el
+        // constructor de GameFrame corre antes de asignar nicknames en
+        // sentarParticipantes); ConcurrentHashMap no admite clave null.
+        return nick != null && getInstance() != null && getInstance().getCrupier() != null
+                && getInstance().getCrupier().getRebuyCount(nick) > 0;
     }
 
     public static void persistRecoverSettings(int gameId) {
@@ -4402,7 +4450,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.threadRun(() -> {
                 crupier.rebuyNow(player.getNickname(), -1);
                 Helpers.GUIRun(() -> {
-                    if (player.getBuyin() > GameFrame.BUYIN) {
+                    if (GameFrame.hasRebought(player.getNickname())) {
                         player.setPlayerStackBackground(Color.CYAN);
                         player.getPlayer_stack().setForeground(Color.BLACK);
                     } else {
@@ -4431,9 +4479,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.limite_alcanzado", String.valueOf(GameFrame.REBUY_LIMIT)));
 
+        } else if (GameFrame.rebuyHeadroom(player.getStack()) < (GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin())) {
+
+            // Ya en el techo de mesa: no hay margen para recomprar.
+            rebuy_now_menu.setEnabled(true);
+            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
+            rebuy_now_menu.setSelected(false);
+            Helpers.TapetePopupMenu.REBUY_NOW_MENU.setSelected(false);
+
+            Helpers.mostrarMensajeError(GameFrame.getInstance(), Translator.translate("rebuy.sin_margen"));
+
         } else {
 
-            rebuy_dialog = new RebuyDialog(GameFrame.getInstance(), true, true, -1);
+            // Top-up en vivo: max = headroom (techo - stack), min y default segun
+            // modo (fijo: [1, BUYIN]; variable: [10BB, 100BB] default 50BB),
+            // recortados al headroom para no superar el techo. SIN cuenta atras
+            // (timeout -1): la recompra intra-mano es voluntaria; el tiempo solo
+            // aplica al arranque (compra inicial) y al game-over.
+            int headroom = GameFrame.rebuyHeadroom(player.getStack());
+            int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
+            int rebuy_def = Math.min(GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault(), headroom);
+
+            rebuy_dialog = new RebuyDialog(GameFrame.getInstance(), true, true, -1, rebuy_min, headroom, rebuy_def);
 
             rebuy_dialog.setLocationRelativeTo(rebuy_dialog.getParent());
 

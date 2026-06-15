@@ -55,6 +55,8 @@ public final class BotStats {
     public int postflopBluffBets;            // strength <= BLUFF_BET_STRENGTH
     public int riverBets;                    // aggressive actions taken on the river
     public int riverBluffBets;               // of those, with strength <= BLUFF_BET_STRENGTH
+    public int turnBets;                     // aggressive actions taken on the turn
+    public int turnBluffBets;                // of those, with strength <= BLUFF_BET_STRENGTH
 
     // C-bet (preflop aggressor on flop) ---------------------------
     public int cbetOpportunities;            // flop seen with preflop initiative + first to act or checked-to
@@ -83,6 +85,8 @@ public final class BotStats {
         postflopBluffBets += other.postflopBluffBets;
         riverBets += other.riverBets;
         riverBluffBets += other.riverBluffBets;
+        turnBets += other.turnBets;
+        turnBluffBets += other.turnBluffBets;
         cbetOpportunities += other.cbetOpportunities;
         cbetExecuted += other.cbetExecuted;
         netChipsWon += other.netChipsWon;
@@ -134,6 +138,11 @@ public final class BotStats {
         return riverBets == 0 ? 0 : 100.0 * riverBluffBets / riverBets;
     }
 
+    /** Share of turn bets that are bluffs. */
+    public double turnBluffPct() {
+        return turnBets == 0 ? 0 : 100.0 * turnBluffBets / turnBets;
+    }
+
     public double bbPer100(float bb) {
         return handsPlayed == 0 ? 0 : 100.0 * netChipsWon / (handsPlayed * bb);
     }
@@ -141,8 +150,8 @@ public final class BotStats {
     /** Format as a single-line summary for benchmark logs. */
     public String summary(float bb) {
         return String.format(
-                "%-22s n=%4d  VPIP=%5.1f%%  PFR=%5.1f%%  AF=%4.2f  WTSD=%5.1f%%  W$SD=%5.1f%%  cbet=%5.1f%%  bluff=%4.1f%%  rvBluff=%4.1f%%  Win=%5.1f%%  bb/100=%+7.1f",
+                "%-22s n=%4d  VPIP=%5.1f%%  PFR=%5.1f%%  AF=%4.2f  WTSD=%5.1f%%  W$SD=%5.1f%%  cbet=%5.1f%%  bluff=%4.1f%%  tnBluff=%4.1f%%  rvBluff=%4.1f%%  Win=%5.1f%%  bb/100=%+7.1f",
                 label, handsPlayed, vpip(), pfr(), af(), wtsdPct(), wsdPct(), cbetPct(),
-                bluffBetPct(), riverBluffPct(), winRatePct(), bbPer100(bb));
+                bluffBetPct(), turnBluffPct(), riverBluffPct(), winRatePct(), bbPer100(bb));
     }
 }

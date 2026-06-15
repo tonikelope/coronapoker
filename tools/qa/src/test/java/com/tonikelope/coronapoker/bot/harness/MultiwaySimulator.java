@@ -554,7 +554,12 @@ public final class MultiwaySimulator {
         } else if (strength <= BotStats.BLUFF_BET_STRENGTH) {
             stats[seat].postflopBluffBets++;
         }
-        if (street == Crupier.RIVER) {
+        if (street == Crupier.TURN) {
+            stats[seat].turnBets++;
+            if (strength <= BotStats.BLUFF_BET_STRENGTH) {
+                stats[seat].turnBluffBets++;
+            }
+        } else if (street == Crupier.RIVER) {
             stats[seat].riverBets++;
             if (strength <= BotStats.BLUFF_BET_STRENGTH) {
                 stats[seat].riverBluffBets++;

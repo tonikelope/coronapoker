@@ -475,7 +475,12 @@ public final class HeadsUpSimulator {
         } else if (strength <= BotStats.BLUFF_BET_STRENGTH) {
             s.postflopBluffBets++;
         }
-        if (street == Crupier.RIVER) {
+        if (street == Crupier.TURN) {
+            s.turnBets++;
+            if (strength <= BotStats.BLUFF_BET_STRENGTH) {
+                s.turnBluffBets++;
+            }
+        } else if (street == Crupier.RIVER) {
             s.riverBets++;
             if (strength <= BotStats.BLUFF_BET_STRENGTH) {
                 s.riverBluffBets++;

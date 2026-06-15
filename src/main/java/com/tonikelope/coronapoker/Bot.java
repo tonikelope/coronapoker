@@ -964,9 +964,15 @@ public class Bot {
             }
         }
 
+        // Semi-bluff with a strong draw. The PPot threshold is street-aware: on
+        // the turn only one card is to come, so a flush/straight draw's one-card
+        // PPot (~0.17-0.20) sits far below the flop's two-card PPot. The old flat
+        // 0.30 gate meant the bot never semi-bluffed the turn — it only barrelled
+        // made hands — which made its turn aggression readable.
+        double semiBluffPpot = (street == Crupier.TURN) ? 0.16 : 0.30;
         if (street < Crupier.RIVER && skillLevel != Skill.RECREATIONAL && currentProfile != Profile.NIT
                 && activePlayers <= 2
-                && ppot > 0.30 && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
+                && ppot > semiBluffPpot && npot < 0.15 && effectiveStrength < STRENGTH_VALUE_BET_DRAW
                 && foldEquity > 0.18 && boardTexture.totalScore <= 3
                 && randInt(100) < (skillLevel == Skill.SHARK ? 45 : 28)) {
             logVerbose("Semi-bluff with strong draw.");

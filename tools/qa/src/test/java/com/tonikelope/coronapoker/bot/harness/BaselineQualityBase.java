@@ -59,6 +59,10 @@ abstract class BaselineQualityBase {
 
             boolean expertIsA = (session % 2 == 0);
             Bot expertBot = new Bot(expertIsA ? sim.playerA() : sim.playerB());
+            // Seed the hero's RNG BEFORE setDifficulty (which re-rolls personality
+            // through that RNG), so the baseline is reproducible instead of drifting
+            // ~±10 bb/100 between runs on the shared SecureRandom.
+            expertBot.setRng(new java.util.Random(seed ^ 0x5EED5EEDL));
             expertBot.setDifficulty(Bot.Difficulty.HARD);
             FixedStrategyBot oppBot = new FixedStrategyBot(
                     expertIsA ? sim.playerB() : sim.playerA(),

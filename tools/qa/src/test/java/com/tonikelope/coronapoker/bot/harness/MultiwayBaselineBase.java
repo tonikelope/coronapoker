@@ -60,6 +60,10 @@ abstract class MultiwayBaselineBase {
 
             int heroSeat = session % NUM_SEATS;
             Bot heroBot = new Bot(sim.player(heroSeat));
+            // Seed the hero's RNG BEFORE setDifficulty (which re-rolls personality
+            // through that RNG), so the baseline is reproducible instead of drifting
+            // ~±10 bb/100 between runs on the shared SecureRandom.
+            heroBot.setRng(new java.util.Random(seed ^ 0x5EED5EEDL));
             heroBot.setDifficulty(Bot.Difficulty.HARD);
             sim.setBot(heroSeat, heroBot);
             for (int i = 0; i < NUM_SEATS; i++) {

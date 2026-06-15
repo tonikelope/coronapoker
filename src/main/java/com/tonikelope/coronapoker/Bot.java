@@ -184,6 +184,18 @@ public class Bot {
         public boolean hasEnoughData() {
             return handsPlayed > 10;
         }
+
+        /**
+         * Early read of a passive calling-station shape, available <em>before</em>
+         * {@link #hasEnoughData()}: the opponent has called several post-flop bets
+         * without ever betting or raising. A thinking player mixes in aggression;
+         * a pure station never does. Used to stop bluffing into a player who never
+         * folds long before the full {@code isStation()} sample accrues — so the
+         * bot does not keep firing −EV bluffs at a fish during the first orbit.
+         */
+        public boolean looksPassiveStation() {
+            return postFlopCalls >= 3 && postFlopBetsAndRaises == 0;
+        }
     }
 
     private volatile BotPlayerView cpuPlayer = null;
@@ -1209,6 +1221,17 @@ public class Bot {
             }
         }
 
+        // Active-opponent station read. fold equity must reflect who would have to
+        // fold to the bet — the live opponents — not the last aggressor: when the
+        // bot is first to act (opening a bluff) there is no last aggressor, so
+        // targetStats is null and a station read via it never fires. Scanning the
+        // players still in the hand catches the spot. Fires even before
+        // hasEnoughData() via looksPassiveStation(), so the bot stops bluffing a
+        // proven non-folder in the first orbit instead of bleeding into it.
+        if (anyActiveOpponentNeverFolds()) {
+            foldEquity = 0.0;
+        }
+
         if (effectiveDifficulty() == Difficulty.EASY) {
             foldEquity *= 0.7;
         } else if (effectiveDifficulty() == Difficulty.HARD) {
@@ -1216,6 +1239,32 @@ public class Bot {
         }
 
         return Math.max(0.0, Math.min(FOLD_EQ_CAP, foldEquity));
+    }
+
+    /**
+     * True if any opponent still live in the hand has shown they essentially never
+     * fold (a proven calling station, by full sample {@link OpponentTracker#isStation()}
+     * or early read {@link OpponentTracker#looksPassiveStation()}). Used to zero out
+     * fold equity before opening a bluff: there is no point firing at a player who
+     * calls with anything, and unlike {@code getPrimaryOpponentStats()} this works
+     * when the bot is first to act (no last aggressor to read).
+     */
+    private boolean anyActiveOpponentNeverFolds() {
+        java.util.List<? extends BotPlayerView> players = dealer().getPlayersInSeatingOrder();
+        if (players == null) {
+            return false;
+        }
+        String myNick = cpuPlayer.getNickname();
+        for (BotPlayerView p : players) {
+            if (p == null || !p.isActivo() || myNick.equals(p.getNickname())) {
+                continue;
+            }
+            OpponentTracker t = TRACKER_MEMORY.get(p.getNickname());
+            if (t != null && (t.isStation() || t.looksPassiveStation())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean canFloat(double effectiveStrength, int betCount, int street, BoardTexture boardTexture) {

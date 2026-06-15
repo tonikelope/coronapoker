@@ -208,6 +208,9 @@ public class NewGameDialog extends JDialog {
         this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
         this.bot_rebuy_checkbox.setEnabled(GameFrame.REBUY);
 
+        this.fixed_buyin_checkbox.setSelected(GameFrame.FIXED_BUYIN);
+        this.buyin_spinner.setEnabled(GameFrame.FIXED_BUYIN);
+
         this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
         this.rebuy_limit_checkbox.setEnabled(GameFrame.REBUY);
         this.rebuy_limit_spinner.setEnabled(GameFrame.REBUY && GameFrame.REBUY_LIMIT > 0);
@@ -431,6 +434,8 @@ public class NewGameDialog extends JDialog {
             rebuy_checkbox.setSelected(true);
             doblar_checkbox.setSelected(true);
             bot_rebuy_checkbox.setSelected(true);
+            fixed_buyin_checkbox.setSelected(true);
+            buyin_spinner.setEnabled(true);
             blind_cap_checkbox.setSelected(false);
             blind_cap_spinner.setEnabled(false);
             rebuy_limit_checkbox.setSelected(false);
@@ -581,6 +586,7 @@ public class NewGameDialog extends JDialog {
         rebuy_limit_checkbox = new javax.swing.JCheckBox();
         rebuy_limit_spinner = new javax.swing.JSpinner();
         bot_rebuy_checkbox = new javax.swing.JCheckBox();
+        fixed_buyin_checkbox = new javax.swing.JCheckBox();
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
@@ -909,6 +915,18 @@ public class NewGameDialog extends JDialog {
         bot_rebuy_checkbox.setDoubleBuffered(true);
         bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
 
+        fixed_buyin_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        fixed_buyin_checkbox.setText("Buy-in fijo");
+        fixed_buyin_checkbox.setToolTipText("Marcado: todos arrancan con el mismo buy-in. Desmarcado: cada jugador elige su buy-in (10BB-100BB) al entrar al tablero.");
+        fixed_buyin_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        fixed_buyin_checkbox.setDoubleBuffered(true);
+        fixed_buyin_checkbox.putClientProperty("i18n.key", "newgame.buyin_fijo");
+        fixed_buyin_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                fixed_buyin_checkboxActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout recompra_panelLayout = new javax.swing.GroupLayout(recompra_panel);
         recompra_panel.setLayout(recompra_panelLayout);
         recompra_panelLayout.setHorizontalGroup(
@@ -960,7 +978,10 @@ public class NewGameDialog extends JDialog {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(ciegas_combobox, 0, 220, Short.MAX_VALUE)
-                            .addComponent(buyin_spinner))))
+                            .addGroup(jPanel3Layout.createSequentialGroup()
+                                .addComponent(buyin_spinner)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(fixed_buyin_checkbox)))))
                 .addGap(18, 18, 18)
                 .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
@@ -982,7 +1003,9 @@ public class NewGameDialog extends JDialog {
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(buyin_label)
                             .addGroup(jPanel3Layout.createSequentialGroup()
-                                .addComponent(buyin_spinner)
+                                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(buyin_spinner)
+                                    .addComponent(fixed_buyin_checkbox))
                                 .addGap(18, 18, 18)))
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                             .addComponent(manos_spinner)
@@ -1285,6 +1308,8 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
+            GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
+
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
             GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
@@ -1387,6 +1412,8 @@ public class NewGameDialog extends JDialog {
 
                 GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
+                GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
+
                 String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
                 GameFrame.CIEGA_GRANDE = Float.parseFloat(valores_ciegas[1].trim());
@@ -1469,6 +1496,12 @@ public class NewGameDialog extends JDialog {
         this.bot_rebuy_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
     }//GEN-LAST:event_rebuy_checkboxActionPerformed
 
+    private void fixed_buyin_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixed_buyin_checkboxActionPerformed
+        // Variable (desmarcado): el buy-in inicial se pide a cada jugador al entrar
+        // al tablero, asi que el spinner de aqui no aplica -> deshabilitado.
+        this.buyin_spinner.setEnabled(this.fixed_buyin_checkbox.isSelected());
+    }//GEN-LAST:event_fixed_buyin_checkboxActionPerformed
+
     private void nick_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_nick_labelMouseClicked
         // TODO add your handling code here:
 
@@ -1549,6 +1582,8 @@ public class NewGameDialog extends JDialog {
 
                 this.bot_rebuy_checkbox.setEnabled(false);
 
+                this.fixed_buyin_checkbox.setEnabled(false);
+
                 this.recover_checkbox_label.setOpaque(true);
 
                 this.recover_checkbox_label.setBackground(Color.YELLOW);
@@ -1581,7 +1616,10 @@ public class NewGameDialog extends JDialog {
         } else {
             this.game_combo.setEnabled(false);
 
-            this.buyin_spinner.setEnabled(true);
+            this.fixed_buyin_checkbox.setEnabled(true);
+
+            // El spinner sigue el modo: deshabilitado si es buy-in variable.
+            this.buyin_spinner.setEnabled(this.fixed_buyin_checkbox.isSelected());
 
             this.buyin_label.setEnabled(true);
 
@@ -1890,6 +1928,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JSpinner doblar_ciegas_spinner_minutos;
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
+    private javax.swing.JCheckBox fixed_buyin_checkbox;
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;

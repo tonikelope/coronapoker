@@ -780,7 +780,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(() -> {
-                if (buyin > GameFrame.BUYIN) {
+                if (GameFrame.hasRebought(nickname)) {
                     setPlayerStackBackground(Color.CYAN);
 
                     player_stack.setForeground(Color.BLACK);
@@ -1832,7 +1832,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.pausar(1500);
                 float s = getStack();
                 Helpers.GUIRun(() -> {
-                    if (buyin > GameFrame.BUYIN) {
+                    if (GameFrame.hasRebought(nickname)) {
                         setPlayerStackBackground(Color.CYAN);
 
                         player_stack.setForeground(Color.BLACK);
@@ -2183,10 +2183,21 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public synchronized void reComprar(int cantidad) {
 
-        this.stack += cantidad;
-        this.buyin += cantidad;
+        // Re-chequeo al aplicar (anti-stale / anti-trampa): nunca superar el techo
+        // de mesa aunque la cantidad solicitada fuera mayor o el stack cambiara
+        // entre la solicitud y el inicio de la mano. headroom 0 -> recompra anulada.
+        int applied = Math.min(cantidad, GameFrame.rebuyHeadroom(this.stack));
+        if (applied <= 0) {
+            Logger.getLogger(RemotePlayer.class.getName()).log(Level.WARNING,
+                    "Rebuy of {0} for {1} voided at apply time (already at table ceiling {2})",
+                    new Object[]{cantidad, this.nickname, GameFrame.getBuyinCap()});
+            return;
+        }
 
-        GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + " " + String.valueOf(cantidad) + ")");
+        this.stack += applied;
+        this.buyin += applied;
+
+        GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + " " + String.valueOf(applied) + ")");
 
         Audio.playWavResource("misc/cash_register.wav");
 
@@ -2251,7 +2262,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             disablePlayerAction();
 
             if (!player_stack_click) {
-                if (buyin > GameFrame.BUYIN) {
+                if (GameFrame.hasRebought(nickname)) {
                     setPlayerStackBackground(Color.CYAN);
 
                     player_stack.setForeground(Color.BLACK);
@@ -2483,7 +2494,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 sec_pot_win_label.setVisible(false);
 
-                if (buyin > GameFrame.BUYIN) {
+                if (GameFrame.hasRebought(nickname)) {
                     setPlayerStackBackground(Color.CYAN);
                     player_stack.setForeground(Color.BLACK);
                 } else {

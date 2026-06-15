@@ -183,6 +183,10 @@ public class WaitingRoomFrame extends JFrame {
     private volatile String server_ip_port;  // ip:port — host (para parsear puerto local) y cliente (para conectar).
     private volatile String server_nick;
     private volatile String gameinfo_original = null;
+    // Tag en el campo buyin de gameinfo_original cuando la partida es de buy-in
+    // variable: la sala de espera oculta la caracteristica de buyin (la bolsa),
+    // porque cada jugador elige su buy-in al entrar al tablero.
+    private static final String VARIABLE_BUYIN_TAG = "VAR";
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
@@ -1122,7 +1126,7 @@ public class WaitingRoomFrame extends JFrame {
 
             status.setText(Translator.translate("ui.waiting_for_players"));
 
-            gameinfo_original = GameFrame.BUYIN + (GameFrame.REBUY ? "" : "*") + "|"
+            gameinfo_original = (GameFrame.FIXED_BUYIN ? (GameFrame.BUYIN + (GameFrame.REBUY ? "" : "*")) : VARIABLE_BUYIN_TAG) + "|"
                     + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / "
                     + Helpers.float2String(GameFrame.CIEGA_GRANDE)
                     + (GameFrame.CIEGAS_DOUBLE > 0
@@ -1132,21 +1136,7 @@ public class WaitingRoomFrame extends JFrame {
                     + (GameFrame.MANOS != -1 ? "|" + String.valueOf(GameFrame.MANOS) : "");
 
             if (game_info_buyin.isEnabled() && !GameFrame.isRECOVER()) {
-
-                String[] game_info = gameinfo_original.split("\\|");
-
-                boolean rebuy = !game_info[0].trim().endsWith("*");
-
-                game_info_buyin.setText(
-                        Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
-
-                game_info_blinds.setText(game_info[1]);
-
-                if (game_info.length > 2) {
-                    game_info_hands.setText(game_info[2]);
-                } else {
-                    game_info_hands.setVisible(false);
-                }
+                applyGameInfoBuyinLabel(gameinfo_original.split("\\|"));
             }
 
             participantes.put(local_nick, null);
@@ -2102,22 +2092,7 @@ public class WaitingRoomFrame extends JFrame {
 
                             Helpers.GUIRun(() -> {
                                 status.setText(Translator.translate("status.recibiendo_info_servidor"));
-                                String[] game_info = gameinfo_original.split("\\|");
-
-                                if (game_info[0].trim().matches("[0-9,.*]+")) {
-                                    boolean rebuy = !game_info[0].trim().endsWith("*");
-                                    game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info[0].replace("*", ""))) + (rebuy ? "" : "*"));
-                                    game_info_blinds.setText(game_info[1]);
-                                    if (game_info.length > 2) {
-                                        game_info_hands.setText(game_info[2]);
-                                    } else {
-                                        game_info_hands.setVisible(false);
-                                    }
-                                } else {
-                                    game_info_blinds.setVisible(false);
-                                    game_info_hands.setVisible(false);
-                                    game_info_buyin.setIcon(null);
-                                }
+                                applyGameInfoBuyinLabel(gameinfo_original.split("\\|"));
                             });
 
                             recibido = readCommandFromServer();
@@ -3167,20 +3142,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             String ginfo = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
                                                             String[] game_info2 = ginfo.split("\\|");
                                                             Helpers.GUIRun(() -> {
-                                                                if (game_info2[0].trim().matches("[0-9,.*]+")) {
-                                                                    boolean rebuy = !game_info2[0].trim().endsWith("*");
-                                                                    game_info_buyin.setText(Helpers.float2String(Float.parseFloat(game_info2[0].replace("*", ""))) + (rebuy ? "" : "*"));
-                                                                    game_info_blinds.setText(game_info2[1]);
-                                                                    if (game_info2.length > 2) {
-                                                                        game_info_hands.setText(game_info2[2]);
-                                                                    } else {
-                                                                        game_info_hands.setVisible(false);
-                                                                    }
-                                                                } else {
-                                                                    game_info_blinds.setVisible(false);
-                                                                    game_info_blinds.setVisible(false);
-                                                                    game_info_buyin.setIcon(null);
-                                                                }
+                                                                applyGameInfoBuyinLabel(game_info2);
                                                             });
                                                             break;
                                                         case "DELUSER":
@@ -3329,6 +3291,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.BLIND_CAP = partes_comando.length > 10 ? Float.parseFloat(partes_comando[10]) : 0f;
                                                             GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
                                                             GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
+                                                            GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
                                                                     new GameFrame(THIS, local_nick, false);
@@ -5479,6 +5442,44 @@ public class WaitingRoomFrame extends JFrame {
         }
     }// GEN-LAST:event_server_address_labelMouseClicked
 
+    // Pinta las caracteristicas de la partida en la sala de espera a partir del
+    // gameinfo "BUYIN|BLINDS|HANDS". Si el campo buyin es el tag de buy-in
+    // variable, oculta la bolsa (cada jugador elige su buy-in) manteniendo ciegas
+    // y manos. Numerico -> buyin normal. No numerico -> caso recover (existente).
+    private void applyGameInfoBuyinLabel(String[] game_info) {
+        String buyin_field = game_info[0].trim();
+        if (VARIABLE_BUYIN_TAG.equals(buyin_field)) {
+            // Texto = tag (aunque oculto): asi viaja en el payload NICKOK/GAMEINFO
+            // que se reconstruye desde game_info_buyin.getText().
+            game_info_buyin.setText(VARIABLE_BUYIN_TAG);
+            game_info_buyin.setVisible(false);
+            game_info_blinds.setVisible(true);
+            game_info_blinds.setText(game_info[1]);
+            if (game_info.length > 2) {
+                game_info_hands.setVisible(true);
+                game_info_hands.setText(game_info[2]);
+            } else {
+                game_info_hands.setVisible(false);
+            }
+        } else if (buyin_field.matches("[0-9,.*]+")) {
+            boolean rebuy = !buyin_field.endsWith("*");
+            game_info_buyin.setVisible(true);
+            game_info_buyin.setText(Helpers.float2String(Float.parseFloat(buyin_field.replace("*", ""))) + (rebuy ? "" : "*"));
+            game_info_blinds.setVisible(true);
+            game_info_blinds.setText(game_info[1]);
+            if (game_info.length > 2) {
+                game_info_hands.setVisible(true);
+                game_info_hands.setText(game_info[2]);
+            } else {
+                game_info_hands.setVisible(false);
+            }
+        } else {
+            game_info_blinds.setVisible(false);
+            game_info_hands.setVisible(false);
+            game_info_buyin.setIcon(null);
+        }
+    }
+
     private void game_info_buyinMouseClicked(java.awt.event.MouseEvent evt) {// GEN-FIRST:event_game_info_buyinMouseClicked
 
         if (server && !GameFrame.isRECOVER() && !isPartida_empezada() && !isPartida_empezando()
@@ -5498,7 +5499,14 @@ public class WaitingRoomFrame extends JFrame {
 
             if (dialog.isDialog_ok()) {
 
-                game_info_buyin.setText(Helpers.float2String((float) GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
+                if (GameFrame.FIXED_BUYIN) {
+                    game_info_buyin.setVisible(true);
+                    game_info_buyin.setText(Helpers.float2String((float) GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
+                } else {
+                    // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
+                    game_info_buyin.setText(VARIABLE_BUYIN_TAG);
+                    game_info_buyin.setVisible(false);
+                }
 
                 game_info_blinds.setText(Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / "
                         + Helpers.float2String(GameFrame.CIEGA_GRANDE)

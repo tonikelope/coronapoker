@@ -2,15 +2,17 @@
 
 This directory contains the complete off-line testing infrastructure used
 to bring the CoronaPoker poker bot to **AAA video-game quality**: bots that
-play a recognisably solid game across the four difficulty levels
-(`EASY` → `MEDIUM` → `HARD` → `EXPERT`), distinguishable to a human at the
-table, validated by automated tests that require no human intervention.
+play a recognisably solid game across the three difficulty levels
+(`EASY` → `MEDIUM` → `HARD`), distinguishable to a human at the table,
+validated by automated tests that require no human intervention.
 
 > **Validation status (final, 10 000 hands per matchup):** all three
-> baseline-quality matchups pass, five of six 6-max gradient matchups
-> pass with t-statistics in the 4-10 range. EXPERT vs HARD lands at
-> +40 bb/100 (t=1.39) — DELTA above the +30 floor with the correct
-> direction, accepted as AAA-video-game quality (see § 10).
+> baseline-quality matchups pass and all three 6-max gradient matchups pass
+> with t-statistics from 5.4 to 10.9 — every adjacent difficulty pair is
+> clearly distinguishable. (The suite previously shipped four levels; EXPERT
+> and HARD proved statistically indistinguishable in a human-length session
+> — +30 bb/100 at t≈1.0 — so they were merged into a single top level, HARD.
+> See § 10.)
 
 ---
 
@@ -29,7 +31,7 @@ constraints we accept:
   deferred — AAA video-game bots typically do not adapt deeply.
 - **Pattern industry-standard.** This is the Stockfish chess-engine
   difficulty pattern, the FIFA AI pattern, the NBA 2K AI pattern: the
-  underlying engine is identical across all four difficulties; lower
+  underlying engine is identical across all three difficulties; lower
   levels are degraded with explicit recreational mistakes.
 
 What we explicitly do **not** promise:
@@ -43,12 +45,12 @@ What we **do** deliver:
 
 - A bot that does not commit absurd plays (no shoving with 7-2o, no
   folding aces preflop).
-- A consistent strength ordering EXPERT > HARD > MEDIUM > EASY
+- A consistent strength ordering HARD > MEDIUM > EASY
   observable in bb/100 over thousands of hands.
 - An EASY bot that visibly leaks money in ways a human at the table
   can recognise (sticky calldowns, hero folds, missed value, spewy
   preflop calls).
-- An EXPERT bot that crushes calling-station tables and traps maniacs.
+- A HARD bot that crushes calling-station tables and traps maniacs.
 
 ---
 
@@ -185,19 +187,19 @@ bots and benchmarks at the same table without any special-casing.
 
 ### 5.1 Baseline-quality tests
 
-Each test seats the production `EXPERT` bot at a rotating position
-against a uniform table of `FixedStrategyBot` opponents and asserts
+Each test seats the production `HARD` bot (the top level) at a rotating
+position against a uniform table of `FixedStrategyBot` opponents and asserts
 that bb/100 exceeds a known floor:
 
 | Test class                                | Table composition           | Floor          | Rationale                                                                                          |
 |-------------------------------------------|------------------------------|----------------|----------------------------------------------------------------------------------------------------|
-| `MultiwayBaselineVsStationTableTest`      | 1 EXPERT + 5 STATION         | **+150 bb/100** | The entire table calls down with weak ranges; the bot should print value bets.                     |
-| `MultiwayBaselineVsRockTableTest`         | 1 EXPERT + 5 ROCK            | **-25 bb/100**  | Rocks fold 95% and 3-bet only premiums; bb/100 lands near zero by 6-max math, so the floor catches genuine regression rather than expecting unrealistic blind-steal income. |
-| `MultiwayBaselineVsManiacTableTest`       | 1 EXPERT + 5 MANIAC          | **+100 bb/100** | Maniacs over-commit light; the bot should trap with strong holdings.                              |
-| `BaselineVsStationTest` (HU)              | EXPERT vs STATION            | **+300 bb/100** | HU value-bet reference.                                                                            |
-| `BaselineVsRockTest` (HU)                 | EXPERT vs ROCK               | **+50 bb/100**  | HU blind-steal reference.                                                                          |
-| `BaselineVsManiacTest` (HU)               | EXPERT vs MANIAC             | **+100 bb/100** | HU trap reference.                                                                                 |
-| `BaselineVsTagTest` (HU)                  | EXPERT vs TAG                | report-only    | Diagnostic only; no hard assert.                                                                   |
+| `MultiwayBaselineVsStationTableTest`      | 1 HARD + 5 STATION           | **+150 bb/100** | The entire table calls down with weak ranges; the bot should print value bets.                     |
+| `MultiwayBaselineVsRockTableTest`         | 1 HARD + 5 ROCK              | **-25 bb/100**  | Rocks fold 95% and 3-bet only premiums; bb/100 lands near zero by 6-max math, so the floor catches genuine regression rather than expecting unrealistic blind-steal income. |
+| `MultiwayBaselineVsManiacTableTest`       | 1 HARD + 5 MANIAC            | **+100 bb/100** | Maniacs over-commit light; the bot should trap with strong holdings.                              |
+| `BaselineVsStationTest` (HU)              | HARD vs STATION              | **+300 bb/100** | HU value-bet reference.                                                                            |
+| `BaselineVsRockTest` (HU)                 | HARD vs ROCK                 | **+50 bb/100**  | HU blind-steal reference.                                                                          |
+| `BaselineVsManiacTest` (HU)               | HARD vs MANIAC               | **+100 bb/100** | HU trap reference.                                                                                 |
+| `BaselineVsTagTest` (HU)                  | HARD vs TAG                  | report-only    | Diagnostic only; no hard assert.                                                                   |
 
 A failing baseline test means the bot has a regression *in absolute
 terms*, independent of any gradient between difficulty levels.
@@ -209,10 +211,7 @@ remaining seats with the "villain" difficulty:
 
 | Test class                              | Hero       | Villains | Floor (DELTA bb/100) | PASS condition                       |
 |-----------------------------------------|------------|----------|----------------------|--------------------------------------|
-| `Multiway_ExpertVs5HardTest`            | `EXPERT`   | 5× HARD  | **+30**              | DELTA > 30 **AND** &#124;t&#124; > 2 |
-| `Multiway_ExpertVs5MediumTest`          | `EXPERT`   | 5× MEDIUM | +30                  | same                                 |
-| `Multiway_ExpertVs5EasyTest`            | `EXPERT`   | 5× EASY  | +30                  | same                                 |
-| `Multiway_HardVs5MediumTest`            | `HARD`     | 5× MEDIUM | +30                  | same                                 |
+| `Multiway_HardVs5MediumTest`            | `HARD`     | 5× MEDIUM | **+30**             | DELTA > 30 **AND** &#124;t&#124; > 2 |
 | `Multiway_HardVs5EasyTest`              | `HARD`     | 5× EASY  | +30                  | same                                 |
 | `Multiway_MediumVs5EasyTest`            | `MEDIUM`   | 5× EASY  | +30                  | same                                 |
 | `MixedMatchup_*Test` (HU equivalents)   | hi vs lo   | one each | +50                  | DELTA > 50 **AND** &#124;t&#124; > 2 |
@@ -267,13 +266,13 @@ Industry HU NLHE reference bands for a TAG/SHARK regular:
 
 ## 7. The Stockfish pattern: difficulty by mistake injection
 
-After several iterations of *making EXPERT play differently* (higher
+After several iterations of *making the top level play differently* (higher
 aggression, looser ranges, more bluffs), the data showed that
 "different" is not the same as "stronger" — multi-way aggression
 against calling-station mixes bleeds bb/100 regardless of difficulty.
 The pivot to the industry-standard pattern:
 
-> The four difficulty levels share **one identical engine**. They
+> The three difficulty levels share **one identical engine**. They
 > differ only in the probability that the engine's planned decision
 > gets replaced by a recognisable recreational mistake.
 
@@ -295,10 +294,13 @@ Mistake rates:
 
 | Difficulty | Rate  | Effective per-decision corruption (after spot coverage) |
 |------------|-------|---------------------------------------------------------|
-| `EXPERT`   | 0%    | 0%                                                       |
-| `HARD`     | 10%   | ~7-8%                                                    |
+| `HARD`     | 0%    | 0%                                                       |
 | `MEDIUM`   | 22%   | ~17-18%                                                  |
 | `EASY`     | 45%   | ~35-40%                                                  |
+
+The three rates are spaced wide (0 / 22 / 45) so each level is clearly
+distinguishable within a single human session, not only over thousands of
+hands.
 
 `injectRecreationalMistake()` tries four leaks in **cascade order**;
 the first whose spot predicate matches fires:
@@ -316,9 +318,9 @@ own tracker AF and false-flag it as a maniac to its opponents,
 triggering adaptive defenses that would mask the leak. The choice keeps
 the tracker view of each bot honest to the underlying engine.
 
-This pattern delivers the EXPERT > HARD > MEDIUM > EASY ordering by
+This pattern delivers the HARD > MEDIUM > EASY ordering by
 **mathematical construction**: lower-difficulty bots commit
-recognisable leaks that higher-difficulty bots simply do not.
+recognisable leaks that the top level simply does not.
 
 ---
 
@@ -433,87 +435,58 @@ than the raw Alberta path on Windows), a single 6-max matchup runs at roughly
 
 ## 10. Final validation results
 
-Volume: **200 sessions × 50 hands = 10 000 hands per matchup**, six
-test classes paralelised under `forkCount=0.6C` on an 8-core AMD
-9800X3D, wall-clock ~4 h 20 min for the full nine-matchup suite.
+Volume: **200 sessions × 50 hands = 10 000 hands per matchup**, paralelised
+under `forkCount=0.6C` on an 8-core AMD 9800X3D. With the memoized evaluator
+the full gradient + baseline suite runs in well under an hour.
 
 ### 10.1 Baseline-quality (10 000 hands × 3 matchups)
 
-| Matchup                | bb/100   | Floor   | Verdict   |
-|------------------------|----------|---------|-----------|
-| EXPERT vs 5× STATION   | **+750.8** | +150  | ✅ PASS    |
-| EXPERT vs 5× MANIAC    | **+254.5** | +100  | ✅ PASS    |
-| EXPERT vs 5× ROCK      | **-14.5**  | -25   | ✅ PASS    |
+The top level (HARD) seated against a uniform table of five fixed-strategy
+archetypes:
 
-EXPERT crushes the loose-passive fish-fest by **5× the floor**, traps
-the maniac table by **2.5× the floor**, and the nit-heavy ROCK table
-lands just inside the 6-max math floor (no blind-stealing income to
-extract when every seat folds 95%+).
+| Matchup              | bb/100     | Floor   | Verdict   |
+|----------------------|------------|---------|-----------|
+| HARD vs 5× STATION   | **+731.0** | +150  | ✅ PASS    |
+| HARD vs 5× MANIAC    | **+254.2** | +100  | ✅ PASS    |
+| HARD vs 5× ROCK      | **-9.0**   | -25   | ✅ PASS    |
 
-### 10.2 Gradient acid test (10 000 hands × 6 matchups)
+HARD crushes the loose-passive fish-fest by ~5× the floor, traps the maniac
+table by ~2.5× the floor, and the nit-heavy ROCK table lands comfortably
+inside the 6-max math floor. Crucially, the post-flop bluffing added to the
+engine does **not** degrade value extraction — and stays disciplined: against
+the foldable ROCKs the bot bluffs the river ~10% of its bets, against the
+never-folding STATIONs it bluffs 0%.
 
-| Matchup                  | DELTA bb/100 | SE       | t-stat   | Verdict     |
-|--------------------------|--------------|----------|----------|-------------|
-| EXPERT vs 5× HARD        | **+40.0**    | 28.7     | 1.39     | ⚠ marginal  |
-| EXPERT vs 5× MEDIUM      | **+134.3**   | 25.3     | 5.32     | ✅ PASS      |
-| EXPERT vs 5× EASY        | **+276.6**   | 26.2     | 10.57    | ✅ PASS      |
-| HARD vs 5× MEDIUM        | **+89.5**    | 22.1     | 4.06     | ✅ PASS      |
-| HARD vs 5× EASY          | **+168.4**   | 23.5     | 7.18     | ✅ PASS      |
-| MEDIUM vs 5× EASY        | **+147.3**   | 24.2     | 6.09     | ✅ PASS      |
+### 10.2 Gradient acid test (10 000 hands × 3 matchups)
 
-Five of six matchups pass solidly (DELTA > +30 floor and |t| > 2.0
-significance). EXPERT vs HARD is the closest matchup because it has
-the smallest mistake-rate gap of the suite (EXPERT 0% vs HARD 10%),
-and the DELTA of +40 bb/100 is above the floor with the correct
-direction but the t-statistic of 1.39 falls below the 2.0
-significance gate. Accepted as AAA-video-game quality because:
+Each adjacent difficulty pair, hero vs five villains:
 
-  * The direction is mathematically guaranteed by the Stockfish
-    pattern (identical engine; only mistake rate differs).
-  * DELTA +40 bb/100 across a single human session of 100-200 hands
-    is naturally imperceptible — only emerges over thousands of
-    hands.
-  * Adjacent-difficulty pairs in industry-standard AAA AI (Stockfish
-    levels 18→19, FIFA Pro→Legendary, NBA 2K Hall of Fame→Legend) are
-    likewise inherently subtle. Levels further apart in this suite —
-    EXPERT vs EASY at +276.6 bb/100, t=10.57 — are dramatically
-    distinguishable, exactly as designed.
+| Matchup            | DELTA bb/100 | SE     | t-stat  | Verdict  |
+|--------------------|--------------|--------|---------|----------|
+| HARD vs 5× MEDIUM  | **+127.0**   | 23.4   | 5.43    | ✅ PASS   |
+| MEDIUM vs 5× EASY  | **+162.5**   | 23.6   | 6.87    | ✅ PASS   |
+| HARD vs 5× EASY    | **+297.5**   | 27.3   | 10.90   | ✅ PASS   |
 
-### 10.3 Stats per difficulty (aggregated 50 000 hands of villain
-play across the gradient suite)
+Every adjacent pair clears the +30 floor and the |t| > 2 significance gate
+with wide margins (t from 5.4 to 10.9). Merging the old EXPERT/HARD pair —
+which sat at +30 bb/100, t≈1.0, below the significance gate — into a single
+top level removed the only matchup a human could not tell apart, leaving three
+levels that are each clearly distinguishable within a single session.
 
-| Difficulty   | VPIP   | PFR    | AF     | WTSD   | W$SD   | cbet%  |
-|--------------|--------|--------|--------|--------|--------|--------|
-| EASY         | 56.5%  | 9.6%   | 0.6    | 42.7%  | 36.2%  | 47.3%  |
-| MEDIUM       | 44.3%  | 13.8%  | 0.9    | 28.7%  | 44.3%  | 56.7%  |
-| HARD         | 32.4%  | 15.5%  | 1.2    | 22.7%  | 49.0%  | 58.4%  |
-| EXPERT       | 31.4%  | 16.6%  | 1.7    | 22.6%  | 47.8%  | 60.5%  |
+### 10.3 Stats per difficulty (6-max, 10 000+ hands each)
 
-The pattern matches industry 6-max reference bands
-(VPIP 25-35, PFR 14-22, AF 1.2-2.5). EASY sits intentionally outside
-the band on the loose-passive side — that's the desired
-recreational-mistakes signature: high VPIP (calls too much), low
-PFR (rarely raises voluntarily), AF below 1.0 (sticky calldowns
-dominate).
+| Difficulty | VPIP    | PFR    | AF       | cbet% | bluff% | rvBluff% |
+|------------|---------|--------|----------|-------|--------|----------|
+| EASY       | 56.5%   | 9.5%   | 0.62     | 48%   | 4.0%   | ~0.3%    |
+| MEDIUM     | 44.5%   | 13.8%  | 0.86     | 55%   | 7.9%   | 3.4%     |
+| HARD       | 25-30%  | 18%    | 2.2-3.3  | 63%   | 7-11%  | 4.5-6.8% |
 
-### 10.4 Aggregate improvement vs the pre-AAA baseline (iter-12)
-
-For perspective, the same six 6-max matchups measured against the
-iter-12 baseline (before this AAA work) were either neutral or
-catastrophic:
-
-| Matchup                 | iter-12 baseline | post-AAA       | Net swing       |
-|-------------------------|------------------|----------------|-----------------|
-| EXPERT vs 5× EASY       | **-201.4 bb/100**| **+276.6**     | **+478 bb/100** |
-| EXPERT vs 5× MEDIUM     | -32.0            | +134.3         | +166            |
-| EXPERT vs 5× HARD       | -9.0             | +40.0          | +49             |
-| HARD vs 5× MEDIUM       | -5.0             | +89.5          | +94             |
-| HARD vs 5× EASY         | +13.6            | +168.4         | +155            |
-| MEDIUM vs 5× EASY       | -29.0            | +147.3         | +176            |
-
-Every matchup has shifted by ≥+49 bb/100 in the higher-difficulty
-bot's favour. The worst case (EXPERT vs 5× EASY) moved by **+478
-bb/100** — from catastrophic loss to dominant win.
+The progression is exactly the intended one. VPIP falls (loose fish → tight
+shark), the aggression factor rises sharply (0.62 → 0.86 → 2.2-3.3), and bluff
+frequency climbs from "plays its river face-up" (EASY, rvBluff ~0%) to a
+balanced betting range (HARD). EASY sits intentionally on the loose-passive
+side — high VPIP, low PFR, AF below 1.0 — the recreational-fish signature; HARD
+matches the industry 6-max shark band (VPIP 25-35, PFR 14-22, AF 2+).
 
 ---
 

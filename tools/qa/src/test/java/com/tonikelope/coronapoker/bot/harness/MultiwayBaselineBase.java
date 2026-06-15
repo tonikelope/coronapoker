@@ -17,9 +17,9 @@ import org.junit.jupiter.api.BeforeAll;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Baseline-quality tests for the production EXPERT bot in 6-max — the
+ * Baseline-quality tests for the production HARD bot in 6-max — the
  * scenario CoronaPoker is actually played in. Each concrete subclass
- * seats EXPERT at a rotating position and fills the remaining five
+ * seats HARD at a rotating position and fills the remaining five
  * seats with a deterministic {@link FixedStrategyBot} archetype to
  * measure how the bot prints (or bleeds) value against a known table
  * shape. Together with the gradient acid test these tests gate AAA
@@ -43,11 +43,11 @@ abstract class MultiwayBaselineBase {
     }
 
     protected double runMatchup(String label, FixedStrategyBot.Strategy villainStrategy) {
-        BotStats aggHero = new BotStats("EXPERT");
+        BotStats aggHero = new BotStats("HARD");
         BotStats aggVillains = new BotStats(villainStrategy.name() + "_AVG");
         int totalHands = SESSIONS * HANDS_PER_SESSION;
         long startMs = System.currentTimeMillis();
-        System.out.printf("%n[START] EXPERT vs 5x %s (%d sessions × %d hands = %d hands total)%n",
+        System.out.printf("%n[START] HARD vs 5x %s (%d sessions × %d hands = %d hands total)%n",
                 villainStrategy.name(), SESSIONS, HANDS_PER_SESSION, totalHands);
         System.out.flush();
         int progressStep = Math.max(1, SESSIONS / 10);
@@ -88,7 +88,7 @@ abstract class MultiwayBaselineBase {
                 int sessionsDone = session + 1;
                 int handsDone = sessionsDone * HANDS_PER_SESSION;
                 int pct = (sessionsDone * 100) / SESSIONS;
-                System.out.printf("  [EXPERT vs 5x %s] %3d%% — %d/%d sessions (%d hands) — %ds elapsed%n",
+                System.out.printf("  [HARD vs 5x %s] %3d%% — %d/%d sessions (%d hands) — %ds elapsed%n",
                         villainStrategy.name(), pct, sessionsDone, SESSIONS, handsDone, elapsed);
                 System.out.flush();
             }

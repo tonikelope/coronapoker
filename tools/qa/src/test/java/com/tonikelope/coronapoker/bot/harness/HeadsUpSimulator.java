@@ -134,7 +134,7 @@ public final class HeadsUpSimulator {
     }
 
     /**
-     * Assign per-bot difficulty for mixed matchups (e.g. EXPERT vs EASY in the
+     * Assign per-bot difficulty for mixed matchups (e.g. HARD vs EASY in the
      * same hand). Forces personality re-roll for both bots.
      */
     public void setBotDifficulties(Bot.Difficulty diffA, Bot.Difficulty diffB) {

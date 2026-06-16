@@ -5038,6 +5038,9 @@ public class Helpers {
         public static JCheckBoxMenuItem CHAT_IMAGE_MENU;
         public static JCheckBoxMenuItem CINEMATICAS_MENU;
         public static JCheckBoxMenuItem AUTO_ACTION_MENU;
+        public static JCheckBoxMenuItem AUTO_ACTION_PERSIST_MENU;
+        public static JMenuItem AUTO_CALL_MENU;
+        public static JCheckBoxMenuItem MODO_AUTO_CONFIRM_MENU;
         public static JCheckBoxMenuItem LAST_HAND_MENU;
         public static JCheckBoxMenuItem AUTO_ZOOM_MENU;
         public static JRadioButtonMenuItem TAPETE_VERDE;
@@ -5417,6 +5420,27 @@ public class Helpers {
                     }
                 };
 
+                Action persistAutoAction = new AbstractAction(Translator.translate("menu.persistir_auto")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAuto_action_persist_menu().doClick();
+                    }
+                };
+
+                Action modoAutoConfirmAction = new AbstractAction(Translator.translate("menu.modo_auto_confirm")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getModo_auto_confirm_menu().doClick();
+                    }
+                };
+
+                Action autoCallAction = new AbstractAction(Translator.translate("menu.auto_call_hasta")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAuto_call_menu().doClick();
+                    }
+                };
+
                 // === APARIENCIA submenu (display toggles + zoom + decks + mats) ===
                 VISTA_MENU = new JMenu(Translator.translate("menu.apariencia"));
                 VISTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
@@ -5541,6 +5565,28 @@ public class Helpers {
                 AUTO_ACTION_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
                 AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_MENU);
+
+                // Hermano gris: solo operable con "Botones AUTO" activo.
+                AUTO_ACTION_PERSIST_MENU = new LeftClickCheckBoxMenuItem(persistAutoAction);
+                AUTO_ACTION_PERSIST_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
+                AUTO_ACTION_PERSIST_MENU.setSelected(GameFrame.AUTO_ACTION_PERSIST);
+                AUTO_ACTION_PERSIST_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+                popup.add(AUTO_ACTION_PERSIST_MENU);
+
+                AUTO_CALL_MENU = new LeftClickMenuItem(autoCallAction);
+                AUTO_CALL_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
+                AUTO_CALL_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+                popup.add(AUTO_CALL_MENU);
+
+                MODO_AUTO_CONFIRM_MENU = new LeftClickCheckBoxMenuItem(modoAutoConfirmAction);
+                MODO_AUTO_CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
+                MODO_AUTO_CONFIRM_MENU.setSelected(GameFrame.MODO_AUTO_CONFIRM);
+                MODO_AUTO_CONFIRM_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+                popup.add(MODO_AUTO_CONFIRM_MENU);
+
+                // Cierra el grupo "Botones AUTO + hijos" con un separador antes de
+                // "Confirmar" (el separador de arriba ya existe sobre Botones AUTO).
+                popup.addSeparator();
 
                 // Confirmar todas las acciones, justo debajo de Botones AUTO.
                 CONFIRM_MENU = new LeftClickCheckBoxMenuItem(confirmAction);

@@ -153,6 +153,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // local (cuánto tendrá que poner cuando le toque). Por defecto activado.
     public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
+    // Si está activo, una pulsación de un botón AUTO sobrevive entre manos en vez
+    // de resetearse (solo aplica con AUTO_ACTION_BUTTONS activo).
+    public static volatile boolean AUTO_ACTION_PERSIST = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_persist", "false"));
+    // Si está activo, antes de ejecutar una acción automática del pre-pulsado se
+    // muestra un diálogo modal de cuenta atrás (MODO AUTO) que permite vetarla.
+    public static volatile boolean MODO_AUTO_CONFIRM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("modo_auto_confirm", "true"));
+    // Segundos de la barra del diálogo MODO AUTO.
+    public static final int AUTO_CONFIRM_SECONDS = 5;
+    // Auto-call automático hasta este máximo de fichas (0 = desactivado). Con un
+    // valor > 0, el pre-pulsado de check/call iguala cualquier apuesta cuyo coste
+    // de igualar sea <= este máximo, en cualquier calle (generaliza el "+BB").
+    // Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (decimales en pasos de
+    // 0,1, la ficha mínima de CoronaPoker).
+    public static volatile float AUTO_CALL_MAX = Float.parseFloat(Helpers.PROPERTIES.getProperty("auto_call_max", "0"));
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
@@ -2403,6 +2417,55 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int auto_action_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
         opciones_menu.insert(confirmar_menu, auto_action_index >= 0 ? auto_action_index + 1 : opciones_menu.getMenuComponentCount());
 
+        // "Persistir AUTO entre manos" justo debajo de "Botones AUTO" (encima de
+        // "Confirmar"). Hermano gris: solo se habilita con "Botones AUTO" activo.
+        auto_action_persist_menu = new javax.swing.JCheckBoxMenuItem();
+        auto_action_persist_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        auto_action_persist_menu.putClientProperty("i18n.key", "menu.persistir_auto");
+        auto_action_persist_menu.setText(Translator.translate("menu.persistir_auto"));
+        auto_action_persist_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png")));
+        auto_action_persist_menu.setSelected(GameFrame.AUTO_ACTION_PERSIST);
+        auto_action_persist_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        auto_action_persist_menu.addActionListener(e -> setAutoActionPersist(auto_action_persist_menu.isSelected()));
+        int auto_action_persist_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
+        opciones_menu.insert(auto_action_persist_menu, auto_action_persist_index >= 0 ? auto_action_persist_index + 1 : opciones_menu.getMenuComponentCount());
+
+        // "Auto-call hasta…" — abre el selector del máximo de auto-call. Gris si
+        // "Botones AUTO" está off. Va en el grupo, debajo de Persistir.
+        auto_call_menu = new javax.swing.JMenuItem();
+        auto_call_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        auto_call_menu.putClientProperty("i18n.key", "menu.auto_call_hasta");
+        auto_call_menu.setText(Translator.translate("menu.auto_call_hasta"));
+        auto_call_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png")));
+        auto_call_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        auto_call_menu.addActionListener(e -> openAutoCallMaxDialog());
+        int auto_call_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_persist_menu);
+        opciones_menu.insert(auto_call_menu, auto_call_index >= 0 ? auto_call_index + 1 : opciones_menu.getMenuComponentCount());
+
+        // "Confirmar acción AUTO (5s)" — toggle del diálogo MODO AUTO, en el mismo
+        // grupo, debajo de Auto-call. Hermano gris: solo con "Botones AUTO" activo.
+        modo_auto_confirm_menu = new javax.swing.JCheckBoxMenuItem();
+        modo_auto_confirm_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        modo_auto_confirm_menu.putClientProperty("i18n.key", "menu.modo_auto_confirm");
+        modo_auto_confirm_menu.setText(Translator.translate("menu.modo_auto_confirm"));
+        modo_auto_confirm_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png")));
+        modo_auto_confirm_menu.setSelected(GameFrame.MODO_AUTO_CONFIRM);
+        modo_auto_confirm_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        modo_auto_confirm_menu.addActionListener(e -> setModoAutoConfirm(modo_auto_confirm_menu.isSelected()));
+        int modo_auto_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_call_menu);
+        opciones_menu.insert(modo_auto_confirm_menu, modo_auto_index >= 0 ? modo_auto_index + 1 : opciones_menu.getMenuComponentCount());
+
+        // Aísla el grupo "Botones AUTO + hijos" con separadores arriba y abajo
+        // (sin duplicar si ya hay un separador adyacente).
+        int auto_group_start = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(auto_action_menu);
+        if (auto_group_start > 0 && !(opciones_menu.getMenuComponent(auto_group_start - 1) instanceof javax.swing.JPopupMenu.Separator)) {
+            opciones_menu.insertSeparator(auto_group_start);
+        }
+        int auto_group_end = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(modo_auto_confirm_menu);
+        if (auto_group_end >= 0 && (auto_group_end + 1 >= opciones_menu.getMenuComponentCount() || !(opciones_menu.getMenuComponent(auto_group_end + 1) instanceof javax.swing.JPopupMenu.Separator))) {
+            opciones_menu.insertSeparator(auto_group_end + 1);
+        }
+
         // "Detener la timba" y "Salir" juntos, sin separador entre ambos.
         file_menu.remove(jSeparator11);
 
@@ -4011,6 +4074,27 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.TapetePopupMenu.AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
 
+        // "Persistir AUTO" solo es operable con "Botones AUTO" activo: grisar/activar
+        // su checkbox en ambos menús (menú-bar y popup del tapete).
+        if (auto_action_persist_menu != null) {
+            auto_action_persist_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        }
+        if (Helpers.TapetePopupMenu.AUTO_ACTION_PERSIST_MENU != null) {
+            Helpers.TapetePopupMenu.AUTO_ACTION_PERSIST_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        }
+        if (modo_auto_confirm_menu != null) {
+            modo_auto_confirm_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        }
+        if (Helpers.TapetePopupMenu.MODO_AUTO_CONFIRM_MENU != null) {
+            Helpers.TapetePopupMenu.MODO_AUTO_CONFIRM_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        }
+        if (auto_call_menu != null) {
+            auto_call_menu.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        }
+        if (Helpers.TapetePopupMenu.AUTO_CALL_MENU != null) {
+            Helpers.TapetePopupMenu.AUTO_CALL_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+        }
+
         if (GameFrame.AUTO_ACTION_BUTTONS) {
             this.getLocalPlayer().activarPreBotones();
         } else {
@@ -5019,6 +5103,72 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         if (getCrupier() != null) {
             getCrupier().refreshCallCostOverlay();
+        }
+    }
+
+    // "Persistir AUTO entre manos": cuando está activo, la pulsación de un botón
+    // AUTO sobrevive de una mano a la siguiente en vez de resetearse. Solo tiene
+    // sentido (y solo se habilita) con "Botones AUTO" activo. Campo a mano +
+    // sincronización menú↔popup, como los demás toggles.
+    private javax.swing.JCheckBoxMenuItem auto_action_persist_menu;
+
+    public javax.swing.JCheckBoxMenuItem getAuto_action_persist_menu() {
+        return auto_action_persist_menu;
+    }
+
+    public void setAutoActionPersist(boolean value) {
+        GameFrame.AUTO_ACTION_PERSIST = value;
+        Helpers.PROPERTIES.setProperty("auto_action_persist", String.valueOf(value));
+        Helpers.savePropertiesFile();
+        if (auto_action_persist_menu != null) {
+            auto_action_persist_menu.setSelected(value);
+        }
+        if (Helpers.TapetePopupMenu.AUTO_ACTION_PERSIST_MENU != null) {
+            Helpers.TapetePopupMenu.AUTO_ACTION_PERSIST_MENU.setSelected(value);
+        }
+    }
+
+    // Toggle del diálogo de confirmación MODO AUTO (cuenta atrás vetable antes de
+    // cada acción automática). Solo se habilita con "Botones AUTO" activo.
+    private javax.swing.JCheckBoxMenuItem modo_auto_confirm_menu;
+
+    public javax.swing.JCheckBoxMenuItem getModo_auto_confirm_menu() {
+        return modo_auto_confirm_menu;
+    }
+
+    public void setModoAutoConfirm(boolean value) {
+        GameFrame.MODO_AUTO_CONFIRM = value;
+        Helpers.PROPERTIES.setProperty("modo_auto_confirm", String.valueOf(value));
+        Helpers.savePropertiesFile();
+        if (modo_auto_confirm_menu != null) {
+            modo_auto_confirm_menu.setSelected(value);
+        }
+        if (Helpers.TapetePopupMenu.MODO_AUTO_CONFIRM_MENU != null) {
+            Helpers.TapetePopupMenu.MODO_AUTO_CONFIRM_MENU.setSelected(value);
+        }
+    }
+
+    // Ítem de menú que abre el selector del máximo de auto-call. Solo se habilita
+    // con "Botones AUTO" activo.
+    private javax.swing.JMenuItem auto_call_menu;
+
+    public javax.swing.JMenuItem getAuto_call_menu() {
+        return auto_call_menu;
+    }
+
+    public void setAutoCallMax(float value) {
+        GameFrame.AUTO_CALL_MAX = Math.max(0f, value);
+        Helpers.PROPERTIES.setProperty("auto_call_max", String.valueOf(GameFrame.AUTO_CALL_MAX));
+        Helpers.savePropertiesFile();
+    }
+
+    // Abre el spinner modal del máximo de auto-call (0 = desactivado, sin tope por
+    // arriba).
+    public void openAutoCallMaxDialog() {
+        AutoCallMaxDialog dlg = new AutoCallMaxDialog(this, GameFrame.AUTO_CALL_MAX);
+        dlg.setVisible(true);
+        if (dlg.isAccepted()) {
+            setAutoCallMax(dlg.getValue());
         }
     }
 

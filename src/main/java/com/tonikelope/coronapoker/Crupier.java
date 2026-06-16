@@ -14759,7 +14759,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         GameFrame.getInstance().getLocalPlayer().desactivarControles();
 
                         if (GameFrame.AUTO_ACTION_BUTTONS) {
-                            GameFrame.getInstance().getLocalPlayer().desActivarPreBotones();
+                            // Persist mode keeps the queued pre-press across the hand
+                            // boundary (hides the buttons but does not clear pre_pulsado).
+                            GameFrame.getInstance().getLocalPlayer().desActivarPreBotones(!GameFrame.AUTO_ACTION_PERSIST);
                         }
 
                         // The dragon must close after the preflop replay even

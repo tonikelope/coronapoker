@@ -1150,10 +1150,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_check_button.setBackground(new Color(0, 130, 0));
                         player_check_button.setForeground(Color.WHITE);
 
-                        if (pre_pulsado == Player.FOLD) {
-                            desPrePulsarBotonAuto(player_fold_button);
-                        }
-
                         player_fold_button.setBackground(Color.RED);
                         player_fold_button.setForeground(Color.WHITE);
                     } else {
@@ -1438,17 +1434,64 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     if (!auto_pause && GameFrame.AUTO_ACTION_BUTTONS && pre_pulsado != Player.NODEC) {
 
-                        if (player_fold_button.isEnabled() && pre_pulsado == Player.FOLD) {
+                        // Decide qué botón se auto-pulsaría (target) y la etiqueta
+                        // para el diálogo MODO AUTO. Check/Fold: si pasar es gratis
+                        // pasamos (manteniendo el armado); si hay que pagar nos
+                        // tiramos. Check/Call: pasa gratis o iguala según las reglas
+                        // del pre-pulsado de check.
+                        JButton target = null;
+                        String action_key = null;
 
-                            player_fold_button.doClick();
+                        if (pre_pulsado == Player.FOLD) {
 
-                        } else if (player_check_button.isEnabled() && pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0))) {
+                            if (player_check_button.isEnabled() && Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                                target = player_check_button;
+                                action_key = "modo_auto.pasar";
+                            } else if (player_fold_button.isEnabled()) {
+                                target = player_fold_button;
+                                action_key = "modo_auto.tirar";
+                            }
 
-                            player_check_button.doClick();
+                        } else if (player_check_button.isEnabled() && pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (Helpers.float1DSecureCompare(0f, GameFrame.AUTO_CALL_MAX) < 0 && Helpers.float1DSecureCompare(call_required, GameFrame.AUTO_CALL_MAX) <= 0))) {
+
+                            target = player_check_button;
+                            action_key = (Helpers.float1DSecureCompare(0f, call_required) == 0) ? "modo_auto.pasar" : "modo_auto.igualar";
+                        }
+
+                        if (target == null) {
+
+                            desPrePulsarAutoTodo();
 
                         } else {
 
-                            desPrePulsarAutoTodo();
+                            boolean proceed = true;
+
+                            if (GameFrame.MODO_AUTO_CONFIRM) {
+                                // Veto de 5s: diálogo modal centrado. Bloquea aquí
+                                // (EDT, bucle modal) hasta cancelar o expirar la barra.
+                                AutoActionDialog dlg = new AutoActionDialog(GameFrame.getInstance(), LocalPlayer.this, GameFrame.AUTO_CONFIRM_SECONDS, Translator.translate(action_key));
+                                dlg.setVisible(true);
+                                proceed = !dlg.isCancelled();
+                            }
+
+                            if (proceed) {
+
+                                // Armar el check salta el segundo clic de
+                                // CONFIRM_ACTIONS, igual que el auto-pase por timeout.
+                                if (target == player_check_button) {
+                                    action_button_armed.put(player_check_button, true);
+                                }
+                                target.doClick();
+
+                            } else {
+
+                                // Cancelado en el diálogo MODO AUTO: desarmar SIEMPRE
+                                // (requiere re-armado manual), también con persistencia.
+                                // desPrePulsarAutoTodo es no-op aquí (turno==true), así
+                                // que limpiamos el pre-pulsado directamente; el
+                                // activarPreBotones de finTurno ya no lo re-resaltará.
+                                pre_pulsado = Player.NODEC;
+                            }
                         }
                     }
 
@@ -1487,7 +1530,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
             }
 
-            if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN && getDecision() != Player.FOLD) {
+            // Tras tirarse (FOLD) también se reactivan los pre-botones AUTO para
+            // poder armarlos fuera de turno (de cara a las manos siguientes); un
+            // jugador en FOLD está saltado en el bucle de apuestas, así que el
+            // pre-pulsado nunca dispara esta mano. ALLIN sí queda fuera. Requiere
+            // el toggle "Botones AUTO" activo.
+            if (GameFrame.AUTO_ACTION_BUTTONS && getDecision() != Player.ALLIN) {
                 activarPreBotones();
             }
 
@@ -1561,14 +1609,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             return;
         }
 
-        pre_pulsado = dec;
-
         Helpers.GUIRunAndWait(() -> {
 
-            // Double check inside the GUI thread
+            // Double check inside the GUI thread: commit pre_pulsado AND the
+            // highlight together under the same !turno gate. If the turn opened
+            // between the outer check and here, neither is applied — so a press
+            // landing exactly on the turn boundary is not auto-fired by
+            // esTuTurno, and pre_pulsado can never disagree with the highlight.
             if (turno) {
                 return;
             }
+
+            pre_pulsado = dec;
 
             boton.setBackground(Color.YELLOW);
             boton.setForeground(Color.BLACK);
@@ -1643,7 +1695,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public void activarPreBotones() {
 
-        if (!turno && decision != Player.FOLD && decision != Player.ALLIN && !GameFrame.getInstance().getCrupier().isShow_time()) {
+        // FOLD ya no bloquea: un jugador tirado puede ver/armar los pre-botones
+        // fuera de su turno (para las manos siguientes). ALLIN, espectador, exit y
+        // showdown sí siguen bloqueando.
+        if (!turno && decision != Player.ALLIN && !spectator && !exit && !GameFrame.getInstance().getCrupier().isShow_time()) {
 
             Helpers.GUIRunAndWait(() -> {
                 player_check_button.setBackground(null);
@@ -1673,11 +1728,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     public void desActivarPreBotones() {
+        desActivarPreBotones(true);
+    }
+
+    // reset_pre_press=false keeps the queued pre_pulsado alive while still
+    // hiding the [AUTO] buttons: used at end of hand when "persist between
+    // hands" is on, so the pre-press survives into the next hand and is
+    // re-armed by the first activarPreBotones of the new hand.
+    public void desActivarPreBotones(boolean reset_pre_press) {
 
         if (!turno) {
 
             Helpers.GUIRunAndWait(() -> {
-                desPrePulsarAutoTodo();
+                if (reset_pre_press) {
+                    desPrePulsarAutoTodo();
+                }
 
                 player_check_button.setText(" ");
                 player_check_button.setIcon(null);
@@ -1794,7 +1859,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         // RemotePlayer.nuevaMano — fix bug primera mano post-RECOVER).
         setAvatar();
 
-        desPrePulsarAutoTodo();
+        // "Persist AUTO between hands" keeps the queued pre-press across the
+        // hand boundary; otherwise (default) it is cleared at the start of
+        // every hand as before.
+        if (!(GameFrame.AUTO_ACTION_BUTTONS && GameFrame.AUTO_ACTION_PERSIST)) {
+            desPrePulsarAutoTodo();
+        }
 
         this.decision = Player.NODEC;
 

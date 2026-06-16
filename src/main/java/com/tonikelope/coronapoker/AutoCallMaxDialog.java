@@ -39,6 +39,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -48,8 +49,9 @@ import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
 /**
- * Selector del máximo de auto-call: un spinner modal (0 = desactivado) para fijar
- * hasta cuántas fichas igualará automáticamente el pre-pulsado de check/call.
+ * Diálogo modal de AUTO CALL: un checkbox "Activado" (on/off) más un spinner para
+ * fijar el límite de fichas que el pre-pulsado de check/call igualará
+ * automáticamente (0 = sin límite). El checkbox habilita/deshabilita el spinner.
  *
  * @author tonikelope
  */
@@ -59,15 +61,21 @@ public class AutoCallMaxDialog extends JDialog {
 
     private final JSpinner spinner = new JSpinner();
 
+    private final JCheckBox enabled_check = new JCheckBox();
+
     public boolean isAccepted() {
         return accepted;
+    }
+
+    public boolean isAutoCallEnabled() {
+        return enabled_check.isSelected();
     }
 
     public float getValue() {
         return ((BigDecimal) spinner.getValue()).floatValue();
     }
 
-    public AutoCallMaxDialog(Frame parent, float current) {
+    public AutoCallMaxDialog(Frame parent, boolean enabled, float current) {
 
         super(parent, true);
 
@@ -92,8 +100,8 @@ public class AutoCallMaxDialog extends JDialog {
         gbc.insets = new Insets(8, 24, 8, 24);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JLabel title = new JLabel(Translator.translate("menu.auto_call_hasta"));
-        title.putClientProperty("i18n.key", "menu.auto_call_hasta");
+        JLabel title = new JLabel(Translator.translate("menu.auto_call"));
+        title.putClientProperty("i18n.key", "menu.auto_call");
         title.setFont(new Font("Dialog", Font.BOLD, 30));
         title.setForeground(new Color(255, 102, 0));
         title.setHorizontalAlignment(SwingConstants.CENTER);
@@ -101,9 +109,32 @@ public class AutoCallMaxDialog extends JDialog {
         panel.add(title, gbc);
 
         gbc.gridy++;
-        JLabel hint = new JLabel(Translator.translate("auto_call.cero_desactiva"));
-        hint.putClientProperty("i18n.key", "auto_call.cero_desactiva");
-        hint.setFont(new Font("Dialog", Font.PLAIN, 14));
+        enabled_check.setSelected(enabled);
+        enabled_check.setFont(new Font("Dialog", Font.BOLD, 24));
+        enabled_check.setBackground(Color.WHITE);
+        enabled_check.setHorizontalAlignment(SwingConstants.CENTER);
+        enabled_check.setFocusable(false);
+        enabled_check.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // La etiqueta refleja el estado: ACTIVADO (verde) marcado, DESACTIVADO
+        // (rojo) sin marcar. El checkbox además habilita/deshabilita el spinner.
+        Runnable refreshLabel = () -> {
+            boolean on = enabled_check.isSelected();
+            String key = on ? "auto_call.activado" : "auto_call.desactivado";
+            enabled_check.setText(Translator.translate(key));
+            enabled_check.putClientProperty("i18n.key", key);
+            enabled_check.setForeground(on ? new Color(0, 130, 0) : new Color(200, 0, 0));
+        };
+        enabled_check.addActionListener((java.awt.event.ActionEvent e) -> {
+            refreshLabel.run();
+            spinner.setEnabled(enabled_check.isSelected());
+        });
+        refreshLabel.run();
+        panel.add(enabled_check, gbc);
+
+        gbc.gridy++;
+        JLabel hint = new JLabel(Translator.translate("auto_call.cero_sin_limite"));
+        hint.putClientProperty("i18n.key", "auto_call.cero_sin_limite");
+        hint.setFont(new Font("Dialog", Font.PLAIN, 18));
         hint.setForeground(Color.DARK_GRAY);
         hint.setHorizontalAlignment(SwingConstants.CENTER);
         hint.setFocusable(false);
@@ -126,7 +157,17 @@ public class AutoCallMaxDialog extends JDialog {
         spinner.setFont(new Font("Dialog", Font.BOLD, 24));
         ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField().setEditable(false);
         spinner.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        spinner.setEnabled(enabled);
         panel.add(spinner, gbc);
+
+        gbc.gridy++;
+        JLabel note = new JLabel(Translator.translate("auto_call.nota"));
+        note.putClientProperty("i18n.key", "auto_call.nota");
+        note.setFont(new Font("Dialog", Font.ITALIC, 16));
+        note.setForeground(Color.GRAY);
+        note.setHorizontalAlignment(SwingConstants.CENTER);
+        note.setFocusable(false);
+        panel.add(note, gbc);
 
         gbc.gridy++;
         JButton ok = new JButton(Translator.translate("ui.aceptar"));

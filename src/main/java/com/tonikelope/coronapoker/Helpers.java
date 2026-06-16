@@ -5434,7 +5434,7 @@ public class Helpers {
                     }
                 };
 
-                Action autoCallAction = new AbstractAction(Translator.translate("menu.auto_call_hasta")) {
+                Action autoCallAction = new AbstractAction(Translator.translate("menu.auto_call")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAuto_call_menu().doClick();
@@ -5566,17 +5566,17 @@ public class Helpers {
                 AUTO_ACTION_MENU.setSelected(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_MENU);
 
-                // Hermano gris: solo operable con "Botones AUTO" activo.
+                AUTO_CALL_MENU = new LeftClickMenuItem(autoCallAction);
+                AUTO_CALL_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
+                AUTO_CALL_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
+                popup.add(AUTO_CALL_MENU);
+
+                // Hermano gris: solo operable con "Modo AUTO" activo.
                 AUTO_ACTION_PERSIST_MENU = new LeftClickCheckBoxMenuItem(persistAutoAction);
                 AUTO_ACTION_PERSIST_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
                 AUTO_ACTION_PERSIST_MENU.setSelected(GameFrame.AUTO_ACTION_PERSIST);
                 AUTO_ACTION_PERSIST_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
                 popup.add(AUTO_ACTION_PERSIST_MENU);
-
-                AUTO_CALL_MENU = new LeftClickMenuItem(autoCallAction);
-                AUTO_CALL_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));
-                AUTO_CALL_MENU.setEnabled(GameFrame.AUTO_ACTION_BUTTONS);
-                popup.add(AUTO_CALL_MENU);
 
                 MODO_AUTO_CONFIRM_MENU = new LeftClickCheckBoxMenuItem(modoAutoConfirmAction);
                 MODO_AUTO_CONFIRM_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/auto.png")));

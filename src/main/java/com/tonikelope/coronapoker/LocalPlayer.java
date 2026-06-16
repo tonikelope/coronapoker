@@ -1452,7 +1452,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 action_key = "modo_auto.tirar";
                             }
 
-                        } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (Helpers.float1DSecureCompare(0f, GameFrame.AUTO_CALL_MAX) < 0 && Helpers.float1DSecureCompare(call_required, GameFrame.AUTO_CALL_MAX) <= 0))) {
+                        } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (GameFrame.AUTO_CALL_ENABLED && (Helpers.float1DSecureCompare(0f, GameFrame.AUTO_CALL_MAX) == 0 || Helpers.float1DSecureCompare(Math.min(call_required, stack), GameFrame.AUTO_CALL_MAX) <= 0)))) {
 
                             if (player_check_button.isEnabled()) {
                                 target = player_check_button;
@@ -1460,9 +1460,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             } else if (player_allin_button.isEnabled()) {
                                 // Igualar exige all-in (coste a igualar >= stack, el
                                 // check está deshabilitado): la única forma de igualar
-                                // dentro del presupuesto es irse all-in. Se arriesga el
-                                // stack, que es <= coste <= AUTO_CALL_MAX, así que sigue
-                                // dentro del tope de auto-call.
+                                // es irse all-in. El tope ya se evaluó contra lo que
+                                // realmente se compromete —min(coste, stack), que en
+                                // este caso es el stack—, así que stack <= AUTO_CALL_MAX
+                                // y nunca se arriesga más que el tope. Es el mismo
+                                // importe que enseña el overlay de "coste de igualar".
                                 target = player_allin_button;
                                 action_key = "modo_auto.igualar";
                             }

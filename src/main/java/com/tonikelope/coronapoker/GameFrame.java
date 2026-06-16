@@ -3475,7 +3475,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_action_menu.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
         auto_action_menu.setSelected(true);
-        auto_action_menu.setText("Botones AUTO");
+        auto_action_menu.setText("Modo AUTO");
         auto_action_menu.putClientProperty("i18n.key", "menu.botones_auto");
         auto_action_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/auto.png"))); // NOI18N
         auto_action_menu.addActionListener(new java.awt.event.ActionListener() {

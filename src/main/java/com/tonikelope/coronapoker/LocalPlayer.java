@@ -1462,36 +1462,63 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             desPrePulsarAutoTodo();
 
+                        } else if (GameFrame.MODO_AUTO_CONFIRM) {
+
+                            // Veto de 5s NO modal: el resto del tablero/menú siguen
+                            // usables, pero la botonera de acción del LocalPlayer se
+                            // DESACTIVA mientras corre (el diálogo es el punto de
+                            // decisión). Guardamos su estado para restaurarlo al
+                            // resolver. La resolución va por callback (EDT): al expirar
+                            // se ejecuta; al cancelar (o si el turno se resuelve por
+                            // otra vía) se desarma SIEMPRE (re-armado manual) y se
+                            // recupera el control manual. doClick re-chequea NODEC.
+                            final JButton fire_target = target;
+
+                            final boolean check_en = player_check_button.isEnabled();
+                            final boolean fold_en = player_fold_button.isEnabled();
+                            final boolean bet_en = player_bet_button.isEnabled();
+                            final boolean allin_en = player_allin_button.isEnabled();
+                            final boolean spinner_en = bet_spinner.isEnabled();
+
+                            player_check_button.setEnabled(false);
+                            player_fold_button.setEnabled(false);
+                            player_bet_button.setEnabled(false);
+                            player_allin_button.setEnabled(false);
+                            bet_spinner.setEnabled(false);
+
+                            AutoActionDialog dlg = new AutoActionDialog(
+                                    GameFrame.getInstance(), LocalPlayer.this, GameFrame.AUTO_CONFIRM_SECONDS,
+                                    Translator.translate(action_key),
+                                    () -> getDecision() == Player.NODEC,
+                                    (cancelled) -> {
+                                        // Restaurar la botonera (el doClick necesita el
+                                        // botón enabled; y al cancelar el jugador
+                                        // recupera el control manual).
+                                        player_check_button.setEnabled(check_en);
+                                        player_fold_button.setEnabled(fold_en);
+                                        player_bet_button.setEnabled(bet_en);
+                                        player_allin_button.setEnabled(allin_en);
+                                        bet_spinner.setEnabled(spinner_en);
+
+                                        if (!cancelled && getDecision() == Player.NODEC) {
+                                            if (fire_target == player_check_button) {
+                                                action_button_armed.put(player_check_button, true);
+                                            }
+                                            fire_target.doClick();
+                                        } else if (cancelled) {
+                                            pre_pulsado = Player.NODEC;
+                                        }
+                                    });
+                            dlg.setVisible(true);
+
                         } else {
 
-                            boolean proceed = true;
-
-                            if (GameFrame.MODO_AUTO_CONFIRM) {
-                                // Veto de 5s: diálogo modal centrado. Bloquea aquí
-                                // (EDT, bucle modal) hasta cancelar o expirar la barra.
-                                AutoActionDialog dlg = new AutoActionDialog(GameFrame.getInstance(), LocalPlayer.this, GameFrame.AUTO_CONFIRM_SECONDS, Translator.translate(action_key));
-                                dlg.setVisible(true);
-                                proceed = !dlg.isCancelled();
+                            // Sin diálogo de veto: ejecutar directamente. Armar el
+                            // check salta el segundo clic de CONFIRM_ACTIONS.
+                            if (target == player_check_button) {
+                                action_button_armed.put(player_check_button, true);
                             }
-
-                            if (proceed) {
-
-                                // Armar el check salta el segundo clic de
-                                // CONFIRM_ACTIONS, igual que el auto-pase por timeout.
-                                if (target == player_check_button) {
-                                    action_button_armed.put(player_check_button, true);
-                                }
-                                target.doClick();
-
-                            } else {
-
-                                // Cancelado en el diálogo MODO AUTO: desarmar SIEMPRE
-                                // (requiere re-armado manual), también con persistencia.
-                                // desPrePulsarAutoTodo es no-op aquí (turno==true), así
-                                // que limpiamos el pre-pulsado directamente; el
-                                // activarPreBotones de finTurno ya no lo re-resaltará.
-                                pre_pulsado = Player.NODEC;
-                            }
+                            target.doClick();
                         }
                     }
 

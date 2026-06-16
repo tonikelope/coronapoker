@@ -37,6 +37,8 @@ import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -47,28 +49,46 @@ import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
 /**
- * Ventana de confirmación del MODO AUTO: antes de ejecutar una acción
- * automática (el pre-pulsado de los botones AUTO) se muestra una cuenta atrás
- * modal con un botón rojo de cancelar. Si expira la barra, la acción se ejecuta;
- * si se cancela, NO se ejecuta esta mano (el jugador recupera el control manual)
- * — la pre-pulsación se mantiene o no según "Persistir AUTO entre manos", de eso
- * se encarga quien invoca este diálogo.
+ * Veto del MODO AUTO: antes de ejecutar una acción automática (el pre-pulsado de
+ * los botones AUTO) se muestra una cuenta atrás con un botón rojo de cancelar,
+ * NO modal — el jugador puede seguir usando el tablero / menú (clic, clic derecho)
+ * mientras corre. La resolución se entrega por callback en el EDT: al expirar la
+ * barra se ejecuta la acción; al cancelar (o si el turno se resuelve por otra vía
+ * o se cae la partida) NO se ejecuta. keep_waiting permite abortar si el jugador
+ * actúa a mano mientras corría la cuenta.
  *
  * @author tonikelope
  */
 public class AutoActionDialog extends JDialog {
 
-    private volatile boolean cancelled = false;
+    private volatile boolean resolved = false;
 
     private final JProgressBar barra = new JProgressBar();
 
-    public boolean isCancelled() {
-        return cancelled;
+    private final Consumer<Boolean> on_resolve;
+
+    // Resolución de un solo disparo. cancelled=true -> NO ejecutar (cancelar /
+    // abortar); cancelled=false -> timeout -> ejecutar. Cierra el diálogo e
+    // invoca el callback en el EDT.
+    private synchronized void resolve(boolean cancelled) {
+        if (resolved) {
+            return;
+        }
+        resolved = true;
+        Helpers.GUIRun(() -> {
+            Helpers.resetBarra(barra, 0);
+            dispose();
+            if (on_resolve != null) {
+                on_resolve.accept(cancelled);
+            }
+        });
     }
 
-    public AutoActionDialog(Frame parent, Component center_over, int seconds, String action_text) {
+    public AutoActionDialog(Frame parent, Component center_over, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
-        super(parent, true);
+        super(parent, false);
+
+        this.on_resolve = on_resolve;
 
         setUndecorated(true);
         setResizable(false);
@@ -114,32 +134,14 @@ public class AutoActionDialog extends JDialog {
         cancel.setFont(new Font("Dialog", Font.BOLD, 18));
         cancel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         cancel.setFocusable(false);
-        cancel.addActionListener((java.awt.event.ActionEvent e) -> {
-            cancelled = true;
-            dispose();
-        });
+        cancel.addActionListener((java.awt.event.ActionEvent e) -> resolve(true));
         panel.add(cancel, gbc);
 
         setContentPane(panel);
 
-        addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowActivated(java.awt.event.WindowEvent evt) {
-                if (isModal()) {
-                    Init.CURRENT_MODAL_DIALOG.add(AutoActionDialog.this);
-                }
-            }
-
-            @Override
-            public void windowDeactivated(java.awt.event.WindowEvent evt) {
-                if (isModal()) {
-                    try {
-                        Init.CURRENT_MODAL_DIALOG.removeLast();
-                    } catch (Exception ex) {
-                    }
-                }
-            }
-        });
+        // No-modal: que no robe el foco del teclado al tablero. El botón Cancelar
+        // sigue respondiendo al ratón aunque la ventana no sea focusable.
+        setFocusableWindowState(false);
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
@@ -149,35 +151,40 @@ public class AutoActionDialog extends JDialog {
         // frame; si por lo que sea no está mostrándose, cae al centro del owner.
         setLocationRelativeTo(center_over != null && center_over.isShowing() ? center_over : parent);
 
-        // Cuenta atrás en background: decrementa solo si la timba no está pausada
-        // ni se está cerrando; al expirar (o si la partida termina) cierra el
-        // diálogo. El cierre por timeout deja cancelled=false -> la acción se
-        // ejecuta; Cancelar lo pone a true. Si la partida se cae, lo tratamos
-        // como cancelar (no auto-actuar sobre una mano que ya no sigue).
+        // Translúcido al 80% (como el diálogo de run-it-twice): deja entrever la
+        // mesa detrás mientras corre la cuenta atrás.
+        setOpacity(0.8f);
+
+        // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
+        // fin de partida o keep_waiting falso (el jugador actuó a mano) -> abortar.
         Helpers.threadRun(() -> {
 
             Helpers.GUIRun(() -> Helpers.smoothCountdown(barra, seconds));
 
             int t = seconds;
 
-            while (t > 0 && !cancelled) {
+            while (t > 0 && !resolved) {
 
                 Helpers.pausar(1000);
 
-                if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
-                    cancelled = true;
-                    break;
+                if (resolved) {
+                    return;
                 }
 
-                if (!GameFrame.getInstance().isTimba_pausada() && !cancelled) {
+                if (GameFrame.getInstance().getCrupier().isFin_de_la_transmision()
+                        || (keep_waiting != null && !keep_waiting.getAsBoolean())) {
+                    resolve(true);
+                    return;
+                }
+
+                if (!GameFrame.getInstance().isTimba_pausada()) {
                     --t;
                 }
             }
 
-            Helpers.GUIRun(() -> {
-                Helpers.resetBarra(barra, 0);
-                dispose();
-            });
+            if (!resolved) {
+                resolve(false);
+            }
         });
     }
 }

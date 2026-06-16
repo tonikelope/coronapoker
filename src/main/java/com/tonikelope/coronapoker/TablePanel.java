@@ -885,12 +885,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             hidePlayerCallCostOverlays();
             return;
         }
+        // Apuesta actual de la ronda: el overlay solo va sobre quien ya la haya
+        // igualado o subido (su bet coincide), no sobre quien siga en el bote sin hablar.
+        float current_bet = GameFrame.getInstance().getCrupier().getApuesta_actual();
         for (RemotePlayer rp : rps) {
             if (rp == null) {
                 continue;
             }
             CallCostOverlayLabel lbl = player_call_cost_labels.get(rp);
-            if (isPotPlayerWithHiddenCards(rp)) {
+            if (isPotPlayerMatchingCurrentBet(rp, current_bet)) {
                 if (lbl == null) {
                     lbl = new CallCostOverlayLabel();
                     lbl.setFocusable(false);
@@ -915,17 +918,27 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Un RemotePlayer está "en el bote con cartas tapadas" si sus dos hole cards siguen
-    // visibles en mesa (al foldear se ocultan con setVisibleCard(false)) y boca abajo.
-    // Eso excluye foldeados (ocultas), all-in revelados y, por usar remotePlayers, al
-    // jugador local.
-    private static boolean isPotPlayerWithHiddenCards(RemotePlayer rp) {
+    // Un RemotePlayer recibe el overlay del river si (a) sigue en el bote con sus dos
+    // hole cards visibles en mesa (al foldear se ocultan con setVisibleCard(false)) y
+    // boca abajo —eso excluye foldeados, all-in revelados y, por usar remotePlayers, al
+    // jugador local— y (b) ya ha IGUALADO o SUBIDO la apuesta actual de esta ronda (su
+    // bet coincide con apuesta_actual). Los que siguen en el bote pero aún no han hablado
+    // (bet < apuesta_actual) no lo muestran hasta que igualen. El motor no distingue
+    // call de raise por decisión (ambos son BET con distinto importe), así que el
+    // criterio fiable es el importe igualado, no el enum de decisión.
+    private static boolean isPotPlayerMatchingCurrentBet(RemotePlayer rp, float current_bet) {
         Card c1 = rp.getHoleCard1();
         Card c2 = rp.getHoleCard2();
-        return c1 != null && c2 != null
-                && c1.isVisible_card() && c2.isVisible_card()
-                && c1.isTapada() && c2.isTapada()
-                && !c1.isSecure_hidden() && !c2.isSecure_hidden();
+        if (c1 == null || c2 == null
+                || !c1.isVisible_card() || !c2.isVisible_card()
+                || !c1.isTapada() || !c2.isTapada()
+                || c1.isSecure_hidden() || c2.isSecure_hidden()) {
+            return false;
+        }
+        // apuesta_actual > 0 está garantizado (el overlay solo se pide cuando el local
+        // tiene algo que igualar), pero lo comprobamos por robustez.
+        return Helpers.float1DSecureCompare(current_bet, 0f) > 0
+                && Helpers.float1DSecureCompare(current_bet, rp.getBet()) == 0;
     }
 
     // Recoloca/reescala el overlay de un RemotePlayer para cubrir, centrado, sus dos
@@ -1040,7 +1053,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         // Tunables de contraste/visibilidad.
         private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 204);
         private final java.awt.Color halo = new java.awt.Color(255, 255, 0, 204);
-        private static final float STROKE_RATIO = 0.03f; // grosor del halo ∝ tamaño de fuente
+        private static final float STROKE_RATIO = 0.05f; 
 
         @Override
         protected void paintComponent(java.awt.Graphics g) {

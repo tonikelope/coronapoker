@@ -78,6 +78,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // apuestas.
     protected final CallCostOverlayLabel call_cost_label = new CallCostOverlayLabel();
 
+    // Overlays de coste por jugador para la ronda del RIVER: cuando ya no quedan
+    // comunitarias por destapar, el coste de igualar pasa a mostrarse sobre las hole
+    // cards TAPADAS de cada RemotePlayer que sigue en el bote (nunca sobre el local,
+    // que ve sus cartas) — el coste de igualar es ahí el coste de "destapar" las manos
+    // rivales en el showdown. Viven en DRAG_LAYER (por encima de todo el tablero) y se
+    // gestionan solo en el EDT. La clave es el RemotePlayer (objeto estable por asiento).
+    private final java.util.Map<RemotePlayer, CallCostOverlayLabel> player_call_cost_labels = new java.util.HashMap<>();
+    private final java.util.Set<RemotePlayer> player_call_overlay_listeners = new java.util.HashSet<>();
+
     protected final TapeteFastButtons fastbuttons = new TapeteFastButtons();
 
     protected volatile Long central_label_thread = null;
@@ -169,11 +178,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     fastbuttons.setLocation(0, (int) (getHeight() - fastbuttons.getSize().getHeight()));
 
                     // El overlay de coste de igualar está posicionado en absoluto:
-                    // tras un resize/zoom hay que recolocarlo sobre las comunitarias.
+                    // tras un resize/zoom hay que recolocarlo sobre las comunitarias
+                    // (o sobre las hole cards rivales, en la ronda del river).
                     if (call_cost_label.isVisible()) {
                         layoutCallCostOverlay();
                         call_cost_label.repaint();
                     }
+                    relayoutPlayerCallCostOverlaysIfVisible();
 
                     if (GameFrame.getInstance() != null && GameFrame.getInstance().isFull_screen()) {
                         GameFrame.getInstance().setExtendedState(JFrame.MAXIMIZED_BOTH);
@@ -698,18 +709,51 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // con la altura de las comunitarias para verse grande sin tapar nada (gris 50%).
     public void updateCallCostOverlay(String text) {
         Helpers.GUIRun(() -> {
-            call_cost_label.setText(text);
-            if (layoutCallCostOverlay()) {
-                call_cost_label.setVisible(true);
-                call_cost_label.repaint();
+            if (hasFaceDownCommunityCards()) {
+                // Preflop/flop/turn: aún quedan comunitarias por destapar → overlay
+                // único sobre las tapadas.
+                hidePlayerCallCostOverlays();
+                call_cost_label.setText(text);
+                if (layoutCallCostOverlay()) {
+                    call_cost_label.setVisible(true);
+                    call_cost_label.repaint();
+                } else {
+                    call_cost_label.setVisible(false);
+                }
             } else {
+                // River: ya no hay comunitarias que destapar → el coste se reparte
+                // sobre las hole cards tapadas de cada RemotePlayer que sigue en el bote.
                 call_cost_label.setVisible(false);
+                updatePlayerCallCostOverlays(text);
             }
         });
     }
 
     public void hideCallCostOverlay() {
-        Helpers.GUIRun(() -> call_cost_label.setVisible(false));
+        Helpers.GUIRun(() -> {
+            call_cost_label.setVisible(false);
+            hidePlayerCallCostOverlays();
+        });
+    }
+
+    // ¿Queda alguna comunitaria boca abajo? Determina el modo del overlay de coste:
+    // si sí → overlay único sobre las comunitarias; si no (ronda del river) → overlays
+    // por RemotePlayer.
+    private boolean hasFaceDownCommunityCards() {
+        CommunityCardsPanel cc = getCommunityCards();
+        if (cc == null) {
+            return false;
+        }
+        Card[] comunes = cc.getCartasComunes();
+        if (comunes == null) {
+            return false;
+        }
+        for (Card c : comunes) {
+            if (c != null && c.isTapada()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private volatile boolean call_overlay_listener_attached = false;
@@ -733,12 +777,43 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             if (!cards.isShowing() || !isShowing()) {
                 return false;
             }
+
+            // El overlay solo cubre las comunitarias que SIGUEN TAPADAS: el coste de
+            // igualar es a la vez el coste de "destapar" la(s) carta(s) que faltan
+            // (preflop → las 5; tras el flop → turn + river; tras el turn → river), y
+            // así no estorba la visión de las cartas ya descubiertas. Como se reparten
+            // en fila (flop1·flop2·flop3·turn·river) las tapadas son siempre un sufijo.
+            // Si no queda ninguna tapada (ronda del river) cae al conjunto entero para
+            // no perder el dato del coste.
+            java.awt.Rectangle box = unionCardBounds(comunes, true);
+            if (box == null) {
+                box = unionCardBounds(comunes, false);
+            }
+            if (box == null || box.width <= 0 || box.height <= 0) {
+                return false;
+            }
+
             java.awt.Point cp = cards.getLocationOnScreen();
             java.awt.Point origin = getLocationOnScreen();
-            call_cost_label.setBounds(cp.x - origin.x, cp.y - origin.y, cards.getWidth(), cards.getHeight());
+            call_cost_label.setBounds(cp.x - origin.x + box.x, cp.y - origin.y + box.y, box.width, box.height);
+
+            // Fuente proporcional a la altura REAL de una carta, pero ENCOGIDA si hace
+            // falta para que el número quepa en el ancho del área cubierta: con una sola
+            // carta (river) el texto se ajusta para no desbordar sobre las descubiertas.
             int card_h = ref.getHeight();
-            float base = card_h > 0 ? card_h : cards.getHeight();
-            float size = Math.max(12f, base * 0.9f);
+            float base = card_h > 0 ? card_h : box.height;
+            float size = base * 0.9f;
+            final String text = call_cost_label.getText();
+            if (text != null && !text.isEmpty()) {
+                java.awt.FontMetrics fm = call_cost_label.getFontMetrics(
+                        call_cost_label.getFont().deriveFont(java.awt.Font.BOLD, size));
+                int text_w = fm.stringWidth(text);
+                float budget = box.width * 0.92f;
+                if (text_w > budget && text_w > 0) {
+                    size *= budget / text_w;
+                }
+            }
+            size = Math.max(12f, size);
             call_cost_label.setFont(call_cost_label.getFont().deriveFont(java.awt.Font.BOLD, size));
             return true;
         } catch (Exception ex) {
@@ -747,6 +822,20 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             return false;
         }
+    }
+
+    // Bounding box (en coordenadas de cards_panel, el padre de las cartas) de las
+    // comunitarias: si only_tapadas, solo las que siguen boca abajo; si no, todas.
+    // Devuelve null si no hay ninguna que contar.
+    private static java.awt.Rectangle unionCardBounds(Card[] comunes, boolean only_tapadas) {
+        java.awt.Rectangle box = null;
+        for (Card c : comunes) {
+            if (c == null || (only_tapadas && !c.isTapada())) {
+                continue;
+            }
+            box = (box == null) ? c.getBounds() : box.union(c.getBounds());
+        }
+        return box;
     }
 
     // Engancha (una sola vez) listeners que reescalan/recolocan el overlay cuando la
@@ -785,6 +874,162 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         });
     }
 
+    // --- Overlays de coste por RemotePlayer (ronda del river) ----------------------
+
+    // Pinta/actualiza un overlay de coste sobre las hole cards de cada RemotePlayer que
+    // sigue en el bote con sus cartas tapadas. Reutiliza una etiqueta por jugador.
+    // Debe llamarse en el EDT.
+    private void updatePlayerCallCostOverlays(String text) {
+        RemotePlayer[] rps = remotePlayers;
+        if (rps == null) {
+            hidePlayerCallCostOverlays();
+            return;
+        }
+        for (RemotePlayer rp : rps) {
+            if (rp == null) {
+                continue;
+            }
+            CallCostOverlayLabel lbl = player_call_cost_labels.get(rp);
+            if (isPotPlayerWithHiddenCards(rp)) {
+                if (lbl == null) {
+                    lbl = new CallCostOverlayLabel();
+                    lbl.setFocusable(false);
+                    lbl.setOpaque(false);
+                    lbl.setVisible(false);
+                    // DRAG_LAYER: por encima de todo lo que vive en el asiento (cartas,
+                    // ficha de posición, GIFs de chat/rebuy, franja de bote).
+                    add(lbl, JLayeredPane.DRAG_LAYER);
+                    player_call_cost_labels.put(rp, lbl);
+                }
+                attachPlayerCallOverlayResizeListener(rp);
+                lbl.setText(text);
+                if (layoutPlayerCallCostOverlay(rp, lbl)) {
+                    lbl.setVisible(true);
+                    lbl.repaint();
+                } else {
+                    lbl.setVisible(false);
+                }
+            } else if (lbl != null) {
+                lbl.setVisible(false);
+            }
+        }
+    }
+
+    // Un RemotePlayer está "en el bote con cartas tapadas" si sus dos hole cards siguen
+    // visibles en mesa (al foldear se ocultan con setVisibleCard(false)) y boca abajo.
+    // Eso excluye foldeados (ocultas), all-in revelados y, por usar remotePlayers, al
+    // jugador local.
+    private static boolean isPotPlayerWithHiddenCards(RemotePlayer rp) {
+        Card c1 = rp.getHoleCard1();
+        Card c2 = rp.getHoleCard2();
+        return c1 != null && c2 != null
+                && c1.isVisible_card() && c2.isVisible_card()
+                && c1.isTapada() && c2.isTapada()
+                && !c1.isSecure_hidden() && !c2.isSecure_hidden();
+    }
+
+    // Recoloca/reescala el overlay de un RemotePlayer para cubrir, centrado, sus dos
+    // hole cards (lee posiciones reales en pantalla → sirve para los 9 tableros, zoom,
+    // HiDPI y la vista compacta que encoge los remotes). Fuente proporcional a la altura
+    // de la carta y encogida para que el número quepa en el ancho de las dos cartas.
+    // Devuelve false si no están en pantalla. Debe llamarse en el EDT.
+    private boolean layoutPlayerCallCostOverlay(RemotePlayer rp, CallCostOverlayLabel lbl) {
+        try {
+            Card c1 = rp.getHoleCard1();
+            Card c2 = rp.getHoleCard2();
+            if (c1 == null || c2 == null || !isShowing() || !c1.isShowing() || !c2.isShowing()) {
+                return false;
+            }
+            java.awt.Point origin = getLocationOnScreen();
+            java.awt.Point p1 = c1.getLocationOnScreen();
+            java.awt.Rectangle box = new java.awt.Rectangle(p1.x, p1.y, c1.getWidth(), c1.getHeight());
+            java.awt.Point p2 = c2.getLocationOnScreen();
+            box = box.union(new java.awt.Rectangle(p2.x, p2.y, c2.getWidth(), c2.getHeight()));
+            if (box.width <= 0 || box.height <= 0) {
+                return false;
+            }
+            lbl.setBounds(box.x - origin.x, box.y - origin.y, box.width, box.height);
+
+            // La familia de fuente la tomamos de la etiqueta de las comunitarias
+            // (que ya pasó por el font pass del tapete) para que el overlay por
+            // jugador use EXACTAMENTE la misma fuente, no la de por defecto del JLabel.
+            java.awt.Font base_font = call_cost_label.getFont();
+            int card_h = c1.getHeight();
+            float base = card_h > 0 ? card_h : box.height;
+            float size = base * 0.9f;
+            final String text = lbl.getText();
+            if (text != null && !text.isEmpty()) {
+                java.awt.FontMetrics fm = lbl.getFontMetrics(
+                        base_font.deriveFont(java.awt.Font.BOLD, size));
+                int text_w = fm.stringWidth(text);
+                float budget = box.width * 0.92f;
+                if (text_w > budget && text_w > 0) {
+                    size *= budget / text_w;
+                }
+            }
+            size = Math.max(12f, size);
+            lbl.setFont(base_font.deriveFont(java.awt.Font.BOLD, size));
+            return true;
+        } catch (Exception ex) {
+            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
+    }
+
+    private void hidePlayerCallCostOverlays() {
+        for (CallCostOverlayLabel lbl : player_call_cost_labels.values()) {
+            lbl.setVisible(false);
+        }
+    }
+
+    // Engancha (una vez por RemotePlayer) listeners que reescalan/recolocan sus overlays
+    // cuando cambia su geometría mientras estén visibles. Igual que con las comunitarias,
+    // escucha el asiento entero (POSICIÓN: la vista compacta lo sube) y panel_cartas +
+    // hole cards (TAMAÑO: la compacta achica los remotes).
+    private void attachPlayerCallOverlayResizeListener(final RemotePlayer rp) {
+        if (!player_call_overlay_listeners.add(rp)) {
+            return;
+        }
+        java.awt.event.ComponentAdapter relayout = new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                relayoutPlayerCallCostOverlaysIfVisible();
+            }
+
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e) {
+                relayoutPlayerCallCostOverlaysIfVisible();
+            }
+        };
+        rp.addComponentListener(relayout);
+        if (rp.getPanel_cartas() != null) {
+            rp.getPanel_cartas().addComponentListener(relayout);
+        }
+        Card c1 = rp.getHoleCard1();
+        Card c2 = rp.getHoleCard2();
+        if (c1 != null) {
+            c1.addComponentListener(relayout);
+        }
+        if (c2 != null) {
+            c2.addComponentListener(relayout);
+        }
+    }
+
+    private void relayoutPlayerCallCostOverlaysIfVisible() {
+        Helpers.GUIRun(() -> {
+            for (java.util.Map.Entry<RemotePlayer, CallCostOverlayLabel> e : player_call_cost_labels.entrySet()) {
+                CallCostOverlayLabel lbl = e.getValue();
+                if (lbl.isVisible()) {
+                    if (layoutPlayerCallCostOverlay(e.getKey(), lbl)) {
+                        lbl.repaint();
+                    } else {
+                        lbl.setVisible(false);
+                    }
+                }
+            }
+        });
+    }
+
     // Etiqueta del overlay de coste de igualar: pinta el texto centrado con relleno
     // negro semitransparente y un contorno (halo) blanco, para que se lea sobre
     // CUALQUIER fondo (cartas claras, dorsos oscuros, tapete) sin tapar. Hereda de
@@ -793,8 +1038,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     private static final class CallCostOverlayLabel extends javax.swing.JLabel {
 
         // Tunables de contraste/visibilidad.
-        private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 100);
-        private final java.awt.Color halo = new java.awt.Color(255, 255, 0, 200);
+        private final java.awt.Color fill = new java.awt.Color(0, 0, 0, 204);
+        private final java.awt.Color halo = new java.awt.Color(255, 255, 0, 204);
         private static final float STROKE_RATIO = 0.03f; // grosor del halo ∝ tamaño de fuente
 
         @Override
@@ -1436,8 +1681,9 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
             // El overlay de coste de igualar vive en una capa propia del tapete:
             // sin esto quedaría flotando en el centro al ocultarse la mesa (salir,
-            // game over, balance).
+            // game over, balance). Lo mismo para los overlays por jugador del river.
             call_cost_label.setVisible(false);
+            hidePlayerCallCostOverlays();
         });
 
     }

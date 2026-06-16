@@ -1452,10 +1452,20 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 action_key = "modo_auto.tirar";
                             }
 
-                        } else if (player_check_button.isEnabled() && pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (Helpers.float1DSecureCompare(0f, GameFrame.AUTO_CALL_MAX) < 0 && Helpers.float1DSecureCompare(call_required, GameFrame.AUTO_CALL_MAX) <= 0))) {
+                        } else if (pre_pulsado == Player.CHECK && (Helpers.float1DSecureCompare(0f, call_required) == 0 || (GameFrame.getInstance().getCrupier().getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getApuesta_actual(), GameFrame.getInstance().getCrupier().getCiega_grande()) == 0) || (Helpers.float1DSecureCompare(0f, GameFrame.AUTO_CALL_MAX) < 0 && Helpers.float1DSecureCompare(call_required, GameFrame.AUTO_CALL_MAX) <= 0))) {
 
-                            target = player_check_button;
-                            action_key = (Helpers.float1DSecureCompare(0f, call_required) == 0) ? "modo_auto.pasar" : "modo_auto.igualar";
+                            if (player_check_button.isEnabled()) {
+                                target = player_check_button;
+                                action_key = (Helpers.float1DSecureCompare(0f, call_required) == 0) ? "modo_auto.pasar" : "modo_auto.igualar";
+                            } else if (player_allin_button.isEnabled()) {
+                                // Igualar exige all-in (coste a igualar >= stack, el
+                                // check está deshabilitado): la única forma de igualar
+                                // dentro del presupuesto es irse all-in. Se arriesga el
+                                // stack, que es <= coste <= AUTO_CALL_MAX, así que sigue
+                                // dentro del tope de auto-call.
+                                target = player_allin_button;
+                                action_key = "modo_auto.igualar";
+                            }
                         }
 
                         if (target == null) {
@@ -1501,8 +1511,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         bet_spinner.setEnabled(spinner_en);
 
                                         if (!cancelled && getDecision() == Player.NODEC) {
-                                            if (fire_target == player_check_button) {
-                                                action_button_armed.put(player_check_button, true);
+                                            // Armar check o all-in salta el doble clic de
+                                            // CONFIRM_ACTIONS (el fold ya lo salta por
+                                            // pre_pulsado==FOLD en su handler).
+                                            if (fire_target == player_check_button || fire_target == player_allin_button) {
+                                                action_button_armed.put(fire_target, true);
                                             }
                                             fire_target.doClick();
                                         } else if (cancelled) {
@@ -1513,10 +1526,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         } else {
 
-                            // Sin diálogo de veto: ejecutar directamente. Armar el
-                            // check salta el segundo clic de CONFIRM_ACTIONS.
-                            if (target == player_check_button) {
-                                action_button_armed.put(player_check_button, true);
+                            // Sin diálogo de veto: ejecutar directamente. Armar check o
+                            // all-in salta el doble clic de CONFIRM_ACTIONS.
+                            if (target == player_check_button || target == player_allin_button) {
+                                action_button_armed.put(target, true);
                             }
                             target.doClick();
                         }

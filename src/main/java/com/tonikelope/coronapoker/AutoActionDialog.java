@@ -85,6 +85,15 @@ public class AutoActionDialog extends JDialog {
         });
     }
 
+    // Cierra el veto desde fuera (p.ej. al ocultarse la mesa por salir de la
+    // timba o por fin de partida): lo resuelve como CANCELADO —no ejecuta la
+    // acción automática— y cierra la ventana. Idempotente (resolve es de un
+    // solo disparo), así que es inofensivo aunque el diálogo ya se hubiese
+    // resuelto por su cuenta atrás.
+    public void cancel() {
+        resolve(true);
+    }
+
     public AutoActionDialog(Frame parent, Component center_over, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
         super(parent, false);

@@ -1697,6 +1697,16 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             // game over, balance). Lo mismo para los overlays por jugador del river.
             call_cost_label.setVisible(false);
             hidePlayerCallCostOverlays();
+
+            // El diálogo del MODO AUTO vive en su propia ventana (no en la
+            // jerarquía del tapete): al ocultar la mesa —salir de la timba, fin
+            // de partida— quedaría flotando sobre el balance. Lo cerramos como
+            // cancelado (la mano ya terminó, no ejecuta ninguna acción).
+            LocalPlayer local_player = GameFrame.getInstance().getLocalPlayer();
+
+            if (local_player != null && local_player.getAuto_action_dialog() != null) {
+                local_player.getAuto_action_dialog().cancel();
+            }
         });
 
     }

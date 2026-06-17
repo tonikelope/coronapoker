@@ -64,6 +64,11 @@ public class ExitDialog extends JDialog {
         Helpers.translateComponents(this, false);
 
         pack();
+
+        // Translúcido al 85%: deja entrever ligeramente la mesa detrás. Esta misma
+        // clase es el diálogo de "salir de la timba" y el de "detener la timba"
+        // (variante force_recover), así que ambos quedan translúcidos.
+        setOpacity(0.85f);
     }
 
     public boolean isExit() {

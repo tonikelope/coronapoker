@@ -73,7 +73,7 @@ public class RunItTwiceDialog extends JDialog {
 
     // Translucent enough to read the community cards behind the dialog while
     // keeping the buttons and tallies perfectly legible.
-    private static final float DIALOG_OPACITY = 0.8f;
+    private static final float DIALOG_OPACITY = 0.85f;
 
     private volatile int vote = VOTE_PENDING;
     // Gate so only the FIRST cast wins: the EDT button click and the countdown
@@ -194,25 +194,9 @@ public class RunItTwiceDialog extends JDialog {
         pack();
         setLocationRelativeTo(parent);
 
-        // Translucency only buys anything if the dialog is covering revealed
-        // community cards; on a preflop all-in the board is empty and the
-        // dialog reads better fully opaque. The board is static while the
-        // vote is open (the run-out resumes after the result), so checking
-        // once here is enough.
-        if (hayComunitariasDestapadas()) {
-            setOpacity(DIALOG_OPACITY);
-        }
+        setOpacity(DIALOG_OPACITY);
 
         Helpers.threadRun(() -> countdownLoop(timeout));
-    }
-
-    private static boolean hayComunitariasDestapadas() {
-        for (Card c : GameFrame.getInstance().getCartas_comunes()) {
-            if (c != null && !c.isTapada() && c.getValor() != null && !c.getValor().isEmpty()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public int getVote() {

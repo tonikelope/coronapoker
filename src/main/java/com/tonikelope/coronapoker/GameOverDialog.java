@@ -59,6 +59,14 @@ public class GameOverDialog extends JDialog {
         return continua;
     }
 
+    // true si el jugador pulsó un botón del game over (CONTINUAR o ESPECTADOR);
+    // false si la cuenta atrás venció sola. Lo usa la recompra automática al
+    // arruinarse para dispararse solo en el vencimiento (no en ESPECTADOR
+    // explícito).
+    public boolean isExit() {
+        return exit;
+    }
+
     /**
      * Creates new form Recomprar
      */

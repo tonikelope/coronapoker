@@ -410,6 +410,14 @@ public class Helpers {
 
         final JComponent editor = spinner.getEditor();
 
+        // El editor (DefaultEditor) es OPACO por defecto bajo Nimbus y rellena su
+        // fondo desde x=0, "asomando" unos píxeles por la izquierda del rectángulo
+        // de color que pintamos en fillRect(3,3,...). Lo hacemos no-opaco para que
+        // la única zona pintada sea ese rectángulo con inset 3 — exactamente el
+        // mismo inset (left=3, top=3) con el que Nimbus pinta el fondo de los
+        // botones de la botonera, de modo que el spinner queda alineado al píxel.
+        editor.setOpaque(false);
+
         int c = editor.getComponentCount();
 
         for (int i = 0; i < c; i++) {

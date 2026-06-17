@@ -106,7 +106,7 @@ public class AutoActionDialog extends JDialog {
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 9));
+        panel.setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 10));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
@@ -167,9 +167,9 @@ public class AutoActionDialog extends JDialog {
         boolean anchored = center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing();
 
         if (anchored) {
-            // Ancho útil = botonera − borde (9 px a cada lado) − insets (20 px a
+            // Ancho útil = botonera − borde (10 px a cada lado) − insets (20 px a
             // cada lado). fitFontToWidth solo encoge la fuente si el texto no cabe.
-            int avail = width_ref.getWidth() - 2 * 9 - 2 * 20;
+            int avail = width_ref.getWidth() - 2 * 10 - 2 * 20;
             title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), avail, 14));
             if (action != null) {
                 action.setFont(Helpers.fitFontToWidth(action, action.getText(), action.getFont(), avail, 12));

@@ -40,11 +40,20 @@ public class EditBlindsDialog extends JDialog {
 
     private volatile boolean init = false;
 
+    // Modo informativo: los clientes (no host) pueden ABRIR el diálogo para ver la
+    // configuración de ciegas actual, pero con todo deshabilitado y sin guardar.
+    private final boolean read_only;
+
     /**
      * Creates new form EditBlindsDialog
      */
     public EditBlindsDialog(java.awt.Frame parent, boolean modal) {
+        this(parent, modal, false);
+    }
+
+    public EditBlindsDialog(java.awt.Frame parent, boolean modal, boolean read_only) {
         super(parent, modal);
+        this.read_only = read_only;
         initComponents();
         Helpers.setTranslatedTitle(this, "blinds.actualizar_ciegas");
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
@@ -124,11 +133,29 @@ public class EditBlindsDialog extends JDialog {
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
+        // Cabecera "CIEGAS" (no "ACTUALIZAR CIEGAS") para host y clientes: el
+        // diálogo ahora es también informativo para quien no es host.
+        jLabel1.putClientProperty("i18n.key", "blinds.ciegas_titulo");
+
         Helpers.translateComponents(this, false);
 
         pack();
 
         init = true;
+
+        if (read_only) {
+            // Solo-lectura para clientes: ven la configuración actual pero no la
+            // pueden cambiar. Cancelar sigue activo para cerrar.
+            ciegas_combobox.setEnabled(false);
+            doblar_checkbox.setEnabled(false);
+            double_blinds_radio_minutos.setEnabled(false);
+            double_blinds_radio_manos.setEnabled(false);
+            doblar_ciegas_spinner_minutos.setEnabled(false);
+            doblar_ciegas_spinner_manos.setEnabled(false);
+            blind_cap_checkbox.setEnabled(false);
+            blind_cap_spinner.setEnabled(false);
+            vamos_button.setEnabled(false);
+        }
     }
 
     /**

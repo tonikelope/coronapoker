@@ -377,7 +377,7 @@
         </DimensionLayout>
       </Layout>
       <SubComponents>
-        <Component class="javax.swing.JButton" name="player_allin_button">
+        <Component class="com.tonikelope.coronapoker.TranslucentDisabledButton" name="player_allin_button">
           <Properties>
             <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
               <Color blue="0" green="0" red="0" type="rgb"/>
@@ -399,7 +399,7 @@
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_allin_buttonActionPerformed"/>
           </Events>
         </Component>
-        <Component class="javax.swing.JButton" name="player_fold_button">
+        <Component class="com.tonikelope.coronapoker.TranslucentDisabledButton" name="player_fold_button">
           <Properties>
             <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
               <Color blue="0" green="0" red="ff" type="rgb"/>
@@ -421,7 +421,7 @@
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_fold_buttonActionPerformed"/>
           </Events>
         </Component>
-        <Component class="javax.swing.JButton" name="player_check_button">
+        <Component class="com.tonikelope.coronapoker.TranslucentDisabledButton" name="player_check_button">
           <Properties>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="22" style="1"/>
@@ -437,7 +437,7 @@
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_check_buttonActionPerformed"/>
           </Events>
         </Component>
-        <Component class="javax.swing.JButton" name="player_bet_button">
+        <Component class="com.tonikelope.coronapoker.TranslucentDisabledButton" name="player_bet_button">
           <Properties>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="22" style="1"/>
@@ -453,7 +453,7 @@
             <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="player_bet_buttonActionPerformed"/>
           </Events>
         </Component>
-        <Component class="javax.swing.JSpinner" name="bet_spinner">
+        <Component class="com.tonikelope.coronapoker.TranslucentDisabledSpinner" name="bet_spinner">
           <Properties>
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Dialog" size="22" style="1"/>

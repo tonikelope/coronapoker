@@ -2292,11 +2292,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         hands_win = new javax.swing.JLabel();
         latency_dot_widget = new com.tonikelope.coronapoker.LatencyDot();
         botonera = new javax.swing.JPanel();
-        player_allin_button = new javax.swing.JButton();
-        player_fold_button = new javax.swing.JButton();
-        player_check_button = new javax.swing.JButton();
-        player_bet_button = new javax.swing.JButton();
-        bet_spinner = new javax.swing.JSpinner();
+        player_allin_button = new com.tonikelope.coronapoker.TranslucentDisabledButton();
+        player_fold_button = new com.tonikelope.coronapoker.TranslucentDisabledButton();
+        player_check_button = new com.tonikelope.coronapoker.TranslucentDisabledButton();
+        player_bet_button = new com.tonikelope.coronapoker.TranslucentDisabledButton();
+        bet_spinner = new com.tonikelope.coronapoker.TranslucentDisabledSpinner();
         panel_cartas = new javax.swing.JLayeredPane();
         holeCard1 = new com.tonikelope.coronapoker.Card();
         holeCard2 = new com.tonikelope.coronapoker.Card();
@@ -3064,7 +3064,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar;
     private javax.swing.JPanel avatar_panel;
-    private javax.swing.JSpinner bet_spinner;
+    private com.tonikelope.coronapoker.TranslucentDisabledSpinner bet_spinner;
     private javax.swing.JPanel botonera;
     private javax.swing.JLabel hands_win;
     private com.tonikelope.coronapoker.Card holeCard1;
@@ -3075,10 +3075,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private javax.swing.JLayeredPane panel_cartas;
     private javax.swing.JLabel player_action;
     private javax.swing.JPanel player_action_panel;
-    private javax.swing.JButton player_allin_button;
-    private javax.swing.JButton player_bet_button;
-    private javax.swing.JButton player_check_button;
-    private javax.swing.JButton player_fold_button;
+    private com.tonikelope.coronapoker.TranslucentDisabledButton player_allin_button;
+    private com.tonikelope.coronapoker.TranslucentDisabledButton player_bet_button;
+    private com.tonikelope.coronapoker.TranslucentDisabledButton player_check_button;
+    private com.tonikelope.coronapoker.TranslucentDisabledButton player_fold_button;
     private javax.swing.JLabel player_name;
     private javax.swing.JLabel player_pot;
     private javax.swing.JPanel player_pot_panel;

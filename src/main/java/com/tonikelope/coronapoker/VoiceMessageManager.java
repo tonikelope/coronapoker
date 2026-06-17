@@ -52,7 +52,7 @@ import javax.swing.JProgressBar;
 public class VoiceMessageManager {
 
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
-    public static final float DIALOG_OPACITY = 0.8f;
+    public static final float DIALOG_OPACITY = 0.85f;
 
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;
@@ -386,18 +386,18 @@ public class VoiceMessageManager {
             dialog.setFocusableWindowState(false);
 
             JLabel title = new JLabel(Translator.translate("audio.grabando_nota_de_voz"), JLabel.CENTER);
-            title.setForeground(Color.WHITE);
-            // microphone.png is 256x256: used at native size, no scaling
-            title.setIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/microphone.png")));
+            title.setForeground(new Color(255, 102, 0));
+            // microphone_black.png is 256x256: used at native size, no scaling
+            title.setIcon(new ImageIcon(VoiceMessageManager.class.getResource("/images/microphone_black.png")));
             title.setIconTextGap(15);
             title.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 
             JLabel send_hint = new JLabel(Translator.translate("audio.suelta_para_enviar"), JLabel.CENTER);
-            send_hint.setForeground(Color.WHITE);
+            send_hint.setForeground(Color.BLACK);
             send_hint.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 
             JLabel cancel_hint = new JLabel(Translator.translate("audio.borrar_para_cancelar"), JLabel.CENTER);
-            cancel_hint.setForeground(Color.WHITE);
+            cancel_hint.setForeground(Color.BLACK);
             cancel_hint.setAlignmentX(JLabel.CENTER_ALIGNMENT);
 
             JPanel center = new JPanel();
@@ -410,13 +410,14 @@ public class VoiceMessageManager {
             center.add(cancel_hint);
 
             JProgressBar bar = new JProgressBar();
-            bar.setForeground(Color.WHITE);
-            bar.setBackground(new Color(120, 0, 0));
-            bar.setBorderPainted(false);
 
+            // Mismo estilo que el resto de diálogos in-game: fondo blanco con borde
+            // naranja (línea exterior + relleno interior) y título en naranja.
             JPanel panel = new JPanel(new BorderLayout(15, 15));
-            panel.setBackground(new Color(180, 0, 0));
-            panel.setBorder(BorderFactory.createEmptyBorder(25, 35, 25, 35));
+            panel.setBackground(Color.WHITE);
+            panel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(255, 102, 0), 10),
+                    BorderFactory.createEmptyBorder(20, 30, 20, 30)));
             panel.add(center, BorderLayout.CENTER);
             panel.add(bar, BorderLayout.SOUTH);
 

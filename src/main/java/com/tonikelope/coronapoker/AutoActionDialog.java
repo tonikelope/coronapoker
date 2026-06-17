@@ -37,6 +37,7 @@ import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Point;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import javax.swing.BorderFactory;
@@ -96,17 +97,17 @@ public class AutoActionDialog extends JDialog {
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);
-        panel.setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 10));
+        panel.setBorder(BorderFactory.createLineBorder(new Color(255, 102, 0), 9));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.insets = new Insets(8, 24, 8, 24);
+        gbc.insets = new Insets(7, 20, 7, 20);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         JLabel title = new JLabel("MODO AUTO");
         title.putClientProperty("i18n.key", "modo_auto.titulo");
-        title.setFont(new Font("Dialog", Font.BOLD, 36));
+        title.setFont(new Font("Dialog", Font.BOLD, 30));
         title.setForeground(new Color(255, 102, 0));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         title.setFocusable(false);
@@ -115,7 +116,7 @@ public class AutoActionDialog extends JDialog {
         if (action_text != null && !action_text.isEmpty()) {
             gbc.gridy++;
             JLabel action = new JLabel(action_text);
-            action.setFont(new Font("Dialog", Font.BOLD, 22));
+            action.setFont(new Font("Dialog", Font.BOLD, 19));
             action.setForeground(Color.BLACK);
             action.setHorizontalAlignment(SwingConstants.CENTER);
             action.setFocusable(false);
@@ -123,7 +124,7 @@ public class AutoActionDialog extends JDialog {
         }
 
         gbc.gridy++;
-        barra.setPreferredSize(new Dimension(320, 30));
+        barra.setPreferredSize(new Dimension(275, 26));
         panel.add(barra, gbc);
 
         gbc.gridy++;
@@ -131,7 +132,7 @@ public class AutoActionDialog extends JDialog {
         cancel.putClientProperty("i18n.key", "ui.cancelar_2");
         cancel.setBackground(new Color(200, 0, 0));
         cancel.setForeground(Color.WHITE);
-        cancel.setFont(new Font("Dialog", Font.BOLD, 18));
+        cancel.setFont(new Font("Dialog", Font.BOLD, 16));
         cancel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         cancel.setFocusable(false);
         cancel.addActionListener((java.awt.event.ActionEvent e) -> resolve(true));
@@ -147,13 +148,23 @@ public class AutoActionDialog extends JDialog {
         Helpers.translateComponents(this, false);
 
         pack();
-        // Centrado sobre el panel del jugador local (su asiento), no sobre todo el
-        // frame; si por lo que sea no está mostrándose, cae al centro del owner.
-        setLocationRelativeTo(center_over != null && center_over.isShowing() ? center_over : parent);
+        // Anclado a la esquina inferior derecha del panel del jugador local (su
+        // asiento), con un pequeño margen interior para quedar DENTRO sin pisar su
+        // borde; no centrado encima. Si por lo que sea no está mostrándose, cae al
+        // centro del owner.
+        if (center_over != null && center_over.isShowing()) {
+            Point anchor = center_over.getLocationOnScreen();
+            int margin = 16;
+            int x = anchor.x + center_over.getWidth() - getWidth() - margin;
+            int y = anchor.y + center_over.getHeight() - getHeight() - margin;
+            setLocation(x, y);
+        } else {
+            setLocationRelativeTo(parent);
+        }
 
-        // Translúcido al 80% (como el diálogo de run-it-twice): deja entrever la
-        // mesa detrás mientras corre la cuenta atrás.
-        setOpacity(0.8f);
+        // Translúcido al 85%: deja entrever ligeramente la mesa detrás mientras
+        // corre la cuenta atrás.
+        setOpacity(0.85f);
 
         // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
         // fin de partida o keep_waiting falso (el jugador actuó a mano) -> abortar.

@@ -61,6 +61,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -116,6 +117,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean exit = false;
     private volatile boolean turno = false;
     private volatile Timer auto_action = null;
+    private volatile AutoActionDialog auto_action_dialog = null;
     private volatile boolean timeout = false;
     private volatile boolean boton_mostrar = false;
     private volatile boolean winner = false;
@@ -507,6 +509,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public Timer getAuto_action() {
         return auto_action;
+    }
+
+    public AutoActionDialog getAuto_action_dialog() {
+        return auto_action_dialog;
     }
 
     public Timer getHurryup_timer() {
@@ -1492,9 +1498,33 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             final boolean allin_en = player_allin_button.isEnabled();
                             final boolean spinner_en = bet_spinner.isEnabled();
 
+                            // Apariencia previa (texto + icono) de la botonera. Durante
+                            // el veto los botones se DESACTIVAN con el mismo aspecto
+                            // "gris vacío" (sin texto ni icono) que cualquier otro estado
+                            // deshabilitado del tablero, en lugar de quedar atenuados
+                            // conservando su etiqueta. Se restaura al resolver (al
+                            // cancelar, el jugador recupera el control manual con las
+                            // etiquetas correctas).
+                            final String check_text = player_check_button.getText();
+                            final String fold_text = player_fold_button.getText();
+                            final String bet_text = player_bet_button.getText();
+                            final String allin_text = player_allin_button.getText();
+                            final Icon check_icon = player_check_button.getIcon();
+                            final Icon fold_icon = player_fold_button.getIcon();
+                            final Icon bet_icon = player_bet_button.getIcon();
+                            final Icon allin_icon = player_allin_button.getIcon();
+
+                            player_check_button.setText(" ");
+                            player_check_button.setIcon(null);
                             player_check_button.setEnabled(false);
+                            player_fold_button.setText(" ");
+                            player_fold_button.setIcon(null);
                             player_fold_button.setEnabled(false);
+                            player_bet_button.setText(" ");
+                            player_bet_button.setIcon(null);
                             player_bet_button.setEnabled(false);
+                            player_allin_button.setText(" ");
+                            player_allin_button.setIcon(null);
                             player_allin_button.setEnabled(false);
                             bet_spinner.setEnabled(false);
 
@@ -1503,9 +1533,21 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     Translator.translate(action_key),
                                     () -> getDecision() == Player.NODEC,
                                     (cancelled) -> {
-                                        // Restaurar la botonera (el doClick necesita el
-                                        // botón enabled; y al cancelar el jugador
-                                        // recupera el control manual).
+                                        auto_action_dialog = null;
+
+                                        // Restaurar la apariencia previa (texto + icono)
+                                        // antes de re-habilitar: el doClick necesita el
+                                        // botón enabled y, al cancelar, el jugador recupera
+                                        // el control manual con sus etiquetas.
+                                        player_check_button.setText(check_text);
+                                        player_check_button.setIcon(check_icon);
+                                        player_fold_button.setText(fold_text);
+                                        player_fold_button.setIcon(fold_icon);
+                                        player_bet_button.setText(bet_text);
+                                        player_bet_button.setIcon(bet_icon);
+                                        player_allin_button.setText(allin_text);
+                                        player_allin_button.setIcon(allin_icon);
+
                                         player_check_button.setEnabled(check_en);
                                         player_fold_button.setEnabled(fold_en);
                                         player_bet_button.setEnabled(bet_en);
@@ -1524,6 +1566,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                             pre_pulsado = Player.NODEC;
                                         }
                                     });
+                            auto_action_dialog = dlg;
                             dlg.setVisible(true);
 
                         } else {

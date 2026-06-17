@@ -50,6 +50,13 @@ public class EditBlindsDialog extends JDialog {
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
 
+        blind_cap_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> updateBlindCapLabel());
+        ciegas_combobox.addActionListener((java.awt.event.ActionEvent e) -> {
+            if (init) {
+                modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
+            }
+        });
+
         float peque, grande;
 
         int ciegas_double, ciegas_double_type;
@@ -110,6 +117,11 @@ public class EditBlindsDialog extends JDialog {
             this.ciegas_combobox.setSelectedIndex(i);
         }
 
+        this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
+        this.blind_cap_checkbox.setEnabled(ciegas_double > 0);
+        modelBlindCapSpinner(blindCapDoublingsFromCap());
+        this.blind_cap_spinner.setEnabled(ciegas_double > 0 && GameFrame.BLIND_CAP > 0f);
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
 
         Helpers.translateComponents(this, false);
@@ -135,6 +147,9 @@ public class EditBlindsDialog extends JDialog {
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
         double_blinds_radio_manos = new javax.swing.JRadioButton();
         doblar_ciegas_spinner_manos = new javax.swing.JSpinner();
+        blind_cap_checkbox = new javax.swing.JCheckBox();
+        blind_cap_spinner = new javax.swing.JSpinner();
+        blind_cap_label = new javax.swing.JLabel();
         vamos_button = new javax.swing.JButton();
         ciegas_combobox = new javax.swing.JComboBox<>();
         jLabel1 = new javax.swing.JLabel();
@@ -186,6 +201,23 @@ public class EditBlindsDialog extends JDialog {
         doblar_ciegas_spinner_manos.setModel(new javax.swing.SpinnerNumberModel(30, 1, null, 1));
         doblar_ciegas_spinner_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        blind_cap_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        blind_cap_checkbox.setText("Tope ciega grande");
+        blind_cap_checkbox.putClientProperty("i18n.key", "blinds.tope_ciega_grande");
+        blind_cap_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        blind_cap_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                blind_cap_checkboxActionPerformed(evt);
+            }
+        });
+
+        blind_cap_spinner.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        blind_cap_spinner.setModel(new javax.swing.SpinnerNumberModel(5, 1, null, 1));
+        blind_cap_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        blind_cap_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        blind_cap_label.setText("0 / 0");
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -203,7 +235,13 @@ public class EditBlindsDialog extends JDialog {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(doblar_ciegas_spinner_manos)
-                            .addComponent(doblar_ciegas_spinner_minutos))))
+                            .addComponent(doblar_ciegas_spinner_minutos)))
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(blind_cap_checkbox)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(blind_cap_label))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -219,6 +257,12 @@ public class EditBlindsDialog extends JDialog {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(double_blinds_radio_minutos)
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(blind_cap_checkbox)
+                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(blind_cap_label)
                 .addContainerGap())
         );
 
@@ -310,6 +354,8 @@ public class EditBlindsDialog extends JDialog {
             this.doblar_ciegas_spinner_manos.setEnabled(this.double_blinds_radio_manos.isSelected() && this.doblar_checkbox.isSelected());
             this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
             this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
+            this.blind_cap_checkbox.setEnabled(this.doblar_checkbox.isSelected());
+            this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
         }
     }//GEN-LAST:event_doblar_checkboxActionPerformed
 
@@ -339,6 +385,52 @@ public class EditBlindsDialog extends JDialog {
         }
     }//GEN-LAST:event_double_blinds_radio_manosActionPerformed
 
+    private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {
+        if (init) {
+            this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
+        }
+    }
+
+    // Tope de ciegas como "nº de subidas" (igual que NewGameDialog): el spinner es
+    // el entero y blind_cap_label muestra el nivel resultante. GameFrame.BLIND_CAP
+    // sigue siendo la ciega grande de ese nivel (float).
+    private float parseBlindLevelBB(String item) {
+        return Float.parseFloat(item.replace(",", ".").split("/")[1].trim());
+    }
+
+    private int blindCapTargetIndex(int n) {
+        int last = ciegas_combobox.getModel().getSize() - 1;
+        return Math.min(Math.max(0, ciegas_combobox.getSelectedIndex()) + n, last);
+    }
+
+    private float blindCapSelectedBB() {
+        return parseBlindLevelBB(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
+    }
+
+    private void updateBlindCapLabel() {
+        blind_cap_label.setText(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
+    }
+
+    private int blindCapDoublingsFromCap() {
+        int initial = Math.max(0, ciegas_combobox.getSelectedIndex());
+        if (GameFrame.BLIND_CAP > 0f) {
+            for (int k = initial + 1; k < ciegas_combobox.getModel().getSize(); k++) {
+                if (Helpers.float1DSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
+                    return k - initial;
+                }
+            }
+        }
+        return 5;
+    }
+
+    private void modelBlindCapSpinner(int n) {
+        int levels_above = Math.max(1, ciegas_combobox.getModel().getSize() - 1 - Math.max(0, ciegas_combobox.getSelectedIndex()));
+        n = Math.min(Math.max(1, n), levels_above);
+        this.blind_cap_spinner.setModel(new SpinnerNumberModel(n, 1, levels_above, 1));
+        ((JSpinner.DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+        updateBlindCapLabel();
+    }
+
     private void vamos_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_vamos_buttonActionPerformed
         // TODO add your handling code here:
 
@@ -359,6 +451,9 @@ public class EditBlindsDialog extends JDialog {
 
         }
 
+        float blind_cap = (this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected()) ? blindCapSelectedBB() : 0f;
+        GameFrame.BLIND_CAP = blind_cap;
+
         String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
         GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.valueOf(valores_ciegas[0].trim()), Float.valueOf(valores_ciegas[1].trim()), ciegas_double, ciegas_double_type);
@@ -366,7 +461,7 @@ public class EditBlindsDialog extends JDialog {
         setVisible(false);
 
         Helpers.threadRun(() -> {
-            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim(), null);
+            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim() + "#" + String.valueOf(blind_cap), null);
 
             GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
         });
@@ -379,6 +474,9 @@ public class EditBlindsDialog extends JDialog {
     }//GEN-LAST:event_cancel_buttonActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JCheckBox blind_cap_checkbox;
+    private javax.swing.JLabel blind_cap_label;
+    private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JButton cancel_button;
     private javax.swing.JComboBox<String> ciegas_combobox;
     private javax.swing.JCheckBox doblar_checkbox;

@@ -3048,6 +3048,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             break;
                                                         case "UPDATEBLINDS":
                                                             GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.parseFloat(partes_comando[5]), Float.parseFloat(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
+                                                            GameFrame.BLIND_CAP = partes_comando.length > 7 ? Float.parseFloat(partes_comando[7]) : 0f;
                                                             break;
                                                         case "SERVEREXIT":
                                                             exit = true;

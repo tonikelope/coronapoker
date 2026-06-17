@@ -214,8 +214,7 @@ public class NewGameDialog extends JDialog {
         this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
         this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
         this.blind_cap_spinner.setEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
-        this.blind_cap_spinner.setModel(new SpinnerNumberModel(GameFrame.BLIND_CAP > 0f ? (int) GameFrame.BLIND_CAP : 100, 1, null, 1));
-        ((DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+        modelBlindCapSpinner(GameFrame.CIEGA_GRANDE, true);
 
         String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
 
@@ -444,6 +443,8 @@ public class NewGameDialog extends JDialog {
             buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+
+            modelBlindCapSpinner(ciega_grande, false);
 
             ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -1767,10 +1768,23 @@ public class NewGameDialog extends JDialog {
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
+            modelBlindCapSpinner(ciega_grande, false);
+
             packPreservingCenter();
 
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
+
+    // El tope de la ciega grande se expresa en múltiplos de la ciega grande
+    // inicial elegida: paso y mínimo = una ciega grande, default = 50 (mismo
+    // factor de cabecera que el buy-in). Así el valor por defecto sigue a las
+    // ciegas elegidas en vez de un 100 fijo desligado de la escala.
+    private void modelBlindCapSpinner(float ciega_grande, boolean preserveCurrent) {
+        int bb = Math.max(1, Math.round(ciega_grande));
+        int value = (preserveCurrent && GameFrame.BLIND_CAP > 0f) ? Math.max((int) GameFrame.BLIND_CAP, bb) : bb * 50;
+        this.blind_cap_spinner.setModel(new SpinnerNumberModel(value, bb, null, bb));
+        ((DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+    }
 
     private void buyin_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_spinnerStateChanged
         // TODO add your handling code here:

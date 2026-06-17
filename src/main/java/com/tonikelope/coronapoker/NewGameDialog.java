@@ -428,11 +428,16 @@ public class NewGameDialog extends JDialog {
             server_port_textfield.setText(Helpers.PROPERTIES.getProperty("local_port", String.valueOf(DEFAULT_PORT)));
 
             rebuy_checkbox.setSelected(true);
-            doblar_checkbox.setSelected(true);
+            doblar_checkbox.setSelected(false);
             bot_rebuy_checkbox.setSelected(true);
             fixed_buyin_checkbox.setSelected(true);
             buyin_spinner.setEnabled(true);
+            double_blinds_radio_minutos.setEnabled(false);
+            double_blinds_radio_manos.setEnabled(false);
+            doblar_ciegas_spinner_minutos.setEnabled(false);
+            doblar_ciegas_spinner_manos.setEnabled(false);
             blind_cap_checkbox.setSelected(false);
+            blind_cap_checkbox.setEnabled(false);
             blind_cap_spinner.setEnabled(false);
             rebuy_limit_checkbox.setSelected(false);
             rebuy_limit_spinner.setEnabled(false);

@@ -5885,7 +5885,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean checkDoblarCiegas() {
 
         synchronized (lock_ciegas) {
-            if (GameFrame.BLIND_CAP > 0f && simulateNextBlinds()[1] > GameFrame.BLIND_CAP) {
+            if (GameFrame.BLIND_CAP > 0f && Helpers.float1DSecureCompare(simulateNextBlinds()[1], GameFrame.BLIND_CAP) > 0) {
                 return false;
             }
             if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {

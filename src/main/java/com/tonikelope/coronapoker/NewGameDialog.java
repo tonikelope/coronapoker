@@ -127,6 +127,8 @@ public class NewGameDialog extends JDialog {
 
         initComponents();
 
+        blind_cap_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> updateBlindCapLabel());
+
         Helpers.attachPasswordStrengthHint(pass_text);
         Helpers.attachPasswordRevealButton(pass_text);
 
@@ -214,7 +216,6 @@ public class NewGameDialog extends JDialog {
         this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
         this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
         this.blind_cap_spinner.setEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
-        modelBlindCapSpinner(GameFrame.CIEGA_GRANDE, true);
 
         String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
 
@@ -237,6 +238,8 @@ public class NewGameDialog extends JDialog {
         if (i < t) {
             this.ciegas_combobox.setSelectedIndex(i);
         }
+
+        modelBlindCapSpinner(blindCapDoublingsFromCap());
 
         Helpers.setTranslatedTitle(this, update ? "update.actualizar_timba" : (partida_local ? "ui.crear_timba" : "ui.unirme_a_timba"));
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
@@ -305,6 +308,8 @@ public class NewGameDialog extends JDialog {
         super(parent, modal);
 
         initComponents();
+
+        blind_cap_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> updateBlindCapLabel());
 
         Helpers.attachPasswordStrengthHint(pass_text);
         Helpers.attachPasswordRevealButton(pass_text);
@@ -444,7 +449,7 @@ public class NewGameDialog extends JDialog {
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
-            modelBlindCapSpinner(ciega_grande, false);
+            modelBlindCapSpinner(5);
 
             ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -514,9 +519,7 @@ public class NewGameDialog extends JDialog {
                     }
 
                     this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
-                    if (GameFrame.BLIND_CAP > 0f) {
-                        this.blind_cap_spinner.setValue((int) GameFrame.BLIND_CAP);
-                    }
+                    modelBlindCapSpinner(blindCapDoublingsFromCap());
                     this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
                     if (GameFrame.REBUY_LIMIT > 0) {
                         this.rebuy_limit_spinner.setValue(GameFrame.REBUY_LIMIT);
@@ -575,6 +578,7 @@ public class NewGameDialog extends JDialog {
         manos_spinner = new javax.swing.JSpinner();
         blind_cap_checkbox = new javax.swing.JCheckBox();
         blind_cap_spinner = new javax.swing.JSpinner();
+        blind_cap_label = new javax.swing.JLabel();
         recompra_panel = new javax.swing.JPanel();
         rebuy_limit_checkbox = new javax.swing.JCheckBox();
         rebuy_limit_spinner = new javax.swing.JSpinner();
@@ -817,6 +821,8 @@ public class NewGameDialog extends JDialog {
                         .addComponent(blind_cap_checkbox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(blind_cap_label)
                         .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
@@ -836,7 +842,8 @@ public class NewGameDialog extends JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(blind_cap_checkbox)
-                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(blind_cap_label))
                 .addContainerGap())
         );
 
@@ -882,9 +889,13 @@ public class NewGameDialog extends JDialog {
         blind_cap_checkbox.putClientProperty("i18n.key", "blinds.tope_ciega_grande");
 
         blind_cap_spinner.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        blind_cap_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
+        blind_cap_spinner.setModel(new javax.swing.SpinnerNumberModel(5, 1, null, 1));
         blind_cap_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         blind_cap_spinner.setDoubleBuffered(true);
+
+        blind_cap_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        blind_cap_label.setText("0 / 0");
+        blind_cap_label.setDoubleBuffered(true);
 
         rebuy_limit_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         rebuy_limit_checkbox.setText("Límite recompra por jugador");
@@ -1297,7 +1308,7 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
 
-            GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? ((Number) this.blind_cap_spinner.getValue()).floatValue() : 0f;
+            GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0f;
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
@@ -1401,7 +1412,7 @@ public class NewGameDialog extends JDialog {
 
                 GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
 
-                GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? ((Number) this.blind_cap_spinner.getValue()).floatValue() : 0f;
+                GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0f;
 
                 GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
@@ -1768,22 +1779,62 @@ public class NewGameDialog extends JDialog {
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
-            modelBlindCapSpinner(ciega_grande, false);
+            modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
 
             packPreservingCenter();
 
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
 
-    // El tope de la ciega grande se expresa en múltiplos de la ciega grande
-    // inicial elegida: paso y mínimo = una ciega grande, default = 50 (mismo
-    // factor de cabecera que el buy-in). Así el valor por defecto sigue a las
-    // ciegas elegidas en vez de un 100 fijo desligado de la escala.
-    private void modelBlindCapSpinner(float ciega_grande, boolean preserveCurrent) {
-        int bb = Math.max(1, Math.round(ciega_grande));
-        int value = (preserveCurrent && GameFrame.BLIND_CAP > 0f) ? Math.max((int) GameFrame.BLIND_CAP, bb) : bb * 50;
-        this.blind_cap_spinner.setModel(new SpinnerNumberModel(value, bb, null, bb));
+    // El tope de ciegas se elige como "nº de subidas" (cuántas veces suben las
+    // ciegas como máximo, desde las iniciales elegidas). El spinner es ese entero
+    // y blind_cap_label muestra al vuelo el nivel resultante. Internamente
+    // GameFrame.BLIND_CAP sigue siendo la ciega grande de ese nivel (float), así
+    // que la lógica de congelar ciegas / recover / red no cambia.
+
+    // Ciega grande (segundo número) de un item del combo de niveles.
+    private float parseBlindLevelBB(String item) {
+        return Float.parseFloat(item.replace(",", ".").split("/")[1].trim());
+    }
+
+    // Índice del combo del nivel tras n subidas desde las ciegas iniciales, sin
+    // pasarse del último nivel disponible.
+    private int blindCapTargetIndex(int n) {
+        int last = ciegas_combobox.getModel().getSize() - 1;
+        return Math.min(Math.max(0, ciegas_combobox.getSelectedIndex()) + n, last);
+    }
+
+    // Ciega grande del nivel-tope para el nº de subidas actual (para guardar).
+    private float blindCapSelectedBB() {
+        return parseBlindLevelBB(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
+    }
+
+    private void updateBlindCapLabel() {
+        blind_cap_label.setText(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
+    }
+
+    // Reconstruye el nº de subidas desde el GameFrame.BLIND_CAP guardado (busca el
+    // nivel cuya ciega grande coincide); si no hay tope guardado, el default (5).
+    private int blindCapDoublingsFromCap() {
+        int initial = Math.max(0, ciegas_combobox.getSelectedIndex());
+        if (GameFrame.BLIND_CAP > 0f) {
+            for (int k = initial + 1; k < ciegas_combobox.getModel().getSize(); k++) {
+                if (Helpers.float1DSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
+                    return k - initial;
+                }
+            }
+        }
+        return 5;
+    }
+
+    // Modela el spinner como nº de subidas (1..niveles por encima de la inicial) y
+    // refresca el label.
+    private void modelBlindCapSpinner(int n) {
+        int levels_above = Math.max(1, ciegas_combobox.getModel().getSize() - 1 - Math.max(0, ciegas_combobox.getSelectedIndex()));
+        n = Math.min(Math.max(1, n), levels_above);
+        this.blind_cap_spinner.setModel(new SpinnerNumberModel(n, 1, levels_above, 1));
         ((DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+        updateBlindCapLabel();
     }
 
     private void buyin_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_spinnerStateChanged
@@ -1916,6 +1967,7 @@ public class NewGameDialog extends JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel avatar_label;
     private javax.swing.JCheckBox blind_cap_checkbox;
+    private javax.swing.JLabel blind_cap_label;
     private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JCheckBox bot_rebuy_checkbox;
     private javax.swing.JComboBox<String> bots_combobox;

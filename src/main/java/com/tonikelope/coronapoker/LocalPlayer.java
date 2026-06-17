@@ -1655,6 +1655,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             }
 
             desarmarBotonesAccion();
+
+            // Estado deshabilitado UNIFORME: fondo neutro (Nimbus default) en todos
+            // los botones, DESPUÉS de desarmar, para que la botonera atenuada se vea
+            // idéntica sin importar el color previo (los del .form al arrancar —negro
+            // all-in, rojo no-ir— o los de esTuTurno tras la primera mano). Al
+            // re-habilitar, esTuTurno/activarPreBotones repintan el color que toque.
+            for (Component c : botonera.getComponents()) {
+                if (c instanceof JButton) {
+                    c.setBackground(null);
+                }
+            }
         });
 
     }

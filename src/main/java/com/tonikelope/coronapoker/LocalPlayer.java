@@ -1658,14 +1658,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             // Estado deshabilitado UNIFORME: fondo neutro (Nimbus default) en todos
             // los botones, DESPUÉS de desarmar, para que la botonera atenuada se vea
-            // idéntica sin importar el color previo (los del .form al arrancar —negro
-            // all-in, rojo no-ir— o los de esTuTurno tras la primera mano). Al
-            // re-habilitar, esTuTurno/activarPreBotones repintan el color que toque.
+            // idéntica sin importar el color previo (los del .form al arrancar o los
+            // de esTuTurno tras la primera mano). Al re-habilitar, esTuTurno/
+            // activarPreBotones repintan el color que toque.
             for (Component c : botonera.getComponents()) {
                 if (c instanceof JButton) {
                     c.setBackground(null);
                 }
             }
+
+            // El all-in conserva su fondo NEGRO característico también atenuado (es
+            // su identidad; a diferencia de check/fold/bet, esTuTurno no lo repinta),
+            // en vez de quedar gris como el resto.
+            player_allin_button.setBackground(Color.BLACK);
         });
 
     }

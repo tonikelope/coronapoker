@@ -15318,7 +15318,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
-            if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+            if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
+
+                // Recompra automática del humano local arruinado (preferencia
+                // AUTO_REBUY_ON_BROKE): sin diálogo de game-over ni RebuyDialog.
+                // Mismo importe por defecto que ofrecería el game-over —en fijo el
+                // buy-in completo, en variable 50BB, igual que la auto-recompra de
+                // los bots— y mismo comando REBUY que la rama manual "CONTINUAR".
+                // El techo de mesa se re-aplica al aplicar la recompra (reComprar).
+                int auto_amount = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+
+                rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(), auto_amount);
+
+                try {
+                    String comando = "REBUY#"
+                            + Base64.getEncoder().encodeToString(
+                                    GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
+                            + "#" + String.valueOf(auto_amount);
+
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        this.broadcastGAMECommandFromServer(comando, null);
+                    } else {
+                        this.sendGAMECommandToServer(comando);
+                    }
+                } catch (UnsupportedEncodingException ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
+
+            } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
                     if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {

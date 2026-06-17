@@ -5027,6 +5027,7 @@ public class Helpers {
         public static JCheckBoxMenuItem FULLSCREEN_MENU;
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem REBUY_NOW_MENU;
+        public static JCheckBoxMenuItem AUTO_REBUY_MENU;
         public static JCheckBoxMenuItem IWTSTH_RULE_MENU;
         public static JCheckBoxMenuItem RUN_IT_TWICE_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
@@ -5343,6 +5344,13 @@ public class Helpers {
                     }
                 };
 
+                Action autoRebuyAction = new AbstractAction(Translator.translate("menu.recomprar_auto_arruinarse")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAuto_rebuy_menu().doClick();
+                    }
+                };
+
                 Action iwtsthRuleAction = new AbstractAction(Translator.translate("menu.regla_iwtsth")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -5599,6 +5607,12 @@ public class Helpers {
                 REBUY_NOW_MENU.setSelected(false);
                 REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(REBUY_NOW_MENU);
+
+                AUTO_REBUY_MENU = new LeftClickCheckBoxMenuItem(autoRebuyAction);
+                AUTO_REBUY_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rebuy.png")));
+                AUTO_REBUY_MENU.setSelected(GameFrame.AUTO_REBUY_ON_BROKE);
+                AUTO_REBUY_MENU.setEnabled(GameFrame.REBUY);
+                popup.add(AUTO_REBUY_MENU);
 
                 // Separador entre recomprar y las reglas de la timba.
                 popup.addSeparator();

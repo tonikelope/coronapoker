@@ -15318,7 +15318,81 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
 
-            if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+            if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname()) && GameFrame.AUTO_REBUY_ON_BROKE) {
+
+                // Recompra automática al arruinarse: NO se muestra la animación de
+                // game-over; directamente el RebuyDialog (AUTO) —misma barra de
+                // tiempo e importe por defecto, más un botón rojo de cancelar—. Al
+                // expirar -> recompra; al cancelar -> espectador.
+                int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
+                int rebuy_max = GameFrame.getBuyinCap();
+                int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
+
+                final RebuyDialog[] auto_rebuy_dialog = new RebuyDialog[1];
+
+                Helpers.GUIRunAndWait(() -> {
+                    auto_rebuy_dialog[0] = new RebuyDialog(GameFrame.getInstance(), true, false, GameOverDialog.REBUY_DIALOG_COUNTDOWN, rebuy_min, rebuy_max, rebuy_def, "rebuy.recomprar_auto", true);
+                    auto_rebuy_dialog[0].setLocationRelativeTo(auto_rebuy_dialog[0].getParent());
+                    auto_rebuy_dialog[0].setVisible(true);
+                });
+
+                if (auto_rebuy_dialog[0].isRebuy()) {
+
+                    try {
+
+                        rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                        rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(),
+                                (int) auto_rebuy_dialog[0].getRebuy_spinner().getValue());
+
+                        String comando = "REBUY#"
+                                + Base64.getEncoder().encodeToString(
+                                        GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
+                                + "#"
+                                + String.valueOf((int) auto_rebuy_dialog[0].getRebuy_spinner().getValue());
+
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            this.broadcastGAMECommandFromServer(comando, null);
+                        } else {
+                            this.sendGAMECommandToServer(comando);
+                        }
+                    } catch (UnsupportedEncodingException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                    }
+
+                } else {
+
+                    try {
+
+                        rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                        String comando = "REBUY#"
+                                + Base64.getEncoder().encodeToString(
+                                        GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
+                                + "#0";
+
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            this.broadcastGAMECommandFromServer(comando, null);
+                        } else {
+                            this.sendGAMECommandToServer(comando);
+                        }
+                    } catch (UnsupportedEncodingException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
+                    }
+
+                    if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
+
+                        rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
+
+                    }
+
+                    GameFrame.getInstance().getLocalPlayer().setSpectator(null);
+
+                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
+                            + Translator.translate("player.te_quedas_de_espectador"));
+                }
+
+            } else if (GameFrame.REBUY && !atRebuyLimit(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
                 Helpers.GUIRunAndWait(() -> {
                     if (old_brightness != BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS) {
@@ -15368,90 +15442,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         LOGGER.log(Level.SEVERE, null, ex);
                     }
                 } else {
+                    try {
 
-                    // GAME OVER agotado: la cuenta venció sin pulsar CONTINUAR ni
-                    // ESPECTADOR (isExit()==false). Si la recompra automática está
-                    // activada, ANTES de marcar espectador se ofrece el RebuyDialog
-                    // (AUTO) —misma barra de tiempo e importe por defecto, más un
-                    // botón rojo de cancelar—: al expirar recompra; al cancelar cae
-                    // al flujo de espectador. Si se pulsó ESPECTADOR (isExit()==true)
-                    // o la preferencia está apagada, va directo a espectador.
-                    boolean auto_rebought = false;
+                        rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
 
-                    if (!gameover_dialog.isExit() && GameFrame.AUTO_REBUY_ON_BROKE) {
+                        String comando = "REBUY#"
+                                + Base64.getEncoder().encodeToString(
+                                        GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
+                                + "#0";
 
-                        int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
-                        int rebuy_max = GameFrame.getBuyinCap();
-                        int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();
-
-                        final RebuyDialog[] auto_rebuy_dialog = new RebuyDialog[1];
-
-                        Helpers.GUIRunAndWait(() -> {
-                            auto_rebuy_dialog[0] = new RebuyDialog(GameFrame.getInstance(), true, false, GameOverDialog.REBUY_DIALOG_COUNTDOWN, rebuy_min, rebuy_max, rebuy_def, "rebuy.recomprar_auto", true);
-                            auto_rebuy_dialog[0].setLocationRelativeTo(auto_rebuy_dialog[0].getParent());
-                            auto_rebuy_dialog[0].setVisible(true);
-                        });
-
-                        if (auto_rebuy_dialog[0].isRebuy()) {
-
-                            try {
-
-                                rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                                rebuy_now.put(GameFrame.getInstance().getLocalPlayer().getNickname(),
-                                        (int) auto_rebuy_dialog[0].getRebuy_spinner().getValue());
-
-                                String comando = "REBUY#"
-                                        + Base64.getEncoder().encodeToString(
-                                                GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
-                                        + "#"
-                                        + String.valueOf((int) auto_rebuy_dialog[0].getRebuy_spinner().getValue());
-
-                                if (GameFrame.getInstance().isPartida_local()) {
-                                    this.broadcastGAMECommandFromServer(comando, null);
-                                } else {
-                                    this.sendGAMECommandToServer(comando);
-                                }
-
-                                auto_rebought = true;
-
-                            } catch (UnsupportedEncodingException ex) {
-                                LOGGER.log(Level.SEVERE, null, ex);
-                            }
+                        if (GameFrame.getInstance().isPartida_local()) {
+                            this.broadcastGAMECommandFromServer(comando, null);
+                        } else {
+                            this.sendGAMECommandToServer(comando);
                         }
+                    } catch (UnsupportedEncodingException ex) {
+                        LOGGER.log(Level.SEVERE, null, ex);
                     }
 
-                    if (!auto_rebought) {
+                    if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
 
-                        try {
+                        rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
 
-                            rebuy_players.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                            String comando = "REBUY#"
-                                    + Base64.getEncoder().encodeToString(
-                                            GameFrame.getInstance().getLocalPlayer().getNickname().getBytes("UTF-8"))
-                                    + "#0";
-
-                            if (GameFrame.getInstance().isPartida_local()) {
-                                this.broadcastGAMECommandFromServer(comando, null);
-                            } else {
-                                this.sendGAMECommandToServer(comando);
-                            }
-                        } catch (UnsupportedEncodingException ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                        }
-
-                        if (rebuy_now.containsKey(GameFrame.getInstance().getLocalPlayer().getNickname())) {
-
-                            rebuy_now.remove(GameFrame.getInstance().getLocalPlayer().getNickname());
-
-                        }
-
-                        GameFrame.getInstance().getLocalPlayer().setSpectator(null);
-
-                        GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
-                                + Translator.translate("player.te_quedas_de_espectador"));
                     }
+
+                    GameFrame.getInstance().getLocalPlayer().setSpectator(null);
+
+                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
+                            + Translator.translate("player.te_quedas_de_espectador"));
                 }
 
             } else {

@@ -504,10 +504,9 @@
                                               <Component id="blind_cap_checkbox" min="-2" max="-2" attributes="0"/>
                                               <EmptySpace max="-2" attributes="0"/>
                                               <Component id="blind_cap_spinner" min="-2" pref="100" max="-2" attributes="0"/>
-                                              <EmptySpace max="-2" attributes="0"/>
-                                              <Component id="blind_cap_label" min="-2" max="-2" attributes="0"/>
                                               <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
                                           </Group>
+                                          <Component id="blind_cap_label" min="-2" max="-2" attributes="0"/>
                                       </Group>
                                       <EmptySpace max="-2" attributes="0"/>
                                   </Group>
@@ -532,8 +531,9 @@
                                       <Group type="103" groupAlignment="3" attributes="0">
                                           <Component id="blind_cap_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
                                           <Component id="blind_cap_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="blind_cap_label" alignment="3" min="-2" max="-2" attributes="0"/>
                                       </Group>
+                                      <EmptySpace max="-2" attributes="0"/>
+                                      <Component id="blind_cap_label" min="-2" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
                                   </Group>
                               </Group>

@@ -113,7 +113,7 @@ public class RunItTwiceDialog extends JDialog {
         JPanel panel = new JPanel();
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(255, 102, 0), 12),
+                BorderFactory.createLineBorder(new Color(255, 102, 0), 10),
                 BorderFactory.createEmptyBorder(25, 45, 25, 45)));
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 

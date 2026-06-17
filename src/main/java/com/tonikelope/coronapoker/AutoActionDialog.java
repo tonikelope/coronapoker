@@ -94,7 +94,7 @@ public class AutoActionDialog extends JDialog {
         resolve(true);
     }
 
-    public AutoActionDialog(Frame parent, Component center_over, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
+    public AutoActionDialog(Frame parent, Component center_over, Component width_ref, int seconds, String action_text, BooleanSupplier keep_waiting, Consumer<Boolean> on_resolve) {
 
         super(parent, false);
 
@@ -122,9 +122,11 @@ public class AutoActionDialog extends JDialog {
         title.setFocusable(false);
         panel.add(title, gbc);
 
+        JLabel action = null;
+
         if (action_text != null && !action_text.isEmpty()) {
             gbc.gridy++;
-            JLabel action = new JLabel(action_text);
+            action = new JLabel(action_text);
             action.setFont(new Font("Dialog", Font.BOLD, 19));
             action.setForeground(Color.BLACK);
             action.setHorizontalAlignment(SwingConstants.CENTER);
@@ -156,17 +158,31 @@ public class AutoActionDialog extends JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 
+        // A la altura del jugador local: misma columna izquierda y anchura que su
+        // botonera de acción (width_ref), centrado verticalmente respecto a su
+        // asiento (center_over). Los rótulos se reajustan al ancho de la botonera
+        // ANTES de empaquetar para que la altura salga correcta y no quede holgura
+        // vertical. Si la botonera no se está mostrando, cae al centro del owner
+        // con el tamaño natural.
+        boolean anchored = center_over != null && center_over.isShowing() && width_ref != null && width_ref.isShowing();
+
+        if (anchored) {
+            // Ancho útil = botonera − borde (9 px a cada lado) − insets (20 px a
+            // cada lado). fitFontToWidth solo encoge la fuente si el texto no cabe.
+            int avail = width_ref.getWidth() - 2 * 9 - 2 * 20;
+            title.setFont(Helpers.fitFontToWidth(title, title.getText(), title.getFont(), avail, 14));
+            if (action != null) {
+                action.setFont(Helpers.fitFontToWidth(action, action.getText(), action.getFont(), avail, 12));
+            }
+        }
+
         pack();
-        // Anclado a la esquina inferior derecha del panel del jugador local (su
-        // asiento), con un pequeño margen interior para quedar DENTRO sin pisar su
-        // borde; no centrado encima. Si por lo que sea no está mostrándose, cae al
-        // centro del owner.
-        if (center_over != null && center_over.isShowing()) {
-            Point anchor = center_over.getLocationOnScreen();
-            int margin = 16;
-            int x = anchor.x + center_over.getWidth() - getWidth() - margin;
-            int y = anchor.y + center_over.getHeight() - getHeight() - margin;
-            setLocation(x, y);
+
+        if (anchored) {
+            setSize(width_ref.getWidth(), getHeight());
+            Point player_anchor = center_over.getLocationOnScreen();
+            Point ref_anchor = width_ref.getLocationOnScreen();
+            setLocation(ref_anchor.x, player_anchor.y + (center_over.getHeight() - getHeight()) / 2);
         } else {
             setLocationRelativeTo(parent);
         }

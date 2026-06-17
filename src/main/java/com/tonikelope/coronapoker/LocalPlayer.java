@@ -987,6 +987,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             action_button_armed.put(player_fold_button, false);
             disablePlayerAction();
             desactivarControles();
+            // El editor del spinner de apuesta es OPACO por defecto bajo Nimbus y
+            // su relleno blanco "asoma" rellenando la banda del spinner. Lo hacemos
+            // no-opaco YA al construir (no solo en setSpinnerColors, que corre en el
+            // primer turno) para que el spinner deshabilitado se vea igual desde el
+            // arranque que tras la primera mano.
+            bet_spinner.getEditor().setOpaque(false);
             Helpers.setScaledIconLabel(utg_icon, getClass().getResource("/images/utg.png"), 41, 31);
             utg_icon.setVisible(false);
             player_pot.setText("----");

@@ -128,6 +128,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
     public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
+    public static volatile boolean AUTO_REBUY_ON_BROKE = false; //true = el humano local recompra automaticamente al arruinarse (importe por defecto, sin dialogo); preferencia LOCAL de sesion, por defecto false
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
@@ -2330,6 +2331,25 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         int iwtsth_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(iwtsth_rule_menu);
         opciones_menu.insert(run_it_twice_menu, iwtsth_index >= 0 ? iwtsth_index + 1 : opciones_menu.getMenuComponentCount());
 
+        // Recompra automática al arruinarse: checkbox en Preferencias justo tras
+        // "RECOMPRAR (siguiente mano)". Campo a mano (initComponents es generado);
+        // preferencia LOCAL con el mismo patrón de sincronización menú↔popup que
+        // el resto.
+        auto_rebuy_menu = new javax.swing.JCheckBoxMenuItem();
+        auto_rebuy_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        auto_rebuy_menu.putClientProperty("i18n.key", "menu.recomprar_auto_arruinarse");
+        auto_rebuy_menu.setText(Translator.translate("menu.recomprar_auto_arruinarse"));
+        auto_rebuy_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rebuy.png")));
+        auto_rebuy_menu.setSelected(GameFrame.AUTO_REBUY_ON_BROKE);
+        auto_rebuy_menu.setEnabled(GameFrame.REBUY);
+        auto_rebuy_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                auto_rebuy_menuActionPerformed(evt);
+            }
+        });
+        int rebuy_index = java.util.Arrays.asList(opciones_menu.getMenuComponents()).indexOf(rebuy_now_menu);
+        opciones_menu.insert(auto_rebuy_menu, rebuy_index >= 0 ? rebuy_index + 1 : opciones_menu.getMenuComponentCount());
+
         generarBarajasMenu();
 
         // === Menú "Apariencia" en el menú-bar, lo más parecido al popup del
@@ -2607,6 +2627,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         rebuy_now_menu.setEnabled(GameFrame.REBUY);
 
         Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(GameFrame.REBUY);
+
+        auto_rebuy_menu.setEnabled(GameFrame.REBUY);
+
+        Helpers.TapetePopupMenu.AUTO_REBUY_MENU.setEnabled(GameFrame.REBUY);
 
         Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
 
@@ -5020,6 +5044,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // mismo patrón de sincronización menú↔popup que IWTSTH.
     private javax.swing.JCheckBoxMenuItem run_it_twice_menu;
 
+    // Recompra automática al arruinarse: checkbox del menú Preferencias y del
+    // popup. Campo a mano (fuera del bloque generado). Preferencia LOCAL de
+    // sesión sincronizada menú↔popup.
+    private javax.swing.JCheckBoxMenuItem auto_rebuy_menu;
+
     // Menú "Apariencia" del menú-bar (construido a mano re-parentando ítems);
     // es uno de los menús de nivel superior, así que el dispatcher de teclas lo
     // consulta para no robar atajos mientras está abierto.
@@ -5192,6 +5221,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return run_it_twice_menu;
     }
 
+    public javax.swing.JCheckBoxMenuItem getAuto_rebuy_menu() {
+        return auto_rebuy_menu;
+    }
+
     private void run_it_twice_menuActionPerformed(java.awt.event.ActionEvent evt) {
 
         run_it_twice_menu.setEnabled(false);
@@ -5213,6 +5246,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 }
             }
         });
+    }
+
+    // Recompra automática al arruinarse: preferencia LOCAL (no se difunde al host
+    // ni cambia las reglas de la timba). Solo conmuta el flag y refleja el estado
+    // en el checkbox gemelo del popup.
+    private void auto_rebuy_menuActionPerformed(java.awt.event.ActionEvent evt) {
+        GameFrame.AUTO_REBUY_ON_BROKE = auto_rebuy_menu.isSelected();
+        Helpers.TapetePopupMenu.AUTO_REBUY_MENU.setSelected(auto_rebuy_menu.isSelected());
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

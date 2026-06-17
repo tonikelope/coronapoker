@@ -31,9 +31,10 @@ import javax.swing.JButton;
  */
 public class TranslucentDisabledButton extends JButton {
 
-    // Opacidad del control cuando está deshabilitado (0..1). Misma referencia
-    // que TranslucentDisabledSpinner para mantener la botonera coherente.
-    public static final float DISABLED_OPACITY = 0.3f;
+    // Opacidad del control cuando está deshabilitado (0..1). Igualada al alpha
+    // del borde/fondo en reposo del LocalPlayer —Color(204,204,204,75)— para que
+    // coincidan exactamente (75/255 ≈ 29,4 %). La comparte TranslucentDisabledSpinner.
+    public static final float DISABLED_OPACITY = 75f / 255f;
 
     public TranslucentDisabledButton() {
         setOpaque(false);

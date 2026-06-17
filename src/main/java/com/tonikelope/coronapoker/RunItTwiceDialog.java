@@ -73,7 +73,7 @@ public class RunItTwiceDialog extends JDialog {
 
     // Translucent enough to read the community cards behind the dialog while
     // keeping the buttons and tallies perfectly legible.
-    private static final float DIALOG_OPACITY = 0.85f;
+    private static final float DIALOG_OPACITY = 0.9f;
 
     private volatile int vote = VOTE_PENDING;
     // Gate so only the FIRST cast wins: the EDT button click and the countdown

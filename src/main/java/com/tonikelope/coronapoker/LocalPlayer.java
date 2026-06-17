@@ -1513,6 +1513,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             final Icon fold_icon = player_fold_button.getIcon();
                             final Icon bet_icon = player_bet_button.getIcon();
                             final Icon allin_icon = player_allin_button.getIcon();
+                            final Object spinner_value = bet_spinner.getValue();
 
                             player_check_button.setText(" ");
                             player_check_button.setIcon(null);
@@ -1526,6 +1527,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             player_allin_button.setText(" ");
                             player_allin_button.setIcon(null);
                             player_allin_button.setEnabled(false);
+                            bet_spinner.setValue(new BigDecimal(0));
                             bet_spinner.setEnabled(false);
 
                             AutoActionDialog dlg = new AutoActionDialog(
@@ -1547,6 +1549,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                         player_bet_button.setIcon(bet_icon);
                                         player_allin_button.setText(allin_text);
                                         player_allin_button.setIcon(allin_icon);
+                                        bet_spinner.setValue(spinner_value);
 
                                         player_check_button.setEnabled(check_en);
                                         player_fold_button.setEnabled(fold_en);

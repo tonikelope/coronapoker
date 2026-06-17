@@ -973,13 +973,13 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void blinds_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_blinds_labelMouseClicked
         // TODO add your handling code here:
 
-        if (GameFrame.getInstance().isPartida_local()) {
-            EditBlindsDialog dialog = new EditBlindsDialog(GameFrame.getInstance(), true);
+        // El host abre el diálogo editable; los clientes lo abren en solo-lectura
+        // (informativo): ven la configuración de ciegas actual sin poder cambiarla.
+        EditBlindsDialog dialog = new EditBlindsDialog(GameFrame.getInstance(), true, !GameFrame.getInstance().isPartida_local());
 
-            dialog.setLocationRelativeTo(GameFrame.getInstance());
+        dialog.setLocationRelativeTo(GameFrame.getInstance());
 
-            dialog.setVisible(true);
-        }
+        dialog.setVisible(true);
 
     }//GEN-LAST:event_blinds_labelMouseClicked
 

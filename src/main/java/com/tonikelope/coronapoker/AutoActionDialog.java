@@ -127,7 +127,7 @@ public class AutoActionDialog extends JDialog {
         if (action_text != null && !action_text.isEmpty()) {
             gbc.gridy++;
             action = new JLabel(action_text);
-            action.setFont(new Font("Dialog", Font.BOLD, 19));
+            action.setFont(new Font("Dialog", Font.BOLD, 22));
             action.setForeground(Color.BLACK);
             action.setHorizontalAlignment(SwingConstants.CENTER);
             action.setFocusable(false);
@@ -186,10 +186,6 @@ public class AutoActionDialog extends JDialog {
         } else {
             setLocationRelativeTo(parent);
         }
-
-        // Translúcido al 90%: deja entrever ligeramente la mesa detrás mientras
-        // corre la cuenta atrás.
-        setOpacity(0.9f);
 
         // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
         // fin de partida o keep_waiting falso (el jugador actuó a mano) -> abortar.

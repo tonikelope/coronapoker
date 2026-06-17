@@ -171,9 +171,9 @@ public class AutoActionDialog extends JDialog {
             setLocationRelativeTo(parent);
         }
 
-        // Translúcido al 85%: deja entrever ligeramente la mesa detrás mientras
+        // Translúcido al 90%: deja entrever ligeramente la mesa detrás mientras
         // corre la cuenta atrás.
-        setOpacity(0.85f);
+        setOpacity(0.9f);
 
         // Cuenta atrás en background. Resuelve por callback: timeout -> ejecutar;
         // fin de partida o keep_waiting falso (el jugador actuó a mano) -> abortar.

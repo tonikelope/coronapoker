@@ -94,6 +94,21 @@ public class BlindStructureTest {
     }
 
     @Test
+    void levelsStringIsSafeForTheInitWire() {
+        // The INIT command is '#'-delimited with '@' sub-delimiters; the serialized
+        // ladder must never contain either or it would corrupt the wire framing.
+        for (float[][] ladder : new float[][][]{
+            BlindStructure.defaultLevels(),
+            levels(0.1f, 0.2f, 0.5f, 1f),
+            levels(10f, 25f, 20f, 50f, 40f, 100f)}) {
+            String csv = BlindStructure.levelsToString(ladder);
+            assertFalse(csv.contains("#"), csv);
+            assertFalse(csv.contains("@"), csv);
+            assertArrayEquals(ladder, BlindStructure.parseLevels(csv));
+        }
+    }
+
+    @Test
     void parseLevelsToleratesWhitespace() {
         float[][] out = BlindStructure.parseLevels(" 25/50 , 50/100 ");
         assertArrayEquals(levels(25f, 50f, 50f, 100f), out);

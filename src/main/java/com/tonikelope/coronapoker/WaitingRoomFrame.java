@@ -3293,6 +3293,20 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
                                                             GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
                                                             GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
+                                                            // Estructura de ciegas personalizada (campo opcional al final): el
+                                                            // cliente recomputa la escalada con la MISMA lista que el host.
+                                                            // Ausente = escalera por defecto (null). Nunca conservar una
+                                                            // estructura stale de una partida anterior.
+                                                            if (partes_comando.length > 14 && !partes_comando[14].isEmpty()) {
+                                                                try {
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseLevels(partes_comando[14]);
+                                                                } catch (IllegalArgumentException blinds_ex) {
+                                                                    LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed; falling back to default", blinds_ex);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
+                                                                }
+                                                            } else {
+                                                                GameFrame.ACTIVE_BLIND_STRUCTURE = null;
+                                                            }
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
                                                                     new GameFrame(THIS, local_nick, false);

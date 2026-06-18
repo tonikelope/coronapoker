@@ -455,9 +455,9 @@ public class EditBlindsDialog extends JDialog {
 
     // Tope de ciegas como "nº de subidas" (igual que NewGameDialog): el spinner es
     // el entero y blind_cap_label muestra el nivel resultante. GameFrame.BLIND_CAP
-    // sigue siendo la ciega grande de ese nivel (float).
-    private float parseBlindLevelBB(String item) {
-        return Float.parseFloat(item.replace(",", ".").split("/")[1].trim());
+    // sigue siendo la ciega grande de ese nivel (double).
+    private double parseBlindLevelBB(String item) {
+        return Double.parseDouble(item.replace(",", ".").split("/")[1].trim());
     }
 
     private int blindCapTargetIndex(int n) {
@@ -465,7 +465,7 @@ public class EditBlindsDialog extends JDialog {
         return Math.min(Math.max(0, ciegas_combobox.getSelectedIndex()) + n, last);
     }
 
-    private float blindCapSelectedBB() {
+    private double blindCapSelectedBB() {
         return parseBlindLevelBB(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
     }
 
@@ -513,12 +513,12 @@ public class EditBlindsDialog extends JDialog {
 
         }
 
-        float blind_cap = (this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected()) ? blindCapSelectedBB() : 0f;
+        double blind_cap = (this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected()) ? blindCapSelectedBB() : 0;
         GameFrame.BLIND_CAP = blind_cap;
 
         String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-        GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.valueOf(valores_ciegas[0].trim()), Float.valueOf(valores_ciegas[1].trim()), ciegas_double, ciegas_double_type);
+        GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.valueOf(valores_ciegas[0].trim()), Double.valueOf(valores_ciegas[1].trim()), ciegas_double, ciegas_double_type);
 
         setVisible(false);
 

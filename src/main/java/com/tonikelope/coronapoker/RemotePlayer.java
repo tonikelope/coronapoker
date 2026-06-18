@@ -1824,7 +1824,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!player_stack_click) {
             player_stack_click = true;
 
-            player_stack.setText(Helpers.float2String((float) this.buyin));
+            player_stack.setText(Helpers.money2String(this.buyin));
             setPlayerStackBackground(Color.GRAY);
             player_stack.setForeground(Color.WHITE);
 

@@ -5484,7 +5484,7 @@ public class WaitingRoomFrame extends JFrame {
         } else if (buyin_field.matches("[0-9,.*]+")) {
             boolean rebuy = !buyin_field.endsWith("*");
             game_info_buyin.setVisible(true);
-            game_info_buyin.setText(Helpers.float2String(Float.parseFloat(buyin_field.replace("*", ""))) + (rebuy ? "" : "*"));
+            game_info_buyin.setText(Helpers.money2String(Double.parseDouble(buyin_field.replace("*", ""))) + (rebuy ? "" : "*"));
             game_info_blinds.setVisible(true);
             game_info_blinds.setText(game_info[1]);
             if (game_info.length > 2) {
@@ -5521,7 +5521,7 @@ public class WaitingRoomFrame extends JFrame {
 
                 if (GameFrame.FIXED_BUYIN) {
                     game_info_buyin.setVisible(true);
-                    game_info_buyin.setText(Helpers.float2String((float) GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
+                    game_info_buyin.setText(Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
                 } else {
                     // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
                     game_info_buyin.setText(VARIABLE_BUYIN_TAG);

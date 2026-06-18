@@ -875,7 +875,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                     setPlayerStackBackground(Color.YELLOW);
                     player_stack.setForeground(Color.BLACK);
-                    player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.float2String(Float.valueOf((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+                    player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
 
                 } else {
 
@@ -2944,7 +2944,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!GameFrame.getInstance().isTimba_pausada() && getDecision() == Player.NODEC && player_bet_button.isEnabled()) {
 
-            if (Helpers.doubleSecureCompare(stack, (((BigDecimal) bet_spinner.getValue()).floatValue()) + call_required) == 0) {
+            if (Helpers.doubleSecureCompare(stack, (((BigDecimal) bet_spinner.getValue()).doubleValue()) + call_required) == 0) {
 
                 player_allin_buttonActionPerformed(null);
 
@@ -3023,7 +3023,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (!player_stack_click) {
                 player_stack_click = true;
 
-                player_stack.setText(Helpers.float2String((float) this.buyin));
+                player_stack.setText(Helpers.money2String(this.buyin));
                 setPlayerStackBackground(Color.GRAY);
                 player_stack.setForeground(Color.WHITE);
 
@@ -3034,7 +3034,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                             setPlayerStackBackground(Color.YELLOW);
                             player_stack.setForeground(Color.BLACK);
-                            player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.float2String(Float.valueOf((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname()))));
+                            player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
 
                         } else {
 

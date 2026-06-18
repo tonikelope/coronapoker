@@ -36,19 +36,20 @@ public final class BuyinRules {
     public static final int CEIL_MAX_BB = 500;     // the upper-limit spinner cannot go above this
     public static final int SUGGESTED_BB = 50;     // suggested buy-in within the range
 
-    // Minimum buy-in: minBB big blinds.
-    public static int min(float big_blind, int minBB) {
+    // Minimum buy-in: minBB big blinds. (big_blind is double-typed money; the
+    // chip-count return stays int.)
+    public static int min(double big_blind, int minBB) {
         return (int) (big_blind * minBB);
     }
 
     // Maximum buy-in: maxBB big blinds.
-    public static int max(float big_blind, int maxBB) {
+    public static int max(double big_blind, int maxBB) {
         return (int) (big_blind * maxBB);
     }
 
     // Suggested buy-in: SUGGESTED_BB big blinds, clamped into [min,max] (so a deep
     // range such as 100-300 BB suggests its minimum rather than the bare 50 BB).
-    public static int defaultBuyin(float big_blind, int minBB, int maxBB) {
+    public static int defaultBuyin(double big_blind, int minBB, int maxBB) {
         int suggested = (int) (big_blind * SUGGESTED_BB);
         return Math.max(min(big_blind, minBB), Math.min(suggested, max(big_blind, maxBB)));
     }
@@ -56,7 +57,7 @@ public final class BuyinRules {
     // Per-table stack ceiling: the single fixed buy-in everyone shares, or maxBB
     // big blinds when each player chooses their own (the deepest anybody could have
     // bought in for). No player may ever hold more than this.
-    public static int cap(boolean fixed, int buyin, float big_blind, int maxBB) {
+    public static int cap(boolean fixed, int buyin, double big_blind, int maxBB) {
         return fixed ? buyin : max(big_blind, maxBB);
     }
 
@@ -64,7 +65,7 @@ public final class BuyinRules {
     // the ceiling; 0 if already at (or over) it. ceil() on the current stack is
     // conservative: fractional stacks from sub-1 blinds never let a whole-chip
     // rebuy push the total above the cap.
-    public static int headroom(boolean fixed, int buyin, float big_blind, int maxBB, float current_stack) {
+    public static int headroom(boolean fixed, int buyin, double big_blind, int maxBB, double current_stack) {
         return Math.max(0, cap(fixed, buyin, big_blind, maxBB) - (int) Math.ceil(current_stack));
     }
 }

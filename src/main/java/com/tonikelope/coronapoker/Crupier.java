@@ -14694,6 +14694,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
             broadcastGAMECommandFromServer("INIT#" + String.valueOf(GameFrame.BUYIN) + "#" + String.valueOf(GameFrame.CIEGA_PEQUEÑA) + "#" + String.valueOf(GameFrame.CIEGA_GRANDE) + "#" + String.valueOf(GameFrame.CIEGAS_DOUBLE) + "@" + String.valueOf(GameFrame.CIEGAS_DOUBLE_TYPE) + "#" + String.valueOf(GameFrame.isRECOVER()) + "@" + GameFrame.UGI + "#" + String.valueOf(GameFrame.REBUY) + "#" + String.valueOf(GameFrame.MANOS) + "#" + String.valueOf(GameFrame.BLIND_CAP) + "#" + String.valueOf(GameFrame.REBUY_LIMIT) + "#" + String.valueOf(GameFrame.BOT_REBUY) + "#" + String.valueOf(GameFrame.FIXED_BUYIN)
+                    // Rango de buy-in editable y política de tope de recompra (campos
+                    // fijos; van ANTES del campo opcional de estructura).
+                    + "#" + String.valueOf(GameFrame.BUYIN_MIN_BB) + "#" + String.valueOf(GameFrame.BUYIN_MAX_BB) + "#" + String.valueOf(GameFrame.REBUY_CAP_POLICY)
                     // Estructura de ciegas personalizada (campo opcional al final): los
                     // clientes recomputan la escalada por su cuenta, así que TODOS deben
                     // caminar la misma lista o desincronizan al subir las ciegas. Solo se

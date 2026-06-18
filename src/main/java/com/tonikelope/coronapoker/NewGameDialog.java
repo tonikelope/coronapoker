@@ -207,6 +207,8 @@ public class NewGameDialog extends JDialog {
         this.fixed_buyin_checkbox.setSelected(GameFrame.FIXED_BUYIN);
         this.buyin_spinner.setEnabled(GameFrame.FIXED_BUYIN);
 
+        initBuyinRangeAndCapUI();
+
         this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
         this.rebuy_limit_checkbox.setEnabled(GameFrame.REBUY);
         this.rebuy_limit_spinner.setEnabled(GameFrame.REBUY && GameFrame.REBUY_LIMIT > 0);
@@ -236,7 +238,9 @@ public class NewGameDialog extends JDialog {
             i++;
         }
 
-        buyin_spinner.setModel(new SpinnerNumberModel((int) GameFrame.BUYIN, (int) (GameFrame.CIEGA_GRANDE * 10f), (int) (GameFrame.CIEGA_GRANDE * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
+        int buyin_lo_ctor = BuyinRules.min(GameFrame.CIEGA_GRANDE, GameFrame.BUYIN_MIN_BB);
+        int buyin_hi_ctor = Math.max(buyin_lo_ctor, BuyinRules.max(GameFrame.CIEGA_GRANDE, GameFrame.BUYIN_MAX_BB));
+        buyin_spinner.setModel(new SpinnerNumberModel(Math.max(buyin_lo_ctor, Math.min((int) GameFrame.BUYIN, buyin_hi_ctor)), buyin_lo_ctor, buyin_hi_ctor, (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
         ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -373,6 +377,8 @@ public class NewGameDialog extends JDialog {
             recover_panel.setVisible(false);
         }
 
+        initBuyinRangeAndCapUI();
+
         class VamosButtonListener implements DocumentListener {
 
             public void changedUpdate(DocumentEvent e) {
@@ -461,7 +467,7 @@ public class NewGameDialog extends JDialog {
 
             float ciega_grande = Float.valueOf(valores[1].trim());
 
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
+            buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), Math.max(BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB)), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -602,7 +608,13 @@ public class NewGameDialog extends JDialog {
         rebuy_limit_checkbox = new javax.swing.JCheckBox();
         rebuy_limit_spinner = new javax.swing.JSpinner();
         bot_rebuy_checkbox = new javax.swing.JCheckBox();
+        rebuy_cap_label = new javax.swing.JLabel();
+        rebuy_cap_combo = new javax.swing.JComboBox<>();
         fixed_buyin_checkbox = new javax.swing.JCheckBox();
+        buyin_range_label = new javax.swing.JLabel();
+        buyin_min_bb_spinner = new javax.swing.JSpinner();
+        buyin_range_sep_label = new javax.swing.JLabel();
+        buyin_max_bb_spinner = new javax.swing.JSpinner();
         nick_pass_panel = new javax.swing.JPanel();
         nick = new javax.swing.JTextField();
         nick_label = new javax.swing.JLabel();
@@ -731,8 +743,7 @@ public class NewGameDialog extends JDialog {
 
         buyin_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         buyin_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/emoji_chat/1202.png"))); // NOI18N
-        buyin_label.setText("Compra inicial (10 a 100 CGs):");
-        buyin_label.setToolTipText("[10-100] ciegas grandes");
+        buyin_label.setText("Compra inicial:");
         buyin_label.setDoubleBuffered(true);
 
         rebuy_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -752,6 +763,34 @@ public class NewGameDialog extends JDialog {
         buyin_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
             public void stateChanged(javax.swing.event.ChangeEvent evt) {
                 buyin_spinnerStateChanged(evt);
+            }
+        });
+
+        buyin_range_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        buyin_range_label.setText("Rango compra (CG):");
+        buyin_range_label.setDoubleBuffered(true);
+
+        buyin_min_bb_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        buyin_min_bb_spinner.setModel(new javax.swing.SpinnerNumberModel(10, 10, 500, 5));
+        buyin_min_bb_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buyin_min_bb_spinner.setDoubleBuffered(true);
+        buyin_min_bb_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                buyin_min_bb_spinnerStateChanged(evt);
+            }
+        });
+
+        buyin_range_sep_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        buyin_range_sep_label.setText("a");
+        buyin_range_sep_label.setDoubleBuffered(true);
+
+        buyin_max_bb_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        buyin_max_bb_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 10, 500, 5));
+        buyin_max_bb_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        buyin_max_bb_spinner.setDoubleBuffered(true);
+        buyin_max_bb_spinner.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                buyin_max_bb_spinnerStateChanged(evt);
             }
         });
 
@@ -970,9 +1009,18 @@ public class NewGameDialog extends JDialog {
         bot_rebuy_checkbox.setDoubleBuffered(true);
         bot_rebuy_checkbox.putClientProperty("i18n.key", "rebuy.permitir_bots");
 
+        rebuy_cap_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        rebuy_cap_label.setText("Tope recompra:");
+        rebuy_cap_label.setDoubleBuffered(true);
+        rebuy_cap_label.putClientProperty("i18n.key", "rebuy.tope_recompra");
+
+        rebuy_cap_combo.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        rebuy_cap_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rebuy_cap_combo.setDoubleBuffered(true);
+
         fixed_buyin_checkbox.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         fixed_buyin_checkbox.setText("Buy-in fijo");
-        fixed_buyin_checkbox.setToolTipText("Marcado: todos arrancan con el mismo buy-in. Desmarcado: cada jugador elige su buy-in (10BB-100BB) al entrar al tablero.");
+        fixed_buyin_checkbox.setToolTipText("Marcado: todos arrancan con el mismo buy-in. Desmarcado: cada jugador elige su buy-in (dentro del rango configurado) al entrar al tablero.");
         fixed_buyin_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         fixed_buyin_checkbox.setDoubleBuffered(true);
         fixed_buyin_checkbox.putClientProperty("i18n.key", "newgame.buyin_fijo");
@@ -998,6 +1046,9 @@ public class NewGameDialog extends JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(bot_rebuy_checkbox)
                 .addGap(0, 0, Short.MAX_VALUE)
+                .addComponent(rebuy_cap_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
         recompra_panelLayout.setVerticalGroup(
@@ -1009,7 +1060,9 @@ public class NewGameDialog extends JDialog {
                     .addComponent(recomprar_label)
                     .addComponent(rebuy_limit_checkbox)
                     .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bot_rebuy_checkbox))
+                    .addComponent(bot_rebuy_checkbox)
+                    .addComponent(rebuy_cap_label)
+                    .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
         );
 
@@ -1029,6 +1082,7 @@ public class NewGameDialog extends JDialog {
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(buyin_label)
+                            .addComponent(buyin_range_label)
                             .addComponent(ciegas_label)
                             .addComponent(estructura_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1038,7 +1092,13 @@ public class NewGameDialog extends JDialog {
                             .addGroup(jPanel3Layout.createSequentialGroup()
                                 .addComponent(buyin_spinner)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(fixed_buyin_checkbox)))))
+                                .addComponent(fixed_buyin_checkbox))
+                            .addGroup(jPanel3Layout.createSequentialGroup()
+                                .addComponent(buyin_min_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(buyin_range_sep_label)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(buyin_max_bb_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addGap(18, 18, 18)
                 .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addContainerGap())
@@ -1064,6 +1124,12 @@ public class NewGameDialog extends JDialog {
                                     .addComponent(buyin_spinner)
                                     .addComponent(fixed_buyin_checkbox))
                                 .addGap(18, 18, 18)))
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(buyin_range_label)
+                            .addComponent(buyin_min_bb_spinner)
+                            .addComponent(buyin_range_sep_label)
+                            .addComponent(buyin_max_bb_spinner))
+                        .addGap(18, 18, 18)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                             .addComponent(manos_spinner)
                             .addComponent(limite_manos_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1075,7 +1141,9 @@ public class NewGameDialog extends JDialog {
 
         ciegas_label.putClientProperty("i18n.key", "blinds.ciegas_iniciales");
         estructura_label.putClientProperty("i18n.key", "blinds.estructura");
-        buyin_label.putClientProperty("i18n.key", "ui.compra_inicial_10_a_100");
+        buyin_label.putClientProperty("i18n.key", "blinds.compra_inicial");
+        buyin_range_label.putClientProperty("i18n.key", "blinds.rango_compra");
+        buyin_range_sep_label.putClientProperty("i18n.key", "blinds.rango_a");
         recomprar_label.putClientProperty("i18n.key", "rebuy.recomprar_2");
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
 
@@ -1372,6 +1440,12 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
 
+            GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
+
+            GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
+
+            GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
             GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
@@ -1479,6 +1553,12 @@ public class NewGameDialog extends JDialog {
                 GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
                 GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
+
+                GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
+
+                GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
+
+                GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
 
                 String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
@@ -1662,6 +1742,18 @@ public class NewGameDialog extends JDialog {
 
                 this.fixed_buyin_checkbox.setEnabled(false);
 
+                this.buyin_min_bb_spinner.setEnabled(false);
+
+                this.buyin_max_bb_spinner.setEnabled(false);
+
+                this.buyin_range_label.setEnabled(false);
+
+                this.buyin_range_sep_label.setEnabled(false);
+
+                this.rebuy_cap_combo.setEnabled(false);
+
+                this.rebuy_cap_label.setEnabled(false);
+
                 this.recover_checkbox_label.setOpaque(true);
 
                 this.recover_checkbox_label.setBackground(Color.YELLOW);
@@ -1698,6 +1790,14 @@ public class NewGameDialog extends JDialog {
 
             // El spinner sigue el modo: deshabilitado si es buy-in variable.
             this.buyin_spinner.setEnabled(this.fixed_buyin_checkbox.isSelected());
+
+            // El rango y la política de tope de recompra vuelven a ser editables.
+            this.buyin_min_bb_spinner.setEnabled(true);
+            this.buyin_max_bb_spinner.setEnabled(true);
+            this.buyin_range_label.setEnabled(true);
+            this.buyin_range_sep_label.setEnabled(true);
+            this.rebuy_cap_combo.setEnabled(true);
+            this.rebuy_cap_label.setEnabled(true);
 
             this.buyin_label.setEnabled(true);
 
@@ -1863,7 +1963,9 @@ public class NewGameDialog extends JDialog {
             // índice del combo: para la escalera por defecto 1-2-3-5 da exactamente
             // lo mismo que el viejo pow(10, floor(index/4)), pero también funciona
             // con estructuras personalizadas de niveles arbitrarios.
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
+            int buyin_lo_cg = BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB);
+            int buyin_hi_cg = Math.max(buyin_lo_cg, BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB));
+            buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), buyin_lo_cg, buyin_hi_cg, (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -2106,6 +2208,107 @@ public class NewGameDialog extends JDialog {
         // updateCiegasLabel();
     }//GEN-LAST:event_buyin_spinnerStateChanged
 
+    // Topes inferior/superior del rango de buy-in, en ciegas grandes (BB). El motor
+    // de dinero sigue trabajando en fichas: estos spinners solo fijan los
+    // multiplicadores que BuyinRules convierte a fichas. Se cruzan para mantener
+    // siempre inferior < superior dentro de [FLOOR_MIN_BB, CEIL_MAX_BB].
+    private static final int BUYIN_RANGE_STEP = 5;
+    private boolean adjusting_buyin_range = false;
+
+    // Inicializa los spinners de rango y el combo de política de tope de recompra
+    // desde el estado de GameFrame, validando los límites. Compartido por ambos
+    // constructores (crear/unirse y modificar).
+    private void initBuyinRangeAndCapUI() {
+        int lo = Math.max(BuyinRules.FLOOR_MIN_BB, Math.min(GameFrame.BUYIN_MIN_BB, BuyinRules.CEIL_MAX_BB - BUYIN_RANGE_STEP));
+        int hi = Math.max(lo + BUYIN_RANGE_STEP, Math.min(GameFrame.BUYIN_MAX_BB, BuyinRules.CEIL_MAX_BB));
+
+        adjusting_buyin_range = true;
+        try {
+            buyin_min_bb_spinner.setModel(new SpinnerNumberModel(lo, BuyinRules.FLOOR_MIN_BB, BuyinRules.CEIL_MAX_BB, BUYIN_RANGE_STEP));
+            buyin_max_bb_spinner.setModel(new SpinnerNumberModel(hi, BuyinRules.FLOOR_MIN_BB, BuyinRules.CEIL_MAX_BB, BUYIN_RANGE_STEP));
+        } finally {
+            adjusting_buyin_range = false;
+        }
+
+        GameFrame.BUYIN_MIN_BB = lo;
+        GameFrame.BUYIN_MAX_BB = hi;
+
+        // Combo de política: índice 0 = BUYIN, índice 1 = stack del jugador más alto
+        // (los índices coinciden con las constantes GameFrame.REBUY_CAP_*).
+        rebuy_cap_combo.removeAllItems();
+        rebuy_cap_combo.addItem(Translator.translate("rebuy.cap_policy_buyin"));
+        rebuy_cap_combo.addItem(Translator.translate("rebuy.cap_policy_highest"));
+        rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
+        Helpers.setTranslatedToolTip(rebuy_cap_combo, "rebuy.tope_recompra_tooltip");
+    }
+
+    // Reconstruye el modelo del spinner de buy-in con los límites [min,max] BB
+    // actuales sobre la ciega grande seleccionada, conservando el valor (clamp).
+    private void rebuildBuyinSpinnerModel() {
+        if (ciegas_combobox.getSelectedItem() == null) {
+            return;
+        }
+        String[] v = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
+        float cp = Float.parseFloat(v[0].trim());
+        float cg = Float.parseFloat(v[1].trim());
+        int lo = BuyinRules.min(cg, GameFrame.BUYIN_MIN_BB);
+        int hi = Math.max(lo, BuyinRules.max(cg, GameFrame.BUYIN_MAX_BB));
+        int cur = ((Number) buyin_spinner.getValue()).intValue();
+        int val = Math.max(lo, Math.min(cur, hi));
+        BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(cp)) + 1));
+        buyin_spinner.setModel(new SpinnerNumberModel(val, lo, hi, BUYIN_SPINNER_STEP));
+        ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+    }
+
+    private void buyin_min_bb_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_min_bb_spinnerStateChanged
+        onBuyinRangeChanged(true);
+    }//GEN-LAST:event_buyin_min_bb_spinnerStateChanged
+
+    private void buyin_max_bb_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_max_bb_spinnerStateChanged
+        onBuyinRangeChanged(false);
+    }//GEN-LAST:event_buyin_max_bb_spinnerStateChanged
+
+    // Aplica un cambio en cualquiera de los dos spinners de rango: mantiene
+    // inferior < superior (empujando el otro extremo si hace falta, dentro de los
+    // topes), propaga a GameFrame y reconstruye el spinner de buy-in.
+    private void onBuyinRangeChanged(boolean minChanged) {
+        if (!init || adjusting_buyin_range) {
+            return;
+        }
+
+        adjusting_buyin_range = true;
+        try {
+            int lo = ((Number) buyin_min_bb_spinner.getValue()).intValue();
+            int hi = ((Number) buyin_max_bb_spinner.getValue()).intValue();
+
+            if (lo >= hi) {
+                if (minChanged) {
+                    hi = Math.min(BuyinRules.CEIL_MAX_BB, lo + BUYIN_RANGE_STEP);
+                    if (hi - BUYIN_RANGE_STEP < lo) {
+                        lo = hi - BUYIN_RANGE_STEP;
+                        buyin_min_bb_spinner.setValue(lo);
+                    }
+                    buyin_max_bb_spinner.setValue(hi);
+                } else {
+                    lo = Math.max(BuyinRules.FLOOR_MIN_BB, hi - BUYIN_RANGE_STEP);
+                    if (lo + BUYIN_RANGE_STEP > hi) {
+                        hi = lo + BUYIN_RANGE_STEP;
+                        buyin_max_bb_spinner.setValue(hi);
+                    }
+                    buyin_min_bb_spinner.setValue(lo);
+                }
+            }
+
+            GameFrame.BUYIN_MIN_BB = lo;
+            GameFrame.BUYIN_MAX_BB = hi;
+        } finally {
+            adjusting_buyin_range = false;
+        }
+
+        rebuildBuyinSpinnerModel();
+        packPreservingCenter();
+    }
+
     private void formWindowDeactivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowDeactivated
         // TODO add your handling code here:
         if (isModal()) {
@@ -2237,6 +2440,10 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JComboBox<String> bots_combobox;
     private javax.swing.JLabel bots_label;
     private javax.swing.JLabel buyin_label;
+    private javax.swing.JSpinner buyin_max_bb_spinner;
+    private javax.swing.JSpinner buyin_min_bb_spinner;
+    private javax.swing.JLabel buyin_range_label;
+    private javax.swing.JLabel buyin_range_sep_label;
     private javax.swing.JSpinner buyin_spinner;
     private javax.swing.JButton cancel_button;
     private javax.swing.JComboBox<String> ciegas_combobox;
@@ -2263,6 +2470,8 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel nick_pass_panel;
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
+    private javax.swing.JComboBox<String> rebuy_cap_combo;
+    private javax.swing.JLabel rebuy_cap_label;
     private javax.swing.JCheckBox rebuy_checkbox;
     private javax.swing.JCheckBox rebuy_limit_checkbox;
     private javax.swing.JSpinner rebuy_limit_spinner;

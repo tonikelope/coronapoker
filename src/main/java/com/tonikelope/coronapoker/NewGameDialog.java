@@ -217,6 +217,11 @@ public class NewGameDialog extends JDialog {
         this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
         this.blind_cap_spinner.setEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
 
+        // Selector de estructura: refleja la estructura activa (si la hay) y deja el
+        // combo de niveles con sus ciegas, para que la búsqueda de abajo seleccione
+        // el nivel actual también en estructuras personalizadas.
+        initBlindStructureUI();
+
         String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
 
         int i = 0, t = this.ciegas_combobox.getModel().getSize();
@@ -313,6 +318,12 @@ public class NewGameDialog extends JDialog {
 
         Helpers.attachPasswordStrengthHint(pass_text);
         Helpers.attachPasswordRevealButton(pass_text);
+
+        // Timba nueva: arranca siempre en "Por defecto" (ignora cualquier estructura
+        // que quedara activa de una partida anterior). Si el usuario elige una
+        // personalizada, applySelectedStructure repuebla el combo de niveles.
+        pending_structure = null;
+        populateStructureCombo(null);
 
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
 
@@ -571,6 +582,8 @@ public class NewGameDialog extends JDialog {
         rebuy_checkbox = new javax.swing.JCheckBox();
         buyin_spinner = new javax.swing.JSpinner();
         ciegas_combobox = new javax.swing.JComboBox<>();
+        estructura_label = new javax.swing.JLabel();
+        estructura_combobox = new javax.swing.JComboBox<>();
         recomprar_label = new javax.swing.JLabel();
         jPanel1 = new javax.swing.JPanel();
         doblar_checkbox = new javax.swing.JCheckBox();
@@ -748,6 +761,19 @@ public class NewGameDialog extends JDialog {
         ciegas_combobox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 ciegas_comboboxActionPerformed(evt);
+            }
+        });
+
+        estructura_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        estructura_label.setText("Estructura:");
+        estructura_label.setDoubleBuffered(true);
+
+        estructura_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        estructura_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        estructura_combobox.setDoubleBuffered(true);
+        estructura_combobox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                estructura_comboboxActionPerformed(evt);
             }
         });
 
@@ -983,10 +1009,12 @@ public class NewGameDialog extends JDialog {
                     .addGroup(jPanel3Layout.createSequentialGroup()
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(buyin_label)
-                            .addComponent(ciegas_label))
+                            .addComponent(ciegas_label)
+                            .addComponent(estructura_label))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(ciegas_combobox, 0, 220, Short.MAX_VALUE)
+                            .addComponent(estructura_combobox, 0, 220, Short.MAX_VALUE)
                             .addGroup(jPanel3Layout.createSequentialGroup()
                                 .addComponent(buyin_spinner)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1005,6 +1033,10 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap()
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel3Layout.createSequentialGroup()
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(estructura_label)
+                            .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addComponent(ciegas_label)
                             .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -1028,6 +1060,7 @@ public class NewGameDialog extends JDialog {
         );
 
         ciegas_label.putClientProperty("i18n.key", "blinds.ciegas_iniciales");
+        estructura_label.putClientProperty("i18n.key", "blinds.estructura");
         buyin_label.putClientProperty("i18n.key", "ui.compra_inicial_10_a_100");
         recomprar_label.putClientProperty("i18n.key", "rebuy.recomprar_2");
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
@@ -1324,6 +1357,10 @@ public class NewGameDialog extends JDialog {
             GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
 
             GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
+
+            // Estructura personalizada activa (null = escalera por defecto). Viaja a
+            // los clientes y se persiste en recover desde aquí (ver C5/C6).
+            GameFrame.ACTIVE_BLIND_STRUCTURE = pending_structure != null ? pending_structure.getLevels() : null;
 
             if (this.doblar_checkbox.isSelected()) {
 
@@ -1778,9 +1815,15 @@ public class NewGameDialog extends JDialog {
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
+            float ciega_pequena = Float.valueOf(valores[0].trim());
+
             float ciega_grande = Float.valueOf(valores[1].trim());
 
-            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
+            // Paso del spinner derivado de la magnitud de la ciega pequeña, no del
+            // índice del combo: para la escalera por defecto 1-2-3-5 da exactamente
+            // lo mismo que el viejo pow(10, floor(index/4)), pero también funciona
+            // con estructuras personalizadas de niveles arbitrarios.
+            buyin_spinner.setModel(new SpinnerNumberModel((int) (ciega_grande * 50f), (int) (ciega_grande * 10f), (int) (ciega_grande * 100f), (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
 
             ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
 
@@ -1790,6 +1833,119 @@ public class NewGameDialog extends JDialog {
 
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
+
+    // Estructura de ciegas elegida para esta timba (null = escalera por defecto
+    // 1-2-3-5). Determina los niveles del combo de ciegas y, al crear la timba,
+    // GameFrame.ACTIVE_BLIND_STRUCTURE.
+    private BlindStructure pending_structure = null;
+
+    // Marcadores especiales del combo de estructura; el resto de ítems son nombres
+    // de estructuras personalizadas.
+    private String item_por_defecto;
+    private String item_gestionar;
+
+    // (Re)llena el combo de estructura: "Por defecto" + personalizadas + "Gestionar…".
+    // Reselecciona por nombre la que se indique si sigue existiendo. No dispara la
+    // lógica de selección (baja init mientras repuebla).
+    private void populateStructureCombo(String selectName) {
+        boolean prev_init = init;
+        init = false;
+        try {
+            item_por_defecto = Translator.translate("blinds.estructura_por_defecto");
+            item_gestionar = Translator.translate("blinds.gestionar");
+            estructura_combobox.removeAllItems();
+            estructura_combobox.addItem(item_por_defecto);
+            for (String name : BlindStructure.loadAll().keySet()) {
+                estructura_combobox.addItem(name);
+            }
+            estructura_combobox.addItem(item_gestionar);
+            estructura_combobox.setSelectedItem(selectName != null ? selectName : item_por_defecto);
+            if (estructura_combobox.getSelectedItem() == null
+                    || item_gestionar.equals(estructura_combobox.getSelectedItem())) {
+                estructura_combobox.setSelectedItem(item_por_defecto);
+            }
+        } finally {
+            init = prev_init;
+        }
+    }
+
+    private void estructura_comboboxActionPerformed(java.awt.event.ActionEvent evt) {
+        if (!init) {
+            return;
+        }
+        Object sel = estructura_combobox.getSelectedItem();
+        if (sel == null) {
+            return;
+        }
+        if (sel.equals(item_gestionar)) {
+            // Abrir el editor; al cerrar, recargar conservando la estructura activa
+            // (si fue borrada/renombrada, caer a "Por defecto").
+            String previous = pending_structure != null ? pending_structure.getName() : item_por_defecto;
+            BlindStructureManagerDialog mgr = new BlindStructureManagerDialog(this);
+            mgr.setVisible(true);
+            if (!item_por_defecto.equals(previous) && !BlindStructure.loadAll().containsKey(previous)) {
+                previous = item_por_defecto;
+            }
+            populateStructureCombo(previous);
+            applySelectedStructure();
+            return;
+        }
+        applySelectedStructure();
+    }
+
+    // Aplica la estructura seleccionada al combo de niveles (ciegas_combobox) y a
+    // pending_structure. "Por defecto" => null + escalera 1-2-3-5; personalizada =>
+    // sus niveles. Conserva el formato "sb / bb" local (mismo que el combo original).
+    private void applySelectedStructure() {
+        Object sel = estructura_combobox.getSelectedItem();
+        float[][] levels;
+        if (sel == null || sel.equals(item_por_defecto) || sel.equals(item_gestionar)) {
+            pending_structure = null;
+            levels = BlindStructure.defaultLevels();
+        } else {
+            BlindStructure bs = BlindStructure.loadAll().get((String) sel);
+            pending_structure = bs;
+            levels = bs != null ? bs.getLevels() : BlindStructure.defaultLevels();
+        }
+        String[] items = new String[levels.length];
+        for (int i = 0; i < levels.length; i++) {
+            items[i] = Helpers.float2String(levels[i][0]) + " / " + Helpers.float2String(levels[i][1]);
+        }
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
+        ciegas_combobox.setSelectedIndex(0);
+        // Recalcular buy-in + tope para la nueva escalera (setModel no dispara el
+        // listener de forma fiable).
+        ciegas_comboboxActionPerformed(null);
+    }
+
+    // Inicializa el selector de estructura desde el estado actual
+    // (GameFrame.ACTIVE_BLIND_STRUCTURE). Si hay una estructura personalizada activa
+    // y sigue existiendo, puebla el combo de niveles con la suya y la selecciona; si
+    // no, deja la escalera por defecto. Llamar ANTES de la lógica que busca y
+    // selecciona el nivel de ciega actual en el combo.
+    private void initBlindStructureUI() {
+        pending_structure = null;
+        String selectName = null;
+        float[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
+        if (active != null) {
+            for (java.util.Map.Entry<String, BlindStructure> e : BlindStructure.loadAll().entrySet()) {
+                if (java.util.Arrays.deepEquals(e.getValue().getLevels(), active)) {
+                    pending_structure = e.getValue();
+                    selectName = e.getKey();
+                    break;
+                }
+            }
+        }
+        if (pending_structure != null) {
+            float[][] levels = pending_structure.getLevels();
+            String[] items = new String[levels.length];
+            for (int k = 0; k < levels.length; k++) {
+                items[k] = Helpers.float2String(levels[k][0]) + " / " + Helpers.float2String(levels[k][1]);
+            }
+            ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
+        }
+        populateStructureCombo(selectName);
+    }
 
     // El tope de ciegas se elige como "nº de subidas" (cuántas veces suben las
     // ciegas como máximo, desde las iniciales elegidas). El spinner es ese entero
@@ -1988,6 +2144,8 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JSpinner doblar_ciegas_spinner_minutos;
     private javax.swing.JRadioButton double_blinds_radio_manos;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
+    private javax.swing.JComboBox<String> estructura_combobox;
+    private javax.swing.JLabel estructura_label;
     private javax.swing.JCheckBox fixed_buyin_checkbox;
     private javax.swing.JComboBox<String> game_combo;
     private javax.swing.JPanel jPanel1;

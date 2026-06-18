@@ -1044,6 +1044,35 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return cartas;
     }
 
+    // Acota un importe de apuesta a [min, max] y lo redondea (snap) a la rejilla
+    // min + k*ciega (la misma que recorren las flechas del bet_spinner), de modo que
+    // una apuesta TECLEADA sea siempre legal y múltiplo de la ciega. min/max/step son
+    // los del spinner del turno (ya alineados a la ciega vigente).
+    static BigDecimal snapBetToBlindGrid(Object value, BigDecimal min, BigDecimal max, BigDecimal step) {
+        BigDecimal v;
+        if (value instanceof BigDecimal) {
+            v = (BigDecimal) value;
+        } else if (value instanceof Number) {
+            v = new BigDecimal(value.toString());
+        } else {
+            return min;
+        }
+        if (v.compareTo(min) <= 0) {
+            return min;
+        }
+        if (v.compareTo(max) >= 0) {
+            return max;
+        }
+        BigDecimal k = v.subtract(min).divide(step, 0, RoundingMode.HALF_UP);
+        BigDecimal snapped = min.add(k.multiply(step));
+        if (snapped.compareTo(max) > 0) {
+            snapped = max;
+        } else if (snapped.compareTo(min) < 0) {
+            snapped = min;
+        }
+        return snapped;
+    }
+
     public synchronized void setBet(double new_bet) {
 
         double old_bet = bet;
@@ -1292,11 +1321,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             }
 
+                            // Blindaje del importe TECLEADO: cualquier valor (raw del
+                            // textfield) se acota a [min subida, all-in] y se redondea
+                            // a la rejilla min + k*ciega (la misma que producen las
+                            // flechas), así una apuesta tecleada es siempre legal y
+                            // múltiplo de la ciega. Las flechas pasan valores ya
+                            // alineados → snap idempotente.
+                            @Override
+                            public void setValue(Object value) {
+                                super.setValue(snapBetToBlindGrid(value,
+                                        (BigDecimal) super.getMinimum(),
+                                        (BigDecimal) super.getMaximum(),
+                                        (BigDecimal) super.getStepSize()));
+                            }
+
                         };
                         bet_spinner.setModel(nummodel);
                         bet_spinner.setEnabled(true);
 
-                        ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setEditable(false);
+                        Helpers.makeNumericSpinnerEditable(bet_spinner, true);
                         ((JSpinner.DefaultEditor) bet_spinner.getEditor()).getTextField().setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
                     } else {

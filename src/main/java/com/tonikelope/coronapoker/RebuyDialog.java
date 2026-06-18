@@ -172,7 +172,7 @@ public class RebuyDialog extends JDialog {
 
         barra.setVisible(false);
 
-        ((JSpinner.DefaultEditor) rebuy_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(rebuy_spinner, false);
 
         this.cancelable = cancel;
 

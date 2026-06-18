@@ -853,7 +853,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
             getHand_limit_spinner().setModel(new SpinnerNumberModel(GameFrame.MANOS != -1 ? GameFrame.MANOS : 0, 0, null, 1));
 
-            ((JSpinner.DefaultEditor) getHand_limit_spinner().getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(getHand_limit_spinner(), false);
 
             getHand_limit_spinner().setVisible(true);
 

@@ -71,7 +71,7 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Dead-button rule** | BB / SB / Button handled correctly when players leave |
 | **Action timer** | Per-turn thinking time with on-screen countdown bar |
 | **Rebuy** | Mid-game rebuy, host-toggleable, scheduled for the next hand |
-| **Blinds** | Adjustable by the host live — manual change or scheduled automatic doubling |
+| **Blinds** | Adjustable by the host live — manual change or scheduled escalation, with optional custom blind structures (your own saved ladders of small/big blind levels, big blind free of the 2× default) |
 | **Pause & join** | Pause anytime; new players can be added to a running session |
 | **IWTSTH** | "I Want To See That Hand"  |
 | **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable |

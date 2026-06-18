@@ -1614,6 +1614,10 @@ public class NewGameDialog extends JDialog {
 
                 this.ciegas_combobox.setEnabled(false);
 
+                this.estructura_combobox.setEnabled(false);
+
+                syncStructureComboForRecover();
+
                 this.doblar_ciegas_spinner_minutos.setEnabled(false);
 
                 this.double_blinds_radio_minutos.setEnabled(false);
@@ -1680,6 +1684,14 @@ public class NewGameDialog extends JDialog {
             this.ciegas_label.setEnabled(true);
 
             this.ciegas_combobox.setEnabled(true);
+
+            // Vuelve a timba nueva: reactiva el selector de estructura, quita el ítem
+            // sintético "(recuperada)" y restablece "Por defecto" + ciegas por defecto.
+            this.estructura_combobox.setEnabled(true);
+            item_recuperada = null;
+            pending_structure = null;
+            populateStructureCombo(null);
+            applySelectedStructure();
 
             this.doblar_checkbox.setEnabled(true);
 
@@ -1851,6 +1863,9 @@ public class NewGameDialog extends JDialog {
     // de estructuras personalizadas.
     private String item_por_defecto;
     private String item_gestionar;
+    // Etiqueta sintética para una estructura recuperada que ya no está guardada
+    // (solo aparece en modo recover, en solo-lectura). null si no aplica.
+    private String item_recuperada;
 
     // (Re)llena el combo de estructura: "Por defecto" + personalizadas + "Gestionar…".
     // Reselecciona por nombre la que se indique si sigue existiendo. No dispara la
@@ -1906,6 +1921,10 @@ public class NewGameDialog extends JDialog {
     // sus niveles. Conserva el formato "sb / bb" local (mismo que el combo original).
     private void applySelectedStructure() {
         Object sel = estructura_combobox.getSelectedItem();
+        if (item_recuperada != null && item_recuperada.equals(sel)) {
+            // Ítem sintético de una estructura recuperada (solo-lectura): no toca nada.
+            return;
+        }
         float[][] levels;
         if (sel == null || sel.equals(item_por_defecto) || sel.equals(item_gestionar)) {
             pending_structure = null;
@@ -1953,6 +1972,50 @@ public class NewGameDialog extends JDialog {
             ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         }
         populateStructureCombo(selectName);
+    }
+
+    // Tras cargar una timba a recuperar (loadLastGame ya restauró
+    // GameFrame.ACTIVE_BLIND_STRUCTURE), refleja la estructura recuperada en el
+    // combo aunque NO esté entre las guardadas del usuario: si coincide con una
+    // guardada muestra su nombre; si no, un ítem sintético "(recuperada)" de
+    // solo-lectura. El combo de niveles muestra las ciegas recuperadas. El motor
+    // recupera con ACTIVE pase lo que pase aquí (esto es solo la etiqueta).
+    private void syncStructureComboForRecover() {
+        item_recuperada = null;
+        float[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
+        if (active == null) {
+            pending_structure = null;
+            populateStructureCombo(null);
+            return;
+        }
+        String matchName = null;
+        for (java.util.Map.Entry<String, BlindStructure> e : BlindStructure.loadAll().entrySet()) {
+            if (java.util.Arrays.deepEquals(e.getValue().getLevels(), active)) {
+                matchName = e.getKey();
+                pending_structure = e.getValue();
+                break;
+            }
+        }
+        if (matchName != null) {
+            populateStructureCombo(matchName);
+        } else {
+            pending_structure = null;
+            boolean prev_init = init;
+            init = false;
+            try {
+                populateStructureCombo(null);
+                item_recuperada = Translator.translate("blinds.estructura_recuperada");
+                estructura_combobox.insertItemAt(item_recuperada, 1);
+                estructura_combobox.setSelectedItem(item_recuperada);
+            } finally {
+                init = prev_init;
+            }
+        }
+        String[] items = new String[active.length];
+        for (int k = 0; k < active.length; k++) {
+            items[k] = Helpers.float2String(active[k][0]) + " / " + Helpers.float2String(active[k][1]);
+        }
+        ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
     }
 
     // El tope de ciegas se elige como "nº de subidas" (cuántas veces suben las

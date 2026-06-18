@@ -29,9 +29,11 @@ import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
@@ -454,12 +456,21 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     // Prompts for a structure name, validating format and uniqueness (the
     // current name, when renaming, is allowed). Returns null on cancel/invalid.
     private String promptName(String current) {
-        Object input = JOptionPane.showInputDialog(this, Translator.translate("blinds.nombre_estructura"),
-                getTitle(), JOptionPane.PLAIN_MESSAGE, null, null, current != null ? current : "");
-        if (input == null) {
+        JLabel prompt = new JLabel(Translator.translate("blinds.nombre_estructura"));
+        JTextField field = new JTextField(current != null ? current : "", 18);
+        // Fuente un poco mayor que la del diálogo para que la caja del nombre se lea
+        // cómoda al teclear.
+        java.awt.Font big = Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getSize2D() * 1.4f);
+        prompt.setFont(big);
+        field.setFont(big);
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
+        panel.add(prompt, BorderLayout.NORTH);
+        panel.add(field, BorderLayout.CENTER);
+        if (JOptionPane.showConfirmDialog(this, panel, getTitle(),
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
             return null;
         }
-        String name = input.toString().trim();
+        String name = field.getText().trim();
         String err = BlindStructure.validateName(name);
         if (err != null) {
             Helpers.mostrarMensajeError(this, err);

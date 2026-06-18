@@ -1466,6 +1466,14 @@ public class NewGameDialog extends JDialog {
 
                 GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(valores_ciegas[0].trim());
 
+                // Estructura personalizada activa (null = escalera por defecto). En
+                // RECOVER no se toca: la restaura applyRecoverSettings al cargar la
+                // timba anterior. En timba nueva refleja la estructura del combo y
+                // viaja a los clientes en el INIT (C5).
+                if (!GameFrame.RECOVER) {
+                    GameFrame.ACTIVE_BLIND_STRUCTURE = pending_structure != null ? pending_structure.getLevels() : null;
+                }
+
                 if (this.doblar_checkbox.isSelected()) {
 
                     if (this.double_blinds_radio_minutos.isSelected()) {

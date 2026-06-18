@@ -343,7 +343,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#RUNITWICE=" + (runittwice ? "1" : "0")
                 + "#VOICEMSG=" + (voicemsg ? "1" : "0")
                 + "#TTS=" + (tts ? "1" : "0")
-                + "#FIXED_BUYIN=" + (FIXED_BUYIN ? "1" : "0");
+                + "#FIXED_BUYIN=" + (FIXED_BUYIN ? "1" : "0")
+                // Estructura de ciegas personalizada (CSV sb/bb, sin '#'/'='; vacío =
+                // escalera por defecto). Imprescindible para que la escalada y el
+                // re-broadcast INIT tras recuperar usen la misma lista.
+                + "#BLINDS=" + (ACTIVE_BLIND_STRUCTURE != null ? BlindStructure.levelsToString(ACTIVE_BLIND_STRUCTURE) : "");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -404,8 +408,38 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 case "FIXED_BUYIN":
                     FIXED_BUYIN = "1".equals(val);
                     break;
+                case "BLINDS":
+                    // Vacío = escalera por defecto (null). Parse defensivo: si la lista
+                    // guardada estuviese corrupta, caer a por defecto sin abortar el
+                    // recover (el motor seguiría con la escalera 1-2-3-5).
+                    if (val == null || val.isEmpty()) {
+                        ACTIVE_BLIND_STRUCTURE = null;
+                    } else {
+                        try {
+                            ACTIVE_BLIND_STRUCTURE = BlindStructure.parseLevels(val);
+                        } catch (IllegalArgumentException ignore) {
+                            Logger.getLogger(GameFrame.class.getName()).log(Level.WARNING,
+                                    "Recovered custom blind structure is corrupt; falling back to default");
+                            ACTIVE_BLIND_STRUCTURE = null;
+                        }
+                    }
+                    break;
             }
         }
+    }
+
+    // Big blind for a given small blind: taken from the active custom structure
+    // when it contains that level (so a non-2x big blind survives recover), else
+    // the universal 2x default. The active structure is restored before recovered
+    // game stats are applied, so it is available here.
+    public static float bigBlindForSmallBlind(float sb) {
+        if (ACTIVE_BLIND_STRUCTURE != null) {
+            int idx = BlindStructure.indexOfLevel(ACTIVE_BLIND_STRUCTURE, sb);
+            if (idx >= 0) {
+                return ACTIVE_BLIND_STRUCTURE[idx][1];
+            }
+        }
+        return sb * 2f;
     }
 
     // Buy-in range/ceiling helpers. The arithmetic lives in BuyinRules (pure,
@@ -498,7 +532,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         float sb = rs.getFloat("sb");
                         if (sb > 0f) {
                             CIEGA_PEQUEÑA = sb;
-                            CIEGA_GRANDE = sb * 2f;
+                            CIEGA_GRANDE = bigBlindForSmallBlind(sb);
                         }
                         CIEGAS_DOUBLE = rs.getInt("blinds_time");
                         int bt = rs.getInt("blinds_time_type");

@@ -155,7 +155,7 @@ public class AutoCallMaxDialog extends JDialog {
             }
         });
         spinner.setFont(new Font("Dialog", Font.BOLD, 24));
-        Helpers.makeNumericSpinnerEditable(spinner, true);
+        ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField().setEditable(false);
         spinner.setCursor(new Cursor(Cursor.HAND_CURSOR));
         spinner.setEnabled(enabled);
         panel.add(spinner, gbc);

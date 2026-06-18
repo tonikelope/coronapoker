@@ -1124,7 +1124,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             call_required = Helpers.floatClean(GameFrame.getInstance().getCrupier().getApuesta_actual() - bet);
 
-            min_raise = Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getUltimo_raise()) < 0 ? GameFrame.getInstance().getCrupier().getUltimo_raise() : Helpers.floatClean(GameFrame.getInstance().getCrupier().getCiega_grande());
+            min_raise = BetRules.minRaiseIncrement(GameFrame.getInstance().getCrupier().getUltimo_raise(), GameFrame.getInstance().getCrupier().getCiega_grande());
 
             Helpers.GUIRun(() -> {
                 desarmarBotonesAccion();
@@ -1211,8 +1211,8 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     if (current_sb <= 0f) {
                         current_sb = GameFrame.CIEGA_PEQUEÑA;
                     }
-                    BigDecimal sb_step = new BigDecimal(current_sb).setScale(1, RoundingMode.HALF_UP);
-                    BigDecimal apuesta_actual_bd = new BigDecimal(GameFrame.getInstance().getCrupier().getApuesta_actual()).setScale(1, RoundingMode.HALF_UP);
+                    BigDecimal sb_step = new BigDecimal(current_sb).setScale(2, RoundingMode.HALF_UP);
+                    BigDecimal apuesta_actual_bd = new BigDecimal(GameFrame.getInstance().getCrupier().getApuesta_actual()).setScale(2, RoundingMode.HALF_UP);
 
                     //Actualizamos el spinner y el botón de apuestas
                     BigDecimal spinner_min;
@@ -1220,16 +1220,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     // que es el mayor total committed múltiplo de sb que cabe
                     // en lo que el jugador tiene disponible. spinner_max =
                     // aligned_max_total - apuesta_actual.
-                    BigDecimal bet_plus_stack = new BigDecimal(bet + stack).setScale(1, RoundingMode.HALF_UP);
+                    BigDecimal bet_plus_stack = new BigDecimal(bet + stack).setScale(2, RoundingMode.HALF_UP);
                     BigDecimal aligned_max_total = bet_plus_stack.divide(sb_step, 0, RoundingMode.FLOOR).multiply(sb_step);
                     BigDecimal spinner_max = aligned_max_total.subtract(apuesta_actual_bd);
 
                     Helpers.setScaledIconButton(player_bet_button, getClass().getResource("/images/action/bet.png"), Math.round(0.6f * player_bet_button.getHeight()), Math.round(0.6f * player_bet_button.getHeight()));
 
                     if (Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
-                        // Apertura: bb es 2*sb por construcción de CIEGAS, así
-                        // que el mínimo legal coincide con un múltiplo de sb.
-                        spinner_min = new BigDecimal(GameFrame.getInstance().getCrupier().getCiega_grande()).setScale(1, RoundingMode.HALF_UP);
+                        // Apertura: el mínimo legal es la ciega grande (regla NL,
+                        // BetRules.minOpen). Con bb=2*sb (caso normal) coincide con
+                        // un múltiplo de sb; una estructura custom con bb no múltiplo
+                        // de sb puede dejar el mínimo desalineado del paso (no afecta
+                        // al dinero: el botón all-in cubre el resto exacto).
+                        spinner_min = new BigDecimal(BetRules.minOpen(GameFrame.getInstance().getCrupier().getCiega_grande())).setScale(2, RoundingMode.HALF_UP);
                         player_bet_button.setEnabled(true);
                         player_bet_button.setText(Translator.translate("action.apostar_2"));
                         player_bet_button.putClientProperty("i18n.key", "action.apostar_2");
@@ -1243,7 +1246,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         // (si apuesta_actual viene fraccionario), pero spinner_min
                         // + k*sb sumado a apuesta_actual SÍ produce total
                         // alineado por construcción.
-                        BigDecimal min_raise_bd = new BigDecimal(min_raise).setScale(1, RoundingMode.HALF_UP);
+                        BigDecimal min_raise_bd = new BigDecimal(min_raise).setScale(2, RoundingMode.HALF_UP);
                         BigDecimal aligned_min_total = apuesta_actual_bd.add(min_raise_bd).divide(sb_step, 0, RoundingMode.CEILING).multiply(sb_step);
                         spinner_min = aligned_min_total.subtract(apuesta_actual_bd);
                         player_bet_button.setEnabled(true);

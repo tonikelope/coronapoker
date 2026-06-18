@@ -8744,22 +8744,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private float[] calcularBoteParaGanador(float cantidad, int tot_ganadores) {
-
-        if (tot_ganadores > 1) {
-
-            float bote_div = cantidad / tot_ganadores;
-
-            float bote_div_limpio = Math.round(bote_div * 100f) / 100f;
-
-            float bote_individual = (float) Math.floor(bote_div_limpio * 10f) / 10f;
-
-            float sobrante = Math.round((cantidad - tot_ganadores * bote_individual) * 10f) / 10f;
-
-            return new float[]{bote_individual, sobrante};
-        } else {
-            return new float[]{cantidad, 0f};
-        }
-
+        // Reparto en céntimos enteros (aritmética exacta, conserva el dinero): cada
+        // ganador recibe el floor y el resto indivisible vuelve al bote_sobrante.
+        return PotMath.splitAmongWinners(cantidad, tot_ganadores);
     }
 
     public void sendGAMECommandToServer(String command, boolean confirmation) {
@@ -9445,22 +9432,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     /**
      * Run-it-twice: divide un (side)pot en las mitades de SIDE-A y SIDE-B.
-     * Trabaja en décimas enteras porque la ficha mínima del juego es 0.10 (toda
-     * la economía redondea a 1 decimal vía floatClean/setStack): una mitad con
-     * pico de céntimos (p.ej. 21.30 / 2 = 10.65) no es representable y el
-     * redondeo del stack la destruiría o crearía en silencio al consolidar.
-     * Regla de la casa: si el total en décimas es impar, AMBAS caras reciben el
-     * floor y el pico (una ficha de 0.10) NO se reparte — queda sin pagar y el
-     * recálculo de bote_sobrante tras los dos boards lo arrastra a la mano
-     * siguiente. Invariante: sideA + sideB + pico == pot exacto (ni se crea ni
-     * se pierde dinero).
+     * Trabaja en céntimos enteros (la ficha mínima del juego es 0.01, toda la
+     * economía redondea al céntimo vía floatClean/setStack). Regla de la casa: si
+     * el total en céntimos es impar, AMBAS caras reciben el floor y el céntimo
+     * indivisible NO se reparte — queda sin pagar y el recálculo de bote_sobrante
+     * tras los dos boards lo arrastra a la mano siguiente. Invariante:
+     * sideA + sideB + pico == pot exacto (ni se crea ni se pierde dinero).
      *
      * @return {@code [sideA_chips, sideB_chips]}
      */
     static float[] splitPotForRunItTwice(float pot) {
-        long decimas = Math.round((double) pot * 10.0);
-        long half = decimas / 2;       // floor — el pico indivisible va al bote_sobrante
-        return new float[]{half / 10f, half / 10f};
+        // Mitades en céntimos (ficha 0.01): el céntimo indivisible si el total es
+        // impar NO se reparte y el recálculo de bote_sobrante tras los dos boards
+        // lo arrastra. Invariante: sideA + sideB + pico == pot.
+        return PotMath.splitForRunItTwice(pot);
     }
 
     // Run-it-twice rewind (parte comunitaria): deja las cartas comunitarias

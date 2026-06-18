@@ -19,61 +19,75 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * Money-critical buy-in ceiling / headroom arithmetic. Guards that no rebuy or
- * top-up can ever push a stack above the table ceiling, in either mode.
+ * Money-critical buy-in ceiling / headroom arithmetic with a configurable
+ * [min,max] big-blind range. Guards that no rebuy or top-up can ever push a
+ * stack above the table ceiling, in either mode and at any range (deep stack
+ * included).
  */
 public class BuyinRulesTest {
 
     @Test
-    void rangeFollowsBigBlind() {
+    void rangeFollowsBigBlindAndMultipliers() {
         // Arrange
         float bb = 1.0f;
-
-        // Act / Assert: 10BB / 50BB / 100BB
-        assertEquals(10, BuyinRules.min(bb));
-        assertEquals(50, BuyinRules.defaultBuyin(bb));
-        assertEquals(100, BuyinRules.max(bb));
+        // Default 10-100 range: 10BB / 50BB / 100BB.
+        assertEquals(10, BuyinRules.min(bb, 10));
+        assertEquals(50, BuyinRules.defaultBuyin(bb, 10, 100));
+        assertEquals(100, BuyinRules.max(bb, 100));
+        // Deep-stack 100-300 range scales the same way.
+        assertEquals(100, BuyinRules.min(bb, 100));
+        assertEquals(300, BuyinRules.max(bb, 300));
     }
 
     @Test
-    void capIsBuyinWhenFixedAnd100bbWhenVariable() {
+    void defaultBuyinClampsIntoTheRange() {
+        // 50BB suggestion is in range -> 50.
+        assertEquals(50, BuyinRules.defaultBuyin(1.0f, 10, 100));
+        // Deep range whose minimum is above 50BB -> clamped up to the minimum.
+        assertEquals(100, BuyinRules.defaultBuyin(1.0f, 100, 300));
+        // Narrow range whose maximum is below 50BB -> clamped down to the maximum.
+        assertEquals(40, BuyinRules.defaultBuyin(1.0f, 10, 40));
+    }
+
+    @Test
+    void capIsBuyinWhenFixedAndMaxBbWhenVariable() {
         // Fixed mode: the ceiling is the single shared buy-in.
-        assertEquals(50, BuyinRules.cap(true, 50, 1.0f));
-        // Variable mode: the ceiling is 100BB regardless of the spinner buy-in.
-        assertEquals(100, BuyinRules.cap(false, 50, 1.0f));
+        assertEquals(50, BuyinRules.cap(true, 50, 1.0f, 100));
+        // Variable mode: the ceiling is maxBB regardless of the spinner buy-in.
+        assertEquals(100, BuyinRules.cap(false, 50, 1.0f, 100));
+        // Deep-stack variable mode: ceiling rises to maxBB big blinds.
+        assertEquals(300, BuyinRules.cap(false, 50, 1.0f, 300));
     }
 
     @Test
     void variableHeadroomNeverLetsStackExceedCap() {
-        // Arrange: variable mode, cap 100BB.
-        // Act / Assert
-        assertEquals(70, BuyinRules.headroom(false, 50, 1.0f, 30f)); // 100 - 30
-        assertEquals(0, BuyinRules.headroom(false, 50, 1.0f, 100f)); // already at cap
-        assertEquals(0, BuyinRules.headroom(false, 50, 1.0f, 120f)); // over cap -> 0, never negative
+        assertEquals(70, BuyinRules.headroom(false, 50, 1.0f, 100, 30f)); // 100 - 30
+        assertEquals(0, BuyinRules.headroom(false, 50, 1.0f, 100, 100f)); // already at cap
+        assertEquals(0, BuyinRules.headroom(false, 50, 1.0f, 100, 120f)); // over cap -> 0
+        // Deep stack: cap 300, headroom scales.
+        assertEquals(250, BuyinRules.headroom(false, 50, 1.0f, 300, 50f)); // 300 - 50
     }
 
     @Test
     void fixedModeTopUpCannotExceedSingleBuyin() {
-        // A fixed-buy-in-50 player at 30 may add at most 20 (-> 50), not a full 50.
-        assertEquals(20, BuyinRules.headroom(true, 50, 1.0f, 30f));
-        assertEquals(0, BuyinRules.headroom(true, 50, 1.0f, 50f));
+        assertEquals(20, BuyinRules.headroom(true, 50, 1.0f, 100, 30f));
+        assertEquals(0, BuyinRules.headroom(true, 50, 1.0f, 100, 50f));
     }
 
     @Test
     void fractionalStackRoundsUpConservatively() {
-        // bb 0.20 -> variable cap = 20 chips.
-        // stack 19.5 -> ceil 20 -> no room (a whole chip would overshoot to 20.5).
-        assertEquals(0, BuyinRules.headroom(false, 4, 0.20f, 19.5f));
-        // stack 18.0 -> ceil 18 -> room for 2.
-        assertEquals(2, BuyinRules.headroom(false, 4, 0.20f, 18.0f));
+        // bb 0.20, variable cap 100BB = 20 chips.
+        assertEquals(0, BuyinRules.headroom(false, 4, 0.20f, 100, 19.5f));
+        assertEquals(2, BuyinRules.headroom(false, 4, 0.20f, 100, 18.0f));
     }
 
     @Test
     void applyingHeadroomNeverExceedsCapAcrossTheRange() {
-        // Invariant sweep: for any stack in [0, cap], stack + headroom <= cap.
-        int cap = BuyinRules.cap(false, 50, 1.0f); // 100
+        // Invariant sweep at the deepest allowed range: for any stack in [0, cap],
+        // stack + headroom <= cap.
+        int cap = BuyinRules.cap(false, 50, 1.0f, BuyinRules.CEIL_MAX_BB); // 500
         for (int s = 0; s <= cap; s++) {
-            int head = BuyinRules.headroom(false, 50, 1.0f, s);
+            int head = BuyinRules.headroom(false, 50, 1.0f, BuyinRules.CEIL_MAX_BB, s);
             assertTrue(s + head <= cap, "stack " + s + " + headroom " + head + " > cap " + cap);
         }
     }

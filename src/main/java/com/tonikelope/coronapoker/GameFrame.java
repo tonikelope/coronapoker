@@ -121,7 +121,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile float CIEGA_PEQUEÑA = 0.10f;
     public static volatile float CIEGA_GRANDE = 0.20f;
     public static volatile int BUYIN = 10;
-    public static volatile boolean FIXED_BUYIN = true; //true = todos arrancan con BUYIN (techo de recompra = BUYIN); false = cada jugador elige su buy-in al entrar al tablero en [10BB,100BB] (techo de recompra = 100BB)
+    public static volatile boolean FIXED_BUYIN = true; //true = todos arrancan con BUYIN (techo de recompra = BUYIN); false = cada jugador elige su buy-in al entrar al tablero en [BUYIN_MIN_BB, BUYIN_MAX_BB] CG (techo de recompra = BUYIN_MAX_BB CG)
+    // Rango de buy-in editable (en ciegas grandes). Por defecto 10-100 CG (rango
+    // histórico). El host puede ampliarlo para mesas deep-stack (superior hasta
+    // BuyinRules.CEIL_MAX_BB). Acota la elección de buy-in en variable y, vía el
+    // cap, el techo de recompra. Viaja a los clientes en el INIT y se persiste en
+    // recover (ver Crupier/WaitingRoomFrame y serializeRecoverSettings).
+    public static volatile int BUYIN_MIN_BB = BuyinRules.DEFAULT_MIN_BB;
+    public static volatile int BUYIN_MAX_BB = BuyinRules.DEFAULT_MAX_BB;
+    // Política del tope máximo de recompra / top-up:
+    //  - BUYIN: el buy-in (fijo = BUYIN; variable = límite superior BUYIN_MAX_BB CG).
+    //  - HIGHEST_STACK: el stack más alto de la mesa (recomprar hasta igualar al
+    //    líder de fichas, típico de deep-stack).
+    // Por defecto BUYIN (comportamiento histórico). Solo afecta a la recompra, no
+    // a la compra inicial. Viaja en el INIT y se persiste en recover.
+    public static final int REBUY_CAP_BUYIN = 0;
+    public static final int REBUY_CAP_HIGHEST_STACK = 1;
+    public static volatile int REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
@@ -347,7 +363,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // Estructura de ciegas personalizada (CSV sb/bb, sin '#'/'='; vacío =
                 // escalera por defecto). Imprescindible para que la escalada y el
                 // re-broadcast INIT tras recuperar usen la misma lista.
-                + "#BLINDS=" + (ACTIVE_BLIND_STRUCTURE != null ? BlindStructure.levelsToString(ACTIVE_BLIND_STRUCTURE) : "");
+                + "#BLINDS=" + (ACTIVE_BLIND_STRUCTURE != null ? BlindStructure.levelsToString(ACTIVE_BLIND_STRUCTURE) : "")
+                // Rango de buy-in editable (en ciegas grandes).
+                + "#BMINBB=" + BUYIN_MIN_BB
+                + "#BMAXBB=" + BUYIN_MAX_BB
+                // Política de tope de recompra (0=BUYIN, 1=stack más alto).
+                + "#RBCAP=" + REBUY_CAP_POLICY;
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -413,6 +434,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 case "FIXED_BUYIN":
                     FIXED_BUYIN = "1".equals(val);
                     break;
+                case "BMINBB":
+                    try {
+                        BUYIN_MIN_BB = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "BMAXBB":
+                    try {
+                        BUYIN_MAX_BB = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "RBCAP":
+                    try {
+                        REBUY_CAP_POLICY = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
                 case "BLINDS":
                     // Vacío = escalera por defecto (null). Parse defensivo: si la lista
                     // guardada estuviese corrupta, caer a por defecto sin abortar el
@@ -451,22 +490,42 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // unit-tested); these bind it to the live game config (CIEGA_GRANDE, BUYIN,
     // FIXED_BUYIN).
     public static int getBuyinMin() {
-        return BuyinRules.min(CIEGA_GRANDE);
+        return BuyinRules.min(CIEGA_GRANDE, BUYIN_MIN_BB);
     }
 
     public static int getBuyinDefault() {
-        return BuyinRules.defaultBuyin(CIEGA_GRANDE);
+        return BuyinRules.defaultBuyin(CIEGA_GRANDE, BUYIN_MIN_BB, BUYIN_MAX_BB);
     }
 
     public static int getBuyinMax() {
-        return BuyinRules.max(CIEGA_GRANDE);
+        return BuyinRules.max(CIEGA_GRANDE, BUYIN_MAX_BB);
     }
 
-    // Per-table stack ceiling. In fixed mode nobody can hold more than the single
-    // buy-in everyone started with; in variable mode the ceiling is the maximum
-    // buy-in anybody could have chosen (100BB). Used to clamp every rebuy/top-up.
+    // Per-table stack ceiling for rebuys/top-ups, per REBUY_CAP_POLICY:
+    //  - BUYIN: fixed mode = the single shared buy-in; variable mode = BUYIN_MAX_BB
+    //    big blinds (the deepest anybody could have bought in for).
+    //  - HIGHEST_STACK: the biggest stack at the table (rebuy up to the chip
+    //    leader). No player may ever hold more than this.
     public static int getBuyinCap() {
-        return BuyinRules.cap(FIXED_BUYIN, BUYIN, CIEGA_GRANDE);
+        if (REBUY_CAP_POLICY == REBUY_CAP_HIGHEST_STACK) {
+            return (int) Math.floor(highestPlayerStack());
+        }
+        return BuyinRules.cap(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, BUYIN_MAX_BB);
+    }
+
+    // Highest stack among players in play (neither exited nor spectators). The
+    // basis of the HIGHEST_STACK rebuy cap; floored to whole units by getBuyinCap.
+    private static float highestPlayerStack() {
+        GameFrame gf = THIS;
+        float highest = 0f;
+        if (gf != null && gf.getJugadores() != null) {
+            for (Player p : gf.getJugadores()) {
+                if (p != null && !p.isExit() && !p.isSpectator() && p.getStack() > highest) {
+                    highest = p.getStack();
+                }
+            }
+        }
+        return highest;
     }
 
     // Maximum a player may ADD to their stack via a rebuy/top-up without exceeding
@@ -474,7 +533,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // both the request-time clamp (host) and the apply-time re-check in reComprar
     // (anti-stale / anti-cheat).
     public static int rebuyHeadroom(float current_stack) {
-        return BuyinRules.headroom(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, current_stack);
+        if (REBUY_CAP_POLICY == REBUY_CAP_HIGHEST_STACK) {
+            // Margen = stack más alto de la mesa − stack actual (en unidades enteras).
+            return Math.max(0, getBuyinCap() - (int) Math.ceil(current_stack));
+        }
+        return BuyinRules.headroom(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, BUYIN_MAX_BB, current_stack);
     }
 
     // Marca CYAN del stack = el jugador ha hecho al menos una RE-compra (no la

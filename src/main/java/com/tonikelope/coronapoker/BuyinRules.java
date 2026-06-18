@@ -28,33 +28,43 @@ public final class BuyinRules {
     private BuyinRules() {
     }
 
-    // Minimum buy-in: 10 big blinds.
-    public static int min(float big_blind) {
-        return (int) (big_blind * 10f);
+    // Configurable buy-in range, in big blinds. The host can widen it for
+    // deep-stack tables; the defaults preserve the historical 10-100 BB range.
+    public static final int DEFAULT_MIN_BB = 10;   // lower limit, default value
+    public static final int DEFAULT_MAX_BB = 100;  // upper limit, default value
+    public static final int FLOOR_MIN_BB = 10;     // the lower-limit spinner cannot go below this
+    public static final int CEIL_MAX_BB = 500;     // the upper-limit spinner cannot go above this
+    public static final int SUGGESTED_BB = 50;     // suggested buy-in within the range
+
+    // Minimum buy-in: minBB big blinds.
+    public static int min(float big_blind, int minBB) {
+        return (int) (big_blind * minBB);
     }
 
-    // Default suggested buy-in: 50 big blinds.
-    public static int defaultBuyin(float big_blind) {
-        return (int) (big_blind * 50f);
+    // Maximum buy-in: maxBB big blinds.
+    public static int max(float big_blind, int maxBB) {
+        return (int) (big_blind * maxBB);
     }
 
-    // Maximum buy-in: 100 big blinds.
-    public static int max(float big_blind) {
-        return (int) (big_blind * 100f);
+    // Suggested buy-in: SUGGESTED_BB big blinds, clamped into [min,max] (so a deep
+    // range such as 100-300 BB suggests its minimum rather than the bare 50 BB).
+    public static int defaultBuyin(float big_blind, int minBB, int maxBB) {
+        int suggested = (int) (big_blind * SUGGESTED_BB);
+        return Math.max(min(big_blind, minBB), Math.min(suggested, max(big_blind, maxBB)));
     }
 
-    // Per-table stack ceiling: the single fixed buy-in everyone shares, or 100BB
-    // when each player chooses their own (the deepest anybody could have bought
-    // in for). No player may ever hold more than this.
-    public static int cap(boolean fixed, int buyin, float big_blind) {
-        return fixed ? buyin : max(big_blind);
+    // Per-table stack ceiling: the single fixed buy-in everyone shares, or maxBB
+    // big blinds when each player chooses their own (the deepest anybody could have
+    // bought in for). No player may ever hold more than this.
+    public static int cap(boolean fixed, int buyin, float big_blind, int maxBB) {
+        return fixed ? buyin : max(big_blind, maxBB);
     }
 
     // Maximum a player may ADD to their stack via a rebuy/top-up without exceeding
     // the ceiling; 0 if already at (or over) it. ceil() on the current stack is
     // conservative: fractional stacks from sub-1 blinds never let a whole-chip
     // rebuy push the total above the cap.
-    public static int headroom(boolean fixed, int buyin, float big_blind, float current_stack) {
-        return Math.max(0, cap(fixed, buyin, big_blind) - (int) Math.ceil(current_stack));
+    public static int headroom(boolean fixed, int buyin, float big_blind, int maxBB, float current_stack) {
+        return Math.max(0, cap(fixed, buyin, big_blind, maxBB) - (int) Math.ceil(current_stack));
     }
 }

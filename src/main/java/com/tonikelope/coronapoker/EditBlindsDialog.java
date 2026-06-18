@@ -261,7 +261,7 @@ public class EditBlindsDialog extends JDialog {
         blind_cap_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         blind_cap_label.setText("0 / 0");
 
-        blind_cap_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        blind_cap_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         javax.swing.GroupLayout blind_cap_panelLayout = new javax.swing.GroupLayout(blind_cap_panel);
         blind_cap_panel.setLayout(blind_cap_panelLayout);

@@ -1570,13 +1570,20 @@ public class NewGameDialog extends JDialog {
 
                 GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
-                GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
+                // Modo de buy-in, rango [min,max] BB y política de tope de recompra: en
+                // RECOVER NO se tocan (los restaura applyRecoverSettings al cargar la
+                // timba anterior; sus controles están deshabilitados con valores stale).
+                // Sin este guard, los spinners/combo deshabilitados pisarían la config
+                // recuperada con los valores por defecto y la re-persistirían corrupta.
+                if (!GameFrame.RECOVER) {
+                    GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
 
-                GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
+                    GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
 
-                GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
+                    GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
 
-                GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+                    GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+                }
 
                 String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 

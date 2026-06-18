@@ -831,7 +831,7 @@ public class NewGameDialog extends JDialog {
         doblar_ciegas_spinner_manos.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         doblar_ciegas_spinner_manos.setDoubleBuffered(true);
 
-        blind_cap_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+        blind_cap_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
 
         javax.swing.GroupLayout blind_cap_panelLayout = new javax.swing.GroupLayout(blind_cap_panel);
         blind_cap_panel.setLayout(blind_cap_panelLayout);

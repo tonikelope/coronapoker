@@ -94,6 +94,25 @@ public class BlindStructureTest {
     }
 
     @Test
+    void formatLevelValueNeverAbbreviatesLargeBlinds() {
+        // B1 regression guard: Helpers.float2String renders >=1000 as "1K"/"5K",
+        // which the Float.valueOf combo parsers cannot read (NumberFormatException
+        // on create / edit-blinds / UPDATEBLINDS broadcast). formatLevelValue must
+        // emit a plain, parseable number for any magnitude.
+        for (float v : new float[]{1000f, 2000f, 5000f, 10000f, 3000f}) {
+            String s = BlindStructure.formatLevelValue(v);
+            assertFalse(s.toLowerCase().contains("k"), s);
+            assertEquals(v, Float.parseFloat(s.replace(",", ".")), 0f);
+        }
+        // A full tournament level round-trips through the "small / big" form.
+        String lvl = BlindStructure.formatLevel(1000f, 2000f);
+        assertEquals("1000 / 2000", lvl);
+        String[] parts = lvl.replace(",", ".").split("/");
+        assertEquals(1000f, Float.parseFloat(parts[0].trim()), 0f);
+        assertEquals(2000f, Float.parseFloat(parts[1].trim()), 0f);
+    }
+
+    @Test
     void levelsStringIsSafeForTheInitWire() {
         // The INIT command is '#'-delimited with '@' sub-delimiters; the serialized
         // ladder must never contain either or it would corrupt the wire framing.

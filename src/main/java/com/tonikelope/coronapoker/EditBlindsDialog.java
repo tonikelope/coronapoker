@@ -65,7 +65,7 @@ public class EditBlindsDialog extends JDialog {
             float[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE;
             String[] items = new String[levels.length];
             for (int k = 0; k < levels.length; k++) {
-                items[k] = Helpers.float2String(levels[k][0]) + " / " + Helpers.float2String(levels[k][1]);
+                items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
             }
             ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         }
@@ -123,7 +123,7 @@ public class EditBlindsDialog extends JDialog {
             double_blinds_radio_manos.setSelected(true);
         }
 
-        String ciegas = (peque >= 1 ? String.valueOf((int) Math.round(peque)) : Helpers.float2String(peque)) + " / " + (grande >= 1 ? String.valueOf((int) Math.round(grande)) : Helpers.float2String(grande));
+        String ciegas = BlindStructure.formatLevel(peque, grande);
 
         int i = 0, t = this.ciegas_combobox.getModel().getSize();
 

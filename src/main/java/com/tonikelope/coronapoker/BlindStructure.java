@@ -60,7 +60,11 @@ public final class BlindStructure {
     public static final int MAX_STRUCTURES = 64;
     public static final int MAX_LEVELS = 64;
     public static final int MAX_NAME_LENGTH = 40;
-    public static final float MIN_BLIND = 0.1f;
+    public static final float MIN_BLIND = 0.05f;
+    // Las ciegas se ajustan en pasos de 0.05 (0.25/0.30/0.35 sí; 0.33/0.04 no).
+    // El motor del dinero trabaja por debajo en céntimos (0.01), pero la unidad
+    // de ajuste de ciegas es 0.05. Ver Helpers.floatClean (resolución del motor).
+    public static final float BLIND_STEP = 0.05f;
     public static final float MAX_BLIND = 10_000_000f;
 
     // Validation error codes (also i18n keys). null = valid.
@@ -168,7 +172,7 @@ public final class BlindStructure {
                     || Float.isNaN(sb) || Float.isNaN(bb)) {
                 return ERR_VALUE_RANGE;
             }
-            if (!isOneDecimal(sb) || !isOneDecimal(bb)) {
+            if (!isBlindStep(sb) || !isBlindStep(bb)) {
                 return ERR_PRECISION;
             }
             if (bb < sb) {
@@ -181,11 +185,11 @@ public final class BlindStructure {
         return null;
     }
 
-    // A value the game can represent exactly at its native (one-decimal) money
-    // resolution: 10*v must be a whole number.
-    private static boolean isOneDecimal(float v) {
-        float scaled = v * 10f;
-        return Math.abs(scaled - Math.round(scaled)) < 0.001f;
+    // A valid blind value: a whole multiple of the 0.05 blind step (20*v must be
+    // an integer). So 0.25/0.30/0.35 are accepted, 0.33/0.04 are not.
+    private static boolean isBlindStep(float v) {
+        float scaled = v * 20f;
+        return Math.abs(scaled - Math.round(scaled)) < 0.01f;
     }
 
     // ----- Serialization (levels <-> string) ----------------------------------
@@ -301,26 +305,25 @@ public final class BlindStructure {
 
     // ----- Escalation walk (pure, for the Crupier custom path) ----------------
 
-    // The game represents blind money at one-decimal resolution
-    // (Helpers.floatClean / float1DSecureCompare, HALF_UP). Two blind values are
-    // the same ladder level iff they round to the same tenth. Validated ladders
-    // have strictly increasing small blinds (>= 0.1 apart), so this key is unique
-    // per level.
-    private static int tenths(float v) {
-        return Math.round(v * 10f);
+    // Money is represented at cent resolution (Helpers.floatClean, HALF_UP). Two
+    // blind values are the same ladder level iff they round to the same cent.
+    // Validated ladders have strictly increasing small blinds (>= 0.05 apart), so
+    // this key is unique per level and distinguishes e.g. 0.25 from 0.30.
+    private static int cents(float v) {
+        return Math.round(v * 100f);
     }
 
     /**
-     * Index of the level whose small blind matches {@code sb} at the game's
-     * one-decimal money resolution, or -1 if none.
+     * Index of the level whose small blind matches {@code sb} at the game's cent
+     * money resolution, or -1 if none.
      */
     public static int indexOfLevel(float[][] structure, float sb) {
         if (structure == null) {
             return -1;
         }
-        int key = tenths(sb);
+        int key = cents(sb);
         for (int i = 0; i < structure.length; i++) {
-            if (tenths(structure[i][0]) == key) {
+            if (cents(structure[i][0]) == key) {
                 return i;
             }
         }

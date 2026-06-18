@@ -128,6 +128,13 @@ public class BlindStructureTest {
     }
 
     @Test
+    void levelsStringRoundTripsNickelBlinds() {
+        float[][] in = levels(0.05f, 0.10f, 0.25f, 0.50f, 0.35f, 0.70f);
+        String csv = BlindStructure.levelsToString(in);
+        assertArrayEquals(in, BlindStructure.parseLevels(csv));
+    }
+
+    @Test
     void parseLevelsToleratesWhitespace() {
         float[][] out = BlindStructure.parseLevels(" 25/50 , 50/100 ");
         assertArrayEquals(levels(25f, 50f, 50f, 100f), out);
@@ -183,14 +190,23 @@ public class BlindStructureTest {
     }
 
     @Test
+    void levelsValidationAcceptsNickelGranularBlinds() {
+        // Blinds in 0.05 steps, minimum 0.05 (0.25/0.35 allowed, 0.33 not).
+        assertNull(BlindStructure.validateLevels(levels(0.05f, 0.10f)));
+        assertNull(BlindStructure.validateLevels(levels(0.25f, 0.50f, 0.50f, 1.00f)));
+        assertNull(BlindStructure.validateLevels(levels(0.35f, 0.70f)));
+        assertNull(BlindStructure.validateLevels(levels(0.15f, 0.30f)));
+    }
+
+    @Test
     void levelsValidationRejectsOutOfRangeAndPrecision() {
         assertEquals(BlindStructure.ERR_VALUE_RANGE, BlindStructure.validateLevels(levels(0f, 0f)));
         assertEquals(BlindStructure.ERR_VALUE_RANGE,
-                BlindStructure.validateLevels(levels(0.05f, 0.1f))); // below MIN_BLIND
+                BlindStructure.validateLevels(levels(0.04f, 0.10f))); // below MIN_BLIND (0.05)
         assertEquals(BlindStructure.ERR_PRECISION,
-                BlindStructure.validateLevels(levels(0.15f, 0.3f))); // two decimals
+                BlindStructure.validateLevels(levels(0.33f, 0.66f))); // not a 0.05 multiple
         assertEquals(BlindStructure.ERR_PRECISION,
-                BlindStructure.validateLevels(levels(1f, 2.25f))); // two decimals
+                BlindStructure.validateLevels(levels(0.07f, 0.20f))); // not a 0.05 multiple
     }
 
     @Test
@@ -333,15 +349,17 @@ public class BlindStructureTest {
     // ----- Escalation walk (pure helpers used by Crupier custom path) ---------
 
     @Test
-    void indexOfLevelFindsByOneDecimalResolution() {
-        float[][] s = levels(0.1f, 0.2f, 0.5f, 1f, 1f, 2f, 25f, 50f);
+    void indexOfLevelFindsByCentResolution() {
+        // Cent resolution distinguishes 0.25 from 0.20/0.30 (needed for 0.05 blinds).
+        float[][] s = levels(0.1f, 0.2f, 0.25f, 0.5f, 0.5f, 1f, 25f, 50f);
         assertEquals(0, BlindStructure.indexOfLevel(s, 0.1f));
-        assertEquals(1, BlindStructure.indexOfLevel(s, 0.5f));
+        assertEquals(1, BlindStructure.indexOfLevel(s, 0.25f));
+        assertEquals(2, BlindStructure.indexOfLevel(s, 0.5f));
         assertEquals(3, BlindStructure.indexOfLevel(s, 25f));
-        // Matches at the engine's one-decimal rounding (0.49 -> 0.5).
-        assertEquals(1, BlindStructure.indexOfLevel(s, 0.49f));
-        // Off the ladder.
-        assertEquals(-1, BlindStructure.indexOfLevel(s, 3f));
+        // Tolerant of float drift (rounds to the same cent).
+        assertEquals(1, BlindStructure.indexOfLevel(s, 0.250001f));
+        // Off the ladder (0.27 is not a level).
+        assertEquals(-1, BlindStructure.indexOfLevel(s, 0.27f));
         assertEquals(-1, BlindStructure.indexOfLevel(null, 1f));
     }
 

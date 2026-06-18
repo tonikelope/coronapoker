@@ -184,6 +184,7 @@ public class EditBlindsDialog extends JDialog {
 
         jPanel2 = new javax.swing.JPanel();
         jPanel1 = new javax.swing.JPanel();
+        blind_cap_panel = new javax.swing.JPanel();
         doblar_checkbox = new javax.swing.JCheckBox();
         doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
@@ -260,6 +261,34 @@ public class EditBlindsDialog extends JDialog {
         blind_cap_label.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
         blind_cap_label.setText("0 / 0");
 
+        blind_cap_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(0, 0, 0)));
+
+        javax.swing.GroupLayout blind_cap_panelLayout = new javax.swing.GroupLayout(blind_cap_panel);
+        blind_cap_panel.setLayout(blind_cap_panelLayout);
+        blind_cap_panelLayout.setHorizontalGroup(
+            blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(blind_cap_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addGroup(blind_cap_panelLayout.createSequentialGroup()
+                        .addComponent(blind_cap_checkbox)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(blind_cap_label))
+                .addContainerGap())
+        );
+        blind_cap_panelLayout.setVerticalGroup(
+            blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(blind_cap_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(blind_cap_checkbox)
+                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(blind_cap_label)
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -278,12 +307,7 @@ public class EditBlindsDialog extends JDialog {
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(doblar_ciegas_spinner_manos)
                             .addComponent(doblar_ciegas_spinner_minutos)))
-                    .addGroup(jPanel1Layout.createSequentialGroup()
-                        .addComponent(blind_cap_checkbox)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(blind_cap_label))
+                    .addComponent(blind_cap_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -300,11 +324,7 @@ public class EditBlindsDialog extends JDialog {
                     .addComponent(double_blinds_radio_minutos)
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(blind_cap_checkbox)
-                    .addComponent(blind_cap_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(blind_cap_label)
+                .addComponent(blind_cap_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
 
@@ -518,6 +538,7 @@ public class EditBlindsDialog extends JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox blind_cap_checkbox;
     private javax.swing.JLabel blind_cap_label;
+    private javax.swing.JPanel blind_cap_panel;
     private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JButton cancel_button;
     private javax.swing.JComboBox<String> ciegas_combobox;

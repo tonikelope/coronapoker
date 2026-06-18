@@ -165,8 +165,7 @@ public class NewGameDialog extends JDialog {
             bots_label.setText(Translator.translate("ui.bots_dificultad"));
 
         } else {
-            bots_label.setVisible(false);
-            bots_combobox.setVisible(false);
+            bots_panel.setVisible(false);
         }
 
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
@@ -354,8 +353,7 @@ public class NewGameDialog extends JDialog {
             bots_label.setText(Translator.translate("ui.bots_dificultad"));
 
         } else {
-            bots_label.setVisible(false);
-            bots_combobox.setVisible(false);
+            bots_panel.setVisible(false);
         }
 
         game_combo.setEnabled(false);
@@ -627,6 +625,7 @@ public class NewGameDialog extends JDialog {
         game_combo = new javax.swing.JComboBox<>();
         cancel_button = new javax.swing.JButton();
         cancel_button.putClientProperty("i18n.key", "ui.cancelar");
+        bots_panel = new javax.swing.JPanel();
         bots_combobox = new javax.swing.JComboBox<>();
         bots_label = new javax.swing.JLabel();
         titulo_ventana = new javax.swing.JLabel();
@@ -1043,8 +1042,6 @@ public class NewGameDialog extends JDialog {
                 .addComponent(rebuy_limit_checkbox)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 80, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(bot_rebuy_checkbox)
                 .addGap(0, 0, Short.MAX_VALUE)
                 .addComponent(rebuy_cap_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1060,7 +1057,6 @@ public class NewGameDialog extends JDialog {
                     .addComponent(recomprar_label)
                     .addComponent(rebuy_limit_checkbox)
                     .addComponent(rebuy_limit_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bot_rebuy_checkbox)
                     .addComponent(rebuy_cap_label)
                     .addComponent(rebuy_cap_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
@@ -1085,10 +1081,10 @@ public class NewGameDialog extends JDialog {
                             .addComponent(buyin_range_label)
                             .addComponent(ciegas_label)
                             .addComponent(estructura_label))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGap(30, 30, 30)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(ciegas_combobox, 0, 220, Short.MAX_VALUE)
-                            .addComponent(estructura_combobox, 0, 220, Short.MAX_VALUE)
+                            .addComponent(ciegas_combobox, 0, 160, Short.MAX_VALUE)
+                            .addComponent(estructura_combobox, 0, 160, Short.MAX_VALUE)
                             .addGroup(jPanel3Layout.createSequentialGroup()
                                 .addComponent(buyin_spinner)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1319,6 +1315,32 @@ public class NewGameDialog extends JDialog {
         bots_label.setFont(new java.awt.Font("Segoe UI", 1, 16)); // NOI18N
         bots_label.setText("Dificultad bots:");
 
+        bots_panel.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+
+        javax.swing.GroupLayout bots_panelLayout = new javax.swing.GroupLayout(bots_panel);
+        bots_panel.setLayout(bots_panelLayout);
+        bots_panelLayout.setHorizontalGroup(
+            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(bots_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(bots_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(bot_rebuy_checkbox)
+                .addContainerGap())
+        );
+        bots_panelLayout.setVerticalGroup(
+            bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(bots_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(bots_label)
+                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(bot_rebuy_checkbox))
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);
         main_panelLayout.setHorizontalGroup(
@@ -1333,9 +1355,7 @@ public class NewGameDialog extends JDialog {
                 .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, main_panelLayout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(bots_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(bots_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
         main_panelLayout.setVerticalGroup(
@@ -1348,9 +1368,7 @@ public class NewGameDialog extends JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bots_label))
+                .addComponent(bots_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -2203,9 +2221,7 @@ public class NewGameDialog extends JDialog {
     }
 
     private void buyin_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_spinnerStateChanged
-        // TODO add your handling code here:
-        Audio.playWavResource("misc/cash_register.wav");
-        // updateCiegasLabel();
+        // Sin sonido: el repiqueteo del spinner sonaba a máquina tragaperras.
     }//GEN-LAST:event_buyin_spinnerStateChanged
 
     // Topes inferior/superior del rango de buy-in, en ciegas grandes (BB). El motor
@@ -2439,6 +2455,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JCheckBox bot_rebuy_checkbox;
     private javax.swing.JComboBox<String> bots_combobox;
     private javax.swing.JLabel bots_label;
+    private javax.swing.JPanel bots_panel;
     private javax.swing.JLabel buyin_label;
     private javax.swing.JSpinner buyin_max_bb_spinner;
     private javax.swing.JSpinner buyin_min_bb_spinner;

@@ -57,7 +57,7 @@ import javax.swing.table.DefaultTableModel;
 public class BlindStructureManagerDialog extends javax.swing.JDialog {
 
     // Working copy: structure name -> {sb, bb} ladder. Order is preserved.
-    private final LinkedHashMap<String, float[][]> working = new LinkedHashMap<>();
+    private final LinkedHashMap<String, double[][]> working = new LinkedHashMap<>();
 
     private final JList<String> structure_list;
     private final javax.swing.DefaultListModel<String> structure_model;
@@ -215,8 +215,8 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         try {
             levels_model.setRowCount(0);
             if (name != null && working.containsKey(name)) {
-                for (float[] lvl : working.get(name)) {
-                    levels_model.addRow(new Object[]{Helpers.float2String(lvl[0]), Helpers.float2String(lvl[1])});
+                for (double[] lvl : working.get(name)) {
+                    levels_model.addRow(new Object[]{Helpers.money2String(lvl[0]), Helpers.money2String(lvl[1])});
                 }
                 levels_border.setTitle(Translator.translate("blinds.niveles") + " — " + name);
             } else {
@@ -252,11 +252,11 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         if (row < 0 || col < 0 || row >= working.get(name).length) {
             return;
         }
-        Float parsed = parseBlind((String) levels_model.getValueAt(row, col));
+        Double parsed = parseBlind((String) levels_model.getValueAt(row, col));
         if (parsed == null) {
             // Revert the bad edit to the last good value and warn.
             loading_table = true;
-            levels_model.setValueAt(Helpers.float2String(working.get(name)[row][col]), row, col);
+            levels_model.setValueAt(Helpers.money2String(working.get(name)[row][col]), row, col);
             loading_table = false;
             java.awt.Toolkit.getDefaultToolkit().beep();
             return;
@@ -267,13 +267,13 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
 
     // Accepts the locale decimal separator (the app shows blinds with a comma in
     // Spanish). Returns null if the text is not a positive number.
-    private static Float parseBlind(String text) {
+    private static Double parseBlind(String text) {
         if (text == null) {
             return null;
         }
         try {
-            float v = Float.parseFloat(text.trim().replace(",", "."));
-            if (Float.isNaN(v) || v <= 0f) {
+            double v = Double.parseDouble(text.trim().replace(",", "."));
+            if (Double.isNaN(v) || v <= 0) {
                 return null;
             }
             return v;
@@ -302,10 +302,10 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         }
         String name = uniqueCopyName(src);
         // Deep-copy the source ladder.
-        float[][] srcLevels = working.get(src);
-        float[][] copy = new float[srcLevels.length][];
+        double[][] srcLevels = working.get(src);
+        double[][] copy = new double[srcLevels.length][];
         for (int i = 0; i < srcLevels.length; i++) {
-            copy[i] = new float[]{srcLevels[i][0], srcLevels[i][1]};
+            copy[i] = new double[]{srcLevels[i][0], srcLevels[i][1]};
         }
         working.put(name, copy);
         structure_model.addElement(name);
@@ -323,8 +323,8 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
             return;
         }
         // Rebuild the map preserving order, swapping only the renamed key.
-        LinkedHashMap<String, float[][]> rebuilt = new LinkedHashMap<>();
-        for (Map.Entry<String, float[][]> en : working.entrySet()) {
+        LinkedHashMap<String, double[][]> rebuilt = new LinkedHashMap<>();
+        for (Map.Entry<String, double[][]> en : working.entrySet()) {
             if (en.getKey().equals(old)) {
                 rebuilt.put(name, en.getValue());
             } else {
@@ -365,24 +365,24 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         if (name == null) {
             return;
         }
-        float[][] cur = working.get(name);
-        float sb, bb;
+        double[][] cur = working.get(name);
+        double sb, bb;
         if (cur.length > 0) {
             // Sensible next step: double the current top small blind, snapped to
             // the one-decimal money resolution; big blind defaults to twice the
             // small blind (the user may then edit it freely).
-            sb = Helpers.floatClean(cur[cur.length - 1][0] * 2f);
-            bb = Helpers.floatClean(sb * 2f);
+            sb = Helpers.doubleClean(cur[cur.length - 1][0] * 2);
+            bb = Helpers.doubleClean(sb * 2);
         } else {
-            sb = 25f;
-            bb = 50f;
+            sb = 25;
+            bb = 50;
         }
-        float[][] grown = new float[cur.length + 1][];
+        double[][] grown = new double[cur.length + 1][];
         System.arraycopy(cur, 0, grown, 0, cur.length);
-        grown[cur.length] = new float[]{sb, bb};
+        grown[cur.length] = new double[]{sb, bb};
         working.put(name, grown);
         loading_table = true;
-        levels_model.addRow(new Object[]{Helpers.float2String(sb), Helpers.float2String(bb)});
+        levels_model.addRow(new Object[]{Helpers.money2String(sb), Helpers.money2String(bb)});
         loading_table = false;
         int last = levels_model.getRowCount() - 1;
         levels_table.setRowSelectionInterval(last, last);
@@ -399,8 +399,8 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         if (rows.length == 0) {
             return;
         }
-        float[][] cur = working.get(name);
-        ArrayList<float[]> kept = new ArrayList<>();
+        double[][] cur = working.get(name);
+        ArrayList<double[]> kept = new ArrayList<>();
         for (int i = 0; i < cur.length; i++) {
             boolean drop = false;
             for (int r : rows) {
@@ -413,7 +413,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
                 kept.add(cur[i]);
             }
         }
-        working.put(name, kept.toArray(new float[0][]));
+        working.put(name, kept.toArray(new double[0][]));
         loadLevelsTable(name);
         dirty = true;
     }
@@ -423,7 +423,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     private void onSave() {
         // Validate every structure; stop at the first offender, select it and
         // explain why, so the user lands exactly on what needs fixing.
-        for (Map.Entry<String, float[][]> en : working.entrySet()) {
+        for (Map.Entry<String, double[][]> en : working.entrySet()) {
             String err = BlindStructure.validateName(en.getKey());
             if (err == null) {
                 err = BlindStructure.validateLevels(en.getValue());
@@ -436,7 +436,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
             }
         }
         ArrayList<BlindStructure> out = new ArrayList<>();
-        for (Map.Entry<String, float[][]> en : working.entrySet()) {
+        for (Map.Entry<String, double[][]> en : working.entrySet()) {
             out.add(new BlindStructure(en.getKey(), en.getValue()));
         }
         BlindStructure.saveAll(out);

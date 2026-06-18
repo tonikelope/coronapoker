@@ -71,11 +71,11 @@ public class AutoCallMaxDialog extends JDialog {
         return enabled_check.isSelected();
     }
 
-    public float getValue() {
-        return ((BigDecimal) spinner.getValue()).floatValue();
+    public double getValue() {
+        return ((BigDecimal) spinner.getValue()).doubleValue();
     }
 
-    public AutoCallMaxDialog(Frame parent, boolean enabled, float current) {
+    public AutoCallMaxDialog(Frame parent, boolean enabled, double current) {
 
         super(parent, true);
 

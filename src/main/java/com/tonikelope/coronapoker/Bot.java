@@ -220,7 +220,7 @@ public class Bot {
     // verbatim by the dealer when it executes the bet. getBetSize() embeds RNG
     // (sizing jitter, recreational sizing), so recomputing it for the wire would
     // make the executed amount differ from the one the decision was evaluated on.
-    private volatile float lastBetSize = 0f;
+    private volatile double lastBetSize = 0;
 
     private volatile Position cachedPosition = Position.UNKNOWN;
     private volatile BoardTexture cachedTexture = null;
@@ -432,8 +432,8 @@ public class Bot {
 
     private void adjustProfileElasticity() {
         DealerView dealer = dealer();
-        float stack = cpuPlayer.getStack();
-        float blindsCost = dealer.getCiega_grande() + dealer.getCiega_pequeña();
+        float stack = (float) cpuPlayer.getStack();
+        float blindsCost = (float) (dealer.getCiega_grande() + dealer.getCiega_pequeña());
         float mRatio = stack / (blindsCost > 0 ? blindsCost : 1);
 
         if (skillLevel == Skill.RECREATIONAL) {
@@ -521,18 +521,21 @@ public class Bot {
         }
     }
 
-    public float getBetSize() {
+    public double getBetSize() {
         // Return the size computed during the decision, NOT a fresh one: a new
         // call would draw new RNG and bet a different amount than the EV used.
         return lastBetSize;
     }
 
-    public float getBetSize(double effectiveStrength) {
+    public double getBetSize(double effectiveStrength) {
         DealerView dealer = dealer();
-        float pot = dealer.getBote_total();
-        float currentBet = dealer.getApuesta_actual();
-        float minRaise = Helpers.float1DSecureCompare(0f, dealer.getUltimo_raise()) < 0 ? dealer.getUltimo_raise() : dealer.getCiega_grande();
-        float bb = dealer.getCiega_grande();
+        // Boundary: the dealer money is double; the bot's sizing math is float
+        // (ratios/RNG), so narrow here and let the float result widen back to the
+        // double money output on return.
+        float pot = (float) dealer.getBote_total();
+        float currentBet = (float) dealer.getApuesta_actual();
+        float minRaise = (float) (Helpers.doubleSecureCompare(0, dealer.getUltimo_raise()) < 0 ? dealer.getUltimo_raise() : dealer.getCiega_grande());
+        float bb = (float) dealer.getCiega_grande();
         float targetBet;
 
         if (dealer.getStreet() == Crupier.PREFLOP) {
@@ -579,9 +582,9 @@ public class Bot {
         // Redondear al chip mínimo = SB ACTUAL del dealer, no
         // GameFrame.CIEGA_PEQUEÑA (que es la SB inicial global y no
         // refleja doblarCiegas ni recovery).
-        float sb = dealer.getCiega_pequeña();
+        float sb = (float) dealer.getCiega_pequeña();
         if (sb <= 0f) {
-            sb = GameFrame.CIEGA_PEQUEÑA;
+            sb = (float) GameFrame.CIEGA_PEQUEÑA;
         }
         targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / sb) * sb);
 
@@ -666,8 +669,8 @@ public class Bot {
     private int injectRecreationalMistake(int planned) {
         DealerView d = dealer();
         int street = d.getStreet();
-        float toCall = d.getApuesta_actual() - cpuPlayer.getBet();
-        float pot = d.getBote_total();
+        float toCall = (float) (d.getApuesta_actual() - cpuPlayer.getBet());
+        float pot = (float) d.getBote_total();
         double strength = previousStrength > 0 ? previousStrength : lastEffectiveStrength;
 
         // 1. Sticky calldown: weak made hand calls bet instead of folding.
@@ -808,7 +811,7 @@ public class Bot {
         BoardTexture boardTexture = calculateFullBoardTexture();
         double pot = dealer.getBote_total();
         double callCost = dealer.getApuesta_actual() - cpuPlayer.getBet();
-        float spr = cpuPlayer.getStack() / (pot > 0 ? (float) pot : 1.0f);
+        float spr = (float) (cpuPlayer.getStack() / (pot > 0 ? pot : 1.0));
 
         boolean potCommitted = false;
         if (callCost > 0) {
@@ -869,7 +872,7 @@ public class Bot {
         double raiseAmount = getBetSize(effectiveStrength);
         // Cache the size the decision is evaluated on; the dealer reuses it
         // verbatim instead of redrawing the RNG-laced sizing.
-        lastBetSize = (float) raiseAmount;
+        lastBetSize = raiseAmount;
         double raiseCost = raiseAmount - cpuPlayer.getBet();
         double evRaise = (foldEquity * pot) + ((1.0 - foldEquity) * ((winProb * (pot + raiseCost)) - ((1.0 - winProb) * raiseCost)));
 
@@ -1842,8 +1845,8 @@ public class Bot {
 
     private float potOdds() {
         DealerView d = dealer();
-        float toCall = d.getApuesta_actual() - cpuPlayer.getBet();
-        return toCall / (d.getBote_total() + toCall);
+        float toCall = (float) (d.getApuesta_actual() - cpuPlayer.getBet());
+        return (float) (toCall / (d.getBote_total() + toCall));
     }
 
     private OpponentTracker getPrimaryOpponentStats() {

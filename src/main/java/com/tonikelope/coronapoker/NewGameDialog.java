@@ -463,7 +463,7 @@ public class NewGameDialog extends JDialog {
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-            float ciega_grande = Float.valueOf(valores[1].trim());
+            double ciega_grande = Double.valueOf(valores[1].trim());
 
             buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), Math.max(BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB)), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
@@ -1587,9 +1587,9 @@ public class NewGameDialog extends JDialog {
 
                 String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-                GameFrame.CIEGA_GRANDE = Float.parseFloat(valores_ciegas[1].trim());
+                GameFrame.CIEGA_GRANDE = Double.parseDouble(valores_ciegas[1].trim());
 
-                GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(valores_ciegas[0].trim());
+                GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(valores_ciegas[0].trim());
 
                 // Estructura personalizada activa (null = escalera por defecto). En
                 // RECOVER no se toca: la restaura applyRecoverSettings al cargar la
@@ -1980,9 +1980,9 @@ public class NewGameDialog extends JDialog {
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-            float ciega_pequena = Float.valueOf(valores[0].trim());
+            double ciega_pequena = Double.valueOf(valores[0].trim());
 
-            float ciega_grande = Float.valueOf(valores[1].trim());
+            double ciega_grande = Double.valueOf(valores[1].trim());
 
             // Paso del spinner derivado de la magnitud de la ciega pequeña, no del
             // índice del combo: para la escalera por defecto 1-2-3-5 da exactamente
@@ -2072,7 +2072,7 @@ public class NewGameDialog extends JDialog {
             // Ítem sintético de una estructura recuperada (solo-lectura): no toca nada.
             return;
         }
-        float[][] levels;
+        double[][] levels;
         if (sel == null || sel.equals(item_por_defecto) || sel.equals(item_gestionar)) {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
@@ -2100,7 +2100,7 @@ public class NewGameDialog extends JDialog {
     private void initBlindStructureUI() {
         pending_structure = null;
         String selectName = null;
-        float[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
+        double[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
         if (active != null) {
             for (java.util.Map.Entry<String, BlindStructure> e : BlindStructure.loadAll().entrySet()) {
                 if (java.util.Arrays.deepEquals(e.getValue().getLevels(), active)) {
@@ -2122,7 +2122,7 @@ public class NewGameDialog extends JDialog {
             }
         }
         if (pending_structure != null) {
-            float[][] levels = pending_structure.getLevels();
+            double[][] levels = pending_structure.getLevels();
             String[] items = new String[levels.length];
             for (int k = 0; k < levels.length; k++) {
                 items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
@@ -2140,7 +2140,7 @@ public class NewGameDialog extends JDialog {
     // recupera con ACTIVE pase lo que pase aquí (esto es solo la etiqueta).
     private void syncStructureComboForRecover() {
         item_recuperada = null;
-        float[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
+        double[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
         if (active == null) {
             pending_structure = null;
             populateStructureCombo(null);
@@ -2183,8 +2183,8 @@ public class NewGameDialog extends JDialog {
     // que la lógica de congelar ciegas / recover / red no cambia.
 
     // Ciega grande (segundo número) de un item del combo de niveles.
-    private float parseBlindLevelBB(String item) {
-        return Float.parseFloat(item.replace(",", ".").split("/")[1].trim());
+    private double parseBlindLevelBB(String item) {
+        return Double.parseDouble(item.replace(",", ".").split("/")[1].trim());
     }
 
     // Índice del combo del nivel tras n subidas desde las ciegas iniciales, sin
@@ -2195,7 +2195,7 @@ public class NewGameDialog extends JDialog {
     }
 
     // Ciega grande del nivel-tope para el nº de subidas actual (para guardar).
-    private float blindCapSelectedBB() {
+    private double blindCapSelectedBB() {
         return parseBlindLevelBB(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
     }
 
@@ -2209,7 +2209,7 @@ public class NewGameDialog extends JDialog {
         int initial = Math.max(0, ciegas_combobox.getSelectedIndex());
         if (GameFrame.BLIND_CAP > 0f) {
             for (int k = initial + 1; k < ciegas_combobox.getModel().getSize(); k++) {
-                if (Helpers.float1DSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
+                if (Helpers.doubleSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
                     return k - initial;
                 }
             }
@@ -2272,8 +2272,8 @@ public class NewGameDialog extends JDialog {
             return;
         }
         String[] v = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
-        float cp = Float.parseFloat(v[0].trim());
-        float cg = Float.parseFloat(v[1].trim());
+        double cp = Double.parseDouble(v[0].trim());
+        double cg = Double.parseDouble(v[1].trim());
         int lo = BuyinRules.min(cg, GameFrame.BUYIN_MIN_BB);
         int hi = Math.max(lo, BuyinRules.max(cg, GameFrame.BUYIN_MAX_BB));
         int cur = ((Number) buyin_spinner.getValue()).intValue();

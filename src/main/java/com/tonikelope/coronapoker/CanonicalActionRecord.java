@@ -166,6 +166,23 @@ public final class CanonicalActionRecord {
     }
 
     /**
+     * {@code double} money overload of {@link #amountToCents(float)}. The engine's
+     * working money type is {@code double}; this is the single consensus gate that
+     * quantizes it to integer cents. Below the float exactness ceiling it yields
+     * the same cents as the float overload (so migrated games keep byte-identical
+     * digests); above it the double input no longer loses cents.
+     */
+    public static long amountToCents(double amount) {
+        if (Double.isNaN(amount) || Double.isInfinite(amount)) {
+            throw new IllegalArgumentException("amount must be finite: " + amount);
+        }
+        if (amount < 0d) {
+            throw new IllegalArgumentException("amount cannot be negative: " + amount);
+        }
+        return Math.round(amount * 100.0);
+    }
+
+    /**
      * Encodes one action into the canonical 92-byte record.
      *
      * <p>All arguments are validated. The returned array is fresh on every

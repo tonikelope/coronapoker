@@ -95,7 +95,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public static final int TEST_MODE_PAUSE = 250;
     public static final int DEFAULT_ZOOM_LEVEL = -2;
-    public static final float MIN_BIG_BLIND = 0.20f;
+    public static final double MIN_BIG_BLIND = 0.20;
     public static final float ZOOM_STEP = 0.05f;
 
     public static final int WAIT_QUEUES = 250;
@@ -118,8 +118,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final ConcurrentLinkedQueue<Object[]> NOTIFY_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final Object SQL_LOCK = new Object();
 
-    public static volatile float CIEGA_PEQUEÑA = 0.10f;
-    public static volatile float CIEGA_GRANDE = 0.20f;
+    public static volatile double CIEGA_PEQUEÑA = 0.10;
+    public static volatile double CIEGA_GRANDE = 0.20;
     public static volatile int BUYIN = 10;
     public static volatile boolean FIXED_BUYIN = true; //true = todos arrancan con BUYIN (techo de recompra = BUYIN); false = cada jugador elige su buy-in al entrar al tablero en [BUYIN_MIN_BB, BUYIN_MAX_BB] CG (techo de recompra = BUYIN_MAX_BB CG)
     // Rango de buy-in editable (en ciegas grandes). Por defecto 10-100 CG (rango
@@ -140,12 +140,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
-    public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
+    public static volatile double BLIND_CAP = 0; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
     // null = escalera por defecto 1-2-3-5 x10^n (camino legacy en Crupier, infinito por decadas).
     // non-null = estructura de ciegas personalizada (lista explicita {sb,bb}); la escalada la camina
     // por indice y topa en el ultimo nivel. La elige el host al crear timba, viaja a los clientes y se
     // persiste/restaura en recover. Ver BlindStructure y Crupier.doblarCiegas/simulateNextBlinds.
-    public static volatile float[][] ACTIVE_BLIND_STRUCTURE = null;
+    public static volatile double[][] ACTIVE_BLIND_STRUCTURE = null;
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
     public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host
@@ -190,7 +190,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (la ficha
     // mínima del motor es el céntimo, 0,01).
     public static volatile boolean AUTO_CALL_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_call_enabled", "false"));
-    public static volatile float AUTO_CALL_MAX = Float.parseFloat(Helpers.PROPERTIES.getProperty("auto_call_max", "1.0"));
+    public static volatile double AUTO_CALL_MAX = Double.parseDouble(Helpers.PROPERTIES.getProperty("auto_call_max", "1.0"));
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
@@ -483,14 +483,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // when it contains that level (so a non-2x big blind survives recover), else
     // the universal 2x default. The active structure is restored before recovered
     // game stats are applied, so it is available here.
-    public static float bigBlindForSmallBlind(float sb) {
+    public static double bigBlindForSmallBlind(double sb) {
         if (ACTIVE_BLIND_STRUCTURE != null) {
             int idx = BlindStructure.indexOfLevel(ACTIVE_BLIND_STRUCTURE, sb);
             if (idx >= 0) {
                 return ACTIVE_BLIND_STRUCTURE[idx][1];
             }
         }
-        return sb * 2f;
+        return sb * 2;
     }
 
     // Buy-in range/ceiling helpers. The arithmetic lives in BuyinRules (pure,
@@ -522,9 +522,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     // Highest stack among players in play (neither exited nor spectators). The
     // basis of the HIGHEST_STACK rebuy cap; floored to whole units by getBuyinCap.
-    private static float highestPlayerStack() {
+    private static double highestPlayerStack() {
         GameFrame gf = THIS;
-        float highest = 0f;
+        double highest = 0;
         if (gf != null && gf.getJugadores() != null) {
             for (Player p : gf.getJugadores()) {
                 if (p != null && !p.isExit() && !p.isSpectator() && p.getStack() > highest) {
@@ -539,7 +539,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // the table ceiling; 0 if already at (or over) it. Single source of truth for
     // both the request-time clamp (host) and the apply-time re-check in reComprar
     // (anti-stale / anti-cheat).
-    public static int rebuyHeadroom(float current_stack) {
+    public static int rebuyHeadroom(double current_stack) {
         if (REBUY_CAP_POLICY == REBUY_CAP_HIGHEST_STACK) {
             // Margen = stack más alto de la mesa − stack actual (en unidades enteras).
             return Math.max(0, getBuyinCap() - (int) Math.ceil(current_stack));
@@ -604,8 +604,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         if (b > 0) {
                             BUYIN = b;
                         }
-                        float sb = rs.getFloat("sb");
-                        if (sb > 0f) {
+                        double sb = rs.getDouble("sb");
+                        if (sb > 0) {
                             CIEGA_PEQUEÑA = sb;
                             CIEGA_GRANDE = bigBlindForSmallBlind(sb);
                         }
@@ -755,7 +755,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 zoom_accumulator = 0; // Reset for the next scroll action
 
                 // Safety check: Prevent zooming out too much (scale dropping to 0 or negative)
-                if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) >= 0) {
+                if (Helpers.doubleSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) >= 0) {
                     ZOOM_LEVEL = (int) Math.ceil(-1f / ZOOM_STEP) + 1;
                 }
             }
@@ -1966,7 +1966,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    public void setTapeteBote(float bote, Float beneficio) {
+    public void setTapeteBote(double bote, Double beneficio) {
 
         // Run-it-twice: marca a qué cara (CARA-A/CARA-B) corresponde lo mostrado
         // mientras se corren los dos boards (null fuera de run-it-twice). La cara
@@ -1977,7 +1977,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 : Translator.translate("game.bote_2");
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(prefix + " " + Helpers.float2String(bote) + (beneficio != null ? " (" + Helpers.float2String(beneficio) + ")" : ""));
+            tapete.getCommunityCards().getPot_label().setText(prefix + " " + Helpers.money2String(bote) + (beneficio != null ? " (" + Helpers.money2String(beneficio) + ")" : ""));
         });
     }
 
@@ -1996,7 +1996,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         });
     }
 
-    public void setTapeteApuestas(float apuestas) {
+    public void setTapeteApuestas(double apuestas) {
 
         // El bet_label muestra SOLO la calle actual (sin importe ni icono), para
         // reducir ruido. El bote de la calle (Crupier.apuestas) se sigue calculando
@@ -2116,7 +2116,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     }
 
-    public void setTapeteCiegas(float pequeña, float grande) {
+    public void setTapeteCiegas(double pequeña, double grande) {
 
         Helpers.GUIRun(() -> {
             if (crupier.getCiegas_update() != null) {
@@ -2129,7 +2129,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 tapete.getCommunityCards().getBlinds_label().setForeground(tapete.getCommunityCards().getPot_label().getForeground());
             }
 
-            tapete.getCommunityCards().getBlinds_label().setText(Helpers.float2String(pequeña) + " / " + Helpers.float2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
+            tapete.getCommunityCards().getBlinds_label().setText(Helpers.money2String(pequeña) + " / " + Helpers.money2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));
         });
 
     }
@@ -2821,7 +2821,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // (mismo orden que Crupier.run al cerrar una mano vía sqlUpdateHandEnd).
         // Sin el snapshot, anidar synchronized(lock_contabilidad) dentro del
         // SQL_LOCK invierte el orden y produce deadlock AB-BA con Crupier.run.
-        HashMap<String, Float[]> auditor_snapshot = null;
+        HashMap<String, Double[]> auditor_snapshot = null;
         if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {
                 crupier.auditorCuentas();
@@ -2943,18 +2943,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     // por tanto no hay deadlock con Crupier.run.
                     if (auditor_snapshot != null) {
 
-                        for (Map.Entry<String, Float[]> entry : auditor_snapshot.entrySet()) {
+                        for (Map.Entry<String, Double[]> entry : auditor_snapshot.entrySet()) {
 
-                            Float[] pasta = entry.getValue();
+                            Double[] pasta = entry.getValue();
 
                             String ganancia_msg = "";
 
-                            float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
+                            double ganancia = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) - Helpers.doubleClean(pasta[1]));
 
-                            if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.float2String(ganancia * -1f);
-                            } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.float2String(ganancia);
+                            if (Helpers.doubleSecureCompare(ganancia, 0f) < 0) {
+                                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
+                            } else if (Helpers.doubleSecureCompare(ganancia, 0f) > 0) {
+                                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
                             } else {
                                 ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
                             }
@@ -3978,7 +3978,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Audio.playWavResource("misc/zoom_out.wav");
 
-        if (Helpers.float1DSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
+        if (Helpers.doubleSecureCompare(0f, 1f + ((ZOOM_LEVEL - 1) * ZOOM_STEP)) < 0) {
 
             Helpers.threadRun(() -> {
                 decrementZoom();
@@ -4686,7 +4686,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         player.getPlayer_stack().setForeground(Color.WHITE);
                     }
 
-                    player.getPlayer_stack().setText(Helpers.float2String(player.getStack()));
+                    player.getPlayer_stack().setText(Helpers.money2String(player.getStack()));
                     rebuy_now_menu.setEnabled(true);
                     Helpers.TapetePopupMenu.REBUY_NOW_MENU.setEnabled(true);
                     rebuy_now_menu.setBackground(null);
@@ -4738,7 +4738,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             if (rebuy_dialog.isRebuy()) {
                 player.setPlayerStackBackground(Color.YELLOW);
                 player.getPlayer_stack().setForeground(Color.BLACK);
-                player.getPlayer_stack().setText(Helpers.float2String(player.getStack()) + " + " + Helpers.float2String(Float.valueOf((int) rebuy_dialog.getRebuy_spinner().getValue())));
+                player.getPlayer_stack().setText(Helpers.money2String(player.getStack()) + " + " + Helpers.float2String(Float.valueOf((int) rebuy_dialog.getRebuy_spinner().getValue())));
                 this.rebuy_now_menu.setBackground(Color.YELLOW);
                 this.rebuy_now_menu.setOpaque(true);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);
@@ -5302,9 +5302,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return auto_call_menu;
     }
 
-    public void setAutoCall(boolean enabled, float value) {
+    public void setAutoCall(boolean enabled, double value) {
         GameFrame.AUTO_CALL_ENABLED = enabled;
-        GameFrame.AUTO_CALL_MAX = Math.max(0f, value);
+        GameFrame.AUTO_CALL_MAX = Math.max(0, value);
         Helpers.PROPERTIES.setProperty("auto_call_enabled", String.valueOf(enabled));
         Helpers.PROPERTIES.setProperty("auto_call_max", String.valueOf(GameFrame.AUTO_CALL_MAX));
         Helpers.savePropertiesFile();

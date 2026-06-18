@@ -39,8 +39,8 @@ import java.util.Comparator;
 public final class HandPot {
 
     private final ArrayList<Player> players = new ArrayList<>();
-    private volatile float diff = 0f;
-    private volatile float bet = 0f;
+    private volatile double diff = 0;
+    private volatile double bet = 0;
     private volatile HandPot sidePot = null;
 
     public int getSide_pot_count() {
@@ -60,15 +60,15 @@ public final class HandPot {
         return s;
     }
 
-    public HandPot(float dif) {
+    public HandPot(double dif) {
         this.diff = dif;
     }
 
-    public float getBet() {
+    public double getBet() {
         return bet;
     }
 
-    public HandPot(ArrayList<Player> jugadores, float diff) {
+    public HandPot(ArrayList<Player> jugadores, double diff) {
         this.diff = diff;
 
         for (var jugador : jugadores) {
@@ -76,9 +76,9 @@ public final class HandPot {
         }
     }
 
-    public float getTotal() {
+    public double getTotal() {
 
-        float total = 0f;
+        double total = 0;
 
         for (Player jugador : players) {
             if (jugador.getDecision() != Player.FOLD && jugador.isActivo()) {
@@ -101,7 +101,7 @@ public final class HandPot {
 
     public void addPlayer(Player jugador) {
 
-        if (Helpers.float1DSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
+        if (Helpers.doubleSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
             bet = jugador.getBote() - this.diff;
         }
 
@@ -131,9 +131,9 @@ public final class HandPot {
             if (i < players.size()) {
 
                 //Apuesta_menor es la apuesta del jugador que participa en el bote con la menor cantidad.
-                float lowest_player_bet = players.get(i).getBote() - this.diff;
+                double lowest_player_bet = players.get(i).getBote() - this.diff;
 
-                if (Helpers.float1DSecureCompare(lowest_player_bet, bet) < 0) {
+                if (Helpers.doubleSecureCompare(lowest_player_bet, bet) < 0) {
 
                     bet = lowest_player_bet; // Actualizamos la apuesta del bote 
 
@@ -142,7 +142,7 @@ public final class HandPot {
 
                     for (var jugador : players) {
 
-                        if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.float1DSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
+                        if (jugador.getDecision() != Player.FOLD && jugador.isActivo() && Helpers.doubleSecureCompare(bet, jugador.getBote() - this.diff) < 0) {
 
                             //Si el jugador está participando en el bote con una apuesta MAYOR que la del bote lo añadimos al bote derivado hijo
                             sidepot_players.add(jugador);
@@ -162,11 +162,11 @@ public final class HandPot {
         @Override
         public int compare(Player jugador1, Player jugador2) {
 
-            float val1 = jugador1.getBote();
+            double val1 = jugador1.getBote();
 
-            float val2 = jugador2.getBote();
+            double val2 = jugador2.getBote();
 
-            return Helpers.float1DSecureCompare(val1, val2);
+            return Helpers.doubleSecureCompare(val1, val2);
         }
     }
 

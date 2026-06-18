@@ -65,9 +65,9 @@ public final class MultiwaySimulator {
     private final TestDealer dealer;
     private final BotEvaluator evaluator;
     private final Random deckRng;
-    private final float bigBlind;
-    private final float smallBlind;
-    private final float startingStack;
+    private final double bigBlind;
+    private final double smallBlind;
+    private final double startingStack;
 
     // Per-hand transient flags (parallel arrays indexed by seat).
     private final boolean[] handVoluntary;
@@ -78,8 +78,8 @@ public final class MultiwaySimulator {
     private int buttonIdx;
     private int handCounter = 0;
 
-    public MultiwaySimulator(int numSeats, long seed, float startingStack,
-                             float bigBlind, BotEvaluator evaluator) {
+    public MultiwaySimulator(int numSeats, long seed, double startingStack,
+                             double bigBlind, BotEvaluator evaluator) {
         if (numSeats < 3 || numSeats > 9) {
             throw new IllegalArgumentException("numSeats must be 3..9, got " + numSeats);
         }
@@ -187,7 +187,7 @@ public final class MultiwaySimulator {
         Arrays.fill(handCbetOpp, false);
         Arrays.fill(handCbetDone, false);
 
-        float[] startStacks = new float[numSeats];
+        double[] startStacks = new double[numSeats];
         for (int i = 0; i < numSeats; i++) {
             startStacks[i] = players[i].getStack();
         }
@@ -237,7 +237,7 @@ public final class MultiwaySimulator {
 
             if (result == BettingResult.HAND_OVER_FOLD) {
                 int aliveIdx = findOnlyActive();
-                float pot = dealer.getBote_total();
+                double pot = dealer.getBote_total();
                 players[aliveIdx].setStack(players[aliveIdx].getStack() + pot);
                 winners = new HashSet<>();
                 winners.add(aliveIdx);
@@ -259,8 +259,8 @@ public final class MultiwaySimulator {
 
         winners = resolveShowdown();
         handReachedShowdown = true;
-        float pot = dealer.getBote_total();
-        float share = pot / winners.size();
+        double pot = dealer.getBote_total();
+        double share = pot / winners.size();
         for (int idx : winners) {
             players[idx].setStack(players[idx].getStack() + share);
         }
@@ -361,8 +361,8 @@ public final class MultiwaySimulator {
             }
 
             int decision = bots[toAct].calculateBotDecision(countActive() - 1);
-            float currentBet = dealer.getApuesta_actual();
-            float toCall = currentBet - players[toAct].getBet();
+            double currentBet = dealer.getApuesta_actual();
+            double toCall = currentBet - players[toAct].getBet();
             int street = dealer.getStreet();
 
             if (decision == Player.FOLD) {
@@ -381,7 +381,7 @@ public final class MultiwaySimulator {
                 }
             } else if (decision == Player.CHECK) {
                 if (toCall > 0f) {
-                    float pay = Math.min(toCall, players[toAct].getStack());
+                    double pay = Math.min(toCall, players[toAct].getStack());
                     chargeBet(players[toAct], pay);
                     dealer.setPot(dealer.getBote_total() + pay);
                     if (preflop) {
@@ -394,14 +394,14 @@ public final class MultiwaySimulator {
                 }
                 needToAct.remove(toAct);
             } else if (decision == Player.BET) {
-                float newBet = bots[toAct].getBetSize();
-                float maxAffordable = players[toAct].getBet() + players[toAct].getStack();
+                double newBet = bots[toAct].getBetSize();
+                double maxAffordable = players[toAct].getBet() + players[toAct].getStack();
                 if (newBet > maxAffordable) {
                     newBet = maxAffordable;
                 }
                 if (newBet <= currentBet) {
                     if (toCall > 0f) {
-                        float pay = Math.min(toCall, players[toAct].getStack());
+                        double pay = Math.min(toCall, players[toAct].getStack());
                         chargeBet(players[toAct], pay);
                         dealer.setPot(dealer.getBote_total() + pay);
                         if (preflop) {
@@ -414,8 +414,8 @@ public final class MultiwaySimulator {
                     }
                     needToAct.remove(toAct);
                 } else {
-                    float raiseSize = newBet - currentBet;
-                    float pay = newBet - players[toAct].getBet();
+                    double raiseSize = newBet - currentBet;
+                    double pay = newBet - players[toAct].getBet();
                     pay = Math.min(pay, players[toAct].getStack());
                     chargeBet(players[toAct], pay);
                     dealer.setPot(dealer.getBote_total() + pay);
@@ -442,7 +442,7 @@ public final class MultiwaySimulator {
     }
 
     private boolean allActiveMatched() {
-        float c = dealer.getApuesta_actual();
+        double c = dealer.getApuesta_actual();
         for (int i = 0; i < numSeats; i++) {
             if (players[i].isActivo() && players[i].getStack() > 0f
                     && Math.abs(players[i].getBet() - c) > 0.0001f) {
@@ -492,7 +492,7 @@ public final class MultiwaySimulator {
         return hand;
     }
 
-    private void finalizeHandStats(float[] startStacks, boolean reachedShowdown, Set<Integer> winners) {
+    private void finalizeHandStats(double[] startStacks, boolean reachedShowdown, Set<Integer> winners) {
         for (int i = 0; i < numSeats; i++) {
             stats[i].handsPlayed++;
             stats[i].netChipsWon += (players[i].getStack() - startStacks[i]);
@@ -543,7 +543,7 @@ public final class MultiwaySimulator {
         t.recordPFR(handCounter);
     }
 
-    private void recordPostflopBetRaise(int seat, int street, float toCall) {
+    private void recordPostflopBetRaise(int seat, int street, double toCall) {
         stats[seat].postflopBetsRaises++;
         // Classify the aggressive action by made-hand strength (value vs bluff)
         // to measure readability/exploitability of the bot in the multi-way
@@ -596,7 +596,7 @@ public final class MultiwaySimulator {
         stats[seat].postflopFolds++;
     }
 
-    private void chargeBet(TestBotPlayer p, float amount) {
+    private void chargeBet(TestBotPlayer p, double amount) {
         p.setStack(p.getStack() - amount);
         p.setBet(p.getBet() + amount);
     }
@@ -617,9 +617,9 @@ public final class MultiwaySimulator {
 
     public static final class HandResult {
         public final Set<Integer> winners;
-        public final float pot;
+        public final double pot;
 
-        public HandResult(Set<Integer> winners, float pot) {
+        public HandResult(Set<Integer> winners, double pot) {
             this.winners = winners;
             this.pot = pot;
         }

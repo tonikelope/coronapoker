@@ -29,9 +29,9 @@ public interface BotPlayerView {
 
     String getNickname();
 
-    float getStack();
+    double getStack();
 
-    float getBet();
+    double getBet();
 
     boolean isActivo();
 

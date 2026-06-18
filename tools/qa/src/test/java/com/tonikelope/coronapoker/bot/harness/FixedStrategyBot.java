@@ -81,8 +81,8 @@ public final class FixedStrategyBot extends Bot {
         DealerView d = dealer();
         BotPlayerView me = player();
         int street = d.getStreet();
-        float currentBet = d.getApuesta_actual();
-        float toCall = currentBet - me.getBet();
+        double currentBet = d.getApuesta_actual();
+        double toCall = currentBet - me.getBet();
         boolean preflop = (street == Crupier.PREFLOP);
         int hole1 = me.getHoleCard1Index();
         int hole2 = me.getHoleCard2Index();
@@ -108,18 +108,18 @@ public final class FixedStrategyBot extends Bot {
     }
 
     @Override
-    public float getBetSize() {
-        return (float) lastTargetSize;
+    public double getBetSize() {
+        return (double) lastTargetSize;
     }
 
-    private int decideStation(float toCall) {
+    private int decideStation(double toCall) {
         if (toCall > 0f) {
             return Player.CHECK;
         }
         return Player.CHECK;
     }
 
-    private int decideRock(boolean preflop, float toCall, boolean pair, int high, int low,
+    private int decideRock(boolean preflop, double toCall, boolean pair, int high, int low,
                            boolean suited, DealerView d) {
         boolean premium = pair && high >= 9
                 || (high == 12 && low == 11)
@@ -152,7 +152,7 @@ public final class FixedStrategyBot extends Bot {
         return Player.FOLD;
     }
 
-    private int decideManiac(boolean preflop, float toCall, DealerView d) {
+    private int decideManiac(boolean preflop, double toCall, DealerView d) {
         if (preflop) {
             if (toCall <= 0f) {
                 lastTargetSize = d.getCiega_grande() * 3.0f;
@@ -169,7 +169,7 @@ public final class FixedStrategyBot extends Bot {
         return Player.CHECK;
     }
 
-    private int decideTag(boolean preflop, float toCall, boolean pair, int high, int low,
+    private int decideTag(boolean preflop, double toCall, boolean pair, int high, int low,
                           boolean suited, DealerView d) {
         boolean top25 = isTop25(pair, high, low, suited);
         int betCount = d.getConta_bet();

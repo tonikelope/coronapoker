@@ -51,9 +51,9 @@ public final class HeadsUpSimulator {
     private final TestDealer dealer;
     private final BotEvaluator evaluator;
     private final Random deckRng;
-    private final float bigBlind;
-    private final float smallBlind;
-    private final float startingStack;
+    private final double bigBlind;
+    private final double smallBlind;
+    private final double startingStack;
 
     // Per-bot aggregate stats (incremented as decisions stream in).
     private final BotStats statsA = new BotStats("BOT_A");
@@ -70,7 +70,7 @@ public final class HeadsUpSimulator {
     // hand and do not double-count.
     private int handCounter = 0;
 
-    public HeadsUpSimulator(long seed, float startingStack, float bigBlind, BotEvaluator evaluator) {
+    public HeadsUpSimulator(long seed, double startingStack, double bigBlind, BotEvaluator evaluator) {
         this.deckRng = new Random(seed);
         this.bigBlind = bigBlind;
         this.smallBlind = bigBlind / 2.0f;
@@ -183,8 +183,8 @@ public final class HeadsUpSimulator {
         handCbetDoneB = false;
 
         // Capture stacks before posting blinds so we can compute net delta later
-        float aStartStack = p1.getStack();
-        float bStartStack = p2.getStack();
+        double aStartStack = p1.getStack();
+        double bStartStack = p2.getStack();
 
         TestBotPlayer sbPlayer = aIsButton ? p1 : p2;
         TestBotPlayer bbPlayer = aIsButton ? p2 : p1;
@@ -240,7 +240,7 @@ public final class HeadsUpSimulator {
             BettingResult result = runBettingRound(firstBot, firstPlayer, secondBot, secondPlayer);
             if (result == BettingResult.HAND_OVER_FOLD) {
                 TestBotPlayer winner = firstPlayer.isActivo() ? firstPlayer : secondPlayer;
-                float pot = dealer.getBote_total();
+                double pot = dealer.getBote_total();
                 winner.setStack(winner.getStack() + pot);
                 winnerIndex = (winner == p1) ? 0 : 1;
                 finalizeHandStats(aStartStack, bStartStack, false, winnerIndex);
@@ -264,7 +264,7 @@ public final class HeadsUpSimulator {
         return sd;
     }
 
-    private void finalizeHandStats(float aStartStack, float bStartStack,
+    private void finalizeHandStats(double aStartStack, double bStartStack,
                                    boolean reachedShowdown, int winnerIndex) {
         statsA.handsPlayed++;
         statsB.handsPlayed++;
@@ -357,8 +357,8 @@ public final class HeadsUpSimulator {
 
             int decision = toActBot.calculateBotDecision(1);
             int street = dealer.getStreet();
-            float currentBet = dealer.getApuesta_actual();
-            float toCall = currentBet - toActPlayer.getBet();
+            double currentBet = dealer.getApuesta_actual();
+            double toCall = currentBet - toActPlayer.getBet();
             boolean actorIsA = toActPlayer == p1;
 
             if (decision == Player.FOLD) {
@@ -369,7 +369,7 @@ public final class HeadsUpSimulator {
                 return BettingResult.HAND_OVER_FOLD;
             } else if (decision == Player.CHECK) {
                 if (toCall > 0f) {
-                    float pay = Math.min(toCall, toActPlayer.getStack());
+                    double pay = Math.min(toCall, toActPlayer.getStack());
                     chargeBet(toActPlayer, pay);
                     dealer.setPot(dealer.getBote_total() + pay);
                     if (street == Crupier.PREFLOP) {
@@ -385,14 +385,14 @@ public final class HeadsUpSimulator {
                     return BettingResult.STREET_DONE;
                 }
             } else if (decision == Player.BET) {
-                float newBet = toActBot.getBetSize();
-                float maxAffordable = toActPlayer.getBet() + toActPlayer.getStack();
+                double newBet = toActBot.getBetSize();
+                double maxAffordable = toActPlayer.getBet() + toActPlayer.getStack();
                 if (newBet > maxAffordable) {
                     newBet = maxAffordable;
                 }
                 if (newBet <= currentBet) {
                     if (toCall > 0f) {
-                        float pay = Math.min(toCall, toActPlayer.getStack());
+                        double pay = Math.min(toCall, toActPlayer.getStack());
                         chargeBet(toActPlayer, pay);
                         dealer.setPot(dealer.getBote_total() + pay);
                         if (street == Crupier.PREFLOP) {
@@ -402,8 +402,8 @@ public final class HeadsUpSimulator {
                         }
                     }
                 } else {
-                    float raiseSize = newBet - currentBet;
-                    float pay = newBet - toActPlayer.getBet();
+                    double raiseSize = newBet - currentBet;
+                    double pay = newBet - toActPlayer.getBet();
                     pay = Math.min(pay, toActPlayer.getStack());
                     chargeBet(toActPlayer, pay);
                     dealer.setPot(dealer.getBote_total() + pay);
@@ -464,7 +464,7 @@ public final class HeadsUpSimulator {
         t.recordPFR(handCounter);
     }
 
-    private void recordPostflopBetRaise(boolean actorIsA, int street, float toCall) {
+    private void recordPostflopBetRaise(boolean actorIsA, int street, double toCall) {
         BotStats s = actorIsA ? statsA : statsB;
         s.postflopBetsRaises++;
         // Classify the aggressive action by the made-hand strength behind it
@@ -521,11 +521,11 @@ public final class HeadsUpSimulator {
     }
 
     private boolean bothMatched() {
-        float c = dealer.getApuesta_actual();
+        double c = dealer.getApuesta_actual();
         return Math.abs(p1.getBet() - c) < 0.0001f && Math.abs(p2.getBet() - c) < 0.0001f;
     }
 
-    private void chargeBet(TestBotPlayer p, float amount) {
+    private void chargeBet(TestBotPlayer p, double amount) {
         p.setStack(p.getStack() - amount);
         p.setBet(p.getBet() + amount);
     }
@@ -544,7 +544,7 @@ public final class HeadsUpSimulator {
         }
 
         int cmp = evaluator.compareHands(hand1, hand2);
-        float pot = dealer.getBote_total();
+        double pot = dealer.getBote_total();
         if (cmp == 1) {
             p1.setStack(p1.getStack() + pot);
             return new HandResult(0, pot);
@@ -576,9 +576,9 @@ public final class HeadsUpSimulator {
 
         /** 0 = player A wins, 1 = player B wins, -1 = tie. */
         public final int winnerIndex;
-        public final float pot;
+        public final double pot;
 
-        public HandResult(int winnerIndex, float pot) {
+        public HandResult(int winnerIndex, double pot) {
             this.winnerIndex = winnerIndex;
             this.pot = pot;
         }

@@ -982,7 +982,7 @@ public class StatsDialog extends JFrame {
                                 game_players_val.setText(players.replaceAll("  \\|  $", ""));
                                 game_buyin_val.setText(String.valueOf(rs.getInt("buyin")));
                                 game_hand_val.setText(String.valueOf(rs.getInt("tot_hands")));
-                                game_blinds_val.setText(String.valueOf(rs.getFloat("sb")) + " / " + String.valueOf(rs.getFloat("sb") * 2));
+                                game_blinds_val.setText(String.valueOf(rs.getDouble("sb")) + " / " + String.valueOf(rs.getDouble("sb") * 2));
                                 game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO");
                                 game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO");
                             } catch (Exception ex) {
@@ -1086,7 +1086,7 @@ public class StatsDialog extends JFrame {
                             hand_river_players_val.setText("");
                         }
 
-                        hand_blinds_val.setText(String.valueOf(rs.getFloat("sbval")) + " / " + String.valueOf(rs.getFloat("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")");
+                        hand_blinds_val.setText(String.valueOf(rs.getDouble("sbval")) + " / " + String.valueOf(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")");
 
                         hand_time_val.setText(Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)));
                         hand_cp_val.setText(rs.getString("sb"));
@@ -1112,7 +1112,7 @@ public class StatsDialog extends JFrame {
                             hand_comcards_val.setText("");
                         }
 
-                        hand_bote_val.setText(String.valueOf(Helpers.floatClean(rs.getFloat("pot"))));
+                        hand_bote_val.setText(String.valueOf(Helpers.doubleClean(rs.getDouble("pot"))));
 
                         loadShowdownData(id_hand);
                     } catch (Exception ex) {

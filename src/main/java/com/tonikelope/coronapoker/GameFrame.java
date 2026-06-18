@@ -125,6 +125,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile float BLIND_CAP = 0f; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
+    // null = escalera por defecto 1-2-3-5 x10^n (camino legacy en Crupier, infinito por decadas).
+    // non-null = estructura de ciegas personalizada (lista explicita {sb,bb}); la escalada la camina
+    // por indice y topa en el ultimo nivel. La elige el host al crear timba, viaja a los clientes y se
+    // persiste/restaura en recover. Ver BlindStructure y Crupier.doblarCiegas/simulateNextBlinds.
+    public static volatile float[][] ACTIVE_BLIND_STRUCTURE = null;
     public static volatile boolean REBUY = true;
     public static volatile int REBUY_LIMIT = 0; //0 = sin limite de rebuys por jugador; en otro caso, max veces que un jugador puede rebuyar en la partida
     public static volatile boolean BOT_REBUY = true; //true = bots pueden rebuyar (sujetos al limite si > 0); false = bots se quedan de espectador sin preguntar al host

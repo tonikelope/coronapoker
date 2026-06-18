@@ -266,6 +266,47 @@ public final class BlindStructure {
         return out;
     }
 
+    // ----- Escalation walk (pure, for the Crupier custom path) ----------------
+
+    // The game represents blind money at one-decimal resolution
+    // (Helpers.floatClean / float1DSecureCompare, HALF_UP). Two blind values are
+    // the same ladder level iff they round to the same tenth. Validated ladders
+    // have strictly increasing small blinds (>= 0.1 apart), so this key is unique
+    // per level.
+    private static int tenths(float v) {
+        return Math.round(v * 10f);
+    }
+
+    /**
+     * Index of the level whose small blind matches {@code sb} at the game's
+     * one-decimal money resolution, or -1 if none.
+     */
+    public static int indexOfLevel(float[][] structure, float sb) {
+        if (structure == null) {
+            return -1;
+        }
+        int key = tenths(sb);
+        for (int i = 0; i < structure.length; i++) {
+            if (tenths(structure[i][0]) == key) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The {sb, bb} level immediately above the one matching {@code currentSb},
+     * or null when the current blind is the top level (no further escalation) or
+     * is not on this ladder at all. Returned as a fresh array.
+     */
+    public static float[] nextLevel(float[][] structure, float currentSb) {
+        int idx = indexOfLevel(structure, currentSb);
+        if (idx < 0 || idx + 1 >= structure.length) {
+            return null;
+        }
+        return new float[]{structure[idx + 1][0], structure[idx + 1][1]};
+    }
+
     // ----- Registry persistence -----------------------------------------------
 
     /**

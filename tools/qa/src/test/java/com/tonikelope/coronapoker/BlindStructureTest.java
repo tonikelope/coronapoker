@@ -296,6 +296,65 @@ public class BlindStructureTest {
         assertNotNull(out.get("Only"));
     }
 
+    // ----- Escalation walk (pure helpers used by Crupier custom path) ---------
+
+    @Test
+    void indexOfLevelFindsByOneDecimalResolution() {
+        float[][] s = levels(0.1f, 0.2f, 0.5f, 1f, 1f, 2f, 25f, 50f);
+        assertEquals(0, BlindStructure.indexOfLevel(s, 0.1f));
+        assertEquals(1, BlindStructure.indexOfLevel(s, 0.5f));
+        assertEquals(3, BlindStructure.indexOfLevel(s, 25f));
+        // Matches at the engine's one-decimal rounding (0.49 -> 0.5).
+        assertEquals(1, BlindStructure.indexOfLevel(s, 0.49f));
+        // Off the ladder.
+        assertEquals(-1, BlindStructure.indexOfLevel(s, 3f));
+        assertEquals(-1, BlindStructure.indexOfLevel(null, 1f));
+    }
+
+    @Test
+    void nextLevelWalksThenCapsAtTop() {
+        float[][] s = levels(25f, 50f, 50f, 100f, 100f, 200f);
+        assertArrayEquals(new float[]{50f, 100f}, BlindStructure.nextLevel(s, 25f), 0f);
+        assertArrayEquals(new float[]{100f, 200f}, BlindStructure.nextLevel(s, 50f), 0f);
+        // Top level: no further escalation.
+        assertNull(BlindStructure.nextLevel(s, 100f));
+        // Off the ladder.
+        assertNull(BlindStructure.nextLevel(s, 999f));
+    }
+
+    @Test
+    void nextLevelDrivesAFullDeterministicWalk() {
+        // Mirrors how Crupier.doblarCiegas climbs a custom structure: start at the
+        // first level and follow nextLevel until it caps, collecting the ladder.
+        float[][] s = levels(10f, 25f, 20f, 50f, 40f, 100f); // non-2x big blinds
+        ArrayList<float[]> walked = new ArrayList<>();
+        walked.add(s[0]);
+        float sb = s[0][0];
+        float[] next;
+        while ((next = BlindStructure.nextLevel(s, sb)) != null) {
+            walked.add(next);
+            sb = next[0];
+        }
+        assertArrayEquals(s, walked.toArray(new float[0][]));
+    }
+
+    @Test
+    void singleLevelStructureNeverEscalates() {
+        float[][] s = levels(100f, 200f);
+        assertNull(BlindStructure.nextLevel(s, 100f));
+    }
+
+    @Test
+    void defaultLadderNextLevelCapsAtTop() {
+        // The helper caps the built-in ladder at 5000/10000; in-engine the default
+        // (null) path keeps its infinite-by-decade behaviour, this only documents
+        // the helper's contract for when a default-derived structure is walked.
+        float[][] def = BlindStructure.defaultLevels();
+        assertArrayEquals(new float[]{0.2f, 0.4f}, BlindStructure.nextLevel(def, 0.1f), 0f);
+        assertArrayEquals(new float[]{2f, 4f}, BlindStructure.nextLevel(def, 1f), 0f);
+        assertNull(BlindStructure.nextLevel(def, 5000f));
+    }
+
     @Test
     void equalsAndHashCodeAreValueBased() {
         BlindStructure a = new BlindStructure("Casa", levels(25f, 50f, 50f, 100f));

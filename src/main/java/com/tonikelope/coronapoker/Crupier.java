@@ -5868,6 +5868,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private float[] simulateNextBlinds() {
+        if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
+            float[] next = BlindStructure.nextLevel(GameFrame.ACTIVE_BLIND_STRUCTURE, this.ciega_pequeña);
+            return next != null ? next : new float[]{this.ciega_pequeña, this.ciega_grande};
+        }
         int i = 0, j = 0;
         while (Helpers.float1DSecureCompare((float) this.ciega_pequeña / (float) Math.pow(10, j), CIEGAS[i][0]) != 0) {
             i = (i + 1) % CIEGAS.length;
@@ -5885,6 +5889,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private boolean checkDoblarCiegas() {
 
         synchronized (lock_ciegas) {
+            if (GameFrame.ACTIVE_BLIND_STRUCTURE != null
+                    && BlindStructure.nextLevel(GameFrame.ACTIVE_BLIND_STRUCTURE, this.ciega_pequeña) == null) {
+                // Estructura personalizada agotada (ultimo nivel alcanzado) o ciega
+                // actual fuera de la escalera: no se sube mas y nunca se reanuncia.
+                return false;
+            }
             if (GameFrame.BLIND_CAP > 0f && Helpers.float1DSecureCompare(simulateNextBlinds()[1], GameFrame.BLIND_CAP) > 0) {
                 return false;
             }
@@ -5901,6 +5911,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void doblarCiegas() {
+
+        if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
+            float[] next = BlindStructure.nextLevel(GameFrame.ACTIVE_BLIND_STRUCTURE, this.ciega_pequeña);
+            if (next == null) {
+                // checkDoblarCiegas ya lo veta; defensa: nunca atascar ni anunciar
+                // una subida fantasma en el ultimo nivel de la escalera.
+                LOGGER.log(Level.WARNING, "doblarCiegas with no next level on custom structure (sb={0})", this.ciega_pequeña);
+                return;
+            }
+            this.ciegas_double++;
+            this.ciega_pequeña = next[0];
+            this.ciega_grande = next[1];
+            Audio.playWavResource("misc/double_blinds.wav");
+            GameFrame.getInstance().getRegistro().print(Translator.translate("blinds.se_doblan_las_ciegas"));
+            return;
+        }
 
         int i, j;
 

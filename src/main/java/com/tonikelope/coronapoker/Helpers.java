@@ -3469,6 +3469,69 @@ public class Helpers {
 
     }
 
+    // Versión en double de float2String (formato de dinero para los HUD/mesa, con
+    // abreviatura K de miles redondos). Byte-idéntica a float2String por debajo del
+    // techo de exactitud del float (timbas normales sin cambios).
+    public static String money2String(double cantidad) {
+
+        if (Math.abs(cantidad) < 1000.0) {
+
+            cantidad = Helpers.doubleClean(cantidad);
+
+            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
+
+            DecimalFormat df;
+
+            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+
+                otherSymbols.setDecimalSeparator(',');
+
+                df = new DecimalFormat("0.00", otherSymbols);
+
+                return df.format(cantidad).replaceAll("\\,00$", "");
+
+            } else {
+
+                otherSymbols.setDecimalSeparator('.');
+
+                df = new DecimalFormat("0.00", otherSymbols);
+
+                return df.format(cantidad).replaceAll("\\.00$", "");
+            }
+
+        } else {
+
+            double cantidad_format_k = Helpers.doubleClean(cantidad / 1000.0, 3);
+
+            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
+
+            DecimalFormat df;
+
+            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
+
+                otherSymbols.setDecimalSeparator(',');
+
+                df = new DecimalFormat("0.000", otherSymbols);
+
+                String f = df.format(cantidad_format_k).replaceAll("(?:(\\,[1-9])00$)|\\,000$", "$1K");
+
+                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\,000$", "") : f;
+
+            } else {
+
+                otherSymbols.setDecimalSeparator('.');
+
+                df = new DecimalFormat("0.000", otherSymbols);
+
+                String f = df.format(cantidad_format_k).replaceAll("(?:(\\.[1-9])00$)|\\.000$", "$1K");
+
+                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\.000$", "") : f;
+            }
+
+        }
+
+    }
+
     public synchronized static void savePropertiesFile() {
 
         try (FileOutputStream fos = new FileOutputStream(PROPERTIES_FILE)) {
@@ -4583,6 +4646,29 @@ public class Helpers {
     public static int float1DSecureCompare(float val1, float val2) {
 
         return Float.compare(floatClean(val1), floatClean(val2));
+    }
+
+    // Versión en double del cuantizador de dinero. El dinero del motor migra de
+    // float a double para subir el techo de exactitud al céntimo de ~131072 fichas
+    // (float32) a ~9e13 (double). Por DEBAJO de ese techo es byte-idéntico a
+    // floatClean (verificado), así que las timbas normales no cambian. CRÍTICO: usa
+    // el constructor PRECISO new BigDecimal(double), NO BigDecimal.valueOf(double):
+    // en medios-céntimos (2.675/0.145/1.005) el preciso reproduce el redondeo del
+    // camino float (2.67/0.14/1.00) mientras que valueOf se desvía (2.68/0.15/1.01).
+    public static double doubleClean(double val) {
+
+        return doubleClean(val, 2);
+    }
+
+    public static double doubleClean(double val, int decs) {
+
+        return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    // Compara dos cantidades de dinero (double) a resolución de céntimo.
+    public static int doubleSecureCompare(double val1, double val2) {
+
+        return Double.compare(doubleClean(val1), doubleClean(val2));
     }
 
     public static boolean isNumeric(String str) {

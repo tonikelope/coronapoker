@@ -42,8 +42,16 @@ public final class PotMath {
         return Math.round((double) amount * CENTS_PER_UNIT);
     }
 
+    static long toCents(double amount) {
+        return Math.round(amount * CENTS_PER_UNIT);
+    }
+
     static float fromCents(long cents) {
         return (float) (cents / (double) CENTS_PER_UNIT);
+    }
+
+    static double fromCentsDouble(long cents) {
+        return cents / (double) CENTS_PER_UNIT;
     }
 
     /**
@@ -65,6 +73,22 @@ public final class PotMath {
     }
 
     /**
+     * {@code double} money overload of {@link #splitAmongWinners(float, int)}. The
+     * split is still computed in integer cents (exact, no binary-float drift), so
+     * below the float exactness ceiling it returns cent-for-cent the same shares as
+     * the float overload; above it the double inputs/outputs no longer lose cents.
+     */
+    public static double[] splitAmongWinners(double amount, int winners) {
+        if (winners <= 1) {
+            return new double[]{amount, 0d};
+        }
+        long total = toCents(amount);
+        long per = total / winners;          // integer floor
+        long remainder = total - per * winners;
+        return new double[]{fromCentsDouble(per), fromCentsDouble(remainder)};
+    }
+
+    /**
      * Splits a pot into the two equal halves of a run-it-twice board (SIDE-A and
      * SIDE-B). Each board gets {@code floor(pot/2)} at cent resolution; if the
      * pot is an odd number of cents the leftover cent is NOT dealt (the caller
@@ -77,5 +101,17 @@ public final class PotMath {
         long half = toCents(pot) / 2;        // floor; odd cent carried by the caller
         float each = fromCents(half);
         return new float[]{each, each};
+    }
+
+    /**
+     * {@code double} money overload of {@link #splitForRunItTwice(float)}. Halves
+     * are taken in integer cents (the odd cent, if any, is not dealt and the caller
+     * carries it), so below the float ceiling it returns the same halves as the
+     * float overload and above it the double type keeps every cent.
+     */
+    public static double[] splitForRunItTwice(double pot) {
+        long half = toCents(pot) / 2;        // floor; odd cent carried by the caller
+        double each = fromCentsDouble(half);
+        return new double[]{each, each};
     }
 }

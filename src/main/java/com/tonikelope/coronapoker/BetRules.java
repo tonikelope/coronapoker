@@ -49,6 +49,13 @@ public final class BetRules {
     }
 
     /**
+     * {@code double} money overload of {@link #minOpen(float)}.
+     */
+    public static double minOpen(double bigBlind) {
+        return bigBlind;
+    }
+
+    /**
      * Minimum raise INCREMENT (how much the bet must go up by): the previous
      * raise increment this street, or the big blind if there has been none yet.
      *
@@ -59,10 +66,24 @@ public final class BetRules {
     }
 
     /**
+     * {@code double} money overload of {@link #minRaiseIncrement(float, float)}.
+     */
+    public static double minRaiseIncrement(double lastRaiseIncrement, double bigBlind) {
+        return lastRaiseIncrement > 0d ? lastRaiseIncrement : bigBlind;
+    }
+
+    /**
      * Minimum total a player must raise the current bet TO to make a legal
      * (full) raise: the current bet plus {@link #minRaiseIncrement}.
      */
     public static float minRaiseTo(float currentBet, float lastRaiseIncrement, float bigBlind) {
+        return currentBet + minRaiseIncrement(lastRaiseIncrement, bigBlind);
+    }
+
+    /**
+     * {@code double} money overload of {@link #minRaiseTo(float, float, float)}.
+     */
+    public static double minRaiseTo(double currentBet, double lastRaiseIncrement, double bigBlind) {
         return currentBet + minRaiseIncrement(lastRaiseIncrement, bigBlind);
     }
 
@@ -76,5 +97,13 @@ public final class BetRules {
      */
     public static boolean isFullRaise(float raiseIncrement, float minRaiseIncrement) {
         return Math.round((double) raiseIncrement * 100.0) >= Math.round((double) minRaiseIncrement * 100.0);
+    }
+
+    /**
+     * {@code double} money overload of {@link #isFullRaise(float, float)}. Same
+     * cent-resolution comparison, without the float widening.
+     */
+    public static boolean isFullRaise(double raiseIncrement, double minRaiseIncrement) {
+        return Math.round(raiseIncrement * 100.0) >= Math.round(minRaiseIncrement * 100.0);
     }
 }

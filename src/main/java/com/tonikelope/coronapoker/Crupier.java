@@ -10992,10 +10992,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     if (decision == Player.BET || (decision == Player.ALLIN && Helpers.float1DSecureCompare(this.apuesta_actual, current_player.getBet()) < 0)) {
                         boolean partial_raise = false;
-                        float min_raise = Helpers.float1DSecureCompare(0f, getUltimo_raise()) < 0 ? getUltimo_raise() : Helpers.floatClean(getCiega_grande());
+                        float min_raise = BetRules.minRaiseIncrement(getUltimo_raise(), getCiega_grande());
                         float current_raise = current_player.getBet() - this.apuesta_actual + this.partial_raise_cum;
 
-                        if (Helpers.float1DSecureCompare(min_raise, current_raise) <= 0) {
+                        if (BetRules.isFullRaise(current_raise, min_raise)) {
                             this.ultimo_raise = current_raise;
                             this.partial_raise_cum = 0f;
                             this.conta_raise++;

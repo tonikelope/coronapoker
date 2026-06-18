@@ -83,12 +83,12 @@ public class AutoCallMaxDialog extends JDialog {
         setResizable(false);
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 
-        // Pasos de 0,1 (la ficha mínima de CoronaPoker), redondeando a 1 decimal
-        // para evitar la imprecisión de float, igual que el spinner de apuestas.
-        // Sin tope por arriba (máximo = null, como el spinner de límite de manos).
-        BigDecimal step = new BigDecimal("0.1");
-        BigDecimal bd_min = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);
-        BigDecimal bd_current = new BigDecimal(Math.max(current, 0f)).setScale(1, RoundingMode.HALF_UP);
+        // Pasos de 0,05 (la granularidad de ajuste de ciegas), redondeando a 2
+        // decimales (el motor trabaja en céntimos). Es un umbral de auto-igualar,
+        // no dinero en mesa. Sin tope por arriba (máximo = null).
+        BigDecimal step = new BigDecimal("0.05");
+        BigDecimal bd_min = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal bd_current = new BigDecimal(Math.max(current, 0f)).setScale(2, RoundingMode.HALF_UP);
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);

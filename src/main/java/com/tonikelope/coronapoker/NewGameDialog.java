@@ -216,7 +216,7 @@ public class NewGameDialog extends JDialog {
 
         this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
         this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-        this.blind_cap_spinner.setEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
+        setBlindCapControlsEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
 
         // Selector de estructura: refleja la estructura activa (si la hay) y deja el
         // combo de niveles con sus ciegas, para que la búsqueda de abajo seleccione
@@ -453,7 +453,7 @@ public class NewGameDialog extends JDialog {
             doblar_ciegas_spinner_manos.setEnabled(false);
             blind_cap_checkbox.setSelected(false);
             blind_cap_checkbox.setEnabled(false);
-            blind_cap_spinner.setEnabled(false);
+            setBlindCapControlsEnabled(false);
             rebuy_limit_checkbox.setSelected(false);
             rebuy_limit_spinner.setEnabled(false);
             Helpers.makeNumericSpinnerEditable(blind_cap_spinner, false);
@@ -874,10 +874,10 @@ public class NewGameDialog extends JDialog {
         javax.swing.GroupLayout blind_cap_panelLayout = new javax.swing.GroupLayout(blind_cap_panel);
         blind_cap_panel.setLayout(blind_cap_panelLayout);
         blind_cap_panelLayout.setHorizontalGroup(
-            blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
             .addGroup(blind_cap_panelLayout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addGroup(blind_cap_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(blind_cap_panelLayout.createSequentialGroup()
                         .addComponent(blind_cap_checkbox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1083,8 +1083,8 @@ public class NewGameDialog extends JDialog {
                             .addComponent(estructura_label))
                         .addGap(30, 30, 30)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(ciegas_combobox, 0, 160, Short.MAX_VALUE)
-                            .addComponent(estructura_combobox, 0, 160, Short.MAX_VALUE)
+                            .addComponent(ciegas_combobox, 0, 220, Short.MAX_VALUE)
+                            .addComponent(estructura_combobox, 0, 220, Short.MAX_VALUE)
                             .addGroup(jPanel3Layout.createSequentialGroup()
                                 .addComponent(buyin_spinner)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1666,7 +1666,7 @@ public class NewGameDialog extends JDialog {
         this.double_blinds_radio_manos.setEnabled(this.doblar_checkbox.isSelected());
         this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
         this.blind_cap_checkbox.setEnabled(this.doblar_checkbox.isSelected());
-        this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
+        setBlindCapControlsEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
     }//GEN-LAST:event_doblar_checkboxActionPerformed
 
     private void rebuy_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_checkboxActionPerformed
@@ -1755,7 +1755,7 @@ public class NewGameDialog extends JDialog {
 
                 this.blind_cap_checkbox.setEnabled(false);
 
-                this.blind_cap_spinner.setEnabled(false);
+                setBlindCapControlsEnabled(false);
 
                 this.rebuy_checkbox.setEnabled(false);
 
@@ -1857,7 +1857,7 @@ public class NewGameDialog extends JDialog {
 
                 this.blind_cap_checkbox.setEnabled(true);
 
-                this.blind_cap_spinner.setEnabled(this.blind_cap_checkbox.isSelected());
+                setBlindCapControlsEnabled(this.blind_cap_checkbox.isSelected());
 
             } else {
                 this.double_blinds_radio_minutos.setEnabled(false);
@@ -1870,7 +1870,7 @@ public class NewGameDialog extends JDialog {
 
                 this.blind_cap_checkbox.setEnabled(false);
 
-                this.blind_cap_spinner.setEnabled(false);
+                setBlindCapControlsEnabled(false);
             }
 
             if (this.rebuy_checkbox.isSelected()) {
@@ -2203,6 +2203,14 @@ public class NewGameDialog extends JDialog {
         blind_cap_label.setText(ciegas_combobox.getItemAt(blindCapTargetIndex(((Number) blind_cap_spinner.getValue()).intValue())));
     }
 
+    // Habilita/deshabilita JUNTOS el spinner del tope de ciega grande y su label
+    // (el "n / m"), para que el label se atenúe con el spinner cuando el tope o el
+    // checkbox padre "Aumentar ciegas" están desactivados (como los demás paneles).
+    private void setBlindCapControlsEnabled(boolean enabled) {
+        blind_cap_spinner.setEnabled(enabled);
+        blind_cap_label.setEnabled(enabled);
+    }
+
     // Reconstruye el nº de subidas desde el GameFrame.BLIND_CAP guardado (busca el
     // nivel cuya ciega grande coincide); si no hay tope guardado, el default (5).
     private int blindCapDoublingsFromCap() {
@@ -2362,7 +2370,7 @@ public class NewGameDialog extends JDialog {
     }//GEN-LAST:event_manos_checkboxActionPerformed
 
     private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_blind_cap_checkboxActionPerformed
-        this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
+        setBlindCapControlsEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
     }//GEN-LAST:event_blind_cap_checkboxActionPerformed
 
     private void rebuy_limit_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rebuy_limit_checkboxActionPerformed

@@ -62,7 +62,7 @@ public class EditBlindsDialog extends JDialog {
         // solo-lectura tambien la tiene (le llego en el INIT), asi que ve los mismos
         // niveles.
         if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
-            float[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE;
+            double[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE;
             String[] items = new String[levels.length];
             for (int k = 0; k < levels.length; k++) {
                 items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
@@ -81,14 +81,14 @@ public class EditBlindsDialog extends JDialog {
             }
         });
 
-        float peque, grande;
+        double peque, grande;
 
         int ciegas_double, ciegas_double_type;
 
         if (GameFrame.getInstance().getCrupier().getCiegas_update() != null) {
 
-            peque = (float) GameFrame.getInstance().getCrupier().getCiegas_update()[0];
-            grande = (float) GameFrame.getInstance().getCrupier().getCiegas_update()[1];
+            peque = (double) GameFrame.getInstance().getCrupier().getCiegas_update()[0];
+            grande = (double) GameFrame.getInstance().getCrupier().getCiegas_update()[1];
             ciegas_double = (int) GameFrame.getInstance().getCrupier().getCiegas_update()[2];
             ciegas_double_type = (int) GameFrame.getInstance().getCrupier().getCiegas_update()[3];
 
@@ -477,7 +477,7 @@ public class EditBlindsDialog extends JDialog {
         int initial = Math.max(0, ciegas_combobox.getSelectedIndex());
         if (GameFrame.BLIND_CAP > 0f) {
             for (int k = initial + 1; k < ciegas_combobox.getModel().getSize(); k++) {
-                if (Helpers.float1DSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
+                if (Helpers.doubleSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
                     return k - initial;
                 }
             }

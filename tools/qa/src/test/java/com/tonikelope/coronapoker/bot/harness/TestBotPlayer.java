@@ -20,13 +20,13 @@ import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 public final class TestBotPlayer implements BotPlayerView {
 
     private final String nickname;
-    private float stack;
-    private float bet;
+    private double stack;
+    private double bet;
     private boolean activo;
     private int holeCard1Index = -1;
     private int holeCard2Index = -1;
 
-    public TestBotPlayer(String nickname, float stack) {
+    public TestBotPlayer(String nickname, double stack) {
         this.nickname = nickname;
         this.stack = stack;
         this.activo = true;
@@ -37,11 +37,11 @@ public final class TestBotPlayer implements BotPlayerView {
         this.holeCard2Index = idx2;
     }
 
-    public void setStack(float stack) {
+    public void setStack(double stack) {
         this.stack = stack;
     }
 
-    public void setBet(float bet) {
+    public void setBet(double bet) {
         this.bet = bet;
     }
 
@@ -55,12 +55,12 @@ public final class TestBotPlayer implements BotPlayerView {
     }
 
     @Override
-    public float getStack() {
+    public double getStack() {
         return stack;
     }
 
     @Override
-    public float getBet() {
+    public double getBet() {
         return bet;
     }
 

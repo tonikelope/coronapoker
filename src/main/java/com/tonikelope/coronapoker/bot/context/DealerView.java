@@ -29,15 +29,15 @@ public interface DealerView {
 
     int getStreet();
 
-    float getBote_total();
+    double getBote_total();
 
-    float getApuesta_actual();
+    double getApuesta_actual();
 
-    float getUltimo_raise();
+    double getUltimo_raise();
 
-    float getCiega_grande();
+    double getCiega_grande();
 
-    float getCiega_pequeña();
+    double getCiega_pequeña();
 
     int getConta_bet();
 

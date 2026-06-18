@@ -887,7 +887,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
         // Apuesta actual de la ronda: el overlay solo va sobre quien ya la haya
         // igualado o subido (su bet coincide), no sobre quien siga en el bote sin hablar.
-        float current_bet = GameFrame.getInstance().getCrupier().getApuesta_actual();
+        double current_bet = GameFrame.getInstance().getCrupier().getApuesta_actual();
         for (RemotePlayer rp : rps) {
             if (rp == null) {
                 continue;
@@ -926,7 +926,7 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // (bet < apuesta_actual) no lo muestran hasta que igualen. El motor no distingue
     // call de raise por decisión (ambos son BET con distinto importe), así que el
     // criterio fiable es el importe igualado, no el enum de decisión.
-    private static boolean isPotPlayerMatchingCurrentBet(RemotePlayer rp, float current_bet) {
+    private static boolean isPotPlayerMatchingCurrentBet(RemotePlayer rp, double current_bet) {
         Card c1 = rp.getHoleCard1();
         Card c2 = rp.getHoleCard2();
         if (c1 == null || c2 == null
@@ -937,8 +937,8 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
         // apuesta_actual > 0 está garantizado (el overlay solo se pide cuando el local
         // tiene algo que igualar), pero lo comprobamos por robustez.
-        return Helpers.float1DSecureCompare(current_bet, 0f) > 0
-                && Helpers.float1DSecureCompare(current_bet, rp.getBet()) == 0;
+        return Helpers.doubleSecureCompare(current_bet, 0f) > 0
+                && Helpers.doubleSecureCompare(current_bet, rp.getBet()) == 0;
     }
 
     // Recoloca/reescala el overlay de un RemotePlayer para cubrir, centrado, sus dos

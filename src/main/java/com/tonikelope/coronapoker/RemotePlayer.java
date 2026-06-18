@@ -84,26 +84,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     public static final int MIN_ACTION_HEIGHT = 45;
 
     private volatile String nickname;
-    private volatile float stack = 0f;
+    private volatile double stack = 0;
     private volatile int buyin = GameFrame.BUYIN;
-    private volatile float bet = 0f;
+    private volatile double bet = 0;
     private volatile int decision = Player.NODEC;
     private volatile boolean utg = false;
     private volatile boolean spectator = false;
-    private volatile float pagar = 0f;
+    private volatile double pagar = 0;
     // Línea base de 'pagar' al empezar la CARA actual del run-it-twice (0 en
     // CARA-A, el total de CARA-A al entrar en CARA-B). El dinero ganado en la
     // cara es 'pagar - pagar_face_base', derivado de la única contabilidad real
     // (pagar), así que no puede desincronizarse. Fuera de RIT no se usa.
-    private volatile float pagar_face_base = 0f;
-    private volatile float bote = 0f;
-    private volatile Float last_bote = null;
+    private volatile double pagar_face_base = 0;
+    private volatile double bote = 0;
+    private volatile Double last_bote = null;
     private volatile boolean exit = false;
     private volatile Timer auto_action = null;
     private volatile boolean timeout = false;
     private volatile boolean winner = false;
     private volatile boolean loser = false;
-    private volatile float call_required;
+    private volatile double call_required;
     private volatile boolean turno = false;
     private volatile Bot bot = null;
     private volatile int response_counter;
@@ -492,7 +492,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                     if (getDecision() == Player.BET) {
                                         getChat_notify_label().addAudio("misc/bet.wav", 32, 60,
                                                 () -> GameFrame.getInstance().getCrupier().launchChipToPot(this));
-                                    } else if (getDecision() == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                    } else if (getDecision() == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                         getChat_notify_label().addAudio("misc/call.wav", 32, 60,
                                                 () -> GameFrame.getInstance().getCrupier().launchChipToPot(this));
                                     } else if (getDecision() == Player.CHECK) {
@@ -570,13 +570,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // pagar y bote enteros, como siempre.
         final boolean is_rit = GameFrame.getInstance().getCrupier().getRitPotBoardTag() != null;
 
-        final float fullbote = last_bote != null ? last_bote : bote;
+        final double fullbote = last_bote != null ? last_bote : bote;
 
-        final float mibote = is_rit ? Crupier.splitPotForRunItTwice(fullbote)[0] : fullbote;
+        final double mibote = is_rit ? Crupier.splitPotForRunItTwice(fullbote)[0] : fullbote;
 
-        final float dinero = is_rit ? Helpers.floatClean(pagar - pagar_face_base) : pagar;
+        final double dinero = is_rit ? Helpers.doubleClean(pagar - pagar_face_base) : pagar;
 
-        if (Helpers.float1DSecureCompare(0f, dinero) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
+        if (Helpers.doubleSecureCompare(0f, dinero) < 0 && GameFrame.getInstance().getCrupier().getBote().getSide_pot_count() > 0) {
 
             Helpers.GUIRun(() -> {
                 sec_pot_win_label.setBackground(Color.BLACK);
@@ -601,7 +601,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     botes[i++] = "#" + String.valueOf(b);
                 }
 
-                sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.float2String(dinero) + " (" + Helpers.float2String(dinero - mibote) + ")");
+                sec_pot_win_label.setText(String.join("+", botes) + " = " + Helpers.money2String(dinero) + " (" + Helpers.money2String(dinero - mibote) + ")");
 
                 sec_pot_win_label.setVisible(true);
             });
@@ -681,7 +681,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             this.bote = 0f;
 
-            if (Helpers.float1DSecureCompare(0f, this.bet) < 0) {
+            if (Helpers.doubleSecureCompare(0f, this.bet) < 0) {
                 setStack(this.stack + this.bet);
             }
 
@@ -765,18 +765,18 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized float getPagar() {
+    public synchronized double getPagar() {
         return pagar;
     }
 
     @Override
-    public synchronized float getBote() {
+    public synchronized double getBote() {
         return bote;
     }
 
     @Override
-    public synchronized void setStack(float stack) {
-        this.stack = Helpers.floatClean(stack);
+    public synchronized void setStack(double stack) {
+        this.stack = Helpers.doubleClean(stack);
 
         if (!player_stack_click) {
             Helpers.GUIRunAndWait(() -> {
@@ -791,29 +791,29 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_stack.setForeground(Color.WHITE);
                 }
 
-                player_stack.setText(Helpers.float2String(stack));
+                player_stack.setText(Helpers.money2String(stack));
             });
         }
     }
 
     @Override
-    public synchronized void setBet(float new_bet) {
+    public synchronized void setBet(double new_bet) {
 
-        float old_bet = bet;
+        double old_bet = bet;
 
-        bet = Helpers.floatClean(new_bet);
+        bet = Helpers.doubleClean(new_bet);
 
-        if (Helpers.float1DSecureCompare(old_bet, bet) < 0) {
-            this.bote += Helpers.floatClean(bet - old_bet);
+        if (Helpers.doubleSecureCompare(old_bet, bet) < 0) {
+            this.bote += Helpers.doubleClean(bet - old_bet);
             setStack(stack - (bet - old_bet));
         }
 
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            if (Helpers.float1DSecureCompare(0f, bote) < 0) {
+            if (Helpers.doubleSecureCompare(0f, bote) < 0) {
 
-                player_pot.setText(Helpers.float2String(bote));
+                player_pot.setText(Helpers.money2String(bote));
 
             } else {
 
@@ -885,7 +885,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 // ya repinta la barra en escala ms via Timer interno.
                                 // Hacer setValue aqui en escala segundos generaba parpadeo.
 
-                                if (response_counter == 10 && Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                                if (response_counter == 10 && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                     Audio.playWavResource("misc/hurryup.wav");
                                 }
 
@@ -921,7 +921,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public void setDecisionFromRemotePlayer(int decision, float bet) {
+    public void setDecisionFromRemotePlayer(int decision, double bet) {
         Helpers.threadRun(() -> {
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
@@ -983,7 +983,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             case Player.CHECK:
 
                 Helpers.GUIRun(() -> {
-                    if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+                    if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
                         setActionTextFitted(ACTIONS_LABELS[dec - 1][1]);
                     } else {
                         setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
@@ -995,20 +995,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BET:
                 Helpers.GUIRun(() -> {
-                    final float apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
+                    final double apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
                     final int conta_raise_snapshot = GameFrame.getInstance().getCrupier().getConta_raise();
                     // Lectura ÚNICA del volátil bet: guard y texto deben usar
                     // exactamente el mismo valor (ver nota en ALLIN).
-                    final float bet_snapshot = bet;
-                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.float1DSecureCompare(0f, apuesta_actual_snapshot) < 0) {
-                        setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.float2String(bet_snapshot - apuesta_actual_snapshot) + ")");
+                    final double bet_snapshot = bet;
+                    if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, bet_snapshot) < 0 && Helpers.doubleSecureCompare(0f, apuesta_actual_snapshot) < 0) {
+                        setActionTextFitted((conta_raise_snapshot > 0 ? "RE" : "") + ACTIONS_LABELS[dec - 1][1] + " (+" + Helpers.money2String(bet_snapshot - apuesta_actual_snapshot) + ")");
 
                         raise = true;
 
                         reraise = (conta_raise_snapshot > 0);
 
                     } else {
-                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.float2String(bet_snapshot));
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " " + Helpers.money2String(bet_snapshot));
                     }
                     setPlayerActionIcon("action/bet.png");
                 });
@@ -1017,16 +1017,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Helpers.GUIRun(() -> {
                     setPlayerBorder(ACTIONS_COLORS[dec - 1][0]);
 
-                    final float apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
+                    final double apuesta_actual_snapshot = GameFrame.getInstance().getCrupier().getApuesta_actual();
                     // Lectura ÚNICA de bet+stack para guard y texto: son
                     // volátiles y el dinero del all-in se mueve en dos pasos
                     // (bet sube, luego stack baja) en otro hilo. Con lecturas
                     // separadas el guard podía ver la suma inflada a mitad de
                     // setBet y el texto la ya asentada, colando un importe
                     // negativo en la etiqueta ("ALL IN (+-0.90)").
-                    final float total_allin = bet + stack;
-                    if (Helpers.float1DSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
-                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.float2String(total_allin - apuesta_actual_snapshot) + ")");
+                    final double total_allin = bet + stack;
+                    if (Helpers.doubleSecureCompare(apuesta_actual_snapshot, total_allin) < 0) {
+                        setActionTextFitted(ACTIONS_LABELS[dec - 1][0] + " (+" + Helpers.money2String(total_allin - apuesta_actual_snapshot) + ")");
                     } else {
                         setActionTextFitted(ACTIONS_LABELS[dec - 1][0]);
                     }
@@ -1047,7 +1047,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         Helpers.GUIRun(() -> {
             if (!reraise) {
 
-                if (dec == Player.CHECK && Helpers.float1DSecureCompare(0f, call_required) == 0) {
+                if (dec == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) == 0) {
                     setActionBackground(new Color(0, 130, 0));
                     player_action.setForeground(Color.WHITE);
 
@@ -1203,7 +1203,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // 10-second blocking await on a barrier the GIF callback never closes.
         if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
 
-            if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+            if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
                 int r = 1 + new Random().nextInt(4);
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"));
             } else {
@@ -1225,7 +1225,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             }
 
         } else {
-            if (Helpers.float1DSecureCompare(0f, call_required) < 0) {
+            if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
                 Audio.playWavResource("misc/call.wav");
                 GameFrame.getInstance().getCrupier().launchChipToPot(this);
             } else {
@@ -1237,13 +1237,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public synchronized float getEffectiveStack() {
+    public synchronized double getEffectiveStack() {
 
-        return Helpers.floatClean(this.stack) + Helpers.floatClean(this.bote) + Helpers.floatClean(this.pagar);
+        return Helpers.doubleClean(this.stack) + Helpers.doubleClean(this.bote) + Helpers.doubleClean(this.pagar);
 
     }
 
-    private void bet(float new_bet) {
+    private void bet(double new_bet) {
 
         setBet(new_bet);
 
@@ -1313,7 +1313,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return decision;
     }
 
-    public float getBet() {
+    public double getBet() {
         return bet;
     }
 
@@ -1830,7 +1830,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.threadRun(() -> {
                 Helpers.pausar(1500);
-                float s = getStack();
+                double s = getStack();
                 Helpers.GUIRun(() -> {
                     if (GameFrame.hasRebought(nickname)) {
                         setPlayerStackBackground(Color.CYAN);
@@ -1843,7 +1843,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_stack.setForeground(Color.WHITE);
                     }
 
-                    player_stack.setText(Helpers.float2String(s));
+                    player_stack.setText(Helpers.money2String(s));
                 });
                 player_stack_click = false;
             });
@@ -1968,7 +1968,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         final ConcurrentLinkedQueue<Long> mynotifier = new ConcurrentLinkedQueue<>();
 
-        if (Helpers.float1DSecureCompare(0f, zoom_factor) < 0) {
+        if (Helpers.doubleSecureCompare(0f, zoom_factor) < 0) {
 
             holeCard1.zoom(zoom_factor, mynotifier);
             holeCard2.zoom(zoom_factor, mynotifier);
@@ -2101,7 +2101,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public void pagar(float pasta, Integer sec_pot) {
+    public void pagar(double pasta, Integer sec_pot) {
 
         this.pagar += pasta;
 
@@ -2127,7 +2127,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             case Player.DEALER:
 
                 if (GameFrame.getInstance().getCrupier().getDealer_nick().equals(GameFrame.getInstance().getCrupier().getSb_nick())) {
-                    if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                    if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
                         setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                     } else {
@@ -2144,7 +2144,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.BIG_BLIND:
 
-                if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
+                if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
 
                 } else {
@@ -2158,7 +2158,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 break;
             case Player.SMALL_BLIND:
 
-                if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
+                if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_pequeña(), stack) < 0) {
                     setBet(GameFrame.getInstance().getCrupier().getCiega_pequeña());
 
                 } else {
@@ -2203,7 +2203,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         if (!player_stack_click) {
             Helpers.GUIRun(() -> {
-                player_stack.setText(Helpers.float2String(stack));
+                player_stack.setText(Helpers.money2String(stack));
                 setPlayerStackBackground(Color.CYAN);
                 player_stack.setForeground(Color.BLACK);
             });
@@ -2211,7 +2211,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized float getStack() {
+    public synchronized double getStack() {
         return stack;
     }
 
@@ -2342,7 +2342,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             this.spectator_bb = false;
 
-            if (Helpers.float1DSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack + bet) < 0) {
+            if (Helpers.doubleSecureCompare(GameFrame.getInstance().getCrupier().getCiega_grande(), stack + bet) < 0) {
                 setBet(GameFrame.getInstance().getCrupier().getCiega_grande());
             } else {
 
@@ -2400,7 +2400,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.decision = Player.NODEC;
 
         Helpers.GUIRun(() -> {
-            if (old_dec != Player.BET || Helpers.float1DSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
+            if (old_dec != Player.BET || Helpers.doubleSecureCompare(0f, GameFrame.getInstance().getCrupier().getApuesta_actual()) == 0) {
                 setPlayerPotBackground(new Color(204, 204, 204, 75));
                 player_pot.setForeground(Color.WHITE);
             }
@@ -2443,16 +2443,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         switch (this.getDecision()) {
             case Player.FOLD:
-                action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
+                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             case Player.CHECK:
-                action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
+                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             case Player.BET:
-                action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
+                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             case Player.ALLIN:
-                action += player_action.getText() + " (" + Helpers.float2String(this.bote) + ")";
+                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
                 ;
                 break;
             default:
@@ -2503,7 +2503,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_stack.setForeground(Color.WHITE);
                 }
 
-                player_stack.setText(Helpers.float2String(stack));
+                player_stack.setText(Helpers.money2String(stack));
 
                 if (GameFrame.getInstance().getSala_espera().getServer_nick().equals(nickname)) {
                     player_name.setForeground(Color.YELLOW);
@@ -2517,7 +2517,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.runWhenLaidOut(player_name, () -> {
                 if (isSpectator()) {
                     setActionTextFitted(msg != null ? msg : Translator.translate("player.espectador"));
-                    setPlayerActionIcon(Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
+                    setPlayerActionIcon(Helpers.doubleSecureCompare(0f, getEffectiveStack()) == 0 ? "action/ghost.png" : "action/calentando.png");
                 }
             });
 
@@ -2668,7 +2668,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public boolean isCalentando() {
 
-        return (spectator && Helpers.float1DSecureCompare(0f, stack) < 0);
+        return (spectator && Helpers.doubleSecureCompare(0f, stack) < 0);
     }
 
     @Override
@@ -2677,7 +2677,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized void setPagar(float pagar) {
+    public synchronized void setPagar(double pagar) {
         this.pagar = pagar;
     }
 
@@ -2793,7 +2793,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void checkGameOver() {
-        if (isActivo() && Helpers.float1DSecureCompare(0f, getEffectiveStack()) == 0) {
+        if (isActivo() && Helpers.doubleSecureCompare(0f, getEffectiveStack()) == 0) {
             Helpers.GUIRun(() -> {
                 setPlayerActionIcon("action/skull.png");
                 setOpaque(true);

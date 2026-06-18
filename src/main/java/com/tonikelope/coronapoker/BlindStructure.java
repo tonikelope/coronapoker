@@ -59,12 +59,12 @@ public final class BlindStructure {
     public static final int MAX_STRUCTURES = 64;
     public static final int MAX_LEVELS = 64;
     public static final int MAX_NAME_LENGTH = 40;
-    public static final float MIN_BLIND = 0.05f;
+    public static final double MIN_BLIND = 0.05;
     // Las ciegas se ajustan en pasos de 0.05 (0.25/0.30/0.35 sí; 0.33/0.04 no).
     // El motor del dinero trabaja por debajo en céntimos (0.01), pero la unidad
     // de ajuste de ciegas es 0.05. Ver Helpers.floatClean (resolución del motor).
-    public static final float BLIND_STEP = 0.05f;
-    public static final float MAX_BLIND = 10_000_000f;
+    public static final double BLIND_STEP = 0.05;
+    public static final double MAX_BLIND = 10_000_000;
 
     // Validation error codes (also i18n keys). null = valid.
     public static final String ERR_NAME_EMPTY = "blinds.err_name_empty";
@@ -78,14 +78,14 @@ public final class BlindStructure {
     public static final String ERR_NOT_INCREASING = "blinds.err_not_increasing";
 
     private final String name;
-    private final float[][] levels; // [i] = {small_blind, big_blind}
+    private final double[][] levels; // [i] = {small_blind, big_blind} (double money)
 
     /**
      * @param name non-empty, trimmed, printable, at most {@link #MAX_NAME_LENGTH}
      * @param levels ordered {sb, bb} pairs; validated, defensively copied
      * @throws IllegalArgumentException if name or levels are invalid
      */
-    public BlindStructure(String name, float[][] levels) {
+    public BlindStructure(String name, double[][] levels) {
         String trimmed = name == null ? "" : name.trim();
         String name_err = validateName(trimmed);
         if (name_err != null) {
@@ -106,7 +106,7 @@ public final class BlindStructure {
     /**
      * @return a defensive copy of the {sb, bb} ladder
      */
-    public float[][] getLevels() {
+    public double[][] getLevels() {
         return deepCopy(levels);
     }
 
@@ -114,10 +114,10 @@ public final class BlindStructure {
         return levels.length;
     }
 
-    private static float[][] deepCopy(float[][] src) {
-        float[][] out = new float[src.length][];
+    private static double[][] deepCopy(double[][] src) {
+        double[][] out = new double[src.length][];
         for (int i = 0; i < src.length; i++) {
-            out[i] = new float[]{src[i][0], src[i][1]};
+            out[i] = new double[]{src[i][0], src[i][1]};
         }
         return out;
     }
@@ -154,7 +154,7 @@ public final class BlindStructure {
      *
      * @return null if valid, otherwise an i18n error key
      */
-    public static String validateLevels(float[][] levels) {
+    public static String validateLevels(double[][] levels) {
         if (levels == null || levels.length == 0) {
             return ERR_NO_LEVELS;
         }
@@ -165,10 +165,10 @@ public final class BlindStructure {
             if (levels[i] == null || levels[i].length != 2) {
                 return ERR_NO_LEVELS;
             }
-            float sb = levels[i][0];
-            float bb = levels[i][1];
+            double sb = levels[i][0];
+            double bb = levels[i][1];
             if (sb < MIN_BLIND || bb < MIN_BLIND || sb > MAX_BLIND || bb > MAX_BLIND
-                    || Float.isNaN(sb) || Float.isNaN(bb)) {
+                    || Double.isNaN(sb) || Double.isNaN(bb)) {
                 return ERR_VALUE_RANGE;
             }
             if (!isBlindStep(sb) || !isBlindStep(bb)) {
@@ -186,8 +186,8 @@ public final class BlindStructure {
 
     // A valid blind value: a whole multiple of the 0.05 blind step (20*v must be
     // an integer). So 0.25/0.30/0.35 are accepted, 0.33/0.04 are not.
-    private static boolean isBlindStep(float v) {
-        float scaled = v * 20f;
+    private static boolean isBlindStep(double v) {
+        double scaled = v * 20;
         return Math.abs(scaled - Math.round(scaled)) < 0.01f;
     }
 
@@ -201,20 +201,20 @@ public final class BlindStructure {
         return levelsToString(levels);
     }
 
-    public static String levelsToString(float[][] levels) {
+    public static String levelsToString(double[][] levels) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < levels.length; i++) {
             if (i > 0) {
                 sb.append(',');
             }
-            sb.append(trimFloat(levels[i][0])).append('/').append(trimFloat(levels[i][1]));
+            sb.append(trimDouble(levels[i][0])).append('/').append(trimDouble(levels[i][1]));
         }
         return sb.toString();
     }
 
     // Compact storage form: drop a trailing ".0" so whole blinds read "25" not
     // "25.0", but keep one decimal when present ("0.5").
-    private static String trimFloat(float v) {
+    private static String trimDouble(double v) {
         if (v == Math.rint(v)) {
             return String.valueOf((long) v);
         }
@@ -226,19 +226,19 @@ public final class BlindStructure {
      *
      * @throws IllegalArgumentException if the text is malformed
      */
-    public static float[][] parseLevels(String csv) {
+    public static double[][] parseLevels(String csv) {
         if (csv == null || csv.trim().isEmpty()) {
             throw new IllegalArgumentException(ERR_NO_LEVELS);
         }
         String[] tokens = csv.trim().split(",");
-        float[][] out = new float[tokens.length][];
+        double[][] out = new double[tokens.length][];
         for (int i = 0; i < tokens.length; i++) {
             String[] pair = tokens[i].trim().split("/");
             if (pair.length != 2) {
                 throw new IllegalArgumentException(ERR_NO_LEVELS);
             }
             try {
-                out[i] = new float[]{Float.parseFloat(pair[0].trim()), Float.parseFloat(pair[1].trim())};
+                out[i] = new double[]{Double.parseDouble(pair[0].trim()), Double.parseDouble(pair[1].trim())};
             } catch (NumberFormatException ex) {
                 throw new IllegalArgumentException(ERR_VALUE_RANGE);
             }
@@ -257,8 +257,8 @@ public final class BlindStructure {
      * @throws IllegalArgumentException if the grammar is malformed or the ladder
      *                                  is logically invalid
      */
-    public static float[][] parseValidatedLevels(String csv) {
-        float[][] levels = parseLevels(csv);
+    public static double[][] parseValidatedLevels(String csv) {
+        double[][] levels = parseLevels(csv);
         String err = validateLevels(levels);
         if (err != null) {
             throw new IllegalArgumentException("Invalid blind structure: " + err);
@@ -274,17 +274,17 @@ public final class BlindStructure {
      * and walked by the legacy escalation in {@code Crupier}. Returned as a fresh
      * array on each call.
      */
-    public static float[][] defaultLevels() {
-        float[] sbs = {
-            0.1f, 0.2f, 0.3f, 0.5f,
-            1f, 2f, 3f, 5f,
-            10f, 20f, 30f, 50f,
-            100f, 200f, 300f, 500f,
-            1000f, 2000f, 3000f, 5000f
+    public static double[][] defaultLevels() {
+        double[] sbs = {
+            0.1, 0.2, 0.3, 0.5,
+            1, 2, 3, 5,
+            10, 20, 30, 50,
+            100, 200, 300, 500,
+            1000, 2000, 3000, 5000
         };
-        float[][] out = new float[sbs.length][];
+        double[][] out = new double[sbs.length][];
         for (int i = 0; i < sbs.length; i++) {
-            out[i] = new float[]{sbs[i], sbs[i] * 2f};
+            out[i] = new double[]{sbs[i], sbs[i] * 2};
         }
         return out;
     }
@@ -300,11 +300,11 @@ public final class BlindStructure {
      * an integer. Reproduces the legacy ladder strings exactly for the default
      * levels (e.g. {@code 0.1 -> "0,10"}, {@code 1 -> "1"}, {@code 1000 -> "1000"}).
      */
-    public static String formatLevelValue(float v) {
-        if (v < 1000f) {
-            // float2String never abbreviates below 1000 and yields the legacy
+    public static String formatLevelValue(double v) {
+        if (v < 1000) {
+            // money2String never abbreviates below 1000 and yields the legacy
             // sub-1 forms ("0,10","0,25","0,50") and whole forms ("1","500").
-            return Helpers.float2String(v);
+            return Helpers.money2String(v);
         }
         if (v == Math.rint(v)) {
             return String.valueOf((long) v);
@@ -318,7 +318,7 @@ public final class BlindStructure {
      * The {@code "small / big"} combo string for one level, using
      * {@link #formatLevelValue}.
      */
-    public static String formatLevel(float sb, float bb) {
+    public static String formatLevel(double sb, double bb) {
         return formatLevelValue(sb) + " / " + formatLevelValue(bb);
     }
 
@@ -328,15 +328,15 @@ public final class BlindStructure {
     // blind values are the same ladder level iff they round to the same cent.
     // Validated ladders have strictly increasing small blinds (>= 0.05 apart), so
     // this key is unique per level and distinguishes e.g. 0.25 from 0.30.
-    private static int cents(float v) {
-        return Math.round(v * 100f);
+    private static int cents(double v) {
+        return (int) Math.round(v * 100);
     }
 
     /**
      * Index of the level whose small blind matches {@code sb} at the game's cent
      * money resolution, or -1 if none.
      */
-    public static int indexOfLevel(float[][] structure, float sb) {
+    public static int indexOfLevel(double[][] structure, double sb) {
         if (structure == null) {
             return -1;
         }
@@ -354,12 +354,12 @@ public final class BlindStructure {
      * or null when the current blind is the top level (no further escalation) or
      * is not on this ladder at all. Returned as a fresh array.
      */
-    public static float[] nextLevel(float[][] structure, float currentSb) {
+    public static double[] nextLevel(double[][] structure, double currentSb) {
         int idx = indexOfLevel(structure, currentSb);
         if (idx < 0 || idx + 1 >= structure.length) {
             return null;
         }
-        return new float[]{structure[idx + 1][0], structure[idx + 1][1]};
+        return new double[]{structure[idx + 1][0], structure[idx + 1][1]};
     }
 
     // ----- Registry persistence -----------------------------------------------

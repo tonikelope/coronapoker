@@ -32,8 +32,8 @@ class HeadsUpSimulatorTest {
         assertTrue(result.winnerIndex == 0 || result.winnerIndex == 1 || result.winnerIndex == -1,
                 "Winner index must be valid; got " + result.winnerIndex);
 
-        // Chip conservation (within float epsilon): total chips equal 2 * startingStack
-        float total = sim.playerA().getStack() + sim.playerB().getStack();
+        // Chip conservation (within double epsilon): total chips equal 2 * startingStack
+        double total = sim.playerA().getStack() + sim.playerB().getStack();
         assertEquals(400f, total, 0.5f, "Chips must be conserved across a hand");
     }
 
@@ -44,11 +44,11 @@ class HeadsUpSimulatorTest {
             Bot.DIFFICULTY = d;
             HeadsUpSimulator sim = new HeadsUpSimulator(99L, 200f, 2f, evaluator);
             sim.playOneHand(true);
-            float total1 = sim.playerA().getStack() + sim.playerB().getStack();
+            double total1 = sim.playerA().getStack() + sim.playerB().getStack();
             assertEquals(400f, total1, 0.5f, "Chip conservation broken on difficulty " + d);
             sim.resetStacks();
             sim.playOneHand(false);
-            float total2 = sim.playerA().getStack() + sim.playerB().getStack();
+            double total2 = sim.playerA().getStack() + sim.playerB().getStack();
             assertEquals(400f, total2, 0.5f, "Chip conservation broken on difficulty " + d + " (swapped button)");
         }
     }
@@ -63,7 +63,7 @@ class HeadsUpSimulatorTest {
         for (int i = 0; i < 200; i++) {
             sim.resetStacks();
             HeadsUpSimulator.HandResult r = sim.playOneHand(i % 2 == 0);
-            float total = sim.playerA().getStack() + sim.playerB().getStack();
+            double total = sim.playerA().getStack() + sim.playerB().getStack();
             assertEquals(400f, total, 0.5f, "Chip conservation violated on hand " + i);
             if (r.winnerIndex == 0) {
                 aWins++;

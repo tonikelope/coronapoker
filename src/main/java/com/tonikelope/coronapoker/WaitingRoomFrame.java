@@ -1127,8 +1127,8 @@ public class WaitingRoomFrame extends JFrame {
             status.setText(Translator.translate("ui.waiting_for_players"));
 
             gameinfo_original = (GameFrame.FIXED_BUYIN ? (GameFrame.BUYIN + (GameFrame.REBUY ? "" : "*")) : VARIABLE_BUYIN_TAG) + "|"
-                    + Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / "
-                    + Helpers.float2String(GameFrame.CIEGA_GRANDE)
+                    + Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
+                    + Helpers.money2String(GameFrame.CIEGA_GRANDE)
                     + (GameFrame.CIEGAS_DOUBLE > 0
                             ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE)
                             + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*")
@@ -2805,7 +2805,7 @@ public class WaitingRoomFrame extends JFrame {
                                                                 try {
                                                                     int rit_timeout = Integer.parseInt(partes_comando[3]);
                                                                     int rit_total = Integer.parseInt(partes_comando[4]);
-                                                                    float rit_pot = Float.parseFloat(partes_comando[5]);
+                                                                    double rit_pot = Double.parseDouble(partes_comando[5]);
                                                                     GameFrame.getInstance().getCrupier().showRitClientVoteDialog(rit_timeout, rit_total, rit_pot);
                                                                 } catch (Exception e) {
                                                                 }
@@ -3047,8 +3047,8 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                                                             break;
                                                         case "UPDATEBLINDS":
-                                                            GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Float.parseFloat(partes_comando[5]), Float.parseFloat(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
-                                                            GameFrame.BLIND_CAP = partes_comando.length > 7 ? Float.parseFloat(partes_comando[7]) : 0f;
+                                                            GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.parseDouble(partes_comando[5]), Double.parseDouble(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
+                                                            GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
                                                             break;
                                                         case "SERVEREXIT":
                                                             exit = true;
@@ -3280,8 +3280,8 @@ public class WaitingRoomFrame extends JFrame {
                                                                 barra.setVisible(true);
                                                             });
                                                             GameFrame.BUYIN = Integer.parseInt(partes_comando[3]);
-                                                            GameFrame.CIEGA_PEQUEÑA = Float.parseFloat(partes_comando[4]);
-                                                            GameFrame.CIEGA_GRANDE = Float.parseFloat(partes_comando[5]);
+                                                            GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(partes_comando[4]);
+                                                            GameFrame.CIEGA_GRANDE = Double.parseDouble(partes_comando[5]);
                                                             String[] ciegas_double = partes_comando[6].split("@");
                                                             GameFrame.CIEGAS_DOUBLE = Integer.parseInt(ciegas_double[0]);
                                                             GameFrame.CIEGAS_DOUBLE_TYPE = Integer.parseInt(ciegas_double[1]);
@@ -3289,7 +3289,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.UGI = partes_comando[7].split("@")[1];
                                                             GameFrame.REBUY = Boolean.parseBoolean(partes_comando[8]);
                                                             GameFrame.MANOS = Integer.parseInt(partes_comando[9]);
-                                                            GameFrame.BLIND_CAP = partes_comando.length > 10 ? Float.parseFloat(partes_comando[10]) : 0f;
+                                                            GameFrame.BLIND_CAP = partes_comando.length > 10 ? Double.parseDouble(partes_comando[10]) : 0;
                                                             GameFrame.REBUY_LIMIT = partes_comando.length > 11 ? Integer.parseInt(partes_comando[11]) : 0;
                                                             GameFrame.BOT_REBUY = partes_comando.length > 12 ? Boolean.parseBoolean(partes_comando[12]) : true;
                                                             GameFrame.FIXED_BUYIN = partes_comando.length > 13 ? Boolean.parseBoolean(partes_comando[13]) : true;
@@ -5528,8 +5528,8 @@ public class WaitingRoomFrame extends JFrame {
                     game_info_buyin.setVisible(false);
                 }
 
-                game_info_blinds.setText(Helpers.float2String(GameFrame.CIEGA_PEQUEÑA) + " / "
-                        + Helpers.float2String(GameFrame.CIEGA_GRANDE)
+                game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
+                        + Helpers.money2String(GameFrame.CIEGA_GRANDE)
                         + (GameFrame.CIEGAS_DOUBLE > 0
                                 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE)
                                 + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*")

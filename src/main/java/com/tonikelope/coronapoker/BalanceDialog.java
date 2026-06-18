@@ -64,21 +64,21 @@ public class BalanceDialog extends JDialog {
 
         ArrayList<Object[]> ranking = new ArrayList<>();
 
-        for (Map.Entry<String, Float[]> entry : GameFrame.getInstance().getCrupier().getAuditor().entrySet()) {
+        for (Map.Entry<String, Double[]> entry : GameFrame.getInstance().getCrupier().getAuditor().entrySet()) {
 
             JLabel label = new JLabel();
 
-            Float[] pasta = entry.getValue();
+            Double[] pasta = entry.getValue();
 
             String ganancia_msg = "";
 
-            float ganancia = Helpers.floatClean(Helpers.floatClean(pasta[0]) - Helpers.floatClean(pasta[1]));
+            double ganancia = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) - Helpers.doubleClean(pasta[1]));
 
-            if (Helpers.float1DSecureCompare(ganancia, 0f) < 0) {
-                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.float2String(ganancia * -1f);
+            if (Helpers.doubleSecureCompare(ganancia, 0f) < 0) {
+                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
                 label.setForeground(Color.RED);
-            } else if (Helpers.float1DSecureCompare(ganancia, 0f) > 0) {
-                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.float2String(ganancia);
+            } else if (Helpers.doubleSecureCompare(ganancia, 0f) > 0) {
+                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
                 label.setForeground(new Color(0, 130, 0));
             } else {
                 ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
@@ -155,7 +155,7 @@ public class BalanceDialog extends JDialog {
         @Override
         public int compare(Object[] t, Object[] t1) {
 
-            return Float.compare((float) t[0], (float) t1[0]);
+            return Double.compare((double) t[0], (double) t1[0]);
         }
     }
 

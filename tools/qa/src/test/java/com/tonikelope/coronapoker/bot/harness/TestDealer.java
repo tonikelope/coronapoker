@@ -22,11 +22,11 @@ import java.util.List;
 public final class TestDealer implements DealerView {
 
     private int street;
-    private float pot;
-    private float currentBet;
-    private float lastRaise;
-    private float bigBlind;
-    private float smallBlind;
+    private double pot;
+    private double currentBet;
+    private double lastRaise;
+    private double bigBlind;
+    private double smallBlind;
     private int betCount;
     private int limpersCount;
     private String dealerNick;
@@ -38,7 +38,7 @@ public final class TestDealer implements DealerView {
     private final int[] boardCards = new int[]{-1, -1, -1, -1, -1};
     private int boardSize;
 
-    public void setBlinds(float small, float big) {
+    public void setBlinds(double small, double big) {
         this.smallBlind = small;
         this.bigBlind = big;
     }
@@ -47,15 +47,15 @@ public final class TestDealer implements DealerView {
         this.street = street;
     }
 
-    public void setPot(float pot) {
+    public void setPot(double pot) {
         this.pot = pot;
     }
 
-    public void setCurrentBet(float currentBet) {
+    public void setCurrentBet(double currentBet) {
         this.currentBet = currentBet;
     }
 
-    public void setLastRaise(float lastRaise) {
+    public void setLastRaise(double lastRaise) {
         this.lastRaise = lastRaise;
     }
 
@@ -103,27 +103,27 @@ public final class TestDealer implements DealerView {
     }
 
     @Override
-    public float getBote_total() {
+    public double getBote_total() {
         return pot;
     }
 
     @Override
-    public float getApuesta_actual() {
+    public double getApuesta_actual() {
         return currentBet;
     }
 
     @Override
-    public float getUltimo_raise() {
+    public double getUltimo_raise() {
         return lastRaise;
     }
 
     @Override
-    public float getCiega_grande() {
+    public double getCiega_grande() {
         return bigBlind;
     }
 
     @Override
-    public float getCiega_pequeña() {
+    public double getCiega_pequeña() {
         return smallBlind;
     }
 

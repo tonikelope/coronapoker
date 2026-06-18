@@ -88,7 +88,7 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public int getBuyin();
 
-    public float getBote();
+    public double getBote();
 
     public void setTimeout(boolean val);
 
@@ -110,14 +110,14 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     // estado ganador/perdedor de SIDE-A antes de correr SIDE-B.
     public void repaintLastAction();
 
-    public void pagar(float pasta, Integer sec_pot);
+    public void pagar(double pasta, Integer sec_pot);
 
     // Run-it-twice: marca (con dedup) que este jugador se lleva el pot 'sec_pot'
     // (la "franja negra"), sin pagar — el dinero se paga aparte con pagar(.,null).
     // Evita el indice duplicado al ganar el mismo pot en los dos boards.
     public void marcarBotePot(int sec_pot);
 
-    public float getBet();
+    public double getBet();
 
     void disableUTG();
 
@@ -140,11 +140,11 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public int getDecision();
 
-    public void setStack(float stack);
+    public void setStack(double stack);
 
-    public float getStack();
+    public double getStack();
 
-    public void setBet(float bet);
+    public void setBet(double bet);
 
     public void resetBetDecision();
 
@@ -158,9 +158,9 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public void setBuyin(int buyin);
 
-    public float getPagar();
+    public double getPagar();
 
-    public void setPagar(float pagar);
+    public void setPagar(double pagar);
 
     public void setSpectator(String msg);
 

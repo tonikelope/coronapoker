@@ -51,9 +51,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class GameFlowSmoke {
 
-    private static final float STARTING_STACK = 200f;
-    private static final float BIG_BLIND = 2f;
-    private static final float EPS = 0.5f;
+    private static final double STARTING_STACK = 200f;
+    private static final double BIG_BLIND = 2f;
+    private static final double EPS = 0.5f;
 
     private final BotEvaluator evaluator = new AlbertaEvaluatorAdapter();
 
@@ -113,21 +113,21 @@ class GameFlowSmoke {
             lastHandIdx = handIdx;
 
             // Chip conservation
-            float total = 0f;
+            double total = 0f;
             for (int seat = 0; seat < numSeats; seat++) {
                 TestBotPlayer p = sim.player(seat);
-                float stack = p.getStack();
-                float bet = p.getBet();
+                double stack = p.getStack();
+                double bet = p.getBet();
                 total += stack;
 
                 // NaN / Inf
-                assertFalse(Float.isNaN(stack),
+                assertFalse(Double.isNaN(stack),
                         ctx(numSeats, difficulty, handIdx, seat) + " stack is NaN");
-                assertFalse(Float.isInfinite(stack),
+                assertFalse(Double.isInfinite(stack),
                         ctx(numSeats, difficulty, handIdx, seat) + " stack is Infinity");
-                assertFalse(Float.isNaN(bet),
+                assertFalse(Double.isNaN(bet),
                         ctx(numSeats, difficulty, handIdx, seat) + " bet is NaN");
-                assertFalse(Float.isInfinite(bet),
+                assertFalse(Double.isInfinite(bet),
                         ctx(numSeats, difficulty, handIdx, seat) + " bet is Infinity");
 
                 // Non-negative stack
@@ -135,16 +135,16 @@ class GameFlowSmoke {
                         ctx(numSeats, difficulty, handIdx, seat) + " stack < 0: " + stack);
             }
 
-            float expected = numSeats * STARTING_STACK;
+            double expected = numSeats * STARTING_STACK;
             assertEquals(expected, total, EPS,
                     "Chip conservation violated at " + ctxHand(numSeats, difficulty, handIdx)
                             + ": got " + total + ", expected " + expected);
 
             // Pot validity
-            float pot = result.pot;
-            assertFalse(Float.isNaN(pot),
+            double pot = result.pot;
+            assertFalse(Double.isNaN(pot),
                     ctxHand(numSeats, difficulty, handIdx) + " pot is NaN");
-            assertFalse(Float.isInfinite(pot),
+            assertFalse(Double.isInfinite(pot),
                     ctxHand(numSeats, difficulty, handIdx) + " pot is Infinity");
             assertTrue(pot >= 0f,
                     ctxHand(numSeats, difficulty, handIdx) + " pot < 0: " + pot);

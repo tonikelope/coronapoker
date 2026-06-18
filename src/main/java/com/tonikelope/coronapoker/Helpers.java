@@ -4561,9 +4561,15 @@ public class Helpers {
         return System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch") + " / " + System.getProperty("java.vm.name") + " " + System.getProperty("java.version");
     }
 
+    // Resolución del dinero: la ficha mínima es el céntimo (0.01). floatClean(val)
+    // sin escala redondea el dinero al céntimo. Como 0.1 es múltiplo de 0.01,
+    // cualquier cantidad ya en décimas (todas las timbas con ciegas en 0.1) queda
+    // numéricamente idéntica (0.3 -> 0.30 == 0.3): esto solo AÑADE resolución fina
+    // (céntimos), permitiendo ciegas de 0.05 y repartos justos al céntimo. Encaja
+    // con la capa de consenso, que ya trabaja en céntimos (amountToCents = x100).
     public static float floatClean(float val) {
 
-        return floatClean(val, 1);
+        return floatClean(val, 2);
     }
 
     public static float floatClean(float val, int decs) {
@@ -4571,6 +4577,9 @@ public class Helpers {
         return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).floatValue();
     }
 
+    // Compara dos cantidades de dinero a resolución de ficha (céntimo): ambas se
+    // cuantizan vía floatClean antes de comparar. (El nombre "1D" es histórico de
+    // cuando la ficha era 0.1.)
     public static int float1DSecureCompare(float val1, float val2) {
 
         return Float.compare(floatClean(val1), floatClean(val2));

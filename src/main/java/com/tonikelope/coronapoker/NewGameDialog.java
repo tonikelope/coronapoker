@@ -177,17 +177,17 @@ public class NewGameDialog extends JDialog {
         if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
             doblar_ciegas_spinner_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
             doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
-            ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
             doblar_ciegas_spinner_manos.setEnabled(false);
-            ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
             double_blinds_radio_minutos.setSelected(true);
             double_blinds_radio_manos.setSelected(false);
         } else {
             doblar_ciegas_spinner_manos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
             doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
-            ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
             doblar_ciegas_spinner_minutos.setEnabled(false);
-            ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
             double_blinds_radio_minutos.setSelected(false);
             double_blinds_radio_manos.setSelected(true);
         }
@@ -195,7 +195,7 @@ public class NewGameDialog extends JDialog {
         this.manos_spinner.setEnabled(GameFrame.MANOS > 0);
         this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
         manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 60, 1, null, 1));
-        ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(manos_spinner, false);
 
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
@@ -212,7 +212,7 @@ public class NewGameDialog extends JDialog {
         this.rebuy_limit_checkbox.setEnabled(GameFrame.REBUY);
         this.rebuy_limit_spinner.setEnabled(GameFrame.REBUY && GameFrame.REBUY_LIMIT > 0);
         this.rebuy_limit_spinner.setModel(new SpinnerNumberModel(GameFrame.REBUY_LIMIT > 0 ? GameFrame.REBUY_LIMIT : 3, 1, null, 1));
-        ((DefaultEditor) this.rebuy_limit_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(rebuy_limit_spinner, false);
 
         this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
         this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
@@ -241,7 +241,7 @@ public class NewGameDialog extends JDialog {
         int buyin_hi_ctor = Math.max(buyin_lo_ctor, BuyinRules.max(GameFrame.CIEGA_GRANDE, GameFrame.BUYIN_MAX_BB));
         buyin_spinner.setModel(new SpinnerNumberModel(Math.max(buyin_lo_ctor, Math.min((int) GameFrame.BUYIN, buyin_hi_ctor)), buyin_lo_ctor, buyin_hi_ctor, (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
-        ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
 
         if (i < t) {
             this.ciegas_combobox.setSelectedIndex(i);
@@ -456,10 +456,10 @@ public class NewGameDialog extends JDialog {
             blind_cap_spinner.setEnabled(false);
             rebuy_limit_checkbox.setSelected(false);
             rebuy_limit_spinner.setEnabled(false);
-            ((DefaultEditor) blind_cap_spinner.getEditor()).getTextField().setEditable(false);
-            ((DefaultEditor) rebuy_limit_spinner.getEditor()).getTextField().setEditable(false);
-            ((DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
-            ((DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(blind_cap_spinner, false);
+            Helpers.makeNumericSpinnerEditable(rebuy_limit_spinner, false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
@@ -467,11 +467,11 @@ public class NewGameDialog extends JDialog {
 
             buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), Math.max(BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB)), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
-            ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
 
             modelBlindCapSpinner(5);
 
-            ((DefaultEditor) manos_spinner.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(manos_spinner, false);
 
             Helpers.setTranslatedTitle(this, "ui.crear_timba");
 
@@ -1992,7 +1992,7 @@ public class NewGameDialog extends JDialog {
             int buyin_hi_cg = Math.max(buyin_lo_cg, BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB));
             buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), buyin_lo_cg, buyin_hi_cg, (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
 
-            ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
 
             modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
 
@@ -2223,7 +2223,7 @@ public class NewGameDialog extends JDialog {
         int levels_above = Math.max(1, ciegas_combobox.getModel().getSize() - 1 - Math.max(0, ciegas_combobox.getSelectedIndex()));
         n = Math.min(Math.max(1, n), levels_above);
         this.blind_cap_spinner.setModel(new SpinnerNumberModel(n, 1, levels_above, 1));
-        ((DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(blind_cap_spinner, false);
         updateBlindCapLabel();
     }
 
@@ -2249,6 +2249,8 @@ public class NewGameDialog extends JDialog {
         try {
             buyin_min_bb_spinner.setModel(new SpinnerNumberModel(lo, BuyinRules.FLOOR_MIN_BB, BuyinRules.CEIL_MAX_BB, BUYIN_RANGE_STEP));
             buyin_max_bb_spinner.setModel(new SpinnerNumberModel(hi, BuyinRules.FLOOR_MIN_BB, BuyinRules.CEIL_MAX_BB, BUYIN_RANGE_STEP));
+            Helpers.makeNumericSpinnerEditable(buyin_min_bb_spinner, false);
+            Helpers.makeNumericSpinnerEditable(buyin_max_bb_spinner, false);
         } finally {
             adjusting_buyin_range = false;
         }
@@ -2280,7 +2282,7 @@ public class NewGameDialog extends JDialog {
         int val = Math.max(lo, Math.min(cur, hi));
         BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(cp)) + 1));
         buyin_spinner.setModel(new SpinnerNumberModel(val, lo, hi, BUYIN_SPINNER_STEP));
-        ((DefaultEditor) buyin_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
     }
 
     private void buyin_min_bb_spinnerStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_buyin_min_bb_spinnerStateChanged

@@ -71,8 +71,8 @@ public class EditBlindsDialog extends JDialog {
         }
 
         Helpers.setTranslatedTitle(this, "blinds.actualizar_ciegas");
-        ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
-        ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
+        Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
 
         blind_cap_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> updateBlindCapLabel());
         ciegas_combobox.addActionListener((java.awt.event.ActionEvent e) -> {
@@ -108,17 +108,17 @@ public class EditBlindsDialog extends JDialog {
         if (ciegas_double_type <= 1) {
             doblar_ciegas_spinner_minutos.setEnabled(ciegas_double > 0);
             doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(ciegas_double > 0 ? ciegas_double : 60, 1, null, 1));
-            ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
             doblar_ciegas_spinner_manos.setEnabled(false);
-            ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
             double_blinds_radio_minutos.setSelected(true);
             double_blinds_radio_manos.setSelected(false);
         } else {
             doblar_ciegas_spinner_manos.setEnabled(ciegas_double > 0);
             doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(ciegas_double > 0 ? ciegas_double : 60, 1, null, 1));
-            ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
             doblar_ciegas_spinner_minutos.setEnabled(false);
-            ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
             double_blinds_radio_minutos.setSelected(false);
             double_blinds_radio_manos.setSelected(true);
         }
@@ -489,7 +489,7 @@ public class EditBlindsDialog extends JDialog {
         int levels_above = Math.max(1, ciegas_combobox.getModel().getSize() - 1 - Math.max(0, ciegas_combobox.getSelectedIndex()));
         n = Math.min(Math.max(1, n), levels_above);
         this.blind_cap_spinner.setModel(new SpinnerNumberModel(n, 1, levels_above, 1));
-        ((JSpinner.DefaultEditor) this.blind_cap_spinner.getEditor()).getTextField().setEditable(false);
+        Helpers.makeNumericSpinnerEditable(blind_cap_spinner, false);
         updateBlindCapLabel();
     }
 

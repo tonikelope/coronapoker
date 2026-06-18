@@ -1998,6 +1998,59 @@ public class Helpers {
         }
     }
 
+    // Filtro de entrada para spinners numéricos: valida el TEXTO RESULTANTE (no solo
+    // lo insertado), así garantiza "solo dígitos" (entero) o "dígitos + una coma o
+    // punto" (decimal). Las letras y una segunda coma se ignoran AL TECLEAR (no es el
+    // "revertir al confirmar" por defecto de Swing). El acotado a [min,max] y el
+    // redondeo los hace el SpinnerNumberModel/NumberFormatter al confirmar.
+    public static class numericInputFilter extends DocumentFilter {
+
+        private final boolean allow_decimals;
+
+        public numericInputFilter(boolean allow_decimals) {
+            super();
+            this.allow_decimals = allow_decimals;
+        }
+
+        private boolean valid(String text) {
+            return text.isEmpty() || text.matches(allow_decimals ? "\\d*[.,]?\\d*" : "\\d*");
+        }
+
+        private String resulting(FilterBypass fb, int offset, int length, String str) throws BadLocationException {
+            javax.swing.text.Document doc = fb.getDocument();
+            StringBuilder sb = new StringBuilder(doc.getText(0, doc.getLength()));
+            sb.replace(offset, offset + length, str == null ? "" : str);
+            return sb.toString();
+        }
+
+        @Override
+        public void insertString(FilterBypass fb, int offset, String str, AttributeSet attr) throws BadLocationException {
+            if (valid(resulting(fb, offset, 0, str))) {
+                super.insertString(fb, offset, str, attr);
+            }
+        }
+
+        @Override
+        public void replace(FilterBypass fb, int offset, int length, String str, AttributeSet attr) throws BadLocationException {
+            if (valid(resulting(fb, offset, length, str))) {
+                super.replace(fb, offset, length, str, attr);
+            }
+        }
+    }
+
+    // Hace un JSpinner numérico editable a teclado ignorando letras: instala el
+    // numericInputFilter en el textfield del editor. Llamar SIEMPRE tras setModel
+    // (que recrea el editor) para que el filtro y los límites min/max del formatter
+    // queden frescos contra el modelo vigente. allow_decimals=true para spinners de
+    // dinero con decimales (acepta una coma).
+    public static void makeNumericSpinnerEditable(javax.swing.JSpinner spinner, boolean allow_decimals) {
+        if (spinner.getEditor() instanceof javax.swing.JSpinner.DefaultEditor) {
+            JTextField tf = ((javax.swing.JSpinner.DefaultEditor) spinner.getEditor()).getTextField();
+            tf.setEditable(true);
+            ((javax.swing.text.AbstractDocument) tf.getDocument()).setDocumentFilter(new numericInputFilter(allow_decimals));
+        }
+    }
+
     public static String encryptString(String cadena, SecretKeySpec aes_key, SecretKeySpec hmac_key) {
 
         byte[] iv = new byte[16];

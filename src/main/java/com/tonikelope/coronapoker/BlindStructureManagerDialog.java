@@ -458,16 +458,22 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
     private String promptName(String current) {
         JLabel prompt = new JLabel(Translator.translate("blinds.nombre_estructura"));
         JTextField field = new JTextField(current != null ? current : "", 18);
-        // Fuente un poco mayor que la del diálogo para que la caja del nombre se lea
-        // cómoda al teclear.
-        java.awt.Font big = Helpers.GUI_FONT.deriveFont(Helpers.GUI_FONT.getSize2D() * 1.4f);
-        prompt.setFont(big);
-        field.setFont(big);
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.add(prompt, BorderLayout.NORTH);
         panel.add(field, BorderLayout.CENTER);
-        if (JOptionPane.showConfirmDialog(this, panel, getTitle(),
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+        // Construimos el JOptionPane a mano para poder agrandar la fuente con el
+        // mecanismo estándar de la app: updateFonts escala desde el tamaño POR
+        // DEFECTO de cada componente (~12pt) x zoom, NO desde el tamaño base de
+        // GUI_FONT (que es ~1pt al venir de createFont). Así la etiqueta, la caja y
+        // los botones Aceptar/Cancelar quedan legibles y en la fuente de la app.
+        JOptionPane pane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
+        javax.swing.JDialog d = pane.createDialog(this, getTitle());
+        Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.3f);
+        d.pack();
+        d.setLocationRelativeTo(this);
+        d.setVisible(true);
+        d.dispose();
+        if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue())) {
             return null;
         }
         String name = field.getText().trim();

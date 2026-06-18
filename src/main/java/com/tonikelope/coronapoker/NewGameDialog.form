@@ -875,7 +875,7 @@
                                       <Component id="rebuy_limit_checkbox" min="-2" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Component id="rebuy_limit_spinner" min="-2" pref="80" max="-2" attributes="0"/>
-                                      <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
+                                      <EmptySpace min="40" pref="40" max="32767" attributes="0"/>
                                       <Component id="rebuy_cap_label" min="-2" max="-2" attributes="0"/>
                                       <EmptySpace max="-2" attributes="0"/>
                                       <Component id="rebuy_cap_combo" min="-2" max="-2" attributes="0"/>
@@ -887,13 +887,13 @@
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Group type="102" attributes="0">
                                       <EmptySpace max="-2" attributes="0"/>
-                                      <Group type="103" groupAlignment="1" attributes="0">
-                                          <Component id="rebuy_checkbox" alignment="1" min="-2" max="-2" attributes="0"/>
-                                          <Component id="recomprar_label" alignment="1" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_limit_checkbox" alignment="1" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_limit_spinner" alignment="1" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_cap_label" alignment="1" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_cap_combo" alignment="1" min="-2" max="-2" attributes="0"/>
+                                      <Group type="103" groupAlignment="3" attributes="0">
+                                          <Component id="rebuy_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                          <Component id="recomprar_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                          <Component id="rebuy_limit_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                          <Component id="rebuy_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                          <Component id="rebuy_cap_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                          <Component id="rebuy_cap_combo" alignment="3" min="-2" max="-2" attributes="0"/>
                                       </Group>
                                       <EmptySpace max="-2" attributes="0"/>
                                   </Group>

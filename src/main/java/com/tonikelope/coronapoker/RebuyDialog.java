@@ -129,8 +129,9 @@ public class RebuyDialog extends JDialog {
     /**
      * Creates new form RebuyNowDialog with an explicit spinner range and
      * default value. Used by the variable buy-in flow (table-entry buy-in and
-     * rebuys), where the range is [10BB, 100BB] and the default is 50BB instead
-     * of the fixed buy-in.
+     * rebuys), where the range and default come from the configurable buy-in
+     * bounds (getBuyinMin/getBuyinMax/getBuyinDefault) instead of the fixed
+     * buy-in.
      */
     public RebuyDialog(java.awt.Frame parent, boolean modal, boolean cancel, int timeout, int min, int max, int default_value) {
         this(parent, modal, cancel, timeout, min, max, default_value, "rebuy.recomprar_3");

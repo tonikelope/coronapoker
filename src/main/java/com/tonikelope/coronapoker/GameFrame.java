@@ -187,8 +187,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // iguala cualquier apuesta cuyo coste REAL (lo que de verdad pones = el stack
     // cuando igualar exige all-in) sea <= AUTO_CALL_MAX, en cualquier calle
     // (generaliza el "+BB"). AUTO_CALL_MAX == 0 = SIN LÍMITE (iguala cualquier
-    // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (decimales en
-    // pasos de 0,1, la ficha mínima de CoronaPoker).
+    // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (la ficha
+    // mínima del motor es el céntimo, 0,01).
     public static volatile boolean AUTO_CALL_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_call_enabled", "false"));
     public static volatile float AUTO_CALL_MAX = Float.parseFloat(Helpers.PROPERTIES.getProperty("auto_call_max", "1.0"));
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
@@ -377,6 +377,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // a la feature), ACTIVE queda null deterministamente y no se arrastra una
         // estructura personalizada que quedara activa de otra timba de esta sesión.
         ACTIVE_BLIND_STRUCTURE = null;
+        // Mismo criterio para el rango de buy-in y la política de tope de recompra:
+        // una fila de una versión anterior a esta feature no trae BMINBB/BMAXBB/RBCAP,
+        // así que se parte SIEMPRE de los valores por defecto y nunca se arrastra un
+        // rango/política obsoleto de otra timba abierta en esta misma sesión.
+        BUYIN_MIN_BB = BuyinRules.DEFAULT_MIN_BB;
+        BUYIN_MAX_BB = BuyinRules.DEFAULT_MAX_BB;
+        REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
         if (serialized == null || serialized.isEmpty()) {
             return;
         }
@@ -460,10 +467,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         ACTIVE_BLIND_STRUCTURE = null;
                     } else {
                         try {
-                            ACTIVE_BLIND_STRUCTURE = BlindStructure.parseLevels(val);
+                            ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(val);
                         } catch (IllegalArgumentException ignore) {
                             Logger.getLogger(GameFrame.class.getName()).log(Level.WARNING,
-                                    "Recovered custom blind structure is corrupt; falling back to default");
+                                    "Recovered custom blind structure is corrupt or invalid; falling back to default");
                             ACTIVE_BLIND_STRUCTURE = null;
                         }
                     }
@@ -4713,8 +4720,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         } else {
 
             // Top-up en vivo: max = headroom (techo - stack), min y default segun
-            // modo (fijo: [1, BUYIN]; variable: [10BB, 100BB] default 50BB),
-            // recortados al headroom para no superar el techo. SIN cuenta atras
+            // modo (fijo: [1, BUYIN]; variable: rango configurado
+            // [getBuyinMin, getBuyinDefault]), recortados al headroom para no
+            // superar el techo. SIN cuenta atras
             // (timeout -1): la recompra intra-mano es voluntaria; el tiempo solo
             // aplica al arranque (compra inicial) y al game-over.
             int headroom = GameFrame.rebuyHeadroom(player.getStack());

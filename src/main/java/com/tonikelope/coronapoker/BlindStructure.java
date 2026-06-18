@@ -36,10 +36,9 @@ import java.util.logging.Logger;
  * Big blind is independent of small blind (the editor defaults it to 2 x small
  * blind but the user may set any value &gt;= small blind), so the whole pipeline
  * carries the real big blind rather than re-deriving it. Blind values are
- * constrained to one decimal place, which is the resolution at which the game's
- * money and blind-cap comparisons operate ({@code Helpers.float1DSecureCompare});
- * finer values would compare equal to their rounded neighbour and create subtle
- * inconsistencies in pot and cap logic.
+ * constrained to multiples of 0.05 (the smallest blind adjustment step); the
+ * money engine itself resolves to the cent (0.01) via {@code Helpers.floatClean},
+ * so a 0.05-granular blind round-trips exactly through pot and cap logic.
  *
  * Instances are immutable. Persistence and serialization helpers are pure
  * (operate on a passed-in {@link Properties}) so they can be unit-tested without
@@ -245,6 +244,26 @@ public final class BlindStructure {
             }
         }
         return out;
+    }
+
+    /**
+     * Parses AND fully validates a serialized ladder. Unlike {@link #parseLevels}
+     * (grammar only), this also enforces {@link #validateLevels} (range, 0.05
+     * step, bb &gt;= sb, strictly increasing). Used at the recover/wire ingestion
+     * points so a persisted or broadcast ladder is never fed to the engine
+     * without the same checks the editor applies — the callers catch the
+     * exception and fall back to the default ladder.
+     *
+     * @throws IllegalArgumentException if the grammar is malformed or the ladder
+     *                                  is logically invalid
+     */
+    public static float[][] parseValidatedLevels(String csv) {
+        float[][] levels = parseLevels(csv);
+        String err = validateLevels(levels);
+        if (err != null) {
+            throw new IllegalArgumentException("Invalid blind structure: " + err);
+        }
+        return levels;
     }
 
     // ----- Built-in default ladder --------------------------------------------

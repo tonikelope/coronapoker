@@ -302,8 +302,9 @@ public class GameOverDialog extends JDialog {
         dispose();
 
         // Jugador arruinado (stack 0): rango segun modo. En fijo [1, BUYIN]
-        // default BUYIN (comportamiento de siempre); en variable [10BB, 100BB]
-        // default 50BB. El techo (cap) coincide con el headroom a stack 0.
+        // default BUYIN (comportamiento de siempre); en variable, el rango de
+        // buy-in configurado [getBuyinMin, getBuyinDefault]. El techo (cap) lo da
+        // getBuyinCap segun la politica (BUYIN o stack mas alto), = headroom a 0.
         int rebuy_min = GameFrame.FIXED_BUYIN ? 1 : GameFrame.getBuyinMin();
         int rebuy_max = GameFrame.getBuyinCap();
         int rebuy_def = GameFrame.FIXED_BUYIN ? GameFrame.BUYIN : GameFrame.getBuyinDefault();

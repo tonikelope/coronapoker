@@ -3664,8 +3664,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Barrera de arranque en modo buy-in variable: al entrar al tablero (luces
     // apagadas, antes de las animaciones de la mano 1) cada humano elige su
-    // buy-in en [10BB,100BB] (default 50BB) con la misma cuenta atras que la
-    // recompra. Reutiliza el mensaje GAME y la mecanica de recibirRebuys. NO se
+    // buy-in en el rango configurado [getBuyinMin, getBuyinMax] (default
+    // getBuyinDefault) con la misma cuenta atras que la recompra. Reutiliza el
+    // mensaje GAME y la mecanica de recibirRebuys. NO se
     // ejecuta en modo fijo (camino antiguo directo) ni en recover (los stacks
     // vienen de balance).
     private void solicitarBuyinsIniciales() {
@@ -3705,7 +3706,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.pausar(GameFrame.WAIT_QUEUES);
         }
 
-        // El spinner ya acota a [10BB,100BB]; el clamp es defensivo.
+        // El spinner ya acota al rango configurado; el clamp es defensivo.
         int chosen = Math.max(GameFrame.getBuyinMin(),
                 Math.min((int) dlg[0].getRebuy_spinner().getValue(), GameFrame.getBuyinMax()));
 
@@ -5278,6 +5279,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.ciega_pequeña = recoveredSb;
             }
             float recoveredBb = map.get("bbval") != null ? (float) map.get("bbval") : 0f;
+            // La tabla hand solo guarda sbval; el SQL calcula bbval como sbval*2. Con
+            // una estructura personalizada la BB puede no ser 2*SB, así que se deriva
+            // del nivel correspondiente de la estructura activa (ya restaurada por
+            // applyRecoverSettings). Sin estructura, bigBlindForSmallBlind devuelve
+            // sb*2 -> idéntico al valor del SQL (timbas por defecto sin cambios).
+            if (recoveredSb > 0f && GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
+                recoveredBb = GameFrame.bigBlindForSmallBlind(recoveredSb);
+            }
             if (recoveredBb > 0f) {
                 this.ciega_grande = recoveredBb;
             }
@@ -9584,7 +9593,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // normal NO se toca). SIDE-A ya está en la mesa (rondaApuestas la repartió):
     // se paga la mitad-A de cada (side)pot, pausa para asimilar, rewind, se
     // reparte SIDE-B y se paga la mitad-B. Cada bote se parte con
-    // splitPotForRunItTwice (mitades en fichas de 0.10; el pico indivisible no
+    // splitPotForRunItTwice (mitades en céntimos 0.01; el pico indivisible no
     // se reparte y acaba en bote_sobrante al recalcularlo tras los dos boards)
     // y dentro de cada board se reparte entre los ganadores de ESE board
     // con calcularBoteParaGanador (mismo helper de producción). conta_win cuenta
@@ -9785,7 +9794,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Beneficio del ganador del pot principal en ESTE board (cosmético, número
         // verde de la label del tapete): su parte (medio bote / nº ganadores) menos
         // su mitad de la apuesta de referencia. La apuesta se parte igual que el
-        // bote (mismo split, floor a ficha de 0.10) → la suma de ambos boards =
+        // bote (mismo split, floor a céntimo 0.01) → la suma de ambos boards =
         // beneficio real total salvo el pico no repartido (que va a bote_sobrante).
         // Mismo significado que beneficio_bote_principal del showdown normal
         // (cantidad - bote.getBet()), pero por board.

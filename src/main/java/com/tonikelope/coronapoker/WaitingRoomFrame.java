@@ -3304,9 +3304,9 @@ public class WaitingRoomFrame extends JFrame {
                                                             // estructura stale de una partida anterior.
                                                             if (partes_comando.length > 17 && !partes_comando[17].isEmpty()) {
                                                                 try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseLevels(partes_comando[17]);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[17]);
                                                                 } catch (IllegalArgumentException blinds_ex) {
-                                                                    LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed; falling back to default", blinds_ex);
+                                                                    LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = null;
                                                                 }
                                                             } else {

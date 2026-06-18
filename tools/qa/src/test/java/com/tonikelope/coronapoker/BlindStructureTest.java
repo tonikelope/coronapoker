@@ -148,6 +148,30 @@ public class BlindStructureTest {
         assertThrows(IllegalArgumentException.class, () -> BlindStructure.parseLevels("abc/def"));
     }
 
+    @Test
+    void parseValidatedLevelsAcceptsAValidLadder() {
+        // Grammar-valid AND logically valid (incl. a non-2x level) round-trips.
+        assertArrayEquals(levels(0.10f, 0.25f, 0.20f, 0.50f),
+                BlindStructure.parseValidatedLevels("0.1/0.25,0.2/0.5"));
+    }
+
+    @Test
+    void parseValidatedLevelsRejectsGrammarValidButLogicallyInvalidLadders() {
+        // These all PARSE (grammar ok) but must be rejected by the validation gate,
+        // so a corrupt persisted/wire ladder can never reach the engine.
+        assertThrows(IllegalArgumentException.class,
+                () -> BlindStructure.parseValidatedLevels("0.50/0.25")); // bb < sb
+        assertThrows(IllegalArgumentException.class,
+                () -> BlindStructure.parseValidatedLevels("0.10/0.20,0.10/0.20")); // not increasing
+        assertThrows(IllegalArgumentException.class,
+                () -> BlindStructure.parseValidatedLevels("0.04/0.08")); // off the 0.05 step
+        assertThrows(IllegalArgumentException.class,
+                () -> BlindStructure.parseValidatedLevels("0.33/0.66")); // off the 0.05 step
+        // And it still rejects pure grammar garbage.
+        assertThrows(IllegalArgumentException.class,
+                () -> BlindStructure.parseValidatedLevels("abc/def"));
+    }
+
     // ----- Name validation ----------------------------------------------------
 
     @Test

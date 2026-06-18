@@ -3409,69 +3409,9 @@ public class Helpers {
         return time;
     }
 
-    public static String float2String(float cantidad) {
-
-        if (Math.abs(cantidad) < 1000f) {
-
-            cantidad = Helpers.floatClean(cantidad);
-
-            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
-
-            DecimalFormat df;
-
-            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
-
-                otherSymbols.setDecimalSeparator(',');
-
-                df = new DecimalFormat("0.00", otherSymbols);
-
-                return df.format(cantidad).replaceAll("\\,00$", "");
-
-            } else {
-
-                otherSymbols.setDecimalSeparator('.');
-
-                df = new DecimalFormat("0.00", otherSymbols);
-
-                return df.format(cantidad).replaceAll("\\.00$", "");
-            }
-
-        } else {
-
-            float cantidad_format_k = Helpers.floatClean(cantidad / 1000f, 3);
-
-            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
-
-            DecimalFormat df;
-
-            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
-
-                otherSymbols.setDecimalSeparator(',');
-
-                df = new DecimalFormat("0.000", otherSymbols);
-
-                String f = df.format(cantidad_format_k).replaceAll("(?:(\\,[1-9])00$)|\\,000$", "$1K");
-
-                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\,000$", "") : f;
-
-            } else {
-
-                otherSymbols.setDecimalSeparator('.');
-
-                df = new DecimalFormat("0.000", otherSymbols);
-
-                String f = df.format(cantidad_format_k).replaceAll("(?:(\\.[1-9])00$)|\\.000$", "$1K");
-
-                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\.000$", "") : f;
-            }
-
-        }
-
-    }
-
-    // Versión en double de float2String (formato de dinero para los HUD/mesa, con
-    // abreviatura K de miles redondos). Byte-idéntica a float2String por debajo del
-    // techo de exactitud del float (timbas normales sin cambios).
+    // Formato de dinero para los HUD/mesa (separador decimal por idioma, abreviatura
+    // K de miles redondos). El dinero del motor es double; por debajo del techo de
+    // exactitud del float el resultado es el de siempre (timbas normales sin cambios).
     public static String money2String(double cantidad) {
 
         if (Math.abs(cantidad) < 1000.0) {
@@ -4624,12 +4564,10 @@ public class Helpers {
         return System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch") + " / " + System.getProperty("java.vm.name") + " " + System.getProperty("java.version");
     }
 
-    // Resolución del dinero: la ficha mínima es el céntimo (0.01). floatClean(val)
-    // sin escala redondea el dinero al céntimo. Como 0.1 es múltiplo de 0.01,
-    // cualquier cantidad ya en décimas (todas las timbas con ciegas en 0.1) queda
-    // numéricamente idéntica (0.3 -> 0.30 == 0.3): esto solo AÑADE resolución fina
-    // (céntimos), permitiendo ciegas de 0.05 y repartos justos al céntimo. Encaja
-    // con la capa de consenso, que ya trabaja en céntimos (amountToCents = x100).
+    // Redondeo de un float a N decimales (HALF_UP), 2 por defecto. El dinero del
+    // motor es double y se cuantiza al céntimo vía doubleClean; floatClean queda
+    // para magnitudes NO-dinero que se redondean a pocos decimales (zoom, dB de
+    // audio, porcentajes de stats, sizing interno del bot).
     public static float floatClean(float val) {
 
         return floatClean(val, 2);
@@ -4640,9 +4578,10 @@ public class Helpers {
         return new BigDecimal(val).setScale(decs, RoundingMode.HALF_UP).floatValue();
     }
 
-    // Compara dos cantidades de dinero a resolución de ficha (céntimo): ambas se
-    // cuantizan vía floatClean antes de comparar. (El nombre "1D" es histórico de
-    // cuando la ficha era 0.1.)
+    // Compara dos floats a resolución de céntimo (ambos se cuantizan vía floatClean
+    // antes de comparar). El dinero del motor compara con doubleSecureCompare; esto
+    // queda para los valores float del lado del bot (sizing/ratios). El nombre "1D"
+    // es histórico de cuando la ficha era 0.1.
     public static int float1DSecureCompare(float val1, float val2) {
 
         return Float.compare(floatClean(val1), floatClean(val2));

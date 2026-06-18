@@ -416,7 +416,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "BLIND_CAP":
                     try {
-                        BLIND_CAP = Float.parseFloat(val);
+                        BLIND_CAP = Double.parseDouble(val);
                     } catch (NumberFormatException ignore) {
                     }
                     break;
@@ -4738,7 +4738,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             if (rebuy_dialog.isRebuy()) {
                 player.setPlayerStackBackground(Color.YELLOW);
                 player.getPlayer_stack().setForeground(Color.BLACK);
-                player.getPlayer_stack().setText(Helpers.money2String(player.getStack()) + " + " + Helpers.float2String(Float.valueOf((int) rebuy_dialog.getRebuy_spinner().getValue())));
+                player.getPlayer_stack().setText(Helpers.money2String(player.getStack()) + " + " + Helpers.money2String((int) rebuy_dialog.getRebuy_spinner().getValue()));
                 this.rebuy_now_menu.setBackground(Color.YELLOW);
                 this.rebuy_now_menu.setOpaque(true);
                 Helpers.TapetePopupMenu.REBUY_NOW_MENU.setBackground(Color.YELLOW);

@@ -9083,8 +9083,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             int id = Helpers.CSPRNG_GENERATOR.nextInt();
             byte[] iv = new byte[16];
             Helpers.CSPRNG_GENERATOR.nextBytes(iv);
-            // El bote viaja como float crudo: cada cliente lo formatea con su
-            // propio locale (float2String depende de GameFrame.LANGUAGE).
+            // El bote viaja como double crudo: cada cliente lo formatea con su
+            // propio locale (money2String depende de GameFrame.LANGUAGE).
             p.writeCommandFromServer(Helpers.encryptCommand("GAME#" + id + "#RIT_VOTE_REQ#" + timeout + "#" + totalVoters + "#" + this.bote_total, p.getAes_key(), iv, p.getHmac_key()));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to send RIT_VOTE_REQ", e);

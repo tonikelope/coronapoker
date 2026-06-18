@@ -294,8 +294,8 @@ public final class BlindStructure {
     /**
      * Renders a blind value for the "small / big" combo items AND the level
      * matcher, so a structure's current level is always found and the item
-     * round-trips through the {@code Float.valueOf} parsers. Unlike
-     * {@code Helpers.float2String} it never abbreviates {@code >= 1000} as "K"
+     * round-trips through the {@code Double.parseDouble} parsers. Unlike
+     * {@code Helpers.money2String} it never abbreviates {@code >= 1000} as "K"
      * (which the parsers cannot read) and never truncates a fractional value to
      * an integer. Reproduces the legacy ladder strings exactly for the default
      * levels (e.g. {@code 0.1 -> "0,10"}, {@code 1 -> "1"}, {@code 1000 -> "1000"}).

@@ -1466,9 +1466,9 @@ public class NewGameDialog extends JDialog {
 
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-            GameFrame.CIEGA_GRANDE = Float.valueOf(valores_ciegas[1].trim());
+            GameFrame.CIEGA_GRANDE = Double.valueOf(valores_ciegas[1].trim());
 
-            GameFrame.CIEGA_PEQUEÑA = Float.valueOf(valores_ciegas[0].trim());
+            GameFrame.CIEGA_PEQUEÑA = Double.valueOf(valores_ciegas[0].trim());
 
             // Estructura personalizada activa (null = escalera por defecto). Viaja a
             // los clientes y se persiste en recover desde aquí (ver C5/C6).
@@ -2179,7 +2179,7 @@ public class NewGameDialog extends JDialog {
     // El tope de ciegas se elige como "nº de subidas" (cuántas veces suben las
     // ciegas como máximo, desde las iniciales elegidas). El spinner es ese entero
     // y blind_cap_label muestra al vuelo el nivel resultante. Internamente
-    // GameFrame.BLIND_CAP sigue siendo la ciega grande de ese nivel (float), así
+    // GameFrame.BLIND_CAP sigue siendo la ciega grande de ese nivel (double), así
     // que la lógica de congelar ciegas / recover / red no cambia.
 
     // Ciega grande (segundo número) de un item del combo de niveles.

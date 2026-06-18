@@ -351,6 +351,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     }
 
     public static void applyRecoverSettings(String serialized) {
+        // Borrón y cuenta nueva: recuperar parte SIEMPRE de la escalera por defecto.
+        // Si la fila recuperada no trae clave BLINDS (timba de una versión anterior
+        // a la feature), ACTIVE queda null deterministamente y no se arrastra una
+        // estructura personalizada que quedara activa de otra timba de esta sesión.
+        ACTIVE_BLIND_STRUCTURE = null;
         if (serialized == null || serialized.isEmpty()) {
             return;
         }

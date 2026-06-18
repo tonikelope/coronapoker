@@ -266,6 +266,39 @@ public final class BlindStructure {
         return out;
     }
 
+    // ----- Combo display format -----------------------------------------------
+
+    /**
+     * Renders a blind value for the "small / big" combo items AND the level
+     * matcher, so a structure's current level is always found and the item
+     * round-trips through the {@code Float.valueOf} parsers. Unlike
+     * {@code Helpers.float2String} it never abbreviates {@code >= 1000} as "K"
+     * (which the parsers cannot read) and never truncates a fractional value to
+     * an integer. Reproduces the legacy ladder strings exactly for the default
+     * levels (e.g. {@code 0.1 -> "0,10"}, {@code 1 -> "1"}, {@code 1000 -> "1000"}).
+     */
+    public static String formatLevelValue(float v) {
+        if (v < 1000f) {
+            // float2String never abbreviates below 1000 and yields the legacy
+            // sub-1 forms ("0,10","0,25","0,50") and whole forms ("1","500").
+            return Helpers.float2String(v);
+        }
+        if (v == Math.rint(v)) {
+            return String.valueOf((long) v);
+        }
+        String s = new java.math.BigDecimal(v).setScale(2, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros().toPlainString();
+        return "es".equals(GameFrame.LANGUAGE.toLowerCase()) ? s.replace('.', ',') : s;
+    }
+
+    /**
+     * The {@code "small / big"} combo string for one level, using
+     * {@link #formatLevelValue}.
+     */
+    public static String formatLevel(float sb, float bb) {
+        return formatLevelValue(sb) + " / " + formatLevelValue(bb);
+    }
+
     // ----- Escalation walk (pure, for the Crupier custom path) ----------------
 
     // The game represents blind money at one-decimal resolution

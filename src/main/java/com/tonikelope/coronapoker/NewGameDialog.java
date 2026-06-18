@@ -222,7 +222,7 @@ public class NewGameDialog extends JDialog {
         // el nivel actual también en estructuras personalizadas.
         initBlindStructureUI();
 
-        String ciegas = (GameFrame.CIEGA_PEQUEÑA >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_PEQUEÑA)) : Helpers.float2String(GameFrame.CIEGA_PEQUEÑA)) + " / " + (GameFrame.CIEGA_GRANDE >= 1 ? String.valueOf((int) Math.round(GameFrame.CIEGA_GRANDE)) : Helpers.float2String(GameFrame.CIEGA_GRANDE));
+        String ciegas = BlindStructure.formatLevel(GameFrame.CIEGA_PEQUEÑA, GameFrame.CIEGA_GRANDE);
 
         int i = 0, t = this.ciegas_combobox.getModel().getSize();
 
@@ -1936,7 +1936,7 @@ public class NewGameDialog extends JDialog {
         }
         String[] items = new String[levels.length];
         for (int i = 0; i < levels.length; i++) {
-            items[i] = Helpers.float2String(levels[i][0]) + " / " + Helpers.float2String(levels[i][1]);
+            items[i] = BlindStructure.formatLevel(levels[i][0], levels[i][1]);
         }
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         ciegas_combobox.setSelectedIndex(0);
@@ -1962,12 +1962,23 @@ public class NewGameDialog extends JDialog {
                     break;
                 }
             }
+            if (pending_structure == null) {
+                // R1: la estructura activa ya no está guardada (borrada o editada
+                // desde que se configuró la timba). La conservamos como estructura
+                // anónima "en uso" para que GUARDAR opciones NO la revierta en
+                // silencio a la escalera por defecto. (El combo muestra "Por
+                // defecto"; elegir otra entrada la reemplaza como siempre.)
+                try {
+                    pending_structure = new BlindStructure(Translator.translate("blinds.estructura_actual"), active);
+                } catch (IllegalArgumentException ignore) {
+                }
+            }
         }
         if (pending_structure != null) {
             float[][] levels = pending_structure.getLevels();
             String[] items = new String[levels.length];
             for (int k = 0; k < levels.length; k++) {
-                items[k] = Helpers.float2String(levels[k][0]) + " / " + Helpers.float2String(levels[k][1]);
+                items[k] = BlindStructure.formatLevel(levels[k][0], levels[k][1]);
             }
             ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
         }
@@ -2013,7 +2024,7 @@ public class NewGameDialog extends JDialog {
         }
         String[] items = new String[active.length];
         for (int k = 0; k < active.length; k++) {
-            items[k] = Helpers.float2String(active[k][0]) + " / " + Helpers.float2String(active[k][1]);
+            items[k] = BlindStructure.formatLevel(active[k][0], active[k][1]);
         }
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
     }

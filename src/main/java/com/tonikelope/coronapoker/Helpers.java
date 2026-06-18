@@ -5546,7 +5546,7 @@ public class Helpers {
 
                 // === APARIENCIA submenu (display toggles + zoom + decks + mats) ===
                 VISTA_MENU = new JMenu(Translator.translate("menu.apariencia"));
-                VISTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/tiny.png")));
+                VISTA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
 
                 FULLSCREEN_MENU = new LeftClickCheckBoxMenuItem(fullscreenAction);
                 FULLSCREEN_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/full_screen.png")));

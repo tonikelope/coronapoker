@@ -2475,7 +2475,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         apariencia_menu = new javax.swing.JMenu(Translator.translate("menu.apariencia"));
         apariencia_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         apariencia_menu.putClientProperty("i18n.key", "menu.apariencia");
-        apariencia_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/tiny.png")));
+        apariencia_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")));
 
         apariencia_menu.add(full_screen_menu);
         apariencia_menu.add(auto_fullscreen_menu);

@@ -55,6 +55,21 @@ public class EditBlindsDialog extends JDialog {
         super(parent, modal);
         this.read_only = read_only;
         initComponents();
+
+        // Si la timba usa una estructura personalizada, el combo ofrece SUS niveles
+        // (no la escalera por defecto): asi las ciegas elegidas a mano siguen en la
+        // lista y la escalada/emparejado del motor son consistentes. El cliente en
+        // solo-lectura tambien la tiene (le llego en el INIT), asi que ve los mismos
+        // niveles.
+        if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
+            float[][] levels = GameFrame.ACTIVE_BLIND_STRUCTURE;
+            String[] items = new String[levels.length];
+            for (int k = 0; k < levels.length; k++) {
+                items[k] = Helpers.float2String(levels[k][0]) + " / " + Helpers.float2String(levels[k][1]);
+            }
+            ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
+        }
+
         Helpers.setTranslatedTitle(this, "blinds.actualizar_ciegas");
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_minutos.getEditor()).getTextField().setEditable(false);
         ((JSpinner.DefaultEditor) doblar_ciegas_spinner_manos.getEditor()).getTextField().setEditable(false);

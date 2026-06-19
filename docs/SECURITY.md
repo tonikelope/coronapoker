@@ -4,6 +4,24 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 
 ---
 
+## Diagrams
+
+Two reference diagrams give the whole picture at a glance. Editable `.drawio` sources sit next to the PNGs in [`diagrams/`](diagrams/).
+
+### Component architecture
+
+The layers of the crypto subsystem and how they depend on one another — the verifiable-deal stack (orchestration down to edwards25519 arithmetic) plus the cross-cutting secure-channel and Ed25519 identity infrastructure.
+
+![CoronaPoker cryptography subsystem architecture](diagrams/crypto-architecture.png)
+
+### Per-hand protocol sequence
+
+Every cryptographic message exchanged during **one complete hand** — handshake and identity pinning, the SRA shuffle/rotation cascade, verifiable dealing, signed betting, the verifiable community reveals for all four streets, the showdown key reveal, and the settlement-receipt consensus. Topology: the host (dealer + player) plus two human clients; every message is drawn explicitly.
+
+![CoronaPoker per-hand cryptographic protocol sequence](diagrams/crypto-hand-sequence.png)
+
+---
+
 ## 1. Threat model
 
 | Adversary | Defended? | How |

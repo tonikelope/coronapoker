@@ -155,6 +155,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                             ImageIcon final_image = image;
                                             Helpers.GUIRun(() -> {
                                                 label.setIcon(final_image);
+                                                forceChatRelayout(label);
                                             });
                                             if (!ChatImageDialog.GIF_CACHE.containsKey(url) && (isgif || Helpers.isImageGIF(new URL(url)))) {
 
@@ -185,6 +186,7 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
 
                                                     }
                                                 });
+                                                forceChatRelayout(label);
                                             });
                                         }
                                     } catch (Exception ex) {
@@ -206,5 +208,33 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
             }
             return super.create(element);
         }
+    }
+
+    // Tras cargar (async) la imagen/GIF de un <img> el JLabel cambia de tamaño y la
+    // burbuja crece DESPUÉS de pintada. Un revalidate/repaint normal del JEditorPane
+    // NO re-laya el árbol de vistas del HTMLDocument (su geometría queda stale y el
+    // fondo redondeado de RoundedBubbleView deja una franja). El único disparador
+    // fiable es el mismo que el usuario provocaba a mano clicando el chat
+    // (chatMouseClicked) y que formComponentShown ya automatiza: alternar la policy
+    // del JScrollPane (NEVER→AS_NEEDED→restaurar) fuerza al viewport a reentregar un
+    // setSize y el HTMLDocument recalcula las allocations. No-op si no está visible.
+    private static void forceChatRelayout(JLabel label) {
+        javax.swing.JScrollPane scroll = (javax.swing.JScrollPane) SwingUtilities.getAncestorOfClass(javax.swing.JScrollPane.class, label);
+        if (scroll == null || !scroll.isShowing()) {
+            return;
+        }
+        final int v_policy = scroll.getVerticalScrollBarPolicy();
+        final int h_policy = scroll.getHorizontalScrollBarPolicy();
+        SwingUtilities.invokeLater(() -> {
+            if (!scroll.isDisplayable()) {
+                return;
+            }
+            scroll.setVerticalScrollBarPolicy(javax.swing.JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scroll.setHorizontalScrollBarPolicy(javax.swing.JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+            SwingUtilities.invokeLater(() -> {
+                scroll.setVerticalScrollBarPolicy(v_policy);
+                scroll.setHorizontalScrollBarPolicy(h_policy);
+            });
+        });
     }
 }

@@ -270,6 +270,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRunAndWait(() -> {
             initComponents();
 
+            // Autoajuste de fuente del bote cuando crece mucho (mismo sistema que el action label).
+            Helpers.installAutoFitFont(pot_label);
+
             // La altura del panel NO debe cambiar cuando hand_label se oculta en
             // el showdown / entre manos: comparte la fila inferior del GroupLayout
             // y al hacerse invisible el layout dejaba de reservarle altura, la

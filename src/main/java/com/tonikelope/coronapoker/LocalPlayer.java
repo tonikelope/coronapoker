@@ -931,11 +931,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
-            // Autoajuste de fuente por desbordamiento (stack/apuesta/nick + botón igualar), como el action label.
-            Helpers.installAutoFitFont(player_stack);
-            Helpers.installAutoFitFont(player_pot);
-            Helpers.installAutoFitFont(player_name);
-            Helpers.installAutoFitFont(player_check_button);
             // Wire opcional al latency_dot_widget del .form (si existe).
             try {
                 java.lang.reflect.Field f = getClass().getDeclaredField("latency_dot_widget");

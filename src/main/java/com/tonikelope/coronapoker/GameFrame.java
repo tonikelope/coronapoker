@@ -1977,7 +1977,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 : Translator.translate("game.bote_2");
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(prefix + " " + Helpers.money2String(bote) + (beneficio != null ? " (" + Helpers.money2String(beneficio) + ")" : ""));
+            tapete.getCommunityCards().setPotLabelTextFitted(prefix + " " + Helpers.money2String(bote) + (beneficio != null ? " (" + Helpers.money2String(beneficio) + ")" : ""));
         });
     }
 
@@ -1992,7 +1992,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 : Translator.translate("game.bote_2");
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().getPot_label().setText(prefix + " " + bote);
+            tapete.getCommunityCards().setPotLabelTextFitted(prefix + " " + bote);
         });
     }
 
@@ -2126,7 +2126,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             } else {
                 tapete.getCommunityCards().getBlinds_panel().setOpaque(false);
                 tapete.getCommunityCards().getBlinds_panel().setBackground(null);
-                tapete.getCommunityCards().getBlinds_label().setForeground(tapete.getCommunityCards().getPot_label().getForeground());
+                // El color de las ciegas sigue la variable ESTABLE del color de los
+                // contadores, NO el foreground del pot_label: ese parpadea en amarillo
+                // al aterrizar una ficha (flashPotLabelYellow) y cambia a naranja/
+                // blanco/negro en el showdown. Como actualizarContadoresTapete se
+                // invoca muy a menudo, leerlo de ahí dejaba las ciegas "pegadas" a ese
+                // color transitorio (el amarillo fantasma).
+                Color counters_color = tapete.getCommunityCards().getColor_contadores();
+                if (counters_color != null) {
+                    tapete.getCommunityCards().getBlinds_label().setForeground(counters_color);
+                }
             }
 
             tapete.getCommunityCards().getBlinds_label().setText(Helpers.money2String(pequeña) + " / " + Helpers.money2String(grande) + (GameFrame.CIEGAS_DOUBLE > 0 ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE) + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*") + (crupier.getCiegas_double() > 0 ? " (" + String.valueOf(crupier.getCiegas_double()) + ")" : "") : ""));

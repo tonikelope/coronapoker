@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
@@ -59,6 +60,9 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     public static final int SOUND_ICON_WIDTH = 30;
 
     private volatile Color color_contadores = null;
+    // Fuente base (sin encoger) del bote mientras el autofit lo tiene reducido por
+    // un desglose largo de botes laterales; null cuando el bote va a tamaño normal.
+    private volatile Font pot_orig_font = null;
     private volatile int hand_label_click_type = 0;
     private volatile boolean ready = false;
     private volatile Timer icon_zoom_timer = null;
@@ -250,6 +254,59 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             pot_flash_timer.setRepeats(false);
             pot_flash_timer.start();
         });
+    }
+
+    /**
+     * Sets {@code text} on the pot label, auto-shrinking the font (measured with
+     * FontMetrics) so a long side-pot breakdown ("#1{..}+#2{..}+...") never makes
+     * the pot label overflow the community-cards width, and restoring the original
+     * size as soon as it fits again — the same self-fitting the players' action
+     * label uses. The reference width is the five board cards' span (fixed by the
+     * cards, never driven by the pot text), NOT the label's own width: the pot row
+     * drives the panel's preferred width, so fitting against the label/panel width
+     * would be circular and the font would never shrink. Must run on the EDT.
+     */
+    public void setPotLabelTextFitted(String text) {
+
+        Font base_font = (pot_orig_font != null) ? pot_orig_font : pot_label.getFont();
+
+        // Ancho del bloque de las 5 comunitarias (centrado dentro de cards_panel por
+        // gaps flexibles): su anchura es fija y NO depende del texto del bote, así no
+        // hay realimentación (medir el propio label, que arrastra el panel, colapsaría
+        // la fuente). 0 si aún no hay layout -> fitFontToWidth devuelve la base.
+        int available_width = (river.getX() + river.getWidth()) - flop1.getX();
+
+        java.awt.Insets insets = pot_label.getInsets();
+
+        if (insets != null) {
+            available_width -= insets.left + insets.right;
+        }
+
+        javax.swing.Icon icon = pot_label.getIcon();
+
+        if (icon != null) {
+            available_width -= icon.getIconWidth() + pot_label.getIconTextGap();
+        }
+
+        // En apuestas la bet_label (la calle) comparte fila a la derecha del bote; si
+        // está visible su ancho también cuenta para no desbordar. En el showdown /
+        // run-out (donde aparece el desglose largo) está oculta y el bote dispone de
+        // todo el ancho.
+        if (bet_label.isVisible()) {
+            available_width -= bet_label.getWidth();
+        }
+
+        Font fitted_font = Helpers.fitFontToWidth(pot_label, text, base_font, available_width, Math.max(9, Math.round(base_font.getSize() * 0.5f)));
+
+        if (fitted_font.getSize() < base_font.getSize()) {
+            pot_orig_font = base_font;
+            pot_label.setFont(fitted_font);
+        } else if (pot_orig_font != null) {
+            pot_label.setFont(pot_orig_font);
+            pot_orig_font = null;
+        }
+
+        pot_label.setText(text);
     }
 
     public void restoreBetLabelicon() {
@@ -1037,6 +1094,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     // bet_label sin icono (muestra solo la calle). Para reponerlo: setScaledIconLabel(bet_label, "/images/pot.png", ...).
                     Helpers.setScaledIconLabel(lights_label, getClass().getResource(GameFrame.getInstance().getCapa_brillo().getBrightness() == 0f ? "/images/lights_on.png" : "/images/lights_off.png"), Math.round(0.7f * pot_label.getHeight() * (512f / 240)), Math.round(0.7f * pot_label.getHeight()));
                     Helpers.setScaledIconLabel(blinds_label, getClass().getResource("/images/ciegas_big.png"), Math.round(0.8f * pot_label.getHeight() * (342f / 256)), Math.round(0.8f * pot_label.getHeight()));
+                    // Re-ajusta la fuente del bote al nuevo zoom: el icono ya está
+                    // puesto y el layout de las comunitarias rehecho, así que si el
+                    // desglose largo de botes laterales no cabe a tamaño base, encoge.
+                    setPotLabelTextFitted(pot_label.getText());
                 });
             }
         });
@@ -1074,6 +1135,15 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 bet_label.setIcon(null);
                 lights_label.setIcon(null);
                 blinds_label.setIcon(null);
+
+                // Si el autofit tenía encogido el bote, restauramos su fuente base
+                // ANTES de zoomFonts para que escale la fuente real (no la ya
+                // encogida). El re-ajuste al nuevo zoom lo hace zoomIcons, cuando el
+                // layout de las comunitarias ya está rehecho.
+                if (pot_orig_font != null) {
+                    pot_label.setFont(pot_orig_font);
+                    pot_orig_font = null;
+                }
             });
 
             Helpers.zoomFonts(this, zoom_factor, null);

@@ -3362,22 +3362,72 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             double buyin_sum = 0;
 
-            String status = "[NICK / STACK / BUYIN] -> ";
+            // Tabla de balance del registro: una fila por jugador (orden de
+            // asiento) con un icono pequeno del rol (dealer/ciega) al lado del
+            // nick. El rol se captura AQUI, al imprimir, para que el scrollback de
+            // manos antiguas conserve los roles correctos (mirarlo al renderizar
+            // mostraria los de la mano en curso). Las columnas van alineadas con
+            // padding: la fuente del registro es monospace.
+            String dealer_nick = this.getDealer_nick();
+            String sb_nick = this.getSb_nick();
+            String bb_nick = this.getBb_nick();
 
-            for (Map.Entry<String, Double[]> entry : auditor.entrySet()) {
+            ArrayList<String[]> balance_rows = new ArrayList<>();
 
-                Double[] pasta = entry.getValue();
+            int nick_w = 1, stack_w = 1, buyin_w = 1;
+
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+
+                String nick = jugador.getNickname();
+
+                Double[] pasta = this.auditor.get(nick);
+
+                if (pasta == null) {
+                    continue;
+                }
 
                 stack_sum += pasta[0];
 
                 buyin_sum += pasta[1];
 
-                status += " [" + entry.getKey() + " / " + Helpers.money2String(pasta[0]) + " / "
-                        + Helpers.money2String(pasta[1]) + "] ";
+                String stack_s = Helpers.money2String(pasta[0]);
 
+                String buyin_s = Helpers.money2String(pasta[1]);
+
+                // Mismo orden de prioridad que el icono del tapete (BB > SB >
+                // dealer): en heads-up el dealer es tambien la ciega pequena.
+                String role = nick.equals(bb_nick) ? "(BB)"
+                        : nick.equals(sb_nick) ? "(SB)"
+                        : nick.equals(dealer_nick) ? "(D )" : "(  )";
+
+                nick_w = Math.max(nick_w, nick.length());
+                stack_w = Math.max(stack_w, stack_s.length());
+                buyin_w = Math.max(buyin_w, buyin_s.length());
+
+                balance_rows.add(new String[]{role, nick, stack_s, buyin_s});
             }
 
-            GameFrame.getInstance().getRegistro().print(status);
+            // Las cabeceras NICK/STACK/BUYIN se alinean sobre sus columnas: el
+            // ancho de cada columna incluye el de su propio rotulo. El token "(##)"
+            // hace que el renderer ponga un marcador en blanco (mismo offset que
+            // los iconos de rol) para que la cabecera quede alineada con las filas.
+            nick_w = Math.max(nick_w, "NICK".length());
+            stack_w = Math.max(stack_w, "STACK".length());
+            buyin_w = Math.max(buyin_w, "BUYIN".length());
+
+            StringBuilder status = new StringBuilder("(##) ")
+                    .append(String.format("%-" + nick_w + "s", "NICK")).append("  ")
+                    .append(String.format("%" + stack_w + "s", "STACK")).append("  ")
+                    .append(String.format("%" + buyin_w + "s", "BUYIN"));
+
+            for (String[] r : balance_rows) {
+                status.append("\n").append(r[0]).append(" ")
+                        .append(String.format("%-" + nick_w + "s", r[1])).append("  ")
+                        .append(String.format("%" + stack_w + "s", r[2])).append("  ")
+                        .append(String.format("%" + buyin_w + "s", r[3]));
+            }
+
+            GameFrame.getInstance().getRegistro().print(status.toString());
 
             if (Helpers.doubleSecureCompare(Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante),
                     buyin_sum) != 0) {
@@ -3402,9 +3452,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
 
                     GameFrame.getInstance().getRegistro()
-                            .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
+                            .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                     + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
-                                    + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
+                                    + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
 
                     if (Helpers.doubleSecureCompare(
                             Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante), buyin_sum) != 0) {
@@ -3416,17 +3466,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 } else {
                     GameFrame.getInstance().getRegistro()
-                            .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
+                            .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                     + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
-                                    + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
+                                    + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
                     GameFrame.getInstance().getRegistro()
                             .print(Translator.translate("ui.ojo_a_esto_no_salen"));
                 }
             } else {
                 GameFrame.getInstance().getRegistro()
-                        .print(Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
+                        .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                 + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
-                                + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
+                                + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
             }
         }
     }
@@ -14778,8 +14828,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             try {
                 if ((getJugadoresActivos() + getJugadoresCalentando()) > 1 && !GameFrame.getInstance().getLocalPlayer().isExit()) {
                     if (this.NUEVA_MANO()) {
+                        // El reparto de ciegas/dealer ya queda reflejado en la
+                        // tabla de balance (iconos de rol junto a cada nick), asi
+                        // que la antigua linea "X es la CIEGA GRANDE / ..." sobra.
                         auditorCuentas();
-                        GameFrame.getInstance().getRegistro().print(this.big_blind_nick + " " + Translator.translate("blinds.es_la_ciega_grande") + Helpers.money2String(this.ciega_grande) + ") / " + this.small_blind_nick + " " + Translator.translate("blinds.es_la_ciega_pequena") + Helpers.money2String(this.ciega_pequeña) + ") / " + this.dealer_nick + " " + Translator.translate("ui.es_el_dealer"));
 
                         ArrayList<Player> resisten = this.rondaApuestas(PREFLOP, new ArrayList<>(GameFrame.getInstance().getJugadores()));
 

@@ -4051,9 +4051,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (!registro_dialog.isVisible()) {
 
-            registro_dialog.setSize(Math.round(0.8f * this.getWidth()), Math.round(0.8f * this.getHeight()));
-
-            registro_dialog.setPreferredSize(registro_dialog.getSize());
+            // Console-sized (not 0.8x the game window). Resizable from any edge/corner.
+            registro_dialog.setPreferredSize(new java.awt.Dimension(1280, 720));
 
             registro_dialog.pack();
 

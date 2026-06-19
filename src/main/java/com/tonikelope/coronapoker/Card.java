@@ -192,10 +192,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         }
     }
 
-    public static HashMap<String, String> getUNICODE_TABLE() {
-        return UNICODE_TABLE;
-    }
-
     private static ImageIcon createPositionChipImageIcon(int position) {
 
         String image = "";

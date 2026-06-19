@@ -1350,10 +1350,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             initComponents();
             setOpaque(false);
             setBackground(null);
-            // Autoajuste de fuente por desbordamiento (stack/apuesta/nick), como el action label.
-            Helpers.installAutoFitFont(player_stack);
-            Helpers.installAutoFitFont(player_pot);
-            Helpers.installAutoFitFont(player_name);
             latency_label.setVisible(false);
             // Placeholder traducido hasta que llegue el primer PING (el texto del .form
             // es solo el default de diseño).

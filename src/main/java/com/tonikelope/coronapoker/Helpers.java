@@ -3355,7 +3355,7 @@ public class Helpers {
      * When the available width is unknown (component not laid out yet) the base
      * font is returned untouched.
      */
-    public static Font fitFontToWidth(JLabel label, String text, Font base_font, int available_width, int min_size) {
+    public static Font fitFontToWidth(javax.swing.JComponent label, String text, Font base_font, int available_width, int min_size) {
 
         if (label == null || text == null || base_font == null || available_width <= 0) {
             return base_font;
@@ -3377,6 +3377,105 @@ public class Helpers {
         }
 
         return candidate;
+    }
+
+    /**
+     * Installs automatic, self-maintaining font auto-shrinking on a label so its
+     * text always fits the component width (the same behaviour the action label
+     * already has, generalised and reusable). Whenever the text or the width
+     * changes the font is measured with FontMetrics and shrunk one point at a
+     * time (down to ~half size, min 9) until the text fits, restoring the base
+     * font when it fits again. It is icon-aware (subtracts the icon + gap) and
+     * reads the CURRENT font as the base on every refit, so it coexists with the
+     * dynamic zoom font scaling instead of fighting it.
+     */
+    public static void installAutoFitFont(JLabel label) {
+        installAutoFit(label, label::getText);
+    }
+
+    public static void installAutoFitFont(javax.swing.AbstractButton button) {
+        installAutoFit(button, button::getText);
+    }
+
+    private static void installAutoFit(final javax.swing.JComponent comp, final java.util.function.Supplier<String> text_getter) {
+
+        if (comp == null || Boolean.TRUE.equals(comp.getClientProperty("autofit_installed"))) {
+            return;
+        }
+
+        comp.putClientProperty("autofit_installed", Boolean.TRUE);
+
+        final Runnable refit = () -> {
+
+            if (Boolean.TRUE.equals(comp.getClientProperty("autofit_busy"))) {
+                return;
+            }
+
+            String text = text_getter.get();
+
+            if (text == null) {
+                return;
+            }
+
+            Font orig = (Font) comp.getClientProperty("autofit_orig_font");
+            Font base = (orig != null) ? orig : comp.getFont();
+
+            if (base == null) {
+                return;
+            }
+
+            int min_size = Math.max(9, Math.round(base.getSize() * 0.5f));
+
+            java.awt.Insets insets = comp.getInsets();
+            int avail = (comp.getWidth() > 0 ? comp.getWidth() : comp.getPreferredSize().width) - (insets != null ? insets.left + insets.right : 0);
+
+            javax.swing.Icon icon = (comp instanceof JLabel) ? ((JLabel) comp).getIcon()
+                    : (comp instanceof javax.swing.AbstractButton) ? ((javax.swing.AbstractButton) comp).getIcon() : null;
+
+            if (icon != null) {
+                int gap = (comp instanceof JLabel) ? ((JLabel) comp).getIconTextGap() : ((javax.swing.AbstractButton) comp).getIconTextGap();
+                avail -= icon.getIconWidth() + gap;
+            }
+
+            Font fitted = fitFontToWidth(comp, text, base, avail, min_size);
+
+            comp.putClientProperty("autofit_busy", Boolean.TRUE);
+
+            try {
+                if (fitted.getSize() < base.getSize()) {
+                    comp.putClientProperty("autofit_orig_font", base);
+                    if (!fitted.equals(comp.getFont())) {
+                        comp.setFont(fitted);
+                    }
+                } else if (orig != null) {
+                    comp.putClientProperty("autofit_orig_font", null);
+                    if (!orig.equals(comp.getFont())) {
+                        comp.setFont(orig);
+                    }
+                }
+            } finally {
+                comp.putClientProperty("autofit_busy", Boolean.FALSE);
+            }
+        };
+
+        comp.addPropertyChangeListener("text", e -> refit.run());
+
+        // An external font change (e.g. the table zoom rescaling fonts) becomes the new base.
+        comp.addPropertyChangeListener("font", e -> {
+            if (!Boolean.TRUE.equals(comp.getClientProperty("autofit_busy"))) {
+                comp.putClientProperty("autofit_orig_font", null);
+                refit.run();
+            }
+        });
+
+        comp.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                refit.run();
+            }
+        });
+
+        refit.run();
     }
 
     public static Font createAndRegisterFont(InputStream stream) {

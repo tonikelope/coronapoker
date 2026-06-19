@@ -179,6 +179,18 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 ---
 
+## 🏗️ Architecture
+
+A high-level map of how the whole app fits together — the launch flow, the runtime core (`GameFrame` ⇄ `Crupier`), the engine subsystems that hang off it, and the shared `Helpers` foundation:
+
+![CoronaPoker module map](docs/diagrams/coronapoker-module-map.png)
+
+The cryptographic subsystem — verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer–Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus — has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
+
+> Editable [`.drawio`](docs/diagrams/) sources for all three diagrams live in [`docs/diagrams/`](docs/diagrams/), regenerable from the scripts in `tools/diagrams/`.
+
+---
+
 ## Build from source
 
 Requirements: JDK 11 or newer, Apache Maven 3.x.

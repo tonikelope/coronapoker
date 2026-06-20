@@ -63,9 +63,12 @@ const edges = [
   ['chkBox', 'raw', '', 0.5, 1, 0.5, 0],
   ['facBox', 'raw', '', 0.5, 1, 0.5, 0],
   ['raw', 'decMis', '', 0.5, 1, 0.5, 0],
-  ['decMis', 'misBox', 'yes', 0, 0.5, 0.5, 0],
+  // 'yes' enters the mistake box on its right side → clean horizontal arrow.
+  ['decMis', 'misBox', 'yes', 0, 0.5, 1, 0.5],
   ['decMis', 'end', 'no', 0.5, 1, 0.5, 0],
-  ['misBox', 'end', '', 0.5, 1, 0, 0.5],
+  // Clean orthogonal L into the end node's left side (waypoint forces the right-angle
+  // turn instead of the auto-router's slanted segment).
+  ['misBox', 'end', '', 0.5, 1, 0, 0.5, [[285, 1452]]],
 ];
 
 let cells = [];
@@ -85,9 +88,14 @@ for (const [idn, x, y, w, h, role, shape, label] of nodes) {
 }
 
 let n = 0;
-for (const [from, to, label, ex, ey, nx, ny] of edges) {
+for (const [from, to, label, ex, ey, nx, ny, wp] of edges) {
   const pts = (ex >= 0) ? `exitX=${ex};exitY=${ey};exitDx=0;exitDy=0;entryX=${nx};entryY=${ny};entryDx=0;entryDy=0;` : '';
-  cells.push(`<mxCell id="e${n++}" value="${esc(label)}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;${pts}strokeColor=#555555;strokeWidth=2;endArrow=block;endFill=1;fontColor=#333333;fontSize=10;fontStyle=2;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${from}" target="${to}"><mxGeometry relative="1" as="geometry"/></mxCell>`);
+  let geo = '<mxGeometry relative="1" as="geometry"/>';
+  if (wp && wp.length) {
+    const points = wp.map(([x, y]) => `<mxPoint x="${x}" y="${y}"/>`).join('');
+    geo = `<mxGeometry relative="1" as="geometry"><Array as="points">${points}</Array></mxGeometry>`;
+  }
+  cells.push(`<mxCell id="e${n++}" value="${esc(label)}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;${pts}strokeColor=#555555;strokeWidth=2;endArrow=block;endFill=1;fontColor=#333333;fontSize=10;fontStyle=2;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${from}" target="${to}">${geo}</mxCell>`);
 }
 
 const PAGE_W = 1500, PAGE_H = 1540;

@@ -141,3 +141,6 @@ $RECYCLE.BIN/
 
 # maven-surefire fork/state temp files (never version these)
 .surefire-*
+
+# draw.io desktop backup files (created when a .drawio is opened)
+.$*.bkp

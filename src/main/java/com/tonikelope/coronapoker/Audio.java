@@ -96,7 +96,6 @@ public class Audio {
     private static final AtomicBoolean VOLUME_REFRESH_QUEUED = new AtomicBoolean(false);
     public static final Object TTS_LOCK = new Object();
     public static final Object VOL_LOCK = new Object();
-    public static final Object CLIP_STOP_LOCK = new Object();
     public static final int MAX_TTS_LENGTH = 150;
     public static final Map<String, String> TTS_ES_WORD_REPLACE;
     public static final Timer VOLUME_TIMER;

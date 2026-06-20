@@ -2535,14 +2535,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.current_remote_cinematic_b64 = current_remote_cinematic_b64;
     }
 
-    private String pedirPermisoAClientes(int targetStreet, ArrayList<Player> resisten) {
-        return null; // OBSOLETE
-    }
-
-    private Object[] recopilarTokens(int targetStreet, java.util.ArrayList<Player> resisten) {
-        return new Object[]{null, null}; // OBSOLETE
-    }
-
     public void rebuyNow(String nick, int buyin) {
 
         synchronized (lock_rebuynow) {
@@ -12758,25 +12750,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     }
 
-    private void sqlUpdateGameLastDeck(String deck) {
-
-        synchronized (GameFrame.SQL_LOCK) {
-
-            String sql = "UPDATE game SET last_deck=? WHERE id=?";
-
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-
-                statement.setString(1, deck);
-                statement.setInt(2, this.sqlite_id_game);
-                statement.executeUpdate();
-            } catch (SQLException ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
-            }
-
-        }
-    }
-
     private String sqlRecoverGameSeats() {
         synchronized (GameFrame.SQL_LOCK) {
 
@@ -13007,20 +12980,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return map;
 
         }
-    }
-
-    private ArrayList<Participant> getClientHumanActiveParticipants() {
-
-        ArrayList<Participant> humanos = new ArrayList<>();
-
-        for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-
-            if (entry.getValue() != null && !entry.getValue().isCpu() && nick2player.get(entry.getKey()).isActivo()) {
-                humanos.add(entry.getValue());
-            }
-        }
-
-        return humanos;
     }
 
     private Object[] siguienteAccionLocalRecuperada(String nick) {

@@ -89,7 +89,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
-import javax.swing.JTextField;
 import javax.swing.border.Border;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -99,7 +98,6 @@ import static com.tonikelope.coronapoker.InGameNotifyDialog.NOTIFICATION_TIMEOUT
 import static com.tonikelope.coronapoker.Init.DEV_MODE;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Appearances can be deceiving...
@@ -1634,41 +1632,15 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.mostrarMensajeInformativo(container, msg, align, width, null);
     }
 
-    private int mostrarMensajeInformativoSINO(Container container, String msg) {
-
-        return Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, null);
-    }
-
     private int mostrarMensajeInformativoSINO(Container container, String msg, ImageIcon icon) {
 
         return Helpers.mostrarMensajeInformativoSINO(container, msg, "center", null, icon);
-    }
-
-    private int mostrarMensajeInformativoSINO(Container container, String msg, String align, Integer width) {
-
-        return Helpers.mostrarMensajeInformativoSINO(container, msg, align, width, null);
     }
 
     private void mostrarMensajeError(Container container, String msg) {
 
         Helpers.mostrarMensajeError(container, msg, "center", null);
 
-    }
-
-    private void mostrarMensajeError(Container container, String msg, String align, Integer width) {
-
-        Helpers.mostrarMensajeError(container, msg, align, width);
-
-    }
-
-    private int mostrarMensajeErrorSINO(Container container, String msg) {
-
-        return Helpers.mostrarMensajeErrorSINO(container, msg, "center", null);
-    }
-
-    private int mostrarMensajeErrorSINO(Container container, String msg, String align, Integer width) {
-
-        return Helpers.mostrarMensajeErrorSINO(container, msg, align, width);
     }
 
     /** Parsea un CSV de base64 (formato del DUALLOCK_BUNDLE) a una lista de byte[]. */

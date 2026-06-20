@@ -46,7 +46,6 @@ import javax.imageio.ImageIO;
 public class InitPanel extends javax.swing.JLayeredPane {
 
     protected volatile TexturePaint tp = null;
-    protected volatile boolean invalidate = false;
     protected final Object paint_lock = new Object();
     private static TexturePaint CACHED_TAPETE = null;
 
@@ -79,7 +78,6 @@ public class InitPanel extends javax.swing.JLayeredPane {
     }
 
     public void refresh() {
-        this.invalidate = true;
         updateTexture(); // Start the background loading process
     }
 
@@ -114,7 +112,6 @@ public class InitPanel extends javax.swing.JLayeredPane {
                         CACHED_TAPETE = this.tp;
                     }
 
-                    this.invalidate = false;
                     Helpers.GUIRun(() -> {
                         this.repaint();
                         if (oldImage != null) {

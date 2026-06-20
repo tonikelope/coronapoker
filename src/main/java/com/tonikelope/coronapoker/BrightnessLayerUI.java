@@ -42,10 +42,6 @@ public class BrightnessLayerUI extends LayerUI<JComponent> {
     private Color cached_color = null;
     private float cached_brightness = -1f;
 
-    public boolean isLightsON() {
-        return (brightness == 0f);
-    }
-
     public void lightsOFF() {
 
         setBrightness(BrightnessLayerUI.LIGHTS_OFF_BRIGHTNESS);

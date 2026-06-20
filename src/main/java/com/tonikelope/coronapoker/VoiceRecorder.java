@@ -68,10 +68,6 @@ public class VoiceRecorder {
     private volatile boolean recording = false;
     private volatile boolean stop_requested = false;
 
-    public boolean isRecording() {
-        return recording;
-    }
-
     /**
      * Opens the microphone and captures in a pool thread until stop() or the
      * MAX_SECONDS cap. Blocking (the device open takes 100-400ms): call it

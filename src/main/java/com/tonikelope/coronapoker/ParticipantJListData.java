@@ -73,10 +73,6 @@ public class ParticipantJListData {
     /* =======================
        Setters
        ======================= */
-    public void setNick(String nick) {
-        this.nick = nick;
-    }
-
     public void setLatency(int latency) {
         this.latency = latency;
     }
@@ -94,10 +90,6 @@ public class ParticipantJListData {
        ======================= */
     public boolean hasLatency() {
         return latency != NO_LATENCY;
-    }
-
-    public boolean hasLatency2() {
-        return latency2 != NO_LATENCY;
     }
 
     @Override

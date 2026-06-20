@@ -123,10 +123,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
         this.secure_hidden = secure_hidden;
     }
 
-    public RemotePlayer getIwtsth_candidate() {
-        return iwtsth_candidate;
-    }
-
     public void setIwtsth_candidate(RemotePlayer iwtsth_candidate) {
         this.iwtsth_candidate = iwtsth_candidate;
     }
@@ -251,10 +247,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         return new ImageIcon(new ImageIcon(Card.class.getResource(image)).getImage().getScaledInstance(Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Math.round(IMAGEN_TRASERA.getIconWidth() * 0.40f), Image.SCALE_SMOOTH));
 
-    }
-
-    public JLabel getCard_image() {
-        return card_image;
     }
 
     // Dorso de la baraja actual, ya escalado al tamaño de carta vigente (lo
@@ -608,24 +600,6 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             String cadena = "";
 
             cadena = cartas.stream().map((carta) -> carta.toShortString() + "#").reduce(cadena, String::concat);
-
-            return cadena.substring(0, cadena.length() - 1);
-        }
-
-        return null;
-    }
-
-    public static String shortString2UNICODEString(String cards) {
-
-        if (cards != null) {
-            String cadena = "";
-
-            for (String card : cards.split("#")) {
-
-                String[] parts = card.split("_");
-
-                cadena += parts[0] + Card.UNICODE_TABLE.get(parts[1]) + " ";
-            }
 
             return cadena.substring(0, cadena.length() - 1);
         }

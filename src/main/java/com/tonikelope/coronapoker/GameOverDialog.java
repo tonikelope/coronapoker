@@ -38,7 +38,6 @@ import javax.swing.JDialog;
  */
 public class GameOverDialog extends JDialog {
 
-    public static final int COUNTDOWN_PAUSE = 1350;
     // Segundos del RebuyDialog para decidir la recompra (game-over, recompra
     // intra-partida y elección de buy-in al entrar al tablero comparten esta
     // misma cifra). Es también la cuenta atrás visual "¿RECOMPRA? (N)" que los

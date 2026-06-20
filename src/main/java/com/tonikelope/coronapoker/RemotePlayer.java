@@ -646,10 +646,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public JLabel getPlayer_name() {
-        return player_name;
-    }
-
     @Override
     public int getResponseTime() {
 

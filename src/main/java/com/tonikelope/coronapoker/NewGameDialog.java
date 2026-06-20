@@ -1115,7 +1115,7 @@ public class NewGameDialog extends JDialog {
                                     .addComponent(buyin_spinner)
                                     .addComponent(fixed_buyin_checkbox))
                                 .addGap(18, 18, 18)))
-                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                        .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                             .addComponent(buyin_range_label)
                             .addComponent(buyin_min_bb_spinner)
                             .addComponent(buyin_range_sep_label)

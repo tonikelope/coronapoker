@@ -623,7 +623,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private final Object full_screen_lock = new Object();
     private final Object lock_pause = new Object();
-    private final Object exit_now_lock = new Object();
     private final ArrayList<Player> jugadores;
     private final ConcurrentHashMap<String, String> nick2avatar = new ConcurrentHashMap<>();
     private final Crupier crupier;
@@ -654,7 +653,6 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private volatile boolean recover = false;
     private volatile boolean fin = false;
     private volatile InGameNotifyDialog notify_dialog = null;
-    private volatile int test_card_count = 0;
     private volatile GraphicsDevice device = null;
     private volatile boolean latency_stats = false;
 

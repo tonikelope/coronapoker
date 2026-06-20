@@ -153,7 +153,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile boolean muestra = false;
     private volatile int conta_win = 0;
 
-    private volatile boolean radar_checking = false;
     private volatile Font orig_action_font = null;
     private volatile float border_size = Player.BORDER * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
     private volatile float arc = Player.ARC * (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
@@ -268,14 +267,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         } finally {
             g2d.dispose();
         }
-    }
-
-    public boolean isRadar_checking() {
-        return radar_checking;
-    }
-
-    public void setRadar_checking(boolean radar_checking) {
-        this.radar_checking = radar_checking;
     }
 
     public void refreshNotifyChatLabel() {

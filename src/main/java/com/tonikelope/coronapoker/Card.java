@@ -760,7 +760,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
 
         int valor_num = -1;
 
-        if (Helpers.isNumeric(this.valor)) {
+        if (!this.valor.isEmpty() && Character.isDigit(this.valor.charAt(0))) {
             valor_num = Integer.valueOf(valor);
         } else {
             switch (valor) {

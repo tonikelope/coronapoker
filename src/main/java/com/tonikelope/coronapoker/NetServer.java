@@ -222,10 +222,10 @@ public class NetServer {
                                         avatar_b = is.readAllBytes();
                                     }
                                 } else if (p.isCpu()) {
-                                    InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png");
-                                    if (is != null) {
-                                        avatar_b = is.readAllBytes();
-                                        is.close();
+                                    try (InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
+                                        if (is != null) {
+                                            avatar_b = is.readAllBytes();
+                                        }
                                     }
                                 }
                             } catch (Exception e) {

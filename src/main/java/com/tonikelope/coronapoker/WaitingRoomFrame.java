@@ -5298,11 +5298,9 @@ public class WaitingRoomFrame extends JFrame {
 
                     String comando = "NEWUSER#" + Base64.getEncoder().encodeToString(bot_nick.getBytes("UTF-8")) + "#0";
                     byte[] avatar_b = null;
-                    try {
-                        java.io.InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png");
+                    try (java.io.InputStream is = WaitingRoomFrame.class.getResourceAsStream("/images/avatar_bot.png")) {
                         if (is != null) {
                             avatar_b = is.readAllBytes();
-                            is.close();
                         }
                     } catch (Exception ex) {
                         LOGGER.log(Level.SEVERE, "Failed to load bot avatar", ex);

@@ -30,8 +30,8 @@ package com.tonikelope.coronapoker;
 
 import com.tonikelope.coronapoker.bot.context.BotPlayerView;
 import com.tonikelope.coronapoker.bot.context.DealerView;
-import com.tonikelope.coronapoker.bot.eval.AlbertaEvaluatorAdapter;
 import com.tonikelope.coronapoker.bot.eval.BotEvaluator;
+import com.tonikelope.coronapoker.bot.eval.MemoizedAlbertaEvaluator;
 import com.tonikelope.coronapoker.bot.eval.Potential;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,8 +50,12 @@ public class Bot {
     public static final org.alberta.poker.HandEvaluator HANDEVALUATOR = new org.alberta.poker.HandEvaluator();
     public static final org.alberta.poker.ai.HandPotential HANDPOTENTIAL = new org.alberta.poker.ai.HandPotential();
 
-    /** Default evaluator shared by every Bot instance; wraps the static singletons above. */
-    public static final BotEvaluator EVALUATOR = new AlbertaEvaluatorAdapter(HANDEVALUATOR, HANDPOTENTIAL);
+    /**
+     * Default evaluator shared by every Bot instance. Uses the memoized PPot/NPot path
+     * (~7x fewer hand evaluations on the flop two-card look-ahead) whose output is
+     * numerically identical to the plain Alberta adapter; see {@link MemoizedAlbertaEvaluator}.
+     */
+    public static final BotEvaluator EVALUATOR = new MemoizedAlbertaEvaluator();
 
     // Universal Opponent Memory Tracker
     public static final Map<String, OpponentTracker> TRACKER_MEMORY = new ConcurrentHashMap<>();

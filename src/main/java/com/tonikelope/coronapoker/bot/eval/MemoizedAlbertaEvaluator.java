@@ -12,19 +12,21 @@ import org.alberta.poker.HandEvaluator;
 import org.alberta.poker.ai.HandPotential;
 
 /**
- * Drop-in {@link BotEvaluator} for the offline QA harness that produces numbers
- * identical to {@link AlbertaEvaluatorAdapter} but computes {@link #potential}
- * with {@link MemoizedHandPotential}, cutting the flop two-card look-ahead from
+ * Drop-in {@link BotEvaluator} that produces numbers identical to
+ * {@link AlbertaEvaluatorAdapter} but computes {@link #potential} with
+ * {@link MemoizedHandPotential}, cutting the flop two-card look-ahead from
  * ~2.7M hand evaluations to the few hundred thousand distinct ones.
  *
  * <p>Hand strength, rank and compare are not the bottleneck and are delegated to
  * a plain {@link AlbertaEvaluatorAdapter} sharing the same {@link HandEvaluator}.
- * Range-weighted potential is rare in the harness and also delegated unchanged.</p>
+ * Range-weighted potential is rarely used and also delegated unchanged.</p>
  *
- * <p>Production ({@code Bot.EVALUATOR}) is intentionally left on the Alberta
- * adapter; this faster evaluator is wired only into the simulators until its
- * numeric equivalence is proven by {@code MemoizedHandPotentialTest}. Not
- * thread-safe: one instance per simulator thread.</p>
+ * <p>This is the evaluator wired into {@code Bot.EVALUATOR} in production. Its
+ * PPot/NPot are numerically identical to the Alberta adapter — the equivalence is
+ * gated by {@code MemoizedHandPotentialTest} — so it changes bot speed, never bot
+ * decisions. Not thread-safe: a single shared instance is correct only because bot
+ * decisions are evaluated sequentially, the same contract as the
+ * {@link AlbertaEvaluatorAdapter} it replaced.</p>
  */
 public final class MemoizedAlbertaEvaluator implements BotEvaluator {
 

@@ -384,7 +384,7 @@ CREATE TABLE IF NOT EXISTS disputed_hands (
     timestamp INTEGER NOT NULL,                 -- epoch seconds
     receipts  BLOB    NOT NULL,                 -- concatenation of every receipt collected this hand
     local_h   BLOB    NOT NULL,                 -- our local H_final at dispute time
-    reason    TEXT,                             -- 'MISSING' or 'DIVERGENT'
+    reason    TEXT,                             -- 'DIVERGENT' | 'MISSING' | 'INVALID_SIG_SEEN' | 'DECK_NO_PROOF' | 'DECK_UNVERIFIED'
     FOREIGN KEY(id_hand) REFERENCES hand(id) ON DELETE CASCADE
 );
 ```

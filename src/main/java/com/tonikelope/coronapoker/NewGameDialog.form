@@ -376,11 +376,11 @@
                                                   <EmptySpace type="separate" max="-2" attributes="0"/>
                                               </Group>
                                           </Group>
-                                          <Group type="103" groupAlignment="1" attributes="0">
-                                              <Component id="buyin_range_label" alignment="1" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_min_bb_spinner" alignment="1" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_range_sep_label" alignment="1" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_max_bb_spinner" alignment="1" min="-2" max="-2" attributes="0"/>
+                                          <Group type="103" groupAlignment="2" attributes="0">
+                                              <Component id="buyin_range_label" alignment="2" min="-2" max="-2" attributes="0"/>
+                                              <Component id="buyin_min_bb_spinner" alignment="2" min="-2" max="-2" attributes="0"/>
+                                              <Component id="buyin_range_sep_label" alignment="2" min="-2" max="-2" attributes="0"/>
+                                              <Component id="buyin_max_bb_spinner" alignment="2" min="-2" max="-2" attributes="0"/>
                                           </Group>
                                           <EmptySpace type="separate" max="-2" attributes="0"/>
                                           <Group type="103" groupAlignment="1" max="-2" attributes="0">

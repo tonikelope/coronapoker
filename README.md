@@ -103,6 +103,8 @@ Not the fold-everything kind. CoronaPoker bots play like real opponents.
 - **Calibrated mistake injection** scaled by difficulty — Hard is razor-sharp, Easy makes human-shaped errors in the right spots
 - **Validated through AAA QA** — every release is benchmarked against fixed-strategy opponents over tens of thousands of hands before shipping
 
+> Full bot AI write-up — architecture, the hand-evaluation maths, the personality model and the per-turn decision pipeline (with two diagrams) — lives in **[`docs/BOTS.md`](docs/BOTS.md)**.
+
 ---
 
 ## 💬 Chat, voice & social
@@ -187,7 +189,9 @@ A high-level map of how the whole app fits together — the launch flow, the run
 
 The cryptographic subsystem — verifiable **SRA / Ristretto255** dealing with DLEQ proofs, the zero-knowledge **Bayer–Groth** shuffle, per-nick **Ed25519** identity, the per-hand `H_t` ratchet and the receipt consensus — has its own two diagrams (a component architecture and a full per-hand protocol sequence) embedded in **[`docs/SECURITY.md`](docs/SECURITY.md)**.
 
-> Editable [`.drawio`](docs/diagrams/) sources for all three diagrams live in [`docs/diagrams/`](docs/diagrams/), regenerable from the scripts in `tools/diagrams/`.
+The **bot AI** — its architecture, hand-evaluation maths, personality model and per-turn decision pipeline — is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
+
+> Editable [`.drawio`](docs/diagrams/) sources for all five diagrams live in [`docs/diagrams/`](docs/diagrams/), regenerable from the scripts in `tools/diagrams/`.
 
 ---
 

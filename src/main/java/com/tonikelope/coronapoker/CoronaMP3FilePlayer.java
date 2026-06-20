@@ -53,10 +53,6 @@ public class CoronaMP3FilePlayer {
         return playing;
     }
 
-    public boolean isPaused() {
-        return paused;
-    }
-
     public boolean play(String path, float volume) {
         try {
             return play(getAudioInputStream(new File(path)), volume);

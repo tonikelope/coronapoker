@@ -604,11 +604,6 @@ public class Participant implements Runnable {
         return nick;
     }
 
-    public boolean writeGAMECommandFromServer(String command) {
-        int id = Helpers.CSPRNG_GENERATOR.nextInt();
-        return writeCommandFromServer("GAME#" + String.valueOf(id) + "#" + command);
-    }
-
     public boolean writeCommandFromServer(String command) {
         while (resetting_socket || force_reset_socket) {
             synchronized (getParticipant_socket_lock()) {

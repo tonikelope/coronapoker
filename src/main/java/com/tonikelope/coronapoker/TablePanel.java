@@ -1711,18 +1711,6 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     }
 
-    public void showALL() {
-
-        Helpers.GUIRun(() -> {
-            for (Player p : players) {
-                ((JPanel) p).setVisible(true);
-            }
-
-            getCommunityCards().setVisible(true);
-        });
-
-    }
-
     public void refresh() {
 
         Audio.playWavResource("misc/mat.wav");

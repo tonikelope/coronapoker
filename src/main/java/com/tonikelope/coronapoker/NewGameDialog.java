@@ -96,10 +96,6 @@ public class NewGameDialog extends JDialog {
         return recover_checkbox;
     }
 
-    public JButton getVamos() {
-        return vamos;
-    }
-
     private int getCurrentBotLevel() {
 
         if (Bot.DIFFICULTY == Bot.Difficulty.EASY) {

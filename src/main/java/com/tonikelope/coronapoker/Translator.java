@@ -32,7 +32,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -155,28 +154,6 @@ public class Translator {
             // 4. Si no se encuentra, devolver la propia clave
             return key;
         });
-    }
-
-    /**
-     * Devuelve todas las claves disponibles en el idioma por defecto. Útil para
-     * validación y testing.
-     */
-    public static Set<String> getAllKeys() {
-        // Asegurar que están cargadas las propiedades
-        if (DEFAULT_PROPS.isEmpty()) {
-            loadLanguage("es");
-        }
-        return DEFAULT_PROPS.stringPropertyNames();
-    }
-
-    /**
-     * Comprueba si una clave existe en el sistema de traducción.
-     */
-    public static boolean hasKey(String key) {
-        if (DEFAULT_PROPS.isEmpty()) {
-            loadLanguage("es");
-        }
-        return DEFAULT_PROPS.containsKey(key);
     }
 
 }

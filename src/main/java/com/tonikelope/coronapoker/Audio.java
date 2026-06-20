@@ -569,21 +569,6 @@ public class Audio {
         return false;
     }
 
-    public static boolean isLoopMp3Playing() {
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
-
-            if (entry.getValue().isPlaying()) {
-
-                return true;
-
-            }
-        }
-
-        return false;
-
-    }
-
     public static void playLoopMp3Resource(String sound) {
 
         if (!GameFrame.TEST_MODE) {
@@ -1181,21 +1166,6 @@ public class Audio {
 
     }
 
-    public static void pauseLoopMp3(String sound) {
-
-        CoronaMP3FilePlayer player = MP3_LOOP.get(sound);
-
-        if (player != null) {
-            try {
-                player.pause();
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error pausing MP3 loop: {0}", ex.getMessage());
-            }
-        }
-
-    }
-
     public static void muteLoopMp3(String sound) {
 
         MP3_LOOP_MUTED.add(sound);
@@ -1230,41 +1200,6 @@ public class Audio {
             }
         }
 
-    }
-
-    public static void resumeLoopMp3Resource(String sound) {
-
-        CoronaMP3FilePlayer player = MP3_LOOP.get(sound);
-
-        if (player != null) {
-
-            try {
-                player.resume();
-
-            } catch (Exception ex) {
-                Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error resuming MP3 loop: {0}", ex.getMessage());
-            }
-
-        } else {
-            playLoopMp3Resource(sound);
-        }
-
-    }
-
-    public static void pauseCurrentLoopMp3Resource() {
-
-        for (Map.Entry<String, CoronaMP3FilePlayer> entry : MP3_LOOP.entrySet()) {
-
-            if (entry.getValue().isPlaying()) {
-
-                try {
-                    entry.getValue().pause();
-                } catch (Exception ex) {
-                    Logger.getLogger(Audio.class.getName()).log(Level.SEVERE, "Error pausing current MP3 loop: {0}", ex.getMessage());
-                }
-
-            }
-        }
     }
 
     public static void restartCurrentLoopMp3Resources() {

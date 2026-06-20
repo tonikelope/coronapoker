@@ -117,8 +117,13 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         structures_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("blinds.estructuras")));
         JScrollPane list_scroll = new JScrollPane(structure_list);
         list_scroll.setPreferredSize(new Dimension(220, 240));
-        structures_panel.add(list_scroll, BorderLayout.CENTER);
-        structures_panel.add(structure_buttons, BorderLayout.SOUTH);
+        // Lista + botones agrupados arriba para que ambas columnas alineen su
+        // lista/tabla por arriba a la misma altura, aunque sus filas de botones
+        // tengan distinta altura (CRUD de 4 vs 2 de niveles).
+        JPanel structures_inner = new JPanel(new BorderLayout(0, 5));
+        structures_inner.add(list_scroll, BorderLayout.CENTER);
+        structures_inner.add(structure_buttons, BorderLayout.SOUTH);
+        structures_panel.add(structures_inner, BorderLayout.NORTH);
 
         // --- Levels column (table + add/remove) ---
         levels_model = new DefaultTableModel(new Object[]{
@@ -143,8 +148,10 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         levels_panel.setBorder(levels_border);
         JScrollPane table_scroll = new JScrollPane(levels_table);
         table_scroll.setPreferredSize(new Dimension(240, 240));
-        levels_panel.add(table_scroll, BorderLayout.CENTER);
-        levels_panel.add(level_buttons, BorderLayout.SOUTH);
+        JPanel levels_inner = new JPanel(new BorderLayout(0, 5));
+        levels_inner.add(table_scroll, BorderLayout.CENTER);
+        levels_inner.add(level_buttons, BorderLayout.SOUTH);
+        levels_panel.add(levels_inner, BorderLayout.NORTH);
 
         // --- Bottom buttons ---
         JButton save_button = new JButton(Translator.translate("ui.guardar"));
@@ -467,7 +474,7 @@ public class BlindStructureManagerDialog extends javax.swing.JDialog {
         // los botones Aceptar/Cancelar quedan legibles y en la fuente de la app.
         JOptionPane pane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
         javax.swing.JDialog d = pane.createDialog(this, getTitle());
-        Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.3f);
+        Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.15f);
         d.pack();
         d.setLocationRelativeTo(this);
         d.setVisible(true);

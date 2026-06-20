@@ -14,16 +14,17 @@ import org.alberta.poker.HandEvaluator;
 
 /**
  * Memoized re-implementation of the University of Alberta hand-potential
- * calculation ({@code HandPotential.ppot_raw}, Papp 1998 §5.3) for the offline
- * QA harness.
+ * calculation ({@code HandPotential.ppot_raw}, Papp 1998 §5.3). This is the
+ * PPot/NPot engine the production bot runs (wired through {@link MemoizedAlbertaEvaluator}).
  *
- * <p><b>Why this exists.</b> The production bot computes PPot/NPot through
- * {@link AlbertaEvaluatorAdapter}, which calls {@code HandPotential.ppot_raw} —
- * the variant with <em>no</em> rank caching. On the flop (full two-card
- * look-ahead) that evaluates a 7-card hand ~2.7 million times, the overwhelming
- * majority of them redundant. With no native {@code libeval} on Windows every
- * one of those goes through {@code rankHand_Java}, which is what made the QA
- * benchmark suite take hours.</p>
+ * <p><b>Why this exists.</b> The reference {@link AlbertaEvaluatorAdapter} computes
+ * PPot/NPot through {@code HandPotential.ppot_raw} — the variant with <em>no</em>
+ * rank caching. On the flop (full two-card look-ahead) that evaluates a 7-card
+ * hand ~2.7 million times, the overwhelming majority of them redundant; with no
+ * native {@code libeval} present (every platform except Linux/Solaris) each one
+ * goes through {@code rankHand_Java}. This class caches those repeated ranks and
+ * is ~8x faster on the flop while producing numerically identical PPot/NPot — so
+ * the production bot decides exactly the same, only quicker.</p>
  *
  * <p>The obvious fix — switching the adapter to {@code HandPotential.ppot} (the
  * cached variant) — is a trap: its {@code getCachedRank} helpers call
@@ -42,14 +43,15 @@ import org.alberta.poker.HandEvaluator;
  *       bitmask of the varying cards. A primitive open-addressing {@code long->int}
  *       table is used rather than {@code HashMap<Long,Integer>}: profiling showed
  *       the boxing in the latter ate most of the cache's benefit (2.6x), whereas
- *       the primitive table reaches ~7x.</li>
+ *       the primitive table reaches ~8x.</li>
  * </ul>
  *
  * <p>The counting (AHEAD/TIED/BEHIND tallies, the {@code mult} normaliser of
  * 990/45, the den/num formulas) is identical to {@code ppot_raw}; addition is
  * commutative so enumeration order is irrelevant. {@code MemoizedHandPotentialTest}
  * asserts ppot/npot equality against the Alberta original over thousands of
- * random spots. <b>Not thread-safe</b> — one instance per simulator thread.</p>
+ * random spots. <b>Not thread-safe</b>: production shares a single instance across
+ * all bots, which is safe only because bot decisions are evaluated sequentially.</p>
  */
 final class MemoizedHandPotential {
 

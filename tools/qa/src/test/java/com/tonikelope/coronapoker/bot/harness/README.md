@@ -426,7 +426,7 @@ sample, so small-volume runs routinely report FAIL even when the DELTA is large
 and correctly signed (e.g. MEDIUM vs 5× EASY at 500 hands: DELTA +193, t=1.6 →
 FAIL on significance only). Re-run at full volume to sign off a change.
 
-Since the hand evaluator was memoized (`MemoizedAlbertaEvaluator`, ~7× faster
+Since the hand evaluator was memoized (`MemoizedAlbertaEvaluator`, ~8× faster
 than the raw Alberta path on Windows), a single 6-max matchup runs at roughly
 8 hands/second per fork: ~1 minute for a 500-hand smoke, ~6 minutes for a
 3 000-hand iteration pass, ~20 minutes for a full 10 000-hand matchup.

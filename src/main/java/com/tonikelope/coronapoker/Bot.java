@@ -52,8 +52,8 @@ public class Bot {
 
     /**
      * Default evaluator shared by every Bot instance. Uses the memoized PPot/NPot path
-     * (~7x fewer hand evaluations on the flop two-card look-ahead) whose output is
-     * numerically identical to the plain Alberta adapter; see {@link MemoizedAlbertaEvaluator}.
+     * (~8x faster on the flop two-card look-ahead) whose output is numerically
+     * identical to the plain Alberta adapter; see {@link MemoizedAlbertaEvaluator}.
      */
     public static final BotEvaluator EVALUATOR = new MemoizedAlbertaEvaluator();
 

@@ -9,7 +9,6 @@
 package com.tonikelope.coronapoker.smoke;
 
 import com.tonikelope.coronapoker.Bot;
-import com.tonikelope.coronapoker.GameFrame;
 import com.tonikelope.coronapoker.GamePreset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,90 +29,82 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * setting (including the chosen blind structure), the registry must persist
  * renames/deletions, and corrupt entries must be skipped rather than fatal.
  *
- * <p>Pure logic — exercises the serializer/registry against in-memory state and a
- * local {@link Properties}, so it never reads or writes the user's real
- * {@code coronapoker.properties}.
+ * <p>Pure logic — exercises the {@link GamePreset.Settings} carrier and a local
+ * {@link Properties}, so it never reads or writes the user's real
+ * {@code coronapoker.properties} and never mutates global game state.
  */
 class GamePresetRoundTripSmoke {
 
     @Test
-    @DisplayName("serialize -> apply restores every new-game setting incl. the blind structure")
+    @DisplayName("serialize -> parse restores every new-game setting incl. the blind structure")
     void settingsRoundTrip() {
         double[][] ladder = {{1, 2}, {2, 4}, {5, 10}};
 
-        GameFrame.CIEGA_PEQUEÑA = 5.0;
-        GameFrame.CIEGA_GRANDE = 10.0;
-        GameFrame.ACTIVE_BLIND_STRUCTURE = ladder;
-        GameFrame.BUYIN = 250;
-        GameFrame.FIXED_BUYIN = false;
-        GameFrame.BUYIN_MIN_BB = 40;
-        GameFrame.BUYIN_MAX_BB = 120;
-        GameFrame.REBUY = false;
-        GameFrame.REBUY_LIMIT = 3;
-        GameFrame.BOT_REBUY = false;
-        GameFrame.REBUY_CAP_POLICY = 1;
-        GameFrame.CIEGAS_DOUBLE = 90;
-        GameFrame.CIEGAS_DOUBLE_TYPE = 2;
-        GameFrame.BLIND_CAP = 50.0;
-        GameFrame.MANOS = 42;
-        GameFrame.ANTE = true;
-        GameFrame.STRADDLE = true;
-        Bot.DIFFICULTY = Bot.Difficulty.EASY;
+        GamePreset.Settings s = new GamePreset.Settings();
+        s.smallBlind = 5.0;
+        s.bigBlind = 10.0;
+        s.structure = ladder;
+        s.buyin = 250;
+        s.fixedBuyin = false;
+        s.minBb = 40;
+        s.maxBb = 120;
+        s.rebuy = false;
+        s.rebuyLimit = 3;
+        s.botRebuy = false;
+        s.rebuyCapPolicy = 1;
+        s.doubleEvery = 90;
+        s.doubleType = 2;
+        s.blindCap = 50.0;
+        s.handLimit = 42;
+        s.ante = true;
+        s.straddle = true;
+        s.difficulty = Bot.Difficulty.EASY;
 
-        String blob = GamePreset.serializeCurrentSettings();
+        GamePreset.Settings r = GamePreset.Settings.parse(s.serialize());
 
-        // Wipe to clearly different values, then prove apply() brings the snapshot back.
-        GameFrame.CIEGA_PEQUEÑA = 0.10;
-        GameFrame.CIEGA_GRANDE = 0.20;
-        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-        GameFrame.BUYIN = 10;
-        GameFrame.FIXED_BUYIN = true;
-        GameFrame.BUYIN_MIN_BB = 1;
-        GameFrame.BUYIN_MAX_BB = 1;
-        GameFrame.REBUY = true;
-        GameFrame.REBUY_LIMIT = 0;
-        GameFrame.BOT_REBUY = true;
-        GameFrame.REBUY_CAP_POLICY = 0;
-        GameFrame.CIEGAS_DOUBLE = 60;
-        GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-        GameFrame.BLIND_CAP = 0;
-        GameFrame.MANOS = -1;
-        GameFrame.ANTE = false;
-        GameFrame.STRADDLE = false;
-        Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
-
-        new GamePreset("favorita", blob).apply();
-
-        assertEquals(5.0, GameFrame.CIEGA_PEQUEÑA, 1e-9, "small blind");
-        assertEquals(10.0, GameFrame.CIEGA_GRANDE, 1e-9, "big blind");
-        assertArrayEquals(ladder, GameFrame.ACTIVE_BLIND_STRUCTURE, "chosen blind structure");
-        assertEquals(250, GameFrame.BUYIN, "buy-in");
-        assertFalse(GameFrame.FIXED_BUYIN, "variable buy-in");
-        assertEquals(40, GameFrame.BUYIN_MIN_BB, "buy-in min bb");
-        assertEquals(120, GameFrame.BUYIN_MAX_BB, "buy-in max bb");
-        assertFalse(GameFrame.REBUY, "rebuy off");
-        assertEquals(3, GameFrame.REBUY_LIMIT, "rebuy limit");
-        assertFalse(GameFrame.BOT_REBUY, "bot rebuy off");
-        assertEquals(1, GameFrame.REBUY_CAP_POLICY, "rebuy cap policy");
-        assertEquals(90, GameFrame.CIEGAS_DOUBLE, "blind increase");
-        assertEquals(2, GameFrame.CIEGAS_DOUBLE_TYPE, "blind increase type");
-        assertEquals(50.0, GameFrame.BLIND_CAP, 1e-9, "blind cap");
-        assertEquals(42, GameFrame.MANOS, "hand limit");
-        assertTrue(GameFrame.ANTE, "ante on");
-        assertTrue(GameFrame.STRADDLE, "straddle on");
-        assertEquals(Bot.Difficulty.EASY, Bot.DIFFICULTY, "bot difficulty");
+        assertEquals(5.0, r.smallBlind, 1e-9, "small blind");
+        assertEquals(10.0, r.bigBlind, 1e-9, "big blind");
+        assertArrayEquals(ladder, r.structure, "chosen blind structure");
+        assertEquals(250, r.buyin, "buy-in");
+        assertFalse(r.fixedBuyin, "variable buy-in");
+        assertEquals(40, r.minBb, "buy-in min bb");
+        assertEquals(120, r.maxBb, "buy-in max bb");
+        assertFalse(r.rebuy, "rebuy off");
+        assertEquals(3, r.rebuyLimit, "rebuy limit");
+        assertFalse(r.botRebuy, "bot rebuy off");
+        assertEquals(1, r.rebuyCapPolicy, "rebuy cap policy");
+        assertEquals(90, r.doubleEvery, "blind increase");
+        assertEquals(2, r.doubleType, "blind increase type");
+        assertEquals(50.0, r.blindCap, 1e-9, "blind cap");
+        assertEquals(42, r.handLimit, "hand limit");
+        assertTrue(r.ante, "ante on");
+        assertTrue(r.straddle, "straddle on");
+        assertEquals(Bot.Difficulty.EASY, r.difficulty, "bot difficulty");
     }
 
     @Test
     @DisplayName("the default ladder (null structure) round-trips as null, not as an empty array")
     void defaultStructureRoundTrips() {
-        GameFrame.ACTIVE_BLIND_STRUCTURE = null;
-        String blob = GamePreset.serializeCurrentSettings();
+        GamePreset.Settings s = new GamePreset.Settings();
+        s.structure = null;
+        assertNull(GamePreset.Settings.parse(s.serialize()).structure,
+                "empty STRUCT must restore the default ladder (null)");
+    }
 
-        GameFrame.ACTIVE_BLIND_STRUCTURE = new double[][]{{1, 2}};
-        GamePreset.applySettings(blob);
+    @Test
+    @DisplayName("a corrupt entry is skipped, not fatal, and the rest still parse")
+    void defensiveParseSkipsGarbage() {
+        // BUYIN is unparseable (keeps its default), REBUY is valid and applies.
+        GamePreset.Settings r = GamePreset.Settings.parse("BUYIN=not_a_number#REBUY=0#ZZZ=garbage");
+        assertEquals(10, r.buyin, "an unparseable value must leave the field at its default");
+        assertFalse(r.rebuy, "a valid later entry must still parse after a bad one");
+    }
 
-        assertNull(GameFrame.ACTIVE_BLIND_STRUCTURE, "empty STRUCT must restore the default ladder (null)");
+    @Test
+    @DisplayName("the legacy EXPERT difficulty maps to HARD")
+    void legacyExpertDifficultyMapsToHard() {
+        assertEquals(Bot.Difficulty.HARD, GamePreset.Settings.parse("DIFF=EXPERT").difficulty,
+                "legacy EXPERT must fold into HARD");
     }
 
     @Test
@@ -138,11 +129,10 @@ class GamePresetRoundTripSmoke {
     @DisplayName("rewriting fewer presets drops the stale entries (delete persists)")
     void rewriteDropsStaleEntries() {
         Properties props = new Properties();
-        List<GamePreset> three = Arrays.asList(
+        GamePreset.writeTo(props, Arrays.asList(
                 new GamePreset("a", "SB=1#BG=2"),
                 new GamePreset("b", "SB=2#BG=4"),
-                new GamePreset("c", "SB=5#BG=10"));
-        GamePreset.writeTo(props, three);
+                new GamePreset("c", "SB=5#BG=10")));
 
         // Simulate deleting two: rewrite with just one.
         GamePreset.writeTo(props, Arrays.asList(new GamePreset("b", "SB=2#BG=4")));
@@ -151,26 +141,6 @@ class GamePresetRoundTripSmoke {
         assertEquals(1, read.size(), "only the surviving preset must remain");
         assertTrue(read.containsKey("b"), "the kept preset must be 'b'");
         assertNull(props.getProperty(GamePreset.PROP_PREFIX + "2.name"), "no stale third entry may linger");
-    }
-
-    @Test
-    @DisplayName("a corrupt entry is skipped, not fatal, and the rest still apply")
-    void defensiveParseSkipsGarbage() {
-        GameFrame.BUYIN = 999;
-        GameFrame.REBUY = false;
-        // BUYIN is unparseable, REBUY is fine: BUYIN keeps its old value, REBUY applies.
-        GamePreset.applySettings("BUYIN=not_a_number#REBUY=1#ZZZ=garbage");
-
-        assertEquals(999, GameFrame.BUYIN, "an unparseable value must leave the field untouched");
-        assertTrue(GameFrame.REBUY, "a valid later entry must still apply after a bad one");
-    }
-
-    @Test
-    @DisplayName("the legacy EXPERT difficulty maps to HARD")
-    void legacyExpertDifficultyMapsToHard() {
-        Bot.DIFFICULTY = Bot.Difficulty.EASY;
-        GamePreset.applySettings("DIFF=EXPERT");
-        assertEquals(Bot.Difficulty.HARD, Bot.DIFFICULTY, "legacy EXPERT must fold into HARD");
     }
 
     @Test

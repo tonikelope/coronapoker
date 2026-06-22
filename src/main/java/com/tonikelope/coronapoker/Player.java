@@ -151,6 +151,11 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     // lo realmente posteado. Solo se invoca cuando GameFrame.ANTE esta activo.
     public double postAnte(double ante);
 
+    // Postea un straddle (ciega VIVA: SI cuenta como apuesta a igualar, via bet)
+    // por el importe dado, o todo el stack si no lo cubre (all-in). Devuelve lo
+    // realmente posteado. Solo se invoca cuando GameFrame.STRADDLE esta activo.
+    public double postStraddle(double amount);
+
     public void resetBetDecision();
 
     public boolean isSpectator();

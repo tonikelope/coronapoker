@@ -187,6 +187,11 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
+    public double postStraddle(double amount) {
+        throw nope();
+    }
+
+    @Override
     public void disableUTG() {
         throw nope();
     }

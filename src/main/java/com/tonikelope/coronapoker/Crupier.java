@@ -2509,6 +2509,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             pot_chips_in_flight.incrementAndGet();
         }
         this.forced_bet_chip_contributors = contributors;
+
+        // Muestra el valor INICIAL del bote (antes de las forzadas = el sobrante que
+        // arrastra la mano, normalmente 0) para que se vea SUBIR al aterrizar las
+        // fichas. El diferido (pot_chips_in_flight, ya incrementado arriba) evita que
+        // actualizarContadoresTapete lo pise con el total antes de tiempo.
+        GameFrame.getInstance().setTapeteBote(Math.max(0f, this.bote_sobrante), null);
     }
 
     private void addForcedBetContributor(java.util.List<Player> list, String nick) {
@@ -2565,6 +2571,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+        }
+
+        // Pausa para que se VEA el bote subir y el flaseo amarillo antes de que el
+        // barajado oculte el community panel (la animacion de aterrizaje/flash dura un
+        // instante mas tras el ultimo countDown). Sin esto, el community se ocultaba
+        // al instante y no se apreciaba ni el incremento ni el flash.
+        if (!isFin_de_la_transmision()) {
+            Helpers.pausar(700);
         }
     }
 

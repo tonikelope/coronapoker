@@ -122,6 +122,8 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     void disableUTG();
 
+    void setUTG();
+
     void refreshPos();
 
     // Refresca el icono de ficha de posición (dealer/ciegas) y su visibilidad.

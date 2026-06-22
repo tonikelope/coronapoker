@@ -197,6 +197,11 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
+    public void setUTG() {
+        throw nope();
+    }
+
+    @Override
     public void refreshPos() {
         throw nope();
     }

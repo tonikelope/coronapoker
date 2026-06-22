@@ -129,7 +129,7 @@ public final class GameLogDialog extends JDialog {
     private static final Pattern BALANCE_NUMS = Pattern.compile("\\s{2,}(\\S+)\\s{2,}(\\S+)\\s*$");
     private static final int ROLE_ICON_PX = 17;
     private static final int ROLE_MARKER_W = 26;
-    private static javax.swing.ImageIcon ROLE_DEALER, ROLE_SB, ROLE_BB, ROLE_MONEY;
+    private static javax.swing.ImageIcon ROLE_DEALER, ROLE_SB, ROLE_BB, ROLE_MONEY, ROLE_STRADDLE;
 
     private static boolean isBalanceRow(String line) {
         if (line.length() < 4) {
@@ -137,7 +137,7 @@ public final class GameLogDialog extends JDialog {
         }
         String t = line.substring(0, 4);
         return t.equals("(D )") || t.equals("(SB)") || t.equals("(BB)") || t.equals("(  )")
-                || t.equals("(##)") || t.equals("($$)");
+                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)");
     }
 
     // Clears the pane and re-renders the whole text (used by setText paths:
@@ -326,6 +326,11 @@ public final class GameLogDialog extends JDialog {
                         ROLE_MONEY = scaledRoleIcon("/images/chips.png");
                     }
                     return ROLE_MONEY;
+                case "(ST)":
+                    if (ROLE_STRADDLE == null) {
+                        ROLE_STRADDLE = scaledRoleIcon("/images/straddle.png");
+                    }
+                    return ROLE_STRADDLE;
                 default:
                     return null;
             }

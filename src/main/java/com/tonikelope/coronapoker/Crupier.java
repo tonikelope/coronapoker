@@ -839,6 +839,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
     private volatile boolean straddle_posted = false; // true si en esta mano (fresca) UTG posteo un straddle obligatorio
+    private volatile String straddle_utg_nick = null; // con straddle, el "under the gun" REAL (primero en hablar) = siguiente activo tras el straddler; null sin straddle
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
@@ -2527,6 +2528,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
         }
+    }
+
+    // Siguiente jugador ACTIVO en orden de asiento tras 'nick' (envolvente). Lo usa
+    // el straddle para situar el "under the gun" real (primero en hablar) en el
+    // asiento siguiente al straddler. Devuelve null si 'nick' no esta o no hay otro.
+    private Player nextActivePlayerAfter(String nick) {
+        java.util.List<Player> jugadores = GameFrame.getInstance().getJugadores();
+        int n = jugadores.size();
+        int start = -1;
+        for (int i = 0; i < n; i++) {
+            if (jugadores.get(i).getNickname().equals(nick)) {
+                start = i;
+                break;
+            }
+        }
+        if (start < 0) {
+            return null;
+        }
+        for (int step = 1; step <= n; step++) {
+            Player p = jugadores.get((start + step) % n);
+            if (p.isActivo()) {
+                return p;
+            }
+        }
+        return null;
     }
 
     // Vuela las fichas de las forzadas al bote (preparadas en prepareForcedBetsToPot),
@@ -6807,6 +6833,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.conta_raise = 0;
         this.conta_bet = 0;
         this.straddle_posted = false;
+        this.straddle_utg_nick = null;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
@@ -6992,6 +7019,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
                 this.straddle_posted = true;
                 straddler.refreshPositionChipIcons();
+
+                // El straddler (UTG) habla el ULTIMO (opcion): el "under the gun" REAL
+                // (primero en hablar) es el siguiente activo. Mueve la pistola del
+                // straddler a ese jugador (rondaApuestas tambien arranca ahi). Via la
+                // interfaz Player, asi vale para LocalPlayer y RemotePlayer por igual.
+                straddler.disableUTG();
+                Player utg_real = nextActivePlayerAfter(this.utg_nick);
+                if (utg_real != null) {
+                    utg_real.setUTG();
+                    this.straddle_utg_nick = utg_real.getNickname();
+                }
             }
         }
 
@@ -11359,7 +11397,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
 
             if (this.street == Crupier.PREFLOP) {
-                nick2player.get(this.utg_nick).disableUTG();
+                // Con straddle la pistola la tiene el primero en hablar (no el
+                // straddler), asi que se la quitamos a ese mismo jugador.
+                String utg_to_disable = (this.straddle_posted && this.straddle_utg_nick != null) ? this.straddle_utg_nick : this.utg_nick;
+                Player utg_to_disable_player = nick2player.get(utg_to_disable);
+                if (utg_to_disable_player != null) {
+                    utg_to_disable_player.disableUTG();
+                }
             }
 
         }

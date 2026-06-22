@@ -447,11 +447,11 @@ public class EditBlindsDialog extends JDialog {
         }
     }//GEN-LAST:event_double_blinds_radio_manosActionPerformed
 
-    private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {
+    private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_blind_cap_checkboxActionPerformed
         if (init) {
             this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
         }
-    }
+    }//GEN-LAST:event_blind_cap_checkboxActionPerformed
 
     // Tope de ciegas como "nº de subidas" (igual que NewGameDialog): el spinner es
     // el entero y blind_cap_label muestra el nivel resultante. GameFrame.BLIND_CAP

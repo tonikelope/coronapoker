@@ -440,8 +440,6 @@
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" attributes="0">
                                   <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                                  <Component id="radar" min="-2" max="-2" attributes="0"/>
-                                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
                                   <Component id="pass_icon" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                                   <Component id="server_address_label" max="32767" attributes="0"/>
@@ -458,7 +456,6 @@
                                   <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="103" alignment="0" groupAlignment="3" attributes="0">
                                           <Component id="server_address_label" alignment="3" min="-2" pref="39" max="-2" attributes="0"/>
-                                          <Component id="radar" alignment="3" min="-2" max="-2" attributes="0"/>
                                       </Group>
                                       <Component id="tot_conectados" alignment="0" min="-2" max="-2" attributes="0"/>
                                       <Component id="pass_icon" min="-2" pref="36" max="-2" attributes="0"/>
@@ -508,14 +505,6 @@
                           <Events>
                             <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="server_address_labelMouseClicked"/>
                           </Events>
-                        </Component>
-                        <Component class="javax.swing.JLabel" name="radar">
-                          <Properties>
-                            <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                              <Connection code="new ImageIcon(new ImageIcon(getClass().getResource(&quot;/images/shield.png&quot;)).getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH))" type="code"/>
-                            </Property>
-                            <Property name="doubleBuffered" type="boolean" value="true"/>
-                          </Properties>
                         </Component>
                       </SubComponents>
                     </Container>

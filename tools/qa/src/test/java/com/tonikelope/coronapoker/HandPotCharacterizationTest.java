@@ -159,4 +159,56 @@ public class HandPotCharacterizationTest {
         assertEquals(4.0, pot.getSidePot().getTotal(), EPS, "side pot = 2.0 x 2");
         assertEquals(4.75, sumAllPots(pot), EPS, "conservation: 0.25 + 2.25 + 2.25");
     }
+
+    // ----- straddle (voluntary, 2x the big blind) -----------------------------
+    // A posted straddle is a live blind of 2x the big blind: it rides each
+    // player's getBote() exactly like a bet, so the existing getBote()-keyed
+    // side-pot math absorbs it with no structural change. These pin the pot
+    // composition of a straddle hand (SB 1, BB 2, straddle 4) so the voluntary
+    // straddle cannot drift it (e.g. by double-counting the posted straddle).
+
+    @Test
+    void postedStraddleRidesTheNormalPot() {
+        // UTG straddles 4 (2x BB); SB and BB complete to 4 and the straddler
+        // checks the option -> three players committed 4.00 each, single pot.
+        HandPot pot = topPot(
+                p("a", 4.0, Player.BET, true),
+                p("b", 4.0, Player.BET, true),
+                p("c", 4.0, Player.BET, true));
+
+        assertEquals(0, pot.getSide_pot_count(), "everyone at the straddle -> no side pot");
+        assertEquals(4.0, pot.getBet(), EPS, "main pot caps at the straddle level");
+        assertEquals(12.0, pot.getTotal(), EPS, "3 x 4.00 (no double-count of the straddle)");
+        assertEquals(12.0, sumAllPots(pot), EPS, "conservation");
+    }
+
+    @Test
+    void foldedStraddlerLeavesStraddleAsDeadMoney() {
+        // a straddles 4 then folds to a raise; b and c contest 10 each. a's 4
+        // stays in the main pot as dead money for the live contenders.
+        HandPot pot = topPot(
+                p("a", 4.0, Player.FOLD, false),
+                p("b", 10.0, Player.BET, true),
+                p("c", 10.0, Player.BET, true));
+
+        assertEquals(0, pot.getSide_pot_count(), "equal live contenders -> no side pot");
+        assertEquals(10.0, pot.getBet(), EPS, "main pot caps at the live bet");
+        assertEquals(24.0, pot.getTotal(), EPS, "10 + 10 live + 4 dead straddle");
+        assertEquals(24.0, sumAllPots(pot), EPS, "conservation: 4 + 10 + 10");
+    }
+
+    @Test
+    void incompleteAllInStraddleFormsItsOwnSidePot() {
+        // a cannot cover the full 4 straddle: all-in for 3 (incomplete straddle).
+        // b and c call the full 4. Main pot 3 x 3 = 9; side pot (4-3) x 2 = 2.
+        HandPot pot = topPot(
+                p("a", 3.0, Player.ALLIN, true),
+                p("b", 4.0, Player.BET, true),
+                p("c", 4.0, Player.BET, true));
+
+        assertEquals(1, pot.getSide_pot_count(), "short all-in straddle -> one side pot");
+        assertEquals(9.0, pot.getTotal(), EPS, "main pot = 3 x 3");
+        assertEquals(2.0, pot.getSidePot().getTotal(), EPS, "side pot = 1.0 x 2");
+        assertEquals(11.0, sumAllPots(pot), EPS, "conservation: 3 + 4 + 4");
+    }
 }

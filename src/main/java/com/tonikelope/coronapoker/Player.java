@@ -146,6 +146,11 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public void setBet(double bet);
 
+    // Postea un ante (dinero muerto: del stack al bote, SIN tocar bet) por el
+    // importe dado, o todo el stack si no lo cubre (all-in por el ante). Devuelve
+    // lo realmente posteado. Solo se invoca cuando GameFrame.ANTE esta activo.
+    public double postAnte(double ante);
+
     public void resetBetDecision();
 
     public boolean isSpectator();

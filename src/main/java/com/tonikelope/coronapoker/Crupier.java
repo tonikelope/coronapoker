@@ -3574,6 +3574,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             GameFrame.getInstance().getRegistro().print(status.toString());
 
+            // Indicador de antes activos: el ante es simetrico (todos antean), no es
+            // un rol por-nick como el straddle, asi que va en una linea propia con el
+            // icono de fichas (token "(A )").
+            if (GameFrame.ANTE) {
+                GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
+            }
+
             if (Helpers.doubleSecureCompare(Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante),
                     buyin_sum) != 0) {
 

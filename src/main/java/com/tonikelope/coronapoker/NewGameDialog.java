@@ -2071,7 +2071,7 @@ public class NewGameDialog extends JDialog {
         }
     }
 
-    private void estructura_comboboxActionPerformed(java.awt.event.ActionEvent evt) {
+    private void estructura_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_estructura_comboboxActionPerformed
         if (!init) {
             return;
         }
@@ -2093,7 +2093,7 @@ public class NewGameDialog extends JDialog {
             return;
         }
         applySelectedStructure();
-    }
+    }//GEN-LAST:event_estructura_comboboxActionPerformed
 
     // Aplica la estructura seleccionada al combo de niveles (ciegas_combobox) y a
     // pending_structure. "Por defecto" => null + escalera 1-2-3-5; personalizada =>

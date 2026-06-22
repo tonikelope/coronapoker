@@ -71,7 +71,7 @@ import javax.swing.Timer;
  */
 public class AboutDialog extends JDialog {
 
-    public static final String VERSION = "21.75";
+    public static final String VERSION = "21.76";
     public static final String UPDATE_URL = "https://github.com/tonikelope/coronapoker/releases/latest";
 
     public static final String TITLE = "about.titulo";

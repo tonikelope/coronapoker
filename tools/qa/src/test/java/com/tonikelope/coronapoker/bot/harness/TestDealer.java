@@ -158,6 +158,11 @@ public final class TestDealer implements DealerView {
     }
 
     @Override
+    public String getStraddleUtgNick() {
+        return null; // el harness no simula straddle
+    }
+
+    @Override
     public BotPlayerView getLast_aggressor() {
         return lastAggressor;
     }

@@ -209,6 +209,9 @@ public class NewGameDialog extends JDialog {
         this.rebuy_limit_spinner.setModel(new SpinnerNumberModel(GameFrame.REBUY_LIMIT > 0 ? GameFrame.REBUY_LIMIT : 3, 1, null, 1));
         Helpers.makeNumericSpinnerEditable(rebuy_limit_spinner, false);
 
+        this.rebuy_cap_label.setEnabled(GameFrame.REBUY);
+        this.rebuy_cap_combo.setEnabled(GameFrame.REBUY);
+
         this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
         this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
         setBlindCapControlsEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
@@ -1697,6 +1700,8 @@ public class NewGameDialog extends JDialog {
         this.rebuy_limit_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
         this.rebuy_limit_spinner.setEnabled(this.rebuy_checkbox.isSelected() && this.rebuy_limit_checkbox.isSelected());
         this.bot_rebuy_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
+        this.rebuy_cap_label.setEnabled(this.rebuy_checkbox.isSelected());
+        this.rebuy_cap_combo.setEnabled(this.rebuy_checkbox.isSelected());
     }//GEN-LAST:event_rebuy_checkboxActionPerformed
 
     private void fixed_buyin_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fixed_buyin_checkboxActionPerformed
@@ -1840,13 +1845,12 @@ public class NewGameDialog extends JDialog {
             // El spinner sigue el modo: deshabilitado si es buy-in variable.
             this.buyin_spinner.setEnabled(this.fixed_buyin_checkbox.isSelected());
 
-            // El rango y la política de tope de recompra vuelven a ser editables.
+            // El rango de buy-in vuelve a ser editable. La política de tope de recompra
+            // se reactiva más abajo solo si la recompra está activada.
             this.buyin_min_bb_spinner.setEnabled(true);
             this.buyin_max_bb_spinner.setEnabled(true);
             this.buyin_range_label.setEnabled(true);
             this.buyin_range_sep_label.setEnabled(true);
-            this.rebuy_cap_combo.setEnabled(true);
-            this.rebuy_cap_label.setEnabled(true);
 
             this.buyin_label.setEnabled(true);
 
@@ -1901,10 +1905,14 @@ public class NewGameDialog extends JDialog {
                 this.rebuy_limit_checkbox.setEnabled(true);
                 this.rebuy_limit_spinner.setEnabled(this.rebuy_limit_checkbox.isSelected());
                 this.bot_rebuy_checkbox.setEnabled(true);
+                this.rebuy_cap_label.setEnabled(true);
+                this.rebuy_cap_combo.setEnabled(true);
             } else {
                 this.rebuy_limit_checkbox.setEnabled(false);
                 this.rebuy_limit_spinner.setEnabled(false);
                 this.bot_rebuy_checkbox.setEnabled(false);
+                this.rebuy_cap_label.setEnabled(false);
+                this.rebuy_cap_combo.setEnabled(false);
             }
 
             this.nick.setEnabled(true);

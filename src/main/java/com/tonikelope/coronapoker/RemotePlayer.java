@@ -2574,6 +2574,27 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
+    // Straddle voluntario: mientras el UTG decide (a ciegas) si pone el straddle, los
+    // demás peers pintan en su asiento el icono pensativo y "STRADDLE?" — mismo look que
+    // el "PENSANDO" del turno normal, pero sin arrancar la cuenta atrás del turno.
+    public void showStraddleThinking() {
+        Helpers.GUIRun(() -> {
+            setPlayerBorder(Color.ORANGE);
+            setActionBackground(new Color(204, 204, 204, 75));
+            player_action.setForeground(Color.LIGHT_GRAY);
+            setActionTextFitted(Translator.translate("straddle.pensando"));
+            setPlayerActionIcon("action/thinking.png");
+        });
+    }
+
+    // Limpia el visual "pensando" del straddle: vuelve el asiento al estado neutro (sin
+    // acción + borde neutro), igual que disablePlayerAction. Si el straddle se posteó, la
+    // ficha roja la pinta refreshPositionChipIcons aparte (en applyStraddlePost).
+    public void clearStraddleThinking() {
+        disablePlayerAction();
+        Helpers.GUIRun(() -> setPlayerBorder(new Color(204, 204, 204, 75)));
+    }
+
     @Override
     public void unsetSpectator() {
         this.spectator = false;

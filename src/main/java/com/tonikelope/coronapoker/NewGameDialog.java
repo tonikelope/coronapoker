@@ -193,6 +193,8 @@ public class NewGameDialog extends JDialog {
         Helpers.makeNumericSpinnerEditable(manos_spinner, false);
 
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
+        this.ante_checkbox.setSelected(GameFrame.ANTE);
+        this.straddle_checkbox.setSelected(GameFrame.STRADDLE);
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
 
         this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
@@ -626,6 +628,8 @@ public class NewGameDialog extends JDialog {
         blind_cap_checkbox = new javax.swing.JCheckBox();
         blind_cap_spinner = new javax.swing.JSpinner();
         blind_cap_label = new javax.swing.JLabel();
+        ante_checkbox = new javax.swing.JCheckBox();
+        straddle_checkbox = new javax.swing.JCheckBox();
         compra_panel = new javax.swing.JPanel();
         recompra_panel = new javax.swing.JPanel();
         rebuy_limit_checkbox = new javax.swing.JCheckBox();
@@ -933,6 +937,16 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap())
         );
 
+        ante_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        ante_checkbox.setText("Ante");
+        ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ante_checkbox.setDoubleBuffered(true);
+
+        straddle_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        straddle_checkbox.setText("Straddle");
+        straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        straddle_checkbox.setDoubleBuffered(true);
+
         javax.swing.GroupLayout ciegas_panelLayout = new javax.swing.GroupLayout(ciegas_panel);
         ciegas_panel.setLayout(ciegas_panelLayout);
         ciegas_panelLayout.setHorizontalGroup(
@@ -948,7 +962,11 @@ public class NewGameDialog extends JDialog {
                         .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(estructura_combobox, 0, 200, Short.MAX_VALUE)
                             .addComponent(ciegas_combobox, 0, 200, Short.MAX_VALUE)))
-                    .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(aumento_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(ciegas_panelLayout.createSequentialGroup()
+                        .addComponent(ante_checkbox)
+                        .addGap(18, 18, 18)
+                        .addComponent(straddle_checkbox)))
                 .addContainerGap())
         );
         ciegas_panelLayout.setVerticalGroup(
@@ -964,6 +982,10 @@ public class NewGameDialog extends JDialog {
                     .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(aumento_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(ante_checkbox)
+                    .addComponent(straddle_checkbox))
                 .addContainerGap())
         );
 
@@ -1475,6 +1497,10 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.REBUY = this.rebuy_checkbox.isSelected();
 
+            GameFrame.ANTE = this.ante_checkbox.isSelected();
+
+            GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
+
             GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
 
             GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
@@ -1603,6 +1629,10 @@ public class NewGameDialog extends JDialog {
                 // Sin este guard, los spinners/combo deshabilitados pisarían la config
                 // recuperada con los valores por defecto y la re-persistirían corrupta.
                 if (!GameFrame.RECOVER) {
+                    GameFrame.ANTE = this.ante_checkbox.isSelected();
+
+                    GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
+
                     GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
 
                     GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
@@ -2498,6 +2528,8 @@ public class NewGameDialog extends JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel aumento_panel;
     private javax.swing.JLabel avatar_label;
+    private javax.swing.JCheckBox ante_checkbox;
+    private javax.swing.JCheckBox straddle_checkbox;
     private javax.swing.JCheckBox blind_cap_checkbox;
     private javax.swing.JLabel blind_cap_label;
     private javax.swing.JSpinner blind_cap_spinner;

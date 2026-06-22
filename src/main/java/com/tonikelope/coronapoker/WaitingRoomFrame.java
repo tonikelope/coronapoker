@@ -3270,13 +3270,16 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.BUYIN_MIN_BB = partes_comando.length > 14 ? Integer.parseInt(partes_comando[14]) : BuyinRules.DEFAULT_MIN_BB;
                                                             GameFrame.BUYIN_MAX_BB = partes_comando.length > 15 ? Integer.parseInt(partes_comando[15]) : BuyinRules.DEFAULT_MAX_BB;
                                                             GameFrame.REBUY_CAP_POLICY = partes_comando.length > 16 ? Integer.parseInt(partes_comando[16]) : GameFrame.REBUY_CAP_BUYIN;
+                                                            // Ante y straddle (campos fijos; el cliente debe coincidir con el host).
+                                                            GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
+                                                            GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
                                                             // Estructura de ciegas personalizada (campo opcional al final): el
                                                             // cliente recomputa la escalada con la MISMA lista que el host.
                                                             // Ausente = escalera por defecto (null). Nunca conservar una
                                                             // estructura stale de una partida anterior.
-                                                            if (partes_comando.length > 17 && !partes_comando[17].isEmpty()) {
+                                                            if (partes_comando.length > 19 && !partes_comando[19].isEmpty()) {
                                                                 try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[17]);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[19]);
                                                                 } catch (IllegalArgumentException blinds_ex) {
                                                                     LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = null;

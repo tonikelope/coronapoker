@@ -140,6 +140,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int CIEGAS_DOUBLE = 60;
     public static volatile int CIEGAS_DOUBLE_TYPE = 1; //1 MINUTES, 2 HANDS
     public static volatile double BLIND_CAP = 0; //0 = sin tope; en otro caso, no se dobla si el siguiente nivel haria que la ciega grande la superase
+    public static volatile boolean ANTE = false; //true = cada jugador activo postea un ante (= ciega pequena) como dinero muerto al bote antes de las ciegas (opcion A: ante tradicional simetrico)
+    public static volatile boolean STRADDLE = false; //true = UTG postea un straddle obligatorio (= 2x ciega grande) live, con opcion; deshabilitado en heads-up
     // null = escalera por defecto 1-2-3-5 x10^n (camino legacy en Crupier, infinito por decadas).
     // non-null = estructura de ciegas personalizada (lista explicita {sb,bb}); la escalada la camina
     // por indice y topa en el ultimo nivel. La elige el host al crear timba, viaja a los clientes y se
@@ -367,7 +369,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 + "#BMINBB=" + BUYIN_MIN_BB
                 + "#BMAXBB=" + BUYIN_MAX_BB
                 // Política de tope de recompra (0=BUYIN, 1=stack más alto).
-                + "#RBCAP=" + REBUY_CAP_POLICY;
+                + "#RBCAP=" + REBUY_CAP_POLICY
+                + "#ANTE=" + (ANTE ? "1" : "0")
+                + "#STRADDLE=" + (STRADDLE ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -383,6 +387,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         BUYIN_MIN_BB = BuyinRules.DEFAULT_MIN_BB;
         BUYIN_MAX_BB = BuyinRules.DEFAULT_MAX_BB;
         REBUY_CAP_POLICY = REBUY_CAP_BUYIN;
+        // Mismo criterio para ante/straddle: una fila anterior a esta feature no trae
+        // las claves, asi que se parte SIEMPRE de off y no se arrastra un estado stale
+        // de otra timba abierta en esta misma sesion.
+        ANTE = false;
+        STRADDLE = false;
         if (serialized == null || serialized.isEmpty()) {
             return;
         }
@@ -457,6 +466,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         REBUY_CAP_POLICY = Integer.parseInt(val);
                     } catch (NumberFormatException ignore) {
                     }
+                    break;
+                case "ANTE":
+                    ANTE = "1".equals(val);
+                    break;
+                case "STRADDLE":
+                    STRADDLE = "1".equals(val);
                     break;
                 case "BLINDS":
                     // Vacío = escalera por defecto (null). Parse defensivo: si la lista

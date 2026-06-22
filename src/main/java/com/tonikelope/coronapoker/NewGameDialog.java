@@ -1415,7 +1415,7 @@ public class NewGameDialog extends JDialog {
         );
 
         preset_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        preset_label.setText("Preset:");
+        preset_label.setText("Perfil de ajustes:");
         preset_label.setDoubleBuffered(true);
 
         presets_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
@@ -2602,7 +2602,7 @@ public class NewGameDialog extends JDialog {
         suppress_preset_combo = true;
         try {
             presets_combobox.removeAllItems();
-            presets_combobox.addItem(Translator.translate("newgame.preset_elegir"));
+            presets_combobox.addItem(Translator.translate("newgame.preset_por_defecto"));
             for (String name : GamePreset.loadAll().keySet()) {
                 presets_combobox.addItem(name);
             }
@@ -2625,7 +2625,9 @@ public class NewGameDialog extends JDialog {
         int idx = presets_combobox.getSelectedIndex();
         preset_delete_button.setEnabled(idx > 0);
         if (idx <= 0) {
-            // El marcador "(elegir preset)" no carga nada.
+            // "Por defecto": restablece la configuración de fábrica de una timba nueva
+            // (igual que elegir la escalera "Por defecto" en el combo de estructuras).
+            applySettingsToControls(new GamePreset.Settings());
             return;
         }
         GamePreset preset = GamePreset.loadAll().get((String) presets_combobox.getSelectedItem());

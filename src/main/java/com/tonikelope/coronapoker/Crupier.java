@@ -2479,6 +2479,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return utg_nick;
     }
 
+    public boolean isStraddle_posted() {
+        return straddle_posted;
+    }
+
     public ConcurrentHashMap<String, Player> getNick2player() {
         return nick2player;
     }
@@ -6865,6 +6869,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     this.ultimo_raise = this.ciega_grande;
                 }
                 this.straddle_posted = true;
+                straddler.refreshPositionChipIcons();
             }
         }
 

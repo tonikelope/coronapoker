@@ -7005,11 +7005,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // trata como una subida completa de un incremento de ciega grande
         // (ultimo_raise = ciega_grande -> el siguiente raise minimo es 3x CG). El
         // straddler actua el ULTIMO preflop (opcion): rondaApuestas arranca en utg+1
-        // si straddle_posted. Solo mano fresca (game_recovered==0) y con 3+ jugadores
-        // (en heads-up no hay UTG distinto de las ciegas). Determinista: todos los
-        // peers postean igual (getBote/apuesta_actual identicos) y el consenso no
-        // diverge. En la mano RECUPERADA NO se postea aqui (paso de recover aparte).
-        if (GameFrame.STRADDLE && this.game_recovered == 0 && getJugadoresActivos() > 2) {
+        // si straddle_posted. Con 3+ jugadores (en heads-up no hay UTG distinto de las
+        // ciegas). Determinista: todos los peers postean igual (getBote/apuesta_actual
+        // identicos) y el consenso no diverge. TAMBIEN en la mano RECUPERADA: este
+        // bloque corre tras refreshPos y ANTES del replay de rondaApuestas, asi
+        // apuesta_actual=2xCG, ultimo_raise=CG y el orden de accion (utg+1) coinciden
+        // con la mano original; el straddle entra en bote_total por la suma de apuestas
+        // de abajo y el replay anade solo los deltas voluntarios (el check del
+        // straddler da delta 0 -> sin doble conteo). Si STRADDLE esta off, no toca nada.
+        if (GameFrame.STRADDLE && getJugadoresActivos() > 2) {
             Player straddler = null;
             for (Player j : GameFrame.getInstance().getJugadores()) {
                 if (j.getNickname().equals(this.utg_nick)) {
@@ -7072,15 +7076,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.bote_total += this.apuestas;
 
-            // Antes (opcion A: tradicional simetrico). Mano fresca (game_recovered==0):
-            // cada jugador activo postea el ante (= ciega pequena) al bote como DINERO
-            // MUERTO. No cuenta como apuesta a igualar (apuesta_actual sigue siendo la
-            // ciega grande): va por postAnte (NO setBet), asi que no entra en la suma de
-            // getBet() de arriba y se anade directo a bote_total. genSidePots/getTotal
-            // lo reparten bien porque keyan en getBote() (el ante esta dentro). En la
-            // mano RECUPERADA el ante NO se postea aqui: el replay de recover lo
-            // restaura aparte (ver recuperarDatosClavePartida / reposicion de antes).
-            if (GameFrame.ANTE && this.game_recovered == 0) {
+            // Antes (opcion A: tradicional simetrico). Cada jugador activo postea el
+            // ante (= ciega pequena) al bote como DINERO MUERTO. No cuenta como apuesta
+            // a igualar (apuesta_actual sigue siendo la ciega grande): va por postAnte
+            // (NO setBet), asi que no entra en la suma de getBet() y se anade directo a
+            // bote_total. genSidePots/getTotal lo reparten bien porque keyan en getBote()
+            // (el ante esta dentro). TAMBIEN en la mano RECUPERADA: el ante es dinero
+            // muerto que el replay NO reproduce (no es accion), asi que se repone aqui
+            // (corre tras refreshPos, antes del replay). Si ANTE esta off, no toca nada.
+            if (GameFrame.ANTE) {
                 double total_antes = 0f;
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     if (jugador.isActivo()) {

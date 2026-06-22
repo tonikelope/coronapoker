@@ -299,7 +299,7 @@
                         <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                           <Font name="Dialog" size="16" style="1"/>
                         </Property>
-                        <Property name="text" type="java.lang.String" value="Preset:"/>
+                        <Property name="text" type="java.lang.String" value="Perfil de ajustes:"/>
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <AuxValues>

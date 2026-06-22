@@ -843,6 +843,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return real;
     }
 
+    public synchronized double postStraddle(double amount) {
+
+        double want = Helpers.doubleClean(amount);
+
+        if (Helpers.doubleSecureCompare(want, stack) < 0) {
+            setBet(want);
+            return want;
+        }
+
+        // No cubre el straddle completo: all-in por el straddle.
+        double all = Helpers.doubleClean(stack);
+        setBet(all);
+        setDecision(Player.ALLIN);
+        return all;
+    }
+
     @Override
     public void esTuTurno() {
         turno = true;

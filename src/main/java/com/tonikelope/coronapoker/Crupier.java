@@ -838,6 +838,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile double partial_raise_cum = 0;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
+    private volatile boolean straddle_posted = false; // true si en esta mano (fresca) UTG posteo un straddle obligatorio
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
@@ -6679,6 +6680,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.partial_raise_cum = 0f;
         this.conta_raise = 0;
         this.conta_bet = 0;
+        this.straddle_posted = false;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
@@ -6833,6 +6835,38 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         this.apuesta_actual = this.ciega_grande;
+
+        // Straddle obligatorio (opcion fija): UTG postea 2x la ciega grande como
+        // ciega VIVA antes de la accion. Sube la apuesta a igualar al straddle y se
+        // trata como una subida completa de un incremento de ciega grande
+        // (ultimo_raise = ciega_grande -> el siguiente raise minimo es 3x CG). El
+        // straddler actua el ULTIMO preflop (opcion): rondaApuestas arranca en utg+1
+        // si straddle_posted. Solo mano fresca (game_recovered==0) y con 3+ jugadores
+        // (en heads-up no hay UTG distinto de las ciegas). Determinista: todos los
+        // peers postean igual (getBote/apuesta_actual identicos) y el consenso no
+        // diverge. En la mano RECUPERADA NO se postea aqui (paso de recover aparte).
+        if (GameFrame.STRADDLE && this.game_recovered == 0 && getJugadoresActivos() > 2) {
+            Player straddler = null;
+            for (Player j : GameFrame.getInstance().getJugadores()) {
+                if (j.getNickname().equals(this.utg_nick)) {
+                    straddler = j;
+                    break;
+                }
+            }
+            if (straddler != null && straddler.isActivo()) {
+                double straddle_amount = Helpers.doubleClean(2 * this.ciega_grande);
+                double posted = straddler.postStraddle(straddle_amount);
+                if (Helpers.doubleSecureCompare(this.apuesta_actual, posted) < 0) {
+                    this.apuesta_actual = posted;
+                }
+                // Solo el straddle COMPLETO cuenta como subida (un incremento de CG);
+                // un all-in por menos es straddle incompleto y deja las reglas de CG.
+                if (Helpers.doubleSecureCompare(posted, straddle_amount) >= 0) {
+                    this.ultimo_raise = this.ciega_grande;
+                }
+                this.straddle_posted = true;
+            }
+        }
 
         for (Player p : GameFrame.getInstance().getJugadores()) {
             if (p.isActivo()) {
@@ -10704,6 +10738,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.utg_nick)) {
                     conta_pos++;
                 }
+                if (this.straddle_posted) {
+                    // El straddler (UTG) actua el ULTIMO preflop (opcion): la accion
+                    // arranca en el asiento SIGUIENTE. El do-while salta asientos
+                    // inactivos, y end_pos = este conta_pos hace que el straddler sea
+                    // el ultimo en hablar antes de cerrar la ronda.
+                    conta_pos++;
+                    if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {
+                        conta_pos %= GameFrame.getInstance().getJugadores().size();
+                    }
+                }
             } else {
                 if (nick2player.containsKey(this.small_blind_nick) && nick2player.get(this.small_blind_nick).isActivo()) {
                     while (!GameFrame.getInstance().getJugadores().get(conta_pos).getNickname().equals(this.small_blind_nick)) {
@@ -11039,7 +11083,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     boolean isBBCheck = current_player.getNickname().equals(this.big_blind_nick)
                             && decision == Player.CHECK
                             && Helpers.doubleSecureCompare(this.apuesta_actual, this.getCiega_grande()) == 0;
-                    if (!isBBCheck && (decision == Player.CHECK || decision == Player.BET || decision == Player.ALLIN)) {
+                    // Con straddle, el "check gratis" lo tiene el straddler (UTG) sobre
+                    // su propio straddle (apuesta_actual == 2x CG), no la ciega grande:
+                    // ese check forzado tampoco cuenta como VPIP.
+                    boolean isStraddleCheck = this.straddle_posted
+                            && current_player.getNickname().equals(this.utg_nick)
+                            && decision == Player.CHECK
+                            && Helpers.doubleSecureCompare(this.apuesta_actual, Helpers.doubleClean(2 * this.getCiega_grande())) == 0;
+                    if (!isBBCheck && !isStraddleCheck && (decision == Player.CHECK || decision == Player.BET || decision == Player.ALLIN)) {
                         stats.recordVPIP(this.conta_mano);
                     }
                     if (decision == Player.BET || decision == Player.ALLIN) {

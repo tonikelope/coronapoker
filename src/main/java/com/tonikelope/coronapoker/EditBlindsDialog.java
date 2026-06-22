@@ -99,6 +99,11 @@ public class EditBlindsDialog extends JDialog {
             ciegas_double_type = GameFrame.CIEGAS_DOUBLE_TYPE;
         }
 
+        this.ante_checkbox.setSelected(GameFrame.ANTE);
+        this.ante_checkbox.setEnabled(!read_only);
+        this.straddle_checkbox.setSelected(GameFrame.STRADDLE);
+        this.straddle_checkbox.setEnabled(!read_only);
+
         this.doblar_checkbox.setSelected(ciegas_double > 0);
 
         double_blinds_radio_minutos.setEnabled(ciegas_double > 0);
@@ -186,6 +191,8 @@ public class EditBlindsDialog extends JDialog {
         jPanel1 = new javax.swing.JPanel();
         blind_cap_panel = new javax.swing.JPanel();
         doblar_checkbox = new javax.swing.JCheckBox();
+        ante_checkbox = new javax.swing.JCheckBox();
+        straddle_checkbox = new javax.swing.JCheckBox();
         doblar_ciegas_spinner_minutos = new javax.swing.JSpinner();
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
         double_blinds_radio_manos = new javax.swing.JRadioButton();
@@ -289,6 +296,16 @@ public class EditBlindsDialog extends JDialog {
                 .addContainerGap())
         );
 
+        ante_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        ante_checkbox.setText("Ante");
+        ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        ante_checkbox.setDoubleBuffered(true);
+
+        straddle_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        straddle_checkbox.setText("Straddle");
+        straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        straddle_checkbox.setDoubleBuffered(true);
+
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
@@ -307,7 +324,11 @@ public class EditBlindsDialog extends JDialog {
                         .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(doblar_ciegas_spinner_manos)
                             .addComponent(doblar_ciegas_spinner_minutos)))
-                    .addComponent(blind_cap_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(blind_cap_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(ante_checkbox)
+                        .addGap(18, 18, 18)
+                        .addComponent(straddle_checkbox)))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -325,6 +346,10 @@ public class EditBlindsDialog extends JDialog {
                     .addComponent(doblar_ciegas_spinner_minutos, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(blind_cap_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(ante_checkbox)
+                    .addComponent(straddle_checkbox))
                 .addContainerGap())
         );
 
@@ -516,6 +541,9 @@ public class EditBlindsDialog extends JDialog {
         double blind_cap = (this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected()) ? blindCapSelectedBB() : 0;
         GameFrame.BLIND_CAP = blind_cap;
 
+        GameFrame.ANTE = this.ante_checkbox.isSelected();
+        GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
+
         String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
         GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.valueOf(valores_ciegas[0].trim()), Double.valueOf(valores_ciegas[1].trim()), ciegas_double, ciegas_double_type);
@@ -523,7 +551,7 @@ public class EditBlindsDialog extends JDialog {
         setVisible(false);
 
         Helpers.threadRun(() -> {
-            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim() + "#" + String.valueOf(blind_cap), null);
+            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double) + "#" + String.valueOf(ciegas_double_type) + "#" + valores_ciegas[0].trim() + "#" + valores_ciegas[1].trim() + "#" + String.valueOf(blind_cap) + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE), null);
 
             GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
         });
@@ -542,6 +570,8 @@ public class EditBlindsDialog extends JDialog {
     private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JButton cancel_button;
     private javax.swing.JComboBox<String> ciegas_combobox;
+    private javax.swing.JCheckBox ante_checkbox;
+    private javax.swing.JCheckBox straddle_checkbox;
     private javax.swing.JCheckBox doblar_checkbox;
     private javax.swing.JSpinner doblar_ciegas_spinner_manos;
     private javax.swing.JSpinner doblar_ciegas_spinner_minutos;

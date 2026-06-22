@@ -6862,6 +6862,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             this.bote_total += this.apuestas;
 
+            // Antes (opcion A: tradicional simetrico). Mano fresca (game_recovered==0):
+            // cada jugador activo postea el ante (= ciega pequena) al bote como DINERO
+            // MUERTO. No cuenta como apuesta a igualar (apuesta_actual sigue siendo la
+            // ciega grande): va por postAnte (NO setBet), asi que no entra en la suma de
+            // getBet() de arriba y se anade directo a bote_total. genSidePots/getTotal
+            // lo reparten bien porque keyan en getBote() (el ante esta dentro). En la
+            // mano RECUPERADA el ante NO se postea aqui: el replay de recover lo
+            // restaura aparte (ver recuperarDatosClavePartida / reposicion de antes).
+            if (GameFrame.ANTE && this.game_recovered == 0) {
+                double total_antes = 0f;
+                for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                    if (jugador.isActivo()) {
+                        total_antes += jugador.postAnte(this.ciega_pequeña);
+                    }
+                }
+                this.bote_total += total_antes;
+            }
+
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
                 GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);

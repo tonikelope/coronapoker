@@ -113,4 +113,50 @@ public class HandPotCharacterizationTest {
         assertEquals(22.0, pot.getTotal(), EPS, "10 + 10 live + 2 dead from the folder");
         assertEquals(22.0, sumAllPots(pot), EPS, "conservation: 2 + 10 + 10");
     }
+
+    // ----- ante (option A: traditional symmetric) -----------------------------
+    // Antes are dead money folded into each player's getBote(); the existing
+    // getBote()-keyed side-pot math must absorb them with no structural change.
+    // This is exactly why option A was chosen over big-blind ante.
+
+    @Test
+    void symmetricAntesRideTheNormalPot() {
+        // Each player antes 0.25 then calls the 2.00 big blind -> bote 2.25 each.
+        HandPot pot = topPot(
+                p("a", 2.25, Player.BET, true),
+                p("b", 2.25, Player.BET, true),
+                p("c", 2.25, Player.BET, true));
+
+        assertEquals(0, pot.getSide_pot_count(), "symmetric antes -> no side pot");
+        assertEquals(6.75, pot.getTotal(), EPS, "3 x (2.00 + 0.25 ante)");
+        assertEquals(6.75, sumAllPots(pot), EPS, "conservation");
+    }
+
+    @Test
+    void foldedAntePlayerLeavesAnteAsDeadMoney() {
+        // a antes 0.25 then folds; b and c ante+call (2.25 each). a's 0.25 ante
+        // stays in the main pot as dead money for the live contenders.
+        HandPot pot = topPot(
+                p("a", 0.25, Player.FOLD, false),
+                p("b", 2.25, Player.BET, true),
+                p("c", 2.25, Player.BET, true));
+
+        assertEquals(0, pot.getSide_pot_count(), "equal live contenders -> no side pot");
+        assertEquals(4.75, pot.getTotal(), EPS, "2.25 + 2.25 live + 0.25 dead ante");
+        assertEquals(4.75, sumAllPots(pot), EPS, "conservation: 0.25 + 2.25 + 2.25");
+    }
+
+    @Test
+    void shortAllInForTheAnteFormsItsOwnSidePot() {
+        // a is all-in for just the 0.25 ante; b and c contest 2.25 each.
+        HandPot pot = topPot(
+                p("a", 0.25, Player.ALLIN, true),
+                p("b", 2.25, Player.BET, true),
+                p("c", 2.25, Player.BET, true));
+
+        assertEquals(1, pot.getSide_pot_count(), "ante-only all-in -> one side pot");
+        assertEquals(0.75, pot.getTotal(), EPS, "main pot = 0.25 x 3");
+        assertEquals(4.0, pot.getSidePot().getTotal(), EPS, "side pot = 2.0 x 2");
+        assertEquals(4.75, sumAllPots(pot), EPS, "conservation: 0.25 + 2.25 + 2.25");
+    }
 }

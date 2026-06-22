@@ -1066,6 +1066,38 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
+    public synchronized double postAnte(double ante) {
+
+        if (Helpers.doubleSecureCompare(0f, stack) >= 0) {
+            return 0f; // ya all-in / sin fichas: nada que antear
+        }
+
+        double real;
+
+        if (Helpers.doubleSecureCompare(ante, stack) < 0) {
+            real = Helpers.doubleClean(ante);
+        } else {
+            // No cubre el ante completo: all-in por el ante.
+            real = Helpers.doubleClean(stack);
+            setDecision(Player.ALLIN);
+        }
+
+        this.bote += real;
+        setStack(stack - real);
+
+        GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
+
+        Helpers.GUIRunAndWait(() -> {
+            if (Helpers.doubleSecureCompare(0, bote) < 0) {
+                player_pot.setText(Helpers.money2String(bote));
+            } else {
+                player_pot.setText("----");
+            }
+        });
+
+        return real;
+    }
+
     public JLabel getPlayer_stack() {
         return player_stack;
     }

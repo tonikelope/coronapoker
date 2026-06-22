@@ -182,6 +182,11 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
+    public double postAnte(double ante) {
+        throw nope();
+    }
+
+    @Override
     public void disableUTG() {
         throw nope();
     }

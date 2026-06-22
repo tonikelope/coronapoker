@@ -2537,6 +2537,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
+        // El community panel (y su pot_label) debe estar VISIBLE y posicionado al
+        // volar: si no, getPotIconScreenCenter() devuelve null y flyChipToPot manda
+        // las fichas al CENTRO de la mesa (fallback). Lo mostramos aqui (aparece el
+        // community); el barajado lo vuelve a ocultar despues (setVisible(false) +
+        // showCentralFramesLoop), asi la secuencia es: aparece community -> vuelan
+        // las forzadas al bote + flaseo + incremento -> se oculta para el barajado.
+        Helpers.GUIRunAndWait(() -> {
+            GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+            GameFrame.getInstance().getTapete().getCommunityCards().revalidate();
+            GameFrame.getInstance().getTapete().getCommunityCards().repaint();
+        });
+
         Audio.playWavResource("misc/bet.wav");
 
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(contributors.size());

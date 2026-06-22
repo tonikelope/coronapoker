@@ -141,6 +141,9 @@ public class NewGameDialog extends JDialog {
         nick_pass_panel.setVisible(false);
         config_partida_panel.setVisible(true);
 
+        // Los presets solo aplican al CREAR una timba, no al modificar opciones en vivo.
+        presets_panel.setVisible(false);
+
         this.recover_panel.setVisible(false);
         this.vamos.setText(Translator.translate("ui.guardar"));
 
@@ -356,6 +359,13 @@ public class NewGameDialog extends JDialog {
 
         } else {
             bots_panel.setVisible(false);
+        }
+
+        // Presets: solo al crear timba como host (no al unirse). Ocultos en otros
+        // modos para no ofrecer cargar una config completa donde no aplica.
+        presets_panel.setVisible(partida_local);
+        if (partida_local) {
+            populatePresetsCombo(null);
         }
 
         game_combo.setEnabled(false);
@@ -658,6 +668,14 @@ public class NewGameDialog extends JDialog {
         bots_combobox = new javax.swing.JComboBox<>();
         bots_label = new javax.swing.JLabel();
         titulo_ventana = new javax.swing.JLabel();
+        presets_panel = new javax.swing.JPanel();
+        preset_label = new javax.swing.JLabel();
+        preset_label.putClientProperty("i18n.key", "newgame.preset_label");
+        presets_combobox = new javax.swing.JComboBox<>();
+        preset_save_button = new javax.swing.JButton();
+        preset_save_button.putClientProperty("i18n.key", "newgame.preset_guardar");
+        preset_delete_button = new javax.swing.JButton();
+        preset_delete_button.putClientProperty("i18n.key", "newgame.preset_borrar");
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("CoronaPoker - Nueva timba");
@@ -1396,11 +1414,74 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap())
         );
 
+        preset_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        preset_label.setText("Preset:");
+        preset_label.setDoubleBuffered(true);
+
+        presets_combobox.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        presets_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        presets_combobox.setDoubleBuffered(true);
+        presets_combobox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                presets_comboboxActionPerformed(evt);
+            }
+        });
+
+        preset_save_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        preset_save_button.setText("Guardar…");
+        preset_save_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        preset_save_button.setDoubleBuffered(true);
+        preset_save_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                preset_save_buttonActionPerformed(evt);
+            }
+        });
+
+        preset_delete_button.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
+        preset_delete_button.setText("Borrar");
+        preset_delete_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        preset_delete_button.setDoubleBuffered(true);
+        preset_delete_button.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                preset_delete_buttonActionPerformed(evt);
+            }
+        });
+
+        presets_panel.setOpaque(false);
+
+        javax.swing.GroupLayout presets_panelLayout = new javax.swing.GroupLayout(presets_panel);
+        presets_panel.setLayout(presets_panelLayout);
+        presets_panelLayout.setHorizontalGroup(
+            presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(presets_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(preset_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(presets_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 300, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(preset_save_button)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(preset_delete_button)
+                .addContainerGap())
+        );
+        presets_panelLayout.setVerticalGroup(
+            presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(presets_panelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(presets_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(preset_label)
+                    .addComponent(presets_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(preset_save_button)
+                    .addComponent(preset_delete_button))
+                .addContainerGap())
+        );
+
         javax.swing.GroupLayout main_panelLayout = new javax.swing.GroupLayout(main_panel);
         main_panel.setLayout(main_panelLayout);
         main_panelLayout.setHorizontalGroup(
             main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(url_panel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(presets_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(recover_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -1417,6 +1498,8 @@ public class NewGameDialog extends JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(recover_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(presets_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -2160,9 +2243,15 @@ public class NewGameDialog extends JDialog {
     // no, deja la escalera por defecto. Llamar ANTES de la lógica que busca y
     // selecciona el nivel de ciega actual en el combo.
     private void initBlindStructureUI() {
+        initBlindStructureUIFrom(GameFrame.ACTIVE_BLIND_STRUCTURE);
+    }
+
+    // Igual que initBlindStructureUI pero tomando la estructura activa como
+    // parámetro (null = escalera por defecto), para que cargar un preset refleje
+    // SU estructura en el combo sin pasar por GameFrame.
+    private void initBlindStructureUIFrom(double[][] active) {
         pending_structure = null;
         String selectName = null;
-        double[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
         if (active != null) {
             for (java.util.Map.Entry<String, BlindStructure> e : BlindStructure.loadAll().entrySet()) {
                 if (java.util.Arrays.deepEquals(e.getValue().getLevels(), active)) {
@@ -2276,10 +2365,16 @@ public class NewGameDialog extends JDialog {
     // Reconstruye el nº de subidas desde el GameFrame.BLIND_CAP guardado (busca el
     // nivel cuya ciega grande coincide); si no hay tope guardado, el default (5).
     private int blindCapDoublingsFromCap() {
+        return blindCapDoublingsFromCap(GameFrame.BLIND_CAP);
+    }
+
+    // Igual pero tomando el tope (ciega grande del nivel-tope) como parámetro, para
+    // reconstruir el nº de subidas al cargar un preset sin pasar por GameFrame.
+    private int blindCapDoublingsFromCap(double cap) {
         int initial = Math.max(0, ciegas_combobox.getSelectedIndex());
-        if (GameFrame.BLIND_CAP > 0f) {
+        if (cap > 0f) {
             for (int k = initial + 1; k < ciegas_combobox.getModel().getSize(); k++) {
-                if (Helpers.doubleSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), GameFrame.BLIND_CAP) == 0) {
+                if (Helpers.doubleSecureCompare(parseBlindLevelBB(ciegas_combobox.getItemAt(k)), cap) == 0) {
                     return k - initial;
                 }
             }
@@ -2488,6 +2583,283 @@ public class NewGameDialog extends JDialog {
         // Selection is committed only when the user accepts the dialog (see vamosActionPerformed).
     }//GEN-LAST:event_bots_comboboxActionPerformed
 
+    // ===== Presets de nueva partida (solo al crear timba como host) ===========
+    // Un preset guarda TODA la configuración de la timba (ciegas, estructura
+    // elegida, buy-in, recompra, aumento, tope, manos, ante, straddle, bots), como
+    // las estructuras de ciegas propias. El diálogo mapea sus controles
+    // hacia/desde GamePreset.Settings y NO toca GameFrame (salvo el rango de buy-in,
+    // que el diálogo ya usa GameFrame como almacén de trabajo): cargar un preset y
+    // luego cancelar no deja rastro.
+
+    private static final int MAX_PRESET_NAME_LENGTH = 40;
+    // Suprime la carga al repoblar el combo o cuando el guard interno lo exige.
+    private boolean suppress_preset_combo = false;
+
+    // (Re)llena el combo de presets: marcador "(elegir preset)" + nombres guardados.
+    // No dispara la carga (baja el guard mientras repuebla). Reselecciona por nombre
+    // si se indica.
+    private void populatePresetsCombo(String selectName) {
+        suppress_preset_combo = true;
+        try {
+            presets_combobox.removeAllItems();
+            presets_combobox.addItem(Translator.translate("newgame.preset_elegir"));
+            for (String name : GamePreset.loadAll().keySet()) {
+                presets_combobox.addItem(name);
+            }
+            if (selectName != null) {
+                presets_combobox.setSelectedItem(selectName);
+            }
+            if (presets_combobox.getSelectedItem() == null) {
+                presets_combobox.setSelectedIndex(0);
+            }
+            preset_delete_button.setEnabled(presets_combobox.getSelectedIndex() > 0);
+        } finally {
+            suppress_preset_combo = false;
+        }
+    }
+
+    private void presets_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_presets_comboboxActionPerformed
+        if (suppress_preset_combo) {
+            return;
+        }
+        int idx = presets_combobox.getSelectedIndex();
+        preset_delete_button.setEnabled(idx > 0);
+        if (idx <= 0) {
+            // El marcador "(elegir preset)" no carga nada.
+            return;
+        }
+        GamePreset preset = GamePreset.loadAll().get((String) presets_combobox.getSelectedItem());
+        if (preset != null) {
+            applySettingsToControls(GamePreset.Settings.parse(preset.getSettings()));
+        }
+    }//GEN-LAST:event_presets_comboboxActionPerformed
+
+    private void preset_save_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_preset_save_buttonActionPerformed
+        String name = promptPresetName();
+        if (name == null) {
+            return;
+        }
+        java.util.LinkedHashMap<String, GamePreset> all = GamePreset.loadAll();
+        boolean exists = all.containsKey(name);
+        if (exists) {
+            if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("newgame.preset_sobrescribir", name)) != 0) {
+                return;
+            }
+        } else if (all.size() >= GamePreset.MAX_PRESETS) {
+            Helpers.mostrarMensajeError(this, Translator.translate("newgame.preset_limite", GamePreset.MAX_PRESETS));
+            return;
+        }
+        all.put(name, new GamePreset(name, captureSettingsFromControls().serialize()));
+        GamePreset.saveAll(all.values());
+        populatePresetsCombo(name);
+    }//GEN-LAST:event_preset_save_buttonActionPerformed
+
+    private void preset_delete_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_preset_delete_buttonActionPerformed
+        int idx = presets_combobox.getSelectedIndex();
+        if (idx <= 0) {
+            return;
+        }
+        String name = (String) presets_combobox.getSelectedItem();
+        if (Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("newgame.preset_confirmar_borrar", name)) != 0) {
+            return;
+        }
+        java.util.LinkedHashMap<String, GamePreset> all = GamePreset.loadAll();
+        all.remove(name);
+        GamePreset.saveAll(all.values());
+        populatePresetsCombo(null);
+    }//GEN-LAST:event_preset_delete_buttonActionPerformed
+
+    // Pide un nombre de preset (caja con la fuente de la app, igual que el editor de
+    // estructuras). Devuelve null al cancelar o si queda vacío.
+    private String promptPresetName() {
+        javax.swing.JLabel prompt = new javax.swing.JLabel(Translator.translate("newgame.preset_nombre"));
+        javax.swing.JTextField field = new javax.swing.JTextField("", 18);
+        javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.BorderLayout(0, 8));
+        panel.add(prompt, java.awt.BorderLayout.NORTH);
+        panel.add(field, java.awt.BorderLayout.CENTER);
+        javax.swing.JOptionPane pane = new javax.swing.JOptionPane(panel, javax.swing.JOptionPane.PLAIN_MESSAGE, javax.swing.JOptionPane.OK_CANCEL_OPTION);
+        javax.swing.JDialog d = pane.createDialog(this, getTitle());
+        Helpers.updateFonts(pane, Helpers.GUI_FONT, 1.15f);
+        d.pack();
+        d.setLocationRelativeTo(this);
+        d.setVisible(true);
+        d.dispose();
+        if (!Integer.valueOf(javax.swing.JOptionPane.OK_OPTION).equals(pane.getValue())) {
+            return null;
+        }
+        String name = field.getText().trim();
+        if (name.isEmpty()) {
+            return null;
+        }
+        return name.length() > MAX_PRESET_NAME_LENGTH ? name.substring(0, MAX_PRESET_NAME_LENGTH) : name;
+    }
+
+    // Lee la configuración ACTUAL de los controles a un Settings (sin tocar
+    // GameFrame). Mismo mapeo que el commit de vamosActionPerformed.
+    private GamePreset.Settings captureSettingsFromControls() {
+        GamePreset.Settings s = new GamePreset.Settings();
+        String[] v = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
+        s.smallBlind = Double.parseDouble(v[0].trim());
+        s.bigBlind = Double.parseDouble(v[1].trim());
+        s.structure = pending_structure != null ? pending_structure.getLevels() : null;
+        s.buyin = ((Number) buyin_spinner.getValue()).intValue();
+        s.fixedBuyin = fixed_buyin_checkbox.isSelected();
+        s.minBb = ((Number) buyin_min_bb_spinner.getValue()).intValue();
+        s.maxBb = ((Number) buyin_max_bb_spinner.getValue()).intValue();
+        s.rebuy = rebuy_checkbox.isSelected();
+        s.rebuyLimit = rebuy_limit_checkbox.isSelected() ? ((Number) rebuy_limit_spinner.getValue()).intValue() : 0;
+        s.botRebuy = bot_rebuy_checkbox.isSelected();
+        s.rebuyCapPolicy = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+        if (doblar_checkbox.isSelected()) {
+            if (double_blinds_radio_minutos.isSelected()) {
+                s.doubleEvery = ((Number) doblar_ciegas_spinner_minutos.getValue()).intValue();
+                s.doubleType = 1;
+            } else {
+                s.doubleEvery = ((Number) doblar_ciegas_spinner_manos.getValue()).intValue();
+                s.doubleType = 2;
+            }
+        } else {
+            s.doubleEvery = 0;
+            s.doubleType = 1;
+        }
+        s.blindCap = blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0;
+        s.handLimit = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
+        s.ante = ante_checkbox.isSelected();
+        s.straddle = straddle_checkbox.isSelected();
+        s.difficulty = partida_local ? botDifficultyFromComboIndex(bots_combobox.getSelectedIndex()) : Bot.DIFFICULTY;
+        return s;
+    }
+
+    private Bot.Difficulty botDifficultyFromComboIndex(int idx) {
+        switch (idx) {
+            case 0:
+                return Bot.Difficulty.EASY;
+            case 2:
+                return Bot.Difficulty.HARD;
+            default:
+                return Bot.Difficulty.MEDIUM;
+        }
+    }
+
+    private int botComboIndexFromDifficulty(Bot.Difficulty d) {
+        switch (d) {
+            case EASY:
+                return 0;
+            case HARD:
+                return 2;
+            default:
+                return 1;
+        }
+    }
+
+    // Selecciona en el combo de niveles la ciega "sb / bg" indicada, si existe.
+    private void selectCurrentBlindLevel(double sb, double bg) {
+        String ciegas = BlindStructure.formatLevel(sb, bg);
+        int t = ciegas_combobox.getModel().getSize();
+        for (int i = 0; i < t; i++) {
+            if (ciegas_combobox.getItemAt(i).equals(ciegas)) {
+                ciegas_combobox.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
+    // Vuelca un Settings a los controles del diálogo (sin tocar GameFrame salvo el
+    // rango de buy-in, que el diálogo ya usa como almacén de trabajo). Mismo orden
+    // que el read-back del constructor de modificar: primero los toggles/enable y al
+    // final estructura -> nivel -> buy-in/tope (que dependen del nivel elegido).
+    private void applySettingsToControls(GamePreset.Settings s) {
+        boolean prev_init = init;
+        init = false;
+        try {
+            // Aumentar ciegas + minutos/manos.
+            doblar_checkbox.setSelected(s.doubleEvery > 0);
+            double_blinds_radio_minutos.setEnabled(s.doubleEvery > 0);
+            double_blinds_radio_manos.setEnabled(s.doubleEvery > 0);
+            if (s.doubleType <= 1) {
+                doblar_ciegas_spinner_minutos.setEnabled(s.doubleEvery > 0);
+                doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(s.doubleEvery > 0 ? s.doubleEvery : 60, 1, null, 1));
+                doblar_ciegas_spinner_manos.setEnabled(false);
+                double_blinds_radio_minutos.setSelected(true);
+                double_blinds_radio_manos.setSelected(false);
+            } else {
+                doblar_ciegas_spinner_manos.setEnabled(s.doubleEvery > 0);
+                doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(s.doubleEvery > 0 ? s.doubleEvery : 60, 1, null, 1));
+                doblar_ciegas_spinner_minutos.setEnabled(false);
+                double_blinds_radio_minutos.setSelected(false);
+                double_blinds_radio_manos.setSelected(true);
+            }
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
+            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
+
+            // Límite de manos.
+            manos_checkbox.setSelected(s.handLimit > 0);
+            manos_spinner.setEnabled(s.handLimit > 0);
+            manos_spinner.setModel(new SpinnerNumberModel(s.handLimit > 0 ? s.handLimit : 60, 1, null, 1));
+            Helpers.makeNumericSpinnerEditable(manos_spinner, false);
+
+            // Recompra + ante + straddle.
+            rebuy_checkbox.setSelected(s.rebuy);
+            ante_checkbox.setSelected(s.ante);
+            straddle_checkbox.setSelected(s.straddle);
+            bot_rebuy_checkbox.setSelected(s.botRebuy);
+            bot_rebuy_checkbox.setEnabled(s.rebuy);
+
+            // Modo de buy-in.
+            fixed_buyin_checkbox.setSelected(s.fixedBuyin);
+            buyin_spinner.setEnabled(s.fixedBuyin);
+
+            // Rango de buy-in + política de tope de recompra: GameFrame es el almacén
+            // de trabajo de estos (como ya hace initBuyinRangeAndCapUI / el spinner).
+            GameFrame.BUYIN_MIN_BB = s.minBb;
+            GameFrame.BUYIN_MAX_BB = s.maxBb;
+            GameFrame.REBUY_CAP_POLICY = s.rebuyCapPolicy;
+            initBuyinRangeAndCapUI();
+
+            // Límite de recompras.
+            rebuy_limit_checkbox.setSelected(s.rebuyLimit > 0);
+            rebuy_limit_checkbox.setEnabled(s.rebuy);
+            rebuy_limit_spinner.setEnabled(s.rebuy && s.rebuyLimit > 0);
+            rebuy_limit_spinner.setModel(new SpinnerNumberModel(s.rebuyLimit > 0 ? s.rebuyLimit : 3, 1, null, 1));
+            Helpers.makeNumericSpinnerEditable(rebuy_limit_spinner, false);
+            rebuy_cap_label.setEnabled(s.rebuy);
+            rebuy_cap_combo.setEnabled(s.rebuy);
+
+            // Tope de ciega (checkbox + enable; el modelo del spinner se fija abajo).
+            blind_cap_checkbox.setSelected(s.blindCap > 0);
+            blind_cap_checkbox.setEnabled(s.doubleEvery > 0);
+
+            // Estructura -> niveles del combo -> nivel actual.
+            initBlindStructureUIFrom(s.structure);
+            double[][] levels = s.structure != null ? s.structure : BlindStructure.defaultLevels();
+            String[] items = new String[levels.length];
+            for (int i = 0; i < levels.length; i++) {
+                items[i] = BlindStructure.formatLevel(levels[i][0], levels[i][1]);
+            }
+            ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
+            selectCurrentBlindLevel(s.smallBlind, s.bigBlind);
+
+            // Buy-in para el nivel elegido (clamp del valor del preset al rango).
+            rebuildBuyinSpinnerModel();
+            SpinnerNumberModel bm = (SpinnerNumberModel) buyin_spinner.getModel();
+            int blo = ((Number) bm.getMinimum()).intValue();
+            int bhi = ((Number) bm.getMaximum()).intValue();
+            buyin_spinner.setValue(Math.max(blo, Math.min(s.buyin, bhi)));
+
+            // Tope de ciega: nº de subidas reconstruido desde el tope del preset.
+            modelBlindCapSpinner(blindCapDoublingsFromCap(s.blindCap));
+            setBlindCapControlsEnabled(s.doubleEvery > 0 && s.blindCap > 0);
+
+            // Dificultad de los bots.
+            if (partida_local) {
+                bots_combobox.setSelectedIndex(botComboIndexFromDifficulty(s.difficulty));
+            }
+        } finally {
+            init = prev_init;
+        }
+        packPreservingCenter();
+    }
+
     private void packPreservingCenter() {
 
         int center_x = getX() + getWidth() / 2;
@@ -2569,6 +2941,11 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel partida_panel;
     private javax.swing.JPasswordField pass_text;
     private javax.swing.JLabel password;
+    private javax.swing.JButton preset_delete_button;
+    private javax.swing.JLabel preset_label;
+    private javax.swing.JButton preset_save_button;
+    private javax.swing.JComboBox<String> presets_combobox;
+    private javax.swing.JPanel presets_panel;
     private javax.swing.JComboBox<String> rebuy_cap_combo;
     private javax.swing.JLabel rebuy_cap_label;
     private javax.swing.JCheckBox rebuy_checkbox;

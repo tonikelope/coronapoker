@@ -137,7 +137,7 @@ public final class GameLogDialog extends JDialog {
         }
         String t = line.substring(0, 4);
         return t.equals("(D )") || t.equals("(SB)") || t.equals("(BB)") || t.equals("(  )")
-                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)");
+                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)") || t.equals("(A )");
     }
 
     // Clears the pane and re-renders the whole text (used by setText paths:
@@ -322,6 +322,7 @@ public final class GameLogDialog extends JDialog {
                     }
                     return ROLE_BB;
                 case "($$)":
+                case "(A )":
                     if (ROLE_MONEY == null) {
                         ROLE_MONEY = scaledRoleIcon("/images/chips.png");
                     }

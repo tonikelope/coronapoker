@@ -216,6 +216,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
     private javax.swing.Timer pot_flash_timer;
     private Color pot_flash_restore;
+    private Runnable pot_flash_done_callback; // se ejecuta al terminar el parpadeo (el ULTIMO, tras re-entradas); para esperar al fin EXACTO del flash sin tiempos arbitrarios
 
     public void flashPotLabelYellow() {
         flashPotLabelYellow(null);
@@ -250,9 +251,28 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                 if (pot_flash_restore != null) {
                     pot_label.setForeground(pot_flash_restore);
                 }
+                Runnable cb = pot_flash_done_callback;
+                pot_flash_done_callback = null;
+                if (cb != null) {
+                    cb.run();
+                }
             });
             pot_flash_timer.setRepeats(false);
             pot_flash_timer.start();
+        });
+    }
+
+    // Registra un callback que se ejecuta cuando el parpadeo del pot_label EN CURSO
+    // termine (o de inmediato si no hay ninguno corriendo). Permite esperar al fin
+    // EXACTO del flash (170ms tras el ultimo aterrizaje) sin numeros magicos: lo usa
+    // la animacion de forzadas para no ocultar el community hasta que se vea el flash.
+    public void onPotFlashDone(Runnable cb) {
+        Helpers.GUIRun(() -> {
+            if (pot_flash_timer != null && pot_flash_timer.isRunning()) {
+                pot_flash_done_callback = cb;
+            } else if (cb != null) {
+                cb.run();
+            }
         });
     }
 

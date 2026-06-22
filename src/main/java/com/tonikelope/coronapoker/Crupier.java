@@ -2573,12 +2573,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Thread.currentThread().interrupt();
         }
 
-        // Pausa para que se VEA el bote subir y el flaseo amarillo antes de que el
-        // barajado oculte el community panel (la animacion de aterrizaje/flash dura un
-        // instante mas tras el ultimo countDown). Sin esto, el community se ocultaba
-        // al instante y no se apreciaba ni el incremento ni el flash.
+        // Espera al fin EXACTO del parpadeo amarillo del bote (NO un tiempo arbitrario):
+        // onPotFlashDone dispara su callback cuando el timer del flash (170ms tras el
+        // ultimo aterrizaje) termina, o de inmediato si ya no hay flash. Asi el barajado
+        // no oculta el community hasta que se haya visto el incremento + el flaseo.
         if (!isFin_de_la_transmision()) {
-            Helpers.pausar(700);
+            final java.util.concurrent.CountDownLatch flash_done = new java.util.concurrent.CountDownLatch(1);
+            GameFrame.getInstance().getTapete().getCommunityCards().onPotFlashDone(flash_done::countDown);
+            try {
+                flash_done.await(2, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

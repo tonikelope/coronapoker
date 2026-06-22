@@ -2407,6 +2407,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Helpers.setScaledIconLabel(player_name, getClass().getResource(GameFrame.getInstance().getCrupier().isDead_dealer() ? "/images/dead_dealer.png" : "/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
             chip_label_icon = GameFrame.getInstance().getCrupier().isDead_dealer() ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER;
+        } else if (GameFrame.getInstance().getCrupier().isStraddle_posted()
+                && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
+            Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/straddle.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+
+            chip_label_icon = Helpers.IMAGEN_STRADDLE;
         } else {
             chip_label_icon = null;
         }

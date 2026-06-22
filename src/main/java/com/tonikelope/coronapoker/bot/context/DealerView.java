@@ -51,6 +51,11 @@ public interface DealerView {
 
     String getUtg_nick();
 
+    // Con straddle, el "under the gun" REAL (primero en hablar) = el siguiente activo
+    // tras el straddler; null si no hay straddle. El straddler ES getUtg_nick() pero
+    // habla el ULTIMO (opcion), asi que la posicion del bot debe distinguirlos.
+    String getStraddleUtgNick();
+
     BotPlayerView getLast_aggressor();
 
     int getJugadoresActivos();

@@ -1731,13 +1731,19 @@ public class Bot {
         String myNick = cpuPlayer.getNickname();
         DealerView crupier = dealer();
         String dealerNick = crupier.getDealer_nick();
+        // Con straddle el straddler (utg_nick) habla el ULTIMO preflop (opcion): es
+        // posicion tardia, no temprana; y el "under the gun" real es el siguiente.
+        String straddleUtg = crupier.getStraddleUtgNick();
+        if (straddleUtg != null && myNick.equals(crupier.getUtg_nick())) {
+            return Position.LATE;
+        }
         if (myNick.equals(dealerNick)) {
             return Position.LATE;
         }
         if (myNick.equals(crupier.getSb_nick()) || myNick.equals(crupier.getBb_nick())) {
             return Position.BLINDS;
         }
-        if (myNick.equals(crupier.getUtg_nick())) {
+        if (myNick.equals(straddleUtg != null ? straddleUtg : crupier.getUtg_nick())) {
             return Position.EARLY;
         }
         // Cutoff: the active player immediately before the dealer in seating order

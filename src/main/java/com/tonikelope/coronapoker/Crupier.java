@@ -2626,6 +2626,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return utg_nick;
     }
 
+    public String getStraddleUtgNick() {
+        return straddle_utg_nick;
+    }
+
     public boolean isStraddle_posted() {
         return straddle_posted;
     }

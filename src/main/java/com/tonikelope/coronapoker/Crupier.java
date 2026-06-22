@@ -450,6 +450,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
+    public static final int STRADDLE_DECISION_TIMEOUT = 5; // Segundos que el UTG tiene para decidir el straddle voluntario (timeout = NO straddle)
+    private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probabilidad de que un bot UTG ponga un straddle voluntario (calibrable)
     public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre
     // velocidad/precisión
     public static final int RABBIT_LABEL_TIMEOUT = 3000;
@@ -838,8 +840,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile double partial_raise_cum = 0;
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
-    private volatile boolean straddle_posted = false; // true si en esta mano (fresca) UTG posteo un straddle obligatorio
+    private volatile boolean straddle_posted = false; // true si en esta mano el UTG decidió poner el straddle (voluntario)
     private volatile String straddle_utg_nick = null; // con straddle, el "under the gun" REAL (primero en hablar) = siguiente activo tras el straddler; null sin straddle
+    private volatile boolean straddle_recovered_posted = false; // recovery (host): si la mano replayada tenía el straddle posteado (del fósil); el host rebroadcasta esta decisión, no vuelve a preguntar
+    private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // diálogo de straddle voluntario abierto en el peer del UTG (para cerrarlo desde fuera)
+    private volatile boolean straddle_bar_active = false; // true mientras la barra del community cuenta los 5s de decisión del straddle (luego indeterminada hasta el resultado)
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
@@ -5108,6 +5113,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 } catch (Exception ex) {
                                     LOGGER.log(Level.WARNING, "RIT@ unparseable: {0}", part);
                                 }
+                            } else if (part.startsWith("STRADDLE@")) {
+                                // Straddle voluntario: si la mano replayada lo tenía
+                                // posteado, el host lo repone en resolveVoluntaryStraddle
+                                // (post-reparto) y rebroadcasta la decisión a los clientes.
+                                this.straddle_recovered_posted = Boolean.parseBoolean(part.substring("STRADDLE@".length()));
                             }
                         }
 
@@ -6845,6 +6855,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.conta_bet = 0;
         this.straddle_posted = false;
         this.straddle_utg_nick = null;
+        // Se repone del fósil en la mano recuperada (recuperarDatosClavePartida, más
+        // abajo); en mano fresca queda false (la decisión la toma resolveVoluntaryStraddle).
+        this.straddle_recovered_posted = false;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
@@ -7000,53 +7013,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         this.apuesta_actual = this.ciega_grande;
 
-        // Straddle obligatorio (opcion fija): UTG postea 2x la ciega grande como
-        // ciega VIVA antes de la accion. Sube la apuesta a igualar al straddle y se
-        // trata como una subida completa de un incremento de ciega grande
-        // (ultimo_raise = ciega_grande -> el siguiente raise minimo es 3x CG). El
-        // straddler actua el ULTIMO preflop (opcion): rondaApuestas arranca en utg+1
-        // si straddle_posted. Con 3+ jugadores (en heads-up no hay UTG distinto de las
-        // ciegas). Determinista: todos los peers postean igual (getBote/apuesta_actual
-        // identicos) y el consenso no diverge. TAMBIEN en la mano RECUPERADA: este
-        // bloque corre tras refreshPos y ANTES del replay de rondaApuestas, asi
-        // apuesta_actual=2xCG, ultimo_raise=CG y el orden de accion (utg+1) coinciden
-        // con la mano original; el straddle entra en bote_total por la suma de apuestas
-        // de abajo y el replay anade solo los deltas voluntarios (el check del
-        // straddler da delta 0 -> sin doble conteo). Si STRADDLE esta off, no toca nada.
-        if (GameFrame.STRADDLE && getJugadoresActivos() > 2) {
-            Player straddler = null;
-            for (Player j : GameFrame.getInstance().getJugadores()) {
-                if (j.getNickname().equals(this.utg_nick)) {
-                    straddler = j;
-                    break;
-                }
-            }
-            if (straddler != null && straddler.isActivo()) {
-                double straddle_amount = Helpers.doubleClean(2 * this.ciega_grande);
-                double posted = straddler.postStraddle(straddle_amount);
-                if (Helpers.doubleSecureCompare(this.apuesta_actual, posted) < 0) {
-                    this.apuesta_actual = posted;
-                }
-                // Solo el straddle COMPLETO cuenta como subida (un incremento de CG);
-                // un all-in por menos es straddle incompleto y deja las reglas de CG.
-                if (Helpers.doubleSecureCompare(posted, straddle_amount) >= 0) {
-                    this.ultimo_raise = this.ciega_grande;
-                }
-                this.straddle_posted = true;
-                straddler.refreshPositionChipIcons();
-
-                // El straddler (UTG) habla el ULTIMO (opcion): el "under the gun" REAL
-                // (primero en hablar) es el siguiente activo. Mueve la pistola del
-                // straddler a ese jugador (rondaApuestas tambien arranca ahi). Via la
-                // interfaz Player, asi vale para LocalPlayer y RemotePlayer por igual.
-                straddler.disableUTG();
-                Player utg_real = nextActivePlayerAfter(this.utg_nick);
-                if (utg_real != null) {
-                    utg_real.setUTG();
-                    this.straddle_utg_nick = utg_real.getNickname();
-                }
-            }
-        }
+        // Straddle VOLUNTARIO (opción fija de 2x la ciega grande): el UTG decide a
+        // ciegas, tras repartir, si lo pone (ver resolveVoluntaryStraddle, llamado
+        // post-reparto). NO se postea aquí: es una decisión que viaja por la red
+        // (host-driven, como el voto run-it-twice) y debe converger en todos los peers
+        // antes del replay/ronda. En la mano RECUPERADA tampoco se pregunta: el host
+        // repone la decisión original desde el fósil y la rebroadcasta — todo eso
+        // también ocurre en resolveVoluntaryStraddle, así que el camino es uniforme.
+        // Con STRADDLE off, getJugadoresActivos()<=2 o heads-up, resolveVoluntaryStraddle
+        // es un no-op y el camino por defecto queda byte-idéntico.
 
         for (Player p : GameFrame.getInstance().getJugadores()) {
             if (p.isActivo()) {
@@ -7244,6 +7219,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Audio.stopPreloadedWav("misc/shuffle.wav");
 
             repartir();
+            // Straddle voluntario: tras repartir (cartas del UTG local boca abajo a la
+            // espera), el UTG decide a ciegas si lo pone. host-driven + broadcast canónico
+            // -> converge en todos los peers antes de la ronda preflop. No-op si STRADDLE
+            // off / heads-up / <=2 activos. Revela por fin las cartas tapadas del UTG local.
+            resolveVoluntaryStraddle();
             Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
@@ -7869,6 +7849,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // modo animación sustituye a la pausa entre cartas.
         int flight_dur = Math.max(150, pausa);
 
+        // Straddle voluntario: si el jugador LOCAL es el UTG en una mano fresca con
+        // straddle activo, sus dos hole cards se reparten BOCA ABAJO y NO se revelan
+        // aquí — decide el straddle a ciegas y resolveVoluntaryStraddle las destapa
+        // tras la decisión. Solo afecta al local que es UTG (el resto, idéntico).
+        final boolean defer_straddle_reveal = GameFrame.STRADDLE && this.game_recovered == 0
+                && getJugadoresActivos() > 2 && this.utg_nick != null
+                && this.utg_nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())
+                && GameFrame.getInstance().getLocalPlayer().isActivo();
+
         if (!animacion) {
 
             for (Card carta : GameFrame.getInstance().getCartas_comunes()) {
@@ -7930,8 +7919,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // La carta tapada vuela del dealer al asiento; al aterrizar la
                 // sienta (deal.wav lo dispara el propio vuelo al lanzar). Para
                 // el jugador local, además, revela su valor real (que ya se
-                // extrajo de la bóveda C).
-                Runnable seat = es_local
+                // extrajo de la bóveda C) — salvo que sea el UTG decidiendo el
+                // straddle a ciegas (defer_straddle_reveal): se sienta boca abajo.
+                Runnable seat = (es_local && !defer_straddle_reveal)
                         ? () -> {
                             hc1.iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
                             hc1.destapar(false);
@@ -7944,8 +7934,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 Audio.playWavResource("misc/deal.wav", false);
 
-                jugador.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
-                jugador.getHoleCard1().destapar(false);
+                if (defer_straddle_reveal) {
+                    jugador.getHoleCard1().iniciarCarta();
+                } else {
+                    jugador.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
+                    jugador.getHoleCard1().destapar(false);
+                }
 
             }
 
@@ -7968,7 +7962,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 final Card hc2 = jugador.getHoleCard2();
                 final boolean es_local = (jugador == GameFrame.getInstance().getLocalPlayer());
 
-                Runnable seat = es_local
+                Runnable seat = (es_local && !defer_straddle_reveal)
                         ? () -> {
                             hc2.iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
                             hc2.destapar(false);
@@ -7981,8 +7975,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 Audio.playWavResource("misc/deal.wav", false);
 
-                jugador.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
-                jugador.getHoleCard2().destapar(false);
+                if (defer_straddle_reveal) {
+                    jugador.getHoleCard2().iniciarCarta();
+                } else {
+                    jugador.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
+                    jugador.getHoleCard2().destapar(false);
+                }
 
             }
 
@@ -9589,6 +9587,363 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             this.rit_pot_board_tag = Translator.translate("runittwice.pot_label_a");
         }
         GameFrame.getInstance().getRegistro().print(Translator.translate(agreed ? "runittwice.log_accepted" : "runittwice.log_rejected"));
+    }
+
+    // ====================== Straddle voluntario (post-reparto) ======================
+    //
+    // El straddle dejó de ser obligatorio: tras repartir (cartas del UTG local boca
+    // abajo), el UTG decide A CIEGAS si pone un straddle de 2x la ciega grande. Es una
+    // decisión host-driven, como el voto run-it-twice: el host la determina —diálogo
+    // local si el host es el UTG, heurística si es un bot, o esperando STRADDLE_RESP del
+    // cliente UTG con deadline (timeout = NO)— y difunde el resultado canónico
+    // STRADDLE_RESULT; TODOS los peers lo aplican idénticamente, así apuesta_actual /
+    // bote_total / orden de acción convergen igual que con el viejo straddle obligatorio.
+    // En la mano RECUPERADA no se pregunta: el host repone la decisión original del
+    // fósil (straddle_recovered_posted) y la rebroadcasta -> camino uniforme. Con STRADDLE
+    // off, heads-up o <=2 activos es un no-op total (camino por defecto byte-idéntico).
+
+    private void resolveVoluntaryStraddle() {
+        if (!GameFrame.STRADDLE || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
+            return;
+        }
+        Player straddler = null;
+        for (Player j : GameFrame.getInstance().getJugadores()) {
+            if (j.getNickname().equals(this.utg_nick)) {
+                straddler = j;
+                break;
+            }
+        }
+        if (straddler == null || !straddler.isActivo()) {
+            return;
+        }
+
+        final Player straddler_f = straddler;
+        final boolean fresh = (this.game_recovered == 0);
+        final boolean local_is_straddler = straddler == GameFrame.getInstance().getLocalPlayer();
+
+        // Mano fresca: feedback visual mientras se decide (icono pensativo en el asiento
+        // del UTG para los demás + barra del community contando los 5 s). En recover no
+        // se pregunta (el host repone del fósil y rebroadcasta), así que no hay espera.
+        if (fresh && !local_is_straddler && straddler instanceof RemotePlayer) {
+            ((RemotePlayer) straddler_f).showStraddleThinking();
+        }
+        if (fresh) {
+            startStraddleCountdownBar();
+        }
+
+        int decision;
+        if (GameFrame.getInstance().isPartida_local()) {
+            // HOST: autoridad. En fresca decide (diálogo / bot / RESP remoto); en recover
+            // repone la decisión original del fósil. En ambos casos difunde el resultado.
+            decision = fresh ? hostDecideStraddle(straddler_f, local_is_straddler)
+                    : (this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE);
+            broadcastStraddleResult(decision);
+        } else {
+            // CLIENTE: en fresca, si soy el UTG muestro el diálogo y mando mi respuesta;
+            // en todo caso (y siempre en recover) espero el resultado canónico del host.
+            if (fresh && local_is_straddler) {
+                sendStraddleResp(promptStraddleLocal(straddler_f));
+            }
+            decision = waitStraddleResult();
+        }
+
+        if (fresh) {
+            stopStraddleCountdownBar();
+            if (!local_is_straddler && straddler instanceof RemotePlayer) {
+                ((RemotePlayer) straddler_f).clearStraddleThinking();
+            }
+        }
+
+        if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision()) {
+            // applyStraddlePost vuela primero la ficha ROJA al asiento (bloquea hasta
+            // aterrizar); luego, solo en fresca, vuelan las fichas de dinero al bote
+            // (flaseo amarillo típico). La suma a bote_total replica la del straddle
+            // viejo (que entraba por la suma de apuestas); aquí va explícita porque la
+            // decisión es post-reparto (la suma de apuestas de NUEVA_MANO ya pasó).
+            double posted = applyStraddlePost(straddler_f);
+            this.bote_total += posted;
+            if (fresh) {
+                launchChipToPot(straddler_f);
+                if (GameFrame.getInstance().isPartida_local()) {
+                    // Persiste la decisión para que una mano recuperada la reponga sin
+                    // volver a preguntar (el host la rebroadcasta en el replay).
+                    this.straddle_recovered_posted = true;
+                    guardarFosilSRA();
+                }
+            }
+        }
+
+        // Cierra el diálogo local si seguía abierto (idempotente).
+        VoluntaryStraddleDialog d = this.straddle_local_dialog;
+        if (d != null) {
+            d.cancel();
+            this.straddle_local_dialog = null;
+        }
+
+        // Revela por fin las cartas tapadas del UTG local (repartir las dejó boca abajo
+        // a la espera de esta decisión a ciegas).
+        if (fresh && local_is_straddler) {
+            revealLocalStraddlerCards();
+        }
+    }
+
+    // El host determina la decisión de straddle del UTG en la mano fresca: diálogo local
+    // si el host es el UTG, heurística si es un bot, o espera del STRADDLE_RESP remoto.
+    private int hostDecideStraddle(Player straddler, boolean local_is_straddler) {
+        if (local_is_straddler) {
+            return promptStraddleLocal(straddler);
+        }
+        if (straddler instanceof RemotePlayer && ((RemotePlayer) straddler).getBot() != null) {
+            return botStraddleDecision(straddler);
+        }
+        return waitStraddleRespFromRemote(straddler.getNickname());
+    }
+
+    // Heurística del bot UTG: pone el straddle con probabilidad baja (BOT_STRADDLE_PROBABILITY),
+    // y solo con stack holgado (no se autolesiona). Corre SOLO en el host (decide por el bot).
+    private int botStraddleDecision(Player bot) {
+        double amount = Helpers.doubleClean(2 * this.ciega_grande);
+        if (Helpers.doubleSecureCompare(bot.getStack(), 5 * amount) < 0) {
+            return VoluntaryStraddleDialog.NO_STRADDLE;
+        }
+        return (Helpers.CSPRNG_GENERATOR.nextDouble() < BOT_STRADDLE_PROBABILITY)
+                ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE;
+    }
+
+    // Muestra el diálogo de straddle voluntario sobre las hole cards (tapadas) del UTG
+    // local y BLOQUEA hasta que el jugador decide (botón) o expira la cuenta atrás
+    // (5 s -> NO). Devuelve 1 = pone, 0 = no.
+    private int promptStraddleLocal(Player straddler) {
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        final int[] result = {VoluntaryStraddleDialog.NO_STRADDLE};
+        final String amount_text = Helpers.money2String(straddleAmountFor(straddler));
+        final java.awt.Component c1 = straddler.getHoleCard1();
+        final java.awt.Component c2 = straddler.getHoleCard2();
+        Helpers.GUIRun(() -> {
+            VoluntaryStraddleDialog dlg = new VoluntaryStraddleDialog(GameFrame.getInstance(), c1, c2,
+                    STRADDLE_DECISION_TIMEOUT, amount_text, (ans) -> {
+                        result[0] = ans;
+                        latch.countDown();
+                    });
+            this.straddle_local_dialog = dlg;
+            dlg.setVisible(true);
+        });
+        try {
+            // El diálogo se auto-resuelve a los 5 s (o antes por botón); +3 s de margen.
+            latch.await(STRADDLE_DECISION_TIMEOUT + 3, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return result[0];
+    }
+
+    // Importe del straddle a MOSTRAR: 2x la ciega grande, o el stack del UTG si no lo
+    // cubre (all-in por menos). El UTG no tiene ciega previa, así que su disponible es
+    // stack + bet (bet = 0 en la práctica).
+    private double straddleAmountFor(Player straddler) {
+        double full = Helpers.doubleClean(2 * this.ciega_grande);
+        double available = Helpers.doubleClean(straddler.getStack() + straddler.getBet());
+        return Helpers.doubleSecureCompare(available, full) < 0 ? available : full;
+    }
+
+    // Host: espera el STRADDLE_RESP del cliente UTG drenando received_commands (re-encola
+    // lo que no toca, como runRitVote). Deadline = 5 s + margen; timeout/caída -> NO.
+    private int waitStraddleRespFromRemote(String nick) {
+        long deadline = System.currentTimeMillis() + (STRADDLE_DECISION_TIMEOUT + 4) * 1000L;
+        while (!isFin_de_la_transmision() && System.currentTimeMillis() < deadline) {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                Integer answer = null;
+                while (!this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && partes[2].equals("STRADDLE_RESP")) {
+                        try {
+                            String voter = new String(Base64.getDecoder().decode(partes[3]), "UTF-8");
+                            int v = Integer.parseInt(partes[4]);
+                            if (voter.equals(nick) && (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE)) {
+                                answer = v;
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            // RESP malformado: se ignora.
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+                if (answer != null) {
+                    return answer;
+                }
+                try {
+                    this.getReceived_commands().wait(200);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        return VoluntaryStraddleDialog.NO_STRADDLE;
+    }
+
+    // Cliente: espera el resultado canónico STRADDLE_RESULT del host drenando
+    // received_commands (re-encola lo que no toca). Sin deadline artificial: como las
+    // demás esperas de broadcast del host, sale solo por fin_de_la_transmision.
+    private int waitStraddleResult() {
+        while (!isFin_de_la_transmision()) {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                Integer result = null;
+                while (!this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 4 && partes[2].equals("STRADDLE_RESULT")) {
+                        try {
+                            int v = Integer.parseInt(partes[3]);
+                            if (v == VoluntaryStraddleDialog.NO_STRADDLE || v == VoluntaryStraddleDialog.POST_STRADDLE) {
+                                result = v;
+                            } else {
+                                rejected.add(cmd);
+                            }
+                        } catch (Exception e) {
+                            // RESULT malformado: se ignora.
+                        }
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+                if (result != null) {
+                    return result;
+                }
+                try {
+                    this.getReceived_commands().wait(200);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        return VoluntaryStraddleDialog.NO_STRADDLE;
+    }
+
+    private void sendStraddleResp(int v) {
+        try {
+            String myNickB64 = Base64.getEncoder().encodeToString(GameFrame.getInstance().getNick_local().getBytes("UTF-8"));
+            sendGAMECommandToServer("STRADDLE_RESP#" + myNickB64 + "#" + v, false);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to send STRADDLE_RESP", e);
+        }
+    }
+
+    private void broadcastStraddleResult(int v) {
+        // confirmation=false (fire-and-forget) como RIT_VOTE_CLOSE: TCP ya garantiza
+        // la entrega y el cliente lo drena en waitStraddleResult; evita que el handshake
+        // de confirmación se trague comandos pendientes.
+        try {
+            broadcastGAMECommandFromServer("STRADDLE_RESULT#" + v, null, false);
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to broadcast STRADDLE_RESULT", e);
+        }
+    }
+
+    // Postea el straddle del UTG: mueve 2x la ciega grande (o all-in por menos) de su
+    // stack a la apuesta VIVA, sube apuesta_actual al straddle, fija ultimo_raise=CG si
+    // es completo (siguiente raise mínimo = 3xCG), marca straddle_posted y mueve la
+    // "pistola" al primero-en-hablar real (utg+1; el straddler habla el último, opción).
+    // Vuela la ficha ROJA de straddle a su asiento (bloquea hasta aterrizar). Devuelve el
+    // importe posteado. NO suma a bote_total (lo hace el llamante). Replica el camino del
+    // antiguo straddle obligatorio para que el consenso converja en todos los peers.
+    private double applyStraddlePost(Player straddler) {
+        double straddle_amount = Helpers.doubleClean(2 * this.ciega_grande);
+        double posted = straddler.postStraddle(straddle_amount);
+        if (Helpers.doubleSecureCompare(this.apuesta_actual, posted) < 0) {
+            this.apuesta_actual = posted;
+        }
+        if (Helpers.doubleSecureCompare(posted, straddle_amount) >= 0) {
+            this.ultimo_raise = this.ciega_grande;
+        }
+        this.straddle_posted = true;
+
+        straddler.disableUTG();
+        Player utg_real = nextActivePlayerAfter(this.utg_nick);
+        if (utg_real != null) {
+            utg_real.setUTG();
+            this.straddle_utg_nick = utg_real.getNickname();
+        }
+
+        flyStraddleChipToSeat(straddler);
+
+        return posted;
+    }
+
+    // Vuela la ficha ROJA de straddle desde el CENTRO de la mesa al asiento del straddler
+    // (mismo motor que la rotación de fichas de posición) y, al aterrizar, pinta su ficha
+    // estática. BLOQUEA hasta el aterrizaje. Sin animación / en recover / fin de
+    // transmisión: solo pinta la ficha estática (idéntico al straddle viejo).
+    private void flyStraddleChipToSeat(Player straddler) {
+        if (!GameFrame.ANIMACION_CIEGAS_DEALER || GameFrame.RECOVER || this.game_recovered != 0 || isFin_de_la_transmision()) {
+            straddler.refreshPositionChipIcons();
+            return;
+        }
+        final java.util.List<TablePanel.ChipFlight> flights = new java.util.ArrayList<>();
+        flights.add(new TablePanel.ChipFlight(null, straddler, Helpers.IMAGEN_STRADDLE)); // null = desde el centro
+        int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / getJugadoresActivos())));
+        final int flight_dur = Math.max(150, pausa);
+        Helpers.GUIRunAndWait(() -> straddler.getChip_label().setVisible(false));
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        GameFrame.getInstance().getTapete().flyChipsToSeats(flights, flight_dur, () -> {
+            straddler.refreshPositionChipIcons();
+            latch.countDown();
+        });
+        try {
+            latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // Barra del community durante la decisión: cuenta los 5 s y, al agotarse sin
+    // resultado aún, pasa a indeterminada hasta que stopStraddleCountdownBar la pare
+    // (cubre el retardo de red entre el fin de los 5 s y el STRADDLE_RESULT del host).
+    private void startStraddleCountdownBar() {
+        this.straddle_bar_active = true;
+        Helpers.threadRun(() -> {
+            Helpers.GUIRun(() -> Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), STRADDLE_DECISION_TIMEOUT));
+            int t = STRADDLE_DECISION_TIMEOUT;
+            while (t > 0 && this.straddle_bar_active && !isFin_de_la_transmision()) {
+                Helpers.pausar(1000);
+                if (!GameFrame.getInstance().isTimba_pausada()) {
+                    --t;
+                }
+            }
+            if (this.straddle_bar_active && !isFin_de_la_transmision()) {
+                Helpers.GUIRun(() -> Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo()));
+            }
+        });
+    }
+
+    private void stopStraddleCountdownBar() {
+        this.straddle_bar_active = false;
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), 0);
+    }
+
+    // Revela las dos hole cards del UTG local que repartir dejó boca abajo a la espera
+    // de la decisión de straddle a ciegas.
+    private void revealLocalStraddlerCards() {
+        final Player local = GameFrame.getInstance().getLocalPlayer();
+        Helpers.GUIRun(() -> {
+            local.getHoleCard1().iniciarConValorNumerico((this.local_original_cards[0] & 0xFF) + 1);
+            local.getHoleCard1().destapar(false);
+            local.getHoleCard2().iniciarConValorNumerico((this.local_original_cards[1] & 0xFF) + 1);
+            local.getHoleCard2().destapar(false);
+        });
     }
 
     private void destaparCartaComunitaria(int street, ArrayList<Player> resisten) {
@@ -11572,6 +11927,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Run-it-twice: estado del voto (vote_done, agreed, allin_street) para
             // que una mano recuperada tras el voto corra los DOS boards en vez de uno.
             fosil.append("#RIT@").append(this.rit_vote_done).append(",").append(this.rit_agreed).append(",").append(this.rit_allin_street);
+
+            // Straddle voluntario: si el UTG puso el straddle en esta mano, para que la
+            // mano recuperada lo reponga (el host rebroadcasta la decisión, no pregunta).
+            fosil.append("#STRADDLE@").append(this.straddle_posted);
 
             Helpers.saveHandFossil(this.sqlite_id_game, fosil.toString());
         } catch (Exception e) {

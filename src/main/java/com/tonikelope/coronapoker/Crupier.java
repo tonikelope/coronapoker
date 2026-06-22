@@ -839,6 +839,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile int conta_raise = 0;
     private volatile int conta_bet = 0;
     private volatile boolean straddle_posted = false; // true si en esta mano (fresca) UTG posteo un straddle obligatorio
+    private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
     private volatile boolean fin_de_la_transmision = false;
@@ -2465,6 +2466,94 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // aterrizaje no re-muestra la bet_label si el showdown ya la ocultó.
             refreshTapeteBoteValue();
         });
+    }
+
+    // Prepara la animación de fichas-al-bote de las apuestas FORZADAS del arranque de
+    // mano (ciega grande, ciega pequeña y straddle si lo hay; y si hay ante, TODOS los
+    // jugadores, en UNA sola tanda). DIFIERE el valor del bote: incrementa
+    // pot_chips_in_flight ANTES de actualizarContadoresTapete para que el bote no
+    // salte de golpe y se vea INCREMENTAR al aterrizar las fichas (idéntico a
+    // bet/call). Las fichas vuelan luego en flyForcedBetsToPot (tras rotar las fichas
+    // de posición, justo antes del barajado). Respeta la opción de animación y se
+    // salta en RECOVER/fin de transmisión/mano recuperada (camino sin animación intacto).
+    private void prepareForcedBetsToPot() {
+        this.forced_bet_chip_contributors = null;
+
+        if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision() || this.game_recovered != 0) {
+            return;
+        }
+
+        java.util.List<Player> contributors = new java.util.ArrayList<>();
+
+        if (GameFrame.ANTE) {
+            // Todos antearon (+ ciegas/straddle): una ficha por cada jugador activo.
+            for (Player p : GameFrame.getInstance().getJugadores()) {
+                if (p.isActivo()) {
+                    contributors.add(p);
+                }
+            }
+        } else {
+            // Solo las forzadas: ciega grande, ciega pequeña y straddle (si lo hay).
+            addForcedBetContributor(contributors, this.big_blind_nick);
+            addForcedBetContributor(contributors, this.small_blind_nick);
+            if (this.straddle_posted) {
+                addForcedBetContributor(contributors, this.utg_nick);
+            }
+        }
+
+        if (contributors.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < contributors.size(); i++) {
+            pot_chips_in_flight.incrementAndGet();
+        }
+        this.forced_bet_chip_contributors = contributors;
+    }
+
+    private void addForcedBetContributor(java.util.List<Player> list, String nick) {
+        if (nick == null) {
+            return;
+        }
+        for (Player p : GameFrame.getInstance().getJugadores()) {
+            if (p.getNickname().equals(nick) && p.isActivo() && !list.contains(p)) {
+                list.add(p);
+                return;
+            }
+        }
+    }
+
+    // Vuela las fichas de las forzadas al bote (preparadas en prepareForcedBetsToPot),
+    // IDÉNTICO a la animación de bet/call: cada ficha vuela al pot_label, lo incrementa
+    // y lo flasea amarillo al aterrizar. Una sola tanda (ante+ciegas+straddle juntos).
+    // BLOQUEA hasta el aterrizaje (como la rotación de fichas de posición), justo
+    // antes del barajado. onLand de flyChipToPot está garantizado-una-vez, así que
+    // pot_chips_in_flight siempre se equilibra aunque se aborte.
+    private void flyForcedBetsToPot() {
+        final java.util.List<Player> contributors = this.forced_bet_chip_contributors;
+        this.forced_bet_chip_contributors = null;
+
+        if (contributors == null || contributors.isEmpty()) {
+            return;
+        }
+
+        Audio.playWavResource("misc/bet.wav");
+
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(contributors.size());
+
+        for (Player p : contributors) {
+            GameFrame.getInstance().getTapete().flyChipToPot(p, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
+                pot_chips_in_flight.decrementAndGet();
+                refreshTapeteBoteValue();
+                latch.countDown();
+            });
+        }
+
+        try {
+            latch.await(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public String getBb_nick() {
@@ -6920,6 +7009,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.bote_total += total_antes;
             }
 
+            // Prepara la animacion de fichas-al-bote de las forzadas ANTES de mostrar
+            // el bote: difiere su valor para que se vea incrementar al aterrizar (no
+            // de golpe). Las fichas vuelan luego, tras rotar las fichas de posicion.
+            prepareForcedBetsToPot();
+
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(true);
                 GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(true);
@@ -6932,6 +7026,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // que aterrizan. Respeta la opción de animación (camino sin animación
             // intacto) y se salta en RECOVER/fin de transmisión.
             animateChipRotation(prev_dealer_nick, prev_sb_nick, prev_bb_nick);
+
+            // Tras rotar las fichas de posicion y ANTES del barajado: las forzadas
+            // (ciegas/straddle, y si hay ante TODOS) vuelan al bote en una sola tanda,
+            // identico a bet/call (vuelan + bote sube + flaseo amarillo). Bloquea hasta
+            // aterrizar, como la rotacion de fichas de posicion.
+            flyForcedBetsToPot();
 
             Object shuffle_lock = new Object();
             // barajando here means "SRA cascade still running, keep looping the shuffle

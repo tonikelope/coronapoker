@@ -102,11 +102,6 @@
                           <EmptySpace max="-2" attributes="0"/>
                           <Component id="cancel_button" pref="400" max="32767" attributes="0"/>
                       </Group>
-                      <Group type="102" alignment="1" attributes="0">
-                          <EmptySpace max="32767" attributes="0"/>
-                          <Component id="bots_panel" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
-                      </Group>
                   </Group>
                 </DimensionLayout>
                 <DimensionLayout dim="1">
@@ -119,8 +114,6 @@
                           <EmptySpace type="unrelated" max="32767" attributes="0"/>
                           <Component id="config_partida_panel" max="32767" attributes="0"/>
                           <EmptySpace max="32767" attributes="0"/>
-                          <Component id="bots_panel" min="-2" max="-2" attributes="0"/>
-                          <EmptySpace max="-2" attributes="0"/>
                           <Component id="nick_pass_panel" min="-2" max="-2" attributes="0"/>
                           <EmptySpace type="unrelated" max="32767" attributes="0"/>
                           <Group type="103" groupAlignment="0" max="-2" attributes="0">
@@ -269,135 +262,111 @@
                   <Layout>
                     <DimensionLayout dim="0">
                       <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="jPanel3" max="32767" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                          </Group>
                           <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="recompra_panel" max="32767" attributes="0"/>
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                              <Group type="103" groupAlignment="0" attributes="0">
+                                  <Component id="compra_panel" min="-2" max="-2" attributes="0"/>
+                                  <Component id="partida_panel" max="32767" attributes="0"/>
+                              </Group>
+                              <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                              <Group type="103" groupAlignment="0" attributes="0">
+                                  <Component id="ciegas_panel" min="-2" max="-2" attributes="0"/>
+                                  <Component id="bots_panel" max="32767" attributes="0"/>
+                              </Group>
                           </Group>
                       </Group>
                     </DimensionLayout>
                     <DimensionLayout dim="1">
                       <Group type="103" groupAlignment="0" attributes="0">
                           <Group type="102" alignment="0" attributes="0">
-                              <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                              <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
+                              <Group type="103" groupAlignment="0" attributes="0">
+                                  <Component id="compra_panel" max="32767" attributes="0"/>
+                                  <Component id="ciegas_panel" min="-2" max="-2" attributes="0"/>
+                              </Group>
                               <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                              <Component id="recompra_panel" min="-2" max="-2" attributes="0"/>
+                              <Group type="103" groupAlignment="0" attributes="0">
+                                  <Component id="partida_panel" min="-2" max="-2" attributes="0"/>
+                                  <Component id="bots_panel" min="-2" max="-2" attributes="0"/>
+                              </Group>
                               <EmptySpace max="-2" attributes="0"/>
                           </Group>
                       </Group>
                     </DimensionLayout>
                   </Layout>
                   <SubComponents>
-                    <Container class="javax.swing.JPanel" name="jPanel3">
-                      <Properties>
-                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                          <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                            <LineBorder thickness="2">
-                              <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
-                            </LineBorder>
-                          </Border>
-                        </Property>
-                      </Properties>
-
+                    <Container class="javax.swing.JPanel" name="ciegas_panel">
                       <Layout>
                         <DimensionLayout dim="0">
                           <Group type="103" groupAlignment="0" attributes="0">
                               <Group type="102" alignment="0" attributes="0">
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                                      <Group type="102" alignment="0" attributes="0">
-                                          <Component id="manos_checkbox" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                                          <Component id="limite_manos_label" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="manos_spinner" pref="166" max="32767" attributes="0"/>
-                                      </Group>
+                                  <Group type="103" groupAlignment="0" attributes="0">
                                       <Group type="102" alignment="0" attributes="0">
                                           <Group type="103" groupAlignment="0" attributes="0">
-                                              <Component id="buyin_label" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_range_label" min="-2" max="-2" attributes="0"/>
-                                              <Component id="ciegas_label" min="-2" max="-2" attributes="0"/>
                                               <Component id="estructura_label" min="-2" max="-2" attributes="0"/>
+                                              <Component id="ciegas_label" min="-2" max="-2" attributes="0"/>
                                           </Group>
-                                          <EmptySpace pref="30" max="-2" attributes="0"/>
-                                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                                              <Component id="estructura_combobox" pref="160" max="32767" attributes="0"/>
-                                              <Component id="ciegas_combobox" pref="160" max="32767" attributes="0"/>
-                                              <Group type="102" alignment="0" attributes="0">
-                                                  <Component id="buyin_spinner" max="32767" attributes="0"/>
-                                                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                                                  <Component id="fixed_buyin_checkbox" min="-2" max="-2" attributes="0"/>
-                                              </Group>
-                                              <Group type="102" alignment="0" attributes="0">
-                                                  <Component id="buyin_min_bb_spinner" min="-2" pref="90" max="-2" attributes="0"/>
-                                                  <EmptySpace max="-2" attributes="0"/>
-                                                  <Component id="buyin_range_sep_label" min="-2" max="-2" attributes="0"/>
-                                                  <EmptySpace max="-2" attributes="0"/>
-                                                  <Component id="buyin_max_bb_spinner" min="-2" pref="90" max="-2" attributes="0"/>
-                                              </Group>
+                                          <EmptySpace pref="18" max="-2" attributes="0"/>
+                                          <Group type="103" groupAlignment="0" attributes="0">
+                                              <Component id="estructura_combobox" pref="200" max="32767" attributes="0"/>
+                                              <Component id="ciegas_combobox" pref="200" max="32767" attributes="0"/>
                                           </Group>
                                       </Group>
+                                      <Component id="aumento_panel" max="32767" attributes="0"/>
                                   </Group>
-                                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                                  <Component id="jPanel1" max="32767" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
                         <DimensionLayout dim="1">
                           <Group type="103" groupAlignment="0" attributes="0">
-                              <Group type="102" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
                                   <EmptySpace max="-2" attributes="0"/>
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Group type="102" alignment="0" attributes="0">
-                                          <Group type="103" groupAlignment="2" attributes="0">
-                                              <Component id="estructura_label" min="-2" max="-2" attributes="0"/>
-                                              <Component id="estructura_combobox" min="-2" pref="32" max="-2" attributes="0"/>
-                                          </Group>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Group type="103" groupAlignment="2" attributes="0">
-                                              <Component id="ciegas_label" min="-2" max="-2" attributes="0"/>
-                                              <Component id="ciegas_combobox" min="-2" pref="32" max="-2" attributes="0"/>
-                                          </Group>
-                                          <EmptySpace type="separate" max="-2" attributes="0"/>
-                                          <Group type="103" groupAlignment="0" max="-2" attributes="0">
-                                              <Component id="buyin_label" min="-2" max="-2" attributes="0"/>
-                                              <Group type="102" attributes="0">
-                                                  <Group type="103" groupAlignment="0" attributes="0">
-                                                      <Component id="buyin_spinner" max="32767" attributes="0"/>
-                                                      <Component id="fixed_buyin_checkbox" min="-2" max="-2" attributes="0"/>
-                                                  </Group>
-                                                  <EmptySpace type="separate" max="-2" attributes="0"/>
-                                              </Group>
-                                          </Group>
-                                          <Group type="103" groupAlignment="2" attributes="0">
-                                              <Component id="buyin_range_label" alignment="2" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_min_bb_spinner" alignment="2" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_range_sep_label" alignment="2" min="-2" max="-2" attributes="0"/>
-                                              <Component id="buyin_max_bb_spinner" alignment="2" min="-2" max="-2" attributes="0"/>
-                                          </Group>
-                                          <EmptySpace type="separate" max="-2" attributes="0"/>
-                                          <Group type="103" groupAlignment="1" max="-2" attributes="0">
-                                              <Component id="manos_spinner" alignment="1" max="32767" attributes="0"/>
-                                              <Component id="limite_manos_label" alignment="1" max="32767" attributes="0"/>
-                                              <Component id="manos_checkbox" alignment="1" max="32767" attributes="0"/>
-                                          </Group>
-                                          <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                                      </Group>
-                                      <Component id="jPanel1" alignment="0" max="32767" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="estructura_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="estructura_combobox" alignment="3" min="-2" pref="32" max="-2" attributes="0"/>
                                   </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="ciegas_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="ciegas_combobox" alignment="3" min="-2" pref="32" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                  <Component id="aumento_panel" min="-2" max="-2" attributes="0"/>
                                   <EmptySpace max="-2" attributes="0"/>
                               </Group>
                           </Group>
                         </DimensionLayout>
                       </Layout>
                       <SubComponents>
+                        <Component class="javax.swing.JLabel" name="estructura_label">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Estructura:"/>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="estructura_label.putClientProperty(&quot;i18n.key&quot;, &quot;blinds.estructura&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JComboBox" name="estructura_combobox">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="0"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="estructura_comboboxActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
+                          </AuxValues>
+                        </Component>
                         <Component class="javax.swing.JLabel" name="ciegas_label">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -413,6 +382,271 @@
                             <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="ciegas_label.putClientProperty(&quot;i18n.key&quot;, &quot;blinds.ciegas_iniciales&quot;);"/>
                           </AuxValues>
                         </Component>
+                        <Component class="javax.swing.JComboBox" name="ciegas_combobox">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="0"/>
+                            </Property>
+                            <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                              <Connection code="new javax.swing.DefaultComboBoxModel&lt;&gt;(new String[] { GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,10 / 0,20&quot;:&quot;0.10 / 0.20&quot;, GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,20 / 0,40&quot;:&quot;0.20 / 0.40&quot;, GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,30 / 0,60&quot;:&quot;0.30 / 0.60&quot;, GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,50 / 1&quot;:&quot;0.50 / 1&quot;, &quot;1 / 2&quot;, &quot;2 / 4&quot;, &quot;3 / 6&quot;, &quot;5 / 10&quot;, &quot;10 / 20&quot;, &quot;20 / 40&quot;, &quot;30 / 60&quot;, &quot;50 / 100&quot;, &quot;100 / 200&quot;, &quot;200 / 400&quot;, &quot;300 / 600&quot;, &quot;500 / 1000&quot;, &quot;1000 / 2000&quot;, &quot;2000 / 4000&quot;, &quot;3000 / 6000&quot;, &quot;5000 / 10000&quot; })" type="code"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="ciegas_comboboxActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
+                          </AuxValues>
+                        </Component>
+                    <Container class="javax.swing.JPanel" name="aumento_panel">
+                      <Properties>
+                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                          <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
+                            <LineBorder>
+                              <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
+                            </LineBorder>
+                          </Border>
+                        </Property>
+                      </Properties>
+                      <Layout>
+                        <DimensionLayout dim="0">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="0" attributes="0">
+                                      <Component id="doblar_checkbox" min="-2" max="-2" attributes="0"/>
+                                      <Component id="double_blinds_radio_manos" min="-2" max="-2" attributes="0"/>
+                                      <Component id="double_blinds_radio_minutos" min="-2" max="-2" attributes="0"/>
+                                      <Component id="blind_cap_checkbox" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="32767" attributes="0"/>
+                                  <Group type="103" groupAlignment="1" attributes="0">
+                                      <Component id="doblar_ciegas_spinner_manos" alignment="1" min="-2" pref="160" max="-2" attributes="0"/>
+                                      <Component id="doblar_ciegas_spinner_minutos" alignment="1" min="-2" pref="160" max="-2" attributes="0"/>
+                                      <Component id="blind_cap_spinner" alignment="1" min="-2" pref="80" max="-2" attributes="0"/>
+                                      <Component id="blind_cap_label" alignment="1" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                        <DimensionLayout dim="1">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="doblar_checkbox" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="double_blinds_radio_manos" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="doblar_ciegas_spinner_manos" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="double_blinds_radio_minutos" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="doblar_ciegas_spinner_minutos" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="blind_cap_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="blind_cap_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="blind_cap_label" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                      </Layout>
+                      <SubComponents>
+                        <Component class="javax.swing.JCheckBox" name="doblar_checkbox">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Aumentar ciegas"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="doblar_checkboxActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="doblar_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;stats.aumentar_ciegas&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JRadioButton" name="double_blinds_radio_manos">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Manos:"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_manosActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="double_blinds_radio_manos.putClientProperty(&quot;i18n.key&quot;, &quot;stats.manos&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JSpinner" name="doblar_ciegas_spinner_manos">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="0"/>
+                            </Property>
+                            <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
+                              <SpinnerModel initial="30" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                        </Component>
+                        <Component class="javax.swing.JRadioButton" name="double_blinds_radio_minutos">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Minutos:"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_minutosActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="double_blinds_radio_minutos.putClientProperty(&quot;i18n.key&quot;, &quot;ui.minutos&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JSpinner" name="doblar_ciegas_spinner_minutos">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="0"/>
+                            </Property>
+                            <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
+                              <SpinnerModel initial="60" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                        </Component>
+                        <Component class="javax.swing.JCheckBox" name="blind_cap_checkbox">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Tope ciega grande"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="blind_cap_checkboxActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="blind_cap_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;blinds.tope_ciega_grande&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JSpinner" name="blind_cap_spinner">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="0"/>
+                            </Property>
+                            <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
+                              <SpinnerModel initial="5" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                        </Component>
+                        <Component class="javax.swing.JLabel" name="blind_cap_label">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="0 / 0"/>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                        </Component>
+                      </SubComponents>
+                    </Container>
+                      </SubComponents>
+                    </Container>
+                    <Container class="javax.swing.JPanel" name="compra_panel">
+                      <Layout>
+                        <DimensionLayout dim="0">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="0" attributes="0">
+                                      <Group type="102" alignment="0" attributes="0">
+                                          <Group type="103" groupAlignment="0" attributes="0">
+                                              <Component id="buyin_label" min="-2" max="-2" attributes="0"/>
+                                              <Component id="buyin_range_label" min="-2" max="-2" attributes="0"/>
+                                          </Group>
+                                          <EmptySpace pref="18" max="-2" attributes="0"/>
+                                          <Group type="103" groupAlignment="0" attributes="0">
+                                              <Group type="102" alignment="0" attributes="0">
+                                                  <Component id="buyin_spinner" min="-2" pref="120" max="-2" attributes="0"/>
+                                                  <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                                                  <Component id="fixed_buyin_checkbox" min="-2" max="-2" attributes="0"/>
+                                              </Group>
+                                              <Group type="102" alignment="0" attributes="0">
+                                                  <Component id="buyin_min_bb_spinner" min="-2" pref="90" max="-2" attributes="0"/>
+                                                  <EmptySpace pref="14" max="-2" attributes="0"/>
+                                                  <Component id="buyin_range_sep_label" min="-2" max="-2" attributes="0"/>
+                                                  <EmptySpace pref="14" max="-2" attributes="0"/>
+                                                  <Component id="buyin_max_bb_spinner" min="-2" pref="90" max="-2" attributes="0"/>
+                                              </Group>
+                                          </Group>
+                                      </Group>
+                                      <Component id="recompra_panel" max="32767" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                        <DimensionLayout dim="1">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="buyin_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="buyin_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="fixed_buyin_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="buyin_range_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="buyin_min_bb_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="buyin_range_sep_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="buyin_max_bb_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace type="unrelated" max="32767" attributes="0"/>
+                                  <Component id="recompra_panel" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                      </Layout>
+                      <SubComponents>
                         <Component class="javax.swing.JLabel" name="buyin_label">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -522,286 +756,192 @@
                             <EventHandler event="stateChanged" listener="javax.swing.event.ChangeListener" parameters="javax.swing.event.ChangeEvent" handler="buyin_max_bb_spinnerStateChanged"/>
                           </Events>
                         </Component>
-                        <Component class="javax.swing.JComboBox" name="ciegas_combobox">
-                          <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Dialog" size="16" style="0"/>
-                            </Property>
-                            <Property name="model" type="javax.swing.ComboBoxModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                              <Connection code="new javax.swing.DefaultComboBoxModel&lt;&gt;(new String[] { GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,10 / 0,20&quot;:&quot;0.10 / 0.20&quot;, GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,20 / 0,40&quot;:&quot;0.20 / 0.40&quot;, GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,30 / 0,60&quot;:&quot;0.30 / 0.60&quot;, GameFrame.LANGUAGE.toLowerCase().equals(&quot;es&quot;)?&quot;0,50 / 1&quot;:&quot;0.50 / 1&quot;, &quot;1 / 2&quot;, &quot;2 / 4&quot;, &quot;3 / 6&quot;, &quot;5 / 10&quot;, &quot;10 / 20&quot;, &quot;20 / 40&quot;, &quot;30 / 60&quot;, &quot;50 / 100&quot;, &quot;100 / 200&quot;, &quot;200 / 400&quot;, &quot;300 / 600&quot;, &quot;500 / 1000&quot;, &quot;1000 / 2000&quot;, &quot;2000 / 4000&quot;, &quot;3000 / 6000&quot;, &quot;5000 / 10000&quot; })" type="code"/>
-                            </Property>
-                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                              <Color id="Cursor de Mano"/>
-                            </Property>
-                            <Property name="doubleBuffered" type="boolean" value="true"/>
-                          </Properties>
-                          <Events>
-                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="ciegas_comboboxActionPerformed"/>
-                          </Events>
-                          <AuxValues>
-                            <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
-                          </AuxValues>
-                        </Component>
-                        <Component class="javax.swing.JLabel" name="estructura_label">
+                    <Container class="javax.swing.JPanel" name="recompra_panel">
+                      <Properties>
+                        <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
+                          <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
+                            <LineBorder>
+                              <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
+                            </LineBorder>
+                          </Border>
+                        </Property>
+                      </Properties>
+                      <Layout>
+                        <DimensionLayout dim="0">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace min="-2" pref="10" max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="0" attributes="0">
+                                      <Group type="102" alignment="0" attributes="0">
+                                          <Component id="rebuy_checkbox" min="-2" max="-2" attributes="0"/>
+                                          <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                          <Component id="recomprar_label" min="-2" max="-2" attributes="0"/>
+                                      </Group>
+                                      <Component id="rebuy_limit_checkbox" min="-2" max="-2" attributes="0"/>
+                                      <Component id="rebuy_cap_label" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="32767" attributes="0"/>
+                                  <Group type="103" groupAlignment="1" attributes="0">
+                                      <Component id="rebuy_limit_spinner" alignment="1" min="-2" pref="80" max="-2" attributes="0"/>
+                                      <Component id="rebuy_cap_combo" alignment="1" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                        <DimensionLayout dim="1">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="rebuy_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="recomprar_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="rebuy_limit_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="rebuy_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="rebuy_cap_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="rebuy_cap_combo" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                      </Layout>
+                      <SubComponents>
+                        <Component class="javax.swing.JCheckBox" name="rebuy_checkbox">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
                               <Font name="Dialog" size="16" style="1"/>
                             </Property>
-                            <Property name="text" type="java.lang.String" value="Estructura:"/>
-                            <Property name="doubleBuffered" type="boolean" value="true"/>
-                          </Properties>
-                          <AuxValues>
-                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="estructura_label.putClientProperty(&quot;i18n.key&quot;, &quot;blinds.estructura&quot;);"/>
-                          </AuxValues>
-                        </Component>
-                        <Component class="javax.swing.JComboBox" name="estructura_combobox">
-                          <Properties>
-                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                              <Font name="Dialog" size="16" style="0"/>
-                            </Property>
+                            <Property name="toolTipText" type="java.lang.String" value="Si alg&#xfa;n jugador se queda sin fichas"/>
                             <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
                               <Color id="Cursor de Mano"/>
                             </Property>
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="estructura_comboboxActionPerformed"/>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_checkboxActionPerformed"/>
                           </Events>
+                        </Component>
+                        <Component class="javax.swing.JLabel" name="recomprar_label">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="16" style="1"/>
+                            </Property>
+                            <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
+                              <Image iconType="3" name="/images/menu/rebuy.png"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Recomprar"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recomprar_labelMouseClicked"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="recomprar_label.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.recomprar_2&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JCheckBox" name="rebuy_limit_checkbox">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="L&#xed;mite recompra por jugador"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_limit_checkboxActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="rebuy_limit_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.limite_por_jugador&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JSpinner" name="rebuy_limit_spinner">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="0"/>
+                            </Property>
+                            <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
+                              <SpinnerModel initial="3" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                        </Component>
+                        <Component class="javax.swing.JLabel" name="rebuy_cap_label">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Tope recompra:"/>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="rebuy_cap_label.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.tope_recompra&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JComboBox" name="rebuy_cap_combo">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="0"/>
+                            </Property>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
                           <AuxValues>
                             <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
                           </AuxValues>
                         </Component>
-                        <Container class="javax.swing.JPanel" name="jPanel1">
-                          <Properties>
-                            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                              <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                                <LineBorder>
-                                  <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
-                                </LineBorder>
-                              </Border>
-                            </Property>
-                          </Properties>
-
-                          <Layout>
-                            <DimensionLayout dim="0">
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Group type="102" attributes="0">
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Group type="103" groupAlignment="0" attributes="0">
-                                          <Group type="102" attributes="0">
-                                              <Component id="doblar_checkbox" min="-2" max="-2" attributes="0"/>
-                                              <EmptySpace min="0" pref="0" max="32767" attributes="0"/>
-                                          </Group>
-                                          <Group type="102" alignment="0" attributes="0">
-                                              <Group type="103" groupAlignment="0" attributes="0">
-                                                  <Component id="double_blinds_radio_minutos" alignment="0" min="-2" max="-2" attributes="0"/>
-                                                  <Component id="double_blinds_radio_manos" alignment="0" min="-2" max="-2" attributes="0"/>
-                                              </Group>
-                                              <EmptySpace max="-2" attributes="0"/>
-                                              <Group type="103" groupAlignment="0" attributes="0">
-                                                  <Component id="doblar_ciegas_spinner_manos" pref="177" max="32767" attributes="0"/>
-                                                  <Component id="doblar_ciegas_spinner_minutos" max="32767" attributes="0"/>
-                                              </Group>
-                                          </Group>
-                                          <Component id="blind_cap_panel" max="32767" attributes="0"/>
-                                      </Group>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                  </Group>
+                      </SubComponents>
+                    </Container>
+                      </SubComponents>
+                    </Container>
+                    <Container class="javax.swing.JPanel" name="partida_panel">
+                      <Layout>
+                        <DimensionLayout dim="0">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <EmptySpace min="-2" pref="11" max="-2" attributes="0"/>
+                                  <Component id="manos_checkbox" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
+                                  <Component id="limite_manos_label" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="manos_spinner" pref="166" max="32767" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
                               </Group>
-                            </DimensionLayout>
-                            <DimensionLayout dim="1">
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Group type="102" attributes="0">
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Component id="doblar_checkbox" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="32767" attributes="0"/>
-                                      <Group type="103" groupAlignment="3" attributes="0">
-                                          <Component id="double_blinds_radio_manos" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="doblar_ciegas_spinner_manos" alignment="3" min="-2" max="-2" attributes="0"/>
-                                      </Group>
-                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                      <Group type="103" groupAlignment="3" attributes="0">
-                                          <Component id="double_blinds_radio_minutos" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="doblar_ciegas_spinner_minutos" alignment="3" min="-2" max="-2" attributes="0"/>
-                                      </Group>
-                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                                      <Component id="blind_cap_panel" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
+                          </Group>
+                        </DimensionLayout>
+                        <DimensionLayout dim="1">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" alignment="0" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="2" attributes="0">
+                                      <Component id="manos_checkbox" alignment="2" min="-2" max="-2" attributes="0"/>
+                                      <Component id="limite_manos_label" alignment="2" min="-2" max="-2" attributes="0"/>
+                                      <Component id="manos_spinner" alignment="2" min="-2" max="-2" attributes="0"/>
                                   </Group>
+                                  <EmptySpace max="32767" attributes="0"/>
                               </Group>
-                            </DimensionLayout>
-                          </Layout>
-                          <SubComponents>
-                            <Component class="javax.swing.JCheckBox" name="doblar_checkbox">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="16" style="1"/>
-                                </Property>
-                                <Property name="text" type="java.lang.String" value="Aumentar ciegas"/>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <Events>
-                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="doblar_checkboxActionPerformed"/>
-                              </Events>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="doblar_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;stats.aumentar_ciegas&quot;);"/>
-                              </AuxValues>
-                            </Component>
-                            <Component class="javax.swing.JSpinner" name="doblar_ciegas_spinner_minutos">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="16" style="0"/>
-                                </Property>
-                                <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                                  <SpinnerModel initial="60" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                                </Property>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                            </Component>
-                            <Component class="javax.swing.JRadioButton" name="double_blinds_radio_minutos">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="14" style="1"/>
-                                </Property>
-                                <Property name="text" type="java.lang.String" value="Minutos:"/>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <Events>
-                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_minutosActionPerformed"/>
-                              </Events>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="double_blinds_radio_minutos.putClientProperty(&quot;i18n.key&quot;, &quot;ui.minutos&quot;);"/>
-                              </AuxValues>
-                            </Component>
-                            <Component class="javax.swing.JRadioButton" name="double_blinds_radio_manos">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="14" style="1"/>
-                                </Property>
-                                <Property name="text" type="java.lang.String" value="Manos:"/>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <Events>
-                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="double_blinds_radio_manosActionPerformed"/>
-                              </Events>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="double_blinds_radio_manos.putClientProperty(&quot;i18n.key&quot;, &quot;stats.manos&quot;);"/>
-                              </AuxValues>
-                            </Component>
-                            <Component class="javax.swing.JSpinner" name="doblar_ciegas_spinner_manos">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="16" style="0"/>
-                                </Property>
-                                <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                                  <SpinnerModel initial="30" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                                </Property>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                            </Component>
-                            <Container class="javax.swing.JPanel" name="blind_cap_panel">
-                              <Properties>
-                                <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                                  <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                                    <LineBorder>
-                                      <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
-                                    </LineBorder>
-                                  </Border>
-                                </Property>
-                              </Properties>
-                              <Layout>
-                                <DimensionLayout dim="0">
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Group type="102" alignment="0" attributes="0">
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Group type="103" groupAlignment="2" attributes="0">
-                                              <Group type="102" alignment="0" attributes="0">
-                                                  <Component id="blind_cap_checkbox" min="-2" max="-2" attributes="0"/>
-                                                  <EmptySpace max="-2" attributes="0"/>
-                                                  <Component id="blind_cap_spinner" min="-2" pref="100" max="-2" attributes="0"/>
-                                              </Group>
-                                              <Component id="blind_cap_label" min="-2" max="-2" attributes="0"/>
-                                          </Group>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                      </Group>
-                                  </Group>
-                                </DimensionLayout>
-                                <DimensionLayout dim="1">
-                                  <Group type="103" groupAlignment="0" attributes="0">
-                                      <Group type="102" alignment="0" attributes="0">
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Group type="103" groupAlignment="3" attributes="0">
-                                              <Component id="blind_cap_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
-                                              <Component id="blind_cap_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          </Group>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                          <Component id="blind_cap_label" min="-2" max="-2" attributes="0"/>
-                                          <EmptySpace max="-2" attributes="0"/>
-                                      </Group>
-                                  </Group>
-                                </DimensionLayout>
-                              </Layout>
-                              <SubComponents>
-                                <Component class="javax.swing.JCheckBox" name="blind_cap_checkbox">
-                                  <Properties>
-                                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                      <Font name="Dialog" size="14" style="1"/>
-                                    </Property>
-                                    <Property name="text" type="java.lang.String" value="Tope ciega grande"/>
-                                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                      <Color id="Cursor de Mano"/>
-                                    </Property>
-                                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                                  </Properties>
-                                  <Events>
-                                    <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="blind_cap_checkboxActionPerformed"/>
-                                  </Events>
-                                  <AuxValues>
-                                    <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="blind_cap_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;blinds.tope_ciega_grande&quot;);"/>
-                                  </AuxValues>
-                                </Component>
-                                <Component class="javax.swing.JSpinner" name="blind_cap_spinner">
-                                  <Properties>
-                                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                      <Font name="Dialog" size="14" style="0"/>
-                                    </Property>
-                                    <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                                      <SpinnerModel initial="5" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                                    </Property>
-                                    <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                      <Color id="Cursor de Mano"/>
-                                    </Property>
-                                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                                  </Properties>
-                                </Component>
-                                <Component class="javax.swing.JLabel" name="blind_cap_label">
-                                  <Properties>
-                                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                      <Font name="Dialog" size="14" style="1"/>
-                                    </Property>
-                                    <Property name="text" type="java.lang.String" value="0 / 0"/>
-                                    <Property name="doubleBuffered" type="boolean" value="true"/>
-                                  </Properties>
-                                </Component>
-                              </SubComponents>
-                            </Container>
-                          </SubComponents>
-                        </Container>
+                          </Group>
+                        </DimensionLayout>
+                      </Layout>
+                      <SubComponents>
                         <Component class="javax.swing.JCheckBox" name="manos_checkbox">
                           <Properties>
                             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
@@ -852,151 +992,78 @@
                         </Component>
                       </SubComponents>
                     </Container>
-                        <Container class="javax.swing.JPanel" name="recompra_panel">
+                    <Container class="javax.swing.JPanel" name="bots_panel">
+
+                      <Layout>
+                        <DimensionLayout dim="0">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="bots_label" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Component id="bots_combobox" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace type="separate" max="-2" attributes="0"/>
+                                  <Component id="bot_rebuy_checkbox" min="-2" max="-2" attributes="0"/>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                        <DimensionLayout dim="1">
+                          <Group type="103" groupAlignment="0" attributes="0">
+                              <Group type="102" attributes="0">
+                                  <EmptySpace max="-2" attributes="0"/>
+                                  <Group type="103" groupAlignment="3" attributes="0">
+                                      <Component id="bots_label" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="bots_combobox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                      <Component id="bot_rebuy_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
+                                  </Group>
+                                  <EmptySpace max="-2" attributes="0"/>
+                              </Group>
+                          </Group>
+                        </DimensionLayout>
+                      </Layout>
+                      <SubComponents>
+                        <Component class="javax.swing.JComboBox" name="bots_combobox">
                           <Properties>
-                            <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                              <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                                <LineBorder>
-                                  <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
-                                </LineBorder>
-                              </Border>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Segoe UI" size="16" style="0"/>
+                            </Property>
+                            <Property name="selectedItem" type="java.lang.Object" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
+                              <Connection code="1" type="code"/>
                             </Property>
                           </Properties>
-
-                          <Layout>
-                            <DimensionLayout dim="0">
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Group type="102" attributes="0">
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Component id="rebuy_checkbox" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
-                                      <Component id="recomprar_label" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace type="separate" max="-2" attributes="0"/>
-                                      <Component id="rebuy_limit_checkbox" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Component id="rebuy_limit_spinner" min="-2" pref="80" max="-2" attributes="0"/>
-                                      <EmptySpace min="40" pref="40" max="32767" attributes="0"/>
-                                      <Component id="rebuy_cap_label" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Component id="rebuy_cap_combo" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                  </Group>
-                              </Group>
-                            </DimensionLayout>
-                            <DimensionLayout dim="1">
-                              <Group type="103" groupAlignment="0" attributes="0">
-                                  <Group type="102" attributes="0">
-                                      <EmptySpace max="-2" attributes="0"/>
-                                      <Group type="103" groupAlignment="3" attributes="0">
-                                          <Component id="rebuy_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="recomprar_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_limit_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_limit_spinner" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_cap_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                                          <Component id="rebuy_cap_combo" alignment="3" min="-2" max="-2" attributes="0"/>
-                                      </Group>
-                                      <EmptySpace max="-2" attributes="0"/>
-                                  </Group>
-                              </Group>
-                            </DimensionLayout>
-                          </Layout>
-                          <SubComponents>
-                            <Component class="javax.swing.JCheckBox" name="rebuy_checkbox">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="16" style="1"/>
-                                </Property>
-                                <Property name="toolTipText" type="java.lang.String" value="Si alg&#xfa;n jugador se queda sin fichas"/>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <Events>
-                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_checkboxActionPerformed"/>
-                              </Events>
-                            </Component>
-                            <Component class="javax.swing.JLabel" name="recomprar_label">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="16" style="1"/>
-                                </Property>
-                                <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.editors2.IconEditor">
-                                  <Image iconType="3" name="/images/menu/rebuy.png"/>
-                                </Property>
-                                <Property name="text" type="java.lang.String" value="Recomprar"/>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <Events>
-                                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recomprar_labelMouseClicked"/>
-                              </Events>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="recomprar_label.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.recomprar_2&quot;);"/>
-                              </AuxValues>
-                            </Component>
-                            <Component class="javax.swing.JCheckBox" name="rebuy_limit_checkbox">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="14" style="1"/>
-                                </Property>
-                                <Property name="text" type="java.lang.String" value="L&#xed;mite recompra por jugador"/>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <Events>
-                                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="rebuy_limit_checkboxActionPerformed"/>
-                              </Events>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="rebuy_limit_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.limite_por_jugador&quot;);"/>
-                              </AuxValues>
-                            </Component>
-                            <Component class="javax.swing.JSpinner" name="rebuy_limit_spinner">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="14" style="0"/>
-                                </Property>
-                                <Property name="model" type="javax.swing.SpinnerModel" editor="org.netbeans.modules.form.editors2.SpinnerModelEditor">
-                                  <SpinnerModel initial="3" minimum="1" numberType="java.lang.Integer" stepSize="1" type="number"/>
-                                </Property>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                            </Component>
-                            <Component class="javax.swing.JLabel" name="rebuy_cap_label">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="14" style="1"/>
-                                </Property>
-                                <Property name="text" type="java.lang.String" value="Tope recompra:"/>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="rebuy_cap_label.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.tope_recompra&quot;);"/>
-                              </AuxValues>
-                            </Component>
-                            <Component class="javax.swing.JComboBox" name="rebuy_cap_combo">
-                              <Properties>
-                                <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                                  <Font name="Dialog" size="14" style="0"/>
-                                </Property>
-                                <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                                  <Color id="Cursor de Mano"/>
-                                </Property>
-                                <Property name="doubleBuffered" type="boolean" value="true"/>
-                              </Properties>
-                              <AuxValues>
-                                <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
-                              </AuxValues>
-                            </Component>
-                          </SubComponents>
-                        </Container>
+                          <Events>
+                            <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="bots_comboboxActionPerformed"/>
+                          </Events>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
+                          </AuxValues>
+                        </Component>
+                        <Component class="javax.swing.JLabel" name="bots_label">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Segoe UI" size="16" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Dificultad bots:"/>
+                          </Properties>
+                        </Component>
+                        <Component class="javax.swing.JCheckBox" name="bot_rebuy_checkbox">
+                          <Properties>
+                            <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                              <Font name="Dialog" size="14" style="1"/>
+                            </Property>
+                            <Property name="text" type="java.lang.String" value="Recomprar bots"/>
+                            <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
+                              <Color id="Cursor de Mano"/>
+                            </Property>
+                            <Property name="doubleBuffered" type="boolean" value="true"/>
+                          </Properties>
+                          <AuxValues>
+                            <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="bot_rebuy_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.permitir_bots&quot;);"/>
+                          </AuxValues>
+                        </Component>
+                      </SubComponents>
+                    </Container>
                   </SubComponents>
                 </Container>
                 <Container class="javax.swing.JPanel" name="nick_pass_panel">
@@ -1220,87 +1287,6 @@
                     <AuxValue name="JavaCodeGenerator_CreateCodePost" type="java.lang.String" value="cancel_button.putClientProperty(&quot;i18n.key&quot;, &quot;ui.cancelar&quot;);"/>
                   </AuxValues>
                 </Component>
-                <Container class="javax.swing.JPanel" name="bots_panel">
-                  <Properties>
-                    <Property name="border" type="javax.swing.border.Border" editor="org.netbeans.modules.form.editors2.BorderEditor">
-                      <Border info="org.netbeans.modules.form.compat2.border.LineBorderInfo">
-                        <LineBorder>
-                          <Color PropertyName="color" blue="99" green="99" red="99" type="rgb"/>
-                        </LineBorder>
-                      </Border>
-                    </Property>
-                  </Properties>
-
-                  <Layout>
-                    <DimensionLayout dim="0">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="bots_label" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Component id="bots_combobox" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace type="separate" max="-2" attributes="0"/>
-                              <Component id="bot_rebuy_checkbox" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="-2" attributes="0"/>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                    <DimensionLayout dim="1">
-                      <Group type="103" groupAlignment="0" attributes="0">
-                          <Group type="102" attributes="0">
-                              <EmptySpace max="-2" attributes="0"/>
-                              <Group type="103" groupAlignment="3" attributes="0">
-                                  <Component id="bots_label" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="bots_combobox" alignment="3" min="-2" max="-2" attributes="0"/>
-                                  <Component id="bot_rebuy_checkbox" alignment="3" min="-2" max="-2" attributes="0"/>
-                              </Group>
-                              <EmptySpace max="-2" attributes="0"/>
-                          </Group>
-                      </Group>
-                    </DimensionLayout>
-                  </Layout>
-                  <SubComponents>
-                    <Component class="javax.swing.JComboBox" name="bots_combobox">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Segoe UI" size="16" style="0"/>
-                        </Property>
-                        <Property name="selectedItem" type="java.lang.Object" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-                          <Connection code="1" type="code"/>
-                        </Property>
-                      </Properties>
-                      <Events>
-                        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="bots_comboboxActionPerformed"/>
-                      </Events>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_TypeParameters" type="java.lang.String" value="&lt;String&gt;"/>
-                      </AuxValues>
-                    </Component>
-                    <Component class="javax.swing.JLabel" name="bots_label">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Segoe UI" size="16" style="1"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Dificultad bots:"/>
-                      </Properties>
-                    </Component>
-                    <Component class="javax.swing.JCheckBox" name="bot_rebuy_checkbox">
-                      <Properties>
-                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
-                          <Font name="Dialog" size="14" style="1"/>
-                        </Property>
-                        <Property name="text" type="java.lang.String" value="Recomprar bots"/>
-                        <Property name="cursor" type="java.awt.Cursor" editor="org.netbeans.modules.form.editors2.CursorEditor">
-                          <Color id="Cursor de Mano"/>
-                        </Property>
-                        <Property name="doubleBuffered" type="boolean" value="true"/>
-                      </Properties>
-                      <AuxValues>
-                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="bot_rebuy_checkbox.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.permitir_bots&quot;);"/>
-                      </AuxValues>
-                    </Component>
-                  </SubComponents>
-                </Container>
               </SubComponents>
             </Container>
           </SubComponents>

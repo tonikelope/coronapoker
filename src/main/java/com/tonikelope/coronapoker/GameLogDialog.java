@@ -122,6 +122,7 @@ public final class GameLogDialog extends JDialog {
     // aligned (fixed-width marker). Tokens:
     //   "(##)" column-header row (NICK/STACK/BUYIN labels, blank marker)
     //   "(D )" dealer  "(SB)" small blind  "(BB)" big blind  "(  )" no role
+    //   "(ST)" straddle  "(DS)" dealer+straddle (3-manos: el dealer es el UTG)
     //   "($$)" the AUDITOR DE CUENTAS totals line (money icon)
     // Data rows are monospace-padded columns: nick / stack / buyin.
     // The two trailing right-justified numeric columns (stack, buyin), anchored at
@@ -129,7 +130,7 @@ public final class GameLogDialog extends JDialog {
     private static final Pattern BALANCE_NUMS = Pattern.compile("\\s{2,}(\\S+)\\s{2,}(\\S+)\\s*$");
     private static final int ROLE_ICON_PX = 17;
     private static final int ROLE_MARKER_W = 26;
-    private static javax.swing.ImageIcon ROLE_DEALER, ROLE_SB, ROLE_BB, ROLE_MONEY, ROLE_STRADDLE;
+    private static javax.swing.ImageIcon ROLE_DEALER, ROLE_SB, ROLE_BB, ROLE_MONEY, ROLE_STRADDLE, ROLE_DEALER_STRADDLE;
 
     private static boolean isBalanceRow(String line) {
         if (line.length() < 4) {
@@ -137,7 +138,7 @@ public final class GameLogDialog extends JDialog {
         }
         String t = line.substring(0, 4);
         return t.equals("(D )") || t.equals("(SB)") || t.equals("(BB)") || t.equals("(  )")
-                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)") || t.equals("(A )");
+                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)") || t.equals("(A )") || t.equals("(DS)");
     }
 
     // Clears the pane and re-renders the whole text (used by setText paths:
@@ -332,6 +333,11 @@ public final class GameLogDialog extends JDialog {
                         ROLE_STRADDLE = scaledRoleIcon("/images/straddle.png");
                     }
                     return ROLE_STRADDLE;
+                case "(DS)":
+                    if (ROLE_DEALER_STRADDLE == null) {
+                        ROLE_DEALER_STRADDLE = scaledRoleIcon("/images/dealer_straddle.png");
+                    }
+                    return ROLE_DEALER_STRADDLE;
                 default:
                     return null;
             }

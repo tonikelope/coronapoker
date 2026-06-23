@@ -3552,6 +3552,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // dealer): en heads-up el dealer es tambien la ciega pequena.
                 String role = nick.equals(bb_nick) ? "(BB)"
                         : nick.equals(sb_nick) ? "(SB)"
+                        : (this.straddle_posted && nick.equals(dealer_nick) && nick.equals(this.utg_nick)) ? "(DS)"
                         : nick.equals(dealer_nick) ? "(D )"
                         : (this.straddle_posted && nick.equals(this.utg_nick)) ? "(ST)" : "(  )";
 

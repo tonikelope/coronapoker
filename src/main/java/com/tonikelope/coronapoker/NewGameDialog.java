@@ -1918,6 +1918,19 @@ public class NewGameDialog extends JDialog {
 
                 this.rebuy_cap_label.setEnabled(false);
 
+                // Ante/straddle, bots, límite de manos y presets: también bloqueados al
+                // recuperar (la config de la timba recuperada es fija; solo se puede jugar).
+                this.ante_checkbox.setEnabled(false);
+                this.straddle_checkbox.setEnabled(false);
+                this.bots_combobox.setEnabled(false);
+                this.bots_label.setEnabled(false);
+                this.manos_checkbox.setEnabled(false);
+                this.manos_spinner.setEnabled(false);
+                this.presets_combobox.setEnabled(false);
+                this.preset_save_button.setEnabled(false);
+                this.preset_delete_button.setEnabled(false);
+                this.preset_label.setEnabled(false);
+
                 this.recover_checkbox_label.setOpaque(true);
 
                 this.recover_checkbox_label.setBackground(Color.YELLOW);
@@ -2024,6 +2037,18 @@ public class NewGameDialog extends JDialog {
                 this.rebuy_cap_label.setEnabled(false);
                 this.rebuy_cap_combo.setEnabled(false);
             }
+
+            // Restaura ante/straddle, bots, límite de manos y presets a su estado de timba nueva.
+            this.ante_checkbox.setEnabled(true);
+            this.straddle_checkbox.setEnabled(true);
+            this.bots_combobox.setEnabled(true);
+            this.bots_label.setEnabled(true);
+            this.manos_checkbox.setEnabled(true);
+            this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
+            this.presets_combobox.setEnabled(true);
+            this.preset_save_button.setEnabled(true);
+            this.preset_delete_button.setEnabled(this.presets_combobox.getSelectedIndex() > 0);
+            this.preset_label.setEnabled(true);
 
             this.nick.setEnabled(true);
 

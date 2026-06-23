@@ -940,7 +940,12 @@ public final class GameLogDialog extends JDialog {
             };
             scroll.getVerticalScrollBar().addMouseListener(reeval);
 
-            view.addMouseWheelListener((java.awt.event.MouseWheelEvent e) -> {
+            // OJO: el listener va en el JScrollPane, NO en la vista. Un
+            // MouseWheelEvent solo "burbujea" hasta el JScrollPane (que hace el
+            // scroll) si el componente bajo el cursor NO tiene MouseWheelListener;
+            // ponérselo a la vista se lo comería y la rueda dejaría de scrollear.
+            // En el JScrollPane convive con el listener de scroll por defecto.
+            scroll.addMouseWheelListener((java.awt.event.MouseWheelEvent e) -> {
                 if (e.getWheelRotation() < 0) {
                     follow = false; // subir = el usuario quiere leer; dejar de seguir ya
                 }

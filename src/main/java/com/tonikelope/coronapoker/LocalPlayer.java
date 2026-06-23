@@ -3430,6 +3430,31 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         renderDecisionVisual(this.decision);
     }
 
+    // El registro de la timba habla en 3ª persona como con el resto de jugadores
+    // ("server VA", "server SUBE (+0,30)"...), aunque la etiqueta de acción del
+    // tapete del jugador local siga en 2ª persona (esa NO se toca). Reescribimos
+    // SOLO el verbo de la etiqueta ya renderizada a su forma en 3ª persona —las
+    // mismas claves que usa RemotePlayer—, conservando los importes ("(+0,30)",
+    // " 0,50", "(+...)") y el prefijo "RE". El reemplazo es por-decisión, asi que
+    // los verbos no colisionan entre si ni con los importes (numericos). En ingles
+    // ambas personas coinciden, con lo que queda como no-op.
+    private String thirdPersonActionLabel() {
+        String text = player_action.getText();
+
+        switch (this.getDecision()) {
+            case Player.FOLD:
+                return text.replace(Translator.translate("action.label.fold"), Translator.translate("action.label.fold2"));
+            case Player.CHECK:
+                return text.replace(Translator.translate("action.label.check"), Translator.translate("action.label.check2"))
+                        .replace(Translator.translate("action.label.call"), Translator.translate("action.label.call2"));
+            case Player.BET:
+                return text.replace(Translator.translate("action.label.raise"), Translator.translate("action.label.raise2"))
+                        .replace(Translator.translate("action.label.bet"), Translator.translate("action.label.bet2"));
+            default:
+                return text; // ALL IN: identico en ambas personas.
+        }
+    }
+
     @Override
     public String getLastActionString() {
 
@@ -3437,16 +3462,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         switch (this.getDecision()) {
             case Player.FOLD:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             case Player.CHECK:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             case Player.BET:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             case Player.ALLIN:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
+                action += thirdPersonActionLabel() + " (" + Helpers.money2String(this.bote) + ")";
                 ;
                 break;
             default:

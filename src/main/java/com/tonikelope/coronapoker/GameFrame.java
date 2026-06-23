@@ -113,7 +113,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final boolean TEST_MODE = false;
     public static final int TTS_NO_SOUND_TIMEOUT = 3000;
     public static final int NOTIFY_INGAME_GIF_REPEAT = 2;
-    public static final int HALT_PAUSE = 10000;
+    public static final int HALT_PAUSE = 5000;
     public static final ConcurrentLinkedQueue<Object[]> NOTIFY_CHAT_QUEUE = new ConcurrentLinkedQueue<>();
     public static final Object SQL_LOCK = new Object();
 
@@ -2974,10 +2974,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (partida_terminada) {
 
-                    getRegistro().print(Translator.translate("game.la_timba_ha_terminado_2"));
+                    getRegistro().print(Helpers.framedTitle(Translator.translate("game.la_timba_ha_terminado_2")));
 
                     if (this.getCrupier().isForce_recover()) {
-                        getRegistro().print(Translator.translate("game.el_server_ha_parado"));
+                        getRegistro().print(Helpers.framedTitleAlert(Translator.translate("game.el_server_ha_parado")));
                     }
 
                     getRegistro().print(Translator.translate("game.fin_de_la_timba") + " " + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
@@ -4105,12 +4105,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         if (!registro_dialog.isVisible()) {
 
-            // Console-sized (not 0.8x the game window). Resizable from any edge/corner.
-            registro_dialog.setPreferredSize(new java.awt.Dimension(1280, 720));
+            // El tamaño/posición por defecto (consola 1280x720 centrada, no 0.8x la
+            // ventana) solo se aplica la PRIMERA vez que se abre este diálogo;
+            // reaperturas posteriores conservan lo que el usuario haya
+            // redimensionado/movido (cerrar el registro solo lo oculta).
+            if (!registro_dialog.isDefaultBoundsApplied()) {
 
-            registro_dialog.pack();
+                registro_dialog.setPreferredSize(new java.awt.Dimension(1280, 720));
 
-            registro_dialog.setLocationRelativeTo(this);
+                registro_dialog.pack();
+
+                registro_dialog.setLocationRelativeTo(this);
+
+                registro_dialog.setDefaultBoundsApplied(true);
+            }
 
             registro_dialog.setVisible(true);
         }

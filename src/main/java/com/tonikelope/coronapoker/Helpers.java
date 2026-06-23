@@ -4635,6 +4635,22 @@ public class Helpers {
         return System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch") + " / " + System.getProperty("java.vm.name") + " " + System.getProperty("java.version");
     }
 
+    // Enmarca un título de una línea con caracteres de caja para el registro (en
+    // vez de tiras de asteriscos). Lleva un "\n" inicial (línea en blanco antes).
+    // El GameLogDialog lo detecta por el carácter de caja inicial: marco simple
+    // (┌─┐) → estilo de cabecera (cian); marco doble (╔═╗) → estilo de alerta (rojo).
+    public static String framedTitle(String text) {
+        String inner = "  " + text + "  ";
+        String rule = "─".repeat(inner.length());
+        return "\n┌" + rule + "┐\n│" + inner + "│\n└" + rule + "┘";
+    }
+
+    public static String framedTitleAlert(String text) {
+        String inner = "  " + text + "  ";
+        String rule = "═".repeat(inner.length());
+        return "\n╔" + rule + "╗\n║" + inner + "║\n╚" + rule + "╝";
+    }
+
     // Redondeo de un float a N decimales (HALF_UP), 2 por defecto. El dinero del
     // motor es double y se cuantiza al céntimo vía doubleClean; floatClean queda
     // para magnitudes NO-dinero que se redondean a pocos decimales (zoom, dB de

@@ -165,7 +165,7 @@ public class WaitingRoomFrame extends JFrame {
     public static final int EC_KEY_LENGTH = 256;
     public static final int GEN_PASS_LENGTH = 14;
     public static final int CLIENT_REC_WAIT = 5;
-    public static final int ANTI_FLOOD_CHAT = 1000;
+    public static final int ANTI_FLOOD_CHAT = 500;
     // 15s of u-law 16kHz is ~240KB; headroom for the WAV header
     public static final int MAX_VOICE_MESSAGE_BYTES = 320 * 1024;
     public static volatile boolean CHAT_GAME_NOTIFICATIONS = Boolean
@@ -4850,9 +4850,9 @@ public class WaitingRoomFrame extends JFrame {
                                 .addComponent(emoji_button)
                                 .addGap(0, 0, 0)
                                 .addComponent(image_button)
-                                .addGap(0, 0, 0)
+                                .addGap(8, 8, 8)
                                 .addComponent(chat_box)
-                                .addGap(0, 0, 0)
+                                .addGap(8, 8, 8)
                                 .addComponent(send_label)
                                 .addGap(0, 0, 0)
                                 .addComponent(max_min_label))
@@ -4861,8 +4861,9 @@ public class WaitingRoomFrame extends JFrame {
                 chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                         .addComponent(emoji_button, javax.swing.GroupLayout.DEFAULT_SIZE, 43, Short.MAX_VALUE)
                         .addComponent(image_button, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(chat_box)
+                        .addComponent(chat_box, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGroup(chat_box_panelLayout.createSequentialGroup()
+                                .addGap(0, 0, Short.MAX_VALUE)
                                 .addGroup(chat_box_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                                         .addComponent(send_label)
                                         .addComponent(max_min_label))

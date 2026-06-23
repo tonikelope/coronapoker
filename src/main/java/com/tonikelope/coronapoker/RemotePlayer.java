@@ -2404,9 +2404,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             chip_label_icon = Helpers.IMAGEN_SB;
         } else if (this.nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
-            Helpers.setScaledIconLabel(player_name, getClass().getResource(GameFrame.getInstance().getCrupier().isDead_dealer() ? "/images/dead_dealer.png" : "/images/dealer.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
+            // En 3-manos el dealer es el UTG; si straddlea, ficha combinada dealer+straddle
+            // (la rama DEALER gana a la de straddle de abajo, así que se resuelve aquí).
+            boolean dealer_straddle = GameFrame.getInstance().getCrupier().isStraddle_posted()
+                    && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())
+                    && !GameFrame.getInstance().getCrupier().isDead_dealer();
+            String dealer_img = dealer_straddle ? "/images/dealer_straddle.png"
+                    : (GameFrame.getInstance().getCrupier().isDead_dealer() ? "/images/dead_dealer.png" : "/images/dealer.png");
+            Helpers.setScaledIconLabel(player_name, getClass().getResource(dealer_img), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));
 
-            chip_label_icon = GameFrame.getInstance().getCrupier().isDead_dealer() ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER;
+            chip_label_icon = dealer_straddle ? Helpers.IMAGEN_DEALER_STRADDLE
+                    : (GameFrame.getInstance().getCrupier().isDead_dealer() ? Helpers.IMAGEN_DEAD_DEALER : Helpers.IMAGEN_DEALER);
         } else if (GameFrame.getInstance().getCrupier().isStraddle_posted()
                 && this.nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick())) {
             Helpers.setScaledIconLabel(player_name, getClass().getResource("/images/straddle.png"), Math.round(0.7f * player_name.getHeight()), Math.round(0.7f * player_name.getHeight()));

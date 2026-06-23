@@ -266,6 +266,7 @@ public class Helpers {
     public static volatile ImageIcon IMAGEN_DEALER = null;
     public static volatile ImageIcon IMAGEN_DEAD_DEALER = null;
     public static volatile ImageIcon IMAGEN_STRADDLE = null;
+    public static volatile ImageIcon IMAGEN_DEALER_STRADDLE = null;
     public static volatile ImageIcon IMAGEN_POT_CHIP = null;
 
     public volatile static SecureRandom CSPRNG_GENERATOR = null;

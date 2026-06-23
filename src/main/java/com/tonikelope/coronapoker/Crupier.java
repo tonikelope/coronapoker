@@ -3500,6 +3500,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return auditor;
     }
 
+    // Linea de borde de una tabla con caracteres de caja Unicode (box-drawing). El
+    // GameLogDialog pinta esos caracteres atenuados (la rejilla). 'cols' son los
+    // anchos de CONTENIDO de cada columna; cada tramo abarca col+2 (un espacio de
+    // padding a cada lado dentro de la celda).
+    private static String gridBorderLine(char left, char mid, char right, int[] cols) {
+        StringBuilder sb = new StringBuilder().append(left);
+        for (int i = 0; i < cols.length; i++) {
+            if (i > 0) {
+                sb.append(mid);
+            }
+            sb.append("─".repeat(cols[i] + 2));
+        }
+        return sb.append(right).toString();
+    }
+
+    // Fila de tabla con separadores verticales: "│ celda0 │ celda1 │ ... │". Las
+    // celdas ya vienen alineadas a su ancho de columna por quien llama.
+    private static String gridRowLine(String... cells) {
+        StringBuilder sb = new StringBuilder("│");
+        for (String c : cells) {
+            sb.append(' ').append(c).append(" │");
+        }
+        return sb.toString();
+    }
+
     public void auditorCuentas() {
 
         synchronized (this.getLock_contabilidad()) {
@@ -3571,26 +3596,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             stack_w = Math.max(stack_w, "STACK".length());
             buyin_w = Math.max(buyin_w, "BUYIN".length());
 
-            StringBuilder status = new StringBuilder("(##) ")
-                    .append(String.format("%-" + nick_w + "s", "NICK")).append("  ")
-                    .append(String.format("%" + stack_w + "s", "STACK")).append("  ")
-                    .append(String.format("%" + buyin_w + "s", "BUYIN"));
+            // Tabla de cuentas con bordes (rejilla). Los iconos de rol van en el
+            // margen izquierdo (gutter del marcador), fuera del marco. Columnas
+            // NICK / STACK / BUYIN. El borde y la cabecera usan el token "(##)"
+            // (marcador en blanco + atenuado); las filas, el token de rol.
+            int[] bal_cols = {nick_w, stack_w, buyin_w};
+
+            StringBuilder status = new StringBuilder("(##) ").append(gridBorderLine('┌', '┬', '┐', bal_cols))
+                    .append("\n(##) ").append(gridRowLine(
+                            String.format("%-" + nick_w + "s", "NICK"),
+                            String.format("%" + stack_w + "s", "STACK"),
+                            String.format("%" + buyin_w + "s", "BUYIN")))
+                    .append("\n(##) ").append(gridBorderLine('├', '┼', '┤', bal_cols));
 
             for (String[] r : balance_rows) {
-                status.append("\n").append(r[0]).append(" ")
-                        .append(String.format("%-" + nick_w + "s", r[1])).append("  ")
-                        .append(String.format("%" + stack_w + "s", r[2])).append("  ")
-                        .append(String.format("%" + buyin_w + "s", r[3]));
+                status.append("\n").append(r[0]).append(" ").append(gridRowLine(
+                        String.format("%-" + nick_w + "s", r[1]),
+                        String.format("%" + stack_w + "s", r[2]),
+                        String.format("%" + buyin_w + "s", r[3])));
             }
 
-            GameFrame.getInstance().getRegistro().print(status.toString());
-
-            // Indicador de antes activos: el ante es simetrico (todos antean), no es
-            // un rol por-nick como el straddle, asi que va en una linea propia con el
-            // icono de fichas (token "(A )").
-            if (GameFrame.ANTE) {
-                GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
-            }
+            // Reconciliacion del bote sobrante ANTES de imprimir los totales:
+            // normalmente stack_sum + bote_sobrante == buyin_sum. En una partida
+            // recuperada el bote sobrante puede haberse perdido, asi que lo
+            // reconstruimos a partir de los totales para que las cuentas cuadren.
+            // error_dialog marca el unico caso que ademas abre un dialogo modal
+            // (recuperacion que sigue sin cuadrar tras reconstruir), igual que antes.
+            boolean error_auditor = false, error_dialog = false;
 
             if (Helpers.doubleSecureCompare(Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante),
                     buyin_sum) != 0) {
@@ -3614,32 +3646,60 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         this.bote_sobrante = 0f;
                     }
 
-                    GameFrame.getInstance().getRegistro()
-                            .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
-                                    + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
-                                    + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
-
                     if (Helpers.doubleSecureCompare(
                             Helpers.doubleClean(stack_sum) + Helpers.doubleClean(this.bote_sobrante), buyin_sum) != 0) {
-                        Helpers.mostrarMensajeError(GameFrame.getInstance(),
-                                Translator.translate("ui.ojo_a_esto_no_salen"));
-                        GameFrame.getInstance().getRegistro()
-                                .print(Translator.translate("ui.ojo_a_esto_no_salen"));
+                        error_auditor = true;
+                        error_dialog = true;
                     }
 
                 } else {
-                    GameFrame.getInstance().getRegistro()
-                            .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
-                                    + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
-                                    + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
-                    GameFrame.getInstance().getRegistro()
-                            .print(Translator.translate("ui.ojo_a_esto_no_salen"));
+                    error_auditor = true;
                 }
-            } else {
+            }
+
+            // Pie de la tabla: separador + fila de totales (suma de stacks bajo
+            // STACK, suma de buyins bajo BUYIN; el bote sobrante entre parentesis a
+            // la DERECHA del marco si lo hay, asi se ve de un vistazo que (stacks +
+            // sobrante) == buyins) + borde inferior. Todo en el mismo bloque que la
+            // tabla para que lea como su pie. Los totales usan el token "($$)"
+            // (icono de fichas). La antigua linea "AUDITOR DE CUENTAS" solo se
+            // imprime ya cuando el auditor detecta un descuadre.
+            status.append("\n(##) ").append(gridBorderLine('├', '┼', '┤', bal_cols));
+
+            status.append("\n($$) ").append(gridRowLine(
+                    " ".repeat(nick_w),
+                    String.format("%" + stack_w + "s", Helpers.money2String(stack_sum)),
+                    String.format("%" + buyin_w + "s", Helpers.money2String(buyin_sum))));
+
+            if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
+                status.append(" (").append(Helpers.money2String(this.bote_sobrante)).append(")");
+            }
+
+            status.append("\n(##) ").append(gridBorderLine('└', '┴', '┘', bal_cols));
+
+            GameFrame.getInstance().getRegistro().print(status.toString());
+
+            // Indicador de antes activos: el ante es simetrico (todos antean), no es
+            // un rol por-nick como el straddle, asi que va en una linea propia con el
+            // icono de fichas (token "(A )").
+            if (GameFrame.ANTE) {
+                GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
+            }
+
+            if (error_auditor) {
+
                 GameFrame.getInstance().getRegistro()
                         .print("($$) " + Translator.translate("ui.auditor_de_cuentas") + " -> STACKS: "
                                 + Helpers.money2String(stack_sum) + " / BUYIN: " + Helpers.money2String(buyin_sum)
                                 + " " + Translator.translate("ui.sobrante") + " " + Helpers.money2String(this.bote_sobrante));
+
+                if (error_dialog) {
+                    Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                            Translator.translate("ui.ojo_a_esto_no_salen"));
+                }
+
+                GameFrame.getInstance().getRegistro()
+                        .print(Translator.translate("ui.ojo_a_esto_no_salen"));
             }
         }
     }
@@ -6803,8 +6863,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
 
         Bot.BOT_COMMUNITY_CARDS.makeEmpty();
-        GameFrame.getInstance().getRegistro().print("\n*************** " + Translator.translate("game.mano_2") + " ("
-                + String.valueOf(this.conta_mano) + ") ***************");
+        // Cabecera de mano enmarcada (en vez de la antigua tira de asteriscos).
+        GameFrame.getInstance().getRegistro().print(
+                Helpers.framedTitle(Translator.translate("game.mano_2") + " (" + this.conta_mano + ")"));
 
         // Snapshot de los portadores ANTES de rotar, para animar el deslizamiento
         // de las fichas (dealer/ciegas) del asiento anterior al nuevo. En la
@@ -12345,7 +12406,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             stats_ordenadas.sort((a, b) -> ((Integer[]) b[1])[1] - ((Integer[]) a[1])[1]);
 
-            ArrayList<String> stats_registro = new ArrayList<>();
+            // Tabla MULTIVERSO del registro: cabecera + una fila por jugador,
+            // alineadas en columnas monospace (NICK | GANA | PIERDE | EMPATA | LOKI |
+            // MANO). Cada linea lleva el token "(MV)" para que el GameLogDialog la
+            // pinte atenuada y con las cartas como fichas (mismo offset que la tabla
+            // de cuentas). Las cartas van en la ULTIMA columna porque se renderizan
+            // como fichas de ancho variable y desalinearian cualquier columna
+            // posterior. Primera pasada: formatear porcentajes y medir anchos.
+            String gana_lbl = Translator.translate("ui.gana");
+            String pierde_lbl = Translator.translate("ui.pierde");
+            String empata_lbl = Translator.translate("ui.empata");
+            String loki_lbl = "LOKI";
+
+            ArrayList<String[]> mv_filas = new ArrayList<>();
+
+            int mv_nick_w = "NICK".length();
+            int mv_pct_w = Math.max(Math.max(gana_lbl.length(), pierde_lbl.length()),
+                    Math.max(empata_lbl.length(), loki_lbl.length()));
 
             for (Object[] s : stats_ordenadas) {
                 Player p = (Player) s[0];
@@ -12355,20 +12432,68 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 p.setJugadaParcial(manoParcial, ganadores.containsKey(p),
                         Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
-                stats_registro.add(p.getNickname() + " (" + Card.collection2String(p.getHoleCards())
-                        + Translator.translate("ui.multiverso") + stats[0] + Translator.translate("ui.gana") + " "
-                        + Helpers.floatClean(((float) stats[1] / stats[0]) * 100, 2)
-                        + Translator.translate("ui.pierde") + " "
-                        + Helpers.floatClean(((float) stats[2] / stats[0]) * 100, 2)
-                        + Translator.translate("ui.empata") + " "
-                        + Helpers.floatClean(((float) stats[3] / stats[0]) * 100, 2) + "%   (LOKI: "
-                        + Helpers.floatClean((float) manoParcial.getFuerza(), 2) + "%)");
+                String gana_s = multiversePct(((float) stats[1] / stats[0]) * 100);
+                String pierde_s = multiversePct(((float) stats[2] / stats[0]) * 100);
+                String empata_s = multiversePct(((float) stats[3] / stats[0]) * 100);
+                String loki_s = multiversePct(manoParcial.getFuerza());
+
+                mv_nick_w = Math.max(mv_nick_w, p.getNickname().length());
+                mv_pct_w = Math.max(mv_pct_w, Math.max(Math.max(gana_s.length(), pierde_s.length()),
+                        Math.max(empata_s.length(), loki_s.length())));
+
+                mv_filas.add(new String[]{p.getNickname(), gana_s, pierde_s, empata_s, loki_s,
+                    Card.collection2String(p.getHoleCards())});
             }
 
-            if (!stats_registro.isEmpty()) {
-                GameFrame.getInstance().getRegistro().print(String.join("\n\n", stats_registro));
+            if (!mv_filas.isEmpty()) {
+
+                int[] mv_cols = {mv_nick_w, mv_pct_w, mv_pct_w, mv_pct_w, mv_pct_w};
+
+                // Titulo (una vez, encima del marco) + tabla con bordes. Las cartas
+                // van a la DERECHA del marco (son fichas de ancho variable, no
+                // monoespaciadas). Entre fila y fila va un separador de rejilla, que
+                // ademas evita que las fichas (altas) se toquen verticalmente.
+                StringBuilder mv_tabla = new StringBuilder(
+                        "(MV) " + Translator.translate("ui.multiverso") + " (" + MONTECARLO_ITERATIONS + ")");
+
+                mv_tabla.append("\n(MV) ").append(gridBorderLine('┌', '┬', '┐', mv_cols))
+                        .append("\n(MV) ").append(gridRowLine(
+                                String.format("%-" + mv_nick_w + "s", "NICK"),
+                                String.format("%" + mv_pct_w + "s", gana_lbl),
+                                String.format("%" + mv_pct_w + "s", pierde_lbl),
+                                String.format("%" + mv_pct_w + "s", empata_lbl),
+                                String.format("%" + mv_pct_w + "s", loki_lbl)))
+                        .append("\n(MV) ").append(gridBorderLine('├', '┼', '┤', mv_cols));
+
+                String mv_inner_sep = "\n(MV) " + gridBorderLine('├', '┼', '┤', mv_cols);
+                boolean mv_first = true;
+
+                for (String[] f : mv_filas) {
+                    if (!mv_first) {
+                        mv_tabla.append(mv_inner_sep);
+                    }
+                    mv_first = false;
+                    mv_tabla.append("\n(MV) ").append(gridRowLine(
+                            String.format("%-" + mv_nick_w + "s", f[0]),
+                            String.format("%" + mv_pct_w + "s", f[1]),
+                            String.format("%" + mv_pct_w + "s", f[2]),
+                            String.format("%" + mv_pct_w + "s", f[3]),
+                            String.format("%" + mv_pct_w + "s", f[4])))
+                            .append(" ").append(f[5]);
+                }
+
+                mv_tabla.append("\n(MV) ").append(gridBorderLine('└', '┴', '┘', mv_cols));
+
+                GameFrame.getInstance().getRegistro().print(mv_tabla.toString());
             }
         }
+    }
+
+    // Formatea un porcentaje [0..100] a 2 decimales con punto y sufijo "%" para la
+    // tabla MULTIVERSO del registro (p. ej. "86.50%"). Locale fijo (punto) para no
+    // mezclar separadores de decimales dentro de la misma linea.
+    private static String multiversePct(double value) {
+        return String.format(java.util.Locale.US, "%.2f%%", value);
     }
 
     private void waitRabbitProcessing() {

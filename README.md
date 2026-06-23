@@ -56,7 +56,7 @@ Pure P2P, no central servers, no accounts and no third party logs. Your game exi
 - **Late-joiner observer mode** — a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
 - **Recent-server list** — persisted history of past tables; browse it with ↑/↓ in the Join dialog to reconnect to anyone you've played with before.
 - **Per-peer link telemetry** — host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
-- **Anti-flood chat** — 1-second minimum between chat messages (client-side throttle on the sender's input).
+- **Anti-flood chat** — 0.5-second minimum between chat messages (client-side throttle on the sender's input).
 
 ---
 

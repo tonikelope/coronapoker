@@ -60,6 +60,11 @@ public final class GameLogDialog extends JDialog {
     private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
     private volatile boolean auto_scroll = true;
     private volatile boolean fin_transmision = false;
+    // El tamaño/posición por defecto (1280x720 centrado) se aplica solo la PRIMERA
+    // vez que se abre este diálogo; cerrarlo solo lo oculta (no se destruye), así
+    // que reaperturas posteriores conservan lo que el usuario haya redimensionado
+    // o movido.
+    private volatile boolean default_bounds_applied = false;
     private final Object log_lock = new Object();
     private JTextArea debug_textarea;
     private JScrollPane debug_scroll;
@@ -140,7 +145,8 @@ public final class GameLogDialog extends JDialog {
         }
         String t = line.substring(0, 4);
         return t.equals("(D )") || t.equals("(SB)") || t.equals("(BB)") || t.equals("(  )")
-                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)") || t.equals("(A )") || t.equals("(DS)");
+                || t.equals("(##)") || t.equals("($$)") || t.equals("(ST)") || t.equals("(A )") || t.equals("(DS)")
+                || t.equals("(MV)");
     }
 
     // Clears the pane and re-renders the whole text (used by setText paths:
@@ -189,11 +195,18 @@ public final class GameLogDialog extends JDialog {
     }
 
     private void appendNormalLine(StyledDocument doc, String line) {
+        appendNormalLine(doc, line, null);
+    }
+
+    // forcedBase != null fuerza el color base de la linea (la tabla MULTIVERSO la
+    // pinta atenuada) saltandose lineBaseStyle; los overlays de cartas / importes /
+    // placeholder siguen aplicandose igual.
+    private void appendNormalLine(StyledDocument doc, String line, SimpleAttributeSet forcedBase) {
         int len = line.length();
         if (len == 0) {
             return;
         }
-        SimpleAttributeSet base = lineBaseStyle(line);
+        SimpleAttributeSet base = forcedBase != null ? forcedBase : lineBaseStyle(line);
         SimpleAttributeSet[] cs = new SimpleAttributeSet[len];
         for (int k = 0; k < len; k++) {
             cs[k] = base;
@@ -255,35 +268,60 @@ public final class GameLogDialog extends JDialog {
         }
     }
 
-    // Renders a balance-table line: swaps the leading 4-char marker token for a
-    // small icon (role / money / blank) while keeping the columns aligned, then
-    // renders the rest depending on the token kind:
-    //   "(##)" header   -> labels in dim
-    //   "($$)" auditor   -> the totals line styled like a normal log line
-    //   data row         -> nick (white) / stack (amber, it is money) / buyin (dim)
+    // Renders a balance/MULTIVERSO table line: swaps the leading 4-char marker
+    // token for a small icon (role / money / blank) in the LEFT GUTTER (outside the
+    // box, fixed width so the grid stays aligned whatever the role), then renders
+    // the rest:
+    //   "(##)" -> bordes / cabecera / separadores de la rejilla, todo atenuado.
+    //   "(MV)" -> fila MULTIVERSO: rejilla atenuada + contenido atenuado + cartas
+    //             como fichas a la derecha del marco.
+    //   resto  -> fila de cuentas / totales / aviso del auditor: rejilla atenuada +
+    //             contenido en color normal (importes en ambar).
     private void appendBalanceRow(StyledDocument doc, String line) throws BadLocationException {
         String token = line.substring(0, 4);
         String rest = line.substring(4);
         SimpleAttributeSet ca = new SimpleAttributeSet();
         StyleConstants.setComponent(ca, makeRoleMarker(token));
         doc.insertString(doc.getLength(), " ", ca);
-        if (token.equals("($$)")) {
-            appendNormalLine(doc, rest);
-            return;
-        }
         if (token.equals("(##)")) {
             doc.insertString(doc.getLength(), rest, ST_DIM);
             return;
         }
-        Matcher m = BALANCE_NUMS.matcher(rest);
-        if (m.find()) {
-            doc.insertString(doc.getLength(), rest.substring(0, m.start(1)), ST_DEFAULT); // nick + padding
-            doc.insertString(doc.getLength(), rest.substring(m.start(1), m.end(1)), ST_AMOUNT); // stack
-            doc.insertString(doc.getLength(), rest.substring(m.end(1), m.start(2)), ST_DEFAULT); // gap
-            doc.insertString(doc.getLength(), rest.substring(m.start(2), m.end(2)), ST_DIM); // buyin
-            doc.insertString(doc.getLength(), rest.substring(m.end(2)), ST_DEFAULT); // trailing newline
-        } else {
-            doc.insertString(doc.getLength(), rest, ST_DEFAULT);
+        appendGridLine(doc, rest, token.equals("(MV)") ? ST_DIM : ST_DEFAULT);
+    }
+
+    // Renders a table line where the box-drawing characters (the grid: ─│┌┐└┘├┤┬┴┼,
+    // rango Unicode U+2500..U+257F) van atenuados y el resto en `contentStyle`. Los
+    // importes entre parentesis se pintan en ambar (dinero / bote sobrante) y los
+    // tokens de carta [A♠] se insertan como fichas — asi una tabla con bordes
+    // conserva las fichas y resalta el importe.
+    private void appendGridLine(StyledDocument doc, String line, SimpleAttributeSet contentStyle) {
+        int len = line.length();
+        if (len == 0) {
+            return;
+        }
+        SimpleAttributeSet[] cs = new SimpleAttributeSet[len];
+        for (int k = 0; k < len; k++) {
+            char c = line.charAt(k);
+            cs[k] = (c >= '─' && c <= '╿') ? ST_DIM : contentStyle;
+        }
+        overlay(cs, line, AMOUNT, ST_AMOUNT);
+        try {
+            Matcher m = CARD_TOKEN.matcher(line);
+            int pos = 0;
+            while (m.find()) {
+                insertStyledRun(doc, line, cs, pos, m.start());
+                SimpleAttributeSet cc = new SimpleAttributeSet();
+                StyleConstants.setComponent(cc, makeCard(line.substring(m.start(), m.end())));
+                doc.insertString(doc.getLength(), " ", cc);
+                pos = m.end();
+            }
+            insertStyledRun(doc, line, cs, pos, len);
+        } catch (Throwable ex) {
+            try {
+                doc.insertString(doc.getLength(), line, contentStyle);
+            } catch (BadLocationException ignored) {
+            }
         }
     }
 
@@ -393,6 +431,20 @@ public final class GameLogDialog extends JDialog {
             return ST_HEADER;
         }
         String t = line.stripLeading();
+        // Titulos enmarcados con caracteres de caja (en vez de tiras de asteriscos):
+        // marco SIMPLE (┌─┐/│/└) -> estilo de cabecera (cian); marco DOBLE (╔═╗/║/╚)
+        // -> estilo de alerta (rojo, p. ej. parada del server). Las tablas con bordes
+        // (cuentas/MULTIVERSO) NO llegan aqui (van por appendBalanceRow al llevar
+        // token), asi que esta deteccion por caracter de caja inicial no colisiona.
+        if (!t.isEmpty()) {
+            char c0 = t.charAt(0);
+            if (c0 == '╔' || c0 == '║' || c0 == '╚') {
+                return ST_ALERT;
+            }
+            if (c0 == '┌' || c0 == '│' || c0 == '└') {
+                return ST_HEADER;
+            }
+        }
         if (t.startsWith("FLOP -> ") || t.startsWith("TURN -> ") || t.startsWith("RIVER -> ")) {
             return ST_BOARD;
         }
@@ -456,7 +508,20 @@ public final class GameLogDialog extends JDialog {
     // re-realizes it and it is never shown in between. Custom chrome replaces the
     // lost native frame: menu-bar drag, a bottom-right resize grip and a Close item.
     private void setupLogPane() {
-        log_pane = new JTextPane();
+        // El incremento de unidad de JTextComponent es visibleRect.height / 10,
+        // así que cada muesca de rueda mueve ~3 × (1/10 del viewport): varias
+        // líneas, y más cuanto mayor sea la ventana. Lo fijamos a la altura de
+        // una línea para que la rueda avance las líneas que indique el sistema
+        // (3 en Windows) sea cual sea el tamaño del panel, como un editor normal.
+        log_pane = new JTextPane() {
+            @Override
+            public int getScrollableUnitIncrement(java.awt.Rectangle visibleRect, int orientation, int direction) {
+                if (orientation == javax.swing.SwingConstants.VERTICAL) {
+                    return Math.max(1, getFontMetrics(getFont()).getHeight());
+                }
+                return super.getScrollableUnitIncrement(visibleRect, orientation, direction);
+            }
+        };
         log_pane.setEditable(false);
         log_pane.setBackground(LOG_BG);
         log_pane.setForeground(new Color(230, 230, 230));
@@ -479,59 +544,17 @@ public final class GameLogDialog extends JDialog {
         transparent_menu.addActionListener(evt -> applyLogOpacity(transparent_menu.isSelected()));
         opciones_menu.add(transparent_menu);
 
-        // Move the HUD by dragging the menu bar (and its filler strip). Screen-coord
-        // based so it works no matter which sub-component fired the event.
-        final java.awt.Point[] off = {null};
-        java.awt.event.MouseAdapter dragAdapter = new java.awt.event.MouseAdapter() {
-            @Override
-            public void mousePressed(java.awt.event.MouseEvent e) {
-                java.awt.Point sp = e.getLocationOnScreen();
-                off[0] = new java.awt.Point(sp.x - getX(), sp.y - getY());
-            }
-
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent e) {
-                off[0] = null;
-            }
-
-            @Override
-            public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (off[0] != null) {
-                    java.awt.Point sp = e.getLocationOnScreen();
-                    setLocation(sp.x - off[0].x, sp.y - off[0].y);
-                }
-            }
-        };
+        // Mover el HUD arrastrando el menú (y su tira de relleno) o la barra de
+        // título (ver setupTitleBar). Basado en coordenadas de pantalla para que
+        // funcione sea cual sea el subcomponente que dispare el evento. El botón de
+        // cerrar (X) vive ahora en la barra de título.
+        java.awt.event.MouseAdapter dragAdapter = windowDragAdapter();
         jMenuBar1.addMouseListener(dragAdapter);
         jMenuBar1.addMouseMotionListener(dragAdapter);
         java.awt.Component filler = javax.swing.Box.createHorizontalGlue();
         filler.addMouseListener(dragAdapter);
         filler.addMouseMotionListener(dragAdapter);
         jMenuBar1.add(filler);
-
-        // X close button on the right (closing is an action, not a preference).
-        final javax.swing.JLabel close_btn = new javax.swing.JLabel("X");
-        close_btn.setFont(new Font("Dialog", Font.BOLD, 16));
-        close_btn.setForeground(new Color(70, 70, 70)); // menu bar is light -> dark X
-        close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 12, 0, 14));
-        close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
-        close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                setVisible(false);
-            }
-
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                close_btn.setForeground(new Color(215, 40, 40));
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent e) {
-                close_btn.setForeground(new Color(70, 70, 70));
-            }
-        });
-        jMenuBar1.add(close_btn);
 
         // Resize from the 4 corners (invisible grips on the layered pane — no border
         // needed, so the console sits flush). Each anchors the opposite corner.
@@ -594,6 +617,89 @@ public final class GameLogDialog extends JDialog {
         placeGrips.run();
     }
 
+    // Adaptador para mover la ventana (sin bordes) arrastrando una zona-barra.
+    // Basado en coordenadas de pantalla para funcionar sea cual sea el
+    // subcomponente que dispare el evento. Cada llamada crea su propio estado
+    // (solo hay un arrastre a la vez, así que compartirlo entre componentes de la
+    // misma barra también valdría).
+    private java.awt.event.MouseAdapter windowDragAdapter() {
+        final java.awt.Point[] off = {null};
+        return new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                java.awt.Point sp = e.getLocationOnScreen();
+                off[0] = new java.awt.Point(sp.x - getX(), sp.y - getY());
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                off[0] = null;
+            }
+
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                if (off[0] != null) {
+                    java.awt.Point sp = e.getLocationOnScreen();
+                    setLocation(sp.x - off[0].x, sp.y - off[0].y);
+                }
+            }
+        };
+    }
+
+    // Barra de título personalizada. La ventana es sin bordes (para poder ser
+    // semitransparente), así que no hay barra nativa: ponemos la nuestra con el
+    // nombre y el botón de cerrar. Va ENCIMA del menú — como el JMenuBar nativo
+    // ocupa el slot superior del root pane, lo sacamos de ahí (setJMenuBar(null)) y
+    // lo apilamos bajo la barra de título en el NORTH del content pane (que
+    // setupDebugTab ya dejó en BorderLayout con las pestañas en CENTER).
+    private void setupTitleBar() {
+        setJMenuBar(null);
+
+        javax.swing.JLabel title = new javax.swing.JLabel("CoronaPoker - " + Translator.translate("log.registro"));
+        title.setForeground(new Color(70, 70, 70));
+        title.setFont(new Font("Dialog", Font.BOLD, 14));
+        title.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 12, 4, 12));
+
+        final javax.swing.JLabel close_btn = new javax.swing.JLabel("X");
+        close_btn.setFont(new Font("Dialog", Font.BOLD, 16));
+        close_btn.setForeground(new Color(70, 70, 70)); // barra clara -> X oscura
+        close_btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 12, 0, 14));
+        close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                setVisible(false);
+            }
+
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                close_btn.setForeground(new Color(215, 40, 40));
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                close_btn.setForeground(new Color(70, 70, 70));
+            }
+        });
+
+        javax.swing.JPanel title_bar = new javax.swing.JPanel(new BorderLayout());
+        title_bar.setBackground(jMenuBar1.getBackground());
+        title_bar.add(title, BorderLayout.WEST);
+        title_bar.add(close_btn, BorderLayout.EAST);
+
+        java.awt.event.MouseAdapter drag = windowDragAdapter();
+        title_bar.addMouseListener(drag);
+        title_bar.addMouseMotionListener(drag);
+        title.addMouseListener(drag);
+        title.addMouseMotionListener(drag);
+
+        javax.swing.JPanel north = new javax.swing.JPanel(new BorderLayout());
+        north.add(title_bar, BorderLayout.NORTH);
+        north.add(jMenuBar1, BorderLayout.CENTER);
+
+        getContentPane().add(north, BorderLayout.NORTH);
+    }
+
     private void applyLogOpacity(boolean transparent) {
         try {
             setOpacity(transparent ? 0.9f : 1.0f);
@@ -628,6 +734,14 @@ public final class GameLogDialog extends JDialog {
         return auto_scroll;
     }
 
+    public boolean isDefaultBoundsApplied() {
+        return default_bounds_applied;
+    }
+
+    public void setDefaultBoundsApplied(boolean default_bounds_applied) {
+        this.default_bounds_applied = default_bounds_applied;
+    }
+
     /**
      * Creates new form Registro
      */
@@ -651,6 +765,8 @@ public final class GameLogDialog extends JDialog {
         renderAll(GameLogDialog.LOG_TEXT);
 
         setupDebugTab();
+
+        setupTitleBar();
 
         // Cada vez que el dialog se hace visible (apertura o reapertura tras
         // dispose) saltamos al final y reanudamos el seguimiento en ambas

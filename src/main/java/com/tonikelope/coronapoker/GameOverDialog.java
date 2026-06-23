@@ -233,9 +233,10 @@ public class GameOverDialog extends JDialog {
             GameFrame.getInstance().getFastchat_dialog().setVisible(false);
         }
 
-        if (GameFrame.getInstance().getRegistro_dialog() != null) {
-            GameFrame.getInstance().getRegistro_dialog().setVisible(false);
-        }
+        // El registro NO se oculta: si el usuario lo tiene abierto, se mantiene
+        // visible durante el game over para poder leer el resultado de la mano
+        // (el GIF va centrado encima; el game over es modal, asi que queda al
+        // frente y el registro permanece detras/al lado, como lo haya colocado).
 
         if (GameFrame.getInstance().getJugadas_dialog() != null) {
             GameFrame.getInstance().getJugadas_dialog().setVisible(false);

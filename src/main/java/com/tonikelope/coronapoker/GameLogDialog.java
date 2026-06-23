@@ -899,8 +899,8 @@ public final class GameLogDialog extends JDialog {
     // usuario arrastraba de nuevo al fondo.
     //
     // Esto modela la intención del usuario como estado pegajoso: `follow` empieza
-    // en true y solo cambia con un gesto real (rueda o ratón sobre la barra) —
-    // subir => deja de seguir, volver al fondo => reanuda. Los scrolls
+    // en true y solo cambia con un gesto real (rueda, ratón sobre la barra o
+    // teclado) — subir => deja de seguir, volver al fondo => reanuda. Los scrolls
     // programáticos nunca lo tocan, así que un retraso transitorio de layout no
     // puede desactivar el seguimiento. El salto al fondo va en invokeLater para
     // ejecutarse DESPUÉS del revalidate del append y llegar al fondo de verdad.
@@ -923,11 +923,10 @@ public final class GameLogDialog extends JDialog {
             }
 
             // Reevaluar "¿está el usuario parado al fondo?" tras cualquier gesto de
-            // ratón sobre la barra (arrastre del pulgar, clic en la pista, flechas)
-            // o sobre la rueda. Los scrolls programáticos no pasan por ratón/rueda,
-            // así que nunca cambian el flag: un retraso de layout no apaga el
-            // seguimiento. (El teclado sobre el panel queda fuera, despreciable en
-            // un HUD de log.)
+            // ratón sobre la barra (arrastre del pulgar, clic en la pista, flechas),
+            // sobre la rueda o con el teclado (más abajo). Los scrolls programáticos
+            // no pasan por ratón/rueda/teclado, así que nunca cambian el flag: un
+            // retraso de layout no puede apagar el seguimiento.
             java.awt.event.MouseAdapter reeval = new java.awt.event.MouseAdapter() {
                 @Override
                 public void mousePressed(java.awt.event.MouseEvent e) {
@@ -946,6 +945,28 @@ public final class GameLogDialog extends JDialog {
                     follow = false; // subir = el usuario quiere leer; dejar de seguir ya
                 }
                 SwingUtilities.invokeLater(() -> follow = isAtBottom(scroll));
+            });
+
+            // Navegación con teclado sobre el panel enfocado (flechas, AvPág/RePág,
+            // Inicio/Fin): el KeyListener corre ANTES de que la acción de caret
+            // mueva/scrolee, así que las teclas "hacia arriba" paran el seguimiento
+            // al vuelo y el invokeLater reevalúa la posición ya scrolleada (así
+            // bajar de nuevo al fondo reanuda).
+            view.addKeyListener(new java.awt.event.KeyAdapter() {
+                @Override
+                public void keyPressed(java.awt.event.KeyEvent e) {
+                    switch (e.getKeyCode()) {
+                        case java.awt.event.KeyEvent.VK_UP:
+                        case java.awt.event.KeyEvent.VK_KP_UP:
+                        case java.awt.event.KeyEvent.VK_PAGE_UP:
+                        case java.awt.event.KeyEvent.VK_HOME:
+                            follow = false; // navegar hacia arriba = leer; dejar de seguir ya
+                            break;
+                        default:
+                            break;
+                    }
+                    SwingUtilities.invokeLater(() -> follow = isAtBottom(scroll));
+                }
             });
         }
 

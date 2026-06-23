@@ -79,6 +79,7 @@ public class NewGameDialog extends JDialog {
     public static volatile int BUYIN_SPINNER_STEP;
 
     private final HashMap<String, HashMap<String, Object>> game = new HashMap<>();
+    private String last_game_key = null; // descripción ("server @ fecha") de la última timba recuperable cargada (mostrada en game_label), o null si no hay ninguna cargada
     private volatile boolean dialog_ok = false;
     private volatile boolean partida_local;
     private volatile File avatar = null;
@@ -370,8 +371,6 @@ public class NewGameDialog extends JDialog {
             populatePresetsCombo(null);
         }
 
-        game_combo.setEnabled(false);
-
         password.setEnabled(false);
 
         manos_spinner.setEnabled(false);
@@ -586,7 +585,7 @@ public class NewGameDialog extends JDialog {
                     }
                     this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
-                    game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date));
+                    this.last_game_key = rs.getString("server") + " @ " + timeZoneFormat.format(date);
 
                 } catch (SQLException ex) {
                     Logger.getLogger(NewGameDialog.class.getName()).log(Level.SEVERE, null, ex);
@@ -665,7 +664,7 @@ public class NewGameDialog extends JDialog {
         recover_panel = new javax.swing.JPanel();
         recover_checkbox = new javax.swing.JCheckBox();
         recover_checkbox_label = new javax.swing.JLabel();
-        game_combo = new javax.swing.JComboBox<>();
+        game_label = new javax.swing.JLabel();
         cancel_button = new javax.swing.JButton();
         cancel_button.putClientProperty("i18n.key", "ui.cancelar");
         bots_panel = new javax.swing.JPanel();
@@ -1340,13 +1339,7 @@ public class NewGameDialog extends JDialog {
             }
         });
 
-        game_combo.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        game_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        game_combo.addItemListener(new java.awt.event.ItemListener() {
-            public void itemStateChanged(java.awt.event.ItemEvent evt) {
-                game_comboItemStateChanged(evt);
-            }
-        });
+        game_label.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
 
         javax.swing.GroupLayout recover_panelLayout = new javax.swing.GroupLayout(recover_panel);
         recover_panel.setLayout(recover_panelLayout);
@@ -1358,7 +1351,7 @@ public class NewGameDialog extends JDialog {
                 .addGap(0, 0, 0)
                 .addComponent(recover_checkbox_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_combo, 0, 428, Short.MAX_VALUE)
+                .addComponent(game_label, 0, 428, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
         recover_panelLayout.setVerticalGroup(
@@ -1367,7 +1360,7 @@ public class NewGameDialog extends JDialog {
                 .addGroup(recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                     .addComponent(recover_checkbox, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(recover_checkbox_label, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(game_combo))
+                    .addComponent(game_label))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
 
@@ -1690,7 +1683,7 @@ public class NewGameDialog extends JDialog {
                 GameFrame.setRECOVER(this.recover_checkbox.isSelected());
 
                 if (GameFrame.RECOVER) {
-                    GameFrame.RECOVER_ID = (int) game.get((String) game_combo.getSelectedItem()).get("id");
+                    GameFrame.RECOVER_ID = (int) game.get(this.last_game_key).get("id");
                 }
 
                 if (this.manos_checkbox.isSelected()) {
@@ -1869,13 +1862,13 @@ public class NewGameDialog extends JDialog {
 
         if (this.recover_checkbox.isSelected()) {
 
-            if (game_combo.getModel().getSize() == 0) {
+            if (this.last_game_key == null) {
                 loadLastGame();
             }
 
-            if (game_combo.getModel().getSize() > 0) {
+            if (this.last_game_key != null) {
 
-                this.game_combo.setEnabled(true);
+                this.game_label.setText(this.last_game_key);
 
                 this.buyin_spinner.setEnabled(false);
 
@@ -1929,7 +1922,7 @@ public class NewGameDialog extends JDialog {
 
                 this.recover_checkbox_label.setBackground(Color.YELLOW);
 
-                String[] parts = ((String) this.game_combo.getSelectedItem()).split(" @ ");
+                String[] parts = this.last_game_key.split(" @ ");
 
                 this.nick.setText(parts[0]);
 
@@ -1946,7 +1939,7 @@ public class NewGameDialog extends JDialog {
                 this.recover_checkbox_label.setOpaque(false);
                 this.recover_checkbox_label.setBackground(null);
                 this.recover_checkbox.setSelected(false);
-                this.game_combo.setEnabled(false);
+                this.game_label.setText("");
                 this.recover_checkbox.setEnabled(false);
                 Helpers.mostrarMensajeError(this, Translator.translate("game.no_hay_timbas_que_se"));
 
@@ -1955,7 +1948,7 @@ public class NewGameDialog extends JDialog {
             }
 
         } else {
-            this.game_combo.setEnabled(false);
+            this.game_label.setText("");
 
             this.fixed_buyin_checkbox.setEnabled(true);
 
@@ -2595,21 +2588,6 @@ public class NewGameDialog extends JDialog {
         dispose();
     }//GEN-LAST:event_cancel_buttonActionPerformed
 
-    private void game_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_game_comboItemStateChanged
-        // TODO add your handling code here:
-
-        if (this.recover_checkbox.isSelected()) {
-
-            String[] parts = ((String) this.game_combo.getSelectedItem()).split(" @ ");
-
-            this.nick.setText(parts[0]);
-
-            this.nick.setEnabled(false);
-        }
-
-        packPreservingCenter();
-    }//GEN-LAST:event_game_comboItemStateChanged
-
     private void bots_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bots_comboboxActionPerformed
         // Selection is committed only when the user accepts the dialog (see vamosActionPerformed).
     }//GEN-LAST:event_bots_comboboxActionPerformed
@@ -2962,7 +2940,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JComboBox<String> estructura_combobox;
     private javax.swing.JLabel estructura_label;
     private javax.swing.JCheckBox fixed_buyin_checkbox;
-    private javax.swing.JComboBox<String> game_combo;
+    private javax.swing.JLabel game_label;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JLabel limite_manos_label;
     private javax.swing.JPanel main_panel;

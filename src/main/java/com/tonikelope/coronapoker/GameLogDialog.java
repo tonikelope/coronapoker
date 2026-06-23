@@ -64,6 +64,8 @@ public final class GameLogDialog extends JDialog {
     private JTextArea debug_textarea;
     private JScrollPane debug_scroll;
     private Consumer<String> debug_log_listener;
+    private BottomFollower main_follow;
+    private BottomFollower debug_follow;
 
     // Rich rendering: the generated `textarea` (JTextArea) cannot show mixed
     // styles, so the scrollpane's viewport is swapped at runtime to this styled
@@ -636,6 +638,8 @@ public final class GameLogDialog extends JDialog {
 
         setupLogPane();
 
+        main_follow = new BottomFollower(jScrollPane1, log_pane);
+
         Helpers.setTranslatedTitle(this, TITLE);
 
         Helpers.JTextFieldRegularPopupMenu.addTo(log_pane);
@@ -649,23 +653,19 @@ public final class GameLogDialog extends JDialog {
         setupDebugTab();
 
         // Cada vez que el dialog se hace visible (apertura o reapertura tras
-        // dispose) seteamos caret al final en ambas textareas — asi el usuario
-        // siempre ve los mensajes mas recientes al abrir. invokeLater para que
-        // el setCaretPosition se ejecute DESPUES del layout del viewport (si se
-        // ejecutara antes, el scroll no se aplica por race con el primer paint).
+        // dispose) saltamos al final y reanudamos el seguimiento en ambas
+        // pestañas — al abrir el registro el usuario quiere ver lo más reciente.
+        // snapToBottom() ya difiere el scroll (invokeLater) para que ocurra
+        // DESPUES del layout del viewport.
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent evt) {
-                SwingUtilities.invokeLater(() -> {
-                    try {
-                        getTextArea().setCaretPosition(getTextArea().getDocument().getLength());
-                        if (debug_textarea != null) {
-                            debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
-                        }
-                    } catch (Throwable t) {
-                        // Dialog could be disposed concurrently — ignore.
-                    }
-                });
+                if (main_follow != null) {
+                    main_follow.snapToBottom();
+                }
+                if (debug_follow != null) {
+                    debug_follow.snapToBottom();
+                }
             }
         });
 
@@ -690,6 +690,8 @@ public final class GameLogDialog extends JDialog {
 
         debug_scroll = new JScrollPane(debug_textarea);
 
+        debug_follow = new BottomFollower(debug_scroll, debug_textarea);
+
         JTabbedPane tabs = new JTabbedPane();
         tabs.setFont(new Font("Dialog", Font.BOLD, 16));
         tabs.addTab(Translator.translate("log.registro"), jScrollPane1);
@@ -704,17 +706,9 @@ public final class GameLogDialog extends JDialog {
 
         debug_log_listener = (String record) -> Helpers.GUIRun(() -> {
             try {
-                // Smart autoscroll: comprobar si el viewport esta cerca del
-                // fondo ANTES del append. Si si, dejar que el caret vaya al
-                // final tras append (scroll baja). Si NO (usuario subio a leer
-                // arriba), restaurar caret para no scrollear.
-                int caret_pos = debug_textarea.getCaretPosition();
-                boolean atBottom = isAtBottom(debug_scroll);
                 debug_textarea.append(record);
-                if (auto_scroll && atBottom) {
-                    debug_textarea.setCaretPosition(debug_textarea.getDocument().getLength());
-                } else {
-                    debug_textarea.setCaretPosition(caret_pos);
+                if (auto_scroll && debug_follow != null) {
+                    debug_follow.followIfNeeded();
                 }
             } catch (Throwable t) {
                 // Textarea may be in transition between dispose/re-show; skip.
@@ -760,8 +754,8 @@ public final class GameLogDialog extends JDialog {
                 Helpers.GUIRunAndWait(() -> {
                     renderAll(GameLogDialog.LOG_TEXT);
 
-                    if (auto_scroll) {
-                        getTextArea().setCaretPosition(getTextArea().getDocument().getLength());
+                    if (auto_scroll && main_follow != null) {
+                        main_follow.followIfNeeded();
                     }
                 });
             }
@@ -777,18 +771,10 @@ public final class GameLogDialog extends JDialog {
                     String message = Translator.translate(msg);
                     GameLogDialog.LOG_TEXT += message + "\n\n";
                     Helpers.GUIRun(() -> {
-                        // Smart autoscroll: solo bajar si el usuario ya estaba
-                        // cerca del fondo (no esta leyendo arriba). Mismo
-                        // patron que el debug log listener.
-                        int caret_pos = getTextArea().getCaretPosition();
-                        boolean atBottom = isAtBottom(jScrollPane1);
-
                         appendStyled(message + "\n\n");
 
-                        if (auto_scroll && atBottom) {
-                            getTextArea().setCaretPosition(getTextArea().getDocument().getLength());
-                        } else {
-                            getTextArea().setCaretPosition(caret_pos);
+                        if (auto_scroll && main_follow != null) {
+                            main_follow.followIfNeeded();
                         }
                     });
                 }
@@ -869,8 +855,16 @@ public final class GameLogDialog extends JDialog {
     }// </editor-fold>//GEN-END:initComponents
 
     private void auto_scroll_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_scroll_menuActionPerformed
-        // TODO add your handling code here:
         this.auto_scroll = this.auto_scroll_menu.isSelected();
+        // Al reactivar el autoscroll, ponerse al día saltando a lo más reciente.
+        if (this.auto_scroll) {
+            if (main_follow != null) {
+                main_follow.snapToBottom();
+            }
+            if (debug_follow != null) {
+                debug_follow.snapToBottom();
+            }
+        }
     }//GEN-LAST:event_auto_scroll_menuActionPerformed
 
     private void formWindowActivated(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowActivated
@@ -889,6 +883,100 @@ public final class GameLogDialog extends JDialog {
             }
         }
     }//GEN-LAST:event_formWindowDeactivated
+
+    // Autoscroll "inteligente": sigue el fondo mientras el usuario está parado
+    // ahí y deja de seguir en cuanto sube a leer — SIN el frágil muestreo
+    // "antes/después" de geometría que usaba el registro.
+    //
+    // Por qué el rediseño: el código viejo muestreaba isAtBottom() justo antes de
+    // cada append y scrolleaba SÍNCRONO. Un append con estilo puede embeber cartas
+    // o iconos de rol como componentes cuya altura no se conoce hasta que el panel
+    // se re-maqueta (un revalidate que se publica como evento POSTERIOR del EDT),
+    // así que el scroll síncrono se clampaba al panel aún pequeño y se quedaba
+    // CORTO del fondo real. El siguiente mensaje muestreaba entonces "no está al
+    // fondo" y restauraba el caret viejo, con lo que el registro se alejaba más
+    // del fondo en cada mensaje y el autoscroll parecía apagarse solo hasta que el
+    // usuario arrastraba de nuevo al fondo.
+    //
+    // Esto modela la intención del usuario como estado pegajoso: `follow` empieza
+    // en true y solo cambia con un gesto real (rueda o ratón sobre la barra) —
+    // subir => deja de seguir, volver al fondo => reanuda. Los scrolls
+    // programáticos nunca lo tocan, así que un retraso transitorio de layout no
+    // puede desactivar el seguimiento. El salto al fondo va en invokeLater para
+    // ejecutarse DESPUÉS del revalidate del append y llegar al fondo de verdad.
+    private static final class BottomFollower {
+
+        private final JScrollPane scroll;
+        private final JTextComponent view;
+        private volatile boolean follow = true;
+
+        BottomFollower(JScrollPane scroll, JTextComponent view) {
+            this.scroll = scroll;
+            this.view = view;
+
+            // NEVER_UPDATE: un log no editable no debe auto-scrollear solo porque
+            // el documento cambió en el EDT (la política por defecto tira la vista
+            // al caret en cada append, arrastrando hacia abajo a quien está
+            // leyendo). Conducimos TODO el scroll explícitamente.
+            if (view.getCaret() instanceof javax.swing.text.DefaultCaret) {
+                ((javax.swing.text.DefaultCaret) view.getCaret()).setUpdatePolicy(javax.swing.text.DefaultCaret.NEVER_UPDATE);
+            }
+
+            // Reevaluar "¿está el usuario parado al fondo?" tras cualquier gesto de
+            // ratón sobre la barra (arrastre del pulgar, clic en la pista, flechas)
+            // o sobre la rueda. Los scrolls programáticos no pasan por ratón/rueda,
+            // así que nunca cambian el flag: un retraso de layout no apaga el
+            // seguimiento. (El teclado sobre el panel queda fuera, despreciable en
+            // un HUD de log.)
+            java.awt.event.MouseAdapter reeval = new java.awt.event.MouseAdapter() {
+                @Override
+                public void mousePressed(java.awt.event.MouseEvent e) {
+                    follow = false; // agarró la barra: no pelear con su arrastre
+                }
+
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent e) {
+                    SwingUtilities.invokeLater(() -> follow = isAtBottom(scroll));
+                }
+            };
+            scroll.getVerticalScrollBar().addMouseListener(reeval);
+
+            view.addMouseWheelListener((java.awt.event.MouseWheelEvent e) -> {
+                if (e.getWheelRotation() < 0) {
+                    follow = false; // subir = el usuario quiere leer; dejar de seguir ya
+                }
+                SwingUtilities.invokeLater(() -> follow = isAtBottom(scroll));
+            });
+        }
+
+        // Fuerza el seguimiento y salta al fondo (al (re)mostrar el log o al
+        // reactivar la preferencia de autoscroll: debe ponerse al día).
+        void snapToBottom() {
+            follow = true;
+            scrollToBottomLater();
+        }
+
+        // Salta al fondo solo si seguimos al usuario.
+        void followIfNeeded() {
+            if (follow) {
+                scrollToBottomLater();
+            }
+        }
+
+        // Diferido para que el salto ocurra DESPUÉS de maquetar el contenido recién
+        // añadido (un append con estilo puede embeber cartas cuya altura no se
+        // conoce hasta el revalidate, publicado como evento posterior del EDT); un
+        // scroll síncrono se clamparía al panel aún pequeño y se quedaría corto.
+        private void scrollToBottomLater() {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    view.setCaretPosition(view.getDocument().getLength());
+                } catch (Throwable t) {
+                    // La vista puede estar entre dispose/re-show — ignorar.
+                }
+            });
+        }
+    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBoxMenuItem auto_scroll_menu;

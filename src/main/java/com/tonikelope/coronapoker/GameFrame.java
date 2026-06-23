@@ -1184,7 +1184,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     device.setFullScreenWindow(GameFrame.getInstance());
                 }
 
-                if (timba_pausada) {
+                if (timba_pausada && pausa_dialog != null) {
 
                     pausa_dialog.setVisible(false);
                     pausa_dialog.dispose();
@@ -1214,7 +1214,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     GameFrame.getInstance().setVisible(true);
                 }
 
-                if (timba_pausada) {
+                if (timba_pausada && pausa_dialog != null) {
 
                     pausa_dialog.setVisible(false);
                     pausa_dialog.dispose();
@@ -1346,9 +1346,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             if (isPartida_local()) {
 
+                // Al PAUSAR viaja el nick de quien inicia la pausa; al REANUDAR
+                // debe viajar el pausador original (nick_pause), que es el nick
+                // que los clientes registraron al pausar y contra el que validan
+                // el resume. Si el host reanudara la pausa de otro jugador y
+                // enviara su propio nick, los clientes lo rechazarian y se
+                // quedarian colgados con el overlay de pausa.
+                String pause_owner = this.timba_pausada ? this.nick_pause : (user != null ? user : getNick_local());
+
                 String userB64 = "";
                 try {
-                    userB64 = java.util.Base64.getEncoder().encodeToString((user != null ? user : getNick_local()).getBytes("UTF-8"));
+                    userB64 = java.util.Base64.getEncoder().encodeToString(pause_owner.getBytes("UTF-8"));
                 } catch (java.io.UnsupportedEncodingException ex) {
                     Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, null, ex);
                 }

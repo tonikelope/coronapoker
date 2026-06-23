@@ -1078,6 +1078,26 @@ public class Participant implements Runnable {
                                                 LOGGER.log(Level.SEVERE, "Dropping malformed HANDVERIFY receipt", ex);
                                             }
                                             break;
+                                        case "STRADDLE_RESP":
+                                            // ZERO-TRUST: la respuesta de straddle voluntario debe pertenecer
+                                            // al nick que posee ESTA conexión autenticada. Si no, un peer podría
+                                            // falsificar el RESP del UTG y forzarle a postear un straddle (2x la
+                                            // ciega grande de SU stack) que nunca aceptó. Mismo guard que HANDVERIFY.
+                                            try {
+                                                if (partes_comando.length >= 5
+                                                        && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick)) {
+                                                    synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
+                                                        GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
+                                                        GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();
+                                                    }
+                                                } else {
+                                                    LOGGER.log(Level.SEVERE,
+                                                            "ZERO-TRUST: dropping STRADDLE_RESP with nick mismatch on connection {0}", this.nick);
+                                                }
+                                            } catch (Exception ex) {
+                                                LOGGER.log(Level.SEVERE, "Dropping malformed STRADDLE_RESP", ex);
+                                            }
+                                            break;
                                         default:
                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);

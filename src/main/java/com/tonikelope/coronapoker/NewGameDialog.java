@@ -258,6 +258,8 @@ public class NewGameDialog extends JDialog {
 
         applyGroupTitledBorders();
 
+        updateAnteStraddleLabels();
+
         pack();
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
@@ -956,12 +958,12 @@ public class NewGameDialog extends JDialog {
         );
 
         ante_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        ante_checkbox.setText("Ante (1xSB)");
+        ante_checkbox.setText("Ante");
         ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ante_checkbox.setDoubleBuffered(true);
 
         straddle_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        straddle_checkbox.setText("Straddle (2xBB)");
+        straddle_checkbox.setText("Straddle");
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         straddle_checkbox.setDoubleBuffered(true);
 
@@ -2121,6 +2123,11 @@ public class NewGameDialog extends JDialog {
     private void ciegas_comboboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ciegas_comboboxActionPerformed
         // TODO add your handling code here:
 
+        // Etiqueta informativa al vuelo, FUERA del gate init: así también se refresca
+        // cuando el combo cambia por carga de preset o de estructura (que suprimen init
+        // pero disparan este handler al reconstruir/seleccionar el nivel).
+        updateAnteStraddleLabels();
+
         if (init) {
 
             String[] valores = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
@@ -2145,6 +2152,28 @@ public class NewGameDialog extends JDialog {
 
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
+
+    // Etiqueta INFORMATIVA derivada: muestra entre paréntesis el importe ACTUAL del ante
+    // (= ciega pequeña) y del straddle (= 2x ciega grande), leídos del nivel de ciegas
+    // seleccionado, y se refresca al vuelo cuando cambia. Los importes por código son
+    // FIJOS (ciega pequeña / doble ciega grande), no configurables: esto es solo el texto.
+    private void updateAnteStraddleLabels() {
+        Object sel = ciegas_combobox.getSelectedItem();
+        if (sel == null) {
+            return;
+        }
+        String[] v = ((String) sel).replace(",", ".").split("/");
+        if (v.length < 2) {
+            return;
+        }
+        try {
+            double sb = Double.valueOf(v[0].trim());
+            double bb = Double.valueOf(v[1].trim());
+            ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
+            straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
+        } catch (NumberFormatException ignored) {
+        }
+    }
 
     // Estructura de ciegas elegida para esta timba (null = escalera por defecto
     // 1-2-3-5). Determina los niveles del combo de ciegas y, al crear la timba,

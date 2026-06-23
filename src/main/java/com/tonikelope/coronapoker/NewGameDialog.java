@@ -504,6 +504,8 @@ public class NewGameDialog extends JDialog {
 
         applyGroupTitledBorders();
 
+        updateAnteStraddleLabels();
+
         revalidate();
         repaint();
 

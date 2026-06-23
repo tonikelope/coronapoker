@@ -2155,42 +2155,26 @@ public class NewGameDialog extends JDialog {
         }
     }//GEN-LAST:event_ciegas_comboboxActionPerformed
 
-    private boolean ante_straddle_look_wired = false;
-    private java.awt.Color ante_straddle_fg_on = null; // color normal del texto, capturado una vez
-
     // Etiqueta INFORMATIVA derivada: muestra entre paréntesis el importe ACTUAL del ante
     // (= ciega pequeña) y del straddle (= 2x ciega grande), leídos del nivel de ciegas
     // seleccionado, y se refresca al vuelo cuando cambia. Los importes por código son
     // FIJOS (ciega pequeña / doble ciega grande), no configurables: esto es solo el texto.
-    // Además, el texto sale en GRIS cuando el checkbox no está marcado (aspecto desactivado,
-    // sigue clicable), reflejando que ese ante/straddle está apagado.
     private void updateAnteStraddleLabels() {
-        // Cablea una sola vez los listeners de marcado y captura el color normal.
-        if (!ante_straddle_look_wired) {
-            ante_straddle_look_wired = true;
-            ante_straddle_fg_on = ante_checkbox.getForeground();
-            ante_checkbox.addItemListener((java.awt.event.ItemEvent e) -> updateAnteStraddleLabels());
-            straddle_checkbox.addItemListener((java.awt.event.ItemEvent e) -> updateAnteStraddleLabels());
-        }
-
-        // Texto: importe del nivel de ciegas seleccionado.
         Object sel = ciegas_combobox.getSelectedItem();
-        if (sel != null) {
-            String[] v = ((String) sel).replace(",", ".").split("/");
-            if (v.length >= 2) {
-                try {
-                    double sb = Double.valueOf(v[0].trim());
-                    double bb = Double.valueOf(v[1].trim());
-                    ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
-                    straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
-                } catch (NumberFormatException ignored) {
-                }
-            }
+        if (sel == null) {
+            return;
         }
-
-        // Aspecto desactivado: texto en gris si el checkbox no está marcado.
-        ante_checkbox.setForeground(ante_checkbox.isSelected() ? ante_straddle_fg_on : java.awt.Color.GRAY);
-        straddle_checkbox.setForeground(straddle_checkbox.isSelected() ? ante_straddle_fg_on : java.awt.Color.GRAY);
+        String[] v = ((String) sel).replace(",", ".").split("/");
+        if (v.length < 2) {
+            return;
+        }
+        try {
+            double sb = Double.valueOf(v[0].trim());
+            double bb = Double.valueOf(v[1].trim());
+            ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
+            straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
+        } catch (NumberFormatException ignored) {
+        }
     }
 
     // Estructura de ciegas elegida para esta timba (null = escalera por defecto

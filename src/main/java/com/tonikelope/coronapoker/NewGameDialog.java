@@ -1346,13 +1346,13 @@ public class NewGameDialog extends JDialog {
         recover_panelLayout.setHorizontalGroup(
             recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(recover_panelLayout.createSequentialGroup()
-                .addGap(85, 85, 85)
+                .addGap(0, 0, Short.MAX_VALUE)
                 .addComponent(recover_checkbox)
                 .addGap(0, 0, 0)
                 .addComponent(recover_checkbox_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(game_label, 0, 428, Short.MAX_VALUE)
-                .addGap(0, 0, 0))
+                .addComponent(game_label)
+                .addGap(85, 85, 85))
         );
         recover_panelLayout.setVerticalGroup(
             recover_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

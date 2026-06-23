@@ -956,12 +956,12 @@ public class NewGameDialog extends JDialog {
         );
 
         ante_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        ante_checkbox.setText("Ante");
+        ante_checkbox.setText("Ante (1xSB)");
         ante_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         ante_checkbox.setDoubleBuffered(true);
 
         straddle_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        straddle_checkbox.setText("Straddle");
+        straddle_checkbox.setText("Straddle (2xBB)");
         straddle_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         straddle_checkbox.setDoubleBuffered(true);
 

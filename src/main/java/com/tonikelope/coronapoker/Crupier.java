@@ -5830,7 +5830,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // ZERO_TRUST cascade failure aborted the hand mid-replay) close it now so it
         // does not stay on screen and does not keep sincronizando_mano latched.
         cerrarRecoverDialogYSync();
-        GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + Translator.translate(motivo));
+        GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada") + " " + Translator.translate(motivo));
         GameFrame.getInstance().getRegistro().print(Translator.translate("game.mano_anulada_footer"));
 
         if (broadcast && GameFrame.getInstance().isPartida_local()) {
@@ -6438,8 +6438,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
 
-                    GameFrame.getInstance().getRegistro().print(nick + Translator.translate("rabbit.solicito_rabbit_hunting")
-                            + "(" + Helpers.money2String(coste_rabbit) + ")");
+                    GameFrame.getInstance().getRegistro().print(nick + " " + Translator.translate("rabbit.solicito_rabbit_hunting")
+                            + " (" + Helpers.money2String(coste_rabbit) + ")");
 
                     if (nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())) {
                         // Si es una petición local calculamos mejor mano hipotética
@@ -6532,7 +6532,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 int conta_iwtsth = (int) iwtsth_requests.get(iwtsther);
 
                 GameFrame.getInstance().getRegistro().print(
-                        iwtsther + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
+                        iwtsther + " " + Translator.translate("iwtsth.solicita_iwtsth") + String.valueOf(conta_iwtsth) + ")");
 
                 Helpers.GUIRunAndWait(() -> {
                     if (GameFrame.getInstance().getLocalPlayer().isBotonMostrarActivado()) {
@@ -6640,7 +6640,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         } else {
                             // If denied, inform the UI and register rejection timestamp for anti-flood
-                            GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + iwtsther);
+                            GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
                             if (GameFrame.CINEMATICAS) {
                                 Helpers.GUIRun(() -> {
                                     try {
@@ -10635,7 +10635,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     ganador.pagar(sCantidad[0], null);
                     ganador.marcarBotePot(sec);
                     paidThisBoard += sCantidad[0];
-                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ") -> " + jugada);
+                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(sec) + " (" + Helpers.money2String(sCantidad[0]) + ") -> " + jugada);
                     this.sqlUpdateShowdownPay(ganador);
                 }
                 for (Map.Entry<Player, Hand> e : sjugadas.entrySet()) {
@@ -14733,7 +14733,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         new Object[]{nick, id1, id2});
                                                 try {
                                                     GameFrame.getInstance().getRegistro().print(
-                                                            nick + " — clave de showdown firmada pero no resuelve cartas. Posible cheat o bug del cliente.");
+                                                            nick + " " + Translator.translate("zero_trust.peer_sra_corrupt_registro"));
                                                 } catch (Exception ignored) {
                                                 }
                                                 warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
@@ -15641,7 +15641,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     awaitHandverifyBarrier();
                                     procesarCartasResistencia(new ArrayList<Player>(), false);
 
-                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + " " + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + " " + Translator.translate("action.sin_tener_que_mostrar"));
+                                    GameFrame.getInstance().getRegistro().print("-----" + Translator.translate("game.gana_bote") + Helpers.money2String(this.bote.getTotal() + this.bote_sobrante) + Translator.translate("action.sin_tener_que_mostrar"));
                                     Helpers.GUIRun(() -> {
                                         setPotBackground(Color.RED);
                                         GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.WHITE);
@@ -15837,7 +15837,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                     ganador.pagar(cantidad_pagar_ganador[0], conta_bote_secundario);
                                                     this.bote_total -= cantidad_pagar_ganador[0];
                                                     Hand jugada = entry.getValue();
-                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + " " + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
+                                                    GameFrame.getInstance().getRegistro().print(ganador.getNickname() + " (" + Card.collection2String(ganador.getHoleCards()) + Translator.translate("game.gana_bote_secundario") + String.valueOf(conta_bote_secundario) + " (" + Helpers.money2String(cantidad_pagar_ganador[0]) + ") -> " + jugada);
                                                     this.sqlUpdateShowdownPay(ganador);
                                                 }
                                                 for (Map.Entry<Player, Hand> entry : jugadas.entrySet()) {
@@ -16190,7 +16190,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     GameFrame.getInstance().getLocalPlayer().setSpectator(null);
 
-                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
+                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + " "
                             + Translator.translate("player.te_quedas_de_espectador"));
                 }
 
@@ -16270,7 +16270,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     GameFrame.getInstance().getLocalPlayer().setSpectator(null);
 
-                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname()
+                    GameFrame.getInstance().getRegistro().print(GameFrame.getInstance().getLocalPlayer().getNickname() + " "
                             + Translator.translate("player.te_quedas_de_espectador"));
                 }
 

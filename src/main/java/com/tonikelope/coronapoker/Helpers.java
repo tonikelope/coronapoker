@@ -1436,6 +1436,24 @@ public class Helpers {
 
     }
 
+    // Copia translúcida de un icono (alpha global 0..1), para mostrar la ficha de
+    // posición del jugador local a opacidad reducida (estado intermedio del toggle).
+    public static ImageIcon translucentIcon(ImageIcon src, float alpha) {
+        if (src == null) {
+            return null;
+        }
+        int w = src.getIconWidth(), h = src.getIconHeight();
+        if (w <= 0 || h <= 0) {
+            return src;
+        }
+        BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = bi.createGraphics();
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, alpha))));
+        g.drawImage(src.getImage(), 0, 0, null);
+        g.dispose();
+        return new ImageIcon(bi);
+    }
+
     public static void setScaledIconLabel(JLabel label, URL path, int width, int height) {
         if (width <= 0 || height <= 0) {
             return;

@@ -1206,6 +1206,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     // cancelled cooperatively.
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
                             "Fold animation barrier cancelled (cooperative cancellation)");
+                } catch (java.util.concurrent.TimeoutException ex) {
+                    // The notify was superseded (or its GIF torn down) before
+                    // the rendezvous completed: non-fatal, the label is hidden
+                    // by whoever owns it now. Not an interrupt.
+                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                            "Fold animation barrier timed out (superseded notify — cooperative cancellation)");
                 } catch (Exception ex) {
                     Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
                 }

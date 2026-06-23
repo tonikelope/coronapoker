@@ -197,7 +197,32 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
-    public static volatile boolean LOCAL_POSITION_CHIP = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("local_pos_chip", "true"));
+    // Ficha de posición del jugador local sobre sus cartas: 3 estados cíclicos por click
+    // (persistidos): 0=normal, 1=70% de opacidad, 2=oculta. parseLocalPosChipState migra
+    // el valor booleano antiguo "true"/"false" de versiones previas (true->normal, false->oculta).
+    public static final int LOCAL_POS_CHIP_NORMAL = 0;
+    public static final int LOCAL_POS_CHIP_DIM = 1;
+    public static final int LOCAL_POS_CHIP_HIDDEN = 2;
+    public static volatile int LOCAL_POSITION_CHIP = parseLocalPosChipState(Helpers.PROPERTIES.getProperty("local_pos_chip", "0"));
+
+    private static int parseLocalPosChipState(String v) {
+        if (v == null) {
+            return LOCAL_POS_CHIP_NORMAL;
+        }
+        switch (v.trim()) {
+            case "true":
+                return LOCAL_POS_CHIP_NORMAL;
+            case "false":
+                return LOCAL_POS_CHIP_HIDDEN;
+            default:
+                try {
+                    int s = Integer.parseInt(v.trim());
+                    return (s >= LOCAL_POS_CHIP_NORMAL && s <= LOCAL_POS_CHIP_HIDDEN) ? s : LOCAL_POS_CHIP_NORMAL;
+                } catch (NumberFormatException e) {
+                    return LOCAL_POS_CHIP_NORMAL;
+                }
+        }
+    }
     public static volatile String SERVER_HISTORY = Helpers.PROPERTIES.getProperty("server_history", "");
     public static volatile boolean RECOVER = false;
     public static volatile Boolean MAC_NATIVE_FULLSCREEN = null;

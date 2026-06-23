@@ -622,12 +622,16 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             chip_label_icon = null;
         }
 
+        final int chip_state = GameFrame.LOCAL_POSITION_CHIP;
         Helpers.GUIRun(() -> {
-            if (isActivo() && chip_label_icon != null) {
-                chip_label.setIcon(chip_label_icon);
-                chip_label.setSize(chip_label.getIcon().getIconWidth(), chip_label.getIcon().getIconHeight());
+            if (isActivo() && chip_label_icon != null && chip_state != GameFrame.LOCAL_POS_CHIP_HIDDEN) {
+                // Estado intermedio: la ficha se muestra al 70% de opacidad sobre las cartas.
+                ImageIcon shown = (chip_state == GameFrame.LOCAL_POS_CHIP_DIM)
+                        ? Helpers.translucentIcon(chip_label_icon, 0.7f) : chip_label_icon;
+                chip_label.setIcon(shown);
+                chip_label.setSize(shown.getIconWidth(), shown.getIconHeight());
                 chip_label.setLocation(0, getHoleCard1().getHeight() - chip_label.getHeight());
-                chip_label.setVisible(GameFrame.LOCAL_POSITION_CHIP);
+                chip_label.setVisible(true);
 
                 chip_label.repaint();
 
@@ -3060,9 +3064,14 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
-        if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick()) || nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick()) || nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())) {
+        if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
+                || nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())
+                || nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())
+                || (GameFrame.getInstance().getCrupier().isStraddle_posted()
+                        && nickname.equals(GameFrame.getInstance().getCrupier().getUtg_nick()))) {
 
-            GameFrame.LOCAL_POSITION_CHIP = !GameFrame.LOCAL_POSITION_CHIP;
+            // Cicla los 3 estados de la ficha de posición: normal -> 70% -> oculta -> normal.
+            GameFrame.LOCAL_POSITION_CHIP = (GameFrame.LOCAL_POSITION_CHIP + 1) % 3;
 
             this.refreshPositionChipIcons();
 
@@ -3070,7 +3079,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             Helpers.savePropertiesFile();
 
-            Audio.playWavResource(chip_label.isVisible() ? "misc/button_on.wav" : "misc/button_off.wav");
+            Audio.playWavResource(GameFrame.LOCAL_POSITION_CHIP == GameFrame.LOCAL_POS_CHIP_HIDDEN ? "misc/button_off.wav" : "misc/button_on.wav");
         }
     }//GEN-LAST:event_player_nameMouseClicked
 

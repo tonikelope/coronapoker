@@ -2859,7 +2859,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                                 }
                                 if (!GameFrame.getInstance().getCrupier().getPerdedores().containsKey(GameFrame.getInstance().getLocalPlayer())) {
-                                    GameFrame.getInstance().getRegistro().print(nickname + " " + Translator.translate("ui.muestra_2") + " " + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
+                                    GameFrame.getInstance().getRegistro().print(nickname + " " + Translator.translate("ui.muestra_2") + hole_cards_string + Translator.translate("ui.suffix_close") + " -> " + jugada);
                                 }
                                 Helpers.GUIRun(() -> Helpers.translateComponents(botonera, false));
                             }

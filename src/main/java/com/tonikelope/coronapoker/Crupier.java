@@ -845,6 +845,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean straddle_recovered_posted = false; // recovery (host): si la mano replayada tenía el straddle posteado (del fósil); el host rebroadcasta esta decisión, no vuelve a preguntar
     private volatile VoluntaryStraddleDialog straddle_local_dialog = null; // diálogo de straddle voluntario abierto en el peer del UTG (para cerrarlo desde fuera)
     private volatile boolean straddle_bar_active = false; // true mientras la barra del community cuenta los 5s de decisión del straddle (luego indeterminada hasta el resultado)
+    private volatile boolean straddle_local_cards_deferred = false; // repartir dejó las hole cards del UTG local boca abajo a la espera de su decisión de straddle; resolveVoluntaryStraddle garantiza revelarlas (incluso si sale por early-return)
     private volatile java.util.List<Player> forced_bet_chip_contributors = null; // jugadores cuyas fichas de forzadas (ciegas/straddle/ante) vuelan al bote al arrancar la mano
     private volatile double bote_sobrante = 0;
     private volatile String[] nicks_permutados;
@@ -6858,6 +6859,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Se repone del fósil en la mano recuperada (recuperarDatosClavePartida, más
         // abajo); en mano fresca queda false (la decisión la toma resolveVoluntaryStraddle).
         this.straddle_recovered_posted = false;
+        this.straddle_local_cards_deferred = false;
 
         synchronized (getLock_contabilidad()) {
             if (Helpers.doubleSecureCompare(0f, this.bote_sobrante) < 0) {
@@ -7857,6 +7859,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 && getJugadoresActivos() > 2 && this.utg_nick != null
                 && this.utg_nick.equals(GameFrame.getInstance().getLocalPlayer().getNickname())
                 && GameFrame.getInstance().getLocalPlayer().isActivo();
+        // resolveVoluntaryStraddle revela estas cartas garantizado (incluso si sale por
+        // early-return, p.ej. si un jugador se va y quedan <=2 antes de la decisión).
+        this.straddle_local_cards_deferred = defer_straddle_reveal;
 
         if (!animacion) {
 
@@ -9603,87 +9608,95 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // off, heads-up o <=2 activos es un no-op total (camino por defecto byte-idéntico).
 
     private void resolveVoluntaryStraddle() {
-        if (!GameFrame.STRADDLE || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
-            return;
-        }
-        Player straddler = null;
-        for (Player j : GameFrame.getInstance().getJugadores()) {
-            if (j.getNickname().equals(this.utg_nick)) {
-                straddler = j;
-                break;
+        try {
+            if (!GameFrame.STRADDLE || getJugadoresActivos() <= 2 || isFin_de_la_transmision()) {
+                return;
             }
-        }
-        if (straddler == null || !straddler.isActivo()) {
-            return;
-        }
-
-        final Player straddler_f = straddler;
-        final boolean fresh = (this.game_recovered == 0);
-        final boolean local_is_straddler = straddler == GameFrame.getInstance().getLocalPlayer();
-
-        // Mano fresca: feedback visual mientras se decide (icono pensativo en el asiento
-        // del UTG para los demás + barra del community contando los 5 s). En recover no
-        // se pregunta (el host repone del fósil y rebroadcasta), así que no hay espera.
-        if (fresh && !local_is_straddler && straddler instanceof RemotePlayer) {
-            ((RemotePlayer) straddler_f).showStraddleThinking();
-        }
-        if (fresh) {
-            startStraddleCountdownBar();
-        }
-
-        int decision;
-        if (GameFrame.getInstance().isPartida_local()) {
-            // HOST: autoridad. En fresca decide (diálogo / bot / RESP remoto); en recover
-            // repone la decisión original del fósil. En ambos casos difunde el resultado.
-            decision = fresh ? hostDecideStraddle(straddler_f, local_is_straddler)
-                    : (this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE);
-            broadcastStraddleResult(decision);
-        } else {
-            // CLIENTE: en fresca, si soy el UTG muestro el diálogo y mando mi respuesta;
-            // en todo caso (y siempre en recover) espero el resultado canónico del host.
-            if (fresh && local_is_straddler) {
-                sendStraddleResp(promptStraddleLocal(straddler_f));
-            }
-            decision = waitStraddleResult();
-        }
-
-        if (fresh) {
-            stopStraddleCountdownBar();
-            if (!local_is_straddler && straddler instanceof RemotePlayer) {
-                ((RemotePlayer) straddler_f).clearStraddleThinking();
-            }
-        }
-
-        if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision()) {
-            // applyStraddlePost vuela primero la ficha ROJA al asiento (bloquea hasta
-            // aterrizar); luego, solo en fresca, vuelan las fichas de dinero al bote
-            // (flaseo amarillo típico). La suma a bote_total replica la del straddle
-            // viejo (que entraba por la suma de apuestas); aquí va explícita porque la
-            // decisión es post-reparto (la suma de apuestas de NUEVA_MANO ya pasó).
-            double posted = applyStraddlePost(straddler_f);
-            this.bote_total += posted;
-            if (fresh) {
-                launchChipToPot(straddler_f);
-                if (GameFrame.getInstance().isPartida_local()) {
-                    // Persiste la decisión para que una mano recuperada la reponga sin
-                    // volver a preguntar (el host la rebroadcasta en el replay).
-                    this.straddle_recovered_posted = true;
-                    guardarFosilSRA();
+            Player straddler = null;
+            for (Player j : GameFrame.getInstance().getJugadores()) {
+                if (j.getNickname().equals(this.utg_nick)) {
+                    straddler = j;
+                    break;
                 }
             }
-        }
+            if (straddler == null || !straddler.isActivo()) {
+                return;
+            }
 
-        // Cierra el diálogo local si seguía abierto (idempotente).
-        VoluntaryStraddleDialog d = this.straddle_local_dialog;
-        if (d != null) {
-            d.cancel();
-            this.straddle_local_dialog = null;
-        }
+            final Player straddler_f = straddler;
+            final boolean fresh = (this.game_recovered == 0);
+            final boolean local_is_straddler = straddler == GameFrame.getInstance().getLocalPlayer();
 
-        // Revela por fin las cartas tapadas del UTG local (repartir las dejó boca abajo
-        // a la espera de esta decisión a ciegas).
-        if (fresh && local_is_straddler) {
-            revealLocalStraddlerCards();
+            // Mano fresca: feedback visual mientras se decide (icono pensativo en el asiento
+            // del UTG para los demás + barra del community contando los 5 s). En recover no
+            // se pregunta (el host repone del fósil y rebroadcasta), así que no hay espera.
+            if (fresh && !local_is_straddler && straddler instanceof RemotePlayer) {
+                ((RemotePlayer) straddler_f).showStraddleThinking();
+            }
+            if (fresh) {
+                startStraddleCountdownBar();
+            }
+
+            int decision;
+            if (GameFrame.getInstance().isPartida_local()) {
+                // HOST: autoridad. En fresca decide (diálogo / bot / RESP remoto); en recover
+                // repone la decisión original del fósil. En ambos casos difunde el resultado.
+                decision = fresh ? hostDecideStraddle(straddler_f, local_is_straddler)
+                        : (this.straddle_recovered_posted ? VoluntaryStraddleDialog.POST_STRADDLE : VoluntaryStraddleDialog.NO_STRADDLE);
+                broadcastStraddleResult(decision);
+            } else {
+                // CLIENTE: en fresca, si soy el UTG muestro el diálogo y mando mi respuesta;
+                // en todo caso (y siempre en recover) espero el resultado canónico del host.
+                if (fresh && local_is_straddler) {
+                    sendStraddleResp(promptStraddleLocal(straddler_f));
+                }
+                decision = waitStraddleResult();
+            }
+
+            if (fresh) {
+                stopStraddleCountdownBar();
+                if (!local_is_straddler && straddler instanceof RemotePlayer) {
+                    ((RemotePlayer) straddler_f).clearStraddleThinking();
+                }
+            }
+
+            if (decision == VoluntaryStraddleDialog.POST_STRADDLE && !isFin_de_la_transmision()) {
+                // applyStraddlePost vuela primero la ficha ROJA al asiento (bloquea hasta
+                // aterrizar); luego, solo en fresca, vuelan las fichas de dinero al bote
+                // (flaseo amarillo típico). El straddle viejo entraba en apuestas Y bote_total
+                // por la suma de forzadas de NUEVA_MANO (corría antes que ella); aquí, al ser
+                // post-reparto, se suma explícito a AMBOS (apuestas = apuestas de la calle que
+                // se muestran en el tapete; bote_total = bote acumulado). El delta del replay/
+                // ronda usa getBet()-old_bet, así que el check del straddler da 0 (sin doble).
+                double posted = applyStraddlePost(straddler_f);
+                this.apuestas += posted;
+                this.bote_total += posted;
+                if (fresh) {
+                    launchChipToPot(straddler_f);
+                    if (GameFrame.getInstance().isPartida_local()) {
+                        // Persiste la decisión para que una mano recuperada la reponga sin
+                        // volver a preguntar (el host la rebroadcasta en el replay).
+                        this.straddle_recovered_posted = true;
+                        guardarFosilSRA();
+                    }
+                }
+            }
+        } finally {
+            // Cierra el diálogo local si seguía abierto (idempotente).
+            VoluntaryStraddleDialog d = this.straddle_local_dialog;
+            if (d != null) {
+                d.cancel();
+                this.straddle_local_dialog = null;
+            }
+
+            // Revela GARANTIZADO las cartas tapadas del UTG local que repartir dejó boca
+            // abajo. En finally para cubrir CUALQUIER salida (early-return si un jugador se
+            // va y quedan <=2 antes de decidir, excepción, etc.): el UTG local nunca se
+            // queda jugando a ciegas. En recover el flag es false (repartir reveló normal).
+            if (this.straddle_local_cards_deferred) {
+                this.straddle_local_cards_deferred = false;
+                revealLocalStraddlerCards();
+            }
         }
     }
 

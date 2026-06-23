@@ -13926,15 +13926,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        String sitios = Translator.translate("ui.sorteo_de_sitios");
-
-        for (String nick : permutados) {
-
-            sitios += " [" + nick + "] ";
-        }
-
-        GameFrame.getInstance().getRegistro().print(sitios);
-
         return permutados;
     }
 

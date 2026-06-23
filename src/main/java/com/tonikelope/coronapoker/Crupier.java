@@ -451,6 +451,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
     public static final int STRADDLE_DECISION_TIMEOUT = 5; // Segundos que el UTG tiene para decidir el straddle voluntario (timeout = NO straddle)
+    public static final int STRADDLE_RESULT_WAIT_TIMEOUT = 20; // Tope (s) que el cliente espera el STRADDLE_RESULT del host antes de asumir NO (cubre el peor caso del host ~9s + holgura de red; evita cuelgue si el host hizo early-return sin difundir)
     private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probabilidad de que un bot UTG ponga un straddle voluntario (calibrable)
     public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre
     // velocidad/precisión
@@ -2500,12 +2501,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         } else {
-            // Solo las forzadas: ciega grande, ciega pequeña y straddle (si lo hay).
+            // Solo las ciegas: el straddle es VOLUNTARIO y se decide tras repartir
+            // (resolveVoluntaryStraddle), así que en esta tanda pre-reparto nunca está
+            // posteado — su ficha roja y su dinero vuelan aparte, tras la decisión.
             addForcedBetContributor(contributors, this.big_blind_nick);
             addForcedBetContributor(contributors, this.small_blind_nick);
-            if (this.straddle_posted) {
-                addForcedBetContributor(contributors, this.utg_nick);
-            }
         }
 
         if (contributors.isEmpty()) {
@@ -9804,10 +9804,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Cliente: espera el resultado canónico STRADDLE_RESULT del host drenando
-    // received_commands (re-encola lo que no toca). Sin deadline artificial: como las
-    // demás esperas de broadcast del host, sale solo por fin_de_la_transmision.
+    // received_commands (re-encola lo que no toca). Con tope STRADDLE_RESULT_WAIT_TIMEOUT:
+    // si host y cliente discrepan transitoriamente en getJugadoresActivos() (un jugador se
+    // va justo en la ventana de decisión), el host puede hacer early-return sin difundir y
+    // el cliente colgaría aquí indefinidamente. Al expirar se asume NO straddle — que es
+    // EXACTAMENTE lo que aplicó el host en ese early-return (no posteó) -> peers convergen.
+    // El tope (20s) supera con holgura el peor caso del host (~9s) para no cortar un POST
+    // legítimo lento; un broadcast real sobre TCP llega mucho antes.
     private int waitStraddleResult() {
-        while (!isFin_de_la_transmision()) {
+        long deadline = System.currentTimeMillis() + STRADDLE_RESULT_WAIT_TIMEOUT * 1000L;
+        while (!isFin_de_la_transmision() && System.currentTimeMillis() < deadline) {
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 Integer result = null;

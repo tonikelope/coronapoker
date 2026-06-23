@@ -51,6 +51,7 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     public static final int BIG_BLIND = 13;
     public static final int DEAD_DEALER = 14;
     public static final int STRADDLE = 15;
+    public static final int DEALER_STRADDLE = 16; // dealer que ademas straddlea (3-manos: el dealer es el UTG): ficha combinada mitad blanca (dealer) / mitad roja (straddle)
 
     public static final int BORDER = 12;
     public static final int ARC = 30;

@@ -179,6 +179,7 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             Helpers.IMAGEN_DEALER = createPositionChipImageIcon(Player.DEALER);
             Helpers.IMAGEN_DEAD_DEALER = createPositionChipImageIcon(Player.DEAD_DEALER);
             Helpers.IMAGEN_STRADDLE = createPositionChipImageIcon(Player.STRADDLE);
+            Helpers.IMAGEN_DEALER_STRADDLE = createPositionChipImageIcon(Player.DEALER_STRADDLE);
             Helpers.IMAGEN_POT_CHIP = createPotChipImageIcon();
 
             if (((Object[]) BARAJAS.get(GameFrame.BARAJA))[2] != null) {
@@ -218,6 +219,11 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             case Player.STRADDLE:
 
                 image = "/images/straddle.png";
+                break;
+
+            case Player.DEALER_STRADDLE:
+
+                image = "/images/dealer_straddle.png";
                 break;
         }
 

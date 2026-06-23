@@ -2974,13 +2974,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
                 if (partida_terminada) {
 
-                    getRegistro().print(Helpers.framedTitle(Translator.translate("game.la_timba_ha_terminado_2")));
+                    getRegistro().print(Helpers.framedTitle(Translator.translate("game.la_timba_ha_terminado_2") + " -> " + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")"));
 
                     if (this.getCrupier().isForce_recover()) {
                         getRegistro().print(Helpers.framedTitleAlert(Translator.translate("game.el_server_ha_parado")));
                     }
-
-                    getRegistro().print(Translator.translate("game.fin_de_la_timba") + " " + Helpers.getFechaHoraActual() + " (" + Helpers.seconds2FullTime(conta_tiempo_juego) + ")");
 
                     try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET end=? WHERE id=?")) {
                         statement.setQueryTimeout(30);
@@ -2997,24 +2995,54 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     // por tanto no hay deadlock con Crupier.run.
                     if (auditor_snapshot != null) {
 
+                        // Resultados finales en tabla con bordes (rejilla), mismo
+                        // estilo que la tabla de cuentas: columnas NICK / RESULTADO.
+                        // El token "(  )" deja el gutter del marcador en blanco (sin
+                        // icono de rol) y alineado con la cabecera "(##)".
+                        ArrayList<String[]> fin_rows = new ArrayList<>();
+
+                        int fin_nick_w = "NICK".length();
+                        int fin_res_w = Translator.translate("ui.resultado").length();
+
                         for (Map.Entry<String, Double[]> entry : auditor_snapshot.entrySet()) {
 
                             Double[] pasta = entry.getValue();
 
-                            String ganancia_msg = "";
-
                             double ganancia = Helpers.doubleClean(Helpers.doubleClean(pasta[0]) - Helpers.doubleClean(pasta[1]));
 
+                            String ganancia_msg;
+
                             if (Helpers.doubleSecureCompare(ganancia, 0f) < 0) {
-                                ganancia_msg += Translator.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
+                                ganancia_msg = Translator.translate("ui.pierde_2") + " " + Helpers.money2String(ganancia * -1);
                             } else if (Helpers.doubleSecureCompare(ganancia, 0f) > 0) {
-                                ganancia_msg += Translator.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
+                                ganancia_msg = Translator.translate("ui.gana_4") + " " + Helpers.money2String(ganancia);
                             } else {
-                                ganancia_msg += Translator.translate("ui.ni_gana_ni_pierde");
+                                ganancia_msg = Translator.translate("ui.ni_gana_ni_pierde");
                             }
 
-                            getRegistro().print(entry.getKey() + " " + ganancia_msg);
+                            fin_nick_w = Math.max(fin_nick_w, entry.getKey().length());
+                            fin_res_w = Math.max(fin_res_w, ganancia_msg.length());
+
+                            fin_rows.add(new String[]{entry.getKey(), ganancia_msg});
                         }
+
+                        int[] fin_cols = {fin_nick_w, fin_res_w};
+
+                        StringBuilder fin_table = new StringBuilder("(##) ").append(Crupier.gridBorderLine('┌', '┬', '┐', fin_cols))
+                                .append("\n(##) ").append(Crupier.gridRowLine(
+                                        String.format("%-" + fin_nick_w + "s", "NICK"),
+                                        String.format("%-" + fin_res_w + "s", Translator.translate("ui.resultado"))))
+                                .append("\n(##) ").append(Crupier.gridBorderLine('├', '┼', '┤', fin_cols));
+
+                        for (String[] r : fin_rows) {
+                            fin_table.append("\n(  ) ").append(Crupier.gridRowLine(
+                                    String.format("%-" + fin_nick_w + "s", r[0]),
+                                    String.format("%-" + fin_res_w + "s", r[1])));
+                        }
+
+                        fin_table.append("\n(##) ").append(Crupier.gridBorderLine('└', '┴', '┘', fin_cols));
+
+                        getRegistro().print(fin_table.toString());
 
                         getRegistro().setFin_transmision(true);
                     }

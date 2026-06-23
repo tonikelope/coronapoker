@@ -3504,7 +3504,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // GameLogDialog pinta esos caracteres atenuados (la rejilla). 'cols' son los
     // anchos de CONTENIDO de cada columna; cada tramo abarca col+2 (un espacio de
     // padding a cada lado dentro de la celda).
-    private static String gridBorderLine(char left, char mid, char right, int[] cols) {
+    public static String gridBorderLine(char left, char mid, char right, int[] cols) {
         StringBuilder sb = new StringBuilder().append(left);
         for (int i = 0; i < cols.length; i++) {
             if (i > 0) {
@@ -3517,7 +3517,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Fila de tabla con separadores verticales: "│ celda0 │ celda1 │ ... │". Las
     // celdas ya vienen alineadas a su ancho de columna por quien llama.
-    private static String gridRowLine(String... cells) {
+    public static String gridRowLine(String... cells) {
         StringBuilder sb = new StringBuilder("│");
         for (String c : cells) {
             sb.append(' ').append(c).append(" │");

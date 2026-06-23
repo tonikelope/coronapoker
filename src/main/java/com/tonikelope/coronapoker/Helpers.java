@@ -1946,7 +1946,54 @@ public class Helpers {
     public static void SQLITEVAC() {
 
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
+
+            // VACUUM rewrites the ENTIRE database file, so its cost grows
+            // linearly with the DB size (measured ~16 ms/MB: ~38 ms at 2 MB,
+            // ~274 ms at 16 MB). The game history (game/hand/action/...) is only
+            // ever purged manually from StatsDialog, so the file grows
+            // monotonically across sessions. Running a full VACUUM on every game
+            // end therefore made the return to the main screen progressively
+            // slower while, in the common case (no rows deleted since the last
+            // run), reclaiming nothing at all — pure wasted I/O on the exit path.
+            //
+            // Only compact when there is non-trivial free space to reclaim (i.e.
+            // after a manual purge actually freed pages). Otherwise this is a
+            // cheap no-op and the return to the lobby stays instant no matter how
+            // large the history has grown.
+            long free_pages = 0;
+            long total_pages = 0;
+
+            try (ResultSet rs = statement.executeQuery("PRAGMA freelist_count")) {
+                if (rs.next()) {
+                    free_pages = rs.getLong(1);
+                }
+            }
+
+            try (ResultSet rs = statement.executeQuery("PRAGMA page_count")) {
+                if (rs.next()) {
+                    total_pages = rs.getLong(1);
+                }
+            }
+
+            // Worth a full rewrite only when the free space is both absolutely
+            // (> 256 free pages — a few hundred KB to ~1 MB depending on the
+            // file's page_size) and relatively (>= 10% of the file) significant.
+            // The relative gate is what matters; the page floor just avoids churn
+            // on a small DB.
+            boolean worth_compacting = free_pages > 256 && total_pages > 0
+                    && (free_pages * 100L) / total_pages >= 10;
+
+            if (!worth_compacting) {
+                LOGGER.log(Level.INFO, "SQLite VACUUM skipped ({0}/{1} free pages — nothing significant to reclaim).",
+                        new Object[]{free_pages, total_pages});
+                return;
+            }
+
             statement.execute("VACUUM");
+
+            LOGGER.log(Level.INFO, "SQLite VACUUM done (reclaimed {0}/{1} pages).",
+                    new Object[]{free_pages, total_pages});
+
         } catch (SQLException ex) {
             String msg = ex.getMessage();
             // VACUUM is opportunistic maintenance and benignly fails when

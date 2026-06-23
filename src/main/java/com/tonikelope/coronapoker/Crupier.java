@@ -450,7 +450,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
-    public static final int STRADDLE_DECISION_TIMEOUT = 5; // Segundos que el UTG tiene para decidir el straddle voluntario (timeout = NO straddle)
+    public static final int STRADDLE_DECISION_TIMEOUT = 10; // Segundos que el UTG tiene para decidir el straddle voluntario (timeout = NO straddle). Al declinar, como no hay straddle el UTG es el primero en hablar -> rondaApuestas le arranca su turno normal (esTuTurno: think-time + HABLAS TU / PENSANDO)
     public static final int STRADDLE_RESULT_WAIT_TIMEOUT = 20; // Tope (s) que el cliente espera el STRADDLE_RESULT del host antes de asumir NO (cubre el peor caso del host ~9s + holgura de red; evita cuelgue si el host hizo early-return sin difundir)
     private static final double BOT_STRADDLE_PROBABILITY = 0.12; // Probabilidad de que un bot UTG ponga un straddle voluntario (calibrable)
     public static final int MONTECARLO_ITERATIONS = 1000;// Suficiente para tener un compromiso entre

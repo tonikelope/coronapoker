@@ -353,11 +353,24 @@ public class Init extends javax.swing.JFrame {
                         System.exit(1);
                     }
 
-                    // Swap casi atomico, ya con la descarga completa: se coloca
-                    // el nuevo jar (rename) y luego se borra el viejo. La ventana
-                    // de "kill duro" se reduce a estos renames locales.
+                    // Coloca el nuevo jar en su sitio (rename casi atomico;
+                    // sobrescribe al viejo si comparten ruta, p.ej. cuando el
+                    // nombre del jar no lleva la version).
                     Files.move(Paths.get(temp_jar), Paths.get(args[2]), StandardCopyOption.REPLACE_EXISTING);
 
+                    // Borra el jar viejo SOLO si es un fichero DISTINTO del nuevo:
+                    // si args[1] == args[2] el move ya lo sustituyo, y borrarlo
+                    // eliminaria el jar recien instalado (rompia la actualizacion).
+                    if (!Paths.get(args[1]).toAbsolutePath().normalize().equals(Paths.get(args[2]).toAbsolutePath().normalize())) {
+                        try {
+                            Files.deleteIfExists(Paths.get(args[1]));
+                        } catch (Exception ex1) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
+                        }
+                    }
+
+                    // Se lanza el nuevo jar una vez ya colocado y con el viejo
+                    // resuelto, para no competir con el borrado.
                     StringBuilder java_bin = new StringBuilder();
 
                     java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
@@ -365,14 +378,6 @@ public class Init extends javax.swing.JFrame {
                     String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
 
                     Runtime.getRuntime().exec(cmdArr);
-
-                    // Limpieza no critica del jar viejo (la actualizacion ya se
-                    // ha lanzado): un fallo aqui no debe provocar RETRY.
-                    try {
-                        Files.deleteIfExists(Paths.get(args[1]));
-                    } catch (Exception ex1) {
-                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
-                    }
 
                 } catch (Exception ex) {
 

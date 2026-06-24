@@ -15,6 +15,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.ImageIcon;
@@ -41,6 +42,10 @@ public class Init extends javax.swing.JFrame {
     public static volatile boolean MOD_UPDATE = false;
     public static volatile boolean SPANISH = false;
     public static volatile boolean ABORT_UPDATE = false;
+    // Conexion de la descarga en curso, expuesta para que el cierre de ventana
+    // pueda cortarla (disconnect) y desbloquear al instante un read() colgado,
+    // sin esperar al READ_TIMEOUT.
+    public static volatile HttpURLConnection DOWNLOAD_CONNECTION = null;
 
     /**
      * Creates new form Init
@@ -139,6 +144,14 @@ public class Init extends javax.swing.JFrame {
 
         if (Helpers.mostrarMensajeErrorSINO(this, SPANISH ? "¿SEGURO?" : "SURE?") == 0) {
             ABORT_UPDATE = true;
+
+            // Corta la descarga en curso para que el read() bloqueado salte ya
+            // (lanza una excepcion que el flujo trata como abort, no como RETRY).
+            HttpURLConnection con = DOWNLOAD_CONNECTION;
+
+            if (con != null) {
+                con.disconnect();
+            }
         }
     }//GEN-LAST:event_formWindowClosing
 
@@ -239,52 +252,75 @@ public class Init extends javax.swing.JFrame {
 
             do {
                 ok = true;
+                String zip_temp_file = System.getProperty("java.io.tmpdir") + "/coronapoker_mod_" + args[1] + ".zip";
+
                 try {
 
-                    Files.move(Paths.get(args[0]), Paths.get(args[0] + "_bak"));
-
-                    String zip_temp_file = System.getProperty("java.io.tmpdir") + "/coronapoker_mod_" + args[1] + ".zip";
-
+                    // Se descarga el zip SIN tocar el mod actual: si el proceso
+                    // muere durante la descarga, el mod sigue intacto.
                     downloadMOD(ventana, args[3], zip_temp_file);
 
                     if (ABORT_UPDATE) {
-                        Files.move(Paths.get(args[0] + "_bak"), Paths.get(args[0]));
-                        System.exit(1);
-                    } else {
-
-                        ZipFile zipFile;
-
-                        if (!"".equals(args[4])) {
-                            zipFile = new ZipFile(zip_temp_file, args[4].toCharArray());
-                        } else {
-                            zipFile = new ZipFile(zip_temp_file);
-                        }
-
-                        zipFile.extractAll(args[0].replaceAll("/mod$", ""));
-
-                        StringBuilder java_bin = new StringBuilder();
-
-                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
-
-                        String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
-
-                        Runtime.getRuntime().exec(cmdArr);
-
                         Files.deleteIfExists(Paths.get(zip_temp_file));
-
-                        Helpers.deleteDirectory(args[0] + "_bak");
+                        System.exit(1);
                     }
 
+                    // Ya con el zip completo: se aparta el mod actual y se extrae
+                    // el nuevo. La ventana de "kill duro" que podia dejar el mod
+                    // roto queda reducida a la extraccion local (ya no abarca la
+                    // descarga).
+                    Files.move(Paths.get(args[0]), Paths.get(args[0] + "_bak"));
+
+                    ZipFile zipFile;
+
+                    if (!"".equals(args[4])) {
+                        zipFile = new ZipFile(zip_temp_file, args[4].toCharArray());
+                    } else {
+                        zipFile = new ZipFile(zip_temp_file);
+                    }
+
+                    zipFile.extractAll(args[0].replaceAll("/mod$", ""));
+
+                    StringBuilder java_bin = new StringBuilder();
+
+                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+
+                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+
+                    Runtime.getRuntime().exec(cmdArr);
+
+                    Files.deleteIfExists(Paths.get(zip_temp_file));
+
+                    Helpers.deleteDirectory(args[0] + "_bak");
+
                 } catch (Exception ex) {
+
+                    // El abort solo puede dispararse durante la descarga (unica
+                    // fase larga / que mira el flag), ANTES de apartar el mod:
+                    // basta limpiar el zip y salir, sin RETRY.
+                    if (ABORT_UPDATE) {
+                        try {
+                            Files.deleteIfExists(Paths.get(zip_temp_file));
+                        } catch (Exception ex1) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
+                        }
+                        System.exit(1);
+                    }
+
                     ok = false;
 
                     Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
 
                     try {
 
-                        Files.deleteIfExists(Paths.get(args[0]));
+                        Files.deleteIfExists(Paths.get(zip_temp_file));
 
+                        // Si la extraccion fallo tras apartar el mod, se borra lo
+                        // extraido a medias y se restaura el mod original.
                         if (Files.exists(Paths.get(args[0] + "_bak"))) {
+                            if (Files.exists(Paths.get(args[0]))) {
+                                Helpers.deleteDirectory(args[0]);
+                            }
                             Files.move(Paths.get(args[0] + "_bak"), Paths.get(args[0]));
                         }
 
@@ -303,42 +339,62 @@ public class Init extends javax.swing.JFrame {
 
                 ok = true;
 
+                String temp_jar = args[2] + ".part";
+
                 try {
 
-                    Files.move(Paths.get(args[1]), Paths.get(args[1] + ".bak"));
-
-                    downloadCoronaPoker(ventana, args[0], args[2]);
+                    // Se descarga el nuevo jar a un temporal SIN tocar el jar
+                    // viejo: si el proceso muere durante la descarga, el viejo
+                    // sigue intacto y la app arranca con la version anterior.
+                    downloadCoronaPoker(ventana, args[0], temp_jar);
 
                     if (ABORT_UPDATE) {
-                        Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
+                        Files.deleteIfExists(Paths.get(temp_jar));
                         System.exit(1);
-                    } else {
+                    }
 
-                        StringBuilder java_bin = new StringBuilder();
+                    // Swap casi atomico, ya con la descarga completa: se coloca
+                    // el nuevo jar (rename) y luego se borra el viejo. La ventana
+                    // de "kill duro" se reduce a estos renames locales.
+                    Files.move(Paths.get(temp_jar), Paths.get(args[2]), StandardCopyOption.REPLACE_EXISTING);
 
-                        java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
+                    StringBuilder java_bin = new StringBuilder();
 
-                        String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
+                    java_bin.append(System.getProperty("java.home")).append(File.separator).append("bin").append(File.separator).append("java");
 
-                        Runtime.getRuntime().exec(cmdArr);
+                    String[] cmdArr = {java_bin.toString(), "-jar", args[2]};
 
-                        Files.deleteIfExists(Paths.get(args[1] + ".bak"));
+                    Runtime.getRuntime().exec(cmdArr);
+
+                    // Limpieza no critica del jar viejo (la actualizacion ya se
+                    // ha lanzado): un fallo aqui no debe provocar RETRY.
+                    try {
+                        Files.deleteIfExists(Paths.get(args[1]));
+                    } catch (Exception ex1) {
+                        Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                     }
 
                 } catch (Exception ex) {
+
+                    // El abort solo puede dispararse durante la descarga, antes
+                    // del swap: el jar viejo nunca se movio, basta limpiar el
+                    // temporal y salir, sin RETRY.
+                    if (ABORT_UPDATE) {
+                        try {
+                            Files.deleteIfExists(Paths.get(temp_jar));
+                        } catch (Exception ex1) {
+                            Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
+                        }
+                        System.exit(1);
+                    }
 
                     ok = false;
 
                     Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex);
 
+                    // El jar viejo nunca se movio: solo se limpia el temporal.
                     try {
-
-                        Files.deleteIfExists(Paths.get(args[2]));
-
-                        if (Files.exists(Paths.get(args[1] + ".bak"))) {
-                            Files.move(Paths.get(args[1] + ".bak"), Paths.get(args[1]));
-                        }
-
+                        Files.deleteIfExists(Paths.get(temp_jar));
                     } catch (Exception ex1) {
                         Logger.getLogger(Init.class.getName()).log(Level.SEVERE, null, ex1);
                     }
@@ -366,6 +422,8 @@ public class Init extends javax.swing.JFrame {
 
             con = (HttpURLConnection) url_api.openConnection();
 
+            DOWNLOAD_CONNECTION = con;
+
             con.addRequestProperty("User-Agent", USER_AGENT_WEB_BROWSER);
 
             con.setUseCaches(false);
@@ -412,6 +470,8 @@ public class Init extends javax.swing.JFrame {
             }
 
         } finally {
+
+            DOWNLOAD_CONNECTION = null;
 
             if (con != null) {
                 con.disconnect();
@@ -430,6 +490,8 @@ public class Init extends javax.swing.JFrame {
 
             con = (HttpURLConnection) url_api.openConnection();
 
+            DOWNLOAD_CONNECTION = con;
+
             con.addRequestProperty("User-Agent", USER_AGENT_WEB_BROWSER);
 
             con.setUseCaches(false);
@@ -476,6 +538,8 @@ public class Init extends javax.swing.JFrame {
             }
 
         } finally {
+
+            DOWNLOAD_CONNECTION = null;
 
             if (con != null) {
                 con.disconnect();

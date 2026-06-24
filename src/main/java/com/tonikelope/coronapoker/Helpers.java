@@ -91,6 +91,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -113,6 +117,7 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -3700,38 +3705,42 @@ public class Helpers {
 
         String ret = null;
 
-        URL mb_url;
-
-        HttpURLConnection con = null;
-
         try {
 
-            mb_url = new URL(url);
+            // Se usa HttpClient (no HttpURLConnection) para acotar el TIEMPO
+            // TOTAL de la operación, incluida la fase de conexión/resolución
+            // DNS: HttpURLConnection.setConnectTimeout NO cubre el lookup DNS,
+            // así que un equipo con DNS roto podía dejar el check colgado más
+            // allá del timeout nominal. HttpRequest.timeout() impone un techo
+            // global a todo el intercambio (DNS + conexión + respuesta).
+            //
+            // followRedirects(NEVER): /releases/latest responde 302 con la
+            // versión en el header Location, así que se lee esa cabecera sin
+            // descargar el (pesado) HTML de la página de release. El cliente es
+            // local y no se cierra a propósito: sus hilos son daemon y se
+            // liberan por GC; un close() podría bloquear esperando a una
+            // operación atascada en DNS, justo lo que este timeout evita.
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofMillis(HTTP_TIMEOUT))
+                    .followRedirects(HttpClient.Redirect.NEVER)
+                    .build();
 
-            con = (HttpURLConnection) mb_url.openConnection();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofMillis(HTTP_TIMEOUT))
+                    .header("Cache-Control", "no-cache")
+                    .GET()
+                    .build();
 
-            con.setUseCaches(false);
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 
-            con.setConnectTimeout(HTTP_TIMEOUT);
-
-            con.setReadTimeout(HTTP_TIMEOUT);
-
-            // GitHub responde a /releases/latest con un 302 cuyo header Location
-            // apunta a /releases/tag/vXX.YY: basta leer esa cabecera para conocer
-            // la última versión, sin descargar el (pesado) HTML de la página de
-            // release. Bajar el cuerpo completo dejaba el check colgado en
-            // conexiones lentas porque setReadTimeout sólo acota cada read()
-            // individual, no el total: mientras cada trozo llegara dentro del
-            // timeout, la descarga seguía sin tope.
-            con.setInstanceFollowRedirects(false);
-
-            int response_code = con.getResponseCode();
+            int response_code = response.statusCode();
 
             String latest_version = null;
 
             if (response_code >= 300 && response_code < 400) {
 
-                String location = con.getHeaderField("Location");
+                String location = response.headers().firstValue("Location").orElse(null);
 
                 if (location != null) {
 
@@ -3741,22 +3750,9 @@ public class Helpers {
             } else {
 
                 // Fallback: si GitHub dejara de redirigir y sirviera la página
-                // directamente, se parsea el cuerpo (como hasta ahora).
-                try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
-
-                    byte[] buffer = new byte[1024];
-
-                    int reads;
-
-                    while ((reads = bis.read(buffer)) != -1) {
-
-                        byte_res.write(buffer, 0, reads);
-                    }
-
-                    String latest_version_res = new String(byte_res.toByteArray(), "UTF-8");
-
-                    latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", latest_version_res, 1);
-                }
+                // directamente, se parsea el cuerpo (también acotado por el
+                // timeout total de la petición).
+                latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", response.body(), 1);
             }
 
             // latest_version == null => no se pudo determinar (red caída, layout
@@ -3786,10 +3782,6 @@ public class Helpers {
         } catch (Exception ex) {
             Logger.getLogger(Helpers.class
                     .getName()).log(Level.SEVERE, ex.getMessage());
-        } finally {
-            if (con != null) {
-                con.disconnect();
-            }
         }
 
         return ret;

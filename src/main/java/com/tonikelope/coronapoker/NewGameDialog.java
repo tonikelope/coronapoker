@@ -31,6 +31,7 @@ package com.tonikelope.coronapoker;
 import com.tonikelope.coronapoker.Helpers.JTextFieldRegularPopupMenu;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
@@ -263,9 +264,16 @@ public class NewGameDialog extends JDialog {
 
         pack();
 
-        int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
+        // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
+        // tareas), no al tamano total de pantalla: en baja resolucion la
+        // ventana cabe entera por encima de la barra de tareas y el scroll
+        // vertical del scroll_panel cubre el resto. Los botones VAMOS/CANCELAR
+        // quedan fijos abajo (fuera del scroll), siempre visibles.
+        Rectangle usable_bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
 
-        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
+        int w = Math.min(getWidth(), Math.round(usable_bounds.width * 0.95f));
+
+        int h = Math.min(getHeight(), Math.round(usable_bounds.height * 0.95f));
 
         if (w != getWidth() || h != getHeight()) {
             setSize(w, h);
@@ -274,12 +282,23 @@ public class NewGameDialog extends JDialog {
 
             pack();
 
-            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), usable_bounds.width, 0.1f);
 
         }
 
         init = true;
 
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        if (visible) {
+            // El owner al que se centra (setLocationRelativeTo) podria dejar el
+            // dialogo parcialmente fuera de pantalla o bajo la barra de tareas;
+            // se reubica dentro del area util justo antes de mostrarlo.
+            Helpers.clampWindowToUsableBounds(this);
+        }
+        super.setVisible(visible);
     }
 
     private static ConcurrentLinkedQueue<String> loadServerHistory() {
@@ -510,9 +529,16 @@ public class NewGameDialog extends JDialog {
 
         pack();
 
-        int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
+        // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
+        // tareas), no al tamano total de pantalla: en baja resolucion la
+        // ventana cabe entera por encima de la barra de tareas y el scroll
+        // vertical del scroll_panel cubre el resto. Los botones VAMOS/CANCELAR
+        // quedan fijos abajo (fuera del scroll), siempre visibles.
+        Rectangle usable_bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
 
-        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
+        int w = Math.min(getWidth(), Math.round(usable_bounds.width * 0.95f));
+
+        int h = Math.min(getHeight(), Math.round(usable_bounds.height * 0.95f));
 
         if (w != getWidth() || h != getHeight()) {
             setSize(w, h);
@@ -521,7 +547,7 @@ public class NewGameDialog extends JDialog {
 
             pack();
 
-            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), usable_bounds.width, 0.1f);
 
         }
 
@@ -1492,10 +1518,6 @@ public class NewGameDialog extends JDialog {
             .addComponent(config_partida_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(nick_pass_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(recover_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(main_panelLayout.createSequentialGroup()
-                .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE))
         );
         main_panelLayout.setVerticalGroup(
             main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1511,9 +1533,6 @@ public class NewGameDialog extends JDialog {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(nick_pass_panel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(main_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, 0))
         );
 
@@ -1535,6 +1554,12 @@ public class NewGameDialog extends JDialog {
                 .addContainerGap()
                 .addComponent(scroll_panel)
                 .addContainerGap())
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+                .addContainerGap())
             .addComponent(titulo_ventana, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
@@ -1542,7 +1567,11 @@ public class NewGameDialog extends JDialog {
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addComponent(titulo_ventana)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(scroll_panel)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(vamos, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(cancel_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
 

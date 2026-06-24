@@ -550,11 +550,17 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Per-table stack ceiling for rebuys/top-ups, per REBUY_CAP_POLICY:
     //  - BUYIN: fixed mode = the single shared buy-in; variable mode = BUYIN_MAX_BB
     //    big blinds (the deepest anybody could have bought in for).
-    //  - HIGHEST_STACK: the biggest stack at the table (rebuy up to the chip
-    //    leader). No player may ever hold more than this.
+    //  - HIGHEST_STACK: the greater of the standard buy-in and the biggest stack
+    //    at the table. A bust-out can ALWAYS rebuy at least a full standard buy-in
+    //    (BUYIN in fixed mode, the default buy-in in variable mode), and may match
+    //    the chip leader when somebody is deeper. Before, the cap was the bare
+    //    floor of the leader's stack, so a leader sitting at 9.90 capped rebuys at
+    //    9 — below the buy-in and dropping the cents. No player may ever hold more
+    //    than this.
     public static int getBuyinCap() {
         if (REBUY_CAP_POLICY == REBUY_CAP_HIGHEST_STACK) {
-            return (int) Math.floor(highestPlayerStack());
+            int standard_buyin = FIXED_BUYIN ? BUYIN : getBuyinDefault();
+            return Math.max(standard_buyin, (int) Math.floor(highestPlayerStack()));
         }
         return BuyinRules.cap(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, BUYIN_MAX_BB);
     }
@@ -580,7 +586,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // (anti-stale / anti-cheat).
     public static int rebuyHeadroom(double current_stack) {
         if (REBUY_CAP_POLICY == REBUY_CAP_HIGHEST_STACK) {
-            // Margen = stack más alto de la mesa − stack actual (en unidades enteras).
+            // Margen = tope de mesa (mayor entre el buy-in estándar y el stack más
+            // alto, ver getBuyinCap) − stack actual (en unidades enteras).
             return Math.max(0, getBuyinCap() - (int) Math.ceil(current_stack));
         }
         return BuyinRules.headroom(FIXED_BUYIN, BUYIN, CIEGA_GRANDE, BUYIN_MAX_BB, current_stack);

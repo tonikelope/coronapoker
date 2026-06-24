@@ -90,6 +90,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -3979,8 +3980,15 @@ public class Helpers {
 
                 URL oracle = new URL((String) Init.MOD.get("updateurl"));
 
+                // Timeouts explícitos: openStream() no impone ninguno, así que
+                // una URL de MOD caída o lenta colgaba el check indefinidamente.
+                URLConnection oracle_con = oracle.openConnection();
+                oracle_con.setUseCaches(false);
+                oracle_con.setConnectTimeout(HTTP_TIMEOUT);
+                oracle_con.setReadTimeout(HTTP_TIMEOUT);
+
                 ArrayList<String> update_info;
-                try (BufferedReader in = new BufferedReader(new InputStreamReader(oracle.openStream()))) {
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(oracle_con.getInputStream()))) {
                     update_info = new ArrayList<>();
                     String inputline;
                     while ((inputline = in.readLine()) != null) {

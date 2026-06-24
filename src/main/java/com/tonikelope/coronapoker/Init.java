@@ -1257,60 +1257,68 @@ public class Init extends JFrame {
             // (un check previo "estás al día" deja NEW_VERSION en blanco).
             NEW_VERSION = null;
 
-            // Hasta UPDATE_CHECK_RETRIES intentos en silencio: si GitHub no
-            // responde, se deja visible el botón ACTUALIZAR para el check
-            // manual y punto (el diálogo modal de "¿reintentar?" que había
-            // aquí podía asaltar al usuario ya metido en partida, sin el
-            // guard de ventana visible/activa que sí tiene la oferta).
-            for (int intento = 0; intento < UPDATE_CHECK_RETRIES && NEW_VERSION == null; intento++) {
-                NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
-            }
+            // try/finally: el check es best-effort y corre en background, pero
+            // pase lo que pase (excepción de red no prevista, Error, fallo de un
+            // diálogo) el finally DEBE restaurar la UI — si no, la etiqueta
+            // "COMPROBANDO ACTUALIZACIÓN..." se queda colgada para siempre.
+            try {
+                // Hasta UPDATE_CHECK_RETRIES intentos en silencio: si GitHub no
+                // responde, se deja visible el botón ACTUALIZAR para el check
+                // manual y punto (el diálogo modal de "¿reintentar?" que había
+                // aquí podía asaltar al usuario ya metido en partida, sin el
+                // guard de ventana visible/activa que sí tiene la oferta).
+                for (int intento = 0; intento < UPDATE_CHECK_RETRIES && NEW_VERSION == null; intento++) {
+                    NEW_VERSION = Helpers.checkLatestCoronaPokerVersion(AboutDialog.UPDATE_URL);
+                }
 
-            if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
-                if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
-                    Helpers.GUIRun(() -> {
-                        VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
-                    });
-                    try {
-                        String current_jar_path = Helpers.getCurrentJarPath();
-                        // replace (literal) en vez de replaceAll (regex) — el '.' en
-                        // "20.66.jar" es metacaracter regex y matchearía cualquier char
-                        // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
-                        // hace substring literal, que es lo correcto aquí.
-                        String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
-                        String updater_jar = Helpers.downloadUpdater();
+                if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                    if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
+                        Helpers.GUIRun(() -> {
+                            VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
+                        });
+                        try {
+                            String current_jar_path = Helpers.getCurrentJarPath();
+                            // replace (literal) en vez de replaceAll (regex) — el '.' en
+                            // "20.66.jar" es metacaracter regex y matchearía cualquier char
+                            // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
+                            // hace substring literal, que es lo correcto aquí.
+                            String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
+                            String updater_jar = Helpers.downloadUpdater();
 
-                        if (updater_jar != null) {
-                            Helpers.cleanCacheDIR();
-                            if (GameFrame.LANGUAGE.equals("es")) {
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
-                                Runtime.getRuntime().exec(cmdArr);
+                            if (updater_jar != null) {
+                                Helpers.cleanCacheDIR();
+                                if (GameFrame.LANGUAGE.equals("es")) {
+                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
+                                    Runtime.getRuntime().exec(cmdArr);
+                                } else {
+                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
+                                    Runtime.getRuntime().exec(cmdArr);
+                                }
+                                System.exit(0);
                             } else {
-                                String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
-                                Runtime.getRuntime().exec(cmdArr);
+                                Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
                             }
-                            System.exit(0);
-                        } else {
-                            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
+                        } catch (Exception ex) {
+                            LOGGER.log(Level.SEVERE, null, ex);
+                            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
                         }
-                    } catch (Exception ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                        Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
                     }
                 }
-            }
 
-            if (Init.MOD != null) {
-                LOGGER.log(Level.INFO, "Checking MOD updates...");
-                Helpers.checkMODVersion(VENTANA_INICIO);
-            }
-
-            Helpers.GUIRun(() -> {
-                VENTANA_INICIO.update_label.setVisible(false);
-                if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
-                    VENTANA_INICIO.update_button.setVisible(true);
+                if (Init.MOD != null) {
+                    LOGGER.log(Level.INFO, "Checking MOD updates...");
+                    Helpers.checkMODVersion(VENTANA_INICIO);
                 }
-            });
+            } catch (Throwable t) {
+                LOGGER.log(Level.SEVERE, "Update check failed unexpectedly", t);
+            } finally {
+                Helpers.GUIRun(() -> {
+                    VENTANA_INICIO.update_label.setVisible(false);
+                    if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
+                        VENTANA_INICIO.update_button.setVisible(true);
+                    }
+                });
+            }
         });
     }
 

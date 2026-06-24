@@ -3715,20 +3715,53 @@ public class Helpers {
 
             con.setReadTimeout(HTTP_TIMEOUT);
 
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+            // GitHub responde a /releases/latest con un 302 cuyo header Location
+            // apunta a /releases/tag/vXX.YY: basta leer esa cabecera para conocer
+            // la última versión, sin descargar el (pesado) HTML de la página de
+            // release. Bajar el cuerpo completo dejaba el check colgado en
+            // conexiones lentas porque setReadTimeout sólo acota cada read()
+            // individual, no el total: mientras cada trozo llegara dentro del
+            // timeout, la descarga seguía sin tope.
+            con.setInstanceFollowRedirects(false);
 
-                byte[] buffer = new byte[1024];
+            int response_code = con.getResponseCode();
 
-                int reads;
+            String latest_version = null;
 
-                while ((reads = bis.read(buffer)) != -1) {
+            if (response_code >= 300 && response_code < 400) {
 
-                    byte_res.write(buffer, 0, reads);
+                String location = con.getHeaderField("Location");
+
+                if (location != null) {
+
+                    latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", location, 1);
                 }
 
-                String latest_version_res = new String(byte_res.toByteArray(), "UTF-8");
+            } else {
 
-                String latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", latest_version_res, 1);
+                // Fallback: si GitHub dejara de redirigir y sirviera la página
+                // directamente, se parsea el cuerpo (como hasta ahora).
+                try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); ByteArrayOutputStream byte_res = new ByteArrayOutputStream()) {
+
+                    byte[] buffer = new byte[1024];
+
+                    int reads;
+
+                    while ((reads = bis.read(buffer)) != -1) {
+
+                        byte_res.write(buffer, 0, reads);
+                    }
+
+                    String latest_version_res = new String(byte_res.toByteArray(), "UTF-8");
+
+                    latest_version = findFirstRegex("releases\\/tag\\/v?([0-9]+\\.[0-9]+)", latest_version_res, 1);
+                }
+            }
+
+            // latest_version == null => no se pudo determinar (red caída, layout
+            // inesperado): se devuelve null para que el caller reintente y deje
+            // visible el botón de check manual. "" significa "estás al día".
+            if (latest_version != null) {
 
                 new_version_major = findFirstRegex("([0-9]+)\\.[0-9]+", latest_version, 1);
 

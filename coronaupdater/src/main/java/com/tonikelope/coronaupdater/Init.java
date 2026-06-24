@@ -28,6 +28,16 @@ import net.lingala.zip4j.ZipFile;
 public class Init extends javax.swing.JFrame {
 
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
+    // Timeouts de la descarga. CONNECT acota el establecimiento de conexion
+    // (incluida DNS via el resolver del SO). READ es POR-LECTURA, no total: una
+    // descarga grande pero que progresa nunca se aborta (cada read con datos
+    // reinicia el contador); solo salta si la conexion se queda colgada sin
+    // enviar bytes durante la ventana -> lanza SocketTimeoutException, que el
+    // bucle de reintento (do/while RETRY?) ya gestiona. Sin estos timeouts un
+    // stall a mitad de descarga colgaba el updater indefinidamente (read()
+    // bloqueado, sin poder ni comprobar ABORT_UPDATE entre lecturas).
+    public static final int CONNECT_TIMEOUT = 15000;
+    public static final int READ_TIMEOUT = 30000;
     public static volatile boolean MOD_UPDATE = false;
     public static volatile boolean SPANISH = false;
     public static volatile boolean ABORT_UPDATE = false;
@@ -360,6 +370,10 @@ public class Init extends javax.swing.JFrame {
 
             con.setUseCaches(false);
 
+            con.setConnectTimeout(CONNECT_TIMEOUT);
+
+            con.setReadTimeout(READ_TIMEOUT);
+
             try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
 
                 int length = con.getContentLength();
@@ -419,6 +433,10 @@ public class Init extends javax.swing.JFrame {
             con.addRequestProperty("User-Agent", USER_AGENT_WEB_BROWSER);
 
             con.setUseCaches(false);
+
+            con.setConnectTimeout(CONNECT_TIMEOUT);
+
+            con.setReadTimeout(READ_TIMEOUT);
 
             try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
 

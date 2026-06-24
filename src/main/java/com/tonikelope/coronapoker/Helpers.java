@@ -1388,6 +1388,43 @@ public class Helpers {
 
     }
 
+    /**
+     * Clamps a window's location so it lies entirely within the usable screen
+     * bounds (the work area, which excludes the taskbar). Meant to be called
+     * once the window already has its final size and location but before it is
+     * shown: it guarantees the window never spills off-screen nor under the
+     * taskbar on low resolutions, regardless of where the owner it was centered
+     * on happens to be.
+     */
+    public static void clampWindowToUsableBounds(Window window) {
+
+        GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+
+                Rectangle usable = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+
+                int x = window.getX();
+                int y = window.getY();
+
+                if (x + window.getWidth() > usable.x + usable.width) {
+                    x = usable.x + usable.width - window.getWidth();
+                }
+
+                if (y + window.getHeight() > usable.y + usable.height) {
+                    y = usable.y + usable.height - window.getHeight();
+                }
+
+                x = Math.max(x, usable.x);
+                y = Math.max(y, usable.y);
+
+                if (x != window.getX() || y != window.getY()) {
+                    window.setLocation(x, y);
+                }
+            }
+        });
+    }
+
     public static void setLocationContainerRelativeTo(Container reference, Container current) {
 
         Helpers.GUIRun(new Runnable() {

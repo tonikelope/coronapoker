@@ -716,6 +716,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return auto_fullscreen_menu;
     }
 
+    public JCheckBoxMenuItem getAuto_fit_zoom_menu() {
+        return auto_fit_zoom_menu;
+    }
+
     public JCheckBoxMenuItem getChat_image_menu() {
         return chat_image_menu;
     }

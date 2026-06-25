@@ -196,6 +196,7 @@ public class NewGameDialog extends JDialog {
         this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
         manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 100, 1, null, 1));
         Helpers.makeNumericSpinnerEditable(manos_spinner, false);
+        ((javax.swing.JSpinner.DefaultEditor) manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
 
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
         this.ante_checkbox.setSelected(GameFrame.ANTE);
@@ -1341,7 +1342,7 @@ public class NewGameDialog extends JDialog {
                         .addGap(0, 0, 0)
                         .addComponent(limite_manos_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(iwtsth_checkbox)
                         .addGap(0, 0, 0)
@@ -2976,6 +2977,7 @@ public class NewGameDialog extends JDialog {
             manos_spinner.setEnabled(s.handLimit > 0);
             manos_spinner.setModel(new SpinnerNumberModel(s.handLimit > 0 ? s.handLimit : 100, 1, null, 1));
             Helpers.makeNumericSpinnerEditable(manos_spinner, false);
+            ((javax.swing.JSpinner.DefaultEditor) manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
 
             // Recompra + ante + straddle.
             rebuy_checkbox.setSelected(s.rebuy);
@@ -2983,6 +2985,15 @@ public class NewGameDialog extends JDialog {
             straddle_checkbox.setSelected(s.straddle);
             iwtsth_checkbox.setSelected(s.iwtsth);
             rit_checkbox.setSelected(s.runItTwice);
+            // El combo de rabbit se rellena traducido aquí: el constructor de CREAR
+            // timba NO fija el modelo (a diferencia del de modificar), así que sin
+            // esto el desplegable saldría vacío. Índice 0..3 = off/free/free+sb/free+sb+bb.
+            rabbit_combo.setModel(new DefaultComboBoxModel<>(new String[]{
+                Translator.translate("menu.off"),
+                Translator.translate("menu.free"),
+                Translator.translate("menu.free_sb"),
+                Translator.translate("menu.free_sb_bb")
+            }));
             rabbit_combo.setSelectedIndex(Math.min(Math.max(s.rabbit, 0), 3));
             bot_rebuy_checkbox.setSelected(s.botRebuy);
             bot_rebuy_checkbox.setEnabled(s.rebuy);

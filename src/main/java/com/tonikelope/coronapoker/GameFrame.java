@@ -4205,11 +4205,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(fullscreen);
         }
         if (fullscreen != full_screen) {
-            // El toggle dispone y recrea el peer nativo del frame. Ejecutarlo de forma
-            // SÍNCRONA dentro del evento que lo dispara (el combo del diálogo de Ajustes,
-            // en el mismo ciclo del EDT) corrompía el estado y el cambio solo funcionaba
-            // UNA vez. Se difiere a un ciclo posterior del EDT para que el toggle corra
-            // limpio, fuera del despacho del evento del combo.
+            // El toggle dispone y recrea el peer nativo del frame. Ejecutarlo SÍNCRONO
+            // dentro del propio evento del combo (mismo ciclo del EDT) corrompía el
+            // estado. Se difiere al EDT para que corra limpio fuera del despacho del
+            // evento; el combo, además, devuelve el frente al diálogo tras el grab de
+            // foreground del frame (ver AppearanceSettingsPanel).
             SwingUtilities.invokeLater(this::triggerFullScreenToggle);
         }
     }

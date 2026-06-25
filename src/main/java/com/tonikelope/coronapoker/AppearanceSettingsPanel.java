@@ -18,6 +18,7 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Component;
 import java.awt.FlowLayout;
+import java.awt.Window;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +33,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 
 /**
  * Contenido de "Ajustes de apariencia" como JPanel (pestaña del diálogo unificado).
@@ -78,6 +80,17 @@ public class AppearanceSettingsPanel extends JPanel {
                 return;
             }
             gf.setDisplayModeFullScreen(display_combo.getSelectedIndex() == 1);
+            // El toggle difiere un grab de foreground del GameFrame que deja este diálogo
+            // por detrás y sin foco — por eso "solo funcionaba una vez". Tras ese grab,
+            // devolvemos el frente y el foco al diálogo (doble invokeLater para correr
+            // DESPUÉS del toggle diferido y de su forceForeground).
+            Window dialog = SwingUtilities.getWindowAncestor(display_combo);
+            if (dialog != null) {
+                SwingUtilities.invokeLater(() -> SwingUtilities.invokeLater(() -> {
+                    dialog.toFront();
+                    dialog.requestFocus();
+                }));
+            }
         });
         addLeft(pantalla, labeledRow("settings.modo_pantalla", display_combo));
 
@@ -94,7 +107,7 @@ public class AppearanceSettingsPanel extends JPanel {
             int pct = (Integer) zoom_spinner.getValue();
             gf.setZoomLevel(Math.round((pct - 100) / (GameFrame.ZOOM_STEP * 100f)));
         });
-        addLeft(pantalla, labeledRow("menu.zoom", zoom_spinner));
+        addLeft(pantalla, labeledRow("settings.zoom_pct", zoom_spinner));
 
         // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
         // aplica al vuelo.

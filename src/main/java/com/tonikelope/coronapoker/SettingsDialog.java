@@ -62,7 +62,9 @@ public class SettingsDialog extends JDialog {
         boolean read_only = GameFrame.getInstance() == null || !GameFrame.getInstance().isPartida_local();
 
         setTitle(Translator.translate("settings.ajustes"));
-        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        // DO_NOTHING: la X la gestiona windowClosing (pregunta antes de descartar, igual
+        // que el botón Cancelar).
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 
         appearance_panel = new AppearanceSettingsPanel();
         audio_panel = new AudioSettingsPanel();
@@ -90,12 +92,7 @@ public class SettingsDialog extends JDialog {
         });
 
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
-        cancel_button.addActionListener(e -> {
-            if (isDirty() && Helpers.mostrarMensajeInformativoSINO(SettingsDialog.this, Translator.translate("settings.descartar_cambios")) != javax.swing.JOptionPane.YES_OPTION) {
-                return;
-            }
-            dispose();
-        });
+        cancel_button.addActionListener(e -> cancelWithConfirm());
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(save_button);
@@ -108,6 +105,11 @@ public class SettingsDialog extends JDialog {
         setContentPane(content);
 
         addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                cancelWithConfirm();
+            }
+
             @Override
             public void windowActivated(WindowEvent e) {
                 if (isModal()) {
@@ -165,6 +167,14 @@ public class SettingsDialog extends JDialog {
     // descartar al cancelar.
     private boolean isDirty() {
         return appearance_panel.isDirty() || audio_panel.isDirty() || game_panel.isDirty();
+    }
+
+    // Cierra descartando los cambios; si hay cambios sin confirmar, pregunta primero.
+    // Lo usan el botón Cancelar y la X de la ventana.
+    private void cancelWithConfirm() {
+        if (!isDirty() || Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("settings.descartar_cambios")) == javax.swing.JOptionPane.YES_OPTION) {
+            dispose();
+        }
     }
 
     // Aplica GUI_FONT a TODOS los componentes al MISMO tamaño (conservando el estilo

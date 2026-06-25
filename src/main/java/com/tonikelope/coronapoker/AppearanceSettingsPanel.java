@@ -178,27 +178,28 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(anim, delegatingCheckbox("menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
         addLeft(anim, delegatingCheckbox("menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
-        // Dos columnas iguales (rejilla) que llenan el ancho; cada subpanel va en el
-        // NORTH de su columna para quedar arriba a su ALTO NATURAL (sin estirarse ni
-        // recortarse). El hueco sobrante queda como una franja limpia abajo, no
-        // metido dentro de los subpaneles.
+        // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
+        // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
+        // abajo (mismo patrón que la pestaña Partida) sin estirar ni recortar los
+        // subpaneles.
+        pantalla.setAlignmentY(JComponent.TOP_ALIGNMENT);
+        mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        anim.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+
         JPanel right_inner = new JPanel();
         right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
+        right_inner.setAlignmentY(JComponent.TOP_ALIGNMENT);
         right_inner.add(mesa);
         right_inner.add(Box.createVerticalStrut(10));
         right_inner.add(anim);
 
-        JPanel left_col = new JPanel(new java.awt.BorderLayout());
-        left_col.add(pantalla, java.awt.BorderLayout.NORTH);
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.add(pantalla);
+        row.add(Box.createHorizontalStrut(12));
+        row.add(right_inner);
 
-        JPanel right_col = new JPanel(new java.awt.BorderLayout());
-        right_col.add(right_inner, java.awt.BorderLayout.NORTH);
-
-        JPanel columns = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
-        columns.add(left_col);
-        columns.add(right_col);
-
-        add(columns, java.awt.BorderLayout.NORTH);
+        add(row, java.awt.BorderLayout.NORTH);
 
         building = false;
     }

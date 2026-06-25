@@ -370,6 +370,18 @@ public class NewGameDialog extends JDialog {
         pending_structure = null;
         populateStructureCombo(null);
 
+        // El combo de Rabbit Hunting se rellena traducido aquí: el constructor de
+        // CREAR/UNIRSE no pasa por el bloque de preselección del de MODIFICAR, y
+        // populatePresetsCombo suprime la acción del combo de presets (no llama a
+        // applySettingsToControls), así que sin esto el desplegable saldría VACÍO.
+        this.rabbit_combo.setModel(new DefaultComboBoxModel<>(new String[]{
+            Translator.translate("menu.off"),
+            Translator.translate("menu.free"),
+            Translator.translate("menu.free_sb"),
+            Translator.translate("menu.free_sb_bb")
+        }));
+        this.rabbit_combo.setSelectedIndex(Math.min(Math.max(GameFrame.RABBIT_HUNTING, 0), 3));
+
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
 
         recover_checkbox_label.setText(Translator.translate("game.continuar_timba_anterior"));

@@ -4191,6 +4191,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Modo de pantalla elegido en Ajustes > Apariencia (lista ventana / pantalla
+    // completa). GUARDA la preferencia (que se aplica también al ARRANCAR partida vía
+    // autoZoomFullScreen(AUTO_FULLSCREEN)) y la APLICA ya si el estado actual difiere.
+    public void setDisplayModeFullScreen(boolean fullscreen) {
+        GameFrame.AUTO_FULLSCREEN = fullscreen;
+        Helpers.PROPERTIES.setProperty("auto_fullscreen", String.valueOf(fullscreen));
+        Helpers.savePropertiesFile();
+        if (auto_fullscreen_menu != null) {
+            auto_fullscreen_menu.setSelected(fullscreen);
+        }
+        if (Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU != null) {
+            Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(fullscreen);
+        }
+        if (fullscreen != full_screen) {
+            triggerFullScreenToggle();
+        }
+    }
+
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed
         // TODO add your handling code here:
 

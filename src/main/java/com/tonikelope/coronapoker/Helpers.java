@@ -5266,7 +5266,6 @@ public class Helpers {
 
         public static JMenu BARAJAS_MENU = null;
         public static JMenu TAPETES_MENU = null;
-        public static JMenu RABBIT_MENU = null;
         public static JMenu ZOOM_MENU = null;
         public static JMenu VISTA_MENU = null;
         public static JMenu AYUDA_MENU = null;
@@ -5277,8 +5276,6 @@ public class Helpers {
         public static JCheckBoxMenuItem RELOJ_MENU;
         public static JCheckBoxMenuItem REBUY_NOW_MENU;
         public static JCheckBoxMenuItem AUTO_REBUY_MENU;
-        public static JCheckBoxMenuItem IWTSTH_RULE_MENU;
-        public static JCheckBoxMenuItem RUN_IT_TWICE_MENU;
         public static JMenuItem AJUSTES_PARTIDA_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
@@ -5299,10 +5296,6 @@ public class Helpers {
         public static JRadioButtonMenuItem TAPETE_ROJO;
         public static JRadioButtonMenuItem TAPETE_NEGRO;
         public static JRadioButtonMenuItem TAPETE_MADERA;
-        public static JRadioButtonMenuItem RABBIT_OFF;
-        public static JRadioButtonMenuItem RABBIT_FREE;
-        public static JRadioButtonMenuItem RABBIT_SB;
-        public static JRadioButtonMenuItem RABBIT_BB;
         public static JPopupMenu popup = null;
 
         private static void generarBarajasMenu() {
@@ -5406,56 +5399,6 @@ public class Helpers {
 
         }
 
-        private static void generarRabbitMenu() {
-
-            Action rabbitOffAction = new AbstractAction(Translator.translate("menu.off")) {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    GameFrame.getInstance().getMenu_rabbit_off().doClick();
-                }
-            };
-
-            Action rabbitFreeAction = new AbstractAction(Translator.translate("menu.free")) {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    GameFrame.getInstance().getMenu_rabbit_free().doClick();
-                }
-            };
-
-            Action rabbitSbAction = new AbstractAction(Translator.translate("menu.free_sb")) {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    GameFrame.getInstance().getMenu_rabbit_sb().doClick();
-                }
-            };
-
-            Action rabbitBbAction = new AbstractAction(Translator.translate("menu.free_sb_bb")) {
-                @Override
-                public void actionPerformed(ActionEvent ae) {
-                    GameFrame.getInstance().getMenu_rabbit_bb().doClick();
-                }
-            };
-
-            RABBIT_OFF = new LeftClickRadioButtonMenuItem(rabbitOffAction);
-            RABBIT_FREE = new LeftClickRadioButtonMenuItem(rabbitFreeAction);
-            RABBIT_SB = new LeftClickRadioButtonMenuItem(rabbitSbAction);
-            RABBIT_BB = new LeftClickRadioButtonMenuItem(rabbitBbAction);
-
-            RABBIT_MENU = new JMenu(Translator.translate("menu.rabbit_hunting"));
-            RABBIT_MENU.add(RABBIT_OFF);
-            RABBIT_MENU.add(RABBIT_FREE);
-            RABBIT_MENU.add(RABBIT_SB);
-            RABBIT_MENU.add(RABBIT_BB);
-
-            RABBIT_OFF.setSelected(GameFrame.RABBIT_HUNTING == 0);
-            RABBIT_FREE.setSelected(GameFrame.RABBIT_HUNTING == 1);
-            RABBIT_SB.setSelected(GameFrame.RABBIT_HUNTING == 2);
-            RABBIT_BB.setSelected(GameFrame.RABBIT_HUNTING == 3);
-
-            RABBIT_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/rabbit.png")));
-
-        }
-
         public static void addTo(TablePanel tapete, boolean reset) {
 
             if (popup == null || reset) {
@@ -5465,8 +5408,6 @@ public class Helpers {
                 generarBarajasMenu();
 
                 generarTapetesMenu();
-
-                generarRabbitMenu();
 
                 Action shortcutsAction = new AbstractAction(Translator.translate("menu.ver_atajos")) {
                     @Override
@@ -5605,20 +5546,6 @@ public class Helpers {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAjustes_partida_menu().doClick();
-                    }
-                };
-
-                Action iwtsthRuleAction = new AbstractAction(Translator.translate("menu.regla_iwtsth")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getIwtsth_rule_menu().doClick();
-                    }
-                };
-
-                Action runItTwiceRuleAction = new AbstractAction(Translator.translate("menu.regla_run_it_twice")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        GameFrame.getInstance().getRun_it_twice_menu().doClick();
                     }
                 };
 
@@ -5877,18 +5804,6 @@ public class Helpers {
                 AJUSTES_PARTIDA_MENU = new LeftClickMenuItem(ajustesPartidaAction);
                 AJUSTES_PARTIDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
                 popup.add(AJUSTES_PARTIDA_MENU);
-
-                IWTSTH_RULE_MENU = new LeftClickCheckBoxMenuItem(iwtsthRuleAction);
-                IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));
-                IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
-                popup.add(IWTSTH_RULE_MENU);
-
-                RUN_IT_TWICE_MENU = new LeftClickCheckBoxMenuItem(runItTwiceRuleAction);
-                RUN_IT_TWICE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/baraja.png")));
-                RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
-                popup.add(RUN_IT_TWICE_MENU);
-
-                popup.add(RABBIT_MENU);
 
                 popup.addSeparator();
 

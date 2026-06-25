@@ -6893,6 +6893,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.cartas_resistencia = false;
         this.destapar_resistencia = false;
 
+        // El run-out terminó: vuelve a permitir cambiar RUN_IT_TWICE (lo congeló el
+        // arranque del run-out del all-in).
+        GameFrame.RUN_IT_TWICE_LOCKED = false;
+
         this.run_it_twice_side_b = false;
 
         this.rit_agreed = false;
@@ -11806,10 +11810,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // puede cambiar cuando decidimos el voto (race-free). El menú se
                 // reactiva al empezar la siguiente mano (ver NUEVA_MANO en run()).
                 if (firstResistencia && GameFrame.getInstance().isPartida_local()) {
-                    Helpers.GUIRunAndWait(() -> {
-                        GameFrame.getInstance().getRun_it_twice_menu().setEnabled(false);
-                        Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
-                    });
+                    // Congela RUN_IT_TWICE durante el run-out: a continuación se decide
+                    // el voto leyendo el flag (sin lock), así que no debe cambiar hasta
+                    // NUEVA_MANO. Antes se greyaba el menú; ahora lo gestiona el flag.
+                    GameFrame.RUN_IT_TWICE_LOCKED = true;
                 }
                 this.destapar_resistencia = true;
                 // Arranca el run-out: oculta ya la bet_label y centra el bote
@@ -15400,50 +15404,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     private void resyncRECOVERGLOBALS() {
-        if (Boolean.TRUE.equals(GameFrame.IWTSTH_RULE_RECOVER)) {
-            Helpers.GUIRun(() -> {
-                GameFrame.getInstance().getIwtsth_rule_menu().setSelected(false);
-                GameFrame.getInstance().getIwtsth_rule_menu().doClick();
-                GameFrame.IWTSTH_RULE_RECOVER = null;
-            });
-
+        // Reglas globales recuperadas (IWTSTH / Rabbit / Run It Twice): se re-aplican
+        // con los setters estáticos (set campo + broadcast *RULE a los clientes que
+        // reconectan + persistRecoverSettings), solo si difieren del valor por defecto
+        // con el que arranca la recuperación. Idempotente y default-agnóstico.
+        if (GameFrame.IWTSTH_RULE_RECOVER != null) {
+            boolean v = GameFrame.IWTSTH_RULE_RECOVER;
+            GameFrame.IWTSTH_RULE_RECOVER = null;
+            if (v != GameFrame.IWTSTH_RULE) {
+                GameFrame.setIwtsthRule(v);
+            }
         }
 
-        if (GameFrame.RABBIT_HUNTING_RECOVER != null && GameFrame.RABBIT_HUNTING_RECOVER != 0) {
-            Helpers.GUIRun(() -> {
-                switch (GameFrame.RABBIT_HUNTING_RECOVER) {
-                    case 1:
-                        GameFrame.getInstance().getMenu_rabbit_free().setSelected(false);
-                        GameFrame.getInstance().getMenu_rabbit_free().doClick();
-                        break;
-                    case 2:
-                        GameFrame.getInstance().getMenu_rabbit_sb().setSelected(false);
-                        GameFrame.getInstance().getMenu_rabbit_sb().doClick();
-                        break;
-                    case 3:
-                        GameFrame.getInstance().getMenu_rabbit_bb().setSelected(false);
-                        GameFrame.getInstance().getMenu_rabbit_bb().doClick();
-                        break;
-
-                }
-                GameFrame.RABBIT_HUNTING_RECOVER = null;
-            });
-
+        if (GameFrame.RABBIT_HUNTING_RECOVER != null) {
+            int v = GameFrame.RABBIT_HUNTING_RECOVER;
+            GameFrame.RABBIT_HUNTING_RECOVER = null;
+            if (v != GameFrame.RABBIT_HUNTING) {
+                GameFrame.setRabbitHunting(v);
+            }
         }
 
-        // RIT en recover: restaura el valor recuperado SOLO si difiere del default
-        // actual (al recuperar, el menú arranca en el default). doClick reutiliza el
-        // handler del toggle (broadcast RUNITWICERULE a los clientes que reconectan
-        // + persistRecoverSettings), igual que IWTSTH/rabbit. Default-agnóstico: vale
-        // tanto si el default es OFF (restaura un ON guardado) como ON (restaura OFF).
         if (GameFrame.RUN_IT_TWICE_RECOVER != null) {
-            final boolean recovered = GameFrame.RUN_IT_TWICE_RECOVER;
+            boolean v = GameFrame.RUN_IT_TWICE_RECOVER;
             GameFrame.RUN_IT_TWICE_RECOVER = null;
-            if (recovered != GameFrame.RUN_IT_TWICE) {
-                Helpers.GUIRun(() -> {
-                    GameFrame.getInstance().getRun_it_twice_menu().setSelected(!recovered);
-                    GameFrame.getInstance().getRun_it_twice_menu().doClick();
-                });
+            if (v != GameFrame.RUN_IT_TWICE) {
+                GameFrame.setRunItTwiceRule(v);
             }
         }
 
@@ -15920,19 +15905,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         synchronized (lock_fin_mano) {
 
+                            // Las reglas (IWTSTH/RIT/Rabbit) ya no se greyan aquí: sus
+                            // setters sincronizan sobre lock_fin_mano, así que cualquier
+                            // cambio durante el fin de mano queda en cola y se aplica
+                            // limpio tras resolverla (a la mano siguiente). Solo queda el
+                            // repaint del tapete.
                             Helpers.GUIRun(() -> {
-                                GameFrame.getInstance().getMenu_rabbit_off().setEnabled(false);
-                                GameFrame.getInstance().getMenu_rabbit_free().setEnabled(false);
-                                GameFrame.getInstance().getMenu_rabbit_sb().setEnabled(false);
-                                GameFrame.getInstance().getMenu_rabbit_bb().setEnabled(false);
-                                GameFrame.getInstance().getIwtsth_rule_menu().setEnabled(false);
-                                Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(false);
-                                GameFrame.getInstance().getRun_it_twice_menu().setEnabled(false);
-                                Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(false);
-                                Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(false);
-                                Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(false);
-                                Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(false);
-                                Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(false);
                                 GameFrame.getInstance().getTapete().getCommunityCards().repaint();
                             });
 
@@ -16000,28 +15978,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 fin_de_la_transmision = this.isLast_hand();
                             }
 
-                            Helpers.GUIRun(() -> {
-                                // El lambda se programa al EDT y puede ejecutarse
-                                // después de que finTransmision/abortToRecover hayan
-                                // disposed GameFrame (caso MISDEAL → abort). Sin
-                                // null-check, el NPE rompe el EDT y deja la JVM
-                                // medio-muerta para la siguiente partida.
-                                GameFrame gf = GameFrame.getInstance();
-                                if (gf != null && gf.isPartida_local()) {
-                                    gf.getMenu_rabbit_off().setEnabled(true);
-                                    gf.getMenu_rabbit_free().setEnabled(true);
-                                    gf.getMenu_rabbit_sb().setEnabled(true);
-                                    gf.getMenu_rabbit_bb().setEnabled(true);
-                                    gf.getIwtsth_rule_menu().setEnabled(true);
-                                    Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setEnabled(true);
-                                    gf.getRun_it_twice_menu().setEnabled(true);
-                                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setEnabled(true);
-                                    Helpers.TapetePopupMenu.RABBIT_OFF.setEnabled(true);
-                                    Helpers.TapetePopupMenu.RABBIT_FREE.setEnabled(true);
-                                    Helpers.TapetePopupMenu.RABBIT_SB.setEnabled(true);
-                                    Helpers.TapetePopupMenu.RABBIT_BB.setEnabled(true);
-                                }
-                            });
+                            // (Las reglas IWTSTH/RIT/Rabbit ya no se re-habilitan aquí:
+                            // dejaron de greyarse al resolver la mano — ver nota arriba.)
                         }
                     } else {
 

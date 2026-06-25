@@ -42,6 +42,7 @@ import javax.swing.border.TitledBorder;
  */
 public class SettingsDialog extends JDialog {
 
+    private final AppearanceSettingsPanel appearance_panel;
     private final AudioSettingsPanel audio_panel;
     private final GameSettingsPanel game_panel;
 
@@ -61,7 +62,7 @@ public class SettingsDialog extends JDialog {
         setTitle(Translator.translate("settings.ajustes"));
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
-        AppearanceSettingsPanel appearance_panel = new AppearanceSettingsPanel();
+        appearance_panel = new AppearanceSettingsPanel();
         audio_panel = new AudioSettingsPanel();
         game_panel = new GameSettingsPanel(read_only);
 
@@ -116,6 +117,10 @@ public class SettingsDialog extends JDialog {
             public void windowClosed(WindowEvent e) {
                 // Cierra la captura de tecla del panel de audio + persiste el volumen.
                 audio_panel.cleanup();
+                // Aplica el modo de pantalla (ventana/completa) elegido en Apariencia, ya
+                // con el diálogo dispuesto: el toggle dispone/recrea el frame y rompería
+                // un diálogo modal abierto, por eso NO se aplica en vivo sino al cerrar.
+                appearance_panel.applyPendingDisplayMode();
             }
         });
 

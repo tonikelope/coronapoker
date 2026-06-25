@@ -45,6 +45,8 @@ public class SettingsDialog extends JDialog {
     private final AppearanceSettingsPanel appearance_panel;
     private final AudioSettingsPanel audio_panel;
     private final GameSettingsPanel game_panel;
+    // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
+    private boolean committed = false;
 
     public static void open(java.awt.Frame parent) {
         Helpers.GUIRun(() -> {
@@ -74,14 +76,19 @@ public class SettingsDialog extends JDialog {
         tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), audio_panel);
         tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), game_panel);
 
-        // GUARDAR aplica la pestaña Partida (ciegas + reglas); apariencia y audio ya
-        // se han aplicado en vivo. Cancelar cierra sin tocar Partida.
+        // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
+        // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
+        // de pantalla pendiente y la pestaña Partida (ciegas + reglas, solo si eres host:
+        // applyToGame no-opea para clientes). Cancelar / cerrar revierte TODO al estado
+        // de apertura (ver windowClosed). GUARDAR está siempre activo: para un cliente
+        // confirma sus ajustes LOCALES de apariencia y audio.
         JButton save_button = new JButton(Translator.translate("ui.guardar"));
         save_button.setBackground(new java.awt.Color(0, 130, 0));
         save_button.setForeground(new java.awt.Color(255, 255, 255));
-        save_button.setEnabled(!read_only);
         save_button.addActionListener(e -> {
+            committed = true;
             game_panel.applyToGame();
+            appearance_panel.applyPendingDisplayMode();
             dispose();
         });
 
@@ -121,12 +128,15 @@ public class SettingsDialog extends JDialog {
 
             @Override
             public void windowClosed(WindowEvent e) {
+                // Si NO se guardó (Cancelar / cerrar), revierte los cambios EN VIVO de
+                // Apariencia y Audio al estado de apertura. El modo de pantalla y la
+                // pestaña Partida solo se aplican al GUARDAR (no aquí).
+                if (!committed) {
+                    appearance_panel.revert();
+                    audio_panel.revert();
+                }
                 // Cierra la captura de tecla del panel de audio + persiste el volumen.
                 audio_panel.cleanup();
-                // Aplica el modo de pantalla (ventana/completa) elegido en Apariencia, ya
-                // con el diálogo dispuesto: el toggle dispone/recrea el frame y rompería
-                // un diálogo modal abierto, por eso NO se aplica en vivo sino al cerrar.
-                appearance_panel.applyPendingDisplayMode();
             }
         });
 

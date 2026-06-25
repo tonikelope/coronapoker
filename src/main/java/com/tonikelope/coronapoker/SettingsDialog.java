@@ -137,6 +137,11 @@ public class SettingsDialog extends JDialog {
         // fuente unificada aplicada.
         audio_panel.applyFontsAndSizing();
 
+        // Botones de acción un pelín más grandes que el resto del diálogo.
+        java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f);
+        save_button.setFont(buttons_font);
+        cancel_button.setFont(buttons_font);
+
         pack();
     }
 

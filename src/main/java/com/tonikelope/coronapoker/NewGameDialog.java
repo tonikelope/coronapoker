@@ -2056,6 +2056,9 @@ public class NewGameDialog extends JDialog {
                 this.bots_label.setEnabled(false);
                 this.manos_checkbox.setEnabled(false);
                 this.manos_spinner.setEnabled(false);
+                this.iwtsth_checkbox.setEnabled(false);
+                this.rit_checkbox.setEnabled(false);
+                this.rabbit_combo.setEnabled(false);
                 this.presets_combobox.setEnabled(false);
                 this.preset_save_button.setEnabled(false);
                 this.preset_delete_button.setEnabled(false);
@@ -2175,6 +2178,9 @@ public class NewGameDialog extends JDialog {
             this.bots_label.setEnabled(true);
             this.manos_checkbox.setEnabled(true);
             this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
+            this.iwtsth_checkbox.setEnabled(true);
+            this.rit_checkbox.setEnabled(true);
+            this.rabbit_combo.setEnabled(true);
             this.presets_combobox.setEnabled(true);
             this.preset_save_button.setEnabled(true);
             this.preset_delete_button.setEnabled(this.presets_combobox.getSelectedIndex() > 0);

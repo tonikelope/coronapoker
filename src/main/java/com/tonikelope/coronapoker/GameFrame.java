@@ -2516,6 +2516,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_fullscreen_menu.setSelected(GameFrame.AUTO_FULLSCREEN);
 
+        // Defensa: si una partida anterior terminó en mitad de un run-out, el flag
+        // pudo quedar activo (solo lo limpia NUEVA_MANO). Se resetea al montar la mesa
+        // para no arrancar con Run It Twice congelado en el diálogo de ajustes.
+        GameFrame.RUN_IT_TWICE_LOCKED = false;
+
         last_hand_menu.setSelected(false);
 
         rebuy_now_menu.setSelected(false);

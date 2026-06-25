@@ -2308,6 +2308,64 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Reglas de juego del host (IWTSTH / Run It Twice / Rabbit Hunting). Antes
+    // vivían como toggles del menú Preferencias + popup; ahora la lógica está
+    // centralizada aquí y la dispara el diálogo "Ajustes de partida" (y el
+    // re-aplicado en recover). Solo difunde y persiste si eres anfitrión; en el
+    // cliente el flag lo actualiza el comando *RULE entrante. El broadcast va bajo
+    // lock_fin_mano (como hacían los handlers originales) para no cambiar la regla
+    // en mitad de la resolución de una mano.
+    public static void setIwtsthRule(boolean on) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.IWTSTH_RULE = on;
+                    gf.getCrupier().broadcastGAMECommandFromServer("IWTSTHRULE#" + (on ? "1" : "0"), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.IWTSTH_RULE = on;
+        }
+    }
+
+    public static void setRunItTwiceRule(boolean on) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.RUN_IT_TWICE = on;
+                    gf.getCrupier().broadcastGAMECommandFromServer("RUNITWICERULE#" + (on ? "1" : "0"), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.RUN_IT_TWICE = on;
+        }
+    }
+
+    public static void setRabbitHunting(int mode) {
+
+        GameFrame gf = getInstance();
+
+        if (gf != null && gf.isPartida_local()) {
+            Helpers.threadRun(() -> {
+                synchronized (gf.getCrupier().getLock_fin_mano()) {
+                    GameFrame.RABBIT_HUNTING = mode;
+                    gf.getCrupier().broadcastGAMECommandFromServer("RABBITRULE#" + String.valueOf(mode), null);
+                    GameFrame.persistRecoverSettings(gf.getCrupier().getSqlite_game_id());
+                }
+            });
+        } else {
+            GameFrame.RABBIT_HUNTING = mode;
+        }
+    }
+
     public JCheckBoxMenuItem getCompact_menu() {
         return compact_menu;
     }

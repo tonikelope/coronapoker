@@ -5759,10 +5759,10 @@ public class Helpers {
                 log.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/log.png")));
                 popup.add(log);
 
-                popup.addSeparator();
-
-                popup.add(VISTA_MENU);
-
+                // El submenú "Apariencia" (VISTA_MENU) ya NO se añade al popup: todos
+                // sus ajustes viven en la pestaña "Apariencia" del diálogo "Ajustes". Se
+                // sigue construyendo más arriba porque sus ítems gemelos (FULLSCREEN_MENU,
+                // COMPACTA_MENU, etc.) son objetivos de sincronización desde GameFrame.
                 popup.addSeparator();
 
                 AUTO_ACTION_MENU = new LeftClickCheckBoxMenuItem(autoactAction);

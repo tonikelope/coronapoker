@@ -98,7 +98,9 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
         panel = new AudioSettingsPanel();
 
-        JButton ok_button = new JButton(Translator.translate("ui.aceptar"));
+        JButton ok_button = new JButton(Translator.translate("ui.guardar"));
+        ok_button.setBackground(new java.awt.Color(0, 130, 0));
+        ok_button.setForeground(new java.awt.Color(255, 255, 255));
         ok_button.addActionListener(e -> {
             committed = true;
             dispose();
@@ -154,6 +156,12 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1.2f);
 
         panel.applyFontsAndSizing();
+
+        // Mismos botones que el diálogo de Ajustes con pestañas: Guardar/Cancelar a 18pt
+        // en negrita (la fuente se fija tras updateFonts, que si no los dejaría a 1.2x).
+        java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(java.awt.Font.BOLD, 18f);
+        ok_button.setFont(buttons_font);
+        cancel_button.setFont(buttons_font);
 
         pack();
     }

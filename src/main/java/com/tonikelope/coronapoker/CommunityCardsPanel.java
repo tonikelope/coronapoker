@@ -907,11 +907,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (getHand_limit_spinner().isVisible()) {
 
-            GameFrame.getInstance().getMax_hands_menu().setOpaque(false);
-            GameFrame.getInstance().getMax_hands_menu().setBackground(null);
-            Helpers.TapetePopupMenu.MAX_HANDS_MENU.setOpaque(false);
-            Helpers.TapetePopupMenu.MAX_HANDS_MENU.setBackground(null);
-
             getHand_limit_spinner().setVisible(false);
 
             max_hands_button.setVisible(false);
@@ -959,12 +954,6 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             getHand_limit_spinner().setVisible(true);
 
             getMax_hands_button().setVisible(true);
-
-            GameFrame.getInstance().getMax_hands_menu().setBackground(Color.YELLOW);
-            GameFrame.getInstance().getMax_hands_menu().setOpaque(true);
-
-            Helpers.TapetePopupMenu.MAX_HANDS_MENU.setBackground(Color.YELLOW);
-            Helpers.TapetePopupMenu.MAX_HANDS_MENU.setOpaque(true);
         }
     }
 

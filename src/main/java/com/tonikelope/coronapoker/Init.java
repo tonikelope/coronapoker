@@ -115,7 +115,7 @@ public class Init extends JFrame {
     private static volatile boolean FORCE_CLOSE_DIALOG = false;
     private static volatile String NEW_VERSION = null;
     // Reintentos SILENCIOSOS del check de versión (arranque y botón
-    // ACTUALIZAR): con el timeout corto de Helpers.HTTP_TIMEOUT, GitHub lento
+    // ACTUALIZAR): con el timeout acotado de Helpers.HTTP_TIMEOUT, GitHub lento
     // o caído no bloquea nada ni saca diálogos.
     private static final int UPDATE_CHECK_RETRIES = 3;
     private volatile Timer quote_timer = null;
@@ -941,8 +941,30 @@ public class Init extends JFrame {
     }//GEN-LAST:event_formComponentShown
 
     private void update_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_update_buttonActionPerformed
-        // TODO add your handling code here:
-        UPDATE();
+        // Si el botón ya anuncia versión nueva, pulsarlo ES la confirmación: se
+        // lanza la actualización directa, sin re-chequear ni volver a sacar el
+        // popup "¿quieres actualizar?". En el estado "no se pudo comprobar"
+        // (NEW_VERSION == null) el botón reintenta el check.
+        if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+            final String target = NEW_VERSION;
+            update_button.setVisible(false);
+            update_label.setText(Translator.translate("update.preparando_actualizacion"));
+            update_label.setVisible(true);
+            Helpers.threadRun(() -> {
+                try {
+                    performUpdate(target);
+                } finally {
+                    // performUpdate solo retorna si la actualización falló (en
+                    // éxito hace System.exit); restaurar el botón para reintentar.
+                    Helpers.GUIRun(() -> {
+                        update_label.setVisible(false);
+                        update_button.setVisible(true);
+                    });
+                }
+            });
+        } else {
+            UPDATE();
+        }
     }//GEN-LAST:event_update_buttonActionPerformed
 
     private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
@@ -1239,6 +1261,43 @@ public class Init extends JFrame {
         LOGGER.log(Level.INFO, "Initialization complete. Ready.");
     }
 
+    // Descarga el updater y arranca la actualización a la versión dada. En éxito
+    // hace System.exit(0) (el updater toma el relevo) y NO retorna; si la
+    // descarga falla o salta una excepción, avisa al usuario y retorna para que
+    // el caller restaure la UI. Debe invocarse desde un hilo de fondo:
+    // downloadUpdater() bloquea en red.
+    private static void performUpdate(String version) {
+        Helpers.GUIRun(() -> {
+            VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
+        });
+        try {
+            String current_jar_path = Helpers.getCurrentJarPath();
+            // replace (literal) en vez de replaceAll (regex) — el '.' en
+            // "20.66.jar" es metacaracter regex y matchearía cualquier char
+            // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
+            // hace substring literal, que es lo correcto aquí.
+            String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", version + ".jar");
+            String updater_jar = Helpers.downloadUpdater();
+
+            if (updater_jar != null) {
+                Helpers.cleanCacheDIR();
+                if (GameFrame.LANGUAGE.equals("es")) {
+                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, version, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
+                    Runtime.getRuntime().exec(cmdArr);
+                } else {
+                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, version, current_jar_path, new_jar_path};
+                    Runtime.getRuntime().exec(cmdArr);
+                }
+                System.exit(0);
+            } else {
+                Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.SEVERE, null, ex);
+            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
+        }
+    }
+
     private static void UPDATE() {
         Helpers.threadRun(() -> {
             // Solo el label de "comprobando actualización": los botones de
@@ -1273,35 +1332,7 @@ public class Init extends JFrame {
 
                 if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
                     if (VENTANA_INICIO.isVisible() && VENTANA_INICIO.isActive() && Helpers.mostrarMensajeInformativoSINO(VENTANA_INICIO, Translator.translate("update.hay_una_version_nueva_de"), new ImageIcon(Init.class.getResource("/images/avatar_default.png"))) == 0) {
-                        Helpers.GUIRun(() -> {
-                            VENTANA_INICIO.update_label.setText(Translator.translate("update.preparando_actualizacion"));
-                        });
-                        try {
-                            String current_jar_path = Helpers.getCurrentJarPath();
-                            // replace (literal) en vez de replaceAll (regex) — el '.' en
-                            // "20.66.jar" es metacaracter regex y matchearía cualquier char
-                            // (e.g. paths como "20X66Yjar" o "20<algo>66<algo>jar"). replace
-                            // hace substring literal, que es lo correcto aquí.
-                            String new_jar_path = current_jar_path.replace(AboutDialog.VERSION + ".jar", NEW_VERSION + ".jar");
-                            String updater_jar = Helpers.downloadUpdater();
-
-                            if (updater_jar != null) {
-                                Helpers.cleanCacheDIR();
-                                if (GameFrame.LANGUAGE.equals("es")) {
-                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path, "¡Santiago y cierra, España!"};
-                                    Runtime.getRuntime().exec(cmdArr);
-                                } else {
-                                    String[] cmdArr = {Helpers.getJavaBinPath(), "-jar", updater_jar, NEW_VERSION, current_jar_path, new_jar_path};
-                                    Runtime.getRuntime().exec(cmdArr);
-                                }
-                                System.exit(0);
-                            } else {
-                                Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar_2"));
-                            }
-                        } catch (Exception ex) {
-                            LOGGER.log(Level.SEVERE, null, ex);
-                            Helpers.mostrarMensajeError(VENTANA_INICIO, Translator.translate("update.no_se_ha_podido_actualizar"));
-                        }
+                        performUpdate(NEW_VERSION);
                     }
                 }
 
@@ -1314,7 +1345,25 @@ public class Init extends JFrame {
             } finally {
                 Helpers.GUIRun(() -> {
                     VENTANA_INICIO.update_label.setVisible(false);
-                    if (NEW_VERSION == null || !NEW_VERSION.isBlank()) {
+                    // El botón cubre dos estados muy distintos y hay que poder
+                    // distinguirlos de un vistazo: o se encontró versión nueva
+                    // (pero el popup no llegó a completarse — p.ej. la ventana no
+                    // estaba activa), o el check no pudo comprobar nada (red /
+                    // timeout). Se etiqueta y colorea según el caso para que el
+                    // usuario sepa qué le ofrece al pulsarlo: actualizar, o
+                    // reintentar la comprobación. NEW_VERSION == "" (al día) no
+                    // entra: el botón queda oculto. Se actualiza también la
+                    // i18n.key para que un cambio de idioma reaplique el texto
+                    // correcto (Helpers.translateComponents).
+                    if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
+                        VENTANA_INICIO.update_button.putClientProperty("i18n.key", "update.boton_hay_version_nueva");
+                        VENTANA_INICIO.update_button.setText(Translator.translate("update.boton_hay_version_nueva"));
+                        VENTANA_INICIO.update_button.setForeground(new Color(0, 153, 0));
+                        VENTANA_INICIO.update_button.setVisible(true);
+                    } else if (NEW_VERSION == null) {
+                        VENTANA_INICIO.update_button.putClientProperty("i18n.key", "update.boton_reintentar");
+                        VENTANA_INICIO.update_button.setText(Translator.translate("update.boton_reintentar"));
+                        VENTANA_INICIO.update_button.setForeground(new Color(204, 102, 0));
                         VENTANA_INICIO.update_button.setVisible(true);
                     }
                 });

@@ -5751,6 +5751,14 @@ public class Helpers {
                 AYUDA_MENU.add(jugadas);
 
                 // === ROOT popup ===
+                // "Ajustes" (diálogo unificado Apariencia/Audio/Partida) como PRIMER
+                // ítem del popup, aislado con un separador.
+                AJUSTES_PARTIDA_MENU = new LeftClickMenuItem(ajustesPartidaAction);
+                AJUSTES_PARTIDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
+                popup.add(AJUSTES_PARTIDA_MENU);
+
+                popup.addSeparator();
+
                 JMenuItem chat = new LeftClickMenuItem(chatAction);
                 chat.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/chat.png")));
                 popup.add(chat);
@@ -5811,12 +5819,6 @@ public class Helpers {
                 popup.add(AUTO_REBUY_MENU);
 
                 // Separador entre recomprar y las reglas de la timba.
-                popup.addSeparator();
-
-                AJUSTES_PARTIDA_MENU = new LeftClickMenuItem(ajustesPartidaAction);
-                AJUSTES_PARTIDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
-                popup.add(AJUSTES_PARTIDA_MENU);
-
                 popup.addSeparator();
 
                 LAST_HAND_MENU = new LeftClickCheckBoxMenuItem(lastHandAction);

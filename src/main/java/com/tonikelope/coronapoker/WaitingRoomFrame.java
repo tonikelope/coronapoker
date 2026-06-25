@@ -3005,14 +3005,20 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.ANTE = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
                                                             GameFrame.STRADDLE = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
                                                             // El host puede cambiar la estructura de ciegas en vivo (Ajustes >
-                                                            // Partida): viaja en [10] (vacío = escalera por defecto). Se mantiene
-                                                            // sincronizada para que la recuperación de un cliente la conserve.
-                                                            if (partes_comando.length > 10) {
+                                                            // Partida). Cuando es la escalera POR DEFECTO el campo va vacío y el
+                                                            // split('#') de Java DESCARTA el campo final vacío, así que el guard
+                                                            // length>10 no basta: hay que resetear a null (igual que en INIT) para
+                                                            // que host y clientes escalen ciegas por la MISMA escalera (si no,
+                                                            // desincronizan al subir las ciegas).
+                                                            if (partes_comando.length > 10 && !partes_comando[10].isEmpty()) {
                                                                 try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = partes_comando[10].isEmpty() ? null : BlindStructure.parseValidatedLevels(partes_comando[10]);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[10]);
                                                                 } catch (Exception ex) {
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = null;
                                                                     LOGGER.log(Level.WARNING, "Bad blind structure in UPDATEBLINDS", ex);
                                                                 }
+                                                            } else {
+                                                                GameFrame.ACTIVE_BLIND_STRUCTURE = null;
                                                             }
                                                             break;
                                                         case "SERVEREXIT":

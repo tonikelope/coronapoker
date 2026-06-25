@@ -44,6 +44,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private String item_estructura_por_defecto;
     private String item_estructura_actual;
     private BlindStructure pending_structure;
+    // Estructura ACTIVA no guardada (ítem sintético "(actual)"); se guarda aparte para
+    // poder restaurarla si el usuario navega Por defecto -> (actual) sin perderla.
+    private BlindStructure actual_structure;
 
     // Reglas (izquierda, sin subpanel)
     private javax.swing.JPanel rules_panel;
@@ -768,6 +771,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 try {
                     pending_structure = new BlindStructure(Translator.translate("blinds.estructura_actual"), active);
                     item_estructura_actual = pending_structure.getName();
+                    actual_structure = pending_structure;
                 } catch (IllegalArgumentException ignore) {
                 }
             }
@@ -814,7 +818,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             pending_structure = null;
             levels = BlindStructure.defaultLevels();
         } else if (item_estructura_actual != null && sel.equals(item_estructura_actual)) {
-            levels = pending_structure != null ? pending_structure.getLevels() : BlindStructure.defaultLevels();
+            pending_structure = actual_structure;
+            levels = actual_structure != null ? actual_structure.getLevels() : BlindStructure.defaultLevels();
         } else {
             BlindStructure bs = BlindStructure.loadAll().get((String) sel);
             pending_structure = bs;

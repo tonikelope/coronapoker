@@ -533,8 +533,11 @@ public class AudioSettingsPanel extends JPanel {
                 || GameFrame.SONIDOS != snap_sonidos
                 || GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra
                 || GameFrame.MUSICA_AMBIENTAL != snap_musica
-                || GameFrame.TTS_SERVER != snap_tts_server
-                || GameFrame.VOICE_MESSAGES != snap_voice_messages
+                // Reglas globales (TTS/notas): si eres CLIENTE las manda el servidor (no
+                // las posees); ignorarlas para no dar "¿descartar?" espurio ni revertir
+                // sobre un broadcast del host.
+                || (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server)
+                || (!global_rules_locked && GameFrame.VOICE_MESSAGES != snap_voice_messages)
                 || !java.util.Objects.equals(snap_output_device, AudioDeviceManager.getOutputDevice())
                 || !java.util.Objects.equals(snap_capture_device, AudioDeviceManager.getCaptureDevice())
                 || AudioDeviceManager.isMicEnabled() != snap_mic_enabled
@@ -565,10 +568,12 @@ public class AudioSettingsPanel extends JPanel {
         if (GameFrame.MUSICA_AMBIENTAL != snap_musica) {
             GameFrame.setMusicaAmbiental(snap_musica);
         }
-        if (GameFrame.TTS_SERVER != snap_tts_server) {
+        // Reglas globales (TTS/notas): solo las revierte el HOST (que las posee). Para un
+        // cliente las gobierna el servidor por broadcast; revertirlas lo desincronizaría.
+        if (!global_rules_locked && GameFrame.TTS_SERVER != snap_tts_server) {
             GameFrame.setTTSGlobal(snap_tts_server);
         }
-        if (GameFrame.VOICE_MESSAGES != snap_voice_messages) {
+        if (!global_rules_locked && GameFrame.VOICE_MESSAGES != snap_voice_messages) {
             GameFrame.setVoiceMessages(snap_voice_messages);
         }
         if (!java.util.Objects.equals(snap_output_device, AudioDeviceManager.getOutputDevice())) {

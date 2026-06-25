@@ -250,10 +250,15 @@ public class AppearanceSettingsPanel extends JPanel {
         building = false;
     }
 
-    // Aplica el modo de pantalla elegido en el combo. Lo invoca el diálogo al CERRARSE
-    // (windowClosed), ya dispuesto, para que el toggle (que dispone y recrea el frame)
-    // no corrompa el diálogo abierto. setDisplayModeFullScreen no-opea si no cambia.
+    // Aplica el modo de pantalla elegido en el combo. Lo invoca el diálogo al GUARDAR
+    // (no en vivo: el toggle dispone y recrea el frame y corrompería el diálogo abierto).
+    // Solo actúa si el usuario CAMBIÓ el combo respecto al estado de apertura; si no, no
+    // toca AUTO_FULLSCREEN, para que guardar un ajuste no relacionado no reescriba la
+    // preferencia de arranque (p.ej. tras un ALT+F transitorio que no la cambia).
     public void applyPendingDisplayMode() {
+        if (pending_fullscreen == snap_fullscreen) {
+            return;
+        }
         GameFrame gf = GameFrame.getInstance();
         if (gf != null) {
             gf.setDisplayModeFullScreen(pending_fullscreen);
@@ -301,7 +306,18 @@ public class AppearanceSettingsPanel extends JPanel {
             selectTapete(gf, snap_color_tapete);
         }
         if (GameFrame.AUTO_ZOOM != snap_auto_zoom) {
-            gf.getAuto_fit_zoom_menu().doClick();
+            if (gf.getAuto_fit_zoom_menu().isEnabled()) {
+                gf.getAuto_fit_zoom_menu().doClick();
+            } else {
+                // El menú de auto-ajustar se deshabilita mientras corre el autoZoom async
+                // (al activarlo); un doClick aquí sería NO-OP y AUTO_ZOOM fugaría al
+                // cancelar. Revertir el flag directamente (este caso solo apaga).
+                GameFrame.AUTO_ZOOM = snap_auto_zoom;
+                gf.getAuto_fit_zoom_menu().setSelected(snap_auto_zoom);
+                Helpers.TapetePopupMenu.AUTO_ZOOM_MENU.setSelected(snap_auto_zoom);
+                Helpers.PROPERTIES.setProperty("auto_zoom", String.valueOf(snap_auto_zoom));
+                Helpers.savePropertiesFile();
+            }
         }
         if (GameFrame.SHOW_CLOCK != snap_show_clock) {
             gf.getTime_menu().doClick();

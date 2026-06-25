@@ -3004,6 +3004,16 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
                                                             GameFrame.ANTE = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
                                                             GameFrame.STRADDLE = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
+                                                            // El host puede cambiar la estructura de ciegas en vivo (Ajustes >
+                                                            // Partida): viaja en [10] (vacío = escalera por defecto). Se mantiene
+                                                            // sincronizada para que la recuperación de un cliente la conserve.
+                                                            if (partes_comando.length > 10) {
+                                                                try {
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = partes_comando[10].isEmpty() ? null : BlindStructure.parseValidatedLevels(partes_comando[10]);
+                                                                } catch (Exception ex) {
+                                                                    LOGGER.log(Level.WARNING, "Bad blind structure in UPDATEBLINDS", ex);
+                                                                }
+                                                            }
                                                             break;
                                                         case "SERVEREXIT":
                                                             exit = true;

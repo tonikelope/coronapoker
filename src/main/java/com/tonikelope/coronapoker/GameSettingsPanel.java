@@ -38,6 +38,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     // para saber si Partida tiene cambios sin guardar (la pestaña aplica al GUARDAR).
     private String snap_signature;
 
+    // Selector de estructura de ciegas: permite ELEGIR (no crear) una estructura ya
+    // guardada o "Por defecto" durante la partida; al GUARDAR fija ACTIVE_BLIND_STRUCTURE
+    // y la propaga a los clientes. pending_structure = elegida (null = por defecto).
+    private String item_estructura_por_defecto;
+    private String item_estructura_actual;
+    private BlindStructure pending_structure;
+
     // Reglas (izquierda, sin subpanel)
     private javax.swing.JPanel rules_panel;
     private javax.swing.JCheckBox manos_checkbox;
@@ -52,6 +59,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
     // Ciegas (derecha, subpanel titulado)
     private javax.swing.JPanel ciegas_panel;
+    private javax.swing.JLabel estructura_label;
+    private javax.swing.JComboBox<String> estructura_combobox;
     private javax.swing.JComboBox<String> ciegas_combobox;
     private javax.swing.JCheckBox doblar_checkbox;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
@@ -88,6 +97,15 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
             }
             updateAnteStraddleLabels();
+        });
+
+        // Estructura de ciegas: refleja la activa y permite ELEGIR otra ya guardada
+        // durante la partida (no crear). Al cambiar, repuebla el combo de niveles.
+        initStructureCombo();
+        estructura_combobox.addActionListener((java.awt.event.ActionEvent e) -> {
+            if (init) {
+                applySelectedStructure();
+            }
         });
 
         double peque, grande;
@@ -201,6 +219,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             iwtsth_checkbox.setEnabled(false);
             rit_checkbox.setEnabled(false);
             rabbit_combo.setEnabled(false);
+            estructura_combobox.setEnabled(false);
         } else if (GameFrame.RUN_IT_TWICE_LOCKED) {
             rit_checkbox.setEnabled(false);
         }
@@ -218,7 +237,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 + double_blinds_radio_manos.isSelected() + "|" + doblar_ciegas_spinner_minutos.getValue() + "|"
                 + doblar_ciegas_spinner_manos.getValue() + "|" + blind_cap_checkbox.isSelected() + "|"
                 + blind_cap_spinner.getValue() + "|" + ante_checkbox.isSelected() + "|"
-                + straddle_checkbox.isSelected();
+                + straddle_checkbox.isSelected() + "|"
+                + String.valueOf(estructura_combobox.getSelectedItem());
     }
 
     // ¿Hay cambios sin guardar en la pestaña Partida? Lo usa el diálogo para preguntar
@@ -248,6 +268,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         rabbit_combo = new javax.swing.JComboBox<>();
 
         ciegas_panel = new javax.swing.JPanel();
+        estructura_label = new javax.swing.JLabel();
+        estructura_combobox = new javax.swing.JComboBox<>();
         ciegas_combobox = new javax.swing.JComboBox<>();
         doblar_checkbox = new javax.swing.JCheckBox();
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
@@ -351,6 +373,13 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         );
 
         // ---------------- Ciegas (derecha, subpanel titulado) ----------------
+        estructura_label.setFont(new java.awt.Font("Dialog", 1, 14));
+        estructura_label.setText("Estructura:");
+        estructura_label.putClientProperty("i18n.key", "blinds.estructura");
+
+        estructura_combobox.setFont(new java.awt.Font("Dialog", 0, 16));
+        estructura_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16));
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,10 / 0,20" : "0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,20 / 0,40" : "0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,30 / 0,60" : "0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,50 / 1" : "0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000"}));
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -453,6 +482,10 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             .addGroup(ciegas_panelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ciegas_panelLayout.createSequentialGroup()
+                        .addComponent(estructura_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(estructura_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(doblar_checkbox)
@@ -476,6 +509,10 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(ciegas_panelLayout.createSequentialGroup()
                 .addContainerGap()
+                .addGroup(ciegas_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(estructura_label)
+                    .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(doblar_checkbox)
@@ -523,6 +560,15 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         if (read_only) {
             return;
         }
+
+        // ---- Estructura de ciegas elegida (null = escalera por defecto). Se fija ANTES
+        // de las ciegas (el combo de niveles ya refleja esta estructura) y se propaga a
+        // los clientes dentro de UPDATEBLINDS; el crupier la lee directo para la subida
+        // automática. ----
+        double[][] new_structure = selectedStructureLevels();
+        boolean structure_changed = !java.util.Arrays.deepEquals(new_structure, GameFrame.ACTIVE_BLIND_STRUCTURE);
+        GameFrame.ACTIVE_BLIND_STRUCTURE = new_structure;
+        final String structure_str = (new_structure != null) ? BlindStructure.levelsToString(new_structure) : "";
 
         // ---- Ciegas (idéntico a EditBlindsDialog) ----
         int ciegas_double, ciegas_double_type;
@@ -573,7 +619,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         final String sb = valores_ciegas[0].trim(), bb = valores_ciegas[1].trim();
 
         Helpers.threadRun(() -> {
-            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double_f) + "#" + String.valueOf(ciegas_double_type_f) + "#" + sb + "#" + bb + "#" + String.valueOf(blind_cap_f) + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE), null);
+            GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("UPDATEBLINDS#" + String.valueOf(ciegas_double_f) + "#" + String.valueOf(ciegas_double_type_f) + "#" + sb + "#" + bb + "#" + String.valueOf(blind_cap_f) + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE) + "#" + structure_str, null);
             if (manos_changed) {
                 GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer("MAXHANDS#" + String.valueOf(GameFrame.MANOS), null);
             }
@@ -588,6 +634,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         }
         if (rabbit != GameFrame.RABBIT_HUNTING) {
             GameFrame.setRabbitHunting(rabbit);
+        }
+
+        // La estructura va en el fósil de recover (serializeRecoverSettings la incluye)
+        // para que sobreviva a un detener+recuperar; persistir si cambió.
+        if (structure_changed) {
+            GameFrame.persistRecoverSettings(GameFrame.getInstance().getCrupier().getSqlite_game_id());
         }
     }
 
@@ -694,6 +746,106 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
         } catch (NumberFormatException ignored) {
         }
+    }
+
+    // Inicializa el selector de estructura desde la ACTIVA, sin tocar el combo de
+    // niveles (ya poblado en el constructor). Si la activa no coincide con ninguna
+    // guardada, la representa con un ítem sintético "(actual)" para no perderla.
+    private void initStructureCombo() {
+        pending_structure = null;
+        item_estructura_actual = null;
+        String selectName = null;
+        double[][] active = GameFrame.ACTIVE_BLIND_STRUCTURE;
+        if (active != null) {
+            for (java.util.Map.Entry<String, BlindStructure> en : BlindStructure.loadAll().entrySet()) {
+                if (java.util.Arrays.deepEquals(en.getValue().getLevels(), active)) {
+                    pending_structure = en.getValue();
+                    selectName = en.getKey();
+                    break;
+                }
+            }
+            if (pending_structure == null) {
+                try {
+                    pending_structure = new BlindStructure(Translator.translate("blinds.estructura_actual"), active);
+                    item_estructura_actual = pending_structure.getName();
+                } catch (IllegalArgumentException ignore) {
+                }
+            }
+        }
+        populateStructureCombo(selectName);
+    }
+
+    // (Re)llena el combo: "Por defecto" + (estructura activa no guardada, si la hay) +
+    // estructuras guardadas. NO incluye "Gestionar…": aquí solo se ELIGE.
+    private void populateStructureCombo(String selectName) {
+        boolean prev_init = init;
+        init = false;
+        try {
+            item_estructura_por_defecto = Translator.translate("blinds.estructura_por_defecto");
+            estructura_combobox.removeAllItems();
+            estructura_combobox.addItem(item_estructura_por_defecto);
+            if (item_estructura_actual != null) {
+                estructura_combobox.addItem(item_estructura_actual);
+            }
+            for (String name : BlindStructure.loadAll().keySet()) {
+                estructura_combobox.addItem(name);
+            }
+            if (selectName != null) {
+                estructura_combobox.setSelectedItem(selectName);
+            } else if (item_estructura_actual != null) {
+                estructura_combobox.setSelectedItem(item_estructura_actual);
+            } else {
+                estructura_combobox.setSelectedItem(item_estructura_por_defecto);
+            }
+        } finally {
+            init = prev_init;
+        }
+    }
+
+    // Aplica al combo de NIVELES la estructura elegida, conservando el nivel de ciega
+    // actual si existe en la nueva escalera (si no, el primero). Fija pending_structure.
+    private void applySelectedStructure() {
+        Object sel = estructura_combobox.getSelectedItem();
+        if (sel == null) {
+            return;
+        }
+        double[][] levels;
+        if (sel.equals(item_estructura_por_defecto)) {
+            pending_structure = null;
+            levels = BlindStructure.defaultLevels();
+        } else if (item_estructura_actual != null && sel.equals(item_estructura_actual)) {
+            levels = pending_structure != null ? pending_structure.getLevels() : BlindStructure.defaultLevels();
+        } else {
+            BlindStructure bs = BlindStructure.loadAll().get((String) sel);
+            pending_structure = bs;
+            levels = bs != null ? bs.getLevels() : BlindStructure.defaultLevels();
+        }
+        String current = (String) ciegas_combobox.getSelectedItem();
+        String[] items = new String[levels.length];
+        int keep = -1;
+        for (int i = 0; i < levels.length; i++) {
+            items[i] = BlindStructure.formatLevel(levels[i][0], levels[i][1]);
+            if (items[i].equals(current)) {
+                keep = i;
+            }
+        }
+        boolean prev_init = init;
+        init = false;
+        try {
+            ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(items));
+            ciegas_combobox.setSelectedIndex(keep >= 0 ? keep : 0);
+        } finally {
+            init = prev_init;
+        }
+        // Recalcular el tope de ciega grande para la nueva escalera + etiquetas.
+        modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
+        updateAnteStraddleLabels();
+    }
+
+    // Niveles de la estructura ELEGIDA (null = escalera por defecto), para aplicarlos a
+    // GameFrame.ACTIVE_BLIND_STRUCTURE al guardar.
+    private double[][] selectedStructureLevels() {
+        return pending_structure != null ? pending_structure.getLevels() : null;
     }
 
 }

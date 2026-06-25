@@ -61,6 +61,9 @@ public class SettingsDialog extends JDialog {
 
         setTitle(Translator.translate("settings.ajustes"));
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        // Diálogo translúcido (90% opacidad), como el de Run-it-twice. La translucidez
+        // uniforme de ventana exige que NO esté decorada; se cierra con Guardar/Cancelar.
+        setUndecorated(true);
 
         appearance_panel = new AppearanceSettingsPanel();
         audio_panel = new AudioSettingsPanel();
@@ -90,7 +93,10 @@ public class SettingsDialog extends JDialog {
         buttons.add(cancel_button);
 
         JPanel content = new JPanel(new BorderLayout());
-        content.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        // Sin decoración: un borde visible define el contorno del diálogo.
+        content.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new java.awt.Color(120, 120, 120)),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)));
         content.add(tabs, BorderLayout.CENTER);
         content.add(buttons, BorderLayout.SOUTH);
         setContentPane(content);
@@ -141,6 +147,8 @@ public class SettingsDialog extends JDialog {
         java.awt.Font buttons_font = Helpers.GUI_FONT.deriveFont(Font.BOLD, 18f);
         save_button.setFont(buttons_font);
         cancel_button.setFont(buttons_font);
+
+        setOpacity(0.9f);
 
         pack();
     }

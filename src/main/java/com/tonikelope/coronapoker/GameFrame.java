@@ -2548,6 +2548,23 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         audio_settings_menu.addActionListener(e -> AudioSettingsDialog.open(this));
         opciones_menu.insert(audio_settings_menu, 0);
 
+        // "Ajustes de partida": abre el diálogo consolidado de reglas de juego
+        // (límite de manos, IWTSTH, Run It Twice, Rabbit Hunting). Para los clientes
+        // se abre en solo-lectura, como el de ciegas. Campo a mano (initComponents es
+        // generado). Tiene gemelo en el popup del tapete y en el icono de engranaje
+        // del CommunityCardsPanel.
+        ajustes_partida_menu = new javax.swing.JMenuItem();
+        ajustes_partida_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        ajustes_partida_menu.putClientProperty("i18n.key", "settings.ajustes_partida");
+        ajustes_partida_menu.setText(Translator.translate("settings.ajustes_partida"));
+        ajustes_partida_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")));
+        ajustes_partida_menu.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                openGameSettingsDialog();
+            }
+        });
+        opciones_menu.insert(ajustes_partida_menu, 0);
+
         // Run It Twice: entrada en Preferencias junto a IWTSTH (añadida a mano,
         // como la del popup). Misma regla global del host.
         run_it_twice_menu = new javax.swing.JCheckBoxMenuItem();
@@ -5318,6 +5335,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // sesión sincronizada menú↔popup.
     private javax.swing.JCheckBoxMenuItem auto_rebuy_menu;
 
+    // "Ajustes de partida": entrada del menú Preferencias (y gemelo del popup +
+    // icono del tapete) que abre el diálogo consolidado de reglas. Campo a mano
+    // (fuera del bloque generado por el editor).
+    private javax.swing.JMenuItem ajustes_partida_menu;
+
     // Menú "Apariencia" del menú-bar (construido a mano re-parentando ítems);
     // es uno de los menús de nivel superior, así que el dispatcher de teclas lo
     // consulta para no robar atajos mientras está abierto.
@@ -5492,6 +5514,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public javax.swing.JCheckBoxMenuItem getAuto_rebuy_menu() {
         return auto_rebuy_menu;
+    }
+
+    public javax.swing.JMenuItem getAjustes_partida_menu() {
+        return ajustes_partida_menu;
+    }
+
+    // Abre el diálogo "Ajustes de partida". Único punto de apertura para los tres
+    // accesos (menú Preferencias, popup del tapete e icono del CommunityCardsPanel):
+    // host = editable, cliente = solo-lectura (igual que EditBlindsDialog).
+    public void openGameSettingsDialog() {
+        GameSettingsDialog dialog = new GameSettingsDialog(this, true, !isPartida_local());
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private void run_it_twice_menuActionPerformed(java.awt.event.ActionEvent evt) {

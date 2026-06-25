@@ -5279,6 +5279,7 @@ public class Helpers {
         public static JCheckBoxMenuItem AUTO_REBUY_MENU;
         public static JCheckBoxMenuItem IWTSTH_RULE_MENU;
         public static JCheckBoxMenuItem RUN_IT_TWICE_MENU;
+        public static JMenuItem AJUSTES_PARTIDA_MENU;
         public static JCheckBoxMenuItem COMPACTA_MENU;
         public static JCheckBoxMenuItem CONFIRM_MENU;
         public static JCheckBoxMenuItem ANIM_REPARTO_MENU;
@@ -5600,6 +5601,13 @@ public class Helpers {
                     }
                 };
 
+                Action ajustesPartidaAction = new AbstractAction(Translator.translate("settings.ajustes_partida")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAjustes_partida_menu().doClick();
+                    }
+                };
+
                 Action iwtsthRuleAction = new AbstractAction(Translator.translate("menu.regla_iwtsth")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -5865,6 +5873,10 @@ public class Helpers {
 
                 // Separador entre recomprar y las reglas de la timba.
                 popup.addSeparator();
+
+                AJUSTES_PARTIDA_MENU = new LeftClickMenuItem(ajustesPartidaAction);
+                AJUSTES_PARTIDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/gear.png")));
+                popup.add(AJUSTES_PARTIDA_MENU);
 
                 IWTSTH_RULE_MENU = new LeftClickCheckBoxMenuItem(iwtsthRuleAction);
                 IWTSTH_RULE_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/eyes.png")));

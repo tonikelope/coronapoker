@@ -241,10 +241,13 @@ public class Helpers {
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
-    // Solo lo usa el check de versión (CoronaPoker y MOD). Corto a propósito:
-    // el check de arranque reintenta en silencio (Init.UPDATE_CHECK_RETRIES)
-    // y un GitHub lento no debe retener nada.
-    public static final int HTTP_TIMEOUT = 5000;
+    // Lo usan el check de versión (CoronaPoker y MOD) y el connect del
+    // descargador del updater. Holgado a propósito: en un PC/red lentos durante
+    // el arranque, un techo corto abortaba el check antes de tiempo y dejaba al
+    // usuario solo con el botón manual. El check corre en background y reintenta
+    // en silencio (Init.UPDATE_CHECK_RETRIES) sin retener nada — el usuario
+    // puede entrar a una partida mientras tanto —, así que 10 s no molestan.
+    public static final int HTTP_TIMEOUT = 10000;
     // Claves DÉBILES: un componente vivo siempre está fuertemente referenciado por
     // su contenedor, así que su entrada permanece mientras se usa; cuando el diálogo
     // que lo contiene se dispose()a y se deja de referenciar, el GC evicta la entrada

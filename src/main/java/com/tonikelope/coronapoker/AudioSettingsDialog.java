@@ -94,7 +94,8 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
         setTitle(Translator.translate("audio.ajustes"));
 
-        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        // DO_NOTHING: la X la gestiona windowClosing (pregunta antes de descartar).
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 
         panel = new AudioSettingsPanel();
 
@@ -107,12 +108,7 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         });
 
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
-        cancel_button.addActionListener(e -> {
-            if (panel.isDirty() && Helpers.mostrarMensajeInformativoSINO(AudioSettingsDialog.this, Translator.translate("settings.descartar_cambios")) != javax.swing.JOptionPane.YES_OPTION) {
-                return;
-            }
-            dispose();
-        });
+        cancel_button.addActionListener(e -> cancelWithConfirm());
 
         JPanel button_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         button_panel.add(ok_button);
@@ -128,6 +124,11 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         getRootPane().setDefaultButton(ok_button);
 
         addWindowListener(new WindowAdapter() {
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                cancelWithConfirm();
+            }
 
             @Override
             public void windowActivated(WindowEvent e) {
@@ -169,6 +170,14 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         cancel_button.setFont(buttons_font);
 
         pack();
+    }
+
+    // Cierra descartando los cambios; si hay cambios sin confirmar, pregunta primero.
+    // Lo usan el botón Cancelar y la X de la ventana.
+    private void cancelWithConfirm() {
+        if (!panel.isDirty() || Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("settings.descartar_cambios")) == javax.swing.JOptionPane.YES_OPTION) {
+            dispose();
+        }
     }
 
 }

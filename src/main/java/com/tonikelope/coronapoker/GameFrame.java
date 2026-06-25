@@ -2716,10 +2716,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // "Detener la timba" y "Salir" juntos, sin separador entre ambos.
         file_menu.remove(jSeparator11);
 
-        // Apariencia es un submenú DENTRO de Preferencias (no un menú propio del
-        // menú-bar), arriba del todo. El antiguo menú Zoom del bar desaparece:
-        // sus controles viven ahora dentro de Apariencia.
-        opciones_menu.insert(apariencia_menu, 0);
+        // El submenú "Apariencia" se construye (re-parenta sus ítems FUERA del
+        // menú-bar, para que no se dupliquen) pero YA NO se muestra: todos los
+        // ajustes de apariencia viven ahora en la pestaña "Apariencia" del diálogo
+        // "Ajustes". Sus ítems siguen vivos para que la pestaña y el popup del tapete
+        // deleguen en ellos vía doClick().
 
         menu_tapete_verde.setSelected(false);
         menu_tapete_azul.setSelected(false);

@@ -846,8 +846,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
-        // Abre el diálogo "Ajustes de partida" (host editable / cliente solo-lectura).
-        GameFrame.getInstance().openGameSettingsDialog();
+        // Abre el diálogo unificado "Ajustes" (pestañas Apariencia / Audio / Partida).
+        GameFrame.getInstance().openSettingsDialog();
     }
 
     private void hand_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_hand_labelMouseClicked
@@ -1072,13 +1072,8 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     }//GEN-LAST:event_lights_labelMouseReleased
 
     private void blinds_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_blinds_labelMouseClicked
-        // TODO add your handling code here:
-
-        // La etiqueta de ciegas abre el diálogo "Ajustes de partida" (que ahora
-        // incluye las ciegas): host editable, cliente solo-lectura. Ya no hay diálogo
-        // de ciegas aparte durante la partida.
-        GameFrame.getInstance().openGameSettingsDialog();
-
+        // Al hacer clic en las ciegas del tapete no debe pasar nada: las ciegas se
+        // editan ahora desde la pestaña "Partida" del diálogo unificado de ajustes.
     }//GEN-LAST:event_blinds_labelMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

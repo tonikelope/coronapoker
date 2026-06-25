@@ -2537,29 +2537,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         auto_fit_zoom_menu.setSelected(GameFrame.AUTO_ZOOM);
 
-        // Toda la configuración de audio vive ahora en el diálogo de ajustes de
-        // audio. En el menú Preferencias solo queda esta entrada que lo abre
-        // (añadida a mano: initComponents es código generado).
-        javax.swing.JMenuItem audio_settings_menu = new javax.swing.JMenuItem(Translator.translate("audio.ajustes"));
-        audio_settings_menu.setFont(new java.awt.Font("Dialog", 0, 14));
-        audio_settings_menu.putClientProperty("i18n.key", "audio.ajustes");
-        audio_settings_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")));
-        audio_settings_menu.addActionListener(e -> AudioSettingsDialog.open(this));
-        opciones_menu.insert(audio_settings_menu, 0);
-
-        // "Ajustes de partida": abre el diálogo consolidado de reglas de juego
-        // (límite de manos, IWTSTH, Run It Twice, Rabbit Hunting). Para los clientes
-        // se abre en solo-lectura, como el de ciegas. Campo a mano (initComponents es
-        // generado). Tiene gemelo en el popup del tapete y en el icono de engranaje
-        // del CommunityCardsPanel.
+        // "Ajustes": diálogo unificado con pestañas Apariencia / Audio / Partida.
+        // Único acceso a los ajustes desde el menú Preferencias (sustituye tanto a la
+        // antigua entrada de audio como al "Ajustes de partida"). Campo a mano
+        // (initComponents es generado). Tiene gemelo en el popup del tapete y en el
+        // icono de engranaje del CommunityCardsPanel.
         ajustes_partida_menu = new javax.swing.JMenuItem();
         ajustes_partida_menu.setFont(new java.awt.Font("Dialog", 0, 14));
-        ajustes_partida_menu.putClientProperty("i18n.key", "settings.ajustes_partida");
-        ajustes_partida_menu.setText(Translator.translate("settings.ajustes_partida"));
+        ajustes_partida_menu.putClientProperty("i18n.key", "settings.ajustes");
+        ajustes_partida_menu.setText(Translator.translate("settings.ajustes"));
         ajustes_partida_menu.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")));
         ajustes_partida_menu.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                openGameSettingsDialog();
+                openSettingsDialog();
             }
         });
         opciones_menu.insert(ajustes_partida_menu, 0);
@@ -5185,11 +5175,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ajustes_partida_menu;
     }
 
-    // Abre el diálogo "Ajustes de partida". Único punto de apertura para los tres
-    // accesos (menú Preferencias, popup del tapete e icono del CommunityCardsPanel):
-    // host = editable, cliente = solo-lectura.
-    public void openGameSettingsDialog() {
-        GameSettingsDialog dialog = new GameSettingsDialog(this, true, !isPartida_local());
+    // Abre el diálogo unificado "Ajustes" (pestañas Apariencia / Audio / Partida).
+    // Único punto de apertura para los tres accesos (menú Preferencias, popup del
+    // tapete e icono del CommunityCardsPanel).
+    public void openSettingsDialog() {
+        SettingsDialog dialog = new SettingsDialog(this, true);
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }

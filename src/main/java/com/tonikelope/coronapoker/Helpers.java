@@ -5568,17 +5568,10 @@ public class Helpers {
                     }
                 };
 
-                Action ajustesPartidaAction = new AbstractAction(Translator.translate("settings.ajustes_partida")) {
+                Action ajustesPartidaAction = new AbstractAction(Translator.translate("settings.ajustes")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
                         GameFrame.getInstance().getAjustes_partida_menu().doClick();
-                    }
-                };
-
-                Action audioSettingsAction = new AbstractAction(Translator.translate("audio.ajustes")) {
-                    @Override
-                    public void actionPerformed(ActionEvent ae) {
-                        AudioSettingsDialog.open(GameFrame.getInstance());
                     }
                 };
 
@@ -5741,12 +5734,6 @@ public class Helpers {
                 VISTA_MENU.add(BARAJAS_MENU);
                 VISTA_MENU.add(TAPETES_MENU);
 
-                // === Audio: una única entrada que abre el diálogo de ajustes ===
-                // Toda la configuración de audio (sonido, música ambiente, TTS,
-                // notas de voz, dispositivos...) vive en el diálogo de ajustes.
-                JMenuItem audio_settings_item = new LeftClickMenuItem(audioSettingsAction);
-                audio_settings_item.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/sound.png")));
-
                 // === HELP submenu (shortcuts, rules, hand evaluator) ===
                 AYUDA_MENU = new JMenu(Translator.translate("menu.ayuda"));
                 AYUDA_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/info.png")));
@@ -5775,7 +5762,6 @@ public class Helpers {
                 popup.addSeparator();
 
                 popup.add(VISTA_MENU);
-                popup.add(audio_settings_item);
 
                 popup.addSeparator();
 

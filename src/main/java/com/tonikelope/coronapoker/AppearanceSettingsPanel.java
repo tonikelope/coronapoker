@@ -18,7 +18,6 @@ package com.tonikelope.coronapoker;
 
 import java.awt.Component;
 import java.awt.FlowLayout;
-import java.awt.Window;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,7 +32,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingUtilities;
 
 /**
  * Contenido de "Ajustes de apariencia" como JPanel (pestaña del diálogo unificado).
@@ -56,6 +54,11 @@ public class AppearanceSettingsPanel extends JPanel {
     // selección inicial no debe dispararse la delegación).
     private volatile boolean building = true;
 
+    // Modo de pantalla elegido en el combo. NO se aplica en vivo (el toggle dispone y
+    // recrea el frame, corrompiendo este diálogo); se RECUERDA aquí y lo aplica el
+    // diálogo al cerrarse (applyPendingDisplayMode).
+    private volatile boolean pending_fullscreen;
+
     public AppearanceSettingsPanel() {
 
         super(new java.awt.BorderLayout());
@@ -67,30 +70,21 @@ public class AppearanceSettingsPanel extends JPanel {
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
 
         // Modo de pantalla: ventana / pantalla completa. Refleja el estado actual del
-        // tablero, guarda la elección (que se aplica también al ARRANCAR partida) y la
-        // aplica al vuelo (el toggle se difiere al EDT en GameFrame.setDisplayModeFullScreen
-        // para que funcione siempre, no solo la primera vez).
+        // tablero. NO se aplica en vivo (entrar/salir de pantalla completa dispone y
+        // recrea el frame, lo que rompía este diálogo modal abierto: "solo funcionaba
+        // una vez"). Se RECUERDA la elección y el diálogo la aplica al CERRARSE, con el
+        // diálogo ya fuera; al reabrir, el combo vuelve a reflejar el estado real.
+        pending_fullscreen = gf.isFull_screen();
         JComboBox<String> display_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.modo_ventana"),
             Translator.translate("settings.modo_pantalla_completa")
         });
-        display_combo.setSelectedIndex(gf.isFull_screen() ? 1 : 0);
+        display_combo.setSelectedIndex(pending_fullscreen ? 1 : 0);
         display_combo.addActionListener(e -> {
             if (building) {
                 return;
             }
-            gf.setDisplayModeFullScreen(display_combo.getSelectedIndex() == 1);
-            // El toggle difiere un grab de foreground del GameFrame que deja este diálogo
-            // por detrás y sin foco — por eso "solo funcionaba una vez". Tras ese grab,
-            // devolvemos el frente y el foco al diálogo (doble invokeLater para correr
-            // DESPUÉS del toggle diferido y de su forceForeground).
-            Window dialog = SwingUtilities.getWindowAncestor(display_combo);
-            if (dialog != null) {
-                SwingUtilities.invokeLater(() -> SwingUtilities.invokeLater(() -> {
-                    dialog.toFront();
-                    dialog.requestFocus();
-                }));
-            }
+            pending_fullscreen = display_combo.getSelectedIndex() == 1;
         });
         addLeft(pantalla, labeledRow("settings.modo_pantalla", display_combo));
 
@@ -223,6 +217,16 @@ public class AppearanceSettingsPanel extends JPanel {
         add(row, java.awt.BorderLayout.NORTH);
 
         building = false;
+    }
+
+    // Aplica el modo de pantalla elegido en el combo. Lo invoca el diálogo al CERRARSE
+    // (windowClosed), ya dispuesto, para que el toggle (que dispone y recrea el frame)
+    // no corrompa el diálogo abierto. setDisplayModeFullScreen no-opea si no cambia.
+    public void applyPendingDisplayMode() {
+        GameFrame gf = GameFrame.getInstance();
+        if (gf != null) {
+            gf.setDisplayModeFullScreen(pending_fullscreen);
+        }
     }
 
     private JPanel titledColumn(String titleKey) {

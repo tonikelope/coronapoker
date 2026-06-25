@@ -119,16 +119,33 @@ public class SettingsDialog extends JDialog {
             }
         });
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
+        // Fuentes UNIFICADAS al tamaño del diálogo de nueva timba (16, conservando el
+        // estilo bold/plain de cada control). Las pestañas Apariencia y Audio usaban
+        // la fuente por defecto (más pequeña) y quedaban descompensadas respecto a
+        // Partida; con esto todo el diálogo va al mismo tamaño.
+        setUniformFont(content, Helpers.GUI_FONT, 16);
 
-        // updateFonts no alcanza los títulos de los TitledBorder: se ajustan a la
-        // fuente ya escalada de un componente cualquiera.
+        // setUniformFont no alcanza los títulos de los TitledBorder.
         fixTitledBorderFonts(content, save_button.getFont());
 
-        // El panel de audio mantiene su escala 1.2x propia + sus arreglos de tamaño.
+        // Arreglos de tamaño del panel de audio (máximos de fila/panel), ya con la
+        // fuente unificada aplicada.
         audio_panel.applyFontsAndSizing();
 
         pack();
+    }
+
+    // Aplica GUI_FONT a TODOS los componentes al MISMO tamaño (conservando el estilo
+    // bold/plain de cada uno), para que las 3 pestañas tengan fuentes homogéneas.
+    private static void setUniformFont(Container c, Font base, int size) {
+        for (Component child : c.getComponents()) {
+            Font f = child.getFont();
+            int style = (f != null) ? f.getStyle() : Font.PLAIN;
+            child.setFont(base.deriveFont(style, (float) size));
+            if (child instanceof Container) {
+                setUniformFont((Container) child, base, size);
+            }
+        }
     }
 
     private static void fixTitledBorderFonts(Container c, Font font) {

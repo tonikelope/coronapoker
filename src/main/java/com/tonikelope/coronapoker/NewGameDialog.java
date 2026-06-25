@@ -200,6 +200,20 @@ public class NewGameDialog extends JDialog {
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
         this.ante_checkbox.setSelected(GameFrame.ANTE);
         this.straddle_checkbox.setSelected(GameFrame.STRADDLE);
+
+        // Reglas de juego (IWTSTH / Run It Twice / Rabbit) preseleccionadas con el
+        // estado actual de GameFrame. El combo de rabbit se rellena traducido aquí
+        // (índice 0..3 = off/free/free+sb/free+sb+bb).
+        this.iwtsth_checkbox.setSelected(GameFrame.IWTSTH_RULE);
+        this.rit_checkbox.setSelected(GameFrame.RUN_IT_TWICE);
+        this.rabbit_combo.setModel(new DefaultComboBoxModel<>(new String[]{
+            Translator.translate("menu.off"),
+            Translator.translate("menu.free"),
+            Translator.translate("menu.free_sb"),
+            Translator.translate("menu.free_sb_bb")
+        }));
+        this.rabbit_combo.setSelectedIndex(Math.min(Math.max(GameFrame.RABBIT_HUNTING, 0), 3));
+
         this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
 
         this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
@@ -688,6 +702,13 @@ public class NewGameDialog extends JDialog {
         manos_checkbox = new javax.swing.JCheckBox();
         limite_manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
+        iwtsth_icon = new javax.swing.JLabel();
+        iwtsth_checkbox = new javax.swing.JCheckBox();
+        rit_icon = new javax.swing.JLabel();
+        rit_checkbox = new javax.swing.JCheckBox();
+        rabbit_icon = new javax.swing.JLabel();
+        rabbit_label = new javax.swing.JLabel();
+        rabbit_combo = new javax.swing.JComboBox<>();
         bots_panel = new javax.swing.JPanel();
         bots_combobox = new javax.swing.JComboBox<>();
         bots_label = new javax.swing.JLabel();
@@ -1281,18 +1302,57 @@ public class NewGameDialog extends JDialog {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        iwtsth_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png"))); // NOI18N
+
+        iwtsth_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        iwtsth_checkbox.setText("Regla IWTSTH");
+        iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        iwtsth_checkbox.setDoubleBuffered(true);
+
+        rit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png"))); // NOI18N
+
+        rit_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        rit_checkbox.setText("ALL-IN Run-it-twice");
+        rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        rit_checkbox.setDoubleBuffered(true);
+
+        rabbit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rabbit.png"))); // NOI18N
+
+        rabbit_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        rabbit_label.setText("Rabbit Hunting:");
+        rabbit_label.setDoubleBuffered(true);
+
+        rabbit_combo.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        rabbit_combo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         javax.swing.GroupLayout partida_panelLayout = new javax.swing.GroupLayout(partida_panel);
         partida_panel.setLayout(partida_panelLayout);
         partida_panelLayout.setHorizontalGroup(
             partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(partida_panelLayout.createSequentialGroup()
                 .addGap(11, 11, 11)
-                .addComponent(manos_checkbox)
-                .addGap(0, 0, 0)
-                .addComponent(limite_manos_label)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(manos_spinner)
-                .addContainerGap())
+                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(partida_panelLayout.createSequentialGroup()
+                        .addComponent(manos_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(limite_manos_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(partida_panelLayout.createSequentialGroup()
+                        .addComponent(iwtsth_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(iwtsth_checkbox))
+                    .addGroup(partida_panelLayout.createSequentialGroup()
+                        .addComponent(rit_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(rit_checkbox))
+                    .addGroup(partida_panelLayout.createSequentialGroup()
+                        .addComponent(rabbit_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(rabbit_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         partida_panelLayout.setVerticalGroup(
             partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -1302,10 +1362,26 @@ public class NewGameDialog extends JDialog {
                     .addComponent(manos_checkbox)
                     .addComponent(limite_manos_label)
                     .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(iwtsth_icon)
+                    .addComponent(iwtsth_checkbox))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(rit_icon)
+                    .addComponent(rit_checkbox))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(rabbit_icon)
+                    .addComponent(rabbit_label)
+                    .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
+        iwtsth_checkbox.putClientProperty("i18n.key", "menu.regla_iwtsth");
+        rit_checkbox.putClientProperty("i18n.key", "menu.regla_run_it_twice");
+        rabbit_label.putClientProperty("i18n.key", "menu.rabbit_hunting");
 
         bots_combobox.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
         bots_combobox.setSelectedItem(1);
@@ -1623,6 +1699,12 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
 
+            GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
+
+            GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
+
+            GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
+
             GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
 
             GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
@@ -1754,6 +1836,12 @@ public class NewGameDialog extends JDialog {
                     GameFrame.ANTE = this.ante_checkbox.isSelected();
 
                     GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
+
+                    GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
+
+                    GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
+
+                    GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
 
                     GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
 
@@ -2804,6 +2892,9 @@ public class NewGameDialog extends JDialog {
         s.handLimit = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
         s.ante = ante_checkbox.isSelected();
         s.straddle = straddle_checkbox.isSelected();
+        s.iwtsth = iwtsth_checkbox.isSelected();
+        s.runItTwice = rit_checkbox.isSelected();
+        s.rabbit = rabbit_combo.getSelectedIndex();
         s.difficulty = partida_local ? botDifficultyFromComboIndex(bots_combobox.getSelectedIndex()) : Bot.DIFFICULTY;
         return s;
     }
@@ -2880,6 +2971,9 @@ public class NewGameDialog extends JDialog {
             rebuy_checkbox.setSelected(s.rebuy);
             ante_checkbox.setSelected(s.ante);
             straddle_checkbox.setSelected(s.straddle);
+            iwtsth_checkbox.setSelected(s.iwtsth);
+            rit_checkbox.setSelected(s.runItTwice);
+            rabbit_combo.setSelectedIndex(Math.min(Math.max(s.rabbit, 0), 3));
             bot_rebuy_checkbox.setSelected(s.botRebuy);
             bot_rebuy_checkbox.setEnabled(s.rebuy);
 
@@ -3012,6 +3106,15 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel main_panel;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
+    // Reglas de juego del subpanel "Partida" (creación de timba): IWTSTH, Run It
+    // Twice y Rabbit Hunting. Mismas que el diálogo "Ajustes de partida" en vivo.
+    private javax.swing.JLabel iwtsth_icon;
+    private javax.swing.JCheckBox iwtsth_checkbox;
+    private javax.swing.JLabel rit_icon;
+    private javax.swing.JCheckBox rit_checkbox;
+    private javax.swing.JLabel rabbit_icon;
+    private javax.swing.JLabel rabbit_label;
+    private javax.swing.JComboBox<String> rabbit_combo;
     private javax.swing.JTextField nick;
     private javax.swing.JLabel nick_label;
     private javax.swing.JPanel nick_pass_panel;

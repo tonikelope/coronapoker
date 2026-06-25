@@ -15478,6 +15478,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     + "#" + String.valueOf(GameFrame.BUYIN_MIN_BB) + "#" + String.valueOf(GameFrame.BUYIN_MAX_BB) + "#" + String.valueOf(GameFrame.REBUY_CAP_POLICY)
                     // Ante y straddle (campos fijos; van ANTES del campo opcional de estructura).
                     + "#" + String.valueOf(GameFrame.ANTE) + "#" + String.valueOf(GameFrame.STRADDLE)
+                    // Reglas de juego elegibles al crear la timba (IWTSTH / Run It Twice /
+                    // Rabbit Hunting): campos fijos, ANTES del campo opcional de estructura,
+                    // para que un cliente que se une conozca las reglas de salida.
+                    + "#" + (GameFrame.IWTSTH_RULE ? "1" : "0") + "#" + (GameFrame.RUN_IT_TWICE ? "1" : "0") + "#" + String.valueOf(GameFrame.RABBIT_HUNTING)
                     // Estructura de ciegas personalizada (campo opcional al final): los
                     // clientes recomputan la escalada por su cuenta, así que TODOS deben
                     // caminar la misma lista o desincronizan al subir las ciegas. Solo se

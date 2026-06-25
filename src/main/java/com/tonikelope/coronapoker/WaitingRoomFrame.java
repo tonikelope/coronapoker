@@ -3275,13 +3275,18 @@ public class WaitingRoomFrame extends JFrame {
                                                             // Ante y straddle (campos fijos; el cliente debe coincidir con el host).
                                                             GameFrame.ANTE = partes_comando.length > 17 && Boolean.parseBoolean(partes_comando[17]);
                                                             GameFrame.STRADDLE = partes_comando.length > 18 && Boolean.parseBoolean(partes_comando[18]);
-                                                            // Estructura de ciegas personalizada (campo opcional al final): el
-                                                            // cliente recomputa la escalada con la MISMA lista que el host.
-                                                            // Ausente = escalera por defecto (null). Nunca conservar una
-                                                            // estructura stale de una partida anterior.
-                                                            if (partes_comando.length > 19 && !partes_comando[19].isEmpty()) {
+                                                            // Reglas de juego elegidas al crear la timba (campos fijos; el
+                                                            // cliente debe arrancar con las mismas reglas que el host).
+                                                            GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
+                                                            GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
+                                                            GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
+                                                            // Estructura de ciegas personalizada (campo opcional al final, ahora
+                                                            // en el índice 22): el cliente recomputa la escalada con la MISMA
+                                                            // lista que el host. Ausente = escalera por defecto (null). Nunca
+                                                            // conservar una estructura stale de una partida anterior.
+                                                            if (partes_comando.length > 22 && !partes_comando[22].isEmpty()) {
                                                                 try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[19]);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[22]);
                                                                 } catch (IllegalArgumentException blinds_ex) {
                                                                     LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = null;

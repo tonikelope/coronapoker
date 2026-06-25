@@ -399,7 +399,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
             sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
             Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
             settings_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-            Helpers.setScaledIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), blinds_label.getHeight(), blinds_label.getHeight());
+            Helpers.setScaledWhiteIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), blinds_label.getHeight(), blinds_label.getHeight());
             panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
             Helpers.setScaledIconButton(pause_button, getClass().getResource("/images/pause.png"), Math.round(0.6f * pause_button.getHeight()), Math.round(0.6f * pause_button.getHeight()));
             Helpers.setScaledIconLabel(pot_label, getClass().getResource("/images/pot.png"), pot_label.getHeight(), pot_label.getHeight());
@@ -1074,13 +1074,10 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
     private void blinds_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_blinds_labelMouseClicked
         // TODO add your handling code here:
 
-        // El host abre el diálogo editable; los clientes lo abren en solo-lectura
-        // (informativo): ven la configuración de ciegas actual sin poder cambiarla.
-        EditBlindsDialog dialog = new EditBlindsDialog(GameFrame.getInstance(), true, !GameFrame.getInstance().isPartida_local());
-
-        dialog.setLocationRelativeTo(GameFrame.getInstance());
-
-        dialog.setVisible(true);
+        // La etiqueta de ciegas abre el diálogo "Ajustes de partida" (que ahora
+        // incluye las ciegas): host editable, cliente solo-lectura. Ya no hay diálogo
+        // de ciegas aparte durante la partida.
+        GameFrame.getInstance().openGameSettingsDialog();
 
     }//GEN-LAST:event_blinds_labelMouseClicked
 
@@ -1132,7 +1129,7 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
                     sound_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
                     Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), blinds_label.getHeight(), blinds_label.getHeight());
                     settings_icon.setPreferredSize(new Dimension(blinds_label.getHeight(), blinds_label.getHeight()));
-                    Helpers.setScaledIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), blinds_label.getHeight(), blinds_label.getHeight());
+                    Helpers.setScaledWhiteIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), blinds_label.getHeight(), blinds_label.getHeight());
                     panel_barra.setPreferredSize(new Dimension(-1, (int) Math.round((float) blinds_label.getHeight() * 0.7f)));
                     sound_icon.setVisible(true);
                     settings_icon.setVisible(true);

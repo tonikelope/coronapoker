@@ -526,6 +526,25 @@ public class AudioSettingsPanel extends JPanel {
         }
     }
 
+    // ¿Hay cambios de audio respecto al estado de apertura? Lo usa el host para
+    // preguntar antes de descartar al cancelar.
+    public boolean isDirty() {
+        return Audio.MASTER_VOLUME != snap_master_volume
+                || GameFrame.SONIDOS != snap_sonidos
+                || GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra
+                || GameFrame.MUSICA_AMBIENTAL != snap_musica
+                || GameFrame.TTS_SERVER != snap_tts_server
+                || GameFrame.VOICE_MESSAGES != snap_voice_messages
+                || !java.util.Objects.equals(snap_output_device, AudioDeviceManager.getOutputDevice())
+                || !java.util.Objects.equals(snap_capture_device, AudioDeviceManager.getCaptureDevice())
+                || AudioDeviceManager.isMicEnabled() != snap_mic_enabled
+                || AudioDeviceManager.isBlockVoiceMessages() != snap_block_voice
+                || AudioDeviceManager.isPlayOwnVoiceMessages() != snap_play_own
+                || AudioDeviceManager.getVoiceNoteRetentionDays() != snap_retention_days
+                || AudioDeviceManager.isBlockTtsLocal() != snap_block_tts_local
+                || VoiceMessageManager.getVoiceKey() != snap_voice_key;
+    }
+
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de audio al estado
     // capturado al abrir, re-aplicando cada uno por su setter normal (los cambios
     // globales re-emiten su broadcast, restaurando también a los clientes).

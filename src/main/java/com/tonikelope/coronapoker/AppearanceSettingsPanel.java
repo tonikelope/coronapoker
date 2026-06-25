@@ -74,6 +74,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_ciegas_dealer;
     private final boolean snap_anim_apuestas;
     private final boolean snap_chat_images;
+    private final boolean snap_fullscreen;
 
     public AppearanceSettingsPanel() {
 
@@ -94,6 +95,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_ciegas_dealer = GameFrame.ANIMACION_CIEGAS_DEALER;
         snap_anim_apuestas = GameFrame.ANIMACION_APUESTAS;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
+        snap_fullscreen = gf.isFull_screen();
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -256,6 +258,25 @@ public class AppearanceSettingsPanel extends JPanel {
         if (gf != null) {
             gf.setDisplayModeFullScreen(pending_fullscreen);
         }
+    }
+
+    // ¿Hay cambios de apariencia respecto al estado de apertura? (incluye el modo de
+    // pantalla pendiente, que aún no se ha aplicado). Lo usa el diálogo para preguntar
+    // antes de descartar al cancelar.
+    public boolean isDirty() {
+        return GameFrame.ZOOM_LEVEL != snap_zoom_level
+                || GameFrame.VISTA_COMPACTA != snap_vista_compacta
+                || !snap_baraja.equals(GameFrame.BARAJA)
+                || !snap_color_tapete.equals(GameFrame.COLOR_TAPETE)
+                || GameFrame.AUTO_ZOOM != snap_auto_zoom
+                || GameFrame.SHOW_CLOCK != snap_show_clock
+                || GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar
+                || GameFrame.CINEMATICAS != snap_cinematicas
+                || GameFrame.ANIMACION_REPARTO != snap_anim_reparto
+                || GameFrame.ANIMACION_CIEGAS_DEALER != snap_anim_ciegas_dealer
+                || GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas
+                || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
+                || pending_fullscreen != snap_fullscreen;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al

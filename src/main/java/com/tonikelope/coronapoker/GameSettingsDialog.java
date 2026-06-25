@@ -57,10 +57,14 @@ public class GameSettingsDialog extends JDialog {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel manos_icon;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
+    private javax.swing.JLabel iwtsth_icon;
     private javax.swing.JCheckBox iwtsth_checkbox;
+    private javax.swing.JLabel rit_icon;
     private javax.swing.JCheckBox rit_checkbox;
+    private javax.swing.JLabel rabbit_icon;
     private javax.swing.JLabel rabbit_label;
     private javax.swing.JComboBox<String> rabbit_combo;
     private javax.swing.JButton vamos_button;
@@ -126,10 +130,14 @@ public class GameSettingsDialog extends JDialog {
         jPanel2 = new javax.swing.JPanel();
         jPanel1 = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
+        manos_icon = new javax.swing.JLabel();
         manos_checkbox = new javax.swing.JCheckBox();
         manos_spinner = new javax.swing.JSpinner();
+        iwtsth_icon = new javax.swing.JLabel();
         iwtsth_checkbox = new javax.swing.JCheckBox();
+        rit_icon = new javax.swing.JLabel();
         rit_checkbox = new javax.swing.JCheckBox();
+        rabbit_icon = new javax.swing.JLabel();
         rabbit_label = new javax.swing.JLabel();
         rabbit_combo = new javax.swing.JComboBox<>();
         vamos_button = new javax.swing.JButton();
@@ -142,6 +150,13 @@ public class GameSettingsDialog extends JDialog {
         jPanel2.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(255, 102, 0), 10));
 
         jPanel1.setBorder(javax.swing.BorderFactory.createLineBorder(new java.awt.Color(153, 153, 153)));
+
+        // Cada regla con su icono (el mismo que tenía en el menú/popup): meter
+        // (límite de manos), eyes (IWTSTH), baraja (Run It Twice), rabbit (Rabbit).
+        manos_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/meter.png")));
+        iwtsth_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
+        rit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")));
+        rabbit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rabbit.png")));
 
         manos_checkbox.setFont(new java.awt.Font("Dialog", 1, 16));
         manos_checkbox.setText("Límite de manos:");
@@ -168,7 +183,6 @@ public class GameSettingsDialog extends JDialog {
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
         rabbit_label.setFont(new java.awt.Font("Dialog", 1, 16));
-        rabbit_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/rabbit.png")));
         rabbit_label.setText("Rabbit Hunting");
         rabbit_label.putClientProperty("i18n.key", "menu.rabbit_hunting");
 
@@ -183,12 +197,22 @@ public class GameSettingsDialog extends JDialog {
                 .addContainerGap()
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(manos_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(manos_checkbox)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(iwtsth_checkbox)
-                    .addComponent(rit_checkbox)
                     .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(iwtsth_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(iwtsth_checkbox))
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(rit_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(rit_checkbox))
+                    .addGroup(jPanel1Layout.createSequentialGroup()
+                        .addComponent(rabbit_icon)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(rabbit_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
@@ -198,15 +222,21 @@ public class GameSettingsDialog extends JDialog {
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(manos_icon)
                     .addComponent(manos_checkbox)
                     .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(iwtsth_checkbox)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(iwtsth_icon)
+                    .addComponent(iwtsth_checkbox))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(rit_checkbox)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(rit_icon)
+                    .addComponent(rit_checkbox))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(rabbit_icon)
                     .addComponent(rabbit_label)
                     .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())

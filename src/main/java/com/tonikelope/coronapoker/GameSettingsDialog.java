@@ -122,6 +122,10 @@ public class GameSettingsDialog extends JDialog {
             rit_checkbox.setEnabled(false);
             rabbit_combo.setEnabled(false);
             vamos_button.setEnabled(false);
+        } else if (GameFrame.RUN_IT_TWICE_LOCKED) {
+            // Run It Twice está congelado durante el run-out del all-in (hasta la
+            // siguiente mano); el resto de reglas sí se pueden cambiar.
+            rit_checkbox.setEnabled(false);
         }
     }
 

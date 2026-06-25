@@ -2747,24 +2747,13 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "IWTSTHRULE":
-                                                            Helpers.threadRun(() -> {
-                                                                GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
-                                                                Helpers.GUIRun(() -> {
-                                                                    GameFrame.getInstance().getIwtsth_rule_menu().setSelected(GameFrame.IWTSTH_RULE);
-                                                                    Helpers.TapetePopupMenu.IWTSTH_RULE_MENU.setSelected(GameFrame.IWTSTH_RULE);
-                                                                });
-                                                            });
+                                                            // Regla global del host. El diálogo "Ajustes de partida"
+                                                            // refleja el flag al abrirse; ya no hay control en
+                                                            // menú/popup que sincronizar.
+                                                            GameFrame.IWTSTH_RULE = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "RUNITWICERULE":
-                                                            Helpers.threadRun(() -> {
-                                                                GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
-                                                                Helpers.GUIRun(() -> {
-                                                                    if (GameFrame.getInstance() != null) {
-                                                                        GameFrame.getInstance().getRun_it_twice_menu().setSelected(GameFrame.RUN_IT_TWICE);
-                                                                    }
-                                                                    Helpers.TapetePopupMenu.RUN_IT_TWICE_MENU.setSelected(GameFrame.RUN_IT_TWICE);
-                                                                });
-                                                            });
+                                                            GameFrame.RUN_IT_TWICE = "1".equals(partes_comando[3]);
                                                             break;
                                                         case "VOICEMSGRULE":
                                                             // Regla global del host. El diálogo de ajustes de
@@ -2796,15 +2785,7 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             break;
                                                         case "RABBITRULE":
-                                                            Helpers.threadRun(() -> {
-                                                                GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
-                                                                Helpers.GUIRun(() -> {
-                                                                    GameFrame.getInstance().getMenu_rabbit_off().setSelected(GameFrame.RABBIT_HUNTING == 0);
-                                                                    GameFrame.getInstance().getMenu_rabbit_free().setSelected(GameFrame.RABBIT_HUNTING == 1);
-                                                                    GameFrame.getInstance().getMenu_rabbit_sb().setSelected(GameFrame.RABBIT_HUNTING == 2);
-                                                                    GameFrame.getInstance().getMenu_rabbit_bb().setSelected(GameFrame.RABBIT_HUNTING == 3);
-                                                                });
-                                                            });
+                                                            GameFrame.RABBIT_HUNTING = Integer.parseInt(partes_comando[3]);
                                                             break;
                                                         case "RABBIT":
                                                             if (GameFrame.getInstance().getCrupier().isShow_time()) {

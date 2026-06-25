@@ -44,14 +44,17 @@ import javax.swing.WindowConstants;
  * altavoz (incluido el lobby y la sala de espera, donde no hay partida y por tanto
  * no aplica el diálogo unificado de ajustes). Es un envoltorio fino de
  * {@link AudioSettingsPanel} (que contiene toda la UI y la lógica, reutilizada
- * también por la pestaña "Audio" del diálogo unificado). Cada cambio se aplica y
- * persiste al instante.
+ * también por la pestaña "Audio" del diálogo unificado). Los cambios se aplican EN
+ * VIVO como previsualización, pero el diálogo es TRANSACCIONAL: Aceptar los confirma
+ * y Cancelar / cerrar los revierte al estado de apertura (panel.revert()).
  *
  * @author tonikelope
  */
 public class AudioSettingsDialog extends javax.swing.JDialog {
 
     private final AudioSettingsPanel panel;
+    // Transaccional: true solo si se pulsó Aceptar (entonces NO se revierte).
+    private boolean committed = false;
 
     // Right-click menu shared by every speaker icon
     public static void showSpeakerPopup(java.awt.Component invoker, java.awt.Frame parent, int x, int y) {
@@ -96,10 +99,17 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         panel = new AudioSettingsPanel();
 
         JButton ok_button = new JButton(Translator.translate("ui.aceptar"));
-        ok_button.addActionListener(e -> dispose());
+        ok_button.addActionListener(e -> {
+            committed = true;
+            dispose();
+        });
+
+        JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
+        cancel_button.addActionListener(e -> dispose());
 
         JPanel button_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         button_panel.add(ok_button);
+        button_panel.add(cancel_button);
 
         JPanel content = new JPanel(new BorderLayout());
         content.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
@@ -131,6 +141,11 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
 
             @Override
             public void windowClosed(WindowEvent e) {
+                // Transaccional: si NO se aceptó (Cancelar / cerrar), revierte los cambios
+                // EN VIVO de audio al estado de apertura.
+                if (!committed) {
+                    panel.revert();
+                }
                 // Cierra captura de tecla + persiste volumen + suelta la instancia viva.
                 panel.cleanup();
             }

@@ -29,9 +29,10 @@ import java.util.logging.Logger;
  * exactly like custom blind structures ({@link BlindStructure}). A preset stores
  * the full new-game config — initial blinds, the CHOSEN blind structure (custom
  * levels, or none for the default ladder), buy-in (fixed/variable + range),
- * rebuy (+ limit/bots/cap), blind increase, blind cap, hand limit, ante, straddle
- * and bot difficulty. Session-only toggles (rabbit, run-it-twice, voice/TTS) are
- * NOT part of a preset: they are switched in-game, not at table creation.
+ * rebuy (+ limit/bots/cap), blind increase, blind cap, hand limit, ante, straddle,
+ * the game rules (IWTSTH, run-it-twice, rabbit hunting) and bot difficulty. The
+ * host's global voice/TTS toggles are NOT part of a preset (they are audio session
+ * preferences, switched in-game, not table-creation config).
  *
  * <p>The dialog maps its controls to/from the {@link Settings} carrier; a preset
  * just persists that carrier's {@link Settings#serialize() serialized form}. The
@@ -97,6 +98,9 @@ public final class GamePreset {
         public int handLimit = -1;  // -1 = sin limite de manos
         public boolean ante = false;
         public boolean straddle = false;
+        public boolean iwtsth = false;        // regla "Quiero ver la mano"
+        public boolean runItTwice = false;    // ALL-IN run it twice
+        public int rabbit = 0;                // 0=off 1=free 2=free+sb 3=free+sb+bb
         public Bot.Difficulty difficulty = Bot.Difficulty.MEDIUM;
 
         /**
@@ -120,6 +124,9 @@ public final class GamePreset {
                     + "#MANOS=" + handLimit
                     + "#ANTE=" + (ante ? "1" : "0")
                     + "#STR=" + (straddle ? "1" : "0")
+                    + "#IWTSTH=" + (iwtsth ? "1" : "0")
+                    + "#RIT=" + (runItTwice ? "1" : "0")
+                    + "#RABBIT=" + rabbit
                     + "#DIFF=" + difficulty.name();
         }
 
@@ -192,6 +199,15 @@ public final class GamePreset {
                             break;
                         case "STR":
                             s.straddle = "1".equals(val);
+                            break;
+                        case "IWTSTH":
+                            s.iwtsth = "1".equals(val);
+                            break;
+                        case "RIT":
+                            s.runItTwice = "1".equals(val);
+                            break;
+                        case "RABBIT":
+                            s.rabbit = Integer.parseInt(val);
                             break;
                         case "DIFF":
                             // "EXPERT" es un valor legacy del esquema de 4 niveles -> HARD.

@@ -107,7 +107,12 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
         });
 
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
-        cancel_button.addActionListener(e -> dispose());
+        cancel_button.addActionListener(e -> {
+            if (panel.isDirty() && Helpers.mostrarMensajeInformativoSINO(AudioSettingsDialog.this, Translator.translate("settings.descartar_cambios")) != javax.swing.JOptionPane.YES_OPTION) {
+                return;
+            }
+            dispose();
+        });
 
         JPanel button_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         button_panel.add(ok_button);

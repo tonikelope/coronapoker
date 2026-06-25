@@ -34,6 +34,10 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
     private final boolean read_only;
 
+    // Firma de los valores de los controles al ABRIR; isDirty() compara con la actual
+    // para saber si Partida tiene cambios sin guardar (la pestaña aplica al GUARDAR).
+    private String snap_signature;
+
     // Reglas (izquierda, sin subpanel)
     private javax.swing.JPanel rules_panel;
     private javax.swing.JCheckBox manos_checkbox;
@@ -200,6 +204,27 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         } else if (GameFrame.RUN_IT_TWICE_LOCKED) {
             rit_checkbox.setEnabled(false);
         }
+
+        snap_signature = controlsSignature();
+    }
+
+    // Firma compacta de TODOS los controles editables; comparar dos firmas dice si algo
+    // cambió. (deshabilitar controles no cambia sus valores, así que es estable.)
+    private String controlsSignature() {
+        return manos_checkbox.isSelected() + "|" + manos_spinner.getValue() + "|"
+                + iwtsth_checkbox.isSelected() + "|" + rit_checkbox.isSelected() + "|"
+                + rabbit_combo.getSelectedIndex() + "|" + ciegas_combobox.getSelectedIndex() + "|"
+                + doblar_checkbox.isSelected() + "|" + double_blinds_radio_minutos.isSelected() + "|"
+                + double_blinds_radio_manos.isSelected() + "|" + doblar_ciegas_spinner_minutos.getValue() + "|"
+                + doblar_ciegas_spinner_manos.getValue() + "|" + blind_cap_checkbox.isSelected() + "|"
+                + blind_cap_spinner.getValue() + "|" + ante_checkbox.isSelected() + "|"
+                + straddle_checkbox.isSelected();
+    }
+
+    // ¿Hay cambios sin guardar en la pestaña Partida? Lo usa el diálogo para preguntar
+    // antes de descartar al cancelar.
+    public boolean isDirty() {
+        return !controlsSignature().equals(snap_signature);
     }
 
     public boolean isReadOnly() {

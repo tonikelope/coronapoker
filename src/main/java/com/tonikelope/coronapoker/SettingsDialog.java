@@ -90,7 +90,12 @@ public class SettingsDialog extends JDialog {
         });
 
         JButton cancel_button = new JButton(Translator.translate("ui.cancelar_2"));
-        cancel_button.addActionListener(e -> dispose());
+        cancel_button.addActionListener(e -> {
+            if (isDirty() && Helpers.mostrarMensajeInformativoSINO(SettingsDialog.this, Translator.translate("settings.descartar_cambios")) != javax.swing.JOptionPane.YES_OPTION) {
+                return;
+            }
+            dispose();
+        });
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(save_button);
@@ -153,6 +158,13 @@ public class SettingsDialog extends JDialog {
         cancel_button.setFont(buttons_font);
 
         pack();
+    }
+
+    // ¿Hay cambios sin confirmar en cualquiera de las pestañas? (Apariencia/Audio se
+    // aplican en vivo; Partida es apply-on-save.) Se usa para preguntar antes de
+    // descartar al cancelar.
+    private boolean isDirty() {
+        return appearance_panel.isDirty() || audio_panel.isDirty() || game_panel.isDirty();
     }
 
     // Aplica GUI_FONT a TODOS los componentes al MISMO tamaño (conservando el estilo

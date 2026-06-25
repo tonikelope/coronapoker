@@ -57,8 +57,7 @@ public class AppearanceSettingsPanel extends JPanel {
 
     public AppearanceSettingsPanel() {
 
-        super();
-        setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+        super(new java.awt.BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
         GameFrame gf = GameFrame.getInstance();
@@ -66,11 +65,21 @@ public class AppearanceSettingsPanel extends JPanel {
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
 
-        JButton full_screen_button = new JButton(Translator.translate("menu.pantalla_completa"));
-        full_screen_button.addActionListener(e -> gf.getFull_screen_menu().doClick());
-        addLeft(pantalla, full_screen_button);
-
-        addLeft(pantalla, delegatingCheckbox("menu.activar_pantalla_completa_al_empezar", GameFrame.AUTO_FULLSCREEN, gf.getAuto_fullscreen_menu()));
+        // Modo de pantalla: ventana / pantalla completa. Refleja el estado actual del
+        // tablero, guarda la elección (que se aplica también al ARRANCAR partida) y la
+        // aplica YA. Sustituye al botón de pantalla completa + checkbox "al empezar".
+        JComboBox<String> display_combo = new JComboBox<>(new String[]{
+            Translator.translate("settings.modo_ventana"),
+            Translator.translate("settings.modo_pantalla_completa")
+        });
+        display_combo.setSelectedIndex(gf.isFull_screen() ? 1 : 0);
+        display_combo.addActionListener(e -> {
+            if (building) {
+                return;
+            }
+            gf.setDisplayModeFullScreen(display_combo.getSelectedIndex() == 1);
+        });
+        addLeft(pantalla, labeledRow("settings.modo_pantalla", display_combo));
 
         // Fila de zoom: - / Reset / +
         JPanel zoom_row = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
@@ -169,22 +178,27 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(anim, delegatingCheckbox("menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
         addLeft(anim, delegatingCheckbox("menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
-        // Columna derecha = Mesa sobre Animaciones (apilados); izquierda = Pantalla.
-        JPanel right = new JPanel();
-        right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
-        right.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        mesa.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        anim.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        right.add(mesa);
-        right.add(Box.createVerticalStrut(10));
-        right.add(anim);
+        // Dos columnas iguales (rejilla) que llenan el ancho; cada subpanel va en el
+        // NORTH de su columna para quedar arriba a su ALTO NATURAL (sin estirarse ni
+        // recortarse). El hueco sobrante queda como una franja limpia abajo, no
+        // metido dentro de los subpaneles.
+        JPanel right_inner = new JPanel();
+        right_inner.setLayout(new BoxLayout(right_inner, BoxLayout.Y_AXIS));
+        right_inner.add(mesa);
+        right_inner.add(Box.createVerticalStrut(10));
+        right_inner.add(anim);
 
-        pantalla.setAlignmentY(JComponent.TOP_ALIGNMENT);
-        right.setAlignmentY(JComponent.TOP_ALIGNMENT);
+        JPanel left_col = new JPanel(new java.awt.BorderLayout());
+        left_col.add(pantalla, java.awt.BorderLayout.NORTH);
 
-        add(pantalla);
-        add(Box.createHorizontalStrut(12));
-        add(right);
+        JPanel right_col = new JPanel(new java.awt.BorderLayout());
+        right_col.add(right_inner, java.awt.BorderLayout.NORTH);
+
+        JPanel columns = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
+        columns.add(left_col);
+        columns.add(right_col);
+
+        add(columns, java.awt.BorderLayout.NORTH);
 
         building = false;
     }
@@ -199,8 +213,6 @@ public class AppearanceSettingsPanel extends JPanel {
     // Añade un componente alineado a la izquierda + un pequeño hueco vertical.
     private void addLeft(JPanel column, JComponent comp) {
         comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        // Las filas no deben estirarse a lo alto dentro del BoxLayout vertical.
-        comp.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, comp.getPreferredSize().height));
         column.add(comp);
         column.add(Box.createVerticalStrut(4));
     }

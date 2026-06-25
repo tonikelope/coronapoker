@@ -198,7 +198,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
 
     private void initComponents() {
 
-        setLayout(new javax.swing.BoxLayout(this, javax.swing.BoxLayout.X_AXIS));
+        setLayout(new java.awt.BorderLayout());
         setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         rules_panel = new javax.swing.JPanel();
@@ -461,9 +461,19 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
-        add(rules_panel);
-        add(javax.swing.Box.createHorizontalStrut(12));
-        add(ciegas_panel);
+        // Fila reglas | ciegas a su ALTO NATURAL en el NORTE; el hueco vertical
+        // sobrante cae limpio debajo (no se mete dentro del subpanel de ciegas, que
+        // antes se estiraba abriendo una franja vacía dentro de su borde titulado).
+        rules_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
+        ciegas_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
+
+        javax.swing.JPanel row = new javax.swing.JPanel();
+        row.setLayout(new javax.swing.BoxLayout(row, javax.swing.BoxLayout.X_AXIS));
+        row.add(rules_panel);
+        row.add(javax.swing.Box.createHorizontalStrut(12));
+        row.add(ciegas_panel);
+
+        add(row, java.awt.BorderLayout.NORTH);
 
         // i18n de las etiquetas con icono (se traducen en translateComponents).
         manos_label.putClientProperty("i18n.key", "game.limite_de_manos");

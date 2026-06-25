@@ -24,13 +24,14 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 
 /**
  * Contenido de "Ajustes de apariencia" como JPanel (pestaña del diálogo unificado).
@@ -53,8 +54,6 @@ public class AppearanceSettingsPanel extends JPanel {
     // selección inicial no debe dispararse la delegación).
     private volatile boolean building = true;
 
-    private final JButton compact_button;
-
     public AppearanceSettingsPanel() {
 
         super(new java.awt.BorderLayout());
@@ -67,7 +66,8 @@ public class AppearanceSettingsPanel extends JPanel {
 
         // Modo de pantalla: ventana / pantalla completa. Refleja el estado actual del
         // tablero, guarda la elección (que se aplica también al ARRANCAR partida) y la
-        // aplica YA. Sustituye al botón de pantalla completa + checkbox "al empezar".
+        // aplica al vuelo (el toggle se difiere al EDT en GameFrame.setDisplayModeFullScreen
+        // para que funcione siempre, no solo la primera vez).
         JComboBox<String> display_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.modo_ventana"),
             Translator.translate("settings.modo_pantalla_completa")
@@ -81,30 +81,38 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         addLeft(pantalla, labeledRow("settings.modo_pantalla", display_combo));
 
-        // Fila de zoom: - / Reset / +
-        JPanel zoom_row = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        zoom_row.add(new JLabel(Translator.translate("menu.zoom") + ":"));
-        JButton zoom_out = new JButton("−");
-        zoom_out.addActionListener(e -> gf.getZoom_menu_out().doClick());
-        JButton zoom_reset = new JButton(Translator.translate("menu.reset"));
-        zoom_reset.addActionListener(e -> gf.getZoom_menu_reset().doClick());
-        JButton zoom_in = new JButton("+");
-        zoom_in.addActionListener(e -> gf.getZoom_menu_in().doClick());
-        zoom_row.add(zoom_out);
-        zoom_row.add(zoom_reset);
-        zoom_row.add(zoom_in);
-        addLeft(pantalla, zoom_row);
+        // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). Aplica al
+        // vuelo al nivel elegido.
+        int zoom_pct = Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * 100f);
+        // Los límites SIEMPRE contienen el valor actual (no hay tope superior de zoom
+        // en el motor) para que SpinnerNumberModel no lance si el zoom guardado se sale.
+        JSpinner zoom_spinner = new JSpinner(new SpinnerNumberModel(zoom_pct, Math.min(5, zoom_pct), Math.max(300, zoom_pct), 5));
+        zoom_spinner.addChangeListener(e -> {
+            if (building) {
+                return;
+            }
+            int pct = (Integer) zoom_spinner.getValue();
+            gf.setZoomLevel(Math.round((pct - 100) / (GameFrame.ZOOM_STEP * 100f)));
+        });
+        addLeft(pantalla, labeledRow("menu.zoom", zoom_spinner));
+
+        // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
+        // aplica al vuelo.
+        JComboBox<String> compact_combo = new JComboBox<>(new String[]{
+            Translator.translate("settings.compacta_off"),
+            Translator.translate("settings.compacta_on"),
+            Translator.translate("settings.compacta_full")
+        });
+        compact_combo.setSelectedIndex(Math.min(Math.max(GameFrame.VISTA_COMPACTA, 0), 2));
+        compact_combo.addActionListener(e -> {
+            if (building) {
+                return;
+            }
+            gf.setCompactView(compact_combo.getSelectedIndex());
+        });
+        addLeft(pantalla, labeledRow("menu.vista_compacta", compact_combo));
 
         addLeft(pantalla, delegatingCheckbox("menu.auto_ajustar", GameFrame.AUTO_ZOOM, gf.getAuto_fit_zoom_menu()));
-
-        // Vista compacta: tri-estado (0/1/2). El item de menú cicla en cada doClick;
-        // el botón muestra el estado actual y lo re-lee tras delegar.
-        compact_button = new JButton(compactLabel());
-        compact_button.addActionListener(e -> {
-            gf.getCompact_menu().doClick();
-            compact_button.setText(compactLabel());
-        });
-        addLeft(pantalla, compact_button);
 
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
@@ -232,22 +240,6 @@ public class AppearanceSettingsPanel extends JPanel {
         row.add(new JLabel(Translator.translate(labelKey) + ":"));
         row.add(control);
         return row;
-    }
-
-    private String compactLabel() {
-        String state;
-        switch (GameFrame.VISTA_COMPACTA) {
-            case 1:
-                state = Translator.translate("settings.compacta_on");
-                break;
-            case 2:
-                state = Translator.translate("settings.compacta_full");
-                break;
-            default:
-                state = Translator.translate("settings.compacta_off");
-                break;
-        }
-        return Translator.translate("menu.vista_compacta") + ": " + state;
     }
 
     private int currentTapeteIndex() {

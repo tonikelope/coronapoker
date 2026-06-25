@@ -194,7 +194,7 @@ public class NewGameDialog extends JDialog {
 
         this.manos_spinner.setEnabled(GameFrame.MANOS > 0);
         this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
-        manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 60, 1, null, 1));
+        manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 100, 1, null, 1));
         Helpers.makeNumericSpinnerEditable(manos_spinner, false);
 
         this.rebuy_checkbox.setSelected(GameFrame.REBUY);
@@ -1299,20 +1299,24 @@ public class NewGameDialog extends JDialog {
         });
 
         manos_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
-        manos_spinner.setModel(new javax.swing.SpinnerNumberModel(60, 1, null, 1));
+        manos_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        // Cada regla: checkbox (sin texto) + etiqueta con icono y texto (primero el
+        // checkbox, luego el icono), igual que la fila "Límite de manos".
+        iwtsth_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         iwtsth_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png"))); // NOI18N
+        iwtsth_icon.setText("Regla IWTSTH");
+        iwtsth_icon.setDoubleBuffered(true);
 
-        iwtsth_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        iwtsth_checkbox.setText("Regla IWTSTH");
         iwtsth_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         iwtsth_checkbox.setDoubleBuffered(true);
 
+        rit_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         rit_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png"))); // NOI18N
+        rit_icon.setText("ALL-IN Run-it-twice");
+        rit_icon.setDoubleBuffered(true);
 
-        rit_checkbox.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
-        rit_checkbox.setText("ALL-IN Run-it-twice");
         rit_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         rit_checkbox.setDoubleBuffered(true);
 
@@ -1337,21 +1341,21 @@ public class NewGameDialog extends JDialog {
                         .addGap(0, 0, 0)
                         .addComponent(limite_manos_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(iwtsth_icon)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(iwtsth_checkbox))
+                        .addComponent(iwtsth_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(iwtsth_icon))
                     .addGroup(partida_panelLayout.createSequentialGroup()
-                        .addComponent(rit_icon)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rit_checkbox))
+                        .addComponent(rit_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(rit_icon))
                     .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(rabbit_icon)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(rabbit_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addComponent(rabbit_combo, javax.swing.GroupLayout.PREFERRED_SIZE, 210, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         partida_panelLayout.setVerticalGroup(
@@ -1379,8 +1383,8 @@ public class NewGameDialog extends JDialog {
         );
 
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
-        iwtsth_checkbox.putClientProperty("i18n.key", "menu.regla_iwtsth");
-        rit_checkbox.putClientProperty("i18n.key", "menu.regla_run_it_twice");
+        iwtsth_icon.putClientProperty("i18n.key", "menu.regla_iwtsth");
+        rit_icon.putClientProperty("i18n.key", "menu.regla_run_it_twice");
         rabbit_label.putClientProperty("i18n.key", "menu.rabbit_hunting");
 
         bots_combobox.setFont(new java.awt.Font("Segoe UI", 0, 16)); // NOI18N
@@ -2970,7 +2974,7 @@ public class NewGameDialog extends JDialog {
             // Límite de manos.
             manos_checkbox.setSelected(s.handLimit > 0);
             manos_spinner.setEnabled(s.handLimit > 0);
-            manos_spinner.setModel(new SpinnerNumberModel(s.handLimit > 0 ? s.handLimit : 60, 1, null, 1));
+            manos_spinner.setModel(new SpinnerNumberModel(s.handLimit > 0 ? s.handLimit : 100, 1, null, 1));
             Helpers.makeNumericSpinnerEditable(manos_spinner, false);
 
             // Recompra + ante + straddle.

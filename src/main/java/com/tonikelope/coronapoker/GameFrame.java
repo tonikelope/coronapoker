@@ -5183,7 +5183,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     // Abre el diálogo "Ajustes de partida". Único punto de apertura para los tres
     // accesos (menú Preferencias, popup del tapete e icono del CommunityCardsPanel):
-    // host = editable, cliente = solo-lectura (igual que EditBlindsDialog).
+    // host = editable, cliente = solo-lectura.
     public void openGameSettingsDialog() {
         GameSettingsDialog dialog = new GameSettingsDialog(this, true, !isPartida_local());
         dialog.setLocationRelativeTo(this);

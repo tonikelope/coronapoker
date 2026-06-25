@@ -1512,6 +1512,32 @@ public class Helpers {
         });
     }
 
+    // Escala un icono y lo recolorea a BLANCO preservando el alfa (la silueta del
+    // dibujo). Para iconos pensados para fondo claro (p. ej. el engranaje del menú)
+    // que se muestran sobre el tapete oscuro, como el icono del altavoz.
+    public static void setScaledWhiteIconLabel(JLabel label, URL path, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        Helpers.GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+                Image src = new ImageIcon(path).getImage();
+                BufferedImage bi = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g = bi.createGraphics();
+                g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.drawImage(src, 0, 0, width, height, null);
+                // SRC_ATOP pinta blanco SOLO donde ya había opacidad: recolorea la
+                // silueta del icono a blanco sin tocar las zonas transparentes.
+                g.setComposite(AlphaComposite.SrcAtop);
+                g.setColor(java.awt.Color.WHITE);
+                g.fillRect(0, 0, width, height);
+                g.dispose();
+                label.setIcon(new ImageIcon(bi));
+            }
+        });
+    }
+
     public static void setScaledRoundedIconLabel(JLabel label, String path, int width, int height) {
         if (width <= 0 || height <= 0) {
             return;

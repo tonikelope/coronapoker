@@ -453,8 +453,9 @@ public class AudioSettingsPanel extends JPanel {
     // El host debe llamarlo DESPUÉS de su propio updateFonts general.
     public void applyFontsAndSizing() {
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, 1.2f);
-
+        // Nota: la fuente la aplica el HOST antes de llamar aquí (el diálogo
+        // independiente del altavoz usa updateFonts 1.2x; el diálogo unificado usa su
+        // tamaño homogéneo). Aquí solo se arreglan los títulos de borde y los altos.
         ((TitledBorder) volume_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) sound_music_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) output_panel.getBorder()).setTitleFont(volume_value_label.getFont());

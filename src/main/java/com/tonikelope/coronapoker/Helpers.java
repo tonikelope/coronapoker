@@ -5818,24 +5818,25 @@ public class Helpers {
                 AUTO_REBUY_MENU.setEnabled(GameFrame.REBUY);
                 popup.add(AUTO_REBUY_MENU);
 
-                // Separador entre recomprar y las reglas de la timba.
-                popup.addSeparator();
-
+                // "Última mano" y "Límite de manos" se construyen igualmente (GameFrame
+                // sincroniza su estado), pero cambian de sitio: "Límite de manos" vive en
+                // la pestaña Partida del diálogo Ajustes y ya NO se añade al popup;
+                // "Última mano" se mueve al grupo de Detener/Salir.
                 LAST_HAND_MENU = new LeftClickCheckBoxMenuItem(lastHandAction);
                 LAST_HAND_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/last_hand.png")));
                 LAST_HAND_MENU.setSelected(false);
-                popup.add(LAST_HAND_MENU);
 
                 MAX_HANDS_MENU = new LeftClickMenuItem(maxHandsAction);
                 MAX_HANDS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/meter.png")));
-                popup.add(MAX_HANDS_MENU);
 
-                // Ayuda debajo de Límite de manos, aislada con sus separadores.
+                // Ayuda, aislada con sus separadores.
                 popup.addSeparator();
                 popup.add(AYUDA_MENU);
                 popup.addSeparator();
 
-                // Detener la timba y Salir juntos, sin separador entre ambos.
+                // Última mano, Detener la timba y Salir juntos (Última mano la primera).
+                popup.add(LAST_HAND_MENU);
+
                 HALT_GAME_MENU = new LeftClickMenuItem(haltAction);
                 HALT_GAME_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/stop.png")));
                 popup.add(HALT_GAME_MENU);

@@ -4220,8 +4220,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (fullscreen != full_screen) {
             // El toggle dispone y recrea el peer nativo del frame, lo que corrompe un
             // diálogo modal abierto encima. Por eso el combo de Ajustes NO aplica en
-            // vivo: el diálogo invoca esto al CERRARSE (windowClosed → applyPendingDisplayMode),
-            // ya dispuesto. Se difiere al EDT para correr tras drenar el cierre del diálogo.
+            // vivo: el diálogo invoca esto al pulsar GUARDAR (applyPendingDisplayMode),
+            // justo antes de cerrarse. Se difiere al EDT para correr tras drenar el cierre.
             SwingUtilities.invokeLater(this::triggerFullScreenToggle);
         }
     }

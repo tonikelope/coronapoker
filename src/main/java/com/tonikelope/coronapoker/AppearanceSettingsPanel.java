@@ -117,7 +117,7 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             gf.setCompactView(compact_combo.getSelectedIndex());
         });
-        addLeft(pantalla, labeledRow("/images/menu/tiny.png", "menu.vista_compacta", compact_combo));
+        addLeft(pantalla, labeledRow("/images/menu/tiny.png", "view.vista_compacta", compact_combo));
 
         addLeft(pantalla, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM, gf.getAuto_fit_zoom_menu()));
 
@@ -181,7 +181,7 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         addLeft(mesa, labeledRow("/images/menu/tapetes.png", "menu.tapetes", tapete_combo));
 
-        addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "menu.mostrar_reloj", GameFrame.SHOW_CLOCK, gf.getTime_menu()));
+        addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK, gf.getTime_menu()));
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR, gf.getCoste_igualar_menu()));
 
         // ---------------- Animaciones y chat ----------------

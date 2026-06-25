@@ -83,6 +83,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             if (init) {
                 modelBlindCapSpinner(((Number) blind_cap_spinner.getValue()).intValue());
             }
+            updateAnteStraddleLabels();
         });
 
         double peque, grande;
@@ -167,7 +168,16 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         ciegas_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("newgame.grupo_ciegas")));
         ((javax.swing.border.TitledBorder) ciegas_panel.getBorder()).setTitleFont(title_font);
 
+        // Las reglas (límite de manos, IWTSTH, RIT, rabbit) van en un subpanel "Varios".
+        rules_panel.setBorder(javax.swing.BorderFactory.createTitledBorder(Translator.translate("settings.varios")));
+        ((javax.swing.border.TitledBorder) rules_panel.getBorder()).setTitleFont(title_font);
+
         Helpers.translateComponents(this, false);
+
+        // Importe ACTUAL de ante (= ciega pequeña) y straddle (= 2x ciega grande) entre
+        // paréntesis, igual que en el diálogo de nueva timba; se refresca al cambiar el
+        // nivel de ciegas (listener del combo).
+        updateAnteStraddleLabels();
 
         init = true;
 
@@ -638,6 +648,27 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         this.blind_cap_spinner.setModel(new SpinnerNumberModel(n, 1, levels_above, 1));
         Helpers.makeNumericSpinnerEditable(blind_cap_spinner, false);
         updateBlindCapLabel();
+    }
+
+    // Texto informativo de ante/straddle con su importe ACTUAL entre paréntesis (ante =
+    // ciega pequeña, straddle = 2x ciega grande), leído del nivel de ciegas seleccionado.
+    // Mismo criterio que NewGameDialog.updateAnteStraddleLabels().
+    private void updateAnteStraddleLabels() {
+        Object sel = ciegas_combobox.getSelectedItem();
+        if (sel == null) {
+            return;
+        }
+        String[] v = ((String) sel).replace(",", ".").split("/");
+        if (v.length < 2) {
+            return;
+        }
+        try {
+            double sb = Double.valueOf(v[0].trim());
+            double bb = Double.valueOf(v[1].trim());
+            ante_checkbox.setText("Ante (" + Helpers.money2String(sb) + ")");
+            straddle_checkbox.setText("Straddle (" + Helpers.money2String(Helpers.doubleClean(2 * bb)) + ")");
+        } catch (NumberFormatException ignored) {
+        }
     }
 
 }

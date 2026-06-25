@@ -59,12 +59,41 @@ public class AppearanceSettingsPanel extends JPanel {
     // diálogo al cerrarse (applyPendingDisplayMode).
     private volatile boolean pending_fullscreen;
 
+    // Snapshot del estado de apariencia al ABRIR: el diálogo es transaccional, así que
+    // los cambios (que se aplican en vivo como previsualización) se REVIERTEN a estos
+    // valores si se cancela (revert()); GUARDAR los conserva.
+    private final int snap_zoom_level;
+    private final int snap_vista_compacta;
+    private final String snap_baraja;
+    private final String snap_color_tapete;
+    private final boolean snap_auto_zoom;
+    private final boolean snap_show_clock;
+    private final boolean snap_coste_igualar;
+    private final boolean snap_cinematicas;
+    private final boolean snap_anim_reparto;
+    private final boolean snap_anim_ciegas_dealer;
+    private final boolean snap_anim_apuestas;
+    private final boolean snap_chat_images;
+
     public AppearanceSettingsPanel() {
 
         super(new java.awt.BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
         GameFrame gf = GameFrame.getInstance();
+
+        snap_zoom_level = GameFrame.ZOOM_LEVEL;
+        snap_vista_compacta = GameFrame.VISTA_COMPACTA;
+        snap_baraja = GameFrame.BARAJA;
+        snap_color_tapete = GameFrame.COLOR_TAPETE;
+        snap_auto_zoom = GameFrame.AUTO_ZOOM;
+        snap_show_clock = GameFrame.SHOW_CLOCK;
+        snap_coste_igualar = GameFrame.MOSTRAR_COSTE_IGUALAR;
+        snap_cinematicas = GameFrame.CINEMATICAS;
+        snap_anim_reparto = GameFrame.ANIMACION_REPARTO;
+        snap_anim_ciegas_dealer = GameFrame.ANIMACION_CIEGAS_DEALER;
+        snap_anim_apuestas = GameFrame.ANIMACION_APUESTAS;
+        snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
@@ -226,6 +255,76 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame gf = GameFrame.getInstance();
         if (gf != null) {
             gf.setDisplayModeFullScreen(pending_fullscreen);
+        }
+    }
+
+    // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
+    // estado capturado al abrir: re-aplica cada uno por su camino normal (toggles por
+    // doClick si difieren; zoom/compacta por su setter; baraja/tapete re-seleccionando
+    // el radio). El modo de pantalla pendiente NO se aplica si se cancela.
+    public void revert() {
+        GameFrame gf = GameFrame.getInstance();
+        if (gf == null) {
+            return;
+        }
+        if (GameFrame.ZOOM_LEVEL != snap_zoom_level) {
+            gf.setZoomLevel(snap_zoom_level);
+        }
+        if (GameFrame.VISTA_COMPACTA != snap_vista_compacta) {
+            gf.setCompactView(snap_vista_compacta);
+        }
+        if (!snap_baraja.equals(GameFrame.BARAJA)) {
+            selectBaraja(gf, snap_baraja);
+        }
+        if (!snap_color_tapete.equals(GameFrame.COLOR_TAPETE)) {
+            selectTapete(gf, snap_color_tapete);
+        }
+        if (GameFrame.AUTO_ZOOM != snap_auto_zoom) {
+            gf.getAuto_fit_zoom_menu().doClick();
+        }
+        if (GameFrame.SHOW_CLOCK != snap_show_clock) {
+            gf.getTime_menu().doClick();
+        }
+        if (GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar) {
+            gf.getCoste_igualar_menu().doClick();
+        }
+        if (GameFrame.CINEMATICAS != snap_cinematicas) {
+            gf.getMenu_cinematicas().doClick();
+        }
+        if (GameFrame.ANIMACION_REPARTO != snap_anim_reparto) {
+            gf.getAnim_reparto_menu().doClick();
+        }
+        if (GameFrame.ANIMACION_CIEGAS_DEALER != snap_anim_ciegas_dealer) {
+            gf.getAnim_ciegas_dealer_menu().doClick();
+        }
+        if (GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas) {
+            gf.getAnim_apuestas_menu().doClick();
+        }
+        if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
+            gf.getChat_image_menu().doClick();
+        }
+    }
+
+    private static void selectBaraja(GameFrame gf, String baraja) {
+        for (Component c : gf.getMenu_barajas().getMenuComponents()) {
+            if (c instanceof JMenuItem && ((JMenuItem) c).getText().equals(baraja)) {
+                ((JMenuItem) c).doClick();
+                break;
+            }
+        }
+    }
+
+    private static void selectTapete(GameFrame gf, String color) {
+        if (color.startsWith("azul")) {
+            gf.getMenu_tapete_azul().doClick();
+        } else if (color.startsWith("rojo")) {
+            gf.getMenu_tapete_rojo().doClick();
+        } else if (color.startsWith("negro")) {
+            gf.getMenu_tapete_negro().doClick();
+        } else if (color.startsWith("madera")) {
+            gf.getMenu_tapete_madera().doClick();
+        } else {
+            gf.getMenu_tapete_verde().doClick();
         }
     }
 

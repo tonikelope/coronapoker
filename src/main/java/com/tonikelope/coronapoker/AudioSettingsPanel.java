@@ -104,6 +104,24 @@ public class AudioSettingsPanel extends JPanel {
     private final JPanel retention_panel;
     private final JPanel purge_panel;
 
+    // Snapshot al ABRIR (diálogo transaccional): los cambios se aplican en vivo como
+    // previsualización y revert() restaura estos valores si se cancela; GUARDAR los
+    // conserva. (El diálogo independiente del altavoz commitea siempre.)
+    private final float snap_master_volume;
+    private final boolean snap_sonidos;
+    private final boolean snap_sonidos_chorra;
+    private final boolean snap_musica;
+    private final boolean snap_tts_server;
+    private final boolean snap_voice_messages;
+    private final String snap_output_device;
+    private final String snap_capture_device;
+    private final boolean snap_mic_enabled;
+    private final boolean snap_block_voice;
+    private final boolean snap_play_own;
+    private final int snap_retention_days;
+    private final boolean snap_block_tts_local;
+    private final int snap_voice_key;
+
     private volatile boolean loading = true;
     private volatile KeyEventDispatcher key_capture_dispatcher = null;
 
@@ -128,6 +146,21 @@ public class AudioSettingsPanel extends JPanel {
 
         super(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        snap_master_volume = Audio.MASTER_VOLUME;
+        snap_sonidos = GameFrame.SONIDOS;
+        snap_sonidos_chorra = GameFrame.SONIDOS_CHORRA;
+        snap_musica = GameFrame.MUSICA_AMBIENTAL;
+        snap_tts_server = GameFrame.TTS_SERVER;
+        snap_voice_messages = GameFrame.VOICE_MESSAGES;
+        snap_output_device = AudioDeviceManager.getOutputDevice();
+        snap_capture_device = AudioDeviceManager.getCaptureDevice();
+        snap_mic_enabled = AudioDeviceManager.isMicEnabled();
+        snap_block_voice = AudioDeviceManager.isBlockVoiceMessages();
+        snap_play_own = AudioDeviceManager.isPlayOwnVoiceMessages();
+        snap_retention_days = AudioDeviceManager.getVoiceNoteRetentionDays();
+        snap_block_tts_local = AudioDeviceManager.isBlockTtsLocal();
+        snap_voice_key = VoiceMessageManager.getVoiceKey();
 
         output_devices = AudioDeviceManager.getOutputDevices();
 
@@ -490,6 +523,59 @@ public class AudioSettingsPanel extends JPanel {
 
         if (INSTANCE == this) {
             INSTANCE = null;
+        }
+    }
+
+    // Revierte (al CANCELAR el diálogo transaccional) los ajustes de audio al estado
+    // capturado al abrir, re-aplicando cada uno por su setter normal (los cambios
+    // globales re-emiten su broadcast, restaurando también a los clientes).
+    public void revert() {
+
+        if (Audio.MASTER_VOLUME != snap_master_volume) {
+            Audio.MASTER_VOLUME = snap_master_volume;
+            Audio.refreshALLVolumes(false);
+            Helpers.PROPERTIES.setProperty("master_volume", String.valueOf(Audio.MASTER_VOLUME));
+            Helpers.savePropertiesFile();
+        }
+        if (GameFrame.SONIDOS != snap_sonidos) {
+            GameFrame.setSonidos(snap_sonidos);
+        }
+        if (GameFrame.SONIDOS_CHORRA != snap_sonidos_chorra) {
+            GameFrame.setSonidosChorra(snap_sonidos_chorra);
+        }
+        if (GameFrame.MUSICA_AMBIENTAL != snap_musica) {
+            GameFrame.setMusicaAmbiental(snap_musica);
+        }
+        if (GameFrame.TTS_SERVER != snap_tts_server) {
+            GameFrame.setTTSGlobal(snap_tts_server);
+        }
+        if (GameFrame.VOICE_MESSAGES != snap_voice_messages) {
+            GameFrame.setVoiceMessages(snap_voice_messages);
+        }
+        if (!java.util.Objects.equals(snap_output_device, AudioDeviceManager.getOutputDevice())) {
+            AudioDeviceManager.setOutputDevice(snap_output_device);
+            Helpers.threadRun(Audio::restartCurrentLoopMp3Resources);
+        }
+        if (!java.util.Objects.equals(snap_capture_device, AudioDeviceManager.getCaptureDevice())) {
+            AudioDeviceManager.setCaptureDevice(snap_capture_device);
+        }
+        if (AudioDeviceManager.isMicEnabled() != snap_mic_enabled) {
+            AudioDeviceManager.setMicEnabled(snap_mic_enabled);
+        }
+        if (AudioDeviceManager.isBlockVoiceMessages() != snap_block_voice) {
+            AudioDeviceManager.setBlockVoiceMessages(snap_block_voice);
+        }
+        if (AudioDeviceManager.isPlayOwnVoiceMessages() != snap_play_own) {
+            AudioDeviceManager.setPlayOwnVoiceMessages(snap_play_own);
+        }
+        if (AudioDeviceManager.getVoiceNoteRetentionDays() != snap_retention_days) {
+            AudioDeviceManager.setVoiceNoteRetentionDays(snap_retention_days);
+        }
+        if (AudioDeviceManager.isBlockTtsLocal() != snap_block_tts_local) {
+            AudioDeviceManager.setBlockTtsLocal(snap_block_tts_local);
+        }
+        if (VoiceMessageManager.getVoiceKey() != snap_voice_key) {
+            VoiceMessageManager.setVoiceKey(snap_voice_key);
         }
     }
 

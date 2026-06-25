@@ -86,7 +86,7 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             pending_fullscreen = display_combo.getSelectedIndex() == 1;
         });
-        addLeft(pantalla, labeledRow("settings.modo_pantalla", display_combo));
+        addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
 
         // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). Aplica al
         // vuelo al nivel elegido.
@@ -101,7 +101,7 @@ public class AppearanceSettingsPanel extends JPanel {
             int pct = (Integer) zoom_spinner.getValue();
             gf.setZoomLevel(Math.round((pct - 100) / (GameFrame.ZOOM_STEP * 100f)));
         });
-        addLeft(pantalla, labeledRow("settings.zoom_pct", zoom_spinner));
+        addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
 
         // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
         // aplica al vuelo.
@@ -117,9 +117,9 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             gf.setCompactView(compact_combo.getSelectedIndex());
         });
-        addLeft(pantalla, labeledRow("menu.vista_compacta", compact_combo));
+        addLeft(pantalla, labeledRow("/images/menu/tiny.png", "menu.vista_compacta", compact_combo));
 
-        addLeft(pantalla, delegatingCheckbox("menu.auto_ajustar", GameFrame.AUTO_ZOOM, gf.getAuto_fit_zoom_menu()));
+        addLeft(pantalla, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM, gf.getAuto_fit_zoom_menu()));
 
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
@@ -144,7 +144,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 }
             }
         });
-        addLeft(mesa, labeledRow("menu.barajas", baraja_combo));
+        addLeft(mesa, labeledRow("/images/menu/baraja.png", "menu.barajas", baraja_combo));
 
         // Tapete: combo con los 5 colores; delega en el radio correspondiente.
         JComboBox<String> tapete_combo = new JComboBox<>(new String[]{
@@ -179,19 +179,19 @@ public class AppearanceSettingsPanel extends JPanel {
                     break;
             }
         });
-        addLeft(mesa, labeledRow("menu.tapetes", tapete_combo));
+        addLeft(mesa, labeledRow("/images/menu/tapetes.png", "menu.tapetes", tapete_combo));
 
-        addLeft(mesa, delegatingCheckbox("menu.mostrar_reloj", GameFrame.SHOW_CLOCK, gf.getTime_menu()));
-        addLeft(mesa, delegatingCheckbox("menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR, gf.getCoste_igualar_menu()));
+        addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "menu.mostrar_reloj", GameFrame.SHOW_CLOCK, gf.getTime_menu()));
+        addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR, gf.getCoste_igualar_menu()));
 
         // ---------------- Animaciones y chat ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
 
-        addLeft(anim, delegatingCheckbox("menu.cinematicas", GameFrame.CINEMATICAS, gf.getMenu_cinematicas()));
-        addLeft(anim, delegatingCheckbox("menu.efectos_animacion_reparto", GameFrame.ANIMACION_REPARTO, gf.getAnim_reparto_menu()));
-        addLeft(anim, delegatingCheckbox("menu.efectos_animacion_ciegas_dealer", GameFrame.ANIMACION_CIEGAS_DEALER, gf.getAnim_ciegas_dealer_menu()));
-        addLeft(anim, delegatingCheckbox("menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
-        addLeft(anim, delegatingCheckbox("menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/video.png", "menu.cinematicas", GameFrame.CINEMATICAS, gf.getMenu_cinematicas()));
+        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto", GameFrame.ANIMACION_REPARTO, gf.getAnim_reparto_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", GameFrame.ANIMACION_CIEGAS_DEALER, gf.getAnim_ciegas_dealer_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -243,20 +243,31 @@ public class AppearanceSettingsPanel extends JPanel {
         column.add(Box.createVerticalStrut(4));
     }
 
-    private JCheckBox delegatingCheckbox(String i18nKey, boolean selected, JMenuItem menu) {
+    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu) {
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), selected);
         cb.setEnabled(menu.isEnabled());
         // Un clic en el checkbox => un clic en el item de menú (aplica + persiste +
         // refleja en el popup). Ambos conmutan un paso, así que quedan sincronizados.
         cb.addActionListener(e -> menu.doClick());
-        return cb;
+        // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con
+        // la pestaña Partida y con los menús que este diálogo sustituye.
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        row.add(new JLabel(icon(iconPath)));
+        row.add(cb);
+        return row;
     }
 
-    private JPanel labeledRow(String labelKey, JComponent control) {
+    private JPanel labeledRow(String iconPath, String labelKey, JComponent control) {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        row.add(new JLabel(Translator.translate(labelKey) + ":"));
+        JLabel label = new JLabel(Translator.translate(labelKey) + ":");
+        label.setIcon(icon(iconPath));
+        row.add(label);
         row.add(control);
         return row;
+    }
+
+    private static javax.swing.ImageIcon icon(String path) {
+        return new javax.swing.ImageIcon(AppearanceSettingsPanel.class.getResource(path));
     }
 
     private int currentTapeteIndex() {

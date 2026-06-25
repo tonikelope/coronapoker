@@ -2716,6 +2716,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // "Detener la timba" y "Salir" juntos, sin separador entre ambos.
         file_menu.remove(jSeparator11);
 
+        // "Límite de manos" sale del menú (vive en la pestaña Partida del diálogo
+        // Ajustes); "Última mano" se mueve junto a Detener la timba / Salir, como la
+        // PRIMERA de ese grupo. Ambos ítems siguen construidos (estado sincronizado).
+        file_menu.remove(max_hands_menu);
+        file_menu.remove(last_hand_menu);
+        file_menu.remove(jSeparator3);
+        int last_hand_target = java.util.Arrays.asList(file_menu.getMenuComponents()).indexOf(halt_game_menu);
+        if (last_hand_target >= 0) {
+            file_menu.insert(last_hand_menu, last_hand_target);
+        } else {
+            file_menu.add(last_hand_menu);
+        }
+
         // El submenú "Apariencia" se construye (re-parenta sus ítems FUERA del
         // menú-bar, para que no se dupliquen) pero YA NO se muestra: todos los
         // ajustes de apariencia viven ahora en la pestaña "Apariencia" del diálogo

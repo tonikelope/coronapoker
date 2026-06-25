@@ -2655,7 +2655,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         opciones_menu.remove(jSeparator8);
         opciones_menu.remove(decks_separator);
 
-        // Rabbit junto a las otras reglas (IWTSTH/RIT), sin separador en medio.
+        // IWTSTH/RIT/Rabbit se movieron al diálogo "Ajustes de partida": sus dos
+        // separadores en Preferencias quedan huérfanos, se quitan.
+        opciones_menu.remove(jSeparator2);
         opciones_menu.remove(jSeparator10);
 
         // "Confirmar todas las acciones" justo debajo de "Botones AUTO".

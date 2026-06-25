@@ -4205,8 +4205,71 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(fullscreen);
         }
         if (fullscreen != full_screen) {
-            triggerFullScreenToggle();
+            // El toggle dispone y recrea el peer nativo del frame. Ejecutarlo de forma
+            // SÍNCRONA dentro del evento que lo dispara (el combo del diálogo de Ajustes,
+            // en el mismo ciclo del EDT) corrompía el estado y el cambio solo funcionaba
+            // UNA vez. Se difiere a un ciclo posterior del EDT para que el toggle corra
+            // limpio, fuera del despacho del evento del combo.
+            SwingUtilities.invokeLater(this::triggerFullScreenToggle);
         }
+    }
+
+    // Fija la vista compacta a un valor CONCRETO (0=off, 1=compacta, 2=compacta+cartas),
+    // para el desplegable de Ajustes > Apariencia. Misma lógica que el ciclo del menú
+    // (compact_menuActionPerformed) pero a un destino dado en vez de (n+1)%3.
+    public void setCompactView(int target) {
+        target = ((target % 3) + 3) % 3;
+        if (target == GameFrame.VISTA_COMPACTA) {
+            return;
+        }
+        GameFrame.VISTA_COMPACTA = target;
+        compact_menu.setSelected(target > 0);
+        for (Card carta : getTapete().getCommunityCards().getCartasComunes()) {
+            carta.setCompactable(target == 2);
+        }
+        Audio.playWavResource("misc/power_" + (target > 0 ? "down" : "up") + ".wav");
+        Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(target));
+        Helpers.savePropertiesFile();
+        Helpers.threadRun(this::vistaCompacta);
+        Helpers.TapetePopupMenu.COMPACTA_MENU.setSelected(target > 0);
+    }
+
+    // Fija el nivel de zoom a un valor CONCRETO, para el spinner de Ajustes >
+    // Apariencia. Aplica de una sola vez (mismo trabajo que zoom_menu_in/out/reset
+    // pero al nivel destino). El factor de zoom debe quedar > 0 (misma guarda que el
+    // zoom-out del menú).
+    public void setZoomLevel(int target) {
+        if (Helpers.doubleSecureCompare(0f, 1f + (target * ZOOM_STEP)) >= 0) {
+            return;
+        }
+        final int old = ZOOM_LEVEL;
+        if (target == old) {
+            return;
+        }
+        Audio.playWavResource("misc/zoom_" + (target > old ? "in" : "out") + ".wav");
+        Helpers.threadRun(() -> {
+            ZOOM_LEVEL = target;
+            Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(ZOOM_LEVEL));
+            Card.updateCachedImages(1f + ZOOM_LEVEL * ZOOM_STEP, false);
+            zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+            if (jugadas_dialog != null && jugadas_dialog.isVisible()) {
+                for (Card carta : jugadas_dialog.getCartas()) {
+                    carta.invalidateImagePrecache();
+                    carta.refreshCard();
+                }
+                Helpers.GUIRun(jugadas_dialog::pack);
+            }
+            if (shortcuts_dialog != null && shortcuts_dialog.isVisible()) {
+                shortcuts_dialog.zoom(1f + ZOOM_LEVEL * ZOOM_STEP, null);
+            }
+            if (GameFrame.AUTO_ZOOM) {
+                Helpers.threadRun(() -> {
+                    Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
+                    tapete.autoZoom(false);
+                });
+            }
+            Helpers.savePropertiesFile();
+        });
     }
 
     private void compact_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compact_menuActionPerformed

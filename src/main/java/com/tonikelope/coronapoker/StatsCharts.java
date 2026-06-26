@@ -29,6 +29,7 @@ import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.plot.SpiderWebPlot;
 import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
 import org.jfree.chart.title.TextTitle;
@@ -149,6 +150,49 @@ public final class StatsCharts {
 
     public static final Color ORANGE = ACCENT;
     public static final Color BLUE = new Color(0, 120, 170);
+
+    private static final Color[] PALETTE = {
+        new Color(255, 102, 0), new Color(0, 120, 170), new Color(46, 160, 75),
+        new Color(170, 70, 160), new Color(210, 160, 0), new Color(120, 90, 200),
+        new Color(0, 160, 160), new Color(200, 80, 80), new Color(110, 140, 40), new Color(90, 90, 90)
+    };
+
+    /**
+     * Radar/spider chart with one axis per metric and one translucent web per player. The
+     * scale is fixed 0..100, so it is meant for percentage metrics. {@code seriesByPlayer}
+     * maps each player to a value per axis (in {@code axisLabels} order).
+     */
+    public static ChartPanel radar(String title, String[] axisLabels, Map<String, double[]> seriesByPlayer) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        for (Map.Entry<String, double[]> e : seriesByPlayer.entrySet()) {
+            double[] vals = e.getValue();
+            for (int a = 0; a < axisLabels.length; a++) {
+                dataset.addValue(a < vals.length ? vals[a] : 0.0, e.getKey(), axisLabels[a]);
+            }
+        }
+
+        SpiderWebPlot plot = new SpiderWebPlot(dataset);
+        plot.setStartAngle(90);
+        plot.setInteriorGap(0.30);
+        plot.setBackgroundPaint(PANEL_BG);
+        plot.setOutlineVisible(false);
+        plot.setAxisLinePaint(new Color(200, 200, 200));
+        plot.setWebFilled(true);
+        plot.setForegroundAlpha(0.45f);
+        plot.setMaxValue(100.0);
+        plot.setLabelFont(font(Font.BOLD, 12f));
+        plot.setLabelPaint(TITLE);
+
+        int idx = 0;
+        for (String ignored : seriesByPlayer.keySet()) {
+            plot.setSeriesPaint(idx, PALETTE[idx % PALETTE.length]);
+            idx++;
+        }
+
+        JFreeChart chart = new JFreeChart(title, font(Font.BOLD, 17f), plot, true);
+        styleChrome(chart);
+        return wrap(chart);
+    }
 
     /**
      * Horizontal bar chart of one value per player in a single flat colour, with the bar

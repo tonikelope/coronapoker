@@ -662,6 +662,20 @@ public class StatsDialog extends JFrame {
                     res_table.setRowSorter(tableRowSorter);
                     table_panel.setVisible(true);
 
+                    // Performance radar: participation / win rate / accuracy per player (%).
+                    LinkedHashMap<String, double[]> radarData = new LinkedHashMap<>();
+                    if (idxPlayer != -1 && idxManosJ != -1 && idxManosG != -1 && idxPrec != -1) {
+                        for (int r = 0; r < tableModel.getRowCount() && radarData.size() < 10; r++) {
+                            radarData.put(String.valueOf(tableModel.getValueAt(r, idxPlayer)), new double[]{
+                                safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxManosJ))),
+                                safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxManosG))),
+                                safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxPrec)))
+                            });
+                        }
+                    }
+                    String[] radarAxes = {Translator.translate("stats.manos_jugadas"), Translator.translate("stats.manos_ganadas_2"), Translator.translate("stats.precision")};
+                    showChart(radarData.isEmpty() ? null : StatsCharts.radar(Translator.translate("stats.chart_rendimiento"), radarAxes, radarData));
+
                     res_table_warning.setText(Translator.translate("stats.nota_efectividad_roi_manosjugadas_si"));
                     res_table_warning.setVisible(true);
                 });

@@ -93,6 +93,8 @@ public class BalanceDialog extends JDialog {
     private static final Color WIN = new Color(0, 200, 60);
     private static final Color LOSE = new Color(220, 30, 30);
     private static final Color NEUTRAL = new Color(140, 140, 140);
+    // Naranja de marca: el color del contador mientras rueda (antes del +/- final).
+    private static final Color ORANGE = new Color(255, 102, 0);
 
     // Cajas claras sobre el tapete (como el boceto de referencia).
     private static final Color CARD_BG = new Color(248, 248, 248);
@@ -416,7 +418,8 @@ public class BalanceDialog extends JDialog {
             return empty;
         }
 
-        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), cmp > 0 ? WIN : LOSE);
+        // Arranca en naranja (el color del contador); el +/- final se revela en verde/rojo.
+        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), ORANGE);
         amount.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
         amount.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
 
@@ -451,7 +454,7 @@ public class BalanceDialog extends JDialog {
 
         final double from = anim_buyin;
         final double to = anim_stack;
-        final long duration_ms = 2000;
+        final long duration_ms = 1600;
         final long start_ms = System.currentTimeMillis();
 
         final String reveal_text = anim_ganancia > 0
@@ -470,16 +473,40 @@ public class BalanceDialog extends JDialog {
                 ((javax.swing.Timer) e.getSource()).stop();
                 amount_label.setText(Helpers.money2String(to));
 
-                // Breve pausa sobre el stack final y revelado del neto +/-.
-                javax.swing.Timer reveal = new javax.swing.Timer(320, (ev) -> {
+                // Breve pausa sobre el stack final y revelado del neto +/- (verde/rojo + parpadeo).
+                javax.swing.Timer reveal = new javax.swing.Timer(200, (ev) -> {
                     ((javax.swing.Timer) ev.getSource()).stop();
+                    amount_label.setFill(anim_ganancia > 0 ? WIN : LOSE);
                     amount_label.setText(reveal_text);
+                    blinkAmount(reveal_text);
                 });
                 reveal.setRepeats(false);
                 reveal.start();
             }
         });
         roll.start();
+    }
+
+    // Parpadeo del importe al revelar el neto: lo apaga/enciende un par de veces y termina
+    // visible. Llamar tras fijar el texto y color finales.
+    private void blinkAmount(String text) {
+        if (amount_label == null) {
+            return;
+        }
+
+        final int total = 6; // 3 ciclos apagar/encender
+        final int[] count = {0};
+
+        javax.swing.Timer blink = new javax.swing.Timer(130, null);
+        blink.addActionListener((e) -> {
+            count[0]++;
+            amount_label.setText(count[0] % 2 == 1 ? "" : text);
+            if (count[0] >= total) {
+                ((javax.swing.Timer) e.getSource()).stop();
+                amount_label.setText(text);
+            }
+        });
+        blink.start();
     }
 
     private double localGanancia() {
@@ -776,11 +803,16 @@ public class BalanceDialog extends JDialog {
 
         private static final float STROKE_RATIO = 0.06f;
         private final Color halo = new Color(0, 0, 0, 235);
-        private final Color fill;
+        private Color fill;
 
         OutlinedLabel(String text, Color fill) {
             super(text, SwingConstants.CENTER);
             this.fill = fill;
+        }
+
+        void setFill(Color c) {
+            this.fill = c;
+            repaint();
         }
 
         @Override

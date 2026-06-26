@@ -1401,33 +1401,34 @@ public class StatsDialog extends JFrame {
         stats_db_executor.submit(() -> {
             try {
                 String sql = "SELECT * FROM hand WHERE id_game=? AND end IS NOT NULL ORDER BY id DESC";
+
+                // Drain on the worker thread; publish to the combo on the EDT.
+                final LinkedHashMap<String, HashMap<String, Object>> loaded = new LinkedHashMap<>();
+
                 try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
                     statement.setInt(1, id);
                     try (ResultSet rs = statement.executeQuery()) {
-                        Helpers.GUIRunAndWait(() -> {
-                            hand.clear();
-                            hand_combo.removeAllItems();
-                            hand_combo.addItem(Translator.translate("game.todas_las_manos"));
-                            try {
-                                while (rs.next()) {
-                                    try {
-                                        hand_combo.addItem(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")));
-                                        HashMap<String, Object> map = new HashMap<>();
-                                        map.put("id", rs.getInt("id"));
-                                        hand.put(Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter")), map);
-                                    } catch (Exception ex) {
-                                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                                    }
-                                }
-                            } catch (Exception ex) {
-                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                            }
-                        });
+                        while (rs.next()) {
+                            String label = Translator.translate("game.mano_2") + " " + String.valueOf(rs.getInt("counter"));
+                            HashMap<String, Object> map = new HashMap<>();
+                            map.put("id", rs.getInt("id"));
+                            loaded.put(label, map);
+                        }
                     }
                 } catch (SQLException ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
+
+                Helpers.GUIRunAndWait(() -> {
+                    hand.clear();
+                    hand_combo.removeAllItems();
+                    hand_combo.addItem(Translator.translate("game.todas_las_manos"));
+                    for (Map.Entry<String, HashMap<String, Object>> entry : loaded.entrySet()) {
+                        hand.put(entry.getKey(), entry.getValue());
+                        hand_combo.addItem(entry.getKey());
+                    }
+                });
             } finally {
                 Helpers.GUIRunAndWait(() -> {
                     cargando.setVisible(false);
@@ -1519,89 +1520,60 @@ public class StatsDialog extends JFrame {
             game_combo_blocked = true;
         });
 
-        // try-with-resources: si GUIRunAndWait lanza no-SQLException dentro
-        // de su Runnable (e.g. UnsupportedEncodingException convertida a
-        // RuntimeException por el EDT), el flujo original saltaba al catch
-        // SQLException externo y NUNCA llegaba al statement.close() — leak
-        // del PreparedStatement + ResultSet. try-with-resources garantiza
-        // close en cualquier rama de salida.
+        // Capture the filter on the EDT (Swing state must not be read off-EDT).
+        final String[] filtroHolder = new String[1];
+        Helpers.GUIRunAndWait(() -> {
+            if (!game_combo_filter.getText().isBlank() && game_combo_filter.getBackground() != Color.RED) {
+                filtroHolder[0] = game_combo_filter.getText().trim().toUpperCase();
+            }
+        });
+        final String filtro = filtroHolder[0];
+
+        // Drain the ResultSet fully on this worker thread; Swing is only touched afterwards.
+        // try-with-resources guarantees the statement/ResultSet close on every exit path.
+        final LinkedHashMap<String, HashMap<String, Object>> loaded = new LinkedHashMap<>();
+        final DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+
         try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("SELECT * FROM game ORDER BY start DESC")) {
             statement.setQueryTimeout(30);
             try (ResultSet rs = statement.executeQuery()) {
-                Helpers.GUIRunAndWait(() -> {
-                    game.clear();
-
-                    game_combo.removeAllItems();
-
-                    game_combo.addItem(Translator.translate("game.todas_las_timbas"));
-
-                    String filtro = null;
-
-                    if (!game_combo_filter.getText().isBlank() && game_combo_filter.getBackground() != Color.RED) {
-                        filtro = game_combo_filter.getText().trim().toUpperCase();
-                    }
-
-                    try {
-                        int i = 0;
-
-                        while (rs.next()) {
-
-                            boolean ok = false;
-
-                            if (filtro != null) {
-
-                                String players[] = rs.getString("players").split("#");
-
-                                ArrayList<String> decoded_players = new ArrayList<>();
-
-                                for (String p : players) {
-
-                                    decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
-                                }
-
-                                ok = decoded_players.contains(filtro);
-
-                            } else {
-                                ok = true;
-                            }
-
-                            if (ok) {
-
-                                i++;
-                                // read the result set
-
-                                Timestamp ts = new Timestamp(rs.getLong("start"));
-                                DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-                                Date date = new Date(ts.getTime());
-
-                                HashMap<String, Object> map = new HashMap<>();
-                                map.put("id", rs.getInt("id"));
-                                map.put("start_timestamp", rs.getLong("start"));
-
-                                String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
-                                game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
-                                game_combo.addItem(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length);
-                            }
+                while (rs.next()) {
+                    boolean ok = true;
+                    if (filtro != null) {
+                        ArrayList<String> decoded_players = new ArrayList<>();
+                        for (String p : rs.getString("players").split("#")) {
+                            decoded_players.add(new String(Base64.getDecoder().decode(p), "UTF-8").trim().toUpperCase());
                         }
-
-                        if (filtro != null && i == 0) {
-
-                            game_combo_filter.setBackground(Color.RED);
-
-                        }
-
-                        purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
-
-                    } catch (SQLException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-                    } catch (UnsupportedEncodingException ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        ok = decoded_players.contains(filtro);
                     }
-                });
+                    if (ok) {
+                        Date date = new Date(new Timestamp(rs.getLong("start")).getTime());
+                        HashMap<String, Object> map = new HashMap<>();
+                        map.put("id", rs.getInt("id"));
+                        map.put("start_timestamp", rs.getLong("start"));
+                        String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
+                        loaded.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
+                    }
+                }
             }
-        } catch (SQLException ex) {
+        } catch (SQLException | UnsupportedEncodingException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+        // Publish the drained games to the combo on the EDT.
+        Helpers.GUIRunAndWait(() -> {
+            game.clear();
+            game_combo.removeAllItems();
+            game_combo.addItem(Translator.translate("game.todas_las_timbas"));
+            for (Map.Entry<String, HashMap<String, Object>> entry : loaded.entrySet()) {
+                game.put(entry.getKey(), entry.getValue());
+                game_combo.addItem(entry.getKey());
+            }
+            if (filtro != null && loaded.isEmpty()) {
+                game_combo_filter.setBackground(Color.RED);
+            }
+            purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+        });
 
         Helpers.GUIRunAndWait(() -> {
             cargando.setVisible(false);

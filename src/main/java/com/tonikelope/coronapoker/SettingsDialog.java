@@ -19,15 +19,22 @@ package com.tonikelope.coronapoker;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JViewport;
+import javax.swing.Scrollable;
+import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
 
@@ -70,10 +77,14 @@ public class SettingsDialog extends JDialog {
         audio_panel = new AudioSettingsPanel();
         game_panel = new GameSettingsPanel(read_only);
 
+        // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
+        // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
+        // muestra barra vertical cuando el contenido no entra. Así el diálogo se encoge y
+        // scrollea en resoluciones bajas en vez de salirse de la pantalla.
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), appearance_panel);
-        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), audio_panel);
-        tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), game_panel);
+        tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), scrollableTab(appearance_panel));
+        tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), scrollableTab(audio_panel));
+        tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
 
         // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
         // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
@@ -160,6 +171,33 @@ public class SettingsDialog extends JDialog {
         cancel_button.setFont(buttons_font);
 
         pack();
+
+        // Tope al ÁREA ÚTIL de la pantalla (mismo patrón de baja resolución que
+        // NewGameDialog: getMaximumWindowBounds excluye la barra de tareas). El diálogo
+        // queda lo más pequeño posible que entre todo; si aún se sale (resolución muy
+        // baja / escalado alto), se recorta y cada pestaña pasa a scrollear. Los botones
+        // GUARDAR/Cancelar viven en el SOUTH, fuera del scroll, así que siempre se ven.
+        capToScreen();
+    }
+
+    // Recorta el tamaño empaquetado al área útil de la pantalla (95%). Solo encoge.
+    private void capToScreen() {
+        Rectangle usable = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int max_w = Math.round(usable.width * 0.95f);
+        int max_h = Math.round(usable.height * 0.95f);
+        int w = getWidth();
+        int h = getHeight();
+        // Si hay que recortar el ALTO, aparecerá barra vertical; reserva su ancho (~17px)
+        // para que NO se dispare además una barra horizontal espuria por el ancho que
+        // roba. Si la pantalla no da para ese extra, la horizontal aparece y se scrollea.
+        if (h > max_h) {
+            w += new javax.swing.JScrollBar(javax.swing.JScrollBar.VERTICAL).getPreferredSize().width + 2;
+        }
+        w = Math.min(w, max_w);
+        h = Math.min(h, max_h);
+        if (w != getWidth() || h != getHeight()) {
+            setSize(w, h);
+        }
     }
 
     // ¿Hay cambios sin confirmar en cualquiera de las pestañas? (Apariencia/Audio se
@@ -201,6 +239,58 @@ public class SettingsDialog extends JDialog {
             if (child instanceof Container) {
                 fixTitledBorderFonts((Container) child, font);
             }
+        }
+    }
+
+    // Envuelve el contenido de una pestaña en un JScrollPane sin borde, con barras
+    // vertical y horizontal bajo demanda y rueda de ratón fluida. El contenido (ver
+    // ScrollableTabPanel) RELLENA el viewport mientras cabe y solo scrollea cuando no.
+    private static JScrollPane scrollableTab(Component panel) {
+        JScrollPane sp = new JScrollPane(new ScrollableTabPanel(panel),
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        sp.setBorder(BorderFactory.createEmptyBorder());
+        sp.getVerticalScrollBar().setUnitIncrement(16);
+        sp.getHorizontalScrollBar().setUnitIncrement(16);
+        return sp;
+    }
+
+    // Contenedor que, dentro de un JScrollPane, RELLENA el viewport mientras el contenido
+    // cabe (sigue su ancho/alto: ni barras espurias ni franja de fondo en pantallas
+    // amplias) y deja scrollear en el eje que NO cabe cuando el diálogo se encoge.
+    // Patrón estándar "ScrollablePanel".
+    private static final class ScrollableTabPanel extends JPanel implements Scrollable {
+
+        ScrollableTabPanel(Component view) {
+            super(new BorderLayout());
+            add(view, BorderLayout.CENTER);
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) {
+            return 16;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visible, int orientation, int direction) {
+            return orientation == SwingConstants.VERTICAL ? visible.height : visible.width;
+        }
+
+        // Sigue el ancho del viewport solo si el contenido CABE; si no, deja que aparezca
+        // la barra horizontal (cuando el usuario estrecha mucho el diálogo).
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return getParent() instanceof JViewport && getPreferredSize().width <= getParent().getWidth();
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return getParent() instanceof JViewport && getPreferredSize().height < getParent().getHeight();
         }
     }
 

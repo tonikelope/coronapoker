@@ -257,7 +257,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private void initComponents() {
 
         setLayout(new java.awt.BorderLayout());
-        setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         rules_panel = new javax.swing.JPanel();
         manos_checkbox = new javax.swing.JCheckBox();

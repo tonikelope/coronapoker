@@ -156,7 +156,7 @@ public class SettingsDialog extends JDialog {
         // estilo bold/plain de cada control). Las pestañas Apariencia y Audio usaban
         // la fuente por defecto (más pequeña) y quedaban descompensadas respecto a
         // Partida; con esto todo el diálogo va al mismo tamaño.
-        setUniformFont(content, Helpers.GUI_FONT, 16);
+        Helpers.setUniformFont(content, Helpers.GUI_FONT, 16);
 
         // setUniformFont no alcanza los títulos de los TitledBorder.
         fixTitledBorderFonts(content, save_button.getFont());
@@ -218,19 +218,6 @@ public class SettingsDialog extends JDialog {
     private void cancelWithConfirm() {
         if (!isDirty() || Helpers.mostrarMensajeInformativoSINO(this, Translator.translate("settings.descartar_cambios")) == javax.swing.JOptionPane.YES_OPTION) {
             dispose();
-        }
-    }
-
-    // Aplica GUI_FONT a TODOS los componentes al MISMO tamaño (conservando el estilo
-    // bold/plain de cada uno), para que las 3 pestañas tengan fuentes homogéneas.
-    private static void setUniformFont(Container c, Font base, int size) {
-        for (Component child : c.getComponents()) {
-            Font f = child.getFont();
-            int style = (f != null) ? f.getStyle() : Font.PLAIN;
-            child.setFont(base.deriveFont(style, (float) size));
-            if (child instanceof Container) {
-                setUniformFont((Container) child, base, size);
-            }
         }
     }
 

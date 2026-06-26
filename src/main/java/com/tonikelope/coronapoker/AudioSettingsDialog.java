@@ -159,7 +159,10 @@ public class AudioSettingsDialog extends javax.swing.JDialog {
             }
         });
 
-        Helpers.updateFonts(this, Helpers.GUI_FONT, 1.2f);
+        // Mismo tamaño de fuente UNIFORME que el diálogo de Ajustes con pestañas (cuya
+        // pestaña "Audio" reutiliza este mismo panel): GUI_FONT a 16pt en todos los
+        // controles, en vez del antiguo escalado 1.2x que quedaba más pequeño.
+        Helpers.setUniformFont(getContentPane(), Helpers.GUI_FONT, 16);
 
         panel.applyFontsAndSizing();
 

@@ -145,7 +145,7 @@ public class AudioSettingsPanel extends JPanel {
     public AudioSettingsPanel() {
 
         super(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         snap_master_volume = Audio.MASTER_VOLUME;
         snap_sonidos = GameFrame.SONIDOS;
@@ -452,24 +452,24 @@ public class AudioSettingsPanel extends JPanel {
         left_col.setLayout(new BoxLayout(left_col, BoxLayout.Y_AXIS));
         left_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
         left_col.add(sound_music_panel);
-        left_col.add(Box.createVerticalStrut(10));
+        left_col.add(Box.createVerticalStrut(8));
         left_col.add(output_panel);
-        left_col.add(Box.createVerticalStrut(10));
+        left_col.add(Box.createVerticalStrut(8));
         left_col.add(mic_panel);
 
         JPanel right_col = new JPanel();
         right_col.setLayout(new BoxLayout(right_col, BoxLayout.Y_AXIS));
         right_col.setAlignmentY(JComponent.TOP_ALIGNMENT);
         right_col.add(notes_panel);
-        right_col.add(Box.createVerticalStrut(10));
+        right_col.add(Box.createVerticalStrut(8));
         right_col.add(tts_panel);
-        right_col.add(Box.createVerticalStrut(10));
+        right_col.add(Box.createVerticalStrut(8));
         right_col.add(global_panel);
 
         JPanel center_panel = new JPanel();
         center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.X_AXIS));
         center_panel.add(left_col);
-        center_panel.add(Box.createHorizontalStrut(15));
+        center_panel.add(Box.createHorizontalStrut(12));
         center_panel.add(right_col);
 
         add(volume_panel, BorderLayout.NORTH);

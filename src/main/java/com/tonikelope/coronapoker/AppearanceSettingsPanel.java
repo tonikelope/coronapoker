@@ -79,7 +79,7 @@ public class AppearanceSettingsPanel extends JPanel {
     public AppearanceSettingsPanel() {
 
         super(new java.awt.BorderLayout());
-        setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         GameFrame gf = GameFrame.getInstance();
 
@@ -151,6 +151,10 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(pantalla, labeledRow("/images/menu/tiny.png", "view.vista_compacta", compact_combo));
 
         addLeft(pantalla, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM, gf.getAuto_fit_zoom_menu()));
+
+        // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;
+        // el glue empuja sus filas arriba y deja el hueco abajo (como "Varios" en Partida).
+        closeColumn(pantalla);
 
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
@@ -372,11 +376,34 @@ public class AppearanceSettingsPanel extends JPanel {
         return p;
     }
 
-    // Añade un componente alineado a la izquierda + un pequeño hueco vertical.
+    // Añade una fila alineada a la izquierda + un hueco vertical constante (12px, la
+    // misma separación que las filas de "Varios" en la pestaña Partida). Las filas son
+    // naturalRow() (alto máximo = preferido), así que NO se estiran a rellenar la
+    // columna; el sobrante lo absorbe el glue que cierra cada columna.
     private void addLeft(JPanel column, JComponent comp) {
         comp.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         column.add(comp);
-        column.add(Box.createVerticalStrut(4));
+        column.add(Box.createVerticalStrut(12));
+    }
+
+    // Cierra una columna con un glue que empuja las filas hacia arriba y deja el hueco
+    // sobrante abajo (igual que el addContainerGap final de la pestaña Partida), en vez
+    // de repartirlo entre las filas. Solo importa en la columna más corta ("Pantalla y
+    // zoom"), que se estira para igualar a la derecha.
+    private static void closeColumn(JPanel column) {
+        column.add(Box.createVerticalGlue());
+    }
+
+    // Fila (FlowLayout) cuyo alto MÁXIMO es su alto preferido: en el BoxLayout Y de la
+    // columna no se estira para rellenar el hueco, así las filas quedan a separación
+    // constante (la del strut de addLeft) en vez de desperdigadas.
+    private static JPanel naturalRow() {
+        return new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0)) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
     }
 
     private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu) {
@@ -387,14 +414,14 @@ public class AppearanceSettingsPanel extends JPanel {
         cb.addActionListener(e -> menu.doClick());
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con
         // la pestaña Partida y con los menús que este diálogo sustituye.
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel row = naturalRow();
         row.add(new JLabel(icon(iconPath)));
         row.add(cb);
         return row;
     }
 
     private JPanel labeledRow(String iconPath, String labelKey, JComponent control) {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel row = naturalRow();
         JLabel label = new JLabel(Translator.translate(labelKey) + ":");
         label.setIcon(icon(iconPath));
         row.add(label);

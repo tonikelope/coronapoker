@@ -168,6 +168,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         this.blind_cap_checkbox.setEnabled(ciegas_double > 0);
         modelBlindCapSpinner(blindCapDoublingsFromCap());
         this.blind_cap_spinner.setEnabled(ciegas_double > 0 && GameFrame.BLIND_CAP > 0f);
+        this.blind_cap_label.setEnabled(ciegas_double > 0 && GameFrame.BLIND_CAP > 0f);
 
         // ============================ PARTIDA (reglas) ============================
         int mano_actual = GameFrame.getInstance().getCrupier().getMano();
@@ -216,6 +217,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             doblar_ciegas_spinner_manos.setEnabled(false);
             blind_cap_checkbox.setEnabled(false);
             blind_cap_spinner.setEnabled(false);
+            blind_cap_label.setEnabled(false);
             ante_checkbox.setEnabled(false);
             straddle_checkbox.setEnabled(false);
             manos_checkbox.setEnabled(false);
@@ -671,6 +673,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
             this.double_blinds_radio_minutos.setEnabled(this.doblar_checkbox.isSelected());
             this.blind_cap_checkbox.setEnabled(this.doblar_checkbox.isSelected());
             this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
+            this.blind_cap_label.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
         }
     }
 
@@ -701,6 +704,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {
         if (init) {
             this.blind_cap_spinner.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
+            this.blind_cap_label.setEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
         }
     }
 

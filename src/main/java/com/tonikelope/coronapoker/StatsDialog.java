@@ -973,45 +973,82 @@ public class StatsDialog extends JFrame {
 
         game_combo_blocked = true;
 
+        // Snapshot the selected game label on the EDT (needed to locate the log/chat files).
+        final String item = (String) game_combo.getSelectedItem();
+
         stats_db_executor.submit(() -> {
             try {
                 String sql = "SELECT *, (SELECT COUNT(*) from hand where id_game=? AND end IS NOT NULL) as tot_hands FROM game WHERE id=?";
+
+                // Read the row and resolve the log/chat files on this worker thread;
+                // only the label updates run on the EDT.
+                final String[] parts = item.split("@");
+                final String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
+                final String nick = Helpers.safeNickForFilename(parts[0].trim());
+
+                boolean found = false;
+                boolean logEnabled = false;
+                boolean chatEnabled = false;
+                String playtimeText = "";
+                String playersText = "";
+                String buyinText = "";
+                String handText = "";
+                String blindsText = "";
+                String blindsDoubleText = "";
+                String rebuyText = "";
+
                 try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                     statement.setQueryTimeout(30);
                     statement.setInt(1, id);
                     statement.setInt(2, id);
                     try (ResultSet rs = statement.executeQuery()) {
-                        Helpers.GUIRunAndWait(() -> {
-                            try {
-                                game_textarea_scrollpane.setVisible(false);
+                        if (rs.next()) {
+                            found = true;
+                            logEnabled = Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + nick + "_" + fecha + ".log"));
+                            chatEnabled = (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + nick + "_" + fecha + ".log")) > 0L);
+                            playtimeText = (rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")";
 
-                                String item = (String) game_combo.getSelectedItem();
-                                String[] parts = item.split("@");
-                                String fecha = parts[1].trim().replaceAll("-", "_").replaceAll(" ", "__").replaceAll(":", "_");
-
-                                log_game_button.setEnabled(Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log")));
-                                chat_game_button.setEnabled((Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".html")) > 0L) || (Files.isReadable(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log")) && Files.size(Paths.get(Init.LOGS_DIR + "/CORONAPOKER_CHAT_" + Helpers.safeNickForFilename(parts[0].trim()) + "_" + fecha + ".log")) > 0L));
-                                game_playtime_val.setText((rs.getObject("end") != null ? Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)) : "--:--:--") + " (" + Helpers.seconds2FullTime(rs.getLong("play_time")) + ")");
-
-                                String[] jugadores = rs.getString("players").split("#");
-                                String players = "";
-                                for (String j : jugadores) {
-                                    players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
-                                }
-                                game_players_val.setText(players.replaceAll("  \\|  $", ""));
-                                game_buyin_val.setText(String.valueOf(rs.getInt("buyin")));
-                                game_hand_val.setText(String.valueOf(rs.getInt("tot_hands")));
-                                game_blinds_val.setText(String.valueOf(rs.getDouble("sb")) + " / " + String.valueOf(rs.getDouble("sb") * 2));
-                                game_blinds_double_val.setText(rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO");
-                                game_rebuy_val.setText(rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO");
-                            } catch (Exception ex) {
-                                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                            StringBuilder players = new StringBuilder();
+                            for (String j : rs.getString("players").split("#")) {
+                                players.append(new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8")).append("  |  ");
                             }
-                        });
+                            playersText = players.toString().replaceAll("  \\|  $", "");
+                            buyinText = String.valueOf(rs.getInt("buyin"));
+                            handText = String.valueOf(rs.getInt("tot_hands"));
+                            blindsText = String.valueOf(rs.getDouble("sb")) + " / " + String.valueOf(rs.getDouble("sb") * 2);
+                            blindsDoubleText = rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO";
+                            rebuyText = rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO";
+                        }
                     }
-                } catch (SQLException ex) {
+                } catch (Exception ex) {
                     Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                 }
+
+                final boolean fFound = found;
+                final boolean fLog = logEnabled;
+                final boolean fChat = chatEnabled;
+                final String fPlaytime = playtimeText;
+                final String fPlayers = playersText;
+                final String fBuyin = buyinText;
+                final String fHand = handText;
+                final String fBlinds = blindsText;
+                final String fBlindsDouble = blindsDoubleText;
+                final String fRebuy = rebuyText;
+
+                Helpers.GUIRunAndWait(() -> {
+                    game_textarea_scrollpane.setVisible(false);
+                    if (fFound) {
+                        log_game_button.setEnabled(fLog);
+                        chat_game_button.setEnabled(fChat);
+                        game_playtime_val.setText(fPlaytime);
+                        game_players_val.setText(fPlayers);
+                        game_buyin_val.setText(fBuyin);
+                        game_hand_val.setText(fHand);
+                        game_blinds_val.setText(fBlinds);
+                        game_blinds_double_val.setText(fBlindsDouble);
+                        game_rebuy_val.setText(fRebuy);
+                    }
+                });
             } finally {
                 Helpers.GUIRunAndWait(() -> {
                     cargando.setVisible(false);
@@ -1025,6 +1062,21 @@ public class StatsDialog extends JFrame {
 
     }
 
+    /**
+     * Decodes a '#'-separated list of Base64-encoded nicks into a "a  |  b  |  c" display
+     * string. Returns "" for a null/empty value (matches the empty-label behaviour).
+     */
+    private static String decodePlayers(String raw) throws UnsupportedEncodingException {
+        if (raw == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String j : raw.split("#")) {
+            sb.append(new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8")).append("  |  ");
+        }
+        return sb.toString().replaceAll("  \\|  $", "");
+    }
+
     private void loadHandData(int id_game, int id_hand) {
 
         cargando.setVisible(true);
@@ -1033,114 +1085,80 @@ public class StatsDialog extends JFrame {
         stats_db_executor.submit(() -> {
           try {
             String sql = "SELECT * FROM hand WHERE id_game=? AND id=?";
+
+            // Read the row (including card parsing) on this worker thread; only the label
+            // updates run on the EDT.
+            boolean found = false;
+            String preflopText = "";
+            String flopText = "";
+            String turnText = "";
+            String riverText = "";
+            String blindsText = "";
+            String timeText = "";
+            String cpText = "";
+            String cgText = "";
+            String comcardsText = "";
+            String boteText = "";
+
             try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                 statement.setQueryTimeout(30);
                 statement.setInt(1, id_game);
                 statement.setInt(2, id_hand);
                 try (ResultSet rs = statement.executeQuery()) {
-                Helpers.GUIRunAndWait(() -> {
-                    try {
-                        String[] jugadores;
-
-                        String players = "";
-
-                        if (rs.getString("preflop_players") != null) {
-
-                            jugadores = rs.getString("preflop_players").split("#");
-
-                            for (String j : jugadores) {
-
-                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
-                            }
-
-                            hand_preflop_players_val.setText(players.replaceAll("  \\|  $", ""));
-                        } else {
-                            hand_preflop_players_val.setText("");
-                        }
-
-                        if (rs.getString("flop_players") != null) {
-                            jugadores = rs.getString("flop_players").split("#");
-
-                            players = "";
-
-                            for (String j : jugadores) {
-
-                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
-                            }
-
-                            hand_flop_players_val.setText(players.replaceAll("  \\|  $", ""));
-                        } else {
-                            hand_flop_players_val.setText("");
-                        }
-
-                        if (rs.getString("turn_players") != null) {
-
-                            jugadores = rs.getString("turn_players").split("#");
-
-                            players = "";
-
-                            for (String j : jugadores) {
-
-                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
-                            }
-
-                            hand_turn_players_val.setText(players.replaceAll("  \\|  $", ""));
-                        } else {
-                            hand_turn_players_val.setText("");
-                        }
-
-                        if (rs.getString("river_players") != null) {
-
-                            jugadores = rs.getString("river_players").split("#");
-
-                            players = "";
-
-                            for (String j : jugadores) {
-
-                                players += new String(Base64.getDecoder().decode(j.getBytes("UTF-8")), "UTF-8") + "  |  ";
-                            }
-
-                            hand_river_players_val.setText(players.replaceAll("  \\|  $", ""));
-                        } else {
-                            hand_river_players_val.setText("");
-                        }
-
-                        hand_blinds_val.setText(String.valueOf(rs.getDouble("sbval")) + " / " + String.valueOf(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")");
-
-                        hand_time_val.setText(Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000)));
-                        hand_cp_val.setText(rs.getString("sb"));
-                        hand_cg_val.setText(rs.getString("bb"));
-
+                    if (rs.next()) {
+                        found = true;
+                        preflopText = decodePlayers(rs.getString("preflop_players"));
+                        flopText = decodePlayers(rs.getString("flop_players"));
+                        turnText = decodePlayers(rs.getString("turn_players"));
+                        riverText = decodePlayers(rs.getString("river_players"));
+                        blindsText = String.valueOf(rs.getDouble("sbval")) + " / " + String.valueOf(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
+                        timeText = Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000));
+                        cpText = rs.getString("sb");
+                        cgText = rs.getString("bb");
                         if (rs.getString("com_cards") != null) {
-
                             ArrayList<Card> cartas = new ArrayList<>();
-
-                            for (String c : ((String) rs.getString("com_cards")).split("#")) {
-
+                            for (String c : rs.getString("com_cards").split("#")) {
                                 String[] partes = c.split("_");
-
                                 Card carta = new Card(false);
-
                                 carta.actualizarValorPalo(partes[0], partes[1]);
-
                                 cartas.add(carta);
                             }
-
-                            hand_comcards_val.setText(Card.collection2String(cartas));
-                        } else {
-                            hand_comcards_val.setText("");
+                            comcardsText = Card.collection2String(cartas);
                         }
-
-                        hand_bote_val.setText(String.valueOf(Helpers.doubleClean(rs.getDouble("pot"))));
-
-                        loadShowdownData(id_hand);
-                    } catch (Exception ex) {
-                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                        boteText = String.valueOf(Helpers.doubleClean(rs.getDouble("pot")));
                     }
-                });
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            final boolean fFound = found;
+            final String fPreflop = preflopText;
+            final String fFlop = flopText;
+            final String fTurn = turnText;
+            final String fRiver = riverText;
+            final String fBlinds = blindsText;
+            final String fTime = timeText;
+            final String fCp = cpText;
+            final String fCg = cgText;
+            final String fComcards = comcardsText;
+            final String fBote = boteText;
+
+            if (fFound) {
+                Helpers.GUIRunAndWait(() -> {
+                    hand_preflop_players_val.setText(fPreflop);
+                    hand_flop_players_val.setText(fFlop);
+                    hand_turn_players_val.setText(fTurn);
+                    hand_river_players_val.setText(fRiver);
+                    hand_blinds_val.setText(fBlinds);
+                    hand_time_val.setText(fTime);
+                    hand_cp_val.setText(fCp);
+                    hand_cg_val.setText(fCg);
+                    hand_comcards_val.setText(fComcards);
+                    hand_bote_val.setText(fBote);
+                });
+
+                loadShowdownData(id_hand);
             }
           } finally {
             Helpers.GUIRunAndWait(() -> {
@@ -1179,64 +1197,64 @@ public class StatsDialog extends JFrame {
     }
 
     private void showdownData(ResultSet rs) {
-        Helpers.GUIRunAndWait(() -> {
-            try {
+        try {
 
-                DefaultTableModel tableModel = new DefaultTableModel();
-                ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
+            // Build the table model on this worker thread; only the Swing wiring runs on the EDT.
+            DefaultTableModel tableModel = new DefaultTableModel();
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
 
-                for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
-                    tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
-                }
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                tableModel.addColumn(Translator.translate(metaData.getColumnLabel(columnIndex)));
+            }
 
-                Object[] row = new Object[columnCount];
+            Object[] row = new Object[columnCount];
 
-                while (rs.next()) {
-                    for (int i = 0; i < columnCount; i++) {
-                        row[i] = rs.getObject(i + 1);
+            while (rs.next()) {
+                for (int i = 0; i < columnCount; i++) {
+                    row[i] = rs.getObject(i + 1);
 
-                        if (tableModel.getColumnName(i).equals(Translator.translate("ui.gana_3"))) {
-                            row[i] = (int) row[i] == 1 ? Translator.translate("ui.si") : "NO";
-                        } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_recibidas"))) {
-                            ArrayList<Card> cartas = new ArrayList<>();
-                            if (row[i] != null) {
-                                for (String c : ((String) row[i]).split("#")) {
-                                    String[] partes = c.split("_");
-                                    if (partes.length == 2) {
-                                        Card carta = new Card(false);
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
-                                        cartas.add(carta);
-                                    }
-                                }
-                                Card.sortCollection(cartas);
-                            }
-                            row[i] = row[i] != null ? Card.collection2String(cartas) : "*****";
-
-                        } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_jugada"))) {
-                            ArrayList<Card> cartas = new ArrayList<>();
-                            if (row[i] != null) {
-                                for (String c : ((String) row[i]).split("#")) {
-                                    String[] partes = c.split("_");
-                                    if (partes.length == 2) {
-                                        Card carta = new Card(false);
-                                        carta.actualizarValorPalo(partes[0], partes[1]);
-                                        cartas.add(carta);
-                                    }
+                    if (tableModel.getColumnName(i).equals(Translator.translate("ui.gana_3"))) {
+                        row[i] = (int) row[i] == 1 ? Translator.translate("ui.si") : "NO";
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_recibidas"))) {
+                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+                                String[] partes = c.split("_");
+                                if (partes.length == 2) {
+                                    Card carta = new Card(false);
+                                    carta.actualizarValorPalo(partes[0], partes[1]);
+                                    cartas.add(carta);
                                 }
                             }
-                            row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
-                        } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
-                            row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
+                            Card.sortCollection(cartas);
                         }
-                    }
-                    tableModel.addRow(row);
-                }
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "*****";
 
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_jugada"))) {
+                        ArrayList<Card> cartas = new ArrayList<>();
+                        if (row[i] != null) {
+                            for (String c : ((String) row[i]).split("#")) {
+                                String[] partes = c.split("_");
+                                if (partes.length == 2) {
+                                    Card carta = new Card(false);
+                                    carta.actualizarValorPalo(partes[0], partes[1]);
+                                    cartas.add(carta);
+                                }
+                            }
+                        }
+                        row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
+                    } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
+                        row[i] = row[i] != null && (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
+                    }
+                }
+                tableModel.addRow(row);
+            }
+
+            Helpers.GUIRunAndWait(() -> {
                 showdown_table.setModel(tableModel);
                 TableRowSorter tableRowSorter = new TableRowSorter(showdown_table.getModel());
 
-                // Fixed minor bug: use showdown_table instead of res_table here
                 Helpers.disableSortAllColumns(showdown_table, tableRowSorter);
 
                 int idxPlayer = Helpers.getTableColumnIndex(showdown_table.getModel(), Translator.translate("player.jugador"));
@@ -1269,11 +1287,11 @@ public class StatsDialog extends JFrame {
 
                 showdown_table.setRowSorter(tableRowSorter);
                 showdown_panel.setVisible(true);
+            });
 
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        });
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     private void tiempoMedioRespuesta() {

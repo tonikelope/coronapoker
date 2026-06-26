@@ -76,6 +76,9 @@ public class StatsDialog extends JFrame {
     private volatile boolean backup = false;
     private volatile int last_button = 0;
 
+    // Chart area below the results table. Hand-added (not in the .form): see the constructor.
+    private javax.swing.JPanel chart_panel;
+
     // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
     // compartida + lectura de logs/chat) en UN solo hilo. Antes,
     // game_comboItemStateChanged disparaba loadGameData + loadHands + el stat A LA VEZ
@@ -138,6 +141,22 @@ public class StatsDialog extends JFrame {
         sqlstats.put(Translator.translate("stats.apuestassubidas_en_el_river"), this::subidasRiver);
 
         initComponents();
+
+        // Chart area below the results table, built by hand instead of in the .form: wrap the
+        // existing table_panel and the new chart_panel in a BorderLayout and swap that wrapper
+        // into the GroupLayout slot table_panel used to occupy (chart sits under the table).
+        chart_panel = new javax.swing.JPanel(new java.awt.BorderLayout());
+        chart_panel.setOpaque(true);
+        chart_panel.setBackground(java.awt.Color.WHITE);
+        chart_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        chart_panel.setPreferredSize(new java.awt.Dimension(10, 340));
+        chart_panel.setVisible(false);
+
+        javax.swing.JPanel table_and_chart = new javax.swing.JPanel(new java.awt.BorderLayout());
+        table_and_chart.setOpaque(false);
+        ((javax.swing.GroupLayout) hands_panel.getLayout()).replace(table_panel, table_and_chart);
+        table_and_chart.add(table_panel, java.awt.BorderLayout.CENTER);
+        table_and_chart.add(chart_panel, java.awt.BorderLayout.SOUTH);
 
         game_textarea.setEditorKit(new CoronaHTMLEditorKit());
         game_textarea.addHyperlinkListener(e -> {
@@ -202,6 +221,22 @@ public class StatsDialog extends JFrame {
         stats_db_executor.submit(this::loadGames);
 
         init = false;
+    }
+
+    /**
+     * Replaces the chart shown under the results table (EDT only). Passing {@code null}
+     * hides the chart area.
+     */
+    private void showChart(java.awt.Component chart) {
+        chart_panel.removeAll();
+        if (chart != null) {
+            chart_panel.add(chart, java.awt.BorderLayout.CENTER);
+            chart_panel.setVisible(true);
+        } else {
+            chart_panel.setVisible(false);
+        }
+        chart_panel.revalidate();
+        chart_panel.repaint();
     }
 
     /**
@@ -928,6 +963,26 @@ public class StatsDialog extends JFrame {
 
                     res_table.setRowSorter(tableRowSorter);
                     table_panel.setVisible(true);
+
+                    // Scoreboard chart: profit per player (green positive, red negative).
+                    // Descending — JFreeChart draws the first category at the top of the
+                    // horizontal bars, so the leader ends up on top.
+                    java.util.ArrayList<Object[]> profitRows = new java.util.ArrayList<>();
+                    if (idxPlayer != -1 && idxProfit != -1) {
+                        for (int r = 0; r < tableModel.getRowCount(); r++) {
+                            profitRows.add(new Object[]{String.valueOf(tableModel.getValueAt(r, idxPlayer)), toDouble(tableModel.getValueAt(r, idxProfit))});
+                        }
+                        profitRows.sort((a, b) -> Double.compare((double) b[1], (double) a[1]));
+                    }
+                    if (!profitRows.isEmpty()) {
+                        LinkedHashMap<String, Double> profit = new LinkedHashMap<>();
+                        for (Object[] o : profitRows) {
+                            profit.put((String) o[0], (double) o[1]);
+                        }
+                        showChart(StatsCharts.benefitBars(profit, Translator.translate("stats.chart_beneficio"), Translator.translate("ui.beneficio")));
+                    } else {
+                        showChart(null);
+                    }
                 });
             } finally {
                 Helpers.GUIRunAndWait(() -> {
@@ -2221,6 +2276,7 @@ public class StatsDialog extends JFrame {
                 if (stats_combo.getSelectedIndex() >= 0) {
                     res_table_warning.setVisible(false);
                     res_table.setRowSorter(null);
+                    showChart(null);
                     sqlstats.get((String) stats_combo.getSelectedItem()).call();
 
                 }
@@ -2233,6 +2289,7 @@ public class StatsDialog extends JFrame {
                 stats_combo.setVisible(false);
                 table_panel.setVisible(false);
                 res_table_warning.setVisible(false);
+                showChart(null);
             }
         }
     }//GEN-LAST:event_game_comboItemStateChanged
@@ -2248,6 +2305,7 @@ public class StatsDialog extends JFrame {
         if (!init && stats_combo.getSelectedIndex() != -1) {
             res_table_warning.setVisible(false);
             res_table.setRowSorter(null);
+            showChart(null);
             sqlstats.get((String) stats_combo.getSelectedItem()).call();
         }
     }//GEN-LAST:event_stats_comboItemStateChanged
@@ -2277,6 +2335,7 @@ public class StatsDialog extends JFrame {
 
                     res_table_warning.setVisible(false);
                     res_table.setRowSorter(null);
+                    showChart(null);
                     sqlstats.get((String) stats_combo.getSelectedItem()).call();
                 }
 
@@ -2363,6 +2422,7 @@ public class StatsDialog extends JFrame {
                 table_panel.setVisible(false);
                 res_table_warning.setVisible(false);
                 game_data_panel.setVisible(false);
+                showChart(null);
                 noMatches[0] = !game_combo_filter.getText().isBlank() && game_combo.getItemCount() == 1;
             });
 

@@ -2179,7 +2179,13 @@ public class StatsDialog extends JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void game_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_game_comboItemStateChanged
-        // TODO add your handling code here:
+
+        // itemStateChanged fires twice per change (DESELECTED for the old item, SELECTED
+        // for the new); both report the new index, so without this guard every selection
+        // ran loadGameData/loadHands and the stat query twice.
+        if (evt.getStateChange() != java.awt.event.ItemEvent.SELECTED) {
+            return;
+        }
 
         if (!game_combo_blocked) {
             if (game_combo.getSelectedIndex() != -1) {
@@ -2217,7 +2223,12 @@ public class StatsDialog extends JFrame {
     }//GEN-LAST:event_game_comboItemStateChanged
 
     private void stats_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_stats_comboItemStateChanged
-        // TODO add your handling code here:
+
+        // Only act on SELECTED: itemStateChanged also fires DESELECTED, which would run
+        // the stat query a second time for the same selection.
+        if (evt.getStateChange() != java.awt.event.ItemEvent.SELECTED) {
+            return;
+        }
 
         if (!init && stats_combo.getSelectedIndex() != -1) {
             res_table_warning.setVisible(false);
@@ -2227,7 +2238,12 @@ public class StatsDialog extends JFrame {
     }//GEN-LAST:event_stats_comboItemStateChanged
 
     private void hand_comboItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_hand_comboItemStateChanged
-        // TODO add your handling code here:
+
+        // Only act on SELECTED: itemStateChanged also fires DESELECTED, which would run
+        // loadHandData and the stat query a second time for the same selection.
+        if (evt.getStateChange() != java.awt.event.ItemEvent.SELECTED) {
+            return;
+        }
 
         if (!hand_combo_blocked) {
 

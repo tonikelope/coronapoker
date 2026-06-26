@@ -302,11 +302,11 @@ public class BalanceDialog extends JDialog {
         g.weighty = 0.0;
         center.add(buildHeroMessage(), g);
 
-        // La cantidad, en la misma letra gigante, CENTRADA en el hueco entre el
-        // mensaje y el carrusel.
+        // La cantidad, en la misma letra gigante, justo DEBAJO del mensaje (anclada
+        // arriba del hueco para que quede cerca y no flotando en mitad del carrusel).
         g.gridy = 2;
         g.weighty = 1.0;
-        g.anchor = GridBagConstraints.CENTER;
+        g.anchor = GridBagConstraints.NORTH;
         center.add(buildAmount(), g);
 
         return center;
@@ -355,8 +355,8 @@ public class BalanceDialog extends JDialog {
         return block;
     }
 
-    // Mensaje gigante del jugador local (sin importe): ¡¡HAS GANADO!! /
-    // ¡¡HAS PERDIDO!! / NI GANAS NI PIERDES. Borde negro + relleno color,
+    // Mensaje gigante del jugador local (sin importe): HAS GANADO /
+    // HAS PERDIDO / NI GANAS NI PIERDES. Borde negro + relleno color,
     // auto-ajustado al ancho/alto reales (OutlinedLabel.paintComponent).
     private JComponent buildHeroMessage() {
         double ganancia = localGanancia();

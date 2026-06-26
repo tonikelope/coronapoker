@@ -95,8 +95,8 @@ public final class StatsCharts {
 
     /**
      * Horizontal bar chart of a single value per player, each bar green when positive and
-     * red when negative — the "scoreboard" view (profit/loss). Categories are expected in
-     * ascending order so the leader ends up at the top of the chart.
+     * red when negative — the "scoreboard" view (profit/loss). JFreeChart draws the first
+     * category on top, so pass the data highest-first to keep the leader on top.
      */
     public static ChartPanel benefitBars(Map<String, Double> data, String title, String valueAxisLabel) {
         final DefaultCategoryDataset dataset = new DefaultCategoryDataset();
@@ -139,6 +139,57 @@ public final class StatsCharts {
         renderer.setDrawBarOutline(false);
         renderer.setMaximumBarWidth(0.14);
         renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("#,##0.#")));
+        renderer.setDefaultItemLabelFont(font(Font.BOLD, 12f));
+        renderer.setDefaultItemLabelPaint(TITLE);
+        renderer.setDefaultItemLabelsVisible(true);
+        plot.setRenderer(renderer);
+
+        return wrap(chart);
+    }
+
+    public static final Color ORANGE = ACCENT;
+    public static final Color BLUE = new Color(0, 120, 170);
+
+    /**
+     * Horizontal bar chart of one value per player in a single flat colour, with the bar
+     * value printed using {@code labelFormat} (e.g. {@code "{2}%"} or {@code "{2}s"}).
+     * JFreeChart draws the first category on top, so pass the data highest-first to keep
+     * the leader on top.
+     */
+    public static ChartPanel valueBars(Map<String, Double> data, String title, String valueAxisLabel, String labelFormat, Color barColor) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        for (Map.Entry<String, Double> e : data.entrySet()) {
+            dataset.addValue(e.getValue(), "v", e.getKey());
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(title, null, valueAxisLabel, dataset, PlotOrientation.HORIZONTAL, false, true, false);
+        styleChrome(chart);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PANEL_BG);
+        plot.setOutlineVisible(false);
+        plot.setRangeGridlinePaint(GRID);
+        plot.setAxisOffset(new RectangleInsets(2, 2, 2, 2));
+
+        CategoryAxis domain = plot.getDomainAxis();
+        domain.setTickLabelFont(font(Font.BOLD, 13f));
+        domain.setTickLabelPaint(TITLE);
+        domain.setAxisLinePaint(AXIS);
+
+        NumberAxis range = (NumberAxis) plot.getRangeAxis();
+        range.setTickLabelFont(font(Font.PLAIN, 12f));
+        range.setLabelFont(font(Font.PLAIN, 13f));
+        range.setTickLabelPaint(AXIS);
+        range.setLabelPaint(AXIS);
+        range.setAxisLinePaint(AXIS);
+
+        BarRenderer renderer = new BarRenderer();
+        renderer.setBarPainter(new StandardBarPainter());
+        renderer.setShadowVisible(false);
+        renderer.setDrawBarOutline(false);
+        renderer.setSeriesPaint(0, barColor);
+        renderer.setMaximumBarWidth(0.14);
+        renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator(labelFormat, new DecimalFormat("#,##0.#")));
         renderer.setDefaultItemLabelFont(font(Font.BOLD, 12f));
         renderer.setDefaultItemLabelPaint(TITLE);
         renderer.setDefaultItemLabelsVisible(true);

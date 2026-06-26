@@ -674,7 +674,7 @@ public class StatsDialog extends JFrame {
         });
     }
 
-    private void subidasRonda(int ronda) {
+    private void subidasRonda(int ronda, String chartTitle) {
 
         cargando.setVisible(true);
         setEnabled(false);
@@ -792,6 +792,15 @@ public class StatsDialog extends JFrame {
 
                     table_panel.setVisible(true);
 
+                    // Raise/bet frequency per player on this street (%).
+                    LinkedHashMap<String, Double> pct = new LinkedHashMap<>();
+                    if (idxPlayer != -1 && idxHands != -1) {
+                        for (int r = 0; r < tableModel.getRowCount(); r++) {
+                            pct.put(String.valueOf(tableModel.getValueAt(r, idxPlayer)), (double) safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxHands))));
+                        }
+                    }
+                    showChart(pct.isEmpty() ? null : StatsCharts.valueBars(pct, chartTitle, "%", "{2}%", StatsCharts.ORANGE));
+
                     res_table_warning.setText(Translator.translate("stats.nota_lo_que_se_muestra"));
                     res_table_warning.setVisible(true);
                 });
@@ -807,25 +816,25 @@ public class StatsDialog extends JFrame {
 
     private void subidasPreflop() {
 
-        this.subidasRonda(Crupier.PREFLOP);
+        this.subidasRonda(Crupier.PREFLOP, Translator.translate("stats.apuestassubidas_en_el_preflop"));
 
     }
 
     private void subidasFlop() {
 
-        this.subidasRonda(Crupier.FLOP);
+        this.subidasRonda(Crupier.FLOP, Translator.translate("stats.apuestassubidas_en_el_flop"));
 
     }
 
     private void subidasTurn() {
 
-        this.subidasRonda(Crupier.TURN);
+        this.subidasRonda(Crupier.TURN, Translator.translate("stats.apuestassubidas_en_el_turn"));
 
     }
 
     private void subidasRiver() {
 
-        this.subidasRonda(Crupier.RIVER);
+        this.subidasRonda(Crupier.RIVER, Translator.translate("stats.apuestassubidas_en_el_river"));
 
     }
 
@@ -1427,6 +1436,15 @@ public class StatsDialog extends JFrame {
 
                     res_table.setRowSorter(tableRowSorter);
                     table_panel.setVisible(true);
+
+                    // Average response time per player (seconds).
+                    LinkedHashMap<String, Double> times = new LinkedHashMap<>();
+                    if (idxPlayer != -1 && idxTime != -1) {
+                        for (int r = 0; r < tableModel.getRowCount(); r++) {
+                            times.put(String.valueOf(tableModel.getValueAt(r, idxPlayer)), toDouble(tableModel.getValueAt(r, idxTime)));
+                        }
+                    }
+                    showChart(times.isEmpty() ? null : StatsCharts.valueBars(times, Translator.translate("ui.tiempo_medio_de_respuesta"), Translator.translate("ui.segundos"), "{2}", StatsCharts.BLUE));
                 });
             } finally {
                 Helpers.GUIRunAndWait(() -> {

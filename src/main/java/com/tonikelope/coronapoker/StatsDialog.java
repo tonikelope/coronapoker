@@ -78,6 +78,9 @@ public class StatsDialog extends JFrame {
 
     // Chart area below the results table. Hand-added (not in the .form): see the constructor.
     private javax.swing.JPanel chart_panel;
+    private javax.swing.JSplitPane chart_split;
+    private int chart_area_height = 360;
+    private volatile boolean adjusting_divider = false;
 
     // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
     // compartida + lectura de logs/chat) en UN solo hilo. Antes,
@@ -142,21 +145,35 @@ public class StatsDialog extends JFrame {
 
         initComponents();
 
-        // Chart area below the results table, built by hand instead of in the .form: wrap the
-        // existing table_panel and the new chart_panel in a BorderLayout and swap that wrapper
-        // into the GroupLayout slot table_panel used to occupy (chart sits under the table).
+        // Chart area below the results table, built by hand instead of in the .form: a vertical
+        // split with the table on top and the charts at the bottom, swapped into the GroupLayout
+        // slot table_panel used to occupy. The user can drag the divider up to enlarge the
+        // charts; the table (a scroll pane) just scrolls when it shrinks.
         chart_panel = new javax.swing.JPanel(new java.awt.GridLayout(1, 0, 12, 0));
         chart_panel.setOpaque(true);
         chart_panel.setBackground(java.awt.Color.WHITE);
         chart_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 0, 0, 0));
-        chart_panel.setPreferredSize(new java.awt.Dimension(10, 340));
         chart_panel.setVisible(false);
 
-        javax.swing.JPanel table_and_chart = new javax.swing.JPanel(new java.awt.BorderLayout());
-        table_and_chart.setOpaque(false);
-        ((javax.swing.GroupLayout) hands_panel.getLayout()).replace(table_panel, table_and_chart);
-        table_and_chart.add(table_panel, java.awt.BorderLayout.CENTER);
-        table_and_chart.add(chart_panel, java.awt.BorderLayout.SOUTH);
+        chart_split = new javax.swing.JSplitPane(javax.swing.JSplitPane.VERTICAL_SPLIT);
+        chart_split.setBorder(null);
+        chart_split.setOpaque(false);
+        chart_split.setContinuousLayout(true);
+        chart_split.setResizeWeight(0.8);
+        chart_split.setDividerSize(0);
+        ((javax.swing.GroupLayout) hands_panel.getLayout()).replace(table_panel, chart_split);
+        chart_split.setTopComponent(table_panel);
+        chart_split.setBottomComponent(chart_panel);
+
+        // Remember the chart height when the user drags the divider, so it survives stat switches.
+        chart_split.addPropertyChangeListener(javax.swing.JSplitPane.DIVIDER_LOCATION_PROPERTY, evt -> {
+            if (!adjusting_divider && chart_panel.isVisible() && chart_split.getHeight() > 0) {
+                int h = chart_split.getHeight() - chart_split.getDividerLocation() - chart_split.getDividerSize();
+                if (h > 80) {
+                    chart_area_height = h;
+                }
+            }
+        });
 
         game_textarea.setEditorKit(new CoronaHTMLEditorKit());
         game_textarea.addHyperlinkListener(e -> {
@@ -239,7 +256,21 @@ public class StatsDialog extends JFrame {
                 }
             }
         }
-        chart_panel.setVisible(added > 0);
+
+        boolean show = added > 0;
+        chart_panel.setVisible(show);
+
+        if (chart_split != null) {
+            // Show/hide the divider with the charts, and restore the remembered chart height.
+            chart_split.setDividerSize(show ? 9 : 0);
+            int splitH = chart_split.getHeight();
+            if (show && splitH > 0) {
+                adjusting_divider = true;
+                chart_split.setDividerLocation(Math.max(80, splitH - chart_area_height - chart_split.getDividerSize()));
+                adjusting_divider = false;
+            }
+        }
+
         chart_panel.revalidate();
         chart_panel.repaint();
     }

@@ -25,6 +25,7 @@ import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
+import org.jfree.chart.axis.CategoryLabelPositions;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.plot.CategoryPlot;
@@ -150,6 +151,55 @@ public final class StatsCharts {
 
     public static final Color ORANGE = ACCENT;
     public static final Color BLUE = new Color(0, 120, 170);
+    public static final Color PURPLE = new Color(120, 90, 200);
+
+    /**
+     * Vertical bar chart of integer counts per category, in the iteration order given. Used
+     * for frequency distributions (e.g. how often each hand type wins).
+     */
+    public static ChartPanel countBars(Map<String, Integer> counts, String title, String valueAxisLabel, Color barColor) {
+        DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            dataset.addValue(e.getValue(), "v", e.getKey());
+        }
+
+        JFreeChart chart = ChartFactory.createBarChart(title, null, valueAxisLabel, dataset, PlotOrientation.VERTICAL, false, true, false);
+        styleChrome(chart);
+
+        CategoryPlot plot = chart.getCategoryPlot();
+        plot.setBackgroundPaint(PANEL_BG);
+        plot.setOutlineVisible(false);
+        plot.setRangeGridlinePaint(GRID);
+        plot.setAxisOffset(new RectangleInsets(2, 2, 2, 2));
+
+        CategoryAxis domain = plot.getDomainAxis();
+        domain.setTickLabelFont(font(Font.BOLD, 11f));
+        domain.setTickLabelPaint(TITLE);
+        domain.setAxisLinePaint(AXIS);
+        domain.setCategoryLabelPositions(CategoryLabelPositions.UP_45);
+
+        NumberAxis range = (NumberAxis) plot.getRangeAxis();
+        range.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
+        range.setTickLabelFont(font(Font.PLAIN, 12f));
+        range.setLabelFont(font(Font.PLAIN, 13f));
+        range.setTickLabelPaint(AXIS);
+        range.setLabelPaint(AXIS);
+        range.setAxisLinePaint(AXIS);
+
+        BarRenderer renderer = new BarRenderer();
+        renderer.setBarPainter(new StandardBarPainter());
+        renderer.setShadowVisible(false);
+        renderer.setDrawBarOutline(false);
+        renderer.setSeriesPaint(0, barColor);
+        renderer.setMaximumBarWidth(0.11);
+        renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("0")));
+        renderer.setDefaultItemLabelFont(font(Font.BOLD, 11f));
+        renderer.setDefaultItemLabelPaint(TITLE);
+        renderer.setDefaultItemLabelsVisible(true);
+        plot.setRenderer(renderer);
+
+        return wrap(chart);
+    }
 
     private static final Color[] PALETTE = {
         new Color(255, 102, 0), new Color(0, 120, 170), new Color(46, 160, 75),

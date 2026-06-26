@@ -465,6 +465,25 @@ public class StatsDialog extends JFrame {
 
                 res_table.setRowSorter(tableRowSorter);
                 table_panel.setVisible(true);
+
+                // Winning-hand distribution: how often each hand type appears among the wins,
+                // ordered weakest to strongest.
+                if (idxJugada != -1) {
+                    HashMap<String, Integer> counts = new HashMap<>();
+                    for (int r = 0; r < tableModel.getRowCount(); r++) {
+                        String jugada = String.valueOf(tableModel.getValueAt(r, idxJugada));
+                        if (jugada != null && !jugada.equals("-----")) {
+                            counts.merge(jugada, 1, Integer::sum);
+                        }
+                    }
+                    LinkedHashMap<String, Integer> ordered = new LinkedHashMap<>();
+                    counts.entrySet().stream()
+                            .sorted((a, b) -> Integer.compare(Hand.handnameToHandValue(a.getKey()), Hand.handnameToHandValue(b.getKey())))
+                            .forEach(e -> ordered.put(e.getKey(), e.getValue()));
+                    showChart(ordered.isEmpty() ? null : StatsCharts.countBars(ordered, Translator.translate("stats.chart_jugadas"), "", StatsCharts.PURPLE));
+                } else {
+                    showChart(null);
+                }
             });
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);

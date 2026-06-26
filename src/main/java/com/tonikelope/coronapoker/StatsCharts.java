@@ -16,6 +16,7 @@
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Paint;
@@ -31,11 +32,14 @@ import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.SpiderWebPlot;
+import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.category.BarRenderer;
 import org.jfree.chart.renderer.category.StandardBarPainter;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.chart.title.TextTitle;
 import org.jfree.chart.ui.RectangleInsets;
 import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.data.xy.XYDataset;
 
 /**
  * Builds the themed JFreeChart panels shown beneath the statistics tables. Every chart
@@ -197,6 +201,46 @@ public final class StatsCharts {
         renderer.setDefaultItemLabelPaint(TITLE);
         renderer.setDefaultItemLabelsVisible(true);
         plot.setRenderer(renderer);
+
+        return wrap(chart);
+    }
+
+    /**
+     * Multi-series XY line chart (one coloured line per player) — the session graph of
+     * stack evolution across hands. The domain axis is treated as integer hand numbers.
+     */
+    public static ChartPanel lineChart(XYDataset dataset, String title, String xAxisLabel, String yAxisLabel) {
+        JFreeChart chart = ChartFactory.createXYLineChart(title, xAxisLabel, yAxisLabel, dataset, PlotOrientation.VERTICAL, true, true, false);
+        styleChrome(chart);
+
+        XYPlot plot = chart.getXYPlot();
+        plot.setBackgroundPaint(PANEL_BG);
+        plot.setOutlineVisible(false);
+        plot.setDomainGridlinePaint(GRID);
+        plot.setRangeGridlinePaint(GRID);
+        plot.setAxisOffset(new RectangleInsets(2, 2, 2, 2));
+
+        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(true, false);
+        for (int i = 0; i < dataset.getSeriesCount(); i++) {
+            renderer.setSeriesPaint(i, PALETTE[i % PALETTE.length]);
+            renderer.setSeriesStroke(i, new BasicStroke(2.4f));
+        }
+        plot.setRenderer(renderer);
+
+        NumberAxis domain = (NumberAxis) plot.getDomainAxis();
+        domain.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
+        domain.setTickLabelFont(font(Font.PLAIN, 12f));
+        domain.setLabelFont(font(Font.PLAIN, 13f));
+        domain.setTickLabelPaint(AXIS);
+        domain.setLabelPaint(AXIS);
+        domain.setAxisLinePaint(AXIS);
+
+        NumberAxis range = (NumberAxis) plot.getRangeAxis();
+        range.setTickLabelFont(font(Font.PLAIN, 12f));
+        range.setLabelFont(font(Font.PLAIN, 13f));
+        range.setTickLabelPaint(AXIS);
+        range.setLabelPaint(AXIS);
+        range.setAxisLinePaint(AXIS);
 
         return wrap(chart);
     }

@@ -145,7 +145,7 @@ public class StatsDialog extends JFrame {
         // Chart area below the results table, built by hand instead of in the .form: wrap the
         // existing table_panel and the new chart_panel in a BorderLayout and swap that wrapper
         // into the GroupLayout slot table_panel used to occupy (chart sits under the table).
-        chart_panel = new javax.swing.JPanel(new java.awt.BorderLayout());
+        chart_panel = new javax.swing.JPanel(new java.awt.GridLayout(1, 0, 12, 0));
         chart_panel.setOpaque(true);
         chart_panel.setBackground(java.awt.Color.WHITE);
         chart_panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 0, 0, 0));
@@ -224,17 +224,22 @@ public class StatsDialog extends JFrame {
     }
 
     /**
-     * Replaces the chart shown under the results table (EDT only). Passing {@code null}
-     * hides the chart area.
+     * Replaces the chart(s) shown under the results table (EDT only). Null entries are
+     * skipped; if nothing is left to show, the chart area is hidden. Several charts tile
+     * side by side.
      */
-    private void showChart(java.awt.Component chart) {
+    private void showChart(java.awt.Component... charts) {
         chart_panel.removeAll();
-        if (chart != null) {
-            chart_panel.add(chart, java.awt.BorderLayout.CENTER);
-            chart_panel.setVisible(true);
-        } else {
-            chart_panel.setVisible(false);
+        int added = 0;
+        if (charts != null) {
+            for (java.awt.Component c : charts) {
+                if (c != null) {
+                    chart_panel.add(c);
+                    added++;
+                }
+            }
         }
+        chart_panel.setVisible(added > 0);
         chart_panel.revalidate();
         chart_panel.repaint();
     }
@@ -972,6 +977,31 @@ public class StatsDialog extends JFrame {
                     }
                 }
 
+                // Stack evolution (session graph): one line per player across the hands of a
+                // single game. Only meaningful at game scope, so skip it otherwise.
+                final org.jfree.data.xy.XYSeriesCollection sessionData = new org.jfree.data.xy.XYSeriesCollection();
+                if (gameIdx > 0 && handIdx <= 0) {
+                    String sessionSql = "SELECT balance.player AS player, hand.counter AS counter, balance.stack AS stack"
+                            + " FROM balance, hand WHERE balance.id_hand = hand.id AND hand.id_game = ? AND hand.end IS NOT NULL"
+                            + " ORDER BY hand.counter";
+                    try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(sessionSql)) {
+                        st.setQueryTimeout(30);
+                        st.setInt(1, gameId);
+                        try (ResultSet rs = st.executeQuery()) {
+                            LinkedHashMap<String, org.jfree.data.xy.XYSeries> series = new LinkedHashMap<>();
+                            while (rs.next()) {
+                                org.jfree.data.xy.XYSeries s = series.computeIfAbsent(rs.getString("player"), org.jfree.data.xy.XYSeries::new);
+                                s.add(rs.getInt("counter"), rs.getDouble("stack"));
+                            }
+                            for (org.jfree.data.xy.XYSeries s : series.values()) {
+                                sessionData.addSeries(s);
+                            }
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+
                 Helpers.GUIRunAndWait(() -> {
                     res_table.setModel(tableModel);
                     TableRowSorter tableRowSorter = new TableRowSorter(res_table.getModel());
@@ -1016,15 +1046,18 @@ public class StatsDialog extends JFrame {
                         }
                         profitRows.sort((a, b) -> Double.compare((double) b[1], (double) a[1]));
                     }
+                    org.jfree.chart.ChartPanel benefitChart = null;
                     if (!profitRows.isEmpty()) {
                         LinkedHashMap<String, Double> profit = new LinkedHashMap<>();
                         for (Object[] o : profitRows) {
                             profit.put((String) o[0], (double) o[1]);
                         }
-                        showChart(StatsCharts.benefitBars(profit, Translator.translate("stats.chart_beneficio"), Translator.translate("ui.beneficio")));
-                    } else {
-                        showChart(null);
+                        benefitChart = StatsCharts.benefitBars(profit, Translator.translate("stats.chart_beneficio"), Translator.translate("ui.beneficio"));
                     }
+                    org.jfree.chart.ChartPanel sessionChart = sessionData.getSeriesCount() > 0
+                            ? StatsCharts.lineChart(sessionData, Translator.translate("stats.chart_stack"), Translator.translate("game.mano_2"), Translator.translate("stats.stack"))
+                            : null;
+                    showChart(benefitChart, sessionChart);
                 });
             } finally {
                 Helpers.GUIRunAndWait(() -> {

@@ -1460,74 +1460,74 @@ public class StatsDialog extends JFrame {
 
     private boolean deleteAllGames() {
 
-        if (game_combo.getItemCount() > 1) {
-
-            String[] ids = new String[game_combo.getItemCount() - 1];
-
-            Helpers.GUIRunAndWait(() -> {
+        // Resolve the ids and clear the combo on the EDT (Swing state + shared map live
+        // there); only the SQL runs on this worker thread.
+        final String[][] idsHolder = new String[1][];
+        Helpers.GUIRunAndWait(() -> {
+            if (game_combo.getItemCount() > 1) {
                 cargando.setVisible(true);
-
                 setEnabled(false);
-
+                String[] ids = new String[game_combo.getItemCount() - 1];
                 for (int i = 1; i <= ids.length; i++) {
-
                     ids[i - 1] = String.valueOf((int) game.get((String) game_combo.getItemAt(i)).get("id"));
-
                 }
-
                 while (game_combo.getItemCount() > 1) {
                     game_combo.removeItemAt(game_combo.getItemCount() - 1);
                 }
-            });
-
-            String sql = "DELETE FROM game WHERE id in (" + String.join(",", ids) + ")";
-
-            try (Statement statement = Helpers.getSQLITE().createStatement()) {
-                statement.setQueryTimeout(30);
-
-                statement.executeUpdate(sql);
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+                idsHolder[0] = ids;
             }
+        });
 
-            Helpers.GUIRunAndWait(() -> {
-                cargando.setVisible(false);
-
-                setEnabled(true);
-            });
-
-            return true;
-
+        if (idsHolder[0] == null) {
+            return false;
         }
 
-        return false;
+        String sql = "DELETE FROM game WHERE id in (" + String.join(",", idsHolder[0]) + ")";
+
+        try (Statement statement = Helpers.getSQLITE().createStatement()) {
+            statement.setQueryTimeout(30);
+            statement.executeUpdate(sql);
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        Helpers.GUIRunAndWait(() -> {
+            cargando.setVisible(false);
+            setEnabled(true);
+        });
+
+        return true;
     }
 
     private boolean deleteSelectedGame() {
 
-        if (game.get((String) game_combo.getSelectedItem()) != null) {
-
-            int id_game = (int) game.get((String) game_combo.getSelectedItem()).get("id");
-
-            game.remove((String) game_combo.getSelectedItem());
-
-            String sql = "DELETE FROM game WHERE id=?";
-
-            try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
-                statement.setQueryTimeout(30);
-
-                statement.setInt(1, id_game);
-
-                statement.executeUpdate();
-            } catch (SQLException ex) {
-                Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        // Resolve the selected game and mutate the shared map on the EDT; only the SQL
+        // runs on this worker thread.
+        final int[] idHolder = {-1};
+        Helpers.GUIRunAndWait(() -> {
+            String item = (String) game_combo.getSelectedItem();
+            HashMap<String, Object> g = game.get(item);
+            if (g != null) {
+                idHolder[0] = (int) g.get("id");
+                game.remove(item);
             }
+        });
 
-            return true;
+        if (idHolder[0] == -1) {
+            return false;
         }
 
-        return false;
+        String sql = "DELETE FROM game WHERE id=?";
 
+        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            statement.setQueryTimeout(30);
+            statement.setInt(1, idHolder[0]);
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return true;
     }
 
     private void loadGames() {
@@ -2333,10 +2333,10 @@ public class StatsDialog extends JFrame {
                         if (!game.isEmpty()) {
                             game_combo.setSelectedIndex(1);
                         }
-
-                        delete_game_button.setEnabled(true);
                     });
                 }
+                // Always re-enable, even if nothing was deleted, so the button never sticks disabled.
+                Helpers.GUIRun(() -> delete_game_button.setEnabled(true));
             });
         } else {
             delete_game_button.setEnabled(true);
@@ -2354,6 +2354,8 @@ public class StatsDialog extends JFrame {
 
         stats_db_executor.submit(() -> {
             loadGames();
+
+            final boolean[] noMatches = {false};
             Helpers.GUIRunAndWait(() -> {
                 game_combo.setSelectedIndex(0);
                 hand_combo.setVisible(false);
@@ -2361,17 +2363,10 @@ public class StatsDialog extends JFrame {
                 table_panel.setVisible(false);
                 res_table_warning.setVisible(false);
                 game_data_panel.setVisible(false);
+                noMatches[0] = !game_combo_filter.getText().isBlank() && game_combo.getItemCount() == 1;
             });
-            if (!game_combo_filter.getText().isBlank() && game_combo.getItemCount() == 1) {
-                loadGames();
-                Helpers.GUIRunAndWait(() -> {
-                    game_combo.setSelectedIndex(0);
-                    hand_combo.setVisible(false);
-                    stats_combo.setSelectedIndex(-1);
-                    table_panel.setVisible(false);
-                    res_table_warning.setVisible(false);
-                    game_data_panel.setVisible(false);
-                });
+
+            if (noMatches[0]) {
                 Helpers.mostrarMensajeError(getContentPane(), Translator.translate("player.no_hay_timbas_en_las"));
             }
         });

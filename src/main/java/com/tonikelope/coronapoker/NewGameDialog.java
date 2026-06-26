@@ -164,6 +164,8 @@ public class NewGameDialog extends JDialog {
 
             bots_label.setText(Translator.translate("ui.bots_dificultad"));
 
+            Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 56, 56);
+
         } else {
             bots_panel.setVisible(false);
         }
@@ -405,6 +407,8 @@ public class NewGameDialog extends JDialog {
             bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
 
             bots_label.setText(Translator.translate("ui.bots_dificultad"));
+
+            Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 56, 56);
 
         } else {
             bots_panel.setVisible(false);
@@ -723,6 +727,7 @@ public class NewGameDialog extends JDialog {
         rabbit_label = new javax.swing.JLabel();
         rabbit_combo = new javax.swing.JComboBox<>();
         bots_panel = new javax.swing.JPanel();
+        bots_avatar_label = new javax.swing.JLabel();
         bots_combobox = new javax.swing.JComboBox<>();
         bots_label = new javax.swing.JLabel();
         bot_rebuy_checkbox = new javax.swing.JCheckBox();
@@ -1421,22 +1426,26 @@ public class NewGameDialog extends JDialog {
         bots_panelLayout.setHorizontalGroup(
             bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(bots_panelLayout.createSequentialGroup()
-                .addContainerGap(72, Short.MAX_VALUE)
+                .addContainerGap()
+                .addComponent(bots_avatar_label)
+                .addGap(18, 18, 18)
                 .addComponent(bots_label)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
                 .addComponent(bot_rebuy_checkbox)
-                .addContainerGap())
+                .addContainerGap(72, Short.MAX_VALUE))
         );
         bots_panelLayout.setVerticalGroup(
             bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(bots_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(bots_label)
-                    .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(bot_rebuy_checkbox))
+                .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(bots_avatar_label)
+                    .addGroup(bots_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(bots_label)
+                        .addComponent(bots_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(bot_rebuy_checkbox)))
                 .addContainerGap())
         );
 
@@ -3110,6 +3119,7 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JLabel blind_cap_label;
     private javax.swing.JSpinner blind_cap_spinner;
     private javax.swing.JCheckBox bot_rebuy_checkbox;
+    private javax.swing.JLabel bots_avatar_label;
     private javax.swing.JComboBox<String> bots_combobox;
     private javax.swing.JLabel bots_label;
     private javax.swing.JPanel bots_panel;

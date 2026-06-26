@@ -199,6 +199,7 @@ public class AudioSettingsPanel extends JPanel {
 
         volume_panel = new JPanel(new BorderLayout(10, 0));
         volume_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.volumen_general")));
+        volume_panel.add(new JLabel(menuIcon("/images/menu/sound.png")), BorderLayout.WEST);
         volume_panel.add(volume_slider, BorderLayout.CENTER);
         volume_panel.add(volume_value_label, BorderLayout.EAST);
 
@@ -229,12 +230,9 @@ public class AudioSettingsPanel extends JPanel {
         sound_music_panel = new JPanel();
         sound_music_panel.setLayout(new BoxLayout(sound_music_panel, BoxLayout.Y_AXIS));
         sound_music_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.sonido_musica")));
-        sonidos_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        sonidos_chorra_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        musica_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        sound_music_panel.add(sonidos_checkbox);
-        sound_music_panel.add(sonidos_chorra_checkbox);
-        sound_music_panel.add(musica_checkbox);
+        sound_music_panel.add(iconRow(menuIcon("/images/menu/sound.png"), sonidos_checkbox));
+        sound_music_panel.add(iconRow(menuIcon("/images/menu/joke.png"), sonidos_chorra_checkbox));
+        sound_music_panel.add(iconRow(menuIcon("/images/menu/music.png"), musica_checkbox));
 
         // --- Output device ---
         DefaultListModel<String> output_model = new DefaultListModel<>();
@@ -322,7 +320,7 @@ public class AudioSettingsPanel extends JPanel {
 
         mic_panel = new JPanel(new BorderLayout(0, 5));
         mic_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.dispositivo_entrada")));
-        mic_panel.add(mic_checkbox, BorderLayout.NORTH);
+        mic_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), mic_checkbox), BorderLayout.NORTH);
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
 
         // --- Voice note options ---
@@ -410,12 +408,11 @@ public class AudioSettingsPanel extends JPanel {
         // --- Voz (TTS): bloqueo local (la regla global vive más abajo) ---
         block_tts_local_checkbox = new JCheckBox(Translator.translate("audio.bloquear_tts_local"), AudioDeviceManager.isBlockTtsLocal());
         block_tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(block_tts_local_checkbox.isSelected()));
-        block_tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         tts_panel = new JPanel();
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
         tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
-        tts_panel.add(block_tts_local_checkbox);
+        tts_panel.add(iconRow(menuIcon("/images/menu/mute.png"), block_tts_local_checkbox));
 
         // --- Ajustes globales (solo server): reglas de la timba (TTS y notas de
         // voz). Preseleccionables; si eres cliente en partida mandan las del
@@ -426,15 +423,13 @@ public class AudioSettingsPanel extends JPanel {
         global_note.setForeground(java.awt.Color.GRAY);
         global_note.setVisible(global_rules_locked);
 
-        tts_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        voice_messages_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         global_note.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         global_panel = new JPanel();
         global_panel.setLayout(new BoxLayout(global_panel, BoxLayout.Y_AXIS));
         global_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.ajustes_globales_server")));
-        global_panel.add(tts_checkbox);
-        global_panel.add(voice_messages_checkbox);
+        global_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
+        global_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
         global_panel.add(global_note);
 
         refreshSoundControlsEnabled();
@@ -690,6 +685,44 @@ public class AudioSettingsPanel extends JPanel {
         }
 
         return 0;
+    }
+
+    // Prepends an icon to a control (a checkbox) WITHOUT calling setIcon() on the
+    // checkbox itself (that would replace its check indicator). Returns a left-aligned
+    // horizontal [icon + control] row; the control keeps its identity, so its listeners
+    // and enabled state still operate on the same object.
+    private static JComponent iconRow(javax.swing.Icon icon, JComponent control) {
+
+        JPanel row = new JPanel();
+        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
+        row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+
+        JLabel icon_label = new JLabel(icon);
+        icon_label.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+        control.setAlignmentY(JComponent.CENTER_ALIGNMENT);
+
+        row.add(icon_label);
+        row.add(Box.createHorizontalStrut(6));
+        row.add(control);
+        row.add(Box.createHorizontalGlue());
+
+        return row;
+    }
+
+    // Loads a menu icon (already at the right 24px size) straight from resources.
+    private static javax.swing.ImageIcon menuIcon(String resource) {
+        return new javax.swing.ImageIcon(AudioSettingsPanel.class.getResource(resource));
+    }
+
+    // Loads and smooth-scales a larger resource to a square icon (e.g. the 256px
+    // microphone down to menu-icon size). Null on a malformed URL (never happens for
+    // bundled resources), which a JLabel renders as no icon.
+    private static javax.swing.ImageIcon scaledIcon(String resource, int size) {
+        try {
+            return Helpers.scaleIcon(AudioSettingsPanel.class.getResource(resource), size, size);
+        } catch (java.net.MalformedURLException ex) {
+            return null;
+        }
     }
 
 }

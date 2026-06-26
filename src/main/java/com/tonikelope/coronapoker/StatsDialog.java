@@ -272,15 +272,19 @@ public class StatsDialog extends JFrame {
 
         hand_combo.setVisible(false);
 
+        // Snapshot the combo selection on the EDT; the worker thread must never read Swing state.
+        final int gameIdx = game_combo.getSelectedIndex();
+        final int gameId = gameIdx > 0 ? (int) game.get((String) game_combo.getSelectedItem()).get("id") : -1;
+
         stats_db_executor.submit(() -> {
             try {
                 ResultSet rs;
-                if (game_combo.getSelectedIndex() > 0) {
+                if (gameIdx > 0) {
 
                     String sql = "select player as \"player.jugador\", hole_cards as \"ui.cartas_recibidas\", hand_cards as \"ui.cartas_jugada\", hand_val as \"ui.jugada\", hand.counter as \"game.mano_2\", round(showdown.profit,1) as \"ui.beneficio\" from game,showdown,hand where hand.id=showdown.id_hand and game.id=hand.id_game and showdown.winner=1 and game.id=? order by hand_val DESC,\"ui.beneficio\" DESC;";
                     try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
                         statement.setQueryTimeout(30);
-                        statement.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                        statement.setInt(1, gameId);
                         rs = statement.executeQuery();
                         mejoresJugadasResult(rs);
                     } catch (SQLException ex) {
@@ -329,6 +333,9 @@ public class StatsDialog extends JFrame {
 
             Object[] row = new Object[columnCount];
 
+            // One formatter for the whole drain instead of allocating one per row.
+            DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+
             while (rs.next()) {
                 for (int i = 0; i < columnCount; i++) {
                     row[i] = rs.getObject(i + 1);
@@ -339,7 +346,6 @@ public class StatsDialog extends JFrame {
                         String timestamp = val.replaceAll("^.+\\|([0-9]+)$", "$1");
                         String server = val.replaceAll("^(.+)\\|[0-9]+$", "$1");
                         Timestamp ts = new Timestamp(Long.parseLong(timestamp));
-                        DateFormat timeZoneFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
                         Date date = new Date(ts.getTime());
                         row[i] = server + " @ " + timeZoneFormat.format(date);
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.cartas_recibidas"))) {
@@ -371,7 +377,7 @@ public class StatsDialog extends JFrame {
                         }
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
-                        row[i] = (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
+                        row[i] = row[i] != null && (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
                     }
                 }
                 tableModel.addRow(row);
@@ -411,9 +417,10 @@ public class StatsDialog extends JFrame {
 
                 if (idxTimba != -1) {
                     tableRowSorter.setSortable(idxTimba, true);
+                    SimpleDateFormat timbaSorterFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
                     tableRowSorter.setComparator(idxTimba, (Comparator<String>) (o1, o2) -> {
                         try {
-                            return Long.compare(new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o1.split(" @ ")[1]).getTime()).getTime(), new java.sql.Timestamp(new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").parse(o2.split(" @ ")[1]).getTime()).getTime());
+                            return Long.compare(timbaSorterFormat.parse(o1.split(" @ ")[1]).getTime(), timbaSorterFormat.parse(o2.split(" @ ")[1]).getTime());
                         } catch (ParseException ex) {
                             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -439,6 +446,10 @@ public class StatsDialog extends JFrame {
         }
 
         hand_combo.setVisible(false);
+
+        // Snapshot the combo selection on the EDT; the worker thread must never read Swing state.
+        final int gameIdx = game_combo.getSelectedIndex();
+        final int gameId = gameIdx > 0 ? (int) game.get((String) game_combo.getSelectedItem()).get("id") : -1;
 
         // efectividad = ROI / SQRT(participation_rate). Symmetric around zero, continuous,
         // rewards positive ROI with low participation and punishes negative ROI equally
@@ -553,10 +564,9 @@ public class StatsDialog extends JFrame {
         stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
-                if (game_combo.getSelectedIndex() > 0) {
+                if (gameIdx > 0) {
                     try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
                         st.setQueryTimeout(30);
-                        int gameId = (int) game.get((String) game_combo.getSelectedItem()).get("id");
                         for (int i = 1; i <= 6; i++) {
                             st.setInt(i, gameId);
                         }
@@ -640,6 +650,10 @@ public class StatsDialog extends JFrame {
 
         hand_combo.setVisible(false);
 
+        // Snapshot the combo selection on the EDT; the worker thread must never read Swing state.
+        final int gameIdx = game_combo.getSelectedIndex();
+        final int gameId = gameIdx > 0 ? (int) game.get((String) game_combo.getSelectedItem()).get("id") : -1;
+
         final String SQL_PER_GAME
                 = "SELECT t1.JUGADOR AS \"player.jugador\","
                 + " ROUND((JUGADAS / CAST(MANOS_TOTALES AS FLOAT)) * 100, 1) || '%' AS \"game.manos_3\""
@@ -690,10 +704,9 @@ public class StatsDialog extends JFrame {
         stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
-                if (game_combo.getSelectedIndex() > 0) {
+                if (gameIdx > 0) {
                     try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
                         st.setQueryTimeout(30);
-                        int gameId = (int) game.get((String) game_combo.getSelectedItem()).get("id");
                         st.setInt(1, ronda);
                         st.setInt(2, gameId);
                         st.setInt(3, gameId);
@@ -834,29 +847,35 @@ public class StatsDialog extends JFrame {
                 + " GROUP BY \"player.jugador\""
                 + " ORDER BY \"stats.roi\" DESC";
 
+        // Snapshot combo state on the EDT; the worker thread must never read Swing state.
+        final int handIdx = hand_combo.getSelectedIndex();
+        final boolean handVisible = hand_combo.isVisible();
+        final int gameIdx = game_combo.getSelectedIndex();
+        final int handId = handIdx > 0 ? (int) hand.get((String) hand_combo.getSelectedItem()).get("id") : -1;
+        final int gameId = gameIdx > 0 ? (int) game.get((String) game_combo.getSelectedItem()).get("id") : -1;
+
         stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
-                if (hand_combo.getSelectedIndex() > 0) {
+                if (handIdx > 0) {
                     try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
                         st.setQueryTimeout(30);
-                        st.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
+                        st.setInt(1, handId);
                         try (ResultSet rs = st.executeQuery()) {
                             populateBalanceTable(tableModel, rs);
                         }
                     } catch (SQLException ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    if (hand_combo.isVisible() && hand_combo.getSelectedIndex() > 0) {
+                    if (handVisible && handIdx > 0) {
                         Helpers.GUIRunAndWait(() -> {
                             res_table_warning.setText(Translator.translate("game.nota_lo_que_se_muestra"));
                             res_table_warning.setVisible(true);
                         });
                     }
-                } else if (game_combo.getSelectedIndex() > 0) {
+                } else if (gameIdx > 0) {
                     try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
                         st.setQueryTimeout(30);
-                        int gameId = (int) game.get((String) game_combo.getSelectedItem()).get("id");
                         st.setInt(1, gameId);
                         st.setInt(2, gameId);
                         try (ResultSet rs = st.executeQuery()) {
@@ -1277,23 +1296,29 @@ public class StatsDialog extends JFrame {
         final String SQL_ALL = "SELECT player AS \"player.jugador\", ROUND(AVG(response_time), 1) AS \"ui.tiempo\""
                 + " FROM action GROUP BY \"player.jugador\" ORDER BY \"ui.tiempo\" DESC";
 
+        // Snapshot combo state on the EDT; the worker thread must never read Swing state.
+        final int handIdx = hand_combo.getSelectedIndex();
+        final int gameIdx = game_combo.getSelectedIndex();
+        final int handId = handIdx > 0 ? (int) hand.get((String) hand_combo.getSelectedItem()).get("id") : -1;
+        final int gameId = gameIdx > 0 ? (int) game.get((String) game_combo.getSelectedItem()).get("id") : -1;
+
         stats_db_executor.submit(() -> {
             try {
                 DefaultTableModel tableModel = new DefaultTableModel();
-                if (hand_combo.getSelectedIndex() > 0) {
+                if (handIdx > 0) {
                     try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_HAND)) {
                         st.setQueryTimeout(30);
-                        st.setInt(1, (int) hand.get((String) hand_combo.getSelectedItem()).get("id"));
+                        st.setInt(1, handId);
                         try (ResultSet rs = st.executeQuery()) {
                             populateTiempoTable(tableModel, rs);
                         }
                     } catch (SQLException ex) {
                         Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                } else if (game_combo.getSelectedIndex() > 0) {
+                } else if (gameIdx > 0) {
                     try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(SQL_PER_GAME)) {
                         st.setQueryTimeout(30);
-                        st.setInt(1, (int) game.get((String) game_combo.getSelectedItem()).get("id"));
+                        st.setInt(1, gameId);
                         try (ResultSet rs = st.executeQuery()) {
                             populateTiempoTable(tableModel, rs);
                         }

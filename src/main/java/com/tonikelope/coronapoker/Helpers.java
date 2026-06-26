@@ -3483,6 +3483,22 @@ public class Helpers {
         }
     }
 
+    // Aplica la fuente base a TODOS los componentes descendientes al MISMO tamaño
+    // (conservando el estilo bold/plain de cada uno). A diferencia de updateFonts
+    // (que escala el tamaño existente de cada control), aquí todos quedan al MISMO
+    // punto: lo usan los diálogos de ajustes (con/sin pestañas) para una tipografía
+    // homogénea. No alcanza los títulos de los TitledBorder (esos van aparte).
+    public static void setUniformFont(Container c, Font base, int size) {
+        for (Component child : c.getComponents()) {
+            Font f = child.getFont();
+            int style = (f != null) ? f.getStyle() : Font.PLAIN;
+            child.setFont(base.deriveFont(style, (float) size));
+            if (child instanceof Container) {
+                setUniformFont((Container) child, base, size);
+            }
+        }
+    }
+
     /**
      * Returns the largest variant of {@code base_font} (never larger than its
      * own size) whose rendering of {@code text} fits within

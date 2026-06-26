@@ -431,6 +431,11 @@ public class AudioSettingsPanel extends JPanel {
         global_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
         global_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
         global_panel.add(global_note);
+        // Glue al pie: este es el ÚLTIMO panel de la columna derecha (más corta que la
+        // izquierda) y se le deja crecer en vertical para alinear su borde por abajo con
+        // el último panel de la izquierda; el hueco extra lo recoge aquí, manteniendo los
+        // controles pegados arriba (ver applyFontsAndSizing, que NO le pone tope de alto).
+        global_panel.add(Box.createVerticalGlue());
 
         refreshSoundControlsEnabled();
 
@@ -504,7 +509,12 @@ public class AudioSettingsPanel extends JPanel {
         // fuente escalada y el contenido no se corta por abajo.
         sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
         tts_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, tts_panel.getPreferredSize().height));
-        global_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, global_panel.getPreferredSize().height));
+
+        // global_panel es el ÚLTIMO de la columna derecha (la más corta): NO se le pone
+        // tope de alto a propósito, para que estire su borde hasta abajo y quede alineado
+        // con el último panel de la columna izquierda (el de entrada). El glue interno
+        // (ver constructor) absorbe el hueco al pie y el ancho ya lo estira el glue de
+        // cada iconRow, así que tampoco hace falta forzar su máximo aquí.
     }
 
     // El host DEBE llamarlo al cerrarse: no filtrar el dispatcher de captura de

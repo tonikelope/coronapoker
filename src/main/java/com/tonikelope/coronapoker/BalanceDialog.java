@@ -118,6 +118,14 @@ public class BalanceDialog extends JDialog {
     private ArrowButton right_arrow;
     private final java.util.List<CardPanel> card_panels = new java.util.ArrayList<>();
 
+    // Animación del importe del jugador local: un contador que sube/baja desde el buyin
+    // total hasta el stack final (estilo recuento de puntuación de videojuego) y luego se
+    // revela como +/- el neto. Solo si hay ganancia/pérdida (no en empate).
+    private OutlinedLabel amount_label;
+    private double anim_buyin;
+    private double anim_stack;
+    private double anim_ganancia;
+
     public boolean isRecover() {
         return recover;
     }
@@ -161,6 +169,11 @@ public class BalanceDialog extends JDialog {
         content.add(buildCardsRegion(), BorderLayout.SOUTH);
 
         addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowOpened(WindowEvent evt) {
+                startAmountAnimation();
+            }
+
             @Override
             public void windowActivated(WindowEvent evt) {
                 if (isModal()) {
@@ -383,31 +396,90 @@ public class BalanceDialog extends JDialog {
         return hero;
     }
 
-    // La cantidad ganada/perdida, en la misma letra gigante y color que el mensaje.
-    // Vacía si es neutro (no hay importe que mostrar).
+    // La cantidad del jugador local. Empieza mostrando el BUYIN total y se anima (en
+    // startAmountAnimation) hasta el stack final; al aterrizar se revela como +/- el neto,
+    // en la misma letra gigante y color (verde gana / rojo pierde). Vacía si es empate.
     private JComponent buildAmount() {
-        double ganancia = localGanancia();
+        double[] bs = localBuyinStack();
+        double buyin = bs[0];
+        double stack = bs[1];
+        double ganancia = Helpers.doubleClean(stack - buyin);
         int cmp = Helpers.doubleSecureCompare(ganancia, 0f);
-
-        String text;
-        Color fill;
-        if (cmp > 0) {
-            text = "+" + Helpers.money2String(ganancia);
-            fill = WIN;
-        } else if (cmp < 0) {
-            text = "-" + Helpers.money2String(ganancia * -1);
-            fill = LOSE;
-        } else {
-            text = "";
-            fill = NEUTRAL;
-        }
 
         float amount_size = Math.max(36f, Math.min(280f, screen_h * 0.15f));
 
-        OutlinedLabel amount = new OutlinedLabel(text, fill);
+        if (cmp == 0) {
+            // Empate: no hay importe que mostrar (ni animación).
+            OutlinedLabel empty = new OutlinedLabel("", NEUTRAL);
+            empty.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
+            empty.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
+            return empty;
+        }
+
+        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), cmp > 0 ? WIN : LOSE);
         amount.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
         amount.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
+
+        amount_label = amount;
+        anim_buyin = buyin;
+        anim_stack = stack;
+        anim_ganancia = ganancia;
+
         return amount;
+    }
+
+    // {buyin_total, stack_final} del jugador local (auditor: pasta[0]=stack, pasta[1]=buyin).
+    private double[] localBuyinStack() {
+        try {
+            String nick = GameFrame.getInstance().getLocalPlayer().getNickname();
+            Double[] pasta = GameFrame.getInstance().getCrupier().getAuditor().get(nick);
+            if (pasta == null) {
+                return new double[]{0, 0};
+            }
+            return new double[]{Helpers.doubleClean(pasta[1]), Helpers.doubleClean(pasta[0])};
+        } catch (Exception ex) {
+            return new double[]{0, 0};
+        }
+    }
+
+    // Recuento animado del importe local: rueda desde el buyin hasta el stack con
+    // desaceleración (ease-out cúbico), mantiene un instante el stack y revela el +/- neto.
+    private void startAmountAnimation() {
+        if (amount_label == null) {
+            return;
+        }
+
+        final double from = anim_buyin;
+        final double to = anim_stack;
+        final long duration_ms = 2000;
+        final long start_ms = System.currentTimeMillis();
+
+        final String reveal_text = anim_ganancia > 0
+                ? "+" + Helpers.money2String(anim_ganancia)
+                : "-" + Helpers.money2String(anim_ganancia * -1);
+
+        javax.swing.Timer roll = new javax.swing.Timer(16, null);
+        roll.addActionListener((e) -> {
+            double p = Math.min(1.0, (System.currentTimeMillis() - start_ms) / (double) duration_ms);
+            double eased = 1.0 - Math.pow(1.0 - p, 3.0);
+            double value = from + (to - from) * eased;
+
+            amount_label.setText(Helpers.money2String(Helpers.doubleClean(value)));
+
+            if (p >= 1.0) {
+                ((javax.swing.Timer) e.getSource()).stop();
+                amount_label.setText(Helpers.money2String(to));
+
+                // Breve pausa sobre el stack final y revelado del neto +/-.
+                javax.swing.Timer reveal = new javax.swing.Timer(320, (ev) -> {
+                    ((javax.swing.Timer) ev.getSource()).stop();
+                    amount_label.setText(reveal_text);
+                });
+                reveal.setRepeats(false);
+                reveal.start();
+            }
+        });
+        roll.start();
     }
 
     private double localGanancia() {

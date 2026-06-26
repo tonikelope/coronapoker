@@ -464,32 +464,26 @@ public class BalanceDialog extends JDialog {
         javax.swing.Timer roll = new javax.swing.Timer(16, null);
         roll.addActionListener((e) -> {
             double p = Math.min(1.0, (System.currentTimeMillis() - start_ms) / (double) duration_ms);
-            double eased = 1.0 - Math.pow(1.0 - p, 3.0);
-            double value = from + (to - from) * eased;
-
-            amount_label.setText(Helpers.money2String(Helpers.doubleClean(value)));
 
             if (p >= 1.0) {
                 ((javax.swing.Timer) e.getSource()).stop();
-                amount_label.setText(Helpers.money2String(to));
-
-                // Breve pausa sobre el stack final y revelado del neto +/- (verde/rojo + parpadeo).
-                javax.swing.Timer reveal = new javax.swing.Timer(200, (ev) -> {
-                    ((javax.swing.Timer) ev.getSource()).stop();
-                    amount_label.setFill(anim_ganancia > 0 ? WIN : LOSE);
-                    amount_label.setText(reveal_text);
-                    blinkAmount(reveal_text);
-                });
-                reveal.setRepeats(false);
-                reveal.start();
+                // Sin pausa: al llegar al stack se revela el neto +/- (verde/rojo) y parpadea.
+                amount_label.setFill(anim_ganancia > 0 ? WIN : LOSE);
+                amount_label.setText(reveal_text);
+                blinkAmount();
+                return;
             }
+
+            double eased = 1.0 - Math.pow(1.0 - p, 3.0);
+            double value = from + (to - from) * eased;
+            amount_label.setText(Helpers.money2String(Helpers.doubleClean(value)));
         });
         roll.start();
     }
 
-    // Parpadeo del importe al revelar el neto: lo apaga/enciende un par de veces y termina
-    // visible. Llamar tras fijar el texto y color finales.
-    private void blinkAmount(String text) {
+    // Parpadeo SOLO del importe al revelar el neto: alterna un flag de "no pintar" (que solo
+    // repinta este label, sin remaquetar el resto del diálogo) y termina visible.
+    private void blinkAmount() {
         if (amount_label == null) {
             return;
         }
@@ -500,10 +494,10 @@ public class BalanceDialog extends JDialog {
         javax.swing.Timer blink = new javax.swing.Timer(130, null);
         blink.addActionListener((e) -> {
             count[0]++;
-            amount_label.setText(count[0] % 2 == 1 ? "" : text);
+            amount_label.setBlank(count[0] % 2 == 1);
             if (count[0] >= total) {
                 ((javax.swing.Timer) e.getSource()).stop();
-                amount_label.setText(text);
+                amount_label.setBlank(false);
             }
         });
         blink.start();
@@ -804,6 +798,7 @@ public class BalanceDialog extends JDialog {
         private static final float STROKE_RATIO = 0.06f;
         private final Color halo = new Color(0, 0, 0, 235);
         private Color fill;
+        private boolean blank = false;
 
         OutlinedLabel(String text, Color fill) {
             super(text, SwingConstants.CENTER);
@@ -815,10 +810,16 @@ public class BalanceDialog extends JDialog {
             repaint();
         }
 
+        // Oculta/muestra el texto sin tocar el layout (solo repinta): para el parpadeo.
+        void setBlank(boolean b) {
+            this.blank = b;
+            repaint();
+        }
+
         @Override
         protected void paintComponent(Graphics g) {
             String text = getText();
-            if (text == null || text.isEmpty()) {
+            if (blank || text == null || text.isEmpty()) {
                 return;
             }
             Graphics2D g2 = (Graphics2D) g.create();

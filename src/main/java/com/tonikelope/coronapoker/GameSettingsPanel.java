@@ -64,6 +64,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JPanel ciegas_panel;
     private javax.swing.JLabel estructura_label;
     private javax.swing.JComboBox<String> estructura_combobox;
+    private javax.swing.JLabel ciegas_label;
     private javax.swing.JComboBox<String> ciegas_combobox;
     private javax.swing.JCheckBox doblar_checkbox;
     private javax.swing.JRadioButton double_blinds_radio_minutos;
@@ -273,6 +274,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         ciegas_panel = new javax.swing.JPanel();
         estructura_label = new javax.swing.JLabel();
         estructura_combobox = new javax.swing.JComboBox<>();
+        ciegas_label = new javax.swing.JLabel();
         ciegas_combobox = new javax.swing.JComboBox<>();
         doblar_checkbox = new javax.swing.JCheckBox();
         double_blinds_radio_minutos = new javax.swing.JRadioButton();
@@ -383,6 +385,11 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         estructura_combobox.setFont(new java.awt.Font("Dialog", 0, 16));
         estructura_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        ciegas_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        ciegas_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/ciegas.png")));
+        ciegas_label.setText("Ciegas iniciales:");
+        ciegas_label.putClientProperty("i18n.key", "blinds.ciegas_iniciales");
+
         ciegas_combobox.setFont(new java.awt.Font("Dialog", 0, 16));
         ciegas_combobox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,10 / 0,20" : "0.10 / 0.20", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,20 / 0,40" : "0.20 / 0.40", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,30 / 0,60" : "0.30 / 0.60", GameFrame.LANGUAGE.toLowerCase().equals("es") ? "0,50 / 1" : "0.50 / 1", "1 / 2", "2 / 4", "3 / 6", "5 / 10", "10 / 20", "20 / 40", "30 / 60", "50 / 100", "100 / 200", "200 / 400", "300 / 600", "500 / 1000", "1000 / 2000", "2000 / 4000", "3000 / 6000", "5000 / 10000"}));
         ciegas_combobox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -489,6 +496,7 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                         .addComponent(estructura_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(estructura_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(ciegas_label)
                     .addComponent(ciegas_combobox, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(ciegas_panelLayout.createSequentialGroup()
                         .addComponent(doblar_checkbox)
@@ -516,6 +524,8 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(estructura_label)
                     .addComponent(estructura_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(ciegas_label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(ciegas_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(doblar_checkbox)

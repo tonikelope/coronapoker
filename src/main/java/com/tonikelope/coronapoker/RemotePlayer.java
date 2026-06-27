@@ -481,11 +481,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                         Se meten en la propia label con addaudio para sincronizar cuando es necesario que el 
                                         audio empiece y acabe en un determinado frame exacto del gif. (El hilo que reproducirá este audio NO espera en la barrera) */
                                     if (getDecision() == Player.BET) {
+                                        // false: el bote no se commitea hasta que la ronda cierra
+                                        // la acción (tras la cinemática); el rodaje del contador lo
+                                        // dispara rondaApuestas, a la vez que el bote.
                                         getChat_notify_label().addAudio("misc/bet.wav", 32, 60,
-                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this));
+                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this, false));
                                     } else if (getDecision() == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                         getChat_notify_label().addAudio("misc/call.wav", 32, 60,
-                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this));
+                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this, false));
                                     } else if (getDecision() == Player.CHECK) {
                                         getChat_notify_label().addAudio("misc/check.wav", 5, 14);
                                     }
@@ -2448,6 +2451,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         this.last_bote = null;
 
         this.bet = 0f;
+
+        // Red de seguridad: limpia cualquier aplazamiento de rodaje de contador que se
+        // hubiera quedado colgado de una mano anterior (p.ej. cinemática de acción
+        // interrumpida antes de lanzar su ficha) ANTES de fijar el de la ciega de esta
+        // mano. Sin esto, un flag pegado haría que setStack/setBet de este jugador no
+        // rodaran hasta su siguiente ficha. Solo afecta al rodaje del contador.
+        setCounterRollDeferred(false);
 
         resetGUI();
 

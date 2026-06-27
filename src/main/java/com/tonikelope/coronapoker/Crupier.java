@@ -2458,6 +2458,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // se salta en RECOVER/fin de transmisión. NO bloquea: la animación corre sola
     // en el EDT y el llamante continúa de inmediato.
     public void launchChipToPot(Player player) {
+        launchChipToPot(player, true);
+    }
+
+    // rollCountersAtLand: si true (caso normal: bet/call/all-in/straddle/forzadas vía sus
+    // propias rutas), el stack/bet del jugador ruedan al ATERRIZAR la ficha — para entonces
+    // el bote (bote_total) ya está commiteado, así que los TRES van juntos. En CINEMÁTICAS
+    // la ficha del bot se lanza desde el frame del GIF y el bote NO se commitea hasta que la
+    // ronda cierra la acción (tras la cinemática): ahí se pasa false y el rodaje del contador
+    // lo dispara rondaApuestas a la vez que el bote, para que el contador no se adelante.
+    // ESTE PARÁMETRO SOLO GOBIERNA EL RODAJE DEL CONTADOR; el vuelo/flaseo/diferido del bote
+    // (pot_chips_in_flight + flyChipToPot + refreshTapeteBoteValue) queda INTACTO.
+    public void launchChipToPot(Player player, boolean rollCountersAtLand) {
 
         if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
             // Sin animación de ficha: el handler pudo aplazar el rodaje del stack/bet
@@ -2478,10 +2490,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // aterrizaje no re-muestra la bet_label si el showdown ya la ocultó.
             refreshTapeteBoteValue();
             // A LA VEZ que el bote sube y flasea: rueda el stack (baja) y la apuesta del
-            // jugador (sube) hasta su valor de modelo. Los TRES contadores arrancan juntos
-            // en este mismo instante (el aterrizaje de la ficha). El handler dejó el
-            // stack/bet sin rodar (defer) precisamente para esto.
-            player.rollCountersToModel();
+            // jugador (sube) hasta su valor de modelo. El handler dejó el stack/bet sin
+            // rodar (defer) precisamente para esto. Salvo en cinemáticas (rollCountersAtLand
+            // false), donde el bote aún no está commiteado aquí y el rodaje lo hace la ronda.
+            if (rollCountersAtLand) {
+                player.rollCountersToModel();
+            }
         });
     }
 
@@ -11988,6 +12002,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
+                // El bote (bote_total) se acaba de commitear arriba. Si la ficha del jugador
+                // YA aterrizó (cinemáticas: vuela a mitad del GIF, mucho antes de cerrarse la
+                // acción) o no había ficha, rueda AHORA su stack/bet aplazado, a la vez que el
+                // bote (actualizarContadoresTapete justo debajo) -> los tres juntos. Si su
+                // ficha SIGUE en vuelo (caso normal sin cinemática), NO: su rodaje ya va atado
+                // al aterrizaje (launchChipToPot.onLand), donde el bote también sube. No-op si
+                // no había aplazamiento. Solo afecta al rodaje del contador, no al bote.
+                if (!isPotLabelValueDeferred()) {
+                    current_player.rollCountersToModel();
+                }
                 actualizarContadoresTapete();
                 conta_pos++;
                 if (conta_pos >= GameFrame.getInstance().getJugadores().size()) {

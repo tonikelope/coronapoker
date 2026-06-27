@@ -2142,6 +2142,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
         this.bet = 0f;
 
+        // Red de seguridad: limpia cualquier aplazamiento de rodaje de contador que se
+        // hubiera quedado colgado de una mano anterior ANTES de fijar el de la ciega de
+        // esta mano. Solo afecta al rodaje del contador.
+        setCounterRollDeferred(false);
+
         resetGUI();
 
         if (GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(nickname)) {

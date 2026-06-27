@@ -227,8 +227,9 @@ public class AppearanceSettingsPanel extends JPanel {
 
         addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK, gf.getTime_menu()));
         addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR, gf.getCoste_igualar_menu()));
+        addLeft(mesa, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
-        // ---------------- Animaciones y chat ----------------
+        // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
 
         // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
@@ -251,7 +252,6 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", gf.getAnim_ciegas_dealer_menu()));
         addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas", gf.getAnim_apuestas_menu()));
         addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores", gf.getAnim_contadores_menu()));
-        addLeft(anim, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -467,7 +467,9 @@ public class AppearanceSettingsPanel extends JPanel {
         cb.addActionListener(e -> menu.doClick());
         anim_sub_cb.add(cb);
         anim_sub_menu.add(menu);
+        // Sangrado: los individuales cuelgan visualmente del maestro "Usar animaciones".
         JPanel row = naturalRow();
+        row.add(Box.createHorizontalStrut(18));
         row.add(new JLabel(icon(iconPath)));
         row.add(cb);
         return row;

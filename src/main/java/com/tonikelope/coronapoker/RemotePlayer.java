@@ -51,6 +51,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -114,6 +115,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     private volatile Timer icon_zoom_timer = null;
     private volatile Timer iwtsth_blink_timer = null;
     private volatile Timer rebuy_countdown_timer = null;
+    // Cinemática de bet/call: el hilo de la acción espera SOLO a que la ficha despegue
+    // (frame 32 del GIF), no a que el GIF entero termine. Lo cuenta atrás el addAudio al
+    // lanzar la ficha; awaitChipLaunch lo espera con tope.
+    private volatile CountDownLatch chip_launch_latch = null;
     private volatile String rebuy_countdown_saved_text = null;
     // GIF de game over sobre las cartas del arruinado mientras decide la
     // recompra (solo modo CINEMATICAS). Label dedicada (capa 1001, debajo del
@@ -410,6 +415,15 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void setNotifyImageChatLabel(URL u) {
+        setNotifyImageChatLabel(u, true);
+    }
+
+    // caller_awaits: si true (fold y pure-check) el hilo de la acción espera en la
+    // barrera a que el GIF entero termine (3 partes). Si false (bet y call con dinero)
+    // NO: la ficha vuela igual en su frame (addAudio) pero la acción solo espera a que
+    // DESPEGUE (chip_launch_latch); el GIF se desmonta solo (2 partes: setup + fin-de-GIF)
+    // y sus frames restantes se reproducen aparte.
+    private void setNotifyImageChatLabel(URL u, boolean caller_awaits) {
 
         if (!this.isNotify_blocked()) {
 
@@ -421,7 +435,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 final boolean isgif = (action_gif || ChatImageDialog.GIF_CACHE.containsKey(u.toString()) || Helpers.isImageGIF(u));
 
-                final CyclicBarrier gif_barrier = new CyclicBarrier(action_gif ? 3 : 2);
+                final CyclicBarrier gif_barrier = new CyclicBarrier((action_gif && caller_awaits) ? 3 : 2);
 
                 getChat_notify_label().setBarrier(gif_barrier);
 
@@ -481,14 +495,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                         Se meten en la propia label con addaudio para sincronizar cuando es necesario que el 
                                         audio empiece y acabe en un determinado frame exacto del gif. (El hilo que reproducirá este audio NO espera en la barrera) */
                                     if (getDecision() == Player.BET) {
-                                        // false: el bote no se commitea hasta que la ronda cierra
-                                        // la acción (tras la cinemática); el rodaje del contador lo
-                                        // dispara rondaApuestas, a la vez que el bote.
-                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60,
-                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this, false));
+                                        // La ficha vuela en este frame (gesto + sonido sincronizados,
+                                        // INTACTO). signalChipLaunched suelta el hilo de la acción:
+                                        // cierra la acción y commitea el bote mientras la ficha vuela,
+                                        // así al aterrizar pot+stack+bet ruedan juntos (true).
+                                        getChat_notify_label().addAudio("misc/bet.wav", 32, 60, () -> {
+                                            GameFrame.getInstance().getCrupier().launchChipToPot(this, true);
+                                            signalChipLaunched();
+                                        });
                                     } else if (getDecision() == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) < 0) {
-                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60,
-                                                () -> GameFrame.getInstance().getCrupier().launchChipToPot(this, false));
+                                        getChat_notify_label().addAudio("misc/call.wav", 32, 60, () -> {
+                                            GameFrame.getInstance().getCrupier().launchChipToPot(this, true);
+                                            signalChipLaunched();
+                                        });
                                     } else if (getDecision() == Player.CHECK) {
                                         getChat_notify_label().addAudio("misc/check.wav", 5, 14);
                                     }
@@ -1310,15 +1329,41 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         finTurno();
     }
 
+    // Espera a que la ficha de la cinemática DESPEGUE (frame 32 del GIF, donde addAudio
+    // la lanza), no a que el GIF entero acabe. Así la acción cierra en cuanto la ficha
+    // está en vuelo: el bote se commitea y, al aterrizar, los contadores ruedan junto a
+    // él (los tres a la vez, limpio como sin cinemática), mientras el GIF reproduce sus
+    // frames restantes aparte. Tope = GIF_BARRIER_TIMEOUT: si la cinemática cae antes de
+    // lanzar, la acción sigue igual (sin animación de ficha) sin colgarse.
+    private void awaitChipLaunch() {
+        CountDownLatch l = chip_launch_latch;
+        if (l == null) {
+            return;
+        }
+        try {
+            l.await(GIF_BARRIER_TIMEOUT, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                    "Chip-launch wait interrupted (cooperative cancellation)");
+        }
+    }
+
+    private void signalChipLaunched() {
+        CountDownLatch l = chip_launch_latch;
+        if (l != null) {
+            l.countDown();
+        }
+    }
+
     private void check() {
 
-        // Si va a volar ficha (es un CALL con dinero), NO rodamos el stack/bet aquí:
-        // launchChipToPot —directo, o en cinemática desde el frame del GIF (addAudio)—
-        // los rodará al ATERRIZAR, junto al bote (los tres a la vez). El chip vuela
-        // tanto sin cinemática como CON ella, por eso NO se excluye el caso cinemático.
-        // Pure check (sin dinero) / animación de fichas off → ruedan al instante.
-        setCounterRollDeferred(Helpers.doubleSecureCompare(0f, call_required) < 0
-                && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
+        final boolean is_call = Helpers.doubleSecureCompare(0f, call_required) < 0;
+
+        // CALL con dinero: va a volar ficha; NO rodamos stack/bet aquí, los rueda
+        // launchChipToPot al ATERRIZAR junto al bote (los tres a la vez, como sin
+        // cinemática). Pure check: sin dinero, nada que diferir.
+        setCounterRollDeferred(is_call && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
         setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
@@ -1328,34 +1373,38 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // 10-second blocking await on a barrier the GIF callback never closes.
         if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
 
-            if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
+            if (is_call) {
+                // La ficha vuela en el frame 32 del GIF (sincronizada, INTACTO). Esperamos
+                // SOLO a que despegue, no a que el GIF acabe: los frames que falten se
+                // reproducen solos mientras la ronda continúa.
                 int r = 1 + new Random().nextInt(4);
-                setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"));
+                chip_launch_latch = new CountDownLatch(1);
+                setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"), false);
+                awaitChipLaunch();
             } else {
+                // Pure check (sin dinero): cinemática BLOQUEANTE de siempre (no hay
+                // contadores que sincronizar; el check.wav va atado a un frame del GIF).
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/check.gif"));
-            }
-
-            if (getChat_notify_label().getGif_barrier() != null) {
-                try {
-                    getChat_notify_label().getGif_barrier().await();
-                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
-                    Thread.currentThread().interrupt();
-                    // Expected during pool shutdown — animation barrier
-                    // cancelled cooperatively.
-                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
-                            "Animation barrier cancelled (cooperative cancellation)");
-                } catch (Exception ex) {
-                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                if (getChat_notify_label().getGif_barrier() != null) {
+                    try {
+                        getChat_notify_label().getGif_barrier().await();
+                    } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
+                        Thread.currentThread().interrupt();
+                        // Expected during pool shutdown — animation barrier
+                        // cancelled cooperatively.
+                        Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
+                                "Animation barrier cancelled (cooperative cancellation)");
+                    } catch (Exception ex) {
+                        Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
 
+        } else if (is_call) {
+            Audio.playWavResource("misc/call.wav");
+            GameFrame.getInstance().getCrupier().launchChipToPot(this);
         } else {
-            if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
-                Audio.playWavResource("misc/call.wav");
-                GameFrame.getInstance().getCrupier().launchChipToPot(this);
-            } else {
-                Audio.playWavResource("misc/check.wav");
-            }
+            Audio.playWavResource("misc/check.wav");
         }
 
         finTurno();
@@ -1370,9 +1419,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void bet(double new_bet) {
 
-        // Va a volar ficha (directo, o en cinemática desde el frame del GIF): NO rodamos
-        // el stack/bet aquí; launchChipToPot los rodará al ATERRIZAR, junto al bote. El
-        // chip vuela también CON cinemática, por eso NO se excluye ese caso.
+        // La ficha vuela en el frame 32 del GIF (addAudio), sincronizada con el gesto y
+        // el sonido — INTACTO. NO rodamos stack/bet aquí; launchChipToPot los rodará al
+        // ATERRIZAR junto al bote, los tres a la vez (igual que SIN cinemática).
         setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
         setBet(new_bet);
@@ -1384,21 +1433,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(4);
 
-            setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"));
+            // Esperamos SOLO a que la ficha despegue (frame 32), no a que el GIF entero
+            // termine: desde ahí la ronda cierra la acción y commitea el bote mientras la
+            // ficha vuela -> al aterrizar, pot+stack+bet ruedan juntos y limpios; los
+            // frames que falten del GIF se reproducen solos.
+            chip_launch_latch = new CountDownLatch(1);
+            setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"), false);
+            awaitChipLaunch();
 
-            if (getChat_notify_label().getGif_barrier() != null) {
-                try {
-                    getChat_notify_label().getGif_barrier().await();
-                } catch (InterruptedException | java.util.concurrent.BrokenBarrierException ex) {
-                    Thread.currentThread().interrupt();
-                    // Expected during pool shutdown — animation barrier
-                    // cancelled cooperatively.
-                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.INFO,
-                            "Animation barrier cancelled (cooperative cancellation)");
-                } catch (Exception ex) {
-                    Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
         } else {
             Audio.playWavResource("misc/bet.wav");
             GameFrame.getInstance().getCrupier().launchChipToPot(this);

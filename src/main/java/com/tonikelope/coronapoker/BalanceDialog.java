@@ -461,7 +461,9 @@ public class BalanceDialog extends JDialog {
 
         final double from = anim_buyin;
         final double to = anim_stack;
-        final long duration_ms = 1600;
+        // 1.5s, en sincronia con la cortinilla de llenado de stacks (Crupier.STACK_FILL_MS).
+        // La frenadita (ease-out cubico) y el parpadeo siguen intactos, son sello de esta pantalla.
+        final long duration_ms = 1500;
         final long start_ms = System.currentTimeMillis();
 
         final String reveal_text = anim_ganancia > 0

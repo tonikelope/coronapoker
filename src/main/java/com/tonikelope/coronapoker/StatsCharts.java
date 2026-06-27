@@ -65,11 +65,19 @@ public final class StatsCharts {
     }
 
     // ===== TAMAÑO DE LAS FUENTES DE LAS GRÁFICAS =====
-    // Mando ÚNICO para agrandar/encoger TODOS los textos de las gráficas a la vez
+    // Escala que multiplica el tamaño de TODOS los textos de las gráficas a la vez
     // (títulos, etiquetas de ejes, números sobre las barras, nombres de jugador,
-    // ejes del radar...). 1.0 = tamaños originales; sube este número para hacerlos
-    // más grandes (p.ej. 1.5f = +50%). Es lo único que hay que tocar.
-    private static final float FONT_SCALE = 1.4f;
+    // ejes del radar...). 1.0 = tamaños originales. Se controla en vivo desde el
+    // spinner del StatsDialog (setFontScale + refresco de la gráfica).
+    private static volatile float FONT_SCALE = 1.3f;
+
+    public static float getFontScale() {
+        return FONT_SCALE;
+    }
+
+    public static void setFontScale(float scale) {
+        FONT_SCALE = scale;
+    }
 
     private static Font font(int style, float size) {
         float scaled = size * FONT_SCALE;

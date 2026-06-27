@@ -81,6 +81,9 @@ public class StatsDialog extends JFrame {
     private javax.swing.JSplitPane chart_split;
     private int chart_area_height = 360;
     private volatile boolean adjusting_divider = false;
+    // Barra con el spinner de "Global Chart Zoom" (escala de fuentes de las gráficas).
+    private javax.swing.JPanel chart_toolbar;
+    private javax.swing.JSpinner chart_zoom_spinner;
 
     // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
     // compartida + lectura de logs/chat) en UN solo hilo. Antes,
@@ -161,7 +164,35 @@ public class StatsDialog extends JFrame {
         chart_split.setContinuousLayout(true);
         chart_split.setResizeWeight(0.8);
         chart_split.setDividerSize(0);
-        ((javax.swing.GroupLayout) hands_panel.getLayout()).replace(table_panel, chart_split);
+
+        // "Global Chart Zoom": spinner que escala TODAS las fuentes de las gráficas
+        // (StatsCharts.FONT_SCALE) y re-renderiza la gráfica actual al cambiar. Va en
+        // una barra propia bajo el split (no se toca el GroupLayout del .form). El
+        // listener no actúa durante la construcción (init) ni al fijar el valor inicial.
+        chart_zoom_spinner = new javax.swing.JSpinner(new javax.swing.SpinnerNumberModel((double) StatsCharts.getFontScale(), 0.8d, 3.0d, 0.1d));
+        ((javax.swing.JSpinner.DefaultEditor) chart_zoom_spinner.getEditor()).getTextField().setEditable(false);
+        chart_zoom_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        chart_zoom_spinner.addChangeListener(e -> {
+            if (init) {
+                return;
+            }
+            StatsCharts.setFontScale(((Number) chart_zoom_spinner.getValue()).floatValue());
+            refreshCurrentStat();
+        });
+        javax.swing.JLabel chart_zoom_label = new javax.swing.JLabel(Translator.translate("stats.global_chart_zoom"));
+        chart_zoom_label.putClientProperty("i18n.key", "stats.global_chart_zoom");
+        chart_toolbar = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 2));
+        chart_toolbar.setOpaque(false);
+        chart_toolbar.add(chart_zoom_label);
+        chart_toolbar.add(chart_zoom_spinner);
+        chart_toolbar.setVisible(false);
+
+        javax.swing.JPanel chart_split_container = new javax.swing.JPanel(new java.awt.BorderLayout());
+        chart_split_container.setOpaque(false);
+        chart_split_container.add(chart_split, java.awt.BorderLayout.CENTER);
+        chart_split_container.add(chart_toolbar, java.awt.BorderLayout.SOUTH);
+
+        ((javax.swing.GroupLayout) hands_panel.getLayout()).replace(table_panel, chart_split_container);
         chart_split.setTopComponent(table_panel);
         chart_split.setBottomComponent(chart_panel);
 
@@ -259,6 +290,10 @@ public class StatsDialog extends JFrame {
 
         boolean show = added > 0;
         chart_panel.setVisible(show);
+        // La barra del zoom solo tiene sentido cuando hay gráfica visible.
+        if (chart_toolbar != null) {
+            chart_toolbar.setVisible(show);
+        }
 
         if (chart_split != null) {
             // Show/hide the divider with the charts, and restore the remembered chart height.
@@ -273,6 +308,22 @@ public class StatsDialog extends JFrame {
 
         chart_panel.revalidate();
         chart_panel.repaint();
+    }
+
+    // Re-lanza la consulta de la stat actualmente seleccionada para re-renderizar su
+    // gráfica con el FONT_SCALE nuevo (lo dispara el spinner de Global Chart Zoom).
+    // Reusa el flujo normal: re-consulta + reconstruye tabla y gráfica. Como cada
+    // método de stat hace setEnabled(false) mientras consulta, el spinner queda
+    // bloqueado durante el refresco (evita encolar refrescos a lo loco).
+    private void refreshCurrentStat() {
+        if (!init && stats_combo.getSelectedIndex() >= 0) {
+            SQLStats s = sqlstats.get((String) stats_combo.getSelectedItem());
+            if (s != null) {
+                res_table.setRowSorter(null);
+                showChart(null);
+                s.call();
+            }
+        }
     }
 
     /**

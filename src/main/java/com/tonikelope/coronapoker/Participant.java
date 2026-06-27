@@ -33,16 +33,23 @@ public class Participant implements Runnable {
     // Si llega resetSocket() en este margen el reader continua sin marcar
     // exit=true.
     //
-    // Escala derivada de Crupier.TIEMPO_PENSAR=40s (ancla del juego):
-    //   RECIBIDO_TIMEOUT      = 1.00 * TIEMPO_PENSAR  (40s - grace base sin intent)
-    //   CLIENT_RECON_TIMEOUT  = 2.00 * TIEMPO_PENSAR  (80s - grace tras intent autenticado / dialog)
+    // Grace base del host tras detectar la caida de un peer (null-read), cuando
+    // todavia NO ha llegado ningun intento de reconexion autenticado.
+    //   RECIBIDO_TIMEOUT      = 45s -> ANCLADO a la ventana de deteccion peor-caso
+    //       del socket mudo: MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS +
+    //       PING_PONG_TIMEOUT) = 3 * (5s + 10s) = 45s. Hacer el grace >= esa ventana
+    //       garantiza que el host no se rinda ANTES de que el propio peer pueda
+    //       siquiera enterarse de que se cayo y empezar a reconectar (antes eran
+    //       40s, justo por debajo de los 45s de deteccion).
+    //   CLIENT_RECON_TIMEOUT  = 80s (2 * TIEMPO_PENSAR) -> grace EXTENDIDO tras un
+    //       intent autenticado / umbral del dialogo manual en el cliente.
     //
-    // Ratio limpio 1:2. Si durante el grace base el cliente consigue abrir
-    // socket + handshake + HMAC contra hmac_key_orig (intent autenticado
-    // criptograficamente), signalReconnectIntent() refresca el deadline a
-    // CLIENT_RECON_TIMEOUT desde ese momento, dando al peer legitimo tiempo
-    // a completar resetSocket aunque el handshake tarde en redes lentas.
-    public static final int RECIBIDO_TIMEOUT = 40000;
+    // Si durante el grace base el cliente consigue abrir socket + handshake + HMAC
+    // contra hmac_key_orig (intent autenticado criptograficamente),
+    // signalReconnectIntent() refresca el deadline a CLIENT_RECON_TIMEOUT desde ese
+    // momento, dando al peer legitimo tiempo a completar resetSocket aunque el
+    // handshake tarde en redes lentas.
+    public static final int RECIBIDO_TIMEOUT = 45000;
 
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();

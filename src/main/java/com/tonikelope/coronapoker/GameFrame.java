@@ -182,6 +182,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Rodaje animado de los contadores numéricos. La pantalla final (BalanceDialog)
     // NO depende de este flag: su contador se da SIEMPRE.
     public static volatile boolean ANIMACION_CONTADORES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
+
+    // Velocidad/topes del rodaje de los contadores VIVOS (stack/bote del jugador/
+    // bote general) durante el juego. VELOCIDAD CONSTANTE (lineal): duración de cada
+    // tramo = distancia/velocidad, acotada a [min, max]. Palancas para afinar los
+    // casos extremos (cambios enormes no se eternizan, minúsculos no son instantáneos).
+    public static final double COUNTER_ROLL_SPEED = 3000.0; // dinero/segundo
+    public static final long COUNTER_ROLL_MIN_MS = 120;
+    public static final long COUNTER_ROLL_MAX_MS = 900;
+
+    // Gate del rodaje de contadores VIVOS: respeta la opción de Ajustes y se salta en
+    // recover (los valores recuperados se fijan de golpe, sin animar). El gate de la
+    // cortinilla/recompra es Crupier.isStackFillAnimated (añade fin de transmisión).
+    public static boolean isCounterRollEnabled() {
+        return ANIMACION_CONTADORES && !RECOVER;
+    }
     // Overlay opcional sobre las comunitarias con el coste de igualar del jugador
     // local (cuánto tendrá que poner cuando le toque). Por defecto activado.
     public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));

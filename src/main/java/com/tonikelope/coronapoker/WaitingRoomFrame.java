@@ -1339,6 +1339,15 @@ public class WaitingRoomFrame extends JFrame {
                         newSock.setTcpNoDelay(true);
                         newSock.setKeepAlive(true);
 
+                        // Cerrojo anti-cuelgue/anti-DoS del handshake de RECONEXION, en
+                        // paridad con cliente(): sin SO_TIMEOUT los reads del intercambio
+                        // (pubkey del server, session_id) bloqueaban indefinidamente si el
+                        // server aceptaba el TCP pero no enviaba datos -- y aqui ademas con
+                        // local_client_socket_lock tomado y reconnecting=true, lo que
+                        // congelaba TODO el transporte del cliente sin recuperacion. Se
+                        // resetea a 0 (bloqueante) tras el ack, ya en estado estable.
+                        newSock.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
+
                         LOGGER.log(Level.WARNING, "Connected to server! Exchanging keys...");
 
                         // Le mandamos los bytes "mágicos"
@@ -1369,6 +1378,14 @@ public class WaitingRoomFrame extends JFrame {
 
                         int length = dIn.readInt();
 
+                        // Cap defensivo (paridad con cliente()): un length malicioso/corrupto
+                        // reservaria un byte[] gigante -> OOM. El handshake de reconexion no
+                        // lo validaba.
+                        if (length <= 0 || length > HANDSHAKE_MAX_PUBKEY_BYTES) {
+                            throw new IOException("Reconnect handshake: invalid server pubkey length " + length
+                                    + " (cap " + HANDSHAKE_MAX_PUBKEY_BYTES + ")");
+                        }
+
                         byte[] serverPubKeyEnc = new byte[length];
 
                         dIn.readFully(serverPubKeyEnc, 0, serverPubKeyEnc.length);
@@ -1377,6 +1394,10 @@ public class WaitingRoomFrame extends JFrame {
                         // recompute self_sig because the host already has our pinned identity,
                         // but we MUST consume these bytes to keep the stream in sync.
                         int sidLen = dIn.readInt();
+                        if (sidLen <= 0 || sidLen > HANDSHAKE_MAX_SESSIONID_BYTES) {
+                            throw new IOException("Reconnect handshake: invalid session_id length " + sidLen
+                                    + " (cap " + HANDSHAKE_MAX_SESSIONID_BYTES + ")");
+                        }
                         byte[] receivedSessionId = new byte[sidLen];
                         dIn.readFully(receivedSessionId, 0, sidLen);
                         this.session_id = receivedSessionId;
@@ -1428,7 +1449,6 @@ public class WaitingRoomFrame extends JFrame {
                         // las lecturas posteriores del runSocketReaderClientThread sigan
                         // siendo bloqueantes normales.
                         String ackLine;
-                        int oldTimeout = newSock.getSoTimeout();
                         try {
                             newSock.setSoTimeout(GameFrame.CLIENT_RECEPTION_TIMEOUT);
                             // Cap defensivo igual que el resto de readers del transporte
@@ -1445,14 +1465,28 @@ public class WaitingRoomFrame extends JFrame {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
                             ackLine = null;
                         } finally {
+                            // Estado estable: el reader lee bloqueante (sin limite). Antes se
+                            // restauraba oldTimeout (==0 en socket nuevo); ahora el socket llega
+                            // aqui con HANDSHAKE_TIMEOUT_MS puesto (cerrojo del handshake), asi
+                            // que hay que fijar 0 explicitamente. En la rama de fallo el socket
+                            // se cierra despues, por lo que el valor es irrelevante alli.
                             try {
-                                newSock.setSoTimeout(oldTimeout);
+                                newSock.setSoTimeout(0);
                             } catch (Exception ignored) {
                             }
                         }
 
                         if (ackLine == null) {
                             throw new IOException("Server closed socket without sending reconnect ack");
+                        }
+
+                        // El ack DEBE venir autenticado: decryptCommand devuelve el texto tal
+                        // cual si NO empieza por '*' (frame en claro), de modo que un
+                        // "RECONNECT_OK" inyectado en claro por un atacante on-path pasaria el
+                        // startsWith sin prueba criptografica. Exigimos frame cifrado ('*' ->
+                        // decryptString verifica HMAC); si no, intento fallido.
+                        if (!ackLine.trim().startsWith("*")) {
+                            throw new IOException("Reconnect ack not authenticated (plaintext frame rejected)");
                         }
 
                         String ackDecrypted = Helpers.decryptCommand(ackLine,
@@ -1596,19 +1630,26 @@ public class WaitingRoomFrame extends JFrame {
                     }
                 }
 
-                net_client.setReconnecting(false);
-
-                getLocalClientSocketLock().notifyAll();
-
                 return ok_rec;
 
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
             } finally {
-                // Cierra el indicador persistente en CUALQUIER salida (exito,
-                // excepcion, o fin del bucle por exit/timba terminada). En exito el
-                // toast verde ya lo ha sustituido visualmente; esto ademas evita que
-                // un toast magenta quede colgado tras una excepcion o una salida.
+                // CRITICO: limpiar reconnecting + despertar a los que esperan DEBE ir en
+                // el finally. reconnecting es el flag en el que se bloquean TODOS los
+                // writes/reads y los getters de clave del cliente (NetClient +
+                // getLocal_client_*_key) con while(reconnecting) wait(); si una excepcion
+                // entre el fin del bucle y este punto (p.ej. yahoo.wav lanzando, o un NPE
+                // al evaluar la condicion del bucle durante el teardown) lo dejaba en true,
+                // el transporte del cliente quedaba colgado para SIEMPRE. El notifyAll se
+                // hace aun dentro de synchronized(getLocalClientSocketLock()).
+                net_client.setReconnecting(false);
+                getLocalClientSocketLock().notifyAll();
+
+                // Cierra el indicador persistente en CUALQUIER salida (exito, excepcion, o
+                // fin del bucle por exit/timba terminada). En exito el toast verde ya lo ha
+                // sustituido visualmente; esto ademas evita que un toast magenta quede
+                // colgado tras una excepcion o una salida.
                 Helpers.GUIRun(() -> {
                     if (reconnect_notify[0] != null) {
                         reconnect_notify[0].dispose();

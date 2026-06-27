@@ -82,6 +82,10 @@ public class NetClient {
     // (potencialmente legitimo por jitter post-reconexion) no debe alcanzar
     // el threshold ni cerrar el socket recien instalado.
     private volatile boolean reset_ping_counters = false;
+    // Cliente: marca si runPingPongThreadCliente está vivo. Si murió por el
+    // threshold de PONGs perdidos (closeClientSocket+break), reconectarCliente lo
+    // resucita tras un reconnect OK. Análogo al ping_pong_thread_alive del host.
+    private volatile boolean ping_pong_thread_alive = false;
     // Telemetría: cuenta de reconexiones EXITOSAS del cliente al
     // server desde el arranque. Mirror del contador per-peer en Participant
     // (que cuenta en el servidor las reconexiones recibidas de cada peer).
@@ -232,6 +236,14 @@ public class NetClient {
 
     public void setReset_ping_counters(boolean v) {
         this.reset_ping_counters = v;
+    }
+
+    public boolean isPingPongThreadAlive() {
+        return ping_pong_thread_alive;
+    }
+
+    public void setPingPongThreadAlive(boolean v) {
+        this.ping_pong_thread_alive = v;
     }
 
     /**

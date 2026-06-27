@@ -146,6 +146,11 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public void setStack(double stack);
 
+    // Pinta SOLO el label del stack con 'value' (sin tocar el modelo): lo usa la
+    // animacion de llenado de stacks (apertura de timba / recompra) para rodar el
+    // contador frame a frame. El stack real lo fija el caller aparte.
+    public void setStackDisplay(double value);
+
     public double getStack();
 
     public void setBet(double bet);

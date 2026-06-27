@@ -910,6 +910,29 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    // Pinta SOLO el label del stack con 'value' (sin tocar el modelo): lo usa el
+    // contador animado de llenado de stacks (apertura/recompra) para rodar el
+    // numero frame a frame. NO sincronizado a proposito (corre en el EDT desde el
+    // Timer del contador, y el caller que difiere el modelo puede tener el monitor
+    // del jugador). No usa la rama amarilla "+ recompra" de setStack: durante el
+    // conteo queremos el numero rodando, no el pendiente. Respeta player_stack_click.
+    @Override
+    public void setStackDisplay(double value) {
+        if (player_stack_click) {
+            return;
+        }
+        Helpers.GUIRun(() -> {
+            if (GameFrame.hasRebought(nickname)) {
+                setPlayerStackBackground(Color.CYAN);
+                player_stack.setForeground(Color.BLACK);
+            } else {
+                setPlayerStackBackground(new Color(51, 153, 0));
+                player_stack.setForeground(Color.WHITE);
+            }
+            player_stack.setText(Helpers.money2String(value));
+        });
+    }
+
     public int getBuyin() {
         return buyin;
     }
@@ -1135,7 +1158,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return player_stack;
     }
 
-    public synchronized void reComprar(int cantidad) {
+    // silent: el contador animado de recompra (Crupier.animateRebuyStacks) ya
+    // disparo la caja registradora para toda la tanda -> aqui NO se repite. En el
+    // camino sin animacion (silent=false) suena como siempre, una por recompra.
+    public synchronized void reComprar(int cantidad, boolean silent) {
 
         // Re-chequeo al aplicar (anti-stale / anti-trampa): nunca superar el techo
         // de mesa aunque la cantidad solicitada fuera mayor o el stack cambiara
@@ -1151,7 +1177,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         this.stack += applied;
         this.buyin += applied;
         GameFrame.getInstance().getRegistro().print(this.nickname + " " + Translator.translate("rebuy.recompra_2") + String.valueOf(applied) + ")");
-        Audio.playWavResource("misc/cash_register.wav");
+        if (!silent) {
+            Audio.playWavResource("misc/cash_register.wav");
+        }
 
         if (!player_stack_click) {
             Helpers.GUIRun(() -> {
@@ -2067,7 +2095,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
 
-            reComprar(rebuy);
+            // Si la recompra se animo con contador (animateRebuyStacks ya rodo el
+            // stack hasta el valor final y sono la caja), reComprar no repite el
+            // sonido. Mismo gate que el contador -> nunca discrepan.
+            reComprar(rebuy, GameFrame.getInstance().getCrupier().isStackFillAnimated());
 
         }
 

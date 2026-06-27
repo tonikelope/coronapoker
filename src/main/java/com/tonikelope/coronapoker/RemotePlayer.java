@@ -791,9 +791,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_stack.setForeground(Color.WHITE);
                 }
 
-                // Rueda el número hasta el nuevo stack (velocidad constante). Con el rodaje
-                // de contadores off o en recover salta de golpe (igual que antes).
-                stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
+                // Rueda el número hasta el nuevo stack (velocidad constante; off/recover
+                // salta). Si la acción va a volar una ficha (defer_counter_rolls), NO se
+                // rueda aquí: el label se queda en su valor previo y rollCountersToModel lo
+                // rueda al aterrizar la ficha, a la vez que el bote y la apuesta.
+                if (!defer_counter_rolls) {
+                    stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
+                }
             });
         }
     }
@@ -836,6 +840,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return bet_roller;
     }
 
+    // Flag del aplazamiento del rodaje vivo: lo activa el handler de la acción ANTES de
+    // setBet cuando va a volar una ficha, para que el stack/bet no se adelanten a ella.
+    // volatile: lo escribe el hilo de la acción y lo leen setStack/setBet (en el EDT) y
+    // rollCountersToModel (en el aterrizaje).
+    private volatile boolean defer_counter_rolls = false;
+
+    @Override
+    public void setCounterRollDeferred(boolean deferred) {
+        this.defer_counter_rolls = deferred;
+    }
+
+    @Override
+    public void rollCountersToModel() {
+        Helpers.GUIRun(() -> {
+            this.defer_counter_rolls = false;
+            stackRoller().roll(this.stack, GameFrame.isCounterRollEnabled());
+            betRoller().roll(this.bote, GameFrame.isCounterRollEnabled());
+        });
+    }
+
     @Override
     public synchronized void setBet(double new_bet) {
 
@@ -851,7 +875,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+            // Si la acción va a volar ficha (defer), NO se rueda aquí: el bet se queda y
+            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            if (!defer_counter_rolls) {
+                betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+            }
         });
 
     }
@@ -1277,6 +1305,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void check() {
 
+        // Si va a volar ficha (es un CALL con dinero), NO rodamos el stack/bet aquí:
+        // launchChipToPot —directo, o en cinemática desde el frame del GIF (addAudio)—
+        // los rodará al ATERRIZAR, junto al bote (los tres a la vez). El chip vuela
+        // tanto sin cinemática como CON ella, por eso NO se excluye el caso cinemático.
+        // Pure check (sin dinero) / animación de fichas off → ruedan al instante.
+        setCounterRollDeferred(Helpers.doubleSecureCompare(0f, call_required) < 0
+                && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
+
         setBet(GameFrame.getInstance().getCrupier().getApuesta_actual());
 
         setDecision(Player.CHECK);
@@ -1327,6 +1363,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void bet(double new_bet) {
 
+        // Va a volar ficha (directo, o en cinemática desde el frame del GIF): NO rodamos
+        // el stack/bet aquí; launchChipToPot los rodará al ATERRIZAR, junto al bote. El
+        // chip vuela también CON cinemática, por eso NO se excluye ese caso.
+        setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
+
         setBet(new_bet);
 
         setDecision(Player.BET);
@@ -1367,6 +1408,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     private void allin() {
+
+        // Va a volar ficha (launchChipToPot justo abajo, ANTES de setBet): NO rodamos el
+        // stack/bet en setBet; rollCountersToModel (en el aterrizaje) los rueda junto al
+        // bote. setBet corre antes de que la ficha aterrice, así que el modelo ya está al
+        // día cuando onLand lo lee. Los tres a la vez.
+        setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
 
         Audio.playWavResource("misc/allin.wav");
         GameFrame.getInstance().getCrupier().launchChipToPot(this);

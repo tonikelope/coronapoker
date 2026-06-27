@@ -151,6 +151,15 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     // contador frame a frame. El stack real lo fija el caller aparte.
     public void setStackDisplay(double value);
 
+    // Marca que el rodaje vivo del stack y la apuesta NO debe dispararse en setStack/
+    // setBet (el label se queda en su valor previo): lo activa el handler de la acción
+    // cuando va a volar una ficha, para que los contadores no se adelanten a ella.
+    public void setCounterRollDeferred(boolean deferred);
+
+    // Rueda el stack y la apuesta del jugador hasta su valor de modelo actual (a la vez
+    // que el bote sube y flasea, en el aterrizaje de la ficha). Limpia el aplazamiento.
+    public void rollCountersToModel();
+
     public double getStack();
 
     public void setBet(double bet);

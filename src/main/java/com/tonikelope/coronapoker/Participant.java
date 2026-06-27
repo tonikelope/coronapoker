@@ -76,6 +76,11 @@ public class Participant implements Runnable {
     private volatile String avatar_chat_src;
     private volatile boolean async_wait = false;
     private volatile boolean force_reset_socket = false;
+    // Generación del "force reconnect": cada forceSocketReconnectWithWatchdog la
+    // incrementa (bajo lock). El watchdog captura la suya al arrancar y solo actúa si
+    // sigue vigente -> un watchdog viejo no expulsa un peer por un force MÁS NUEVO
+    // (p.ej. doble clic del menú "Forzar reconexión" dentro del grace).
+    private volatile int force_reset_generation = 0;
     private volatile int latency;
     private volatile int latency2;
     private volatile int pong_timeout_counter = 0;
@@ -321,6 +326,11 @@ public class Participant implements Runnable {
                     LOGGER.log(Level.WARNING,
                             "PEER: Participant {0} lost {1}/{2} consecutive PONGs — closing socket",
                             new Object[]{nick, pong_timeout_counter, pong2_timeout_counter});
+                    // alive=false ANTES de cerrar: así la resurrección de resetSocket ve el
+                    // thread muerto y lo relanza. Sin esto, en la ventana break->finally el
+                    // chequeo veía alive=true y se saltaba la resurrección. El finally lo
+                    // vuelve a poner false (idempotente).
+                    ping_pong_thread_alive = false;
                     socketClose();
                     break;
                 }
@@ -879,20 +889,32 @@ public class Participant implements Runnable {
     // en esa espera, jamás llega a markExit -> exit nunca se ponía. El watchdog es
     // daemon: no retiene la salida de la JVM aunque esté durmiendo el grace.
     public void forceSocketReconnectWithWatchdog() {
-        forceSocketReconnect();
+        final int myGen;
+        synchronized (getParticipant_socket_lock()) {
+            forceSocketReconnect();
+            myGen = ++force_reset_generation;
+        }
         Thread wd = new Thread(() -> {
             Helpers.pausar(GameFrame.CLIENT_RECON_TIMEOUT);
-            if (force_reset_socket && !reset_socket && !exit) {
-                LOGGER.log(Level.WARNING, "PEER: Participant {0} forced-reconnect watchdog: peer did not return within grace, giving up", nick);
-                // markExitAndNotify FUERA del lock (adquiere otros monitores; evitamos
-                // anidar). Con el !exit de los loops, poner exit=true ya los desbloquea;
-                // el limpiado de flags + notifyAll es cinturón y tirantes.
-                markExitAndNotify("forced reconnect watchdog: no return within grace");
-                synchronized (getParticipant_socket_lock()) {
+            boolean giveUp = false;
+            // Decisión BAJO el lock: si hay una reconexión en curso, resetSocket tiene el
+            // lock y esperamos a que acabe; si tuvo éxito, force_reset_socket ya es false
+            // -> no damos el peer por perdido (cierra el boundary race con resetSocket).
+            // force_reset_generation==myGen evita que este watchdog actúe sobre un force
+            // MÁS NUEVO (doble clic del menú dentro del grace, reconectando ya).
+            synchronized (getParticipant_socket_lock()) {
+                if (force_reset_socket && !reset_socket && !exit && force_reset_generation == myGen) {
                     force_reset_socket = false;
                     resetting_socket = false;
                     getParticipant_socket_lock().notifyAll();
+                    giveUp = true;
                 }
+            }
+            // markExitAndNotify FUERA del lock (adquiere otros monitores; evitamos anidar),
+            // solo si la decisión bajo lock dijo giveUp.
+            if (giveUp) {
+                LOGGER.log(Level.WARNING, "PEER: Participant {0} forced-reconnect watchdog: peer did not return within grace, giving up", nick);
+                markExitAndNotify("forced reconnect watchdog: no return within grace");
             }
         });
         wd.setDaemon(true);
@@ -931,6 +953,12 @@ public class Participant implements Runnable {
             this.resetting_socket = true;
             forceSocketReconnect();
             this.recon_socket = sock;
+            // ok: resultado LOCAL del reset, INMUNE a que el reader limpie this.reset_socket
+            // (su one-shot, SIN lock) en la ventana entre que lo ponemos a true y el
+            // return/resurrección de aquí. Sin esto, ese clear concurrente hacía que
+            // resetSocket devolviera false -> el handler mandaba RESET_FAIL y cerraba el
+            // socket NUEVO de un reconnect que SÍ tuvo éxito (y se saltaba la resurrección).
+            boolean ok = false;
             try {
                 // Swap transaccional: construimos el stream nuevo ANTES de comprometer
                 // socket/keys. Si getInputStream() lanza, this.socket/stream/keys quedan
@@ -944,6 +972,7 @@ public class Participant implements Runnable {
                     Audio.playWavResource("misc/yahoo.wav");
                 }
                 this.reset_socket = true;
+                ok = true;
                 // Telemetría: contador por peer de reconexiones exitosas.
                 // Sólo se incrementa cuando llegamos aquí (reset_socket=true ya
                 // garantiza que el socket nuevo está instalado y los streams
@@ -972,11 +1001,11 @@ public class Participant implements Runnable {
             // queda mudo, nadie lo detecta hasta un write fail, que con grace activo
             // puede no markar exit). reset_socket=true: no relanzar si el reset falló;
             // !exit: no resucitar peers ya expulsados.
-            if (this.reset_socket && !this.exit && !this.ping_pong_thread_alive) {
+            if (ok && !this.exit && !this.ping_pong_thread_alive) {
                 LOGGER.log(Level.INFO, "PEER: Participant {0} runPingPongThread was dead after reset — resurrecting", nick);
                 runPingPongThread();
             }
-            return this.reset_socket;
+            return ok;
         }
     }
 

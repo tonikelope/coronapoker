@@ -5001,6 +5001,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (GameFrame.getInstance().isPartida_local()) {
             map = sqlRecoverServerLocalGameKeyData(true);
             if (map == null) {
+                // Sin fila de recovery (juego sin manos commiteadas, p.ej. el host
+                // murió tras sqlNewGame y antes de la 1ª mano; o la DB no respondió).
+                // Un return "a secas" dejaría saltar_primera_mano=false y el finally de
+                // NUEVA_MANO se saltaría setPositions -> dealer/sb/bb null -> repartir()
+                // peta o la mesa queda congelada (getJugadoresActivos()<2). Marcamos
+                // fresh-start: el finally hará setPositions + rescate de spectators y
+                // arrancará una mano nueva limpia. (El cliente ya degradaba así; el host
+                // era el único que abandonaba la recuperación de forma muda.)
+                saltar_primera_mano = true;
                 return;
             }
 
@@ -13625,7 +13634,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     try (ResultSet rs = statement.executeQuery()) {
 
-                        rs.next();
+                        // Sin fila (juego sin manos / no encontrado): devolvemos null
+                        // limpio en vez de dejar que el primer rs.getX lance SQLException.
+                        // El caller (recuperarDatosClavePartida) ya trata null como
+                        // fresh-start. Antes el rs.next() se ignoraba y "no hay fila" se
+                        // colaba como excepción.
+                        if (!rs.next()) {
+                            return null;
+                        }
 
                         map = new HashMap<>();
                         map.put("start", rs.getLong("start"));

@@ -1846,6 +1846,16 @@ public class Helpers {
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_hand ON showdown(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_balance_hand ON balance(id_hand)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_showcards_hand ON showcards(id_hand)");
+                // Stats GLOBALES (todas las timbas): rendimiento/subidasRonda agregan
+                // sobre action/showdown filtrando por round/action/winner y agrupando
+                // por player SIN filtrar por timba, así que los índices por FK (id_hand)
+                // de arriba no aplican y la consulta cae a full scan de action/showdown.
+                // Con muchas timbas (y timbas viejas con muchas manos) eso bloqueaba el
+                // StatsDialog (executor de un hilo atascado). Estos índices compuestos
+                // cubren esos WHERE/GROUP BY/COUNT(DISTINCT id_hand).
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_action_round_action_player ON action(round, action, player, id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_action_player_hand ON action(player, id_hand)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_showdown_player_winner ON showdown(player, winner, id_hand)");
                 // Consensus: forensic log of hands whose end-of-hand consensus
                 // did not check out unanimously. The hand is paid out regardless — this table is
                 // signalético only (spec §6.3 / §6.4). receipts BLOB holds the concatenation of

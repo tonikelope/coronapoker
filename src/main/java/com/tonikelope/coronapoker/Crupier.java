@@ -2628,12 +2628,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private static final long STACK_FILL_MS = 1500;
 
     // Gate unico del conteo animado de stacks (apertura + recompra): respeta la
-    // opcion de animacion de apuestas y se salta en recover / fin de transmision
-    // (camino sin animacion byte-identico al de antes). Lo consultan
+    // opcion de animacion de CONTADORES (Ajustes) y se salta en recover / fin de
+    // transmision (camino sin animacion byte-identico al de antes). Lo consultan
     // animateInitialStacks/animateRebuyStacks y reComprar (para no duplicar la caja
     // registradora cuando el conteo ya la toca) -> nunca pueden discrepar.
     public boolean isStackFillAnimated() {
-        return GameFrame.ANIMACION_APUESTAS && !GameFrame.RECOVER && !isFin_de_la_transmision();
+        return GameFrame.ANIMACION_CONTADORES && !GameFrame.RECOVER && !isFin_de_la_transmision();
     }
 
     // Contador animado de stacks: cada label sube LINEAL de from[i] a to[i] sobre la

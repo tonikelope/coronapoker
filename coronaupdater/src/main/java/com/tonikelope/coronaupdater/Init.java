@@ -437,9 +437,21 @@ public class Init extends javax.swing.JFrame {
 
             con.setReadTimeout(READ_TIMEOUT);
 
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
+            // Rechaza cualquier respuesta que NO sea el fichero esperado (404 si la
+            // release/asset no existe, 5xx, o un portal cautivo / pagina de error
+            // servida con 200): sin esto, un cuerpo "completo pero erroneo" se
+            // guardaba como .jar/.zip y acababa reemplazando a la instalacion buena.
+            // getResponseCode sigue las redirecciones normales (releases -> CDN),
+            // asi que para una descarga sana devuelve 200.
+            if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new IOException("Unexpected HTTP status " + con.getResponseCode() + " downloading " + output_filepath);
+            }
 
-                int length = con.getContentLength();
+            final int length = con.getContentLength();
+
+            int tot = 0;
+
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
 
                 Helpers.GUIRun(new Runnable() {
 
@@ -452,8 +464,6 @@ public class Init extends javax.swing.JFrame {
                 byte[] buffer = new byte[1024];
 
                 int reads;
-
-                int tot = 0;
 
                 while (!ABORT_UPDATE && (reads = bis.read(buffer)) != -1) {
 
@@ -471,6 +481,22 @@ public class Init extends javax.swing.JFrame {
                             }
                         });
                     }
+                }
+            }
+
+            // Verificacion de integridad ANTES de que el caller coloque el fichero
+            // en su sitio y borre el viejo (si el usuario aborto no se valida: el
+            // caller limpia el .part y sale). Una descarga truncada (tot != el
+            // Content-Length anunciado) o un fichero que no sea un zip/jar valido
+            // (HTML de error, basura de un proxy...) NUNCA debe llegar a sustituir
+            // la instalacion buena -> se lanza y el flujo lo trata como error
+            // reintentable, dejando intacto el jar/mod anterior.
+            if (!ABORT_UPDATE) {
+                if (length >= 0 && tot != length) {
+                    throw new IOException("Incomplete download: got " + tot + " of " + length + " bytes -> " + output_filepath);
+                }
+                if (!new ZipFile(output_filepath).isValidZipFile()) {
+                    throw new IOException("Downloaded file is not a valid jar/zip archive: " + output_filepath);
                 }
             }
 
@@ -505,9 +531,21 @@ public class Init extends javax.swing.JFrame {
 
             con.setReadTimeout(READ_TIMEOUT);
 
-            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
+            // Rechaza cualquier respuesta que NO sea el fichero esperado (404 si la
+            // release/asset no existe, 5xx, o un portal cautivo / pagina de error
+            // servida con 200): sin esto, un cuerpo "completo pero erroneo" se
+            // guardaba como .jar/.zip y acababa reemplazando a la instalacion buena.
+            // getResponseCode sigue las redirecciones normales (releases -> CDN),
+            // asi que para una descarga sana devuelve 200.
+            if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new IOException("Unexpected HTTP status " + con.getResponseCode() + " downloading " + output_filepath);
+            }
 
-                int length = con.getContentLength();
+            final int length = con.getContentLength();
+
+            int tot = 0;
+
+            try (BufferedInputStream bis = new BufferedInputStream(con.getInputStream()); BufferedOutputStream bfos = new BufferedOutputStream(new FileOutputStream(output_filepath))) {
 
                 Helpers.GUIRun(new Runnable() {
 
@@ -520,8 +558,6 @@ public class Init extends javax.swing.JFrame {
                 byte[] buffer = new byte[1024];
 
                 int reads;
-
-                int tot = 0;
 
                 while (!ABORT_UPDATE && (reads = bis.read(buffer)) != -1) {
 
@@ -539,6 +575,22 @@ public class Init extends javax.swing.JFrame {
                             }
                         });
                     }
+                }
+            }
+
+            // Verificacion de integridad ANTES de que el caller coloque el fichero
+            // en su sitio y borre el viejo (si el usuario aborto no se valida: el
+            // caller limpia el .part y sale). Una descarga truncada (tot != el
+            // Content-Length anunciado) o un fichero que no sea un zip/jar valido
+            // (HTML de error, basura de un proxy...) NUNCA debe llegar a sustituir
+            // la instalacion buena -> se lanza y el flujo lo trata como error
+            // reintentable, dejando intacto el jar/mod anterior.
+            if (!ABORT_UPDATE) {
+                if (length >= 0 && tot != length) {
+                    throw new IOException("Incomplete download: got " + tot + " of " + length + " bytes -> " + output_filepath);
+                }
+                if (!new ZipFile(output_filepath).isValidZipFile()) {
+                    throw new IOException("Downloaded file is not a valid jar/zip archive: " + output_filepath);
                 }
             }
 

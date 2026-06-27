@@ -881,6 +881,18 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return stack;
     }
 
+    // Rodaje vivo del label del stack (EDT-confined). El render solo escribe el
+    // texto; el color lo siguen poniendo setStack/setStackDisplay. Creación perezosa.
+    private RollingCounter stack_roller;
+
+    private RollingCounter stackRoller() {
+        if (stack_roller == null) {
+            stack_roller = new RollingCounter((v) -> player_stack.setText(Helpers.money2String(v)),
+                    GameFrame.COUNTER_ROLL_SPEED, GameFrame.COUNTER_ROLL_MIN_MS, GameFrame.COUNTER_ROLL_MAX_MS);
+        }
+        return stack_roller;
+    }
+
     public synchronized void setStack(double stack) {
         this.stack = Helpers.doubleClean(stack);
 
@@ -889,7 +901,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 if (getNickname() != null && GameFrame.getInstance().getCrupier().getRebuy_now().containsKey(getNickname())) {
                     setPlayerStackBackground(Color.YELLOW);
                     player_stack.setForeground(Color.BLACK);
+                    // Pendiente "X + recompra": texto compuesto (no numérico) -> invalida
+                    // el roller para que el siguiente roll salte sin animar desde aquí.
                     player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
+                    stackRoller().invalidate();
 
                 } else {
 
@@ -904,7 +919,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_stack.setForeground(Color.WHITE);
                     }
 
-                    player_stack.setText(Helpers.money2String(stack));
+                    // Rueda el número hasta el nuevo stack (velocidad constante). Con el
+                    // rodaje off o en recover salta de golpe (igual que antes).
+                    stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
                 }
             });
         }
@@ -929,7 +946,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerStackBackground(new Color(51, 153, 0));
                 player_stack.setForeground(Color.WHITE);
             }
-            player_stack.setText(Helpers.money2String(value));
+            // De golpe (la cortinilla ya anima frame a frame); mantiene sincronizado el
+            // valor mostrado del roller para que el siguiente roll vivo arranque bien.
+            stackRoller().set(value);
         });
     }
 
@@ -3121,6 +3140,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             if (!player_stack_click) {
                 player_stack_click = true;
 
+                // Muestra el buy-in fijo (no es el valor del stack): invalida el roller
+                // para que al restaurar salte al stack real sin animar desde aquí.
+                stackRoller().invalidate();
                 player_stack.setText(Helpers.money2String(this.buyin));
                 setPlayerStackBackground(Color.GRAY);
                 player_stack.setForeground(Color.WHITE);
@@ -3133,6 +3155,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                             setPlayerStackBackground(Color.YELLOW);
                             player_stack.setForeground(Color.BLACK);
                             player_stack.setText(Helpers.money2String(stack) + " + " + Helpers.money2String((int) GameFrame.getInstance().getCrupier().getRebuy_now().get(getNickname())));
+                            stackRoller().invalidate();
 
                         } else {
 
@@ -3147,7 +3170,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 player_stack.setForeground(Color.WHITE);
                             }
 
-                            player_stack.setText(Helpers.money2String(s));
+                            stackRoller().set(s);
                         }
                     });
                     player_stack_click = false;

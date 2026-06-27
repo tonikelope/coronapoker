@@ -761,6 +761,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return bote;
     }
 
+    // Rodaje vivo del label del stack (EDT-confined). El render solo escribe el
+    // texto; el color lo siguen poniendo setStack/setStackDisplay. Creación perezosa
+    // (player_stack ya existe en el primer uso, siempre en el EDT).
+    private RollingCounter stack_roller;
+
+    private RollingCounter stackRoller() {
+        if (stack_roller == null) {
+            stack_roller = new RollingCounter((v) -> player_stack.setText(Helpers.money2String(v)),
+                    GameFrame.COUNTER_ROLL_SPEED, GameFrame.COUNTER_ROLL_MIN_MS, GameFrame.COUNTER_ROLL_MAX_MS);
+        }
+        return stack_roller;
+    }
+
     @Override
     public synchronized void setStack(double stack) {
         this.stack = Helpers.doubleClean(stack);
@@ -778,7 +791,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                     player_stack.setForeground(Color.WHITE);
                 }
 
-                player_stack.setText(Helpers.money2String(stack));
+                // Rueda el número hasta el nuevo stack (velocidad constante). Con el rodaje
+                // de contadores off o en recover salta de golpe (igual que antes).
+                stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
             });
         }
     }
@@ -802,7 +817,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 setPlayerStackBackground(new Color(51, 153, 0));
                 player_stack.setForeground(Color.WHITE);
             }
-            player_stack.setText(Helpers.money2String(value));
+            // De golpe (la cortinilla ya anima frame a frame); mantiene sincronizado el
+            // valor mostrado del roller para que el siguiente roll vivo arranque bien.
+            stackRoller().set(value);
         });
     }
 
@@ -1888,6 +1905,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         if (!player_stack_click) {
             player_stack_click = true;
 
+            // Muestra el buy-in fijo (no es el valor del stack): el roller queda
+            // invalidado para que al restaurar salte al stack real sin animar desde aquí.
+            stackRoller().invalidate();
             player_stack.setText(Helpers.money2String(this.buyin));
             setPlayerStackBackground(Color.GRAY);
             player_stack.setForeground(Color.WHITE);
@@ -1907,7 +1927,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                         player_stack.setForeground(Color.WHITE);
                     }
 
-                    player_stack.setText(Helpers.money2String(s));
+                    stackRoller().set(s);
                 });
                 player_stack_click = false;
             });

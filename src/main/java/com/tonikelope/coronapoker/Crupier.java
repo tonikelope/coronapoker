@@ -2657,10 +2657,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Gate unico del conteo animado de stacks (apertura + recompra): respeta la
     // opcion de animacion de CONTADORES (Ajustes) y se salta en recover / fin de
     // transmision (camino sin animacion byte-identico al de antes). Lo consultan
-    // animateInitialStacks/animateRebuyStacks y reComprar (para no duplicar la caja
-    // registradora cuando el conteo ya la toca) -> nunca pueden discrepar.
+    // animateInitialStacks/animateRebuyStacks; esta ultima CAPTURA su decision en
+    // rebuy_fill_animated, que es lo que lee reComprar (asi un toggle a mitad del
+    // conteo no duplica la caja registradora).
     public boolean isStackFillAnimated() {
         return GameFrame.ANIMACION_CONTADORES && !GameFrame.RECOVER && !isFin_de_la_transmision();
+    }
+
+    // ¿La recompra de la tanda en curso se animo con la cortinilla de stacks (que ya
+    // toco la caja registradora)? animateRebuyStacks lo CAPTURA una vez; reComprar lo
+    // lee para su 'silent'. Capturarlo —en vez de releer isStackFillAnimated en
+    // reComprar— evita que apagar "Contadores" a mitad del conteo (~1 s) haga que
+    // reComprar crea que no se animo y suene la caja una SEGUNDA vez.
+    private volatile boolean rebuy_fill_animated = false;
+
+    public boolean isRebuyFillAnimated() {
+        return rebuy_fill_animated;
     }
 
     // ¿Hay que APLAZAR el rodaje vivo del stack/apuesta del jugador hasta que su ficha
@@ -2775,6 +2787,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // repite el sonido. 'applied' se recalcula igual que reComprar (headroom) para
     // que el destino coincida exactamente con el que fijara el modelo.
     private void animateRebuyStacks(java.util.Set<String> rebuy_nicks) {
+        // Por defecto NO animada: cada reComprar pondra su propio sonido. Se marca true
+        // solo si de verdad lanzamos la cortinilla (que toca la caja) -> reComprar mudo.
+        this.rebuy_fill_animated = false;
         if (!isStackFillAnimated() || rebuy_nicks == null || rebuy_nicks.isEmpty()) {
             return;
         }
@@ -2810,6 +2825,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             to[i] = tos.get(i);
         }
 
+        this.rebuy_fill_animated = true;
         animateStackFill(players, from, to, "misc/cash_register.wav");
     }
 
@@ -9959,6 +9975,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.apuestas += posted;
                 this.bote_total += posted;
                 if (fresh) {
+                    // El straddle es una apuesta forzada (2x CG): suena como las ciegas
+                    // (bet.wav), sincronizado con la ficha de dinero que vuela al bote.
+                    Audio.playWavResource("misc/bet.wav");
                     launchChipToPot(straddler_f);
                     if (GameFrame.getInstance().isPartida_local()) {
                         // Persiste la decisión para que una mano recuperada la reponga sin

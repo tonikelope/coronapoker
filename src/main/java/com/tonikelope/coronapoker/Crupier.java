@@ -2647,7 +2647,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // a velocidad constante se escalonarian. Interpolacion LINEAL, SIN frenadita: la
     // frenadita (ease-out) y el parpadeo son sello del contador final (BalanceDialog),
     // no de esta cortinilla. Palanca facil si el autor lo quiere mas rapido/lento.
-    private static final long STACK_FILL_MS = 1500;
+    private static final long STACK_FILL_MS = 1000;
 
     // Gate unico del conteo animado de stacks (apertura + recompra): respeta la
     // opcion de animacion de CONTADORES (Ajustes) y se salta en recover / fin de

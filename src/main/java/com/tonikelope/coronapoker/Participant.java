@@ -434,7 +434,17 @@ public class Participant implements Runnable {
                     }
                 }
 
-                if (mensaje_recibido == null && !reset_socket && !exit && !WaitingRoomFrame.getInstance().isExit()
+                // One-shot reset_socket: si este null es el socket VIEJO cerrándose por la
+                // reconexión (resetSocket puso reset_socket=true bajo lock), lo consumimos
+                // AQUÍ —en el reader, que es quien reacciona a la señal— y saltamos el
+                // manejo de caída. Antes lo limpiaba run() (otro hilo, sin lock): si lo
+                // borraba entre el set de resetSocket y este chequeo, la señal se perdía y
+                // un peer YA reconectado era expulsado tras esperar el grace completo. El
+                // grace wait de abajo (bajo lock) sigue siendo la red de seguridad si la
+                // reconexión llega DURANTE la espera.
+                if (mensaje_recibido == null && reset_socket) {
+                    reset_socket = false;
+                } else if (mensaje_recibido == null && !exit && !WaitingRoomFrame.getInstance().isExit()
                         && (GameFrame.getInstance() == null || GameFrame.getInstance().getCrupier() == null
                         || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision())) {
 
@@ -1018,7 +1028,10 @@ public class Participant implements Runnable {
 
             String recibido;
             do {
-                reset_socket = false;
+                // reset_socket ya NO se limpia aquí: lo consume el reader (dueño de la
+                // señal) en su null-read. Limpiarlo desde ESTE hilo, sin lock, perdía la
+                // señal de reconexión y expulsaba peers ya reconectados. Ver
+                // runSocketReaderThread (one-shot reset_socket).
                 try {
                     recibido = socket_reader_queue.take();
                     if (!POISON_PILL.equals(recibido)) {

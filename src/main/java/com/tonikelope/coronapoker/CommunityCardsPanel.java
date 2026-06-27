@@ -329,6 +329,39 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         pot_label.setText(text);
     }
 
+    // Rodaje vivo del bote general (EDT-confined). El valor numérico rueda a velocidad
+    // constante mientras se mantienen el prefijo ("BOTE:" / RIT) y el sufijo (beneficio);
+    // el render reconstruye la cadena completa y la pasa por el auto-fit de fuente.
+    private RollingCounter pot_roller;
+    private String pot_roll_prefix = "";
+    private String pot_roll_suffix = "";
+
+    private RollingCounter potRoller() {
+        if (pot_roller == null) {
+            pot_roller = new RollingCounter(
+                    (v) -> setPotLabelTextFitted(pot_roll_prefix + " " + Helpers.money2String(v) + pot_roll_suffix),
+                    GameFrame.COUNTER_ROLL_SPEED, GameFrame.COUNTER_ROLL_MIN_MS, GameFrame.COUNTER_ROLL_MAX_MS);
+        }
+        return pot_roller;
+    }
+
+    // Rueda el bote hasta 'value' conservando prefijo/sufijo. Con animate=false (rodaje
+    // off / recover) salta de golpe. Lo invoca GameFrame.setTapeteBote(double, Double),
+    // también desde el aterrizaje de las fichas (flashPotLabelYellow) -> el número sube
+    // rodando a la vez que el flaseo amarillo (complementa, no sustituye).
+    public void rollPotValue(String prefix, double value, String suffix, boolean animate) {
+        this.pot_roll_prefix = prefix;
+        this.pot_roll_suffix = suffix;
+        potRoller().roll(value, animate);
+    }
+
+    // Fija un texto NO numérico del bote ("---", desglose RIT...): invalida el roller
+    // (el próximo rodaje saltará en vez de animar desde un valor que ya no aplica).
+    public void setPotTextImmediate(String text) {
+        potRoller().invalidate();
+        setPotLabelTextFitted(text);
+    }
+
     public void restoreBetLabelicon() {
 
         // El bet_label ya no lleva icono (muestra solo la calle): nos aseguramos de

@@ -6939,7 +6939,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getTapete().getCommunityCards().restoreBetLabelicon();
             GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(
                     GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().getForeground());
-            GameFrame.getInstance().getTapete().getCommunityCards().setPotLabelTextFitted("---");
+            GameFrame.getInstance().getTapete().getCommunityCards().setPotTextImmediate("---");
             GameFrame.getInstance().getTapete().getCommunityCards().getHand_label().setVisible(false);
             GameFrame.getInstance().getTapete().getCommunityCards().getBet_label().setVisible(false);
 
@@ -10454,7 +10454,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
                 Helpers.GUIRunAndWait(() -> {
                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
-                    GameFrame.getInstance().getTapete().getCommunityCards().setPotLabelTextFitted(Translator.translate("zero_trust.decrypting_street"));
+                    GameFrame.getInstance().getTapete().getCommunityCards().setPotTextImmediate(Translator.translate("zero_trust.decrypting_street"));
                     GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
                 });
             }, 500, TimeUnit.MILLISECONDS);
@@ -11487,7 +11487,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             ScheduledFuture<?> loadingTask = scheduler.schedule(() -> {
                 Helpers.GUIRunAndWait(() -> {
                     GameFrame.getInstance().getTapete().getCommunityCards().getPot_label().setForeground(Color.ORANGE);
-                    GameFrame.getInstance().getTapete().getCommunityCards().setPotLabelTextFitted(Translator.translate("zero_trust.decrypting_street"));
+                    GameFrame.getInstance().getTapete().getCommunityCards().setPotTextImmediate(Translator.translate("zero_trust.decrypting_street"));
                     GameFrame.getInstance().getBarra_tiempo().setIndeterminate(true);
                 });
             }, 500, TimeUnit.MILLISECONDS);

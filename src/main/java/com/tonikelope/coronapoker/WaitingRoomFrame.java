@@ -1457,9 +1457,19 @@ public class WaitingRoomFrame extends JFrame {
                             // este readLine sin cap consumiría memoria hasta OOM. La
                             // protección de SoTimeout cubre hangs pero NO OOM por líneas
                             // largas.
-                            WireFrame.Result ackFrame = WireFrame.read(
-                                    net_client.getLocal_client_buffer_read_is(),
-                                    Helpers.MAX_COMMAND_LINE_CHARS);
+                            // El ack (RECONNECT_OK/DENIED) es un frame de TEXTO. Si el server
+                            // relayara un frame BINARIO (nota de voz/avatar) justo antes del
+                            // ack, ackFrame.text() sería null y el reconnect VIVO se trataría
+                            // como fallido. Saltamos los binarios (canal lateral best-effort,
+                            // igual que el reader normal) y seguimos leyendo hasta el frame de
+                            // texto (el ack) o null (socket muerto). El SO_TIMEOUT acota cada
+                            // lectura.
+                            WireFrame.Result ackFrame;
+                            do {
+                                ackFrame = WireFrame.read(
+                                        net_client.getLocal_client_buffer_read_is(),
+                                        Helpers.MAX_COMMAND_LINE_CHARS);
+                            } while (ackFrame != null && ackFrame.isBinary());
                             ackLine = (ackFrame == null) ? null : ackFrame.text();
                         } catch (java.net.SocketTimeoutException ste) {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");

@@ -59,6 +59,11 @@ public class AppearanceSettingsPanel extends JPanel {
     // diálogo al cerrarse (applyPendingDisplayMode).
     private volatile boolean pending_fullscreen;
 
+    // Los 5 checkboxes individuales de animacion y sus items de menu, para que el maestro
+    // los DESHABILITE (sin desmarcar) al desmarcarse.
+    private final java.util.List<JCheckBox> anim_sub_cb = new ArrayList<>();
+    private final java.util.List<JMenuItem> anim_sub_menu = new ArrayList<>();
+
     // Snapshot del estado de apariencia al ABRIR: el diálogo es transaccional, así que
     // los cambios (que se aplican en vivo como previsualización) se REVIERTEN a estos
     // valores si se cancela (revert()); GUARDAR los conserva.
@@ -74,6 +79,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_ciegas_dealer;
     private final boolean snap_anim_apuestas;
     private final boolean snap_anim_contadores;
+    private final boolean snap_animaciones;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
 
@@ -96,6 +102,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_ciegas_dealer = GameFrame.ANIMACION_CIEGAS_DEALER;
         snap_anim_apuestas = GameFrame.ANIMACION_APUESTAS;
         snap_anim_contadores = GameFrame.ANIMACION_CONTADORES;
+        snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = gf.isFull_screen();
 
@@ -224,11 +231,26 @@ public class AppearanceSettingsPanel extends JPanel {
         // ---------------- Animaciones y chat ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
 
-        addLeft(anim, delegatingCheckbox("/images/menu/video.png", "menu.cinematicas", GameFrame.CINEMATICAS, gf.getMenu_cinematicas()));
-        addLeft(anim, delegatingCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto", GameFrame.ANIMACION_REPARTO, gf.getAnim_reparto_menu()));
-        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", GameFrame.ANIMACION_CIEGAS_DEALER, gf.getAnim_ciegas_dealer_menu()));
-        addLeft(anim, delegatingCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
-        addLeft(anim, delegatingCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores", GameFrame.ANIMACION_CONTADORES, gf.getAnim_contadores_menu()));
+        // Maestro: activa/desactiva TODAS las animaciones de un plumazo. Al desmarcarlo,
+        // DESHABILITA (no desmarca) los 5 checkboxes de abajo, que conservan su valor.
+        JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general"), GameFrame.ANIMACIONES);
+        anim_master.addActionListener(e -> {
+            boolean on = anim_master.isSelected();
+            gf.setAnimacionesMaster(on);
+            for (int i = 0; i < anim_sub_cb.size(); i++) {
+                anim_sub_cb.get(i).setEnabled(on && anim_sub_menu.get(i).isEnabled());
+            }
+        });
+        JPanel master_row = naturalRow();
+        master_row.add(new JLabel(icon("/images/menu/camera.png")));
+        master_row.add(anim_master);
+        addLeft(anim, master_row);
+
+        addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas", gf.getMenu_cinematicas()));
+        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto", gf.getAnim_reparto_menu()));
+        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", gf.getAnim_ciegas_dealer_menu()));
+        addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas", gf.getAnim_apuestas_menu()));
+        addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores", gf.getAnim_contadores_menu()));
         addLeft(anim, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
@@ -288,6 +310,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.ANIMACION_CIEGAS_DEALER != snap_anim_ciegas_dealer
                 || GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas
                 || GameFrame.ANIMACION_CONTADORES != snap_anim_contadores
+                || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen;
     }
@@ -300,6 +323,13 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame gf = GameFrame.getInstance();
         if (gf == null) {
             return;
+        }
+        // El maestro PRIMERO: restaurarlo recalcula los 5 flags efectivos desde las
+        // preferencias (sin tocarlas) y re-habilita los items, de modo que los reverts
+        // individuales de abajo ya ven los flags cuadrados (y pueden doClick si hiciera
+        // falta restaurar una preferencia cambiada con el maestro on).
+        if (GameFrame.ANIMACIONES != snap_animaciones) {
+            gf.setAnimacionesMaster(snap_animaciones);
         }
         if (GameFrame.ZOOM_LEVEL != snap_zoom_level) {
             gf.setZoomLevel(snap_zoom_level);
@@ -421,6 +451,22 @@ public class AppearanceSettingsPanel extends JPanel {
         cb.addActionListener(e -> menu.doClick());
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con
         // la pestaña Partida y con los menús que este diálogo sustituye.
+        JPanel row = naturalRow();
+        row.add(new JLabel(icon(iconPath)));
+        row.add(cb);
+        return row;
+    }
+
+    // Como delegatingCheckbox pero para los toggles de animacion gobernados por el maestro:
+    // el estado MARCADO refleja la PREFERENCIA (isSelected del item de menu, que se conserva
+    // aunque el maestro este off) y el checkbox se registra para que el maestro lo habilite/
+    // deshabilite. Arranca deshabilitado si el maestro esta off.
+    private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu) {
+        JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), menu.isSelected());
+        cb.setEnabled(menu.isEnabled() && GameFrame.ANIMACIONES);
+        cb.addActionListener(e -> menu.doClick());
+        anim_sub_cb.add(cb);
+        anim_sub_menu.add(menu);
         JPanel row = naturalRow();
         row.add(new JLabel(icon(iconPath)));
         row.add(cb);

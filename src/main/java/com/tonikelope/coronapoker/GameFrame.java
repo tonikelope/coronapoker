@@ -183,6 +183,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // NO depende de este flag: su contador se da SIEMPRE.
     public static volatile boolean ANIMACION_CONTADORES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
 
+    // Maestro de animaciones: activa/desactiva TODAS las animaciones de un plumazo sin
+    // perder las preferencias individuales. CINEMATICAS y los 4 ANIMACION_* son el valor
+    // EFECTIVO que lee el juego = ANIMACIONES && preferencia (la preferencia vive en el
+    // isSelected de cada toggle). applyAnimationMaster los recalcula y DESHABILITA (sin
+    // desmarcar) los toggles individuales cuando esta off. Por defecto on.
+    public static volatile boolean ANIMACIONES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animaciones", "true"));
+
     // Velocidad/topes del rodaje de los contadores VIVOS (stack/bote del jugador/
     // bote general) durante el juego. VELOCIDAD CONSTANTE (lineal): duración de cada
     // tramo = distancia/velocidad, acotada a [min, max]. Palancas para afinar los
@@ -2903,6 +2910,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(false);
         }
 
+        // Maestro de animaciones (Ajustes), ya con menu-bar Y popup construidos: si
+        // "animaciones" se guardo en off, deja los 5 flags efectivos en false y deshabilita
+        // los toggles SIN desmarcarlos. Con el maestro on (por defecto) no cambia nada.
+        applyAnimationMaster();
+
         addMouseWheelListener(this);
 
         Helpers.preserveOriginalFontSizes(THIS);
@@ -5215,6 +5227,54 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         if (Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU != null) {
             Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES);
+        }
+    }
+
+    // Recalcula los 5 flags EFECTIVOS de animacion = ANIMACIONES (maestro) && preferencia
+    // (el isSelected de cada toggle, que conserva la preferencia aunque el maestro este
+    // off) y DESHABILITA (sin desmarcar) los toggles individuales -menu-bar + popup- cuando
+    // el maestro esta off, para que ninguna ruta los cambie mientras tanto (asi setAnimEffect/
+    // menu_cinematics solo corren con el maestro on, donde efectivo == preferencia). Lo
+    // llaman el arranque y setAnimacionesMaster. No persiste las preferencias.
+    public void applyAnimationMaster() {
+        boolean on = GameFrame.ANIMACIONES;
+        GameFrame.ANIMACION_REPARTO = on && anim_reparto_menu.isSelected();
+        GameFrame.ANIMACION_CIEGAS_DEALER = on && anim_ciegas_dealer_menu.isSelected();
+        GameFrame.ANIMACION_APUESTAS = on && anim_apuestas_menu.isSelected();
+        GameFrame.ANIMACION_CONTADORES = on && anim_contadores_menu.isSelected();
+        GameFrame.CINEMATICAS = on && menu_cinematicas.isSelected();
+
+        anim_reparto_menu.setEnabled(on);
+        anim_ciegas_dealer_menu.setEnabled(on);
+        anim_apuestas_menu.setEnabled(on);
+        anim_contadores_menu.setEnabled(on);
+        menu_cinematicas.setEnabled(on);
+        if (Helpers.TapetePopupMenu.ANIM_REPARTO_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_REPARTO_MENU.setEnabled(on);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU.setEnabled(on);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU.setEnabled(on);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU.setEnabled(on);
+        }
+        if (Helpers.TapetePopupMenu.CINEMATICAS_MENU != null) {
+            Helpers.TapetePopupMenu.CINEMATICAS_MENU.setEnabled(on);
+        }
+    }
+
+    // Maestro (Ajustes): enciende/apaga TODAS las animaciones de un plumazo (recalcula los
+    // flags efectivos desde las preferencias individuales, que NO se tocan) y lo persiste.
+    public void setAnimacionesMaster(boolean value) {
+        GameFrame.ANIMACIONES = value;
+        Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(value));
+        Helpers.savePropertiesFile();
+        applyAnimationMaster();
+        if (value && GameFrame.ANIMACION_REPARTO) {
+            Crupier.warmShuffleAnimCache();
         }
     }
 

@@ -2583,6 +2583,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.forced_bet_chip_contributors = null;
 
         if (contributors == null || contributors.isEmpty()) {
+            // No vuelan fichas forzadas (animacion de apuestas off / recover / etc.). Red de
+            // seguridad (A3-2): si una carrera del toggle ANIMACION_APUESTAS dejo a un poster de
+            // forzada (ciega/ante) con el rodaje APLAZADO esperando una ficha que ya no vuela,
+            // su label quedaria congelado en el valor pre-ciega hasta su proxima accion. Rodar
+            // al modelo a todos los activos lo resuelve (no-op para los no aplazados: target ==
+            // mostrado -> sin animacion). Aqui no hay otras fichas en vuelo (inicio de mano).
+            for (Player jugador : GameFrame.getInstance().getJugadores()) {
+                if (jugador != null && jugador.isActivo()) {
+                    jugador.rollCountersToModel();
+                }
+            }
             return;
         }
 

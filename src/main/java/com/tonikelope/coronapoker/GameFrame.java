@@ -2037,8 +2037,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 ? Translator.translate("runittwice.pot_label_full", rit_tag)
                 : Translator.translate("game.bote_2");
 
+        final String suffix = beneficio != null ? " (" + Helpers.money2String(beneficio) + ")" : "";
+
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().setPotLabelTextFitted(prefix + " " + Helpers.money2String(bote) + (beneficio != null ? " (" + Helpers.money2String(beneficio) + ")" : ""));
+            // El número del bote rueda a velocidad constante (prefijo/sufijo intactos);
+            // con el rodaje off o en recover salta de golpe.
+            tapete.getCommunityCards().rollPotValue(prefix, bote, suffix, isCounterRollEnabled());
         });
     }
 
@@ -2053,7 +2057,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 : Translator.translate("game.bote_2");
 
         Helpers.GUIRun(() -> {
-            tapete.getCommunityCards().setPotLabelTextFitted(prefix + " " + bote);
+            // Estado textual del bote ("---", desglose RIT): se fija de golpe e invalida
+            // el roller para que el siguiente valor numérico no anime desde un valor viejo.
+            tapete.getCommunityCards().setPotTextImmediate(prefix + " " + bote);
         });
     }
 

@@ -313,7 +313,7 @@ public class Participant implements Runnable {
                     break;
                 }
 
-                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
+                if (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
                     RemotePlayer jugador = (RemotePlayer) GameFrame.getInstance().getCrupier().getNick2player().get(nick);
                     if (jugador != null) {
                         if (latency != -1 && latency2 != -1) {
@@ -348,7 +348,7 @@ public class Participant implements Runnable {
                 if (mensaje_recibido != null) {
                     if (timeout) {
                         timeout = false;
-                        GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(false);
+                        setPlayerTimeoutSafe(false);
                     }
                     String[] partes_comando = mensaje_recibido.split("#");
                     if (null == partes_comando[0]) {
@@ -425,7 +425,7 @@ public class Participant implements Runnable {
 
                     if (!timeout) {
                         timeout = true;
-                        GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(true);
+                        setPlayerTimeoutSafe(true);
 
                         long graceMs = (resetting_socket || force_reset_socket) ? GameFrame.CLIENT_RECON_TIMEOUT : RECIBIDO_TIMEOUT;
                         LOGGER.log(Level.INFO, "PEER: Participant {0} entered TIMEOUT state — waiting {1}ms for reconnect", new Object[]{nick, graceMs});
@@ -677,6 +677,27 @@ public class Participant implements Runnable {
      * (que checa Player.isExit, no Participant.isExit) colgado indefinido,
      * y el wait sobre received_commands sin notificar.
      */
+    // Marca/desmarca el indicador visual de TIMEOUT del jugador de este nick,
+    // tolerando que TODAVIA no exista GameFrame/Crupier/Player (caida PRE-partida,
+    // o jugador ya retirado del mapa). Antes el reader hacia
+    // GameFrame.getInstance().getCrupier().getNick2player().get(nick).setTimeout(...)
+    // a pelo: una caida no-limpia en la sala de espera (GameFrame==null) o un nick
+    // ya borrado lanzaba NPE que MATABA el hilo lector -> el peer quedaba zombie
+    // (sin grace, sin broadcast TIMEOUT, y el resto de la mesa esperandolo).
+    private void setPlayerTimeoutSafe(boolean value) {
+        try {
+            GameFrame gf = GameFrame.getInstance();
+            if (gf != null && gf.getCrupier() != null && gf.getCrupier().getNick2player() != null) {
+                var p = gf.getCrupier().getNick2player().get(nick);
+                if (p != null) {
+                    p.setTimeout(value);
+                }
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "setPlayerTimeoutSafe failed for {0}", nick);
+        }
+    }
+
     public void markExitAndNotify(String reason) {
         if (exit) {
             return;

@@ -2620,6 +2620,162 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // Conteo animado de stacks a TIEMPO CONSTANTE: duracion fija STACK_FILL_MS para
+    // TODOS, asi acaban a la vez aunque tengan stacks distintos (buy-in variable) —
+    // a velocidad constante se escalonarian. Interpolacion LINEAL, SIN frenadita: la
+    // frenadita (ease-out) y el parpadeo son sello del contador final (BalanceDialog),
+    // no de esta cortinilla. Palanca facil si el autor lo quiere mas rapido/lento.
+    private static final long STACK_FILL_MS = 1500;
+
+    // Gate unico del conteo animado de stacks (apertura + recompra): respeta la
+    // opcion de animacion de apuestas y se salta en recover / fin de transmision
+    // (camino sin animacion byte-identico al de antes). Lo consultan
+    // animateInitialStacks/animateRebuyStacks y reComprar (para no duplicar la caja
+    // registradora cuando el conteo ya la toca) -> nunca pueden discrepar.
+    public boolean isStackFillAnimated() {
+        return GameFrame.ANIMACION_APUESTAS && !GameFrame.RECOVER && !isFin_de_la_transmision();
+    }
+
+    // Contador animado de stacks: cada label sube LINEAL de from[i] a to[i] sobre la
+    // MISMA duracion fija (STACK_FILL_MS) -> TODOS acaban a la vez aunque tengan
+    // stacks distintos. Progreso por reloj de pared (robusto a frame drops). Sin
+    // frenadita (eso es del contador final). PURO VISUAL (setStackDisplay, no toca el
+    // modelo). BLOQUEA el hilo llamante hasta el ultimo frame mediante una BARRERA
+    // (CountDownLatch liberado EXACTO al terminar, no un sleep): nada se postea/paga
+    // antes de que esten llenos. Si start_sound != null, suena al arrancar.
+    private void animateStackFill(java.util.List<Player> players, double[] from, double[] to, String start_sound) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+
+        if (start_sound != null) {
+            Audio.playWavResource(start_sound);
+        }
+
+        final int n = players.size();
+
+        // Frame 0: todos a su valor inicial antes de arrancar el rodaje.
+        Helpers.GUIRunAndWait(() -> {
+            for (int i = 0; i < n; i++) {
+                players.get(i).setStackDisplay(from[i]);
+            }
+        });
+
+        final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        final long start_ms = System.currentTimeMillis();
+
+        // El Timer vive y corre en el EDT (createlo alli). Cada tick avanza el mismo
+        // progreso lineal para todos; al cumplirse la duracion fija los valores
+        // finales y libera la barrera.
+        Helpers.GUIRun(() -> {
+            javax.swing.Timer roll = new javax.swing.Timer(16, null);
+            roll.addActionListener((e) -> {
+                double p = Math.min(1.0, (System.currentTimeMillis() - start_ms) / (double) STACK_FILL_MS);
+
+                if (p >= 1.0) {
+                    ((javax.swing.Timer) e.getSource()).stop();
+                    for (int i = 0; i < n; i++) {
+                        players.get(i).setStackDisplay(to[i]);
+                    }
+                    latch.countDown();
+                    return;
+                }
+
+                for (int i = 0; i < n; i++) {
+                    double value = from[i] + (to[i] - from[i]) * p; // lineal, sin frenadita
+                    players.get(i).setStackDisplay(Helpers.doubleClean(value));
+                }
+            });
+            roll.start();
+        });
+
+        // Barrera: espera al ultimo frame. El tope es DEFENSIVO (muerte del EDT), no
+        // una espera arbitraria: en el caso normal el latch ya esta abierto al
+        // cumplirse STACK_FILL_MS.
+        try {
+            latch.await(STACK_FILL_MS + 1500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // Apertura de timba: el stack de cada jugador sentado sube de 0 a su buy-in a
+    // la vez, como cortinilla, ANTES de la primera mano (y por tanto antes de
+    // postear/volar las ciegas). La barrera de animateStackFill garantiza que la
+    // mano no arranca hasta que los stacks esten llenos. El fogonazo del buy-in se
+    // evita pintando ya el label a 0 en el constructor de GameFrame (mismo gate).
+    private void animateInitialStacks() {
+        if (!isStackFillAnimated()) {
+            return;
+        }
+
+        java.util.List<Player> players = new java.util.ArrayList<>();
+        for (Player p : GameFrame.getInstance().getJugadores()) {
+            if (p != null && !p.isExit() && !p.isCalentando()
+                    && Helpers.doubleSecureCompare(0f, p.getStack()) < 0) {
+                players.add(p);
+            }
+        }
+        if (players.isEmpty()) {
+            return;
+        }
+
+        double[] from = new double[players.size()];
+        double[] to = new double[players.size()];
+        for (int i = 0; i < players.size(); i++) {
+            from[i] = 0f;
+            to[i] = players.get(i).getStack();
+        }
+
+        animateStackFill(players, from, to, null);
+    }
+
+    // Recompra animada: ANTES de aplicar el rebuy al modelo (nuevaMano ->
+    // reComprar), el stack de cada recomprador sube de su valor actual al valor
+    // tras recomprar, a la vez, con la caja registradora. La barrera deja terminar
+    // el conteo antes de que la mano avance. reComprar pone el modelo justo despues
+    // aterrizando en el MISMO valor (sin fogonazo) y, por el gate compartido, NO
+    // repite el sonido. 'applied' se recalcula igual que reComprar (headroom) para
+    // que el destino coincida exactamente con el que fijara el modelo.
+    private void animateRebuyStacks(java.util.Set<String> rebuy_nicks) {
+        if (!isStackFillAnimated() || rebuy_nicks == null || rebuy_nicks.isEmpty()) {
+            return;
+        }
+
+        java.util.List<Player> players = new java.util.ArrayList<>();
+        java.util.List<Double> froms = new java.util.ArrayList<>();
+        java.util.List<Double> tos = new java.util.ArrayList<>();
+
+        for (String nick : rebuy_nicks) {
+            Player p = nick2player.get(nick);
+            Integer amount = rebuy_now.get(nick);
+            if (p == null || amount == null) {
+                continue;
+            }
+            double old_stack = p.getStack();
+            int applied = Math.min(amount, GameFrame.rebuyHeadroom(old_stack));
+            if (applied <= 0) {
+                continue;
+            }
+            players.add(p);
+            froms.add(old_stack);
+            tos.add(old_stack + applied);
+        }
+
+        if (players.isEmpty()) {
+            return;
+        }
+
+        double[] from = new double[players.size()];
+        double[] to = new double[players.size()];
+        for (int i = 0; i < players.size(); i++) {
+            from[i] = froms.get(i);
+            to[i] = tos.get(i);
+        }
+
+        animateStackFill(players, from, to, "misc/cash_register.wav");
+    }
+
     public String getBb_nick() {
         return big_blind_nick;
     }
@@ -6957,6 +7113,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 rebuys_about_to_apply.add(e.getKey());
             }
         }
+
+        // Recompra animada (con caja registradora) ANTES de aplicarla al modelo en
+        // el bucle de abajo: el contador rueda el stack hasta el valor final y la
+        // barrera deja terminar el conteo antes de que la mano avance. reComprar
+        // aterriza luego en ese mismo valor sin repetir el sonido (gate compartido).
+        animateRebuyStacks(rebuys_about_to_apply);
 
         for (Player jugador : GameFrame.getInstance().getJugadores()) {
             if (jugador.isActivo()) {
@@ -15575,6 +15737,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // Modo buy-in variable: cada humano elige su buy-in al entrar al tablero
         // (luces apagadas) antes de la mano 1. No-op en modo fijo y en recover.
         solicitarBuyinsIniciales();
+
+        // Cortinilla de apertura: los stacks suben de 0 a su buy-in a la vez, ANTES
+        // de la primera mano (-> antes de postear/volar las ciegas). Barrera dentro:
+        // bloquea hasta que esten llenos. No-op si animaciones off / recover.
+        animateInitialStacks();
 
         while (!fin_de_la_transmision) {
             try {

@@ -2813,6 +2813,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             jugador.setBuyin(GameFrame.BUYIN);
         }
 
+        // Cortinilla de apertura (Crupier.animateInitialStacks): si va a haber
+        // conteo 0 -> buy-in, pintamos YA el label a 0 para que la mesa aparezca
+        // con los asientos "vacios" y no se vea un fogonazo del buy-in completo
+        // antes de que arranque la cuenta. El MODELO (stack) sigue siendo el buy-in
+        // de arriba; esto es solo el label. Mismo gate que animateInitialStacks
+        // (animaciones on + no recover) para que ambos vayan SIEMPRE emparejados.
+        if (GameFrame.ANIMACION_APUESTAS && !GameFrame.RECOVER) {
+            for (Player jugador : jugadores) {
+                jugador.setStackDisplay(0f);
+            }
+        }
+
         // Initialize the debounce timer for mouse wheel zooming
         zoom_debounce_timer = new javax.swing.Timer(250, (java.awt.event.ActionEvent e) -> {
             applyAccumulatedZoom();

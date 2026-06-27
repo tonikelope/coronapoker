@@ -2155,10 +2155,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             GameFrame.getInstance().getCrupier().getRebuy_now().remove(nickname);
 
-            // Si la recompra se animo con contador (animateRebuyStacks ya rodo el
-            // stack hasta el valor final y sono la caja), reComprar no repite el
-            // sonido. Mismo gate que el contador -> nunca discrepan.
-            reComprar(rebuy, GameFrame.getInstance().getCrupier().isStackFillAnimated());
+            // Si la recompra se animo con la cortinilla (animateRebuyStacks ya rodo el
+            // stack hasta el valor final y sono la caja), reComprar no repite el sonido.
+            // Usa la decision CAPTURADA (isRebuyFillAnimated): si se apago "Contadores" a
+            // mitad del conteo, sigue mudo (no suena la caja dos veces).
+            reComprar(rebuy, GameFrame.getInstance().getCrupier().isRebuyFillAnimated());
 
         }
 

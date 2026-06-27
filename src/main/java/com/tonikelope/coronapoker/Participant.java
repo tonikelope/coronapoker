@@ -499,6 +499,18 @@ public class Participant implements Runnable {
                                     } catch (Exception ex) {
                                     }
                                 }
+                                // Si salimos del grace porque LLEGÓ el reconnect
+                                // (reset_socket=true), consumimos la señal aquí: ya
+                                // cumplió su función (sacarnos de la espera). Si no se
+                                // consume, persiste y el one-shot de arriba se comería
+                                // el primer null del SIGUIENTE drop real como si fuera
+                                // el cierre del socket viejo —retrasando la detección
+                                // de esa caída una iteración del reader—. resetSocket ya
+                                // no depende de reset_socket (usa su 'ok' local), así
+                                // que limpiarlo aquí no afecta a su resultado.
+                                if (reset_socket) {
+                                    reset_socket = false;
+                                }
                             }
                         }
                     } else {
@@ -904,9 +916,6 @@ public class Participant implements Runnable {
             // MÁS NUEVO (doble clic del menú dentro del grace, reconectando ya).
             synchronized (getParticipant_socket_lock()) {
                 if (force_reset_socket && !reset_socket && !exit && force_reset_generation == myGen) {
-                    force_reset_socket = false;
-                    resetting_socket = false;
-                    getParticipant_socket_lock().notifyAll();
                     giveUp = true;
                 }
             }
@@ -914,7 +923,20 @@ public class Participant implements Runnable {
             // solo si la decisión bajo lock dijo giveUp.
             if (giveUp) {
                 LOGGER.log(Level.WARNING, "PEER: Participant {0} forced-reconnect watchdog: peer did not return within grace, giving up", nick);
+                // markExit PRIMERO (pone exit=true y notifica) ANTES de limpiar los flags.
+                // Si limpiáramos force_reset_socket/resetting_socket con exit aún en false,
+                // el reader —despertado por ese notifyAll— vería los flags a false y exit a
+                // false y entraría en el ramo de TIMEOUT, emitiendo un broadcast TIMEOUT
+                // espurio de un peer que YA damos por perdido. Con exit=true primero, su
+                // else-if (que exige !exit) no entra. Los loops de transporte
+                // while((resetting||force)&&!exit) salen igual por exit con el notifyAll de
+                // markExit; el clear de abajo es solo higiene de estado (no dejar los flags
+                // a true en un peer muerto) y por eso no necesita su propio notifyAll.
                 markExitAndNotify("forced reconnect watchdog: no return within grace");
+                synchronized (getParticipant_socket_lock()) {
+                    force_reset_socket = false;
+                    resetting_socket = false;
+                }
             }
         });
         wd.setDaemon(true);

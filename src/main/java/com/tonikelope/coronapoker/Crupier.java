@@ -2729,7 +2729,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 if (p >= 1.0) {
                     ((javax.swing.Timer) e.getSource()).stop();
                     for (int i = 0; i < n; i++) {
-                        players.get(i).setStackDisplay(to[i]);
+                        // Aterriza en el MODELO actual, no en to[i] (precalculado pre-ciega):
+                        // como el llenado NO bloquea, la ciega/ante puede haberse posteado a
+                        // mitad (el stack ya esta descontado). Usar to[i] dejaria el label
+                        // demasiado alto (por el importe de la ciega) hasta la siguiente
+                        // actualizacion. getStack() = valor real -> el label queda correcto.
+                        players.get(i).setStackDisplay(players.get(i).getStack());
                     }
                     latch.countDown();
                     return;

@@ -448,7 +448,12 @@ public class StatsDialog extends JFrame {
                         }
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
-                        row[i] = row[i] != null && (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
+                        // Defensivo: solo un Integer en rango [1, NOMBRES_JUGADAS.length] se
+                        // convierte a nombre de jugada; cualquier otra cosa (null, no-Integer
+                        // por una colisión de cabeceras i18n, o fuera de rango) -> "-----".
+                        // Evita el ClassCastException/AIOOBE que dejaba la tabla sin cargar.
+                        row[i] = (row[i] instanceof Integer && (Integer) row[i] >= 1 && (Integer) row[i] <= Hand.NOMBRES_JUGADAS.length)
+                                ? Hand.NOMBRES_JUGADAS[(Integer) row[i] - 1] : "-----";
                     }
                 }
                 tableModel.addRow(row);
@@ -1412,7 +1417,12 @@ public class StatsDialog extends JFrame {
                         }
                         row[i] = row[i] != null ? Card.collection2String(cartas) : "-----";
                     } else if (tableModel.getColumnName(i).equals(Translator.translate("ui.jugada"))) {
-                        row[i] = row[i] != null && (int) row[i] - 1 >= 0 ? Hand.NOMBRES_JUGADAS[(int) row[i] - 1] : "-----";
+                        // Defensivo: solo un Integer en rango [1, NOMBRES_JUGADAS.length] se
+                        // convierte a nombre de jugada; cualquier otra cosa (null, no-Integer
+                        // por una colisión de cabeceras i18n, o fuera de rango) -> "-----".
+                        // Evita el ClassCastException/AIOOBE que dejaba la tabla sin cargar.
+                        row[i] = (row[i] instanceof Integer && (Integer) row[i] >= 1 && (Integer) row[i] <= Hand.NOMBRES_JUGADAS.length)
+                                ? Hand.NOMBRES_JUGADAS[(Integer) row[i] - 1] : "-----";
                     }
                 }
                 tableModel.addRow(row);

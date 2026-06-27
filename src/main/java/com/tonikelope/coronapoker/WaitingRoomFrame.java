@@ -1616,6 +1616,17 @@ public class WaitingRoomFrame extends JFrame {
                     // Participant.reconnection_count del lado servidor.
                     net_client.incrementReconnectionCount();
 
+                    // Si el ping defensivo del cliente murió por el threshold de PONGs
+                    // perdidos (closeClientSocket+break), reconectar NO lo reinicia solo:
+                    // sin esto el cliente reconectado queda sin keepalive activo (un socket
+                    // nuevo que se quede mudo solo se detectaría por write-fail, o nunca).
+                    // Lo resucitamos tras un reconnect OK si murió; !exit para no arrancarlo
+                    // en teardown. (Análogo a la resurrección del host en resetSocket.)
+                    if (!exit && !net_client.isPingPongThreadAlive()) {
+                        LOGGER.log(Level.INFO, "Client runPingPongThreadCliente was dead after reconnect — resurrecting");
+                        runPingPongThreadCliente();
+                    }
+
                     Audio.playWavResource("misc/yahoo.wav");
 
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {
@@ -1840,10 +1851,12 @@ public class WaitingRoomFrame extends JFrame {
     private void runPingPongThreadCliente() {
 
         // --- PING/PONG KEEPALIVE THREAD ---
+        net_client.setPingPongThreadAlive(true);
         Helpers.threadRun(() -> {
 
             int consecutive_ping_failures = 0;
 
+            try {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
 
                 // Si reconectarCliente completo una reconexion durante el ultimo
@@ -1976,6 +1989,9 @@ public class WaitingRoomFrame extends JFrame {
                     Helpers.pausar(PING_INTERVAL_MS);
                 }
 
+            }
+            } finally {
+                net_client.setPingPongThreadAlive(false);
             }
         });
     }

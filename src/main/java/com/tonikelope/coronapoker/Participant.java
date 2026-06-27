@@ -97,6 +97,16 @@ public class Participant implements Runnable {
     // nunca decrece (monotonico).
     private volatile long grace_deadline_floor = 0L;
 
+    // Marca si runPingPongThread está corriendo. El thread se mata
+    // intencionalmente con break tras socketClose() cuando el peer pierde
+    // MAX_CONSECUTIVE_PING_FAILURES PONGs; si después el peer reconecta y
+    // resetSocket repone el canal, los contadores se resetean pero el thread
+    // sigue muerto -> el peer queda sin supervisión activa via PING hasta que su
+    // socket vuelva a fallar via write (o nunca, si nadie escribe). resetSocket
+    // comprueba este flag y relanza el thread cuando hace falta. (Enfoque del
+    // commit local 5e5a9734 del autor, integrado sobre el resetSocket refactor.)
+    private volatile boolean ping_pong_thread_alive = false;
+
     // --- SRA ZERO-TRUST VARIABLES ---
     // sra_unlock: scalar para POCKET pieces. Antes era la única clave del peer;
     // tras el refactor dual-lock (Opción G) sigue siendo válido para pockets
@@ -239,7 +249,9 @@ public class Participant implements Runnable {
     }
 
     private void runPingPongThread() {
+        ping_pong_thread_alive = true;
         Helpers.threadRun(() -> {
+            try {
             while (!exit && WaitingRoomFrame.getInstance() != null) {
                 int ping = Helpers.CSPRNG_GENERATOR.nextInt();
                 pong = null;
@@ -331,6 +343,9 @@ public class Participant implements Runnable {
                 if (!exit && WaitingRoomFrame.getInstance() != null) {
                     Helpers.pausar(PING_INTERVAL_MS);
                 }
+            }
+            } finally {
+                ping_pong_thread_alive = false;
             }
         });
     }
@@ -941,6 +956,16 @@ public class Participant implements Runnable {
                 this.resetting_socket = false;
             }
             getParticipant_socket_lock().notifyAll();
+            // Si el ping defensivo murió por socketClose+break (threshold superado
+            // contra el socket viejo) lo resucitamos tras un reset OK: sin esto el peer
+            // reconectado queda sin supervisión activa via PING (si el socket nuevo se
+            // queda mudo, nadie lo detecta hasta un write fail, que con grace activo
+            // puede no markar exit). reset_socket=true: no relanzar si el reset falló;
+            // !exit: no resucitar peers ya expulsados.
+            if (this.reset_socket && !this.exit && !this.ping_pong_thread_alive) {
+                LOGGER.log(Level.INFO, "PEER: Participant {0} runPingPongThread was dead after reset — resurrecting", nick);
+                runPingPongThread();
+            }
             return this.reset_socket;
         }
     }

@@ -2642,6 +2642,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // no de esta cortinilla. Palanca facil si el autor lo quiere mas rapido/lento.
     private static final long STACK_FILL_MS = 1000;
 
+    // Llenado de stacks (apertura + recompra) NO bloqueante: NUNCA frena el juego (ciegas/
+    // dealer/reparto animan en paralelo). Publica latch + nicks de la tanda en curso para el
+    // gate POR JUGADOR (awaitStackFillIfPending), que solo bloquea EL TURNO del jugador cuyo
+    // stack aun sube. null/liberado = sin llenado pendiente.
+    private volatile java.util.concurrent.CountDownLatch stack_fill_latch = null;
+    private volatile java.util.Set<String> stack_fill_nicks = null;
+
     // Gate unico del conteo animado de stacks (apertura + recompra): respeta la
     // opcion de animacion de CONTADORES (Ajustes) y se salta en recover / fin de
     // transmision (camino sin animacion byte-identico al de antes). Lo consultan
@@ -2701,9 +2708,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
         final long start_ms = System.currentTimeMillis();
 
-        // El Timer vive y corre en el EDT (createlo alli). Cada tick avanza el mismo
-        // progreso lineal para todos; al cumplirse la duracion fija los valores
-        // finales y libera la barrera.
+        // Publica latch + nicks ANTES de arrancar el Timer: el juego NO espera (esto retorna
+        // ya), solo esTuTurno (awaitStackFillIfPending) bloquea el turno de cada jugador hasta
+        // que SU stack acabe de subir. El Timer libera el latch en el ultimo frame.
+        java.util.Set<String> nicks = new java.util.HashSet<>();
+        for (Player pl : players) {
+            nicks.add(pl.getNickname());
+        }
+        this.stack_fill_nicks = nicks;
+        this.stack_fill_latch = latch;
+
+        // El Timer vive y corre en el EDT (createlo alli). Cada tick avanza el mismo progreso
+        // lineal para todos; al cumplirse la duracion fija los valores finales y libera el
+        // latch (el gate por jugador). NO se bloquea aqui: la mano sigue su curso.
         Helpers.GUIRun(() -> {
             javax.swing.Timer roll = new javax.swing.Timer(16, null);
             roll.addActionListener((e) -> {
@@ -2725,12 +2742,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             });
             roll.start();
         });
+    }
 
-        // Barrera: espera al ultimo frame. El tope es DEFENSIVO (muerte del EDT), no
-        // una espera arbitraria: en el caso normal el latch ya esta abierto al
-        // cumplirse STACK_FILL_MS.
+    // Gate POR JUGADOR del llenado de stacks: si 'nick' esta en la tanda en curso y su stack
+    // aun no ha terminado de subir, BLOQUEA hasta que termine (lo llama esTuTurno antes de
+    // activar el turno: borde + botones). Asi el juego NO se frena por las animaciones, solo
+    // el turno del jugador a medio llenar. Tope DEFENSIVO (muerte del EDT). Sin llenado
+    // pendiente para ese nick -> retorna al instante (latch ya liberado o nick no esta).
+    public void awaitStackFillIfPending(String nick) {
+        java.util.concurrent.CountDownLatch l = this.stack_fill_latch;
+        java.util.Set<String> nicks = this.stack_fill_nicks;
+        if (l == null || nicks == null || !nicks.contains(nick)) {
+            return;
+        }
         try {
-            latch.await(STACK_FILL_MS + 1500, java.util.concurrent.TimeUnit.MILLISECONDS);
+            l.await(STACK_FILL_MS + 1500, java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

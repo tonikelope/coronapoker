@@ -969,6 +969,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     @Override
     public void esTuTurno() {
+        // Gate del llenado de stacks: si este jugador esta a medio llenar su stack (apertura
+        // o recompra), NO activamos su turno (borde + botones) hasta que termine. El resto del
+        // juego NO se ha frenado por la animacion; solo este turno espera.
+        GameFrame.getInstance().getCrupier().awaitStackFillIfPending(this.nickname);
         turno = true;
 
         GameFrame.getInstance().getCrupier().disableAllPlayersTimeout();
@@ -2398,7 +2402,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             Audio.playWavResource("misc/cash_register.wav");
         }
 
-        if (!player_stack_click) {
+        // Si la cortinilla anima la recompra (silent), ELLA pinta el texto+CYAN frame a frame
+        // (setStackDisplay, que ya elige CYAN via hasRebought); pintarlo aqui tambien daria un
+        // fogonazo al valor final a mitad del rodaje.
+        if (!player_stack_click && !silent) {
             Helpers.GUIRun(() -> {
                 player_stack.setText(Helpers.money2String(stack));
                 setPlayerStackBackground(Color.CYAN);

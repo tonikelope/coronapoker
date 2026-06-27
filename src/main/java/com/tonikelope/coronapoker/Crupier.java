@@ -13424,7 +13424,18 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             String[] sitiosb64 = this.sqlRecoverGameSeats().split("#");
 
-            String preflop_players = (String) this.sqlRecoverServerLocalGameKeyData(false).get("preflop_players");
+            // sqlRecoverServerLocalGameKeyData ahora puede devolver null (sin fila:
+            // juego sin manos / DB no disponible). Sin este null-check el .get() hacía
+            // NPE y, como el catch de este método solo coge IOException, el NPE escapaba
+            // y mataba el hilo del Crupier en sortearSitios -> ANTES incluso de llegar a
+            // recuperarDatosClavePartida (cliente colgado en "sorteando sitios"). Mismo
+            // fallback que preflop_players==null de abajo: null -> fresh shuffle.
+            HashMap<String, Object> key_data = this.sqlRecoverServerLocalGameKeyData(false);
+            if (key_data == null) {
+                LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no key-data row in SQL — falling back to fresh shuffle");
+                return null;
+            }
+            String preflop_players = (String) key_data.get("preflop_players");
 
             // Tras un MISDEAL que aborta antes de que la mano tenga el row
             // preflop_players guardado en SQL, esta lectura devuelve null y el

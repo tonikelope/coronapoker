@@ -1464,13 +1464,22 @@ public class WaitingRoomFrame extends JFrame {
                             // igual que el reader normal) y seguimos leyendo hasta el frame de
                             // texto (el ack) o null (socket muerto). El SO_TIMEOUT acota cada
                             // lectura.
-                            WireFrame.Result ackFrame;
-                            do {
+                            // Saltamos hasta 8 frames binarios (canal lateral voz/avatar) antes
+                            // del ack de TEXTO. ACOTADO: el SO_TIMEOUT solo limita cada lectura
+                            // (hueco ocioso), NO el total; sin tope, un host (modelo zero-trust)
+                            // que stremea binarios colgaba este bucle CON local_client_socket_lock
+                            // tomado y reconnecting=true -> transporte del cliente congelado.
+                            // Tras 8 binarios seguidos sin ack de texto, lo damos por fallido.
+                            WireFrame.Result ackFrame = null;
+                            for (int bin_skip = 0; bin_skip < 8; bin_skip++) {
                                 ackFrame = WireFrame.read(
                                         net_client.getLocal_client_buffer_read_is(),
                                         Helpers.MAX_COMMAND_LINE_CHARS);
-                            } while (ackFrame != null && ackFrame.isBinary());
-                            ackLine = (ackFrame == null) ? null : ackFrame.text();
+                                if (ackFrame == null || !ackFrame.isBinary()) {
+                                    break;
+                                }
+                            }
+                            ackLine = (ackFrame == null || ackFrame.isBinary()) ? null : ackFrame.text();
                         } catch (java.net.SocketTimeoutException ste) {
                             LOGGER.log(Level.WARNING, "Reconnect ack from server timed out — treating as failed reconnect");
                             ackLine = null;
@@ -1984,6 +1993,10 @@ public class WaitingRoomFrame extends JFrame {
                             LOGGER.log(Level.WARNING,
                                     "Client lost {0} consecutive PONGs — closing socket to force reconnect",
                                     consecutive_ping_failures);
+                            // alive=false ANTES de cerrar: así reconectarCliente ve el thread
+                            // muerto y lo resucita. Sin esto, en la ventana break->finally el
+                            // chequeo de resurrección veía alive=true y no relanzaba.
+                            net_client.setPingPongThreadAlive(false);
                             closeClientSocket();
                             break;
                         }

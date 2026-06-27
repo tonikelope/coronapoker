@@ -2458,18 +2458,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // se salta en RECOVER/fin de transmisión. NO bloquea: la animación corre sola
     // en el EDT y el llamante continúa de inmediato.
     public void launchChipToPot(Player player) {
-        launchChipToPot(player, true);
-    }
-
-    // rollCountersAtLand: si true (caso normal: bet/call/all-in/straddle/forzadas vía sus
-    // propias rutas), el stack/bet del jugador ruedan al ATERRIZAR la ficha — para entonces
-    // el bote (bote_total) ya está commiteado, así que los TRES van juntos. En CINEMÁTICAS
-    // la ficha del bot se lanza desde el frame del GIF y el bote NO se commitea hasta que la
-    // ronda cierra la acción (tras la cinemática): ahí se pasa false y el rodaje del contador
-    // lo dispara rondaApuestas a la vez que el bote, para que el contador no se adelante.
-    // ESTE PARÁMETRO SOLO GOBIERNA EL RODAJE DEL CONTADOR; el vuelo/flaseo/diferido del bote
-    // (pot_chips_in_flight + flyChipToPot + refreshTapeteBoteValue) queda INTACTO.
-    public void launchChipToPot(Player player, boolean rollCountersAtLand) {
 
         if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
             // Sin animación de ficha: el handler pudo aplazar el rodaje del stack/bet
@@ -2479,24 +2467,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        // Difiere el VALOR del pot_label hasta que la ficha aterrice: incrementa el
-        // contador antes de lanzar (sincrónico, así actualizarContadoresTapete ya lo ve
-        // diferido) y, en el aterrizaje (onLand, a la vez que el flash), lo decrementa y
-        // refresca el valor con el bote ya actualizado. Garantizado-una-vez por flyChipToPot.
+        // Difiere el VALOR del pot_label hasta que la ficha aterrice: incrementa el contador
+        // antes de lanzar (sincrónico, así actualizarContadoresTapete ya lo ve diferido) y,
+        // al aterrizar (onLand, a la vez que el flash), lo decrementa, refresca el valor con
+        // el bote ya commiteado y rueda el stack (baja) y la apuesta (sube) del jugador hasta
+        // su modelo -> los TRES a la vez. El handler dejó el stack/bet sin rodar (defer) para
+        // esto. Garantizado-una-vez por flyChipToPot.
         pot_chips_in_flight.incrementAndGet();
         GameFrame.getInstance().getTapete().flyChipToPot(player, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
             pot_chips_in_flight.decrementAndGet();
             // Solo el VALOR del bote (no actualizarContadoresTapete completo): así el
             // aterrizaje no re-muestra la bet_label si el showdown ya la ocultó.
             refreshTapeteBoteValue();
-            // A LA VEZ que el bote sube y flasea: rueda el stack (baja) y la apuesta del
-            // jugador (sube) hasta su valor de modelo. El handler dejó el stack/bet sin
-            // rodar (defer) precisamente para esto. Salvo en cinemáticas (rollCountersAtLand
-            // false), donde el bote aún no está commiteado aquí y el rodaje lo hace la ronda.
-            if (rollCountersAtLand) {
-                player.rollCountersToModel();
-            }
+            player.rollCountersToModel();
         });
+    }
+
+    public int getGame_recovered() {
+        return game_recovered;
     }
 
     // Prepara la animación de fichas-al-bote de las apuestas FORZADAS del arranque de
@@ -9976,8 +9964,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 this.bote_total += posted;
                 if (fresh) {
                     // El straddle es una apuesta forzada (2x CG): suena como las ciegas
-                    // (bet.wav), sincronizado con la ficha de dinero que vuela al bote.
-                    Audio.playWavResource("misc/bet.wav");
+                    // (bet.wav) y, como ellas (flyForcedBetsToPot), SOLO si la animacion de
+                    // fichas esta activa. Sincronizado con la ficha de dinero al bote.
+                    if (GameFrame.ANIMACION_APUESTAS) {
+                        Audio.playWavResource("misc/bet.wav");
+                    }
                     launchChipToPot(straddler_f);
                     if (GameFrame.getInstance().isPartida_local()) {
                         // Persiste la decisión para que una mano recuperada la reponga sin

@@ -425,6 +425,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // y sus frames restantes se reproducen aparte.
     private void setNotifyImageChatLabel(URL u, boolean caller_awaits) {
 
+        // Cualquier notify (este o uno que SUPERSEDE a un GIF de bet/call en vuelo) libera
+        // el latch pendiente: si la cinemática anterior se desmonta antes de su frame 32, su
+        // hilo de accion no se queda esperando (lo hacia hasta 5 s). El latch de ESTA llamada
+        // se arma DESPUES (abajo), asi que esto solo afecta a una accion previa.
+        signalChipLaunched();
+
         if (!this.isNotify_blocked()) {
 
             try {
@@ -432,6 +438,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 chat_notify_image_url = u;
 
                 final boolean action_gif = isActionGif(u);
+
+                // bet/call (caller_awaits=false): arma el latch que su hilo esperara hasta que
+                // la ficha despegue en el frame 32 (lo cuenta atras el addAudio). Tras soltar
+                // el anterior, evita la ventana de fuga al supersederse antes del frame 32.
+                if (!caller_awaits && action_gif) {
+                    chip_launch_latch = new CountDownLatch(1);
+                }
 
                 final boolean isgif = (action_gif || ChatImageDialog.GIF_CACHE.containsKey(u.toString()) || Helpers.isImageGIF(u));
 
@@ -500,12 +513,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                         // cierra la acción y commitea el bote mientras la ficha vuela,
                                         // así al aterrizar pot+stack+bet ruedan juntos (true).
                                         getChat_notify_label().addAudio("misc/bet.wav", 32, 60, () -> {
-                                            GameFrame.getInstance().getCrupier().launchChipToPot(this, true);
+                                            GameFrame.getInstance().getCrupier().launchChipToPot(this);
                                             signalChipLaunched();
                                         });
                                     } else if (getDecision() == Player.CHECK && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                         getChat_notify_label().addAudio("misc/call.wav", 32, 60, () -> {
-                                            GameFrame.getInstance().getCrupier().launchChipToPot(this, true);
+                                            GameFrame.getInstance().getCrupier().launchChipToPot(this);
                                             signalChipLaunched();
                                         });
                                     } else if (getDecision() == Player.CHECK) {
@@ -1378,7 +1391,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 // SOLO a que despegue, no a que el GIF acabe: los frames que falten se
                 // reproducen solos mientras la ronda continúa.
                 int r = 1 + new Random().nextInt(4);
-                chip_launch_latch = new CountDownLatch(1);
                 setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/call" + String.valueOf(r) + ".gif"), false);
                 awaitChipLaunch();
             } else {
@@ -1437,7 +1449,6 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             // termine: desde ahí la ronda cierra la acción y commitea el bote mientras la
             // ficha vuela -> al aterrizar, pot+stack+bet ruedan juntos y limpios; los
             // frames que falten del GIF se reproducen solos.
-            chip_launch_latch = new CountDownLatch(1);
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/bet" + String.valueOf(r) + ".gif"), false);
             awaitChipLaunch();
 

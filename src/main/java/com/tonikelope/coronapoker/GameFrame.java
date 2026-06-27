@@ -202,7 +202,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // recover (los valores recuperados se fijan de golpe, sin animar). El gate de la
     // cortinilla/recompra es Crupier.isStackFillAnimated (añade fin de transmisión).
     public static boolean isCounterRollEnabled() {
-        return ANIMACION_CONTADORES && !RECOVER;
+        if (!ANIMACION_CONTADORES || RECOVER) {
+            return false;
+        }
+        // !RECOVER cubre el recover en si; game_recovered==0 cubre la REPLICA de una mano
+        // recuperada (RECOVER ya es false pero la mano se re-ejecuta), para que los
+        // contadores SALTEN en vez de animar durante esa repeticion de arranque.
+        GameFrame gf = getInstance();
+        return gf == null || gf.getCrupier() == null || gf.getCrupier().getGame_recovered() == 0;
     }
     // Overlay opcional sobre las comunitarias con el coste de igualar del jugador
     // local (cuánto tendrá que poner cuando le toque). Por defecto activado.

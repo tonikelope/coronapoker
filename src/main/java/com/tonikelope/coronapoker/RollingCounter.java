@@ -135,6 +135,20 @@ public class RollingCounter {
         this.shown_valid = false;
     }
 
+    /**
+     * Congela el rodaje en curso: para el timer SIN repintar, dejando el label en su
+     * valor mostrado actual (que, si el rodaje acaba de lanzarse y aún no ha pintado
+     * ningún frame, es el valor PREVIO al cambio). Lo usan las forzadas (ciegas/ante):
+     * tras postearse, el contribuyente se congela aquí y su rodaje se relanza al modelo
+     * cuando su ficha aterriza en el bote (flyForcedBetsToPot), a la vez que el bote.
+     * EDT-only.
+     */
+    public void freeze() {
+        if (timer != null) {
+            timer.stop();
+        }
+    }
+
     public void setSpeed(double speed) {
         this.speed = speed;
     }

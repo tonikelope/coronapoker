@@ -1100,6 +1100,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return cartas;
     }
 
+    // Rodaje vivo del label de la apuesta del jugador (player_pot = 'bote', su aporte
+    // acumulado de la mano). El render muestra "----" cuando es 0. EDT-confined.
+    private RollingCounter bet_roller;
+
+    private RollingCounter betRoller() {
+        if (bet_roller == null) {
+            bet_roller = new RollingCounter(
+                    (v) -> player_pot.setText(Helpers.doubleSecureCompare(0f, v) < 0 ? Helpers.money2String(v) : "----"),
+                    GameFrame.COUNTER_ROLL_SPEED, GameFrame.COUNTER_ROLL_MIN_MS, GameFrame.COUNTER_ROLL_MAX_MS);
+        }
+        return bet_roller;
+    }
+
     public synchronized void setBet(double new_bet) {
 
         double old_bet = bet;
@@ -1114,13 +1127,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            if (Helpers.doubleSecureCompare(0, bote) < 0) {
-                player_pot.setText(Helpers.money2String(bote));
-
-            } else {
-
-                player_pot.setText("----");
-            }
+            betRoller().roll(bote, GameFrame.isCounterRollEnabled());
         });
 
     }
@@ -1147,11 +1154,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            if (Helpers.doubleSecureCompare(0, bote) < 0) {
-                player_pot.setText(Helpers.money2String(bote));
-            } else {
-                player_pot.setText("----");
-            }
+            betRoller().roll(bote, GameFrame.isCounterRollEnabled());
         });
 
         return real;
@@ -2043,7 +2046,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
             utg_icon.setVisible(false);
 
-            player_pot.setText("----");
+            // Nueva mano: sincroniza el roller del bet a 0 (muestra "----") para que la
+            // primera apuesta de la mano ruede desde 0, no desde el aporte de la anterior.
+            betRoller().set(0);
 
             setPlayerPotBackground(new Color(204, 204, 204, 75));
 

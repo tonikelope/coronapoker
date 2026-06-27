@@ -160,10 +160,6 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
     // que el bote sube y flasea, en el aterrizaje de la ficha). Limpia el aplazamiento.
     public void rollCountersToModel();
 
-    // Congela el rodaje en curso del stack y la apuesta (para las forzadas ciegas/ante:
-    // se postean y ruedan, se congelan aquí y se relanzan al aterrizar su ficha en el bote).
-    public void freezeCounters();
-
     public double getStack();
 
     public void setBet(double bet);

@@ -1136,14 +1136,6 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    @Override
-    public void freezeCounters() {
-        Helpers.GUIRun(() -> {
-            stackRoller().freeze();
-            betRoller().freeze();
-        });
-    }
-
     public synchronized void setBet(double new_bet) {
 
         double old_bet = bet;
@@ -1189,7 +1181,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+            // Si la ficha del ante volará al bote (defer), NO rueda aquí: se difiere y
+            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            if (!defer_counter_rolls) {
+                betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+            }
         });
 
         return real;
@@ -2164,6 +2160,17 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         setStack(stack + pagar);
 
         pagar = 0f;
+
+        // Si va a postear ciega (BB/SB) cuya ficha volará al bote, NO rueda su stack/bet en
+        // el posteo (setPosition->setBet(ciega), justo abajo): se difiere y, al ATERRIZAR su
+        // ficha (flyForcedBetsToPot.onLand -> rollCountersToModel), rueda junto al bote. La
+        // ganancia pendiente (setStack(stack+pagar) de arriba) ya rodó, NO se difiere. Mismo
+        // gate que el vuelo (aquí game_recovered==0 siempre: el bloque recover corre después).
+        if (GameFrame.getInstance().getCrupier().shouldDeferCountersToChip()
+                && (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
+                || this.nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick()))) {
+            setCounterRollDeferred(true);
+        }
 
         if (this.nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())) {
             this.setPosition(BIG_BLIND);

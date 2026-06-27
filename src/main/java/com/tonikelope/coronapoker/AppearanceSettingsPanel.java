@@ -97,11 +97,14 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_auto_zoom = GameFrame.AUTO_ZOOM;
         snap_show_clock = GameFrame.SHOW_CLOCK;
         snap_coste_igualar = GameFrame.MOSTRAR_COSTE_IGUALAR;
-        snap_cinematicas = GameFrame.CINEMATICAS;
-        snap_anim_reparto = GameFrame.ANIMACION_REPARTO;
-        snap_anim_ciegas_dealer = GameFrame.ANIMACION_CIEGAS_DEALER;
-        snap_anim_apuestas = GameFrame.ANIMACION_APUESTAS;
-        snap_anim_contadores = GameFrame.ANIMACION_CONTADORES;
+        // Snapshot de las PREFERENCIAS (isSelected del item), NO del flag EFECTIVO: con el
+        // maestro off el efectivo es false para todos y no podria distinguir un cambio de
+        // preferencia al revertir (se perdia silenciosamente, persistido a disco).
+        snap_cinematicas = gf.getMenu_cinematicas().isSelected();
+        snap_anim_reparto = gf.getAnim_reparto_menu().isSelected();
+        snap_anim_ciegas_dealer = gf.getAnim_ciegas_dealer_menu().isSelected();
+        snap_anim_apuestas = gf.getAnim_apuestas_menu().isSelected();
+        snap_anim_contadores = gf.getAnim_contadores_menu().isSelected();
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = gf.isFull_screen();
@@ -298,6 +301,7 @@ public class AppearanceSettingsPanel extends JPanel {
     // pantalla pendiente, que aún no se ha aplicado). Lo usa el diálogo para preguntar
     // antes de descartar al cancelar.
     public boolean isDirty() {
+        GameFrame gf = GameFrame.getInstance();
         return GameFrame.ZOOM_LEVEL != snap_zoom_level
                 || GameFrame.VISTA_COMPACTA != snap_vista_compacta
                 || !snap_baraja.equals(GameFrame.BARAJA)
@@ -305,11 +309,11 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.AUTO_ZOOM != snap_auto_zoom
                 || GameFrame.SHOW_CLOCK != snap_show_clock
                 || GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar
-                || GameFrame.CINEMATICAS != snap_cinematicas
-                || GameFrame.ANIMACION_REPARTO != snap_anim_reparto
-                || GameFrame.ANIMACION_CIEGAS_DEALER != snap_anim_ciegas_dealer
-                || GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas
-                || GameFrame.ANIMACION_CONTADORES != snap_anim_contadores
+                || gf.getMenu_cinematicas().isSelected() != snap_cinematicas
+                || gf.getAnim_reparto_menu().isSelected() != snap_anim_reparto
+                || gf.getAnim_ciegas_dealer_menu().isSelected() != snap_anim_ciegas_dealer
+                || gf.getAnim_apuestas_menu().isSelected() != snap_anim_apuestas
+                || gf.getAnim_contadores_menu().isSelected() != snap_anim_contadores
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen;
@@ -323,13 +327,6 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame gf = GameFrame.getInstance();
         if (gf == null) {
             return;
-        }
-        // El maestro PRIMERO: restaurarlo recalcula los 5 flags efectivos desde las
-        // preferencias (sin tocarlas) y re-habilita los items, de modo que los reverts
-        // individuales de abajo ya ven los flags cuadrados (y pueden doClick si hiciera
-        // falta restaurar una preferencia cambiada con el maestro on).
-        if (GameFrame.ANIMACIONES != snap_animaciones) {
-            gf.setAnimacionesMaster(snap_animaciones);
         }
         if (GameFrame.ZOOM_LEVEL != snap_zoom_level) {
             gf.setZoomLevel(snap_zoom_level);
@@ -363,20 +360,36 @@ public class AppearanceSettingsPanel extends JPanel {
         if (GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar) {
             gf.getCoste_igualar_menu().doClick();
         }
-        if (GameFrame.CINEMATICAS != snap_cinematicas) {
-            gf.getMenu_cinematicas().doClick();
-        }
-        if (GameFrame.ANIMACION_REPARTO != snap_anim_reparto) {
-            gf.getAnim_reparto_menu().doClick();
-        }
-        if (GameFrame.ANIMACION_CIEGAS_DEALER != snap_anim_ciegas_dealer) {
-            gf.getAnim_ciegas_dealer_menu().doClick();
-        }
-        if (GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas) {
-            gf.getAnim_apuestas_menu().doClick();
-        }
-        if (GameFrame.ANIMACION_CONTADORES != snap_anim_contadores) {
-            gf.getAnim_contadores_menu().doClick();
+        // Animaciones (transaccional con maestro): las preferencias viven en el isSelected
+        // de cada item y SOLO se revierten con doClick sobre un item HABILITADO (estan
+        // deshabilitados con el maestro off). Por eso: habilitar (maestro on) -> revertir
+        // cada preferencia (comparando isSelected con su snapshot) -> restaurar el maestro a
+        // su snapshot, que re-gatea y re-deshabilita si tocaba. (Si dejaramos el maestro off
+        // primero, los doClick caerian sobre items deshabilitados = NO-OP y la preferencia
+        // no se revertiria.)
+        if (GameFrame.ANIMACIONES != snap_animaciones
+                || gf.getMenu_cinematicas().isSelected() != snap_cinematicas
+                || gf.getAnim_reparto_menu().isSelected() != snap_anim_reparto
+                || gf.getAnim_ciegas_dealer_menu().isSelected() != snap_anim_ciegas_dealer
+                || gf.getAnim_apuestas_menu().isSelected() != snap_anim_apuestas
+                || gf.getAnim_contadores_menu().isSelected() != snap_anim_contadores) {
+            gf.setAnimacionesMaster(true);
+            if (gf.getMenu_cinematicas().isSelected() != snap_cinematicas) {
+                gf.getMenu_cinematicas().doClick();
+            }
+            if (gf.getAnim_reparto_menu().isSelected() != snap_anim_reparto) {
+                gf.getAnim_reparto_menu().doClick();
+            }
+            if (gf.getAnim_ciegas_dealer_menu().isSelected() != snap_anim_ciegas_dealer) {
+                gf.getAnim_ciegas_dealer_menu().doClick();
+            }
+            if (gf.getAnim_apuestas_menu().isSelected() != snap_anim_apuestas) {
+                gf.getAnim_apuestas_menu().doClick();
+            }
+            if (gf.getAnim_contadores_menu().isSelected() != snap_anim_contadores) {
+                gf.getAnim_contadores_menu().doClick();
+            }
+            gf.setAnimacionesMaster(snap_animaciones);
         }
         if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
             gf.getChat_image_menu().doClick();

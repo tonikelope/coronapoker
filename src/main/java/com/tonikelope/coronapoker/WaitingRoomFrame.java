@@ -1852,6 +1852,16 @@ public class WaitingRoomFrame extends JFrame {
                         // Si ya estábamos saliendo o la reconexión no aplica, aniquilamos el hilo
                         exit = true;
                     }
+                    // Si nos rendimos (exit), despertar al consumidor bloqueado en take():
+                    // el único POISON_PILL del null-read ya lo consumió durante el reconnect
+                    // largo, así que sin este pill el hilo consumidor quedaría colgado
+                    // (zombie de teardown).
+                    if (exit) {
+                        try {
+                            net_client.getLocal_client_socket_reader_queue().put(POISON_PILL);
+                        } catch (Exception ex) {
+                        }
+                    }
                 }
             }
 

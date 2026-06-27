@@ -1247,6 +1247,11 @@ public class Participant implements Runnable {
                 }
             }
             exit = true;
+            // Cierra el FD del socket en el teardown: antes el camino terminal de run()
+            // no lo cerraba y, en un EXIT limpio (el peer mandó EXIT y nuestro lado nunca
+            // cerró), el descriptor quedaba half-open hasta GC/RST -> fuga de FDs en
+            // sesiones largas con muchas altas/bajas. socketClose() es idempotente.
+            socketClose();
             synchronized (ping_pong_lock) {
                 ping_pong_lock.notifyAll();
             }

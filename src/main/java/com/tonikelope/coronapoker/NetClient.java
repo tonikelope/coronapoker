@@ -265,11 +265,16 @@ public class NetClient {
 
     // --- Helpers de ciclo de vida ---
     public void closeClientSocket() {
-        if (local_client_socket != null) {
-            try {
-                local_client_socket.close();
-            } catch (Exception ex) {
-                LOGGER.log(Level.SEVERE, null, ex);
+        // Bajo local_client_socket_lock: el ping thread lo llamaba sin lock y podía
+        // cerrar un socket recién instalado por una reconexión en curso. Re-entrante
+        // para los callers que ya tienen el lock (writeCommand, reconectarCliente).
+        synchronized (local_client_socket_lock) {
+            if (local_client_socket != null) {
+                try {
+                    local_client_socket.close();
+                } catch (Exception ex) {
+                    LOGGER.log(Level.SEVERE, null, ex);
+                }
             }
         }
     }

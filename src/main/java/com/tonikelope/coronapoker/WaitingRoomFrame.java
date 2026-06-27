@@ -1278,10 +1278,20 @@ public class WaitingRoomFrame extends JFrame {
 
         LOGGER.log(Level.WARNING, "Attempting to reconnect to server...");
 
+        // Indicador PERSISTENTE de "reconectando" (timeout=null -> sin auto-cierre):
+        // antes el toast moria a los NOTIFICATION_TIMEOUT (5s) mientras el cliente
+        // seguia reintentando en silencio hasta 80s, dejando al usuario sin ver nada
+        // ~75s. Ahora se mantiene visible toda la fase de auto-reintento y se cierra
+        // al resolver (exito, aparicion del dialogo manual que toma el relevo, o
+        // salida via finally). Holder en array de 1 para poder asignarlo dentro del
+        // GUIRun y disponerlo despues.
+        final InGameNotifyDialog[] reconnect_notify = {null};
+
         Helpers.GUIRun(() -> {
             InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
                     Translator.translate("conn.reconectando_con_el_servidor"), Color.MAGENTA, Color.BLACK,
-                    getClass().getResource("/images/action/plug.png"), NOTIFICATION_TIMEOUT);
+                    getClass().getResource("/images/action/plug.png"), null);
+            reconnect_notify[0] = dialog;
             dialog.setLocation(dialog.getParent().getLocation());
             dialog.setVisible(true);
         });
@@ -1473,18 +1483,12 @@ public class WaitingRoomFrame extends JFrame {
 
                         if (!ok_rec) {
 
-                            if (WaitingRoomFrame.getInstance().isPartida_empezada()
-                                    && GameFrame.getInstance() != null && !timbaTerminada()) {
-                                Helpers.GUIRun(() -> {
-                                    InGameNotifyDialog dialog = new InGameNotifyDialog(GameFrame.getInstance(), false,
-                                            Translator.translate("conn.no_se_pudo_reconectar_con"), Color.RED,
-                                            Color.WHITE, getClass().getResource("/images/action/plug.png"),
-                                            NOTIFICATION_TIMEOUT);
-                                    dialog.setLocation(dialog.getParent().getLocation());
-                                    dialog.setVisible(true);
-                                });
-                            }
-
+                            // (Antes aqui un toast rojo "no se pudo reconectar" por cada
+                            // intento fallido: ademas de alarmante, su slot unico
+                            // (LATEST_NOTIFICATION) ocultaba el indicador persistente de
+                            // "reconectando" y, al auto-cerrarse a los 5s, reaparecia el
+                            // hueco silencioso. El indicador persistente ya comunica que
+                            // se sigue intentando.)
                             Socket failedSock = net_client.getLocal_client_socket();
                             if (failedSock != null && !failedSock.isClosed()) {
 
@@ -1503,6 +1507,16 @@ public class WaitingRoomFrame extends JFrame {
 
                                 if (System.currentTimeMillis() - start > GameFrame.CLIENT_RECON_TIMEOUT
                                         && WaitingRoomFrame.getInstance().isPartida_empezada()) {
+
+                                    // El dialogo manual (modal, con su propia barra) toma el
+                                    // relevo como indicador: cerramos el toast persistente
+                                    // para que no quede colgado detras del modal.
+                                    Helpers.GUIRun(() -> {
+                                        if (reconnect_notify[0] != null) {
+                                            reconnect_notify[0].dispose();
+                                            reconnect_notify[0] = null;
+                                        }
+                                    });
 
                                     if (net_client.getReconnect_dialog() == null) {
 
@@ -1590,6 +1604,17 @@ public class WaitingRoomFrame extends JFrame {
 
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
+            } finally {
+                // Cierra el indicador persistente en CUALQUIER salida (exito,
+                // excepcion, o fin del bucle por exit/timba terminada). En exito el
+                // toast verde ya lo ha sustituido visualmente; esto ademas evita que
+                // un toast magenta quede colgado tras una excepcion o una salida.
+                Helpers.GUIRun(() -> {
+                    if (reconnect_notify[0] != null) {
+                        reconnect_notify[0].dispose();
+                        reconnect_notify[0] = null;
+                    }
+                });
             }
 
         }

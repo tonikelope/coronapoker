@@ -865,7 +865,13 @@ public class StatsDialog extends JFrame {
                     LinkedHashMap<String, Double> pct = new LinkedHashMap<>();
                     if (idxPlayer != -1 && idxHands != -1) {
                         for (int r = 0; r < tableModel.getRowCount(); r++) {
-                            pct.put(String.valueOf(tableModel.getValueAt(r, idxPlayer)), (double) safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxHands))));
+                            float v = safeParsePercent(String.valueOf(tableModel.getValueAt(r, idxHands)));
+                            // Excluye del grafico a quien no tiene dato en esta calle (% nulo ->
+                            // -Infinity desde safeParsePercent): no aporta barra y reventaba el
+                            // eje del grafico con "Must be finite" en cada repaint.
+                            if (Double.isFinite(v)) {
+                                pct.put(String.valueOf(tableModel.getValueAt(r, idxPlayer)), (double) v);
+                            }
                         }
                     }
                     showChart(pct.isEmpty() ? null : StatsCharts.valueBars(pct, chartTitle, "%", "{2}%", StatsCharts.ORANGE));

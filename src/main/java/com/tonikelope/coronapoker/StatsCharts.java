@@ -72,6 +72,15 @@ public final class StatsCharts {
         return base.deriveFont(style, size);
     }
 
+    // Un valor no finito (NaN/Infinity) en el dataset hace que el eje del grafico
+    // lance "IllegalArgumentException: Must be finite" en CADA repaint del EDT,
+    // dejando el StatsDialog inservible. Caso real: un % nulo de la BD (jugador
+    // que nunca llego a esa calle, timbas viejas) llega como Float.NEGATIVE_INFINITY
+    // desde safeParsePercent. Se filtran/anulan antes de pintar.
+    private static boolean isFinite(Double v) {
+        return v != null && Double.isFinite(v);
+    }
+
     /**
      * Wraps a chart in a ChartPanel with dialog-friendly defaults (white background, wheel
      * zoom, and a draw range wide enough not to rescale fonts on large monitors).
@@ -110,7 +119,9 @@ public final class StatsCharts {
     public static ChartPanel benefitBars(Map<String, Double> data, String title, String valueAxisLabel) {
         final DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         for (Map.Entry<String, Double> e : data.entrySet()) {
-            dataset.addValue(e.getValue(), "v", e.getKey());
+            if (isFinite(e.getValue())) {
+                dataset.addValue(e.getValue(), "v", e.getKey());
+            }
         }
 
         JFreeChart chart = ChartFactory.createBarChart(title, null, valueAxisLabel, dataset, PlotOrientation.HORIZONTAL, false, true, false);
@@ -270,7 +281,10 @@ public final class StatsCharts {
         for (Map.Entry<String, double[]> e : seriesByPlayer.entrySet()) {
             double[] vals = e.getValue();
             for (int a = 0; a < axisLabels.length; a++) {
-                dataset.addValue(a < vals.length ? vals[a] : 0.0, e.getKey(), axisLabels[a]);
+                // Cada eje DEBE tener valor (no se puede saltar uno sin desalinear el
+                // radar), asi que un valor no finito se sustituye por 0.
+                double raw = a < vals.length ? vals[a] : 0.0;
+                dataset.addValue(Double.isFinite(raw) ? raw : 0.0, e.getKey(), axisLabels[a]);
             }
         }
 
@@ -306,7 +320,9 @@ public final class StatsCharts {
     public static ChartPanel valueBars(Map<String, Double> data, String title, String valueAxisLabel, String labelFormat, Color barColor) {
         DefaultCategoryDataset dataset = new DefaultCategoryDataset();
         for (Map.Entry<String, Double> e : data.entrySet()) {
-            dataset.addValue(e.getValue(), "v", e.getKey());
+            if (isFinite(e.getValue())) {
+                dataset.addValue(e.getValue(), "v", e.getKey());
+            }
         }
 
         JFreeChart chart = ChartFactory.createBarChart(title, null, valueAxisLabel, dataset, PlotOrientation.HORIZONTAL, false, true, false);

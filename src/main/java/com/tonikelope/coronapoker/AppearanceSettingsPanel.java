@@ -225,10 +225,10 @@ public class AppearanceSettingsPanel extends JPanel {
         JPanel anim = titledColumn("settings.apariencia_animaciones");
 
         addLeft(anim, delegatingCheckbox("/images/menu/video.png", "menu.cinematicas", GameFrame.CINEMATICAS, gf.getMenu_cinematicas()));
-        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto", GameFrame.ANIMACION_REPARTO, gf.getAnim_reparto_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto", GameFrame.ANIMACION_REPARTO, gf.getAnim_reparto_menu()));
         addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", GameFrame.ANIMACION_CIEGAS_DEALER, gf.getAnim_ciegas_dealer_menu()));
-        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
-        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_contadores", GameFrame.ANIMACION_CONTADORES, gf.getAnim_contadores_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores", GameFrame.ANIMACION_CONTADORES, gf.getAnim_contadores_menu()));
         addLeft(anim, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,

@@ -13456,6 +13456,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 HashMap<String, Object> map = this.sqlRecoverGamePositions();
 
+                // map==null (sin fila de posiciones / error SQL): mismo fallback que arriba
+                // con preflop_players -> fresh shuffle. Antes map.get("bb") aquí hacía NPE y,
+                // como el catch sólo coge IOException, el NPE escapaba y mataba el hilo del
+                // Crupier (cliente colgado esperando un SEATS que no llegaba).
+                if (map == null) {
+                    LOGGER.log(Level.WARNING, "recuperarSorteoSitios: no positions row in SQL — falling back to fresh shuffle");
+                    return null;
+                }
+
                 String grande = (String) map.get("bb");
 
                 ArrayList<String> permutados_aux = new ArrayList<>();
@@ -13756,7 +13765,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 ResultSet rs = statement.executeQuery();
 
-                rs.next();
+                // Sin fila (juego sin manos / no encontrado): null limpio en vez de colar
+                // la ausencia como SQLException (gemelo del guard de
+                // sqlRecoverServerLocalGameKeyData). El caller trata null como fresh shuffle.
+                if (!rs.next()) {
+                    return null;
+                }
 
                 map = new HashMap<>();
 

@@ -1238,7 +1238,10 @@ public class StatsDialog extends JFrame {
                             playersText = players.toString().replaceAll("  \\|  $", "");
                             buyinText = String.valueOf(rs.getInt("buyin"));
                             handText = String.valueOf(rs.getInt("tot_hands"));
-                            blindsText = String.valueOf(rs.getDouble("sb")) + " / " + String.valueOf(rs.getDouble("sb") * 2);
+                            // money2String redondea (doubleClean) + formatea como dinero, así
+                            // las ciegas de timbas antiguas guardadas como REAL (float) no
+                            // arrastran decimales basura (0.10000000149...) -> "0.10 / 0.20".
+                            blindsText = Helpers.money2String(rs.getDouble("sb")) + " / " + Helpers.money2String(rs.getDouble("sb") * 2);
                             blindsDoubleText = rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO";
                             rebuyText = rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO";
                         }
@@ -1334,7 +1337,7 @@ public class StatsDialog extends JFrame {
                         flopText = decodePlayers(rs.getString("flop_players"));
                         turnText = decodePlayers(rs.getString("turn_players"));
                         riverText = decodePlayers(rs.getString("river_players"));
-                        blindsText = String.valueOf(rs.getDouble("sbval")) + " / " + String.valueOf(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
+                        blindsText = Helpers.money2String(rs.getDouble("sbval")) + " / " + Helpers.money2String(rs.getDouble("sbval") * 2) + " (" + String.valueOf(rs.getInt("blinds_double")) + ")";
                         timeText = Helpers.seconds2FullTime((rs.getLong("end") / 1000 - rs.getLong("start") / 1000));
                         cpText = rs.getString("sb");
                         cgText = rs.getString("bb");

@@ -2526,15 +2526,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         this.forced_bet_chip_contributors = contributors;
 
-        // Las forzadas (ciegas/ante) YA se postearon arriba (setBet/postAnte rodaron el
-        // stack/bet). Congela ese rodaje recién lanzado (todavía sin pintar, corre justo
-        // después del posteo) en cada contribuyente: el label se queda en su valor PREVIO
-        // y, al aterrizar su ficha en el bote (flyForcedBetsToPot), se relanza al modelo
-        // a la vez que el bote sube y flasea. Solo corre cuando habrá vuelo (gate de arriba).
-        for (Player p : contributors) {
-            p.freezeCounters();
-        }
-
         // Muestra el valor INICIAL del bote (antes de las forzadas = el sobrante que
         // arrastra la mano, normalmente 0) para que se vea SUBIR al aterrizar las
         // fichas. El diferido (pot_chips_in_flight, ya incrementado arriba) evita que
@@ -7334,6 +7325,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 double total_antes = 0f;
                 for (Player jugador : GameFrame.getInstance().getJugadores()) {
                     if (jugador.isActivo()) {
+                        // El ante vuela al bote: NO rueda su stack/bet en postAnte; se difiere
+                        // y rollCountersToModel (al aterrizar su ficha) lo rueda junto al bote.
+                        // Gate del vuelo (incluye game_recovered==0: el bloque recover ya corrió).
+                        if (shouldDeferCountersToChip() && this.game_recovered == 0) {
+                            jugador.setCounterRollDeferred(true);
+                        }
                         total_antes += jugador.postAnte(this.ciega_pequeña);
                     }
                 }

@@ -861,6 +861,14 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
+    public void freezeCounters() {
+        Helpers.GUIRun(() -> {
+            stackRoller().freeze();
+            betRoller().freeze();
+        });
+    }
+
+    @Override
     public synchronized void setBet(double new_bet) {
 
         double old_bet = bet;

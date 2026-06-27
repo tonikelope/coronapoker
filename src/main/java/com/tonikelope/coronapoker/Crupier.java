@@ -2526,6 +2526,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
         this.forced_bet_chip_contributors = contributors;
 
+        // Las forzadas (ciegas/ante) YA se postearon arriba (setBet/postAnte rodaron el
+        // stack/bet). Congela ese rodaje recién lanzado (todavía sin pintar, corre justo
+        // después del posteo) en cada contribuyente: el label se queda en su valor PREVIO
+        // y, al aterrizar su ficha en el bote (flyForcedBetsToPot), se relanza al modelo
+        // a la vez que el bote sube y flasea. Solo corre cuando habrá vuelo (gate de arriba).
+        for (Player p : contributors) {
+            p.freezeCounters();
+        }
+
         // Muestra el valor INICIAL del bote (antes de las forzadas = el sobrante que
         // arrastra la mano, normalmente 0) para que se vea SUBIR al aterrizar las
         // fichas. El diferido (pot_chips_in_flight, ya incrementado arriba) evita que
@@ -2604,6 +2613,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             GameFrame.getInstance().getTapete().flyChipToPot(p, Helpers.IMAGEN_POT_CHIP, POT_CHIP_SHRINK_MS, () -> {
                 pot_chips_in_flight.decrementAndGet();
                 refreshTapeteBoteValue();
+                // A LA VEZ que el bote sube y flasea: rueda el stack (baja) y la apuesta
+                // (sube) de ESTE contribuyente hasta su modelo. Estaba congelado en su valor
+                // previo desde prepareForcedBetsToPot -> los tres arrancan juntos al aterrizar.
+                p.rollCountersToModel();
                 latch.countDown();
             });
         }
@@ -9924,6 +9937,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // post-reparto, se suma explícito a AMBOS (apuestas = apuestas de la calle que
                 // se muestran en el tapete; bote_total = bote acumulado). El delta del replay/
                 // ronda usa getBet()-old_bet, así que el check del straddler da 0 (sin doble).
+                // El straddler NO rueda su stack/bet en postStraddle (dentro de
+                // applyStraddlePost): lo difiere hasta que su ficha de DINERO aterrice en
+                // el bote (launchChipToPot abajo, solo fresca) -> los tres a la vez. En no
+                // fresca (recover) no vuela esa ficha, así que no se difiere (rueda al post).
+                if (fresh) {
+                    straddler_f.setCounterRollDeferred(shouldDeferCountersToChip());
+                }
                 double posted = applyStraddlePost(straddler_f);
                 this.apuestas += posted;
                 this.bote_total += posted;

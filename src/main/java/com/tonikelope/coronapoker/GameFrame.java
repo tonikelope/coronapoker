@@ -5054,7 +5054,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 for (Map.Entry<String, Participant> entry : getParticipantes().entrySet()) {
 
                     if (entry.getValue() != null && !entry.getValue().isCpu()) {
-                        entry.getValue().forceSocketReconnect();
+                        // Con watchdog: si el peer forzado no vuelve dentro del grace, se
+                        // libera force_reset_socket y se da por perdido (sin esto, su
+                        // transporte quedaba bloqueado para siempre).
+                        entry.getValue().forceSocketReconnectWithWatchdog();
                         ok = true;
                     }
                 }

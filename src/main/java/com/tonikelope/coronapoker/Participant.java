@@ -543,7 +543,7 @@ public class Participant implements Runnable {
     }
 
     public SecretKeySpec getHmac_key() {
-        while (resetting_socket || force_reset_socket) {
+        while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -555,7 +555,7 @@ public class Participant implements Runnable {
     }
 
     public SecretKeySpec getAes_key() {
-        while (resetting_socket || force_reset_socket) {
+        while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -567,7 +567,7 @@ public class Participant implements Runnable {
     }
 
     public BufferedInputStream getInput_stream_reader() {
-        while (resetting_socket || force_reset_socket) {
+        while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -612,7 +612,7 @@ public class Participant implements Runnable {
     }
 
     public boolean writeCommandFromServer(String command) {
-        while (resetting_socket || force_reset_socket) {
+        while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -646,7 +646,7 @@ public class Participant implements Runnable {
      * never interleave on the socket.
      */
     public boolean writeBinaryFromServer(byte[] frameBody) {
-        while (resetting_socket || force_reset_socket) {
+        while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -733,7 +733,7 @@ public class Participant implements Runnable {
     }
 
     public String readCommandFromClient() {
-        while (resetting_socket || force_reset_socket) {
+        while ((resetting_socket || force_reset_socket) && !exit) {
             synchronized (getParticipant_socket_lock()) {
                 try {
                     getParticipant_socket_lock().wait(1000);
@@ -842,6 +842,36 @@ public class Participant implements Runnable {
             }
             force_reset_socket = true;
         }
+    }
+
+    // Llamado por el menú "Forzar reconexión" del host (GameFrame). Cierra el socket
+    // para forzar al peer a reconectar Y arranca un watchdog: si el peer NO vuelve
+    // dentro del grace (CLIENT_RECON_TIMEOUT), libera force_reset_socket y da el peer
+    // por perdido. Sin esto, un peer forzado que no reconecta dejaba
+    // readCommandFromClient (el propio hilo lector), writers y getters BLOQUEADOS PARA
+    // SIEMPRE en while((resetting_socket||force_reset_socket)&&!exit): force_reset_socket
+    // solo lo limpia un resetSocket exitoso (que aquí no ocurre) y el lector, bloqueado
+    // en esa espera, jamás llega a markExit -> exit nunca se ponía. El watchdog es
+    // daemon: no retiene la salida de la JVM aunque esté durmiendo el grace.
+    public void forceSocketReconnectWithWatchdog() {
+        forceSocketReconnect();
+        Thread wd = new Thread(() -> {
+            Helpers.pausar(GameFrame.CLIENT_RECON_TIMEOUT);
+            if (force_reset_socket && !reset_socket && !exit) {
+                LOGGER.log(Level.WARNING, "PEER: Participant {0} forced-reconnect watchdog: peer did not return within grace, giving up", nick);
+                // markExitAndNotify FUERA del lock (adquiere otros monitores; evitamos
+                // anidar). Con el !exit de los loops, poner exit=true ya los desbloquea;
+                // el limpiado de flags + notifyAll es cinturón y tirantes.
+                markExitAndNotify("forced reconnect watchdog: no return within grace");
+                synchronized (getParticipant_socket_lock()) {
+                    force_reset_socket = false;
+                    resetting_socket = false;
+                    getParticipant_socket_lock().notifyAll();
+                }
+            }
+        });
+        wd.setDaemon(true);
+        wd.start();
     }
 
     private void setSocket(Socket socket) {

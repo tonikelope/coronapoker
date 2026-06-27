@@ -120,6 +120,10 @@ public class BalanceDialog extends JDialog {
     private ArrowButton right_arrow;
     private final java.util.List<CardPanel> card_panels = new java.util.ArrayList<>();
 
+    // Los 4 botones de la barra superior, para uniformar su tamaño (misma
+    // anchura y altura entre todos) tras el auto-fit responsive.
+    private final java.util.List<JButton> nav_buttons = new java.util.ArrayList<>();
+
     // Animación del importe del jugador local: un contador que sube/baja desde el buyin
     // total hasta el stack final (estilo recuento de puntuación de videojuego) y luego se
     // revela como +/- el neto. Solo si hay ganancia/pérdida (no en empate).
@@ -200,6 +204,8 @@ public class BalanceDialog extends JDialog {
 
         fitTaggedLabels(getContentPane());
 
+        normalizeNavButtons();
+
         normalizeCardHeights();
 
         if (parent != null) {
@@ -259,6 +265,7 @@ public class BalanceDialog extends JDialog {
         JPanel row = new JPanel(new GridLayout(1, 4, 24, 0));
         row.setOpaque(false);
         for (JButton b : new JButton[]{menu_button, log_button, stats_button, recover_button}) {
+            nav_buttons.add(b);
             JPanel cell = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
             cell.setOpaque(false);
             cell.add(b);
@@ -741,6 +748,41 @@ public class BalanceDialog extends JDialog {
             int max_x = view_w - port_w;
             left_arrow.setEnabled(x > 0);
             right_arrow.setEnabled(x < max_x);
+        }
+    }
+
+    // Uniforma los 4 botones de la barra superior a un tamaño idéntico (misma
+    // anchura Y altura entre todos), conservando el comportamiento responsive.
+    // 1) Fuente común = la más pequeña de las cuatro tras el auto-fit por botón
+    //    (fitTaggedLabels), de modo que el texto más largo siga cabiendo en su
+    //    cuarto y todas compartan el mismo cuerpo de letra (de ahí, misma altura).
+    // 2) Caja común = el máximo ancho/alto preferido de las cuatro, fijado en los
+    //    tres tamaños (pref/min/max) para que el FlowLayout las pinte idénticas.
+    // Todo deriva del tamaño de pantalla, así que en otra resolución cambian las
+    // cuatro a la vez, pero siempre iguales entre sí.
+    private void normalizeNavButtons() {
+        if (nav_buttons.isEmpty()) {
+            return;
+        }
+        float min_size = Float.MAX_VALUE;
+        for (JButton b : nav_buttons) {
+            min_size = Math.min(min_size, b.getFont().getSize2D());
+        }
+        for (JButton b : nav_buttons) {
+            b.setFont(b.getFont().deriveFont(min_size));
+        }
+        int max_w = 0;
+        int max_h = 0;
+        for (JButton b : nav_buttons) {
+            Dimension d = b.getPreferredSize();
+            max_w = Math.max(max_w, d.width);
+            max_h = Math.max(max_h, d.height);
+        }
+        Dimension uniform = new Dimension(max_w, max_h);
+        for (JButton b : nav_buttons) {
+            b.setPreferredSize(uniform);
+            b.setMinimumSize(uniform);
+            b.setMaximumSize(uniform);
         }
     }
 

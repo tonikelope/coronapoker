@@ -64,12 +64,20 @@ public final class StatsCharts {
     private StatsCharts() {
     }
 
+    // ===== TAMAÑO DE LAS FUENTES DE LAS GRÁFICAS =====
+    // Mando ÚNICO para agrandar/encoger TODOS los textos de las gráficas a la vez
+    // (títulos, etiquetas de ejes, números sobre las barras, nombres de jugador,
+    // ejes del radar...). 1.0 = tamaños originales; sube este número para hacerlos
+    // más grandes (p.ej. 1.5f = +50%). Es lo único que hay que tocar.
+    private static final float FONT_SCALE = 1.4f;
+
     private static Font font(int style, float size) {
+        float scaled = size * FONT_SCALE;
         Font base = Helpers.GUI_FONT;
         if (base == null) {
-            base = new Font("Dialog", style, Math.round(size));
+            base = new Font("Dialog", style, Math.round(scaled));
         }
-        return base.deriveFont(style, size);
+        return base.deriveFont(style, scaled);
     }
 
     // Un valor no finito (NaN/Infinity) en el dataset hace que el eje del grafico

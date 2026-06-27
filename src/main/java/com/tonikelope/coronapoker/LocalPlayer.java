@@ -919,9 +919,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                         player_stack.setForeground(Color.WHITE);
                     }
 
-                    // Rueda el número hasta el nuevo stack (velocidad constante). Con el
-                    // rodaje off o en recover salta de golpe (igual que antes).
-                    stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
+                    // Rueda el número hasta el nuevo stack (velocidad constante; off/recover
+                    // salta). Si la acción va a volar una ficha (defer_counter_rolls), NO se
+                    // rueda aquí: el label se queda en su valor previo y rollCountersToModel
+                    // lo rueda al aterrizar la ficha, a la vez que el bote y la apuesta.
+                    if (!defer_counter_rolls) {
+                        stackRoller().roll(stack, GameFrame.isCounterRollEnabled());
+                    }
                 }
             });
         }
@@ -1113,6 +1117,25 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return bet_roller;
     }
 
+    // Flag del aplazamiento del rodaje vivo: lo activa el handler de la acción ANTES de
+    // volar la ficha, para que el stack/bet no se adelanten a ella. volatile: lo escribe
+    // el hilo de la acción y lo leen setStack/setBet (en el EDT) y rollCountersToModel.
+    private volatile boolean defer_counter_rolls = false;
+
+    @Override
+    public void setCounterRollDeferred(boolean deferred) {
+        this.defer_counter_rolls = deferred;
+    }
+
+    @Override
+    public void rollCountersToModel() {
+        Helpers.GUIRun(() -> {
+            this.defer_counter_rolls = false;
+            stackRoller().roll(this.stack, GameFrame.isCounterRollEnabled());
+            betRoller().roll(this.bote, GameFrame.isCounterRollEnabled());
+        });
+    }
+
     public synchronized void setBet(double new_bet) {
 
         double old_bet = bet;
@@ -1127,7 +1150,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         GameFrame.getInstance().getCrupier().getBote().addPlayer(this);
 
         Helpers.GUIRunAndWait(() -> {
-            betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+            // Si la acción va a volar ficha (defer), NO se rueda aquí: el bet se queda y
+            // rollCountersToModel lo rueda al aterrizar, a la vez que el stack y el bote.
+            if (!defer_counter_rolls) {
+                betRoller().roll(bote, GameFrame.isCounterRollEnabled());
+            }
         });
 
     }
@@ -2927,6 +2954,11 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         GameFrame.getInstance().getCrupier().setCurrent_local_cinematic_b64(null);
 
+                        // Va a volar ficha (launchChipToPot abajo, antes del threadRun que
+                        // hace setBet): NO rodamos el stack/bet en setBet; rollCountersToModel
+                        // los rueda al aterrizar, junto al bote (los tres a la vez).
+                        setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
+
                         Audio.playWavResource("misc/allin.wav");
                         GameFrame.getInstance().getCrupier().launchChipToPot(this);
 
@@ -3021,6 +3053,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_buttonActionPerformed(null);
                 } else {
 
+                    // Si va a volar ficha (CALL con dinero), NO rodamos el stack/bet en
+                    // setBet (corre en el threadRun de abajo): launchChipToPot los rueda al
+                    // aterrizar, junto al bote (los tres a la vez).
+                    setCounterRollDeferred(Helpers.doubleSecureCompare(0f, call_required) < 0
+                            && GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
+
                     if (Helpers.doubleSecureCompare(0f, call_required) < 0) {
                         Audio.playWavResource("misc/call.wav");
                         GameFrame.getInstance().getCrupier().launchChipToPot(this);
@@ -3071,6 +3109,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     double bet_spinner_val = Helpers.doubleClean(((BigDecimal) bet_spinner.getValue()).doubleValue());
 
+                    // Va a volar ficha: NO rodamos el stack/bet en setBet (threadRun de
+                    // abajo); launchChipToPot los rueda al aterrizar, junto al bote.
+                    setCounterRollDeferred(GameFrame.getInstance().getCrupier().shouldDeferCountersToChip());
                     Audio.playWavResource("misc/bet.wav");
                     GameFrame.getInstance().getCrupier().launchChipToPot(this);
 

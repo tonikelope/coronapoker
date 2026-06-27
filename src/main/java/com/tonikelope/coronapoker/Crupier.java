@@ -2460,6 +2460,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public void launchChipToPot(Player player) {
 
         if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
+            // Sin animación de ficha: el handler pudo aplazar el rodaje del stack/bet
+            // esperando esta ficha que no vuela -> los rodamos ya (al instante de la
+            // acción). No-op si no había aplazamiento.
+            player.rollCountersToModel();
             return;
         }
 
@@ -2473,6 +2477,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Solo el VALOR del bote (no actualizarContadoresTapete completo): así el
             // aterrizaje no re-muestra la bet_label si el showdown ya la ocultó.
             refreshTapeteBoteValue();
+            // A LA VEZ que el bote sube y flasea: rueda el stack (baja) y la apuesta del
+            // jugador (sube) hasta su valor de modelo. Los TRES contadores arrancan juntos
+            // en este mismo instante (el aterrizaje de la ficha). El handler dejó el
+            // stack/bet sin rodar (defer) precisamente para esto.
+            player.rollCountersToModel();
         });
     }
 
@@ -2634,6 +2643,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // registradora cuando el conteo ya la toca) -> nunca pueden discrepar.
     public boolean isStackFillAnimated() {
         return GameFrame.ANIMACION_CONTADORES && !GameFrame.RECOVER && !isFin_de_la_transmision();
+    }
+
+    // ¿Hay que APLAZAR el rodaje vivo del stack/apuesta del jugador hasta que su ficha
+    // aterrice en el bote? Sí cuando va a volar ficha (ANIMACION_APUESTAS) y los
+    // contadores ruedan (ANIMACION_CONTADORES). Lo consultan los handlers de acción
+    // antes de mover el dinero: si es true, setBet/setStack no ruedan (el label se queda)
+    // y launchChipToPot los rueda en el aterrizaje, junto al bote (los tres a la vez).
+    public boolean shouldDeferCountersToChip() {
+        return GameFrame.ANIMACION_APUESTAS && GameFrame.ANIMACION_CONTADORES
+                && !GameFrame.RECOVER && !isFin_de_la_transmision();
     }
 
     // Contador animado de stacks: cada label sube LINEAL de from[i] a to[i] sobre la

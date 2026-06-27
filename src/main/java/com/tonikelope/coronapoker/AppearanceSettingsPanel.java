@@ -73,6 +73,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_reparto;
     private final boolean snap_anim_ciegas_dealer;
     private final boolean snap_anim_apuestas;
+    private final boolean snap_anim_contadores;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
 
@@ -94,6 +95,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_reparto = GameFrame.ANIMACION_REPARTO;
         snap_anim_ciegas_dealer = GameFrame.ANIMACION_CIEGAS_DEALER;
         snap_anim_apuestas = GameFrame.ANIMACION_APUESTAS;
+        snap_anim_contadores = GameFrame.ANIMACION_CONTADORES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = gf.isFull_screen();
 
@@ -226,6 +228,7 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_reparto", GameFrame.ANIMACION_REPARTO, gf.getAnim_reparto_menu()));
         addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", GameFrame.ANIMACION_CIEGAS_DEALER, gf.getAnim_ciegas_dealer_menu()));
         addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_apuestas", GameFrame.ANIMACION_APUESTAS, gf.getAnim_apuestas_menu()));
+        addLeft(anim, delegatingCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_contadores", GameFrame.ANIMACION_CONTADORES, gf.getAnim_contadores_menu()));
         addLeft(anim, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
@@ -284,6 +287,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.ANIMACION_REPARTO != snap_anim_reparto
                 || GameFrame.ANIMACION_CIEGAS_DEALER != snap_anim_ciegas_dealer
                 || GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas
+                || GameFrame.ANIMACION_CONTADORES != snap_anim_contadores
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen;
     }
@@ -340,6 +344,9 @@ public class AppearanceSettingsPanel extends JPanel {
         }
         if (GameFrame.ANIMACION_APUESTAS != snap_anim_apuestas) {
             gf.getAnim_apuestas_menu().doClick();
+        }
+        if (GameFrame.ANIMACION_CONTADORES != snap_anim_contadores) {
+            gf.getAnim_contadores_menu().doClick();
         }
         if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
             gf.getChat_image_menu().doClick();

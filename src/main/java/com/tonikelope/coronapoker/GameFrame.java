@@ -172,12 +172,16 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
     // Efectos de animación, ahora con granularidad: reparto/destapes de cartas,
-    // fichas de posición (ciegas+dealer) y ficha al bote (apuestas). Combinables
-    // independientemente; por defecto los tres activados. "animacion_reparto"
-    // conserva la clave histórica.
+    // fichas de posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de
+    // los contadores (stack/bote/apuesta + cortinilla de llenado y recompra).
+    // Combinables independientemente; por defecto los cuatro activados.
+    // "animacion_reparto" conserva la clave histórica.
     public static volatile boolean ANIMACION_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
     public static volatile boolean ANIMACION_CIEGAS_DEALER = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
     public static volatile boolean ANIMACION_APUESTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
+    // Rodaje animado de los contadores numéricos. La pantalla final (BalanceDialog)
+    // NO depende de este flag: su contador se da SIEMPRE.
+    public static volatile boolean ANIMACION_CONTADORES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
     // Overlay opcional sobre las comunitarias con el coste de igualar del jugador
     // local (cuánto tendrá que poner cuando le toque). Por defecto activado.
     public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));
@@ -2622,6 +2626,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS);
         anim_apuestas_menu.addActionListener(e -> setAnimEffect(ANIM_APUESTAS, anim_apuestas_menu.isSelected()));
 
+        anim_contadores_menu = new javax.swing.JCheckBoxMenuItem();
+        anim_contadores_menu.setFont(new java.awt.Font("Dialog", 0, 14));
+        anim_contadores_menu.putClientProperty("i18n.key", "menu.efectos_animacion_contadores");
+        anim_contadores_menu.setText(Translator.translate("menu.efectos_animacion_contadores"));
+        anim_contadores_menu.setSelected(GameFrame.ANIMACION_CONTADORES);
+        anim_contadores_menu.addActionListener(e -> setAnimEffect(ANIM_CONTADORES, anim_contadores_menu.isSelected()));
+
         javax.swing.JMenu efectos_anim_menu = new javax.swing.JMenu(Translator.translate("menu.animacion_de_cartas"));
         efectos_anim_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         efectos_anim_menu.putClientProperty("i18n.key", "menu.animacion_de_cartas");
@@ -2629,6 +2640,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         efectos_anim_menu.add(anim_reparto_menu);
         efectos_anim_menu.add(anim_ciegas_dealer_menu);
         efectos_anim_menu.add(anim_apuestas_menu);
+        efectos_anim_menu.add(anim_contadores_menu);
         apariencia_menu.add(efectos_anim_menu);
 
         apariencia_menu.add(chat_image_menu);
@@ -2818,8 +2830,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // con los asientos "vacios" y no se vea un fogonazo del buy-in completo
         // antes de que arranque la cuenta. El MODELO (stack) sigue siendo el buy-in
         // de arriba; esto es solo el label. Mismo gate que animateInitialStacks
-        // (animaciones on + no recover) para que ambos vayan SIEMPRE emparejados.
-        if (GameFrame.ANIMACION_APUESTAS && !GameFrame.RECOVER) {
+        // (animaciones de contadores on + no recover) para que ambos vayan SIEMPRE
+        // emparejados.
+        if (GameFrame.ANIMACION_CONTADORES && !GameFrame.RECOVER) {
             for (Player jugador : jugadores) {
                 jugador.setStackDisplay(0f);
             }
@@ -5119,10 +5132,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private javax.swing.JCheckBoxMenuItem anim_reparto_menu;
     private javax.swing.JCheckBoxMenuItem anim_ciegas_dealer_menu;
     private javax.swing.JCheckBoxMenuItem anim_apuestas_menu;
+    private javax.swing.JCheckBoxMenuItem anim_contadores_menu;
 
     public static final int ANIM_REPARTO = 0;
     public static final int ANIM_CIEGAS_DEALER = 1;
     public static final int ANIM_APUESTAS = 2;
+    public static final int ANIM_CONTADORES = 3;
 
     // Aplica el cambio de un efecto de animación (flag + persistencia) y refleja
     // el estado en AMBOS menús (menú-bar y popup del tapete). Al activar el
@@ -5142,6 +5157,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 GameFrame.ANIMACION_APUESTAS = value;
                 Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(value));
                 break;
+            case ANIM_CONTADORES:
+                GameFrame.ANIMACION_CONTADORES = value;
+                Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(value));
+                break;
         }
         Helpers.savePropertiesFile();
         syncAnimationMenus();
@@ -5150,7 +5169,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Refleja los tres flags en los seis checkboxes (menú-bar + popup del tapete).
+    // Refleja los cuatro flags en los ocho checkboxes (menú-bar + popup del tapete).
     public void syncAnimationMenus() {
         if (anim_reparto_menu != null) {
             anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO);
@@ -5161,6 +5180,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (anim_apuestas_menu != null) {
             anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS);
         }
+        if (anim_contadores_menu != null) {
+            anim_contadores_menu.setSelected(GameFrame.ANIMACION_CONTADORES);
+        }
         if (Helpers.TapetePopupMenu.ANIM_REPARTO_MENU != null) {
             Helpers.TapetePopupMenu.ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO);
         }
@@ -5169,6 +5191,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
         if (Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU != null) {
             Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
+        }
+        if (Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU != null) {
+            Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES);
         }
     }
 
@@ -5274,6 +5299,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public javax.swing.JCheckBoxMenuItem getAnim_apuestas_menu() {
         return anim_apuestas_menu;
+    }
+
+    public javax.swing.JCheckBoxMenuItem getAnim_contadores_menu() {
+        return anim_contadores_menu;
     }
 
     public javax.swing.JCheckBoxMenuItem getAuto_rebuy_menu() {

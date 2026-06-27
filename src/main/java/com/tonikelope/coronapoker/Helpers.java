@@ -5334,6 +5334,7 @@ public class Helpers {
         public static JCheckBoxMenuItem ANIM_REPARTO_MENU;
         public static JCheckBoxMenuItem ANIM_CIEGAS_DEALER_MENU;
         public static JCheckBoxMenuItem ANIM_APUESTAS_MENU;
+        public static JCheckBoxMenuItem ANIM_CONTADORES_MENU;
         public static JCheckBoxMenuItem COSTE_IGUALAR_MENU;
         public static JCheckBoxMenuItem CHAT_IMAGE_MENU;
         public static JCheckBoxMenuItem CINEMATICAS_MENU;
@@ -5636,6 +5637,13 @@ public class Helpers {
                     }
                 };
 
+                Action animContadoresAction = new AbstractAction(Translator.translate("menu.efectos_animacion_contadores")) {
+                    @Override
+                    public void actionPerformed(ActionEvent ae) {
+                        GameFrame.getInstance().getAnim_contadores_menu().doClick();
+                    }
+                };
+
                 Action chatimageAction = new AbstractAction(Translator.translate("menu.imagenes_chat_juego")) {
                     @Override
                     public void actionPerformed(ActionEvent ae) {
@@ -5741,6 +5749,10 @@ public class Helpers {
                 ANIM_APUESTAS_MENU = new LeftClickCheckBoxMenuItem(animApuestasAction);
                 ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
                 efectos_anim_menu.add(ANIM_APUESTAS_MENU);
+
+                ANIM_CONTADORES_MENU = new LeftClickCheckBoxMenuItem(animContadoresAction);
+                ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES);
+                efectos_anim_menu.add(ANIM_CONTADORES_MENU);
 
                 VISTA_MENU.add(efectos_anim_menu);
 

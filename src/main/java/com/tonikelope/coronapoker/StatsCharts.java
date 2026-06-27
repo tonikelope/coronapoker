@@ -28,7 +28,10 @@ import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
 import org.jfree.chart.axis.CategoryLabelPositions;
 import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.labels.ItemLabelAnchor;
+import org.jfree.chart.labels.ItemLabelPosition;
 import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
+import org.jfree.chart.ui.TextAnchor;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.SpiderWebPlot;
@@ -146,7 +149,13 @@ public final class StatsCharts {
         renderer.setMaximumBarWidth(0.14);
         renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator("{2}", new DecimalFormat("#,##0.#")));
         renderer.setDefaultItemLabelFont(font(Font.BOLD, 12f));
-        renderer.setDefaultItemLabelPaint(TITLE);
+        // Etiquetas BLANCAS DENTRO de la barra (sobre el color): el gris oscuro
+        // (TITLE) no contrastaba sobre barras de color. INSIDE3/INSIDE9 fija el
+        // numero pegado al extremo de la barra para que el blanco caiga siempre
+        // sobre la barra y no sobre el fondo claro del panel.
+        renderer.setDefaultItemLabelPaint(Color.WHITE);
+        renderer.setDefaultPositiveItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE3, TextAnchor.CENTER_RIGHT));
+        renderer.setDefaultNegativeItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE9, TextAnchor.CENTER_LEFT));
         renderer.setDefaultItemLabelsVisible(true);
         plot.setRenderer(renderer);
 
@@ -329,7 +338,11 @@ public final class StatsCharts {
         renderer.setMaximumBarWidth(0.14);
         renderer.setDefaultItemLabelGenerator(new StandardCategoryItemLabelGenerator(labelFormat, new DecimalFormat("#,##0.#")));
         renderer.setDefaultItemLabelFont(font(Font.BOLD, 12f));
-        renderer.setDefaultItemLabelPaint(TITLE);
+        // Etiquetas BLANCAS DENTRO de la barra (sobre el color), igual que benefitBars:
+        // el gris oscuro no contrastaba sobre barras azules/naranjas.
+        renderer.setDefaultItemLabelPaint(Color.WHITE);
+        renderer.setDefaultPositiveItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE3, TextAnchor.CENTER_RIGHT));
+        renderer.setDefaultNegativeItemLabelPosition(new ItemLabelPosition(ItemLabelAnchor.INSIDE9, TextAnchor.CENTER_LEFT));
         renderer.setDefaultItemLabelsVisible(true);
         plot.setRenderer(renderer);
 

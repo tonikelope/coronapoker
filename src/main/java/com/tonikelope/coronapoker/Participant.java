@@ -821,20 +821,27 @@ public class Participant implements Runnable {
         }
     }
 
+    // Sincronizado en participant_socket_lock: cierra el socket actual (y un
+    // recon_socket pendiente si lo hubiera) y marca force_reset_socket. Antes
+    // mutaba socket/recon_socket/force_reset_socket SIN lock, lo que carreaba con
+    // resetSocket y con el menú "Forzar reconexión" (que lo llama en paralelo sobre
+    // todos los peers). Re-entrante: resetSocket lo invoca teniendo ya el lock.
     public void forceSocketReconnect() {
-        if (this.recon_socket != null) {
-            try {
-                this.recon_socket.close();
-            } catch (Exception ex) {
+        synchronized (getParticipant_socket_lock()) {
+            if (this.recon_socket != null) {
+                try {
+                    this.recon_socket.close();
+                } catch (Exception ex) {
+                }
             }
-        }
-        if (this.socket != null) {
-            try {
-                this.socket.close();
-            } catch (Exception ex) {
+            if (this.socket != null) {
+                try {
+                    this.socket.close();
+                } catch (Exception ex) {
+                }
             }
+            force_reset_socket = true;
         }
-        force_reset_socket = true;
     }
 
     private void setSocket(Socket socket) {
@@ -850,14 +857,32 @@ public class Participant implements Runnable {
     }
 
     public boolean resetSocket(Socket sock, SecretKeySpec aes_k, SecretKeySpec hmac_k) {
-        this.resetting_socket = true;
-        forceSocketReconnect();
-        this.recon_socket = sock;
-
+        // TODO el swap bajo participant_socket_lock. Antes el prólogo (resetting_socket,
+        // forceSocketReconnect, recon_socket) corría FUERA del lock: dos reconexiones
+        // concurrentes del MISMO nick, o el menú "Forzar reconexión" en paralelo,
+        // interleaveaban y dejaban socket/stream/keys inconsistentes (NPE sobre
+        // recon_socket==null, claves cruzadas). Ahora es atómico: la última reconexión
+        // gana limpiamente, sin corromper el estado del Participant.
         synchronized (getParticipant_socket_lock()) {
+            // TOCTOU: si el peer ya está saliendo (grace expirado / markExitAndNotify
+            // llamado, pero aún no borrado del mapa participantes) NO aceptamos el
+            // reconnect — el handler lo deniega y run() termina de retirarlo. Sin esto,
+            // se instalaba el socket nuevo + RECONNECT_OK y acto seguido run() borraba
+            // al jugador: el cliente se creía dentro y el host lo había echado (+leak).
+            if (exit) {
+                LOGGER.log(Level.WARNING, "PEER: Participant {0} resetSocket refused — peer is exiting", nick);
+                return false;
+            }
+            this.resetting_socket = true;
+            forceSocketReconnect();
+            this.recon_socket = sock;
             try {
+                // Swap transaccional: construimos el stream nuevo ANTES de comprometer
+                // socket/keys. Si getInputStream() lanza, this.socket/stream/keys quedan
+                // como estaban (viejos), no a medio cambiar (socket nuevo + stream viejo).
+                BufferedInputStream nuevo_stream = new BufferedInputStream(this.recon_socket.getInputStream());
                 this.socket = this.recon_socket;
-                this.input_stream_reader = new BufferedInputStream(this.socket.getInputStream());
+                this.input_stream_reader = nuevo_stream;
                 this.aes_key = aes_k;
                 this.hmac_key = hmac_k;
                 if (!isForce_reset_socket()) {

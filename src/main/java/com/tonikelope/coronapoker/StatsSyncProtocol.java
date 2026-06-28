@@ -44,10 +44,11 @@ public final class StatsSyncProtocol {
         return (message != null && message.length > 0) ? message[0] : 0;
     }
 
-    public static byte[] manifestMessage(Collection<String> ugis) throws IOException {
+    public static byte[] manifestMessage(Collection<String> ugis, boolean wantsReceive) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         baos.write(MANIFEST);
         try (DataOutputStream out = new DataOutputStream(new GZIPOutputStream(baos))) {
+            out.writeBoolean(wantsReceive);
             out.writeInt(ugis.size());
             for (String ugi : ugis) {
                 out.writeUTF(ugi);
@@ -56,22 +57,38 @@ public final class StatsSyncProtocol {
         return baos.toByteArray();
     }
 
-    public static List<String> readManifest(byte[] message) throws IOException {
+    public static Manifest readManifest(byte[] message) throws IOException {
         if (subtype(message) != MANIFEST) {
             throw new IOException("not a manifest message");
         }
-        List<String> ugis = new ArrayList<>();
         try (DataInputStream in = new DataInputStream(
                 new GZIPInputStream(new ByteArrayInputStream(message, 1, message.length - 1)))) {
+            boolean wantsReceive = in.readBoolean();
             int n = in.readInt();
             if (n < 0 || n > MAX_MANIFEST_UGIS) {
                 throw new IOException("manifest ugi count out of bounds: " + n);
             }
+            List<String> ugis = new ArrayList<>(Math.min(n, 1024));
             for (int i = 0; i < n; i++) {
                 ugis.add(in.readUTF());
             }
+            return new Manifest(ugis, wantsReceive);
         }
-        return ugis;
+    }
+
+    /**
+     * A decoded manifest: the sender's shareable ugis plus whether the sender
+     * wants to receive games back (so the peer only pushes to a willing receiver).
+     */
+    public static final class Manifest {
+
+        public final List<String> ugis;
+        public final boolean wantsReceive;
+
+        public Manifest(List<String> ugis, boolean wantsReceive) {
+            this.ugis = ugis;
+            this.wantsReceive = wantsReceive;
+        }
     }
 
     /** Wraps a {@link StatsSync#exportGames} blob into a GAMES message. */

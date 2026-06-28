@@ -384,6 +384,9 @@ public class NetClient {
             BinaryWire.Decoded decoded = BinaryWire.decode(payload);
             if (decoded.type == BinaryWire.TYPE_VOICE) {
                 waiting_room.recibirNotaVoz(decoded.nick, decoded.payload);
+            } else if (decoded.type == BinaryWire.TYPE_DB) {
+                // Stats DB sync relayed by the host (the only peer for a client).
+                waiting_room.statsSyncOnMessage(decoded.nick, decoded.payload, false);
             }
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Dropped malformed binary frame from server", ex);

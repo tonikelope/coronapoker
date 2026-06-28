@@ -27,10 +27,14 @@ class StatsSyncProtocolTest {
     @Test
     void manifestRoundTrips() throws Exception {
         for (int size : new int[]{0, 1, 7, 5000}) {
-            List<String> ugis = sampleUgis(size);
-            byte[] msg = StatsSyncProtocol.manifestMessage(ugis);
-            assertEquals(StatsSyncProtocol.MANIFEST, StatsSyncProtocol.subtype(msg));
-            assertEquals(ugis, StatsSyncProtocol.readManifest(msg), "size=" + size);
+            for (boolean wantsReceive : new boolean[]{true, false}) {
+                List<String> ugis = sampleUgis(size);
+                byte[] msg = StatsSyncProtocol.manifestMessage(ugis, wantsReceive);
+                assertEquals(StatsSyncProtocol.MANIFEST, StatsSyncProtocol.subtype(msg));
+                StatsSyncProtocol.Manifest m = StatsSyncProtocol.readManifest(msg);
+                assertEquals(ugis, m.ugis, "size=" + size);
+                assertEquals(wantsReceive, m.wantsReceive, "size=" + size);
+            }
         }
     }
 
@@ -38,7 +42,7 @@ class StatsSyncProtocolTest {
     void largeManifestIsCompressed() throws Exception {
         // 5000 ugis of 50 identical-alphabet chars compress hugely; the message
         // must be far smaller than the raw ~250 KB, proving gzip is in effect.
-        byte[] msg = StatsSyncProtocol.manifestMessage(sampleUgis(5000));
+        byte[] msg = StatsSyncProtocol.manifestMessage(sampleUgis(5000), true);
         assertTrue(msg.length < 50_000, "manifest not compressed: " + msg.length + " bytes");
     }
 
@@ -62,7 +66,7 @@ class StatsSyncProtocolTest {
 
     @Test
     void subtypeMismatchIsRejected() throws Exception {
-        byte[] manifest = StatsSyncProtocol.manifestMessage(sampleUgis(3));
+        byte[] manifest = StatsSyncProtocol.manifestMessage(sampleUgis(3), true);
         byte[] games = StatsSyncProtocol.gamesMessage(new byte[]{1, 2, 3});
         assertThrows(Exception.class, () -> StatsSyncProtocol.readManifest(games));
         assertThrows(Exception.class, () -> StatsSyncProtocol.gamesBlob(manifest));

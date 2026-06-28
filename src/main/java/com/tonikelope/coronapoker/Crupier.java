@@ -2584,7 +2584,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         if (contributors == null || contributors.isEmpty()) {
             // No vuelan fichas forzadas (animacion de apuestas off / recover / etc.). Red de
-            // seguridad (A3-2): si una carrera del toggle ANIMACION_APUESTAS dejo a un poster de
+            // seguridad (A3-2): si una carrera del toggle de apuestas (apuestasAnimOn) dejo a un poster de
             // forzada (ciega/ante) con el rodaje APLAZADO esperando una ficha que ya no vuela,
             // su label quedaria congelado en el valor pre-ciega hasta su proxima accion. Rodar
             // al modelo a todos los activos lo resuelve (no-op para los no aplazados: target ==
@@ -2682,8 +2682,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // ¿Hay que APLAZAR el rodaje vivo del stack/apuesta del jugador hasta que su ficha
-    // aterrice en el bote? Sí cuando va a volar ficha (ANIMACION_APUESTAS) y los
-    // contadores ruedan (ANIMACION_CONTADORES). Lo consultan los handlers de acción
+    // aterrice en el bote? Sí cuando va a volar ficha (apuestasAnimOn) y los
+    // contadores ruedan (contadoresAnimOn). Lo consultan los handlers de acción
     // antes de mover el dinero: si es true, setBet/setStack no ruedan (el label se queda)
     // y launchChipToPot los rueda en el aterrizaje, junto al bote (los tres a la vez).
     public boolean shouldDeferCountersToChip() {
@@ -14544,7 +14544,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     // Destape ANIMADO de las dos hole cards de un rival, con el mismo gate y
-    // el mismo motor que las comunitarias (ANIMACION_REPARTO + GIF de giro por
+    // el mismo motor que las comunitarias (repartoAnimOn + GIF de giro por
     // carta, pre-decodificado catch-up, relevos sin hueco). Las dos cartas
     // giran A LA VEZ (overlays en paralelo, un solo uncover.wav) sobre
     // overlays efímeros, y el método BLOQUEA hasta que el giro termina (nunca

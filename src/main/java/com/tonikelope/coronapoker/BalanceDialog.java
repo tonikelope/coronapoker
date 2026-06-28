@@ -308,14 +308,9 @@ public class BalanceDialog extends JDialog {
         java.awt.event.MouseAdapter toggle = new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                GameFrame.SONIDOS = !GameFrame.SONIDOS;
-                Helpers.PROPERTIES.setProperty("sonidos", GameFrame.SONIDOS ? "true" : "false");
-                Helpers.savePropertiesFile();
-                if (!GameFrame.SONIDOS) {
-                    Audio.muteAll();
-                } else {
-                    Audio.unmuteAll();
-                }
+                // setSonidos hace el flip + persiste + mute/unmute (y refresca los iconos de
+                // altavoz que existan); aquí solo refrescamos el NUESTRO (que no conoce).
+                GameFrame.setSonidos(!GameFrame.SONIDOS);
                 refreshBalanceSoundIcon();
             }
         };

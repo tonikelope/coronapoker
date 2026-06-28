@@ -61,6 +61,15 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected volatile TexturePaint tp = null;
 
+    // Tapete de IMAGEN ÚNICA (sufijo "*"): un JPG grande que se estira a todo el
+    // tablero. Se guarda la imagen sin escalar y se pinta con drawImage(...,0,0,w,h)
+    // en cada paint (ver paintComponent). NO se usa TexturePaint para esto: un tile
+    // del tamaño del panel rinde distinto una franja recortada que el pintado
+    // completo (costura/"deformación" por donde cruzan las fichas/cartas voladoras),
+    // mientras que drawImage con rectángulo de destino mapea siempre la fuente
+    // entera a (0,0)-(w,h) y el clip solo limita qué píxeles se escriben.
+    protected volatile BufferedImage secret_bg = null;
+
     protected volatile RemotePlayer[] remotePlayers;
 
     protected volatile Player[] players;
@@ -112,16 +121,20 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
      */
     public TablePanel() {
 
-        BufferedImage tile = null;
         if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
 
+            // Tapete de imagen única: se guarda sin escalar y se pinta estirado a
+            // todo el panel con drawImage (ver paintComponent). NO se usa
+            // TexturePaint para evitar las costuras al repintar franjas parciales
+            // bajo las animaciones voladoras.
             try {
-                tile = Helpers.toBufferedImage(Init.I1);
+                secret_bg = Helpers.toBufferedImage(Init.I1);
 
             } catch (Exception ex) {
                 Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
             }
         } else {
+            BufferedImage tile = null;
             // try-with-resources: ImageIO.read(InputStream) NO cierra el stream
             // (contrato JDK), así que el handle del JAR resource quedaba colgado
             // hasta el GC. Mismo arreglo que ya se aplicó en el cambio de tapete
@@ -138,10 +151,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
                     Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                 }
             }
-        }
 
-        Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
-        tp = new TexturePaint(tile, tr);
+            Rectangle2D tr = new Rectangle2D.Double(0, 0, tile.getWidth(), tile.getHeight());
+            tp = new TexturePaint(tile, tr);
+        }
 
         Helpers.GUIRunAndWait(() -> {
             initComponents();
@@ -1734,32 +1747,58 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             try {
                 super.paintComponent(g);
 
-                if (invalidate || tp == null) {
+                if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
+
+                    // Tapete de imagen única: se estira al panel con drawImage y
+                    // rectángulo de destino. A diferencia de un TexturePaint con un
+                    // tile del tamaño del panel, drawImage mapea SIEMPRE la fuente
+                    // completa a (0,0)-(w,h); el clip de un repintado parcial solo
+                    // limita QUÉ píxeles se escriben, nunca el muestreo, así que la
+                    // franja que repinta una ficha/carta voladora a su paso queda
+                    // idéntica al pintado completo (sin costuras ni "deformación"
+                    // del fondo por donde cruzan las animaciones).
+                    if (secret_bg == null) {
+                        try {
+                            secret_bg = Helpers.toBufferedImage(Init.I1);
+                        } catch (Exception ex) {
+                            Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+
+                    if (secret_bg != null) {
+                        Graphics2D g2d = (Graphics2D) g;
+                        Object old_interp = g2d.getRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION);
+                        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                                java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                        g2d.drawImage(secret_bg, 0, 0, getWidth(), getHeight(), null);
+                        if (old_interp != null) {
+                            g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, old_interp);
+                        }
+                    }
+
+                    ok = true;
+
+                } else if (invalidate || tp == null) {
 
                     Helpers.threadRun(() -> {
                         synchronized (paint_lock) {
+                            // El tapete de imagen única (sufijo "*") se pinta arriba con
+                            // drawImage y nunca llega aquí; este rebuild es solo para los
+                            // tapetes de TEXTURA en mosaico (JPG pequeño que se repite).
                             BufferedImage tile = null;
-                            if (GameFrame.COLOR_TAPETE.endsWith("*") && Init.I1 != null) {
-                                try {
-                                    tile = Helpers.toBufferedImage(Init.I1.getScaledInstance(getWidth(), getHeight(), Image.SCALE_SMOOTH));
-                                } catch (Exception ex) {
-                                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex);
-                                }
-                            } else {
-                                // try-with-resources: ImageIO.read(InputStream) NO cierra el
-                                // stream (contrato JDK). Cada cambio de tapete dejaba colgado
-                                // el handle del JAR resource hasta GC.
-                                try (java.io.InputStream is = getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg")) {
+                            // try-with-resources: ImageIO.read(InputStream) NO cierra el
+                            // stream (contrato JDK). Cada cambio de tapete dejaba colgado
+                            // el handle del JAR resource hasta GC.
+                            try (java.io.InputStream is = getClass().getResourceAsStream("/images/tapete_" + GameFrame.COLOR_TAPETE + ".jpg")) {
 
-                                    tile = ImageIO.read(is);
+                                tile = ImageIO.read(is);
 
-                                } catch (Exception ex) {
+                            } catch (Exception ex) {
 
-                                    try (java.io.InputStream isf = getClass().getResourceAsStream("/images/tapete_verde.jpg")) {
-                                        tile = ImageIO.read(isf);
-                                    } catch (IOException ex1) {
-                                        Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
-                                    }
+                                try (java.io.InputStream isf = getClass().getResourceAsStream("/images/tapete_verde.jpg")) {
+                                    tile = ImageIO.read(isf);
+                                } catch (IOException ex1) {
+                                    Logger.getLogger(TablePanel.class.getName()).log(Level.SEVERE, null, ex1);
                                 }
                             }
                             // Sprint deferred 🟡-32: snapshot del tile anterior para

@@ -308,16 +308,11 @@ public class AppearanceSettingsPanel extends JPanel {
             if (gf != null) {
                 gf.setAnimacionesMaster(on);
             } else {
-                // Fuera de partida: persiste el maestro y recalcula los 5 flags efectivos
-                // = on && preferencia (leída de PROPERTIES), igual que applyAnimationMaster
-                // pero sin items de menú vivos.
+                // Fuera de partida: el maestro es solo un GATE. Persiste ANIMACIONES y NO
+                // toca las preferencias individuales (los *_PREF son la preferencia cruda;
+                // el gate lo aplican los helpers *On() al leerlas).
                 GameFrame.ANIMACIONES = on;
                 persist("animaciones", String.valueOf(on));
-                GameFrame.CINEMATICAS = on && prefBool("cinematicas");
-                GameFrame.ANIMACION_REPARTO = on && prefBool("animacion_reparto");
-                GameFrame.ANIMACION_CIEGAS_DEALER = on && prefBool("animacion_ciegas_dealer");
-                GameFrame.ANIMACION_APUESTAS = on && prefBool("animacion_apuestas");
-                GameFrame.ANIMACION_CONTADORES = on && prefBool("animacion_contadores");
             }
             for (int i = 0; i < anim_sub_cb.size(); i++) {
                 JMenuItem m = anim_sub_menu.get(i);
@@ -330,15 +325,15 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(anim, master_row);
 
         addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas",
-                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS = v));
+                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto",
-                gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO = v));
+                gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
-                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER = v));
+                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
-                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS = v));
+                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
-                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES = v));
+                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -501,11 +496,11 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.MOSTRAR_COSTE_IGUALAR = snap_coste_igualar;
         GameFrame.CHAT_IMAGES_INGAME = snap_chat_images;
         GameFrame.ANIMACIONES = snap_animaciones;
-        GameFrame.CINEMATICAS = snap_animaciones && snap_cinematicas;
-        GameFrame.ANIMACION_REPARTO = snap_animaciones && snap_anim_reparto;
-        GameFrame.ANIMACION_CIEGAS_DEALER = snap_animaciones && snap_anim_ciegas_dealer;
-        GameFrame.ANIMACION_APUESTAS = snap_animaciones && snap_anim_apuestas;
-        GameFrame.ANIMACION_CONTADORES = snap_animaciones && snap_anim_contadores;
+        GameFrame.CINEMATICAS_PREF = snap_cinematicas;
+        GameFrame.ANIMACION_REPARTO_PREF = snap_anim_reparto;
+        GameFrame.ANIMACION_CIEGAS_DEALER_PREF = snap_anim_ciegas_dealer;
+        GameFrame.ANIMACION_APUESTAS_PREF = snap_anim_apuestas;
+        GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
@@ -653,7 +648,7 @@ public class AppearanceSettingsPanel extends JPanel {
             } else {
                 boolean now = cb.isSelected();
                 persist(prefKey, String.valueOf(now));
-                effSetter.accept(GameFrame.ANIMACIONES && now);
+                effSetter.accept(now);
             }
         });
         anim_sub_cb.add(cb);

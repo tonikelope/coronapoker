@@ -171,24 +171,51 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int ZOOM_LEVEL = Integer.parseInt(Helpers.PROPERTIES.getProperty("zoom_level", String.valueOf(GameFrame.DEFAULT_ZOOM_LEVEL)));
     public static volatile String BARAJA = Helpers.PROPERTIES.getProperty("baraja", BARAJA_DEFAULT);
     public static volatile int VISTA_COMPACTA = Integer.parseInt(Helpers.isNumeric(Helpers.PROPERTIES.getProperty("vista_compacta", "0")) ? Helpers.PROPERTIES.getProperty("vista_compacta", "0") : "0") % 3;
-    // Efectos de animación, ahora con granularidad: reparto/destapes de cartas,
-    // fichas de posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de
-    // los contadores (stack/bote/apuesta + cortinilla de llenado y recompra).
-    // Combinables independientemente; por defecto los cuatro activados.
-    // "animacion_reparto" conserva la clave histórica.
-    public static volatile boolean ANIMACION_REPARTO = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
-    public static volatile boolean ANIMACION_CIEGAS_DEALER = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
-    public static volatile boolean ANIMACION_APUESTAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
+    // Efectos de animación, con granularidad: reparto/destapes de cartas, fichas de
+    // posición (ciegas+dealer), ficha al bote (apuestas) y el rodaje de los contadores
+    // (stack/bote/apuesta + cortinilla de llenado y recompra). Estos 5 flags *_PREF
+    // guardan la PREFERENCIA CRUDA de cada efecto (NO el valor efectivo): el maestro
+    // ANIMACIONES los gatea en cada comprobación vía los helpers *On(). Combinables
+    // independientemente; por defecto los cuatro activados. "animacion_reparto" conserva
+    // la clave histórica.
+    public static volatile boolean ANIMACION_REPARTO_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_reparto", "true"));
+    public static volatile boolean ANIMACION_CIEGAS_DEALER_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_ciegas_dealer", "true"));
+    public static volatile boolean ANIMACION_APUESTAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_apuestas", "true"));
     // Rodaje animado de los contadores numéricos. La pantalla final (BalanceDialog)
     // NO depende de este flag: su contador se da SIEMPRE.
-    public static volatile boolean ANIMACION_CONTADORES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
+    public static volatile boolean ANIMACION_CONTADORES_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
 
-    // Maestro de animaciones: activa/desactiva TODAS las animaciones de un plumazo sin
-    // perder las preferencias individuales. CINEMATICAS y los 4 ANIMACION_* son el valor
-    // EFECTIVO que lee el juego = ANIMACIONES && preferencia (la preferencia vive en el
-    // isSelected de cada toggle). applyAnimationMaster los recalcula y DESHABILITA (sin
-    // desmarcar) los toggles individuales cuando esta off. Por defecto on.
+    // Maestro de animaciones: GATE global. Los 5 flags *_PREF (CINEMATICAS_PREF y los 4
+    // ANIMACION_*_PREF) guardan la PREFERENCIA cruda de cada efecto, como antes de existir
+    // el maestro. Este flag los GATEA en cada comprobación vía los helpers *On() (=
+    // ANIMACIONES && preferencia): apagarlo desactiva TODAS las animaciones de un plumazo
+    // SIN tocar las preferencias. applyAnimationMaster ya NO recalcula los flags (no hay
+    // valor "efectivo" almacenado); solo habilita/deshabilita (visual) los toggles
+    // individuales cuando está off. Por defecto on.
     public static volatile boolean ANIMACIONES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animaciones", "true"));
+
+    // Gate por efecto: una animación individual SOLO aplica si el maestro está on Y su
+    // preferencia está on. TODO read-site del código que decida ANIMAR usa estos helpers,
+    // nunca el flag *_PREF directo (que es solo la preferencia, sin gatear).
+    public static boolean cinematicasOn() {
+        return ANIMACIONES && CINEMATICAS_PREF;
+    }
+
+    public static boolean repartoAnimOn() {
+        return ANIMACIONES && ANIMACION_REPARTO_PREF;
+    }
+
+    public static boolean ciegasDealerAnimOn() {
+        return ANIMACIONES && ANIMACION_CIEGAS_DEALER_PREF;
+    }
+
+    public static boolean apuestasAnimOn() {
+        return ANIMACIONES && ANIMACION_APUESTAS_PREF;
+    }
+
+    public static boolean contadoresAnimOn() {
+        return ANIMACIONES && ANIMACION_CONTADORES_PREF;
+    }
 
     // Velocidad/topes del rodaje de los contadores VIVOS (stack/bote del jugador/
     // bote general) durante el juego. VELOCIDAD CONSTANTE (lineal): duración de cada
@@ -202,7 +229,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // recover (los valores recuperados se fijan de golpe, sin animar). El gate de la
     // cortinilla/recompra es Crupier.isStackFillAnimated (añade fin de transmisión).
     public static boolean isCounterRollEnabled() {
-        if (!ANIMACION_CONTADORES || RECOVER) {
+        if (!contadoresAnimOn() || RECOVER) {
             return false;
         }
         // !RECOVER cubre el recover en si; game_recovered==0 cubre la REPLICA de una mano
@@ -233,7 +260,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile double AUTO_CALL_MAX = Double.parseDouble(Helpers.PROPERTIES.getProperty("auto_call_max", "1.0"));
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
-    public static volatile boolean CINEMATICAS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
+    public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
     public static volatile boolean CHAT_IMAGES_INGAME = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("chat_images_ingame", "true"));
     public static volatile boolean AUTO_ZOOM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_zoom", "false"));
     // Ficha de posición del jugador local sobre sus cartas: 3 estados cíclicos por click
@@ -2555,7 +2582,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         compact_menu.setSelected(GameFrame.VISTA_COMPACTA > 0);
 
-        menu_cinematicas.setSelected(GameFrame.CINEMATICAS);
+        menu_cinematicas.setSelected(GameFrame.CINEMATICAS_PREF);
 
         auto_fullscreen_menu.setSelected(GameFrame.AUTO_FULLSCREEN);
 
@@ -2644,28 +2671,28 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         anim_reparto_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         anim_reparto_menu.putClientProperty("i18n.key", "menu.efectos_animacion_reparto");
         anim_reparto_menu.setText(Translator.translate("menu.efectos_animacion_reparto"));
-        anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO);
+        anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO_PREF);
         anim_reparto_menu.addActionListener(e -> setAnimEffect(ANIM_REPARTO, anim_reparto_menu.isSelected()));
 
         anim_ciegas_dealer_menu = new javax.swing.JCheckBoxMenuItem();
         anim_ciegas_dealer_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         anim_ciegas_dealer_menu.putClientProperty("i18n.key", "menu.efectos_animacion_ciegas_dealer");
         anim_ciegas_dealer_menu.setText(Translator.translate("menu.efectos_animacion_ciegas_dealer"));
-        anim_ciegas_dealer_menu.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+        anim_ciegas_dealer_menu.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER_PREF);
         anim_ciegas_dealer_menu.addActionListener(e -> setAnimEffect(ANIM_CIEGAS_DEALER, anim_ciegas_dealer_menu.isSelected()));
 
         anim_apuestas_menu = new javax.swing.JCheckBoxMenuItem();
         anim_apuestas_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         anim_apuestas_menu.putClientProperty("i18n.key", "menu.efectos_animacion_apuestas");
         anim_apuestas_menu.setText(Translator.translate("menu.efectos_animacion_apuestas"));
-        anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS);
+        anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS_PREF);
         anim_apuestas_menu.addActionListener(e -> setAnimEffect(ANIM_APUESTAS, anim_apuestas_menu.isSelected()));
 
         anim_contadores_menu = new javax.swing.JCheckBoxMenuItem();
         anim_contadores_menu.setFont(new java.awt.Font("Dialog", 0, 14));
         anim_contadores_menu.putClientProperty("i18n.key", "menu.efectos_animacion_contadores");
         anim_contadores_menu.setText(Translator.translate("menu.efectos_animacion_contadores"));
-        anim_contadores_menu.setSelected(GameFrame.ANIMACION_CONTADORES);
+        anim_contadores_menu.setSelected(GameFrame.ANIMACION_CONTADORES_PREF);
         anim_contadores_menu.addActionListener(e -> setAnimEffect(ANIM_CONTADORES, anim_contadores_menu.isSelected()));
 
         javax.swing.JMenu efectos_anim_menu = new javax.swing.JMenu(Translator.translate("menu.animacion_de_cartas"));
@@ -2867,7 +2894,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // de arriba; esto es solo el label. Mismo gate que animateInitialStacks
         // (animaciones de contadores on + no recover) para que ambos vayan SIEMPRE
         // emparejados.
-        if (GameFrame.ANIMACION_CONTADORES && !GameFrame.RECOVER) {
+        if (GameFrame.contadoresAnimOn() && !GameFrame.RECOVER) {
             for (Player jugador : jugadores) {
                 jugador.setStackDisplay(0f);
             }
@@ -4811,13 +4838,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     private void menu_cinematicasActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menu_cinematicasActionPerformed
         // TODO add your handling code here:
 
-        GameFrame.CINEMATICAS = this.menu_cinematicas.isSelected();
+        GameFrame.CINEMATICAS_PREF = this.menu_cinematicas.isSelected();
 
-        Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(GameFrame.CINEMATICAS));
+        Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(GameFrame.CINEMATICAS_PREF));
 
         Helpers.savePropertiesFile();
 
-        Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
+        Helpers.TapetePopupMenu.CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS_PREF);
     }//GEN-LAST:event_menu_cinematicasActionPerformed
 
     private void shortcuts_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_shortcuts_menuActionPerformed
@@ -5186,19 +5213,19 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void setAnimEffect(int which, boolean value) {
         switch (which) {
             case ANIM_REPARTO:
-                GameFrame.ANIMACION_REPARTO = value;
+                GameFrame.ANIMACION_REPARTO_PREF = value;
                 Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(value));
                 break;
             case ANIM_CIEGAS_DEALER:
-                GameFrame.ANIMACION_CIEGAS_DEALER = value;
+                GameFrame.ANIMACION_CIEGAS_DEALER_PREF = value;
                 Helpers.PROPERTIES.setProperty("animacion_ciegas_dealer", String.valueOf(value));
                 break;
             case ANIM_APUESTAS:
-                GameFrame.ANIMACION_APUESTAS = value;
+                GameFrame.ANIMACION_APUESTAS_PREF = value;
                 Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(value));
                 break;
             case ANIM_CONTADORES:
-                GameFrame.ANIMACION_CONTADORES = value;
+                GameFrame.ANIMACION_CONTADORES_PREF = value;
                 Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(value));
                 break;
         }
@@ -5209,47 +5236,40 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Refleja los cuatro flags en los ocho checkboxes (menú-bar + popup del tapete).
+    // Refleja las cuatro PREFERENCIAS en los ocho checkboxes (menú-bar + popup del tapete).
     public void syncAnimationMenus() {
         if (anim_reparto_menu != null) {
-            anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO);
+            anim_reparto_menu.setSelected(GameFrame.ANIMACION_REPARTO_PREF);
         }
         if (anim_ciegas_dealer_menu != null) {
-            anim_ciegas_dealer_menu.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+            anim_ciegas_dealer_menu.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER_PREF);
         }
         if (anim_apuestas_menu != null) {
-            anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS);
+            anim_apuestas_menu.setSelected(GameFrame.ANIMACION_APUESTAS_PREF);
         }
         if (anim_contadores_menu != null) {
-            anim_contadores_menu.setSelected(GameFrame.ANIMACION_CONTADORES);
+            anim_contadores_menu.setSelected(GameFrame.ANIMACION_CONTADORES_PREF);
         }
         if (Helpers.TapetePopupMenu.ANIM_REPARTO_MENU != null) {
-            Helpers.TapetePopupMenu.ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO);
+            Helpers.TapetePopupMenu.ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO_PREF);
         }
         if (Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU != null) {
-            Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+            Helpers.TapetePopupMenu.ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER_PREF);
         }
         if (Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU != null) {
-            Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
+            Helpers.TapetePopupMenu.ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS_PREF);
         }
         if (Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU != null) {
-            Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES);
+            Helpers.TapetePopupMenu.ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES_PREF);
         }
     }
 
-    // Recalcula los 5 flags EFECTIVOS de animacion = ANIMACIONES (maestro) && preferencia
-    // (el isSelected de cada toggle, que conserva la preferencia aunque el maestro este
-    // off) y DESHABILITA (sin desmarcar) los toggles individuales -menu-bar + popup- cuando
-    // el maestro esta off, para que ninguna ruta los cambie mientras tanto (asi setAnimEffect/
-    // menu_cinematics solo corren con el maestro on, donde efectivo == preferencia). Lo
-    // llaman el arranque y setAnimacionesMaster. No persiste las preferencias.
+    // Habilita/deshabilita (SIN desmarcar) los toggles individuales -menu-bar + popup-
+    // según el maestro: con el maestro off quedan en gris pero conservan su preferencia.
+    // Ya NO recalcula ningún flag (los *_PREF son la preferencia cruda; el gate lo aplican
+    // los helpers *On() en cada read-site). Lo llaman el arranque y setAnimacionesMaster.
     public void applyAnimationMaster() {
         boolean on = GameFrame.ANIMACIONES;
-        GameFrame.ANIMACION_REPARTO = on && anim_reparto_menu.isSelected();
-        GameFrame.ANIMACION_CIEGAS_DEALER = on && anim_ciegas_dealer_menu.isSelected();
-        GameFrame.ANIMACION_APUESTAS = on && anim_apuestas_menu.isSelected();
-        GameFrame.ANIMACION_CONTADORES = on && anim_contadores_menu.isSelected();
-        GameFrame.CINEMATICAS = on && menu_cinematicas.isSelected();
 
         anim_reparto_menu.setEnabled(on);
         anim_ciegas_dealer_menu.setEnabled(on);
@@ -5273,14 +5293,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Maestro (Ajustes): enciende/apaga TODAS las animaciones de un plumazo (recalcula los
-    // flags efectivos desde las preferencias individuales, que NO se tocan) y lo persiste.
+    // Maestro (Ajustes): enciende/apaga TODAS las animaciones de un plumazo (gate global; NO
+    // toca las preferencias individuales) y lo persiste. applyAnimationMaster solo habilita/
+    // deshabilita los toggles; el efecto lo aplican los helpers *On().
     public void setAnimacionesMaster(boolean value) {
         GameFrame.ANIMACIONES = value;
         Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(value));
         Helpers.savePropertiesFile();
         applyAnimationMaster();
-        if (value && GameFrame.ANIMACION_REPARTO) {
+        if (value && GameFrame.ANIMACION_REPARTO_PREF) {
             Crupier.warmShuffleAnimCache();
         }
     }

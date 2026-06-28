@@ -411,7 +411,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // reactivadas) para que la primera mano no pague el decode de ~0,5 s
     public static void warmShuffleAnimCache() {
 
-        if (!GameFrame.ANIMACION_REPARTO) {
+        if (!GameFrame.repartoAnimOn()) {
             return;
         }
 
@@ -2345,7 +2345,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // la opción de animación y se salta en RECOVER/fin de transmisión.
     private void animateChipRotation(String prev_dealer_nick, String prev_sb_nick, String prev_bb_nick) {
 
-        if (!GameFrame.ANIMACION_CIEGAS_DEALER || GameFrame.RECOVER || isFin_de_la_transmision()) {
+        if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
             return;
         }
 
@@ -2459,7 +2459,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // en el EDT y el llamante continúa de inmediato.
     public void launchChipToPot(Player player) {
 
-        if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision()) {
+        if (!GameFrame.apuestasAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision()) {
             // Sin animación de ficha: el handler pudo aplazar el rodaje del stack/bet
             // esperando esta ficha que no vuela -> los rodamos ya (al instante de la
             // acción). No-op si no había aplazamiento.
@@ -2498,7 +2498,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private void prepareForcedBetsToPot() {
         this.forced_bet_chip_contributors = null;
 
-        if (!GameFrame.ANIMACION_APUESTAS || GameFrame.RECOVER || isFin_de_la_transmision() || this.game_recovered != 0) {
+        if (!GameFrame.apuestasAnimOn() || GameFrame.RECOVER || isFin_de_la_transmision() || this.game_recovered != 0) {
             return;
         }
 
@@ -2667,7 +2667,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // rebuy_fill_animated, que es lo que lee reComprar (asi un toggle a mitad del
     // conteo no duplica la caja registradora).
     public boolean isStackFillAnimated() {
-        return GameFrame.ANIMACION_CONTADORES && !GameFrame.RECOVER && !isFin_de_la_transmision();
+        return GameFrame.contadoresAnimOn() && !GameFrame.RECOVER && !isFin_de_la_transmision();
     }
 
     // ¿La recompra de la tanda en curso se animo con la cortinilla de stacks (que ya
@@ -2687,7 +2687,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // antes de mover el dinero: si es true, setBet/setStack no ruedan (el label se queda)
     // y launchChipToPot los rueda en el aterrizaje, junto al bote (los tres a la vez).
     public boolean shouldDeferCountersToChip() {
-        return GameFrame.ANIMACION_APUESTAS && GameFrame.ANIMACION_CONTADORES
+        return GameFrame.apuestasAnimOn() && GameFrame.contadoresAnimOn()
                 && !GameFrame.RECOVER && !isFin_de_la_transmision();
     }
 
@@ -3346,7 +3346,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
                 : Map.ofEntries(Crupier.ALLIN_CINEMATICS);
 
-        if (!this.sincronizando_mano && GameFrame.CINEMATICAS && map.containsKey("allin/")
+        if (!this.sincronizando_mano && GameFrame.cinematicasOn() && map.containsKey("allin/")
                 && map.get("allin/").length > 0) {
 
             Object[][] allin_cinematics = map.get("allin/");
@@ -3442,7 +3442,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         String chosen_filename = announced_filename;
         long chosen_pausa = announced_pausa;
 
-        if (!this.sincronizando_mano && GameFrame.CINEMATICAS
+        if (!this.sincronizando_mano && GameFrame.cinematicasOn()
                 && resolveAllinCinematicURL(announced_filename) == null) {
 
             Map<String, Object[][]> map = Init.MOD != null ? Map.ofEntries(Crupier.ALLIN_CINEMATICS_MOD)
@@ -3482,7 +3482,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             Helpers.barraIndeterminada(GameFrame.getInstance().getBarra_tiempo());
 
-            if (GameFrame.CINEMATICAS) {
+            if (GameFrame.cinematicasOn()) {
 
                 final ImageIcon icon;
                 URL url_icon = resolveAllinCinematicURL(filename);
@@ -3971,7 +3971,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //   "¿RECOMPRA? (N)" de la action label) y al agotarse pasa a
         //   indeterminada (en el bucle de abajo) hasta que lleguen los REBUY
         //   o salten los timeouts de seguridad del crupier.
-        final boolean barra_smooth = !GameFrame.CINEMATICAS;
+        final boolean barra_smooth = !GameFrame.cinematicasOn();
         if (barra_smooth) {
             Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameOverDialog.REBUY_DIALOG_COUNTDOWN);
         } else {
@@ -6798,7 +6798,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                 }
 
-                if (GameFrame.CINEMATICAS) {
+                if (GameFrame.cinematicasOn()) {
                     Helpers.GUIRun(() -> {
                         try {
                             GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true,
@@ -6889,7 +6889,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         } else {
                             // If denied, inform the UI and register rejection timestamp for anti-flood
                             GameFrame.getInstance().getRegistro().print(Translator.translate("iwtsth.el_servidor_ha_denegado_la") + " " + iwtsther);
-                            if (GameFrame.CINEMATICAS) {
+                            if (GameFrame.cinematicasOn()) {
                                 Helpers.GUIRun(() -> {
                                     try {
                                         GifAnimationDialog gif_dialog = new GifAnimationDialog(GameFrame.getInstance(), true, new ImageIcon(getClass().getResource("/cinematics/misc/iwtsth_no.gif")), Helpers.getGIFFramesCount(getClass().getResource("/cinematics/misc/iwtsth_no.gif").toURI().toURL()));
@@ -7439,7 +7439,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 URL url_icon = shuffleGifUrl();
-                if (url_icon != null && GameFrame.ANIMACION_REPARTO) {
+                if (url_icon != null && GameFrame.repartoAnimOn()) {
 
                     // Motor pre-decodificado con catch-up también para el barajado:
                     // un único decode por baraja (normalmente ya caliente por el
@@ -8167,7 +8167,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void repartir() {
 
-        boolean animacion = GameFrame.ANIMACION_REPARTO;
+        boolean animacion = GameFrame.repartoAnimOn();
 
         int pausa = Math.max(100, Math.round(REPARTIR_PAUSA * (2f / this.getJugadoresActivos())));
 
@@ -10008,7 +10008,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // El straddle es una apuesta forzada (2x CG): suena como las ciegas
                     // (bet.wav) y, como ellas (flyForcedBetsToPot), SOLO si la animacion de
                     // fichas esta activa. Sincronizado con la ficha de dinero al bote.
-                    if (GameFrame.ANIMACION_APUESTAS) {
+                    if (GameFrame.apuestasAnimOn()) {
                         Audio.playWavResource("misc/bet.wav");
                     }
                     launchChipToPot(straddler_f);
@@ -10246,7 +10246,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // estática. BLOQUEA hasta el aterrizaje. Sin animación / en recover / fin de
     // transmisión: solo pinta la ficha estática (idéntico al straddle viejo).
     private void flyStraddleChipToSeat(Player straddler) {
-        if (!GameFrame.ANIMACION_CIEGAS_DEALER || GameFrame.RECOVER || this.game_recovered != 0 || isFin_de_la_transmision()) {
+        if (!GameFrame.ciegasDealerAnimOn() || GameFrame.RECOVER || this.game_recovered != 0 || isFin_de_la_transmision()) {
             straddler.refreshPositionChipIcons();
             return;
         }
@@ -10499,7 +10499,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // tiene que completarse igualmente (lleva medio bote), pero corre bajo
         // lock_contabilidad y cada pausa cosmética retrasa la salida real
         // (finTransmision espera ese lock para el snapshot del auditor).
-        boolean animacion = GameFrame.ANIMACION_REPARTO && !GameFrame.getInstance().getLocalPlayer().isExit();
+        boolean animacion = GameFrame.repartoAnimOn() && !GameFrame.getInstance().getLocalPlayer().isExit();
 
         Helpers.GUIRunAndWait(() -> {
             // Corridas → fuera de la mesa (resetearCarta invisible) si hay
@@ -14483,7 +14483,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // flip y flip y la cadencia del flop variaba de mano en mano.
     private void prefetchAnimacionDestaparCarta(Card carta) {
 
-        if (GameFrame.ANIMACION_REPARTO) {
+        if (GameFrame.repartoAnimOn()) {
 
             URL url_icon = cardFlipGifUrl(carta);
 
@@ -14577,8 +14577,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         RemotePlayer rp = (RemotePlayer) jugador;
 
-        URL url1 = GameFrame.ANIMACION_REPARTO ? cardFlipGifUrl(c1) : null;
-        URL url2 = GameFrame.ANIMACION_REPARTO ? cardFlipGifUrl(c2) : null;
+        URL url1 = GameFrame.repartoAnimOn() ? cardFlipGifUrl(c1) : null;
+        URL url2 = GameFrame.repartoAnimOn() ? cardFlipGifUrl(c2) : null;
 
         if (url1 == null || url2 == null) {
             destaparCartasJugadorSeco(rp);
@@ -14677,7 +14677,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return;
         }
 
-        URL url_icon = GameFrame.ANIMACION_REPARTO ? cardFlipGifUrl(carta) : null;
+        URL url_icon = GameFrame.repartoAnimOn() ? cardFlipGifUrl(carta) : null;
 
         if (url_icon != null) {
 

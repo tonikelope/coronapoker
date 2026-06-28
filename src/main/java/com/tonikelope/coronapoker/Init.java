@@ -1110,7 +1110,7 @@ public class Init extends JFrame {
         startDeadlockDetector();
 
         if (GameFrame.TEST_MODE) {
-            GameFrame.CINEMATICAS = false;
+            GameFrame.CINEMATICAS_PREF = false;
         }
 
         if (!Init.DEV_MODE) {

@@ -255,7 +255,7 @@ public class Init extends JFrame {
         // También los Tooltips
         sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
         settings_icon.putClientProperty("i18n.tooltip_key", "settings.ajustes");
-        Helpers.setScaledIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
+        Helpers.setScaledWhiteIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
 
     }
 

@@ -40,6 +40,9 @@ public final class BinaryWire {
     /** Voice note: {@code rest} is the µ-law WAV audio. */
     public static final byte TYPE_VOICE = 'V';
 
+    /** Stats DB sync: {@code rest} is a {@link StatsSyncProtocol} message (manifest or games). */
+    public static final byte TYPE_DB = 'D';
+
     private BinaryWire() {
     }
 

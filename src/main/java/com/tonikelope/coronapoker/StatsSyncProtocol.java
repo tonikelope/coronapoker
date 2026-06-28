@@ -33,8 +33,14 @@ public final class StatsSyncProtocol {
     public static final byte GAMES = 'G';
 
     // A manifest claims at most this many ugis — a sanity bound against a hostile
-    // peer declaring a huge count to force a giant allocation on decode.
-    private static final int MAX_MANIFEST_UGIS = 5_000_000;
+    // peer declaring a huge count to force a giant allocation on decode. A real
+    // user owns at most a few thousand games; 200k is generous and bounded.
+    private static final int MAX_MANIFEST_UGIS = 200_000;
+
+    // The manifest body must not inflate beyond this — guards against a gzip bomb
+    // (a tiny frame that decompresses to gigabytes). 200k ugis × ~52 bytes ≈ 10 MB,
+    // so 16 MB covers any legitimate manifest with headroom.
+    private static final long MAX_MANIFEST_INFLATED_BYTES = 16L * 1024 * 1024;
 
     private StatsSyncProtocol() {
     }
@@ -61,8 +67,9 @@ public final class StatsSyncProtocol {
         if (subtype(message) != MANIFEST) {
             throw new IOException("not a manifest message");
         }
-        try (DataInputStream in = new DataInputStream(
-                new GZIPInputStream(new ByteArrayInputStream(message, 1, message.length - 1)))) {
+        // Inflate with a hard size cap FIRST (gzip-bomb guard), then parse.
+        byte[] inflated = inflateBounded(message, 1, MAX_MANIFEST_INFLATED_BYTES);
+        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(inflated))) {
             boolean wantsReceive = in.readBoolean();
             int n = in.readInt();
             if (n < 0 || n > MAX_MANIFEST_UGIS) {
@@ -74,6 +81,24 @@ public final class StatsSyncProtocol {
             }
             return new Manifest(ugis, wantsReceive);
         }
+    }
+
+    // Inflate data[offset..] but abort if it expands past maxBytes (gzip-bomb guard).
+    private static byte[] inflateBounded(byte[] data, int offset, long maxBytes) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        long total = 0;
+        try (GZIPInputStream gz = new GZIPInputStream(new ByteArrayInputStream(data, offset, data.length - offset))) {
+            int r;
+            while ((r = gz.read(buf)) != -1) {
+                total += r;
+                if (total > maxBytes) {
+                    throw new IOException("manifest inflated size exceeds " + maxBytes + " bytes");
+                }
+                out.write(buf, 0, r);
+            }
+        }
+        return out.toByteArray();
     }
 
     /**

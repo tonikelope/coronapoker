@@ -52,7 +52,10 @@ public final class StatsSync {
     // Hard caps guarding against malformed / hostile blobs (the wire frame is
     // already ≤ 16 MB, but a gzip payload can expand, and lengths are attacker
     // controlled until validated).
-    private static final long MAX_INFLATED_BYTES = 128L * 1024 * 1024;
+    // 32 MB: the sender batches 25 games, so a legitimate GAMES blob inflates to
+    // a few MB. Far below this; well above any real batch; bounds a hostile blob
+    // and the work done while holding SQL_LOCK during the insert loop.
+    private static final long MAX_INFLATED_BYTES = 32L * 1024 * 1024;
     private static final int MAX_STRING_BYTES = 8 * 1024 * 1024;
 
     // Column type tags for the generic row codec.
@@ -135,13 +138,20 @@ public final class StatsSync {
      * Never throws.
      */
     public static int importGames(byte[] blob) {
-        synchronized (GameFrame.SQL_LOCK) {
-            try {
-                return importGames(Helpers.getSQLITE(), blob);
-            } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "StatsSync: import failed", ex);
+        try {
+            // Decode (inflate + parse) is pure CPU/memory — do it WITHOUT holding
+            // SQL_LOCK so a large or hostile blob can never stall the live game's
+            // DB writes. Only the actual INSERT loop takes the lock.
+            List<GameData> games = decodeGames(blob);
+            if (games.isEmpty()) {
                 return 0;
             }
+            synchronized (GameFrame.SQL_LOCK) {
+                return insertGames(Helpers.getSQLITE(), games);
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "StatsSync: import failed", ex);
+            return 0;
         }
     }
 
@@ -169,7 +179,7 @@ public final class StatsSync {
 
     public static List<String> listShareableUgis(Connection conn) throws Exception {
         List<String> out = new ArrayList<>();
-        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND local = 0 AND end IS NOT NULL";
+        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND local = 0 AND end IS NOT NULL";
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 out.add(rs.getString("ugi"));
@@ -207,49 +217,64 @@ public final class StatsSync {
     }
 
     public static int importGames(Connection conn, byte[] blob) throws Exception {
+        return insertGames(conn, decodeGames(blob));
+    }
+
+    /**
+     * Decode phase (no DB, no lock): inflate the blob and parse every game subtree
+     * into memory, fully bound-checked. Robust to a bad gzip / bad header (returns
+     * empty) and to a truncated stream (returns the games decoded so far).
+     */
+    private static List<GameData> decodeGames(byte[] blob) {
+        List<GameData> games = new ArrayList<>();
         byte[] inflated;
         try {
             inflated = inflate(blob);
         } catch (IOException badGzip) {
             LOGGER.log(Level.WARNING, "StatsSync: blob is not valid gzip, rejected ({0})", badGzip.getMessage());
-            return 0;
+            return games;
         }
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(inflated));
         try {
             if (in.readInt() != MAGIC) {
                 LOGGER.log(Level.WARNING, "StatsSync: bad magic, blob rejected");
-                return 0;
+                return games;
             }
             int version = in.readInt();
             if (version != FORMAT_VERSION) {
                 LOGGER.log(Level.WARNING, "StatsSync: unsupported format version {0}", version);
-                return 0;
+                return games;
             }
         } catch (IOException shortHeader) {
             LOGGER.log(Level.WARNING, "StatsSync: blob too short for header, rejected ({0})", shortHeader.getMessage());
-            return 0;
+            return games;
         }
-
-        int imported = 0;
-        int skipped = 0;
-        int failed = 0;
         while (true) {
-            boolean hasNext;
-            GameData game;
             try {
-                hasNext = in.readBoolean();
-                if (!hasNext) {
+                if (!in.readBoolean()) {
                     break;
                 }
-                game = readGame(in); // fully decode + bound-check this game
+                games.add(readGame(in)); // fully decode + bound-check this game
             } catch (IOException truncated) {
-                // Stream is broken/cut past this point — expected when a sync is
-                // interrupted. Everything committed so far is valid; the rest
-                // arrives again on the next (idempotent) sync. No stack trace:
-                // this is a normal, handled outcome.
+                // Stream cut past this point — expected when a sync is interrupted.
+                // Keep the games decoded so far; the rest arrives on the next
+                // (idempotent) sync. No stack trace: a normal, handled outcome.
                 LOGGER.log(Level.INFO, "StatsSync: blob ended early (truncated/cut), stopping at the last complete game");
                 break;
             }
+        }
+        return games;
+    }
+
+    /**
+     * Insert phase (caller holds SQL_LOCK in production): merge each decoded game
+     * atomically and idempotently. A game that fails is rolled back and skipped.
+     */
+    private static int insertGames(Connection conn, List<GameData> games) {
+        int imported = 0;
+        int skipped = 0;
+        int failed = 0;
+        for (GameData game : games) {
             try {
                 if (insertGameIfNew(conn, game)) {
                     imported++;
@@ -274,7 +299,10 @@ public final class StatsSync {
     private static void serializeHands(Connection conn, DataOutputStream out, long gameId) throws Exception {
         // Collect hand ids first so no parent ResultSet stays open while child
         // queries run on the same single SQLite connection.
-        List<Long> handIds = selectIds(conn, "SELECT id FROM hand WHERE id_game = ? ORDER BY counter", gameId);
+        // ORDER BY id (not counter): id is the unique non-null PK, so the order is
+        // total and a re-export after import is byte-stable. counter is monotonic
+        // in practice but id can never tie.
+        List<Long> handIds = selectIds(conn, "SELECT id FROM hand WHERE id_game = ? ORDER BY id", gameId);
         for (Long hid : handIds) {
             out.writeBoolean(true);
             writeRowById(conn, out, "hand", HAND, hid);
@@ -437,7 +465,14 @@ public final class StatsSync {
             conn.rollback();
             throw ex;
         } finally {
-            conn.setAutoCommit(previousAutoCommit);
+            // Restore autocommit even if the connection is sick; if THIS throws, the
+            // shared connection would otherwise be stuck in autocommit=false. Swallow
+            // and log (parity with Crupier's transaction sites).
+            try {
+                conn.setAutoCommit(previousAutoCommit);
+            } catch (Exception restoreEx) {
+                LOGGER.log(Level.WARNING, "StatsSync: could not restore autocommit after import", restoreEx);
+            }
         }
     }
 

@@ -1,6 +1,5 @@
 package com.tonikelope.coronapoker;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,7 +24,8 @@ import java.util.logging.Logger;
  *       theirs)} as GAMES batches; the receiver imports them idempotently.</li>
  *   <li>When the host imports new games from one client, it re-forwards them to
  *       the other connected clients that lack them (same-session convergence),
- *       tracking each client's known set so a game is never sent twice.</li>
+ *       tracking each client's known set so a game is normally not re-sent (a
+ *       rare concurrent overlap is harmless — imports dedup by ugi).</li>
  * </ol>
  *
  * <p>All heavy work (DB read/write, socket writes) runs off the reader thread, so
@@ -81,6 +81,10 @@ public final class StatsSyncManager {
      * the actual work is offloaded so the reader is never blocked.
      */
     void onMessage(String peerNick, byte[] message, boolean iAmHost) {
+        if (!GameFrame.SYNC_STATS_RECEIVE_PREF && !GameFrame.SYNC_STATS_SHARE_PREF) {
+            // Fully opted out: do not even decode a peer's (possibly hostile) frame.
+            return;
+        }
         byte subtype = StatsSyncProtocol.subtype(message);
         if (subtype == StatsSyncProtocol.MANIFEST) {
             Helpers.threadRun(() -> handleManifest(peerNick, message, iAmHost));

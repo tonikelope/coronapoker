@@ -1304,7 +1304,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         // its barrier never gets the "frames done" party, and the await below
         // blocks the game thread for GIF_BARRIER_TIMEOUT seconds before
         // throwing TimeoutException. Just play the sound and finish the turn.
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
+        if (GameFrame.cinematicasOn() && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(3);
 
             setNotifyImageChatLabel(getClass().getResource("/images/gif_actions/fold" + String.valueOf(r) + ".gif"));
@@ -1388,7 +1388,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         // See fold() comment: skip cinematic for exited players to avoid the
         // 10-second blocking await on a barrier the GIF callback never closes.
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
+        if (GameFrame.cinematicasOn() && !this.isNotify_blocked() && !this.isExit()) {
 
             if (is_call) {
                 // La ficha vuela en el frame 32 del GIF (sincronizada, INTACTO). Esperamos
@@ -1446,7 +1446,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
         // See fold() comment: skip cinematic for exited players to avoid the
         // 10-second blocking await on a barrier the GIF callback never closes.
-        if (GameFrame.CINEMATICAS && !this.isNotify_blocked() && !this.isExit()) {
+        if (GameFrame.cinematicasOn() && !this.isNotify_blocked() && !this.isExit()) {
             int r = 1 + new Random().nextInt(4);
 
             // Esperamos SOLO a que la ficha despegue (frame 32), no a que el GIF entero
@@ -3100,7 +3100,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 rebuy_countdown_saved_text = player_action.getText();
                 // Snapshot LOCAL de CINEMATICAS al empezar: decide el modo para
                 // toda la espera (toggles posteriores del menú no afectan).
-                if (GameFrame.CINEMATICAS) {
+                if (GameFrame.cinematicasOn()) {
                     // Modo GIF: la label queda FIJA en "¿RECOMPRA?" (sin número)
                     // y la cuenta atrás la pone el GIF de game over sobre las
                     // cartas — entero UNA vez (por frames, sin reloj) y con su

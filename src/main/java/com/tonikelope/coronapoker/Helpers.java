@@ -5731,7 +5731,7 @@ public class Helpers {
 
                 CINEMATICAS_MENU = new LeftClickCheckBoxMenuItem(cinematicasAction);
                 CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
-                CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
+                CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS_PREF);
                 VISTA_MENU.add(CINEMATICAS_MENU);
 
                 // Submenú "Efectos de animación" con tres efectos combinables.
@@ -5739,19 +5739,19 @@ public class Helpers {
                 efectos_anim_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
 
                 ANIM_REPARTO_MENU = new LeftClickCheckBoxMenuItem(animRepartoAction);
-                ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO);
+                ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO_PREF);
                 efectos_anim_menu.add(ANIM_REPARTO_MENU);
 
                 ANIM_CIEGAS_DEALER_MENU = new LeftClickCheckBoxMenuItem(animCiegasDealerAction);
-                ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+                ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER_PREF);
                 efectos_anim_menu.add(ANIM_CIEGAS_DEALER_MENU);
 
                 ANIM_APUESTAS_MENU = new LeftClickCheckBoxMenuItem(animApuestasAction);
-                ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
+                ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS_PREF);
                 efectos_anim_menu.add(ANIM_APUESTAS_MENU);
 
                 ANIM_CONTADORES_MENU = new LeftClickCheckBoxMenuItem(animContadoresAction);
-                ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES);
+                ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES_PREF);
                 efectos_anim_menu.add(ANIM_CONTADORES_MENU);
 
                 VISTA_MENU.add(efectos_anim_menu);

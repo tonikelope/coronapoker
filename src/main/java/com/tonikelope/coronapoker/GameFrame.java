@@ -2945,8 +2945,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
 
         // Maestro de animaciones (Ajustes), ya con menu-bar Y popup construidos: si
-        // "animaciones" se guardo en off, deja los 5 flags efectivos en false y deshabilita
-        // los toggles SIN desmarcarlos. Con el maestro on (por defecto) no cambia nada.
+        // "animaciones" se guardo en off, DESHABILITA los 5 toggles SIN desmarcarlos (el gate
+        // lo aplican los helpers *On() en cada read-site; los flags *_PREF no se tocan). Con el
+        // maestro on (por defecto) no cambia nada.
         applyAnimationMaster();
 
         addMouseWheelListener(this);

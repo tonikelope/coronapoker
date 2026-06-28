@@ -6470,7 +6470,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (next == null) {
                 // checkDoblarCiegas ya lo veta; defensa: nunca atascar ni anunciar
                 // una subida fantasma en el ultimo nivel de la escalera.
-                LOGGER.log(Level.WARNING, "doblarCiegas with no next level on custom structure (sb={0})", this.ciega_pequeña);
+                LOGGER.log(Level.WARNING, "doblarCiegas with no next level on custom structure (sb={0})", Helpers.doubleClean(this.ciega_pequeña));
                 return;
             }
             this.ciegas_double++;
@@ -7955,9 +7955,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     jugador.getBuyin());
                             balance_float.add(Base64.getEncoder().encodeToString(jugador.getNickname().getBytes("UTF-8"))
                                     + "|"
-                                    + String.valueOf(jugador.getStack()
+                                    + String.valueOf(Helpers.doubleClean(jugador.getStack()
                                             + (Helpers.doubleSecureCompare(0f, jugador.getPagar()) < 0 ? jugador.getPagar()
-                                            : 0f))
+                                            : 0f)))
                                     + "|" + String.valueOf(jugador.getBuyin())
                                     + "|" + String.valueOf(getRebuyCount(jugador.getNickname())));
                         } else {
@@ -7965,7 +7965,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             Double[] pasta = entry.getValue();
                             sqlUpdateHandBalance(entry.getKey(), pasta[0], (int) Math.round(pasta[1]));
                             balance_float.add(Base64.getEncoder().encodeToString(entry.getKey().getBytes("UTF-8")) + "|"
-                                    + String.valueOf(pasta[0]) + "|" + String.valueOf(Math.round(pasta[1]))
+                                    + String.valueOf(Helpers.doubleClean(pasta[0])) + "|" + String.valueOf(Math.round(pasta[1]))
                                     + "|" + String.valueOf(getRebuyCount(entry.getKey())));
                         }
                     } catch (Exception ex) {

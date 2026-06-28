@@ -21,6 +21,7 @@ import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -35,20 +36,36 @@ import javax.swing.SpinnerNumberModel;
 
 /**
  * Contenido de "Ajustes de apariencia" como JPanel (pestaña del diálogo unificado).
- * Todos los ajustes de apariencia son preferencias LOCALES de sesión que ya tienen
- * su propio item de menú con la lógica completa (persistir + efecto + reflejar en el
- * popup del tapete). Para no duplicar nada, cada control de este panel REFLEJA el
- * estado actual y DELEGA en el item de menú correspondiente vía {@code doClick()}
- * (igual que hacen los gemelos del popup): un clic en el control hace un clic en el
- * item de menú, que aplica todo. Como el control y el item arrancan sincronizados y
- * ambos conmutan un paso por clic, quedan siempre en el mismo estado.
  *
- * Solo tiene sentido en partida (necesita el menú de GameFrame), igual que el resto
- * del diálogo unificado.
+ * Tiene DOS modos según haya o no partida en curso ({@code GameFrame.getInstance()}):
+ *
+ * - EN PARTIDA (gf != null): cada control REFLEJA el estado actual y DELEGA en el item
+ *   de menú correspondiente del GameFrame vía {@code doClick()} (o en su setter), que
+ *   aplica EN VIVO el efecto en la mesa + lo persiste + lo refleja en el popup del tapete.
+ *   Como el control y el item arrancan sincronizados y ambos conmutan un paso por clic,
+ *   quedan siempre en el mismo estado.
+ *
+ * - FUERA DE PARTIDA (gf == null: lanzador / sala de espera): no hay mesa contra la que
+ *   previsualizar, así que los controles SOLO PERSISTEN la preferencia (flag estático +
+ *   {@code Helpers.PROPERTIES} + {@code savePropertiesFile()}); surte efecto cuando se
+ *   crea la timba (el GameFrame lee esas preferencias al construirse). Sin efecto en vivo.
+ *
+ * El diálogo es TRANSACCIONAL en ambos modos: los cambios se revierten al estado de
+ * apertura si se cancela (revert()); GUARDAR los conserva.
+ *
+ * NOTA: la preferencia de cada toggle de animación vive a la vez en el isSelected del
+ * item de menú y en su clave de PROPERTIES, y ambos se mantienen sincronizados (el item
+ * persiste la clave en cada cambio y se inicializa desde ella). Por eso aquí se lee
+ * SIEMPRE desde PROPERTIES: es equivalente a leer el item y no depende de que haya
+ * GameFrame.
  *
  * @author tonikelope
  */
 public class AppearanceSettingsPanel extends JPanel {
+
+    // GameFrame en curso, o null fuera de partida (lanzador / sala de espera). En modo
+    // null los controles solo persisten la preferencia, sin efecto en vivo.
+    private final GameFrame gf;
 
     // Suprime las acciones de los combos mientras se construye (al fijar la
     // selección inicial no debe dispararse la delegación).
@@ -59,8 +76,8 @@ public class AppearanceSettingsPanel extends JPanel {
     // diálogo al cerrarse (applyPendingDisplayMode).
     private volatile boolean pending_fullscreen;
 
-    // Los 5 checkboxes individuales de animacion y sus items de menu, para que el maestro
-    // los DESHABILITE (sin desmarcar) al desmarcarse.
+    // Los 5 checkboxes individuales de animacion y sus items de menu (null fuera de
+    // partida), para que el maestro los DESHABILITE (sin desmarcar) al desmarcarse.
     private final java.util.List<JCheckBox> anim_sub_cb = new ArrayList<>();
     private final java.util.List<JMenuItem> anim_sub_menu = new ArrayList<>();
 
@@ -88,7 +105,7 @@ public class AppearanceSettingsPanel extends JPanel {
         super(new java.awt.BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        GameFrame gf = GameFrame.getInstance();
+        gf = GameFrame.getInstance();
 
         snap_zoom_level = GameFrame.ZOOM_LEVEL;
         snap_vista_compacta = GameFrame.VISTA_COMPACTA;
@@ -97,27 +114,29 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_auto_zoom = GameFrame.AUTO_ZOOM;
         snap_show_clock = GameFrame.SHOW_CLOCK;
         snap_coste_igualar = GameFrame.MOSTRAR_COSTE_IGUALAR;
-        // Snapshot de las PREFERENCIAS (isSelected del item), NO del flag EFECTIVO: con el
-        // maestro off el efectivo es false para todos y no podria distinguir un cambio de
-        // preferencia al revertir (se perdia silenciosamente, persistido a disco).
-        snap_cinematicas = gf.getMenu_cinematicas().isSelected();
-        snap_anim_reparto = gf.getAnim_reparto_menu().isSelected();
-        snap_anim_ciegas_dealer = gf.getAnim_ciegas_dealer_menu().isSelected();
-        snap_anim_apuestas = gf.getAnim_apuestas_menu().isSelected();
-        snap_anim_contadores = gf.getAnim_contadores_menu().isSelected();
+        // Snapshot de las PREFERENCIAS de animación leídas de PROPERTIES (equivalente al
+        // isSelected del item, ver nota de clase): NO del flag EFECTIVO, que con el maestro
+        // off es false para todos y no permitiría distinguir un cambio de preferencia al
+        // revertir.
+        snap_cinematicas = prefBool("cinematicas");
+        snap_anim_reparto = prefBool("animacion_reparto");
+        snap_anim_ciegas_dealer = prefBool("animacion_ciegas_dealer");
+        snap_anim_apuestas = prefBool("animacion_apuestas");
+        snap_anim_contadores = prefBool("animacion_contadores");
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
-        snap_fullscreen = gf.isFull_screen();
+        snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
 
         // ---------------- Pantalla y zoom ----------------
         JPanel pantalla = titledColumn("settings.apariencia_pantalla");
 
         // Modo de pantalla: ventana / pantalla completa. Refleja el estado actual del
-        // tablero. NO se aplica en vivo (entrar/salir de pantalla completa dispone y
-        // recrea el frame, lo que rompía este diálogo modal abierto: "solo funcionaba
-        // una vez"). Se RECUERDA la elección y el diálogo la aplica al CERRARSE, con el
-        // diálogo ya fuera; al reabrir, el combo vuelve a reflejar el estado real.
-        pending_fullscreen = gf.isFull_screen();
+        // tablero (o la preferencia AUTO_FULLSCREEN fuera de partida). NO se aplica en
+        // vivo (entrar/salir de pantalla completa dispone y recrea el frame, lo que
+        // rompía este diálogo modal abierto: "solo funcionaba una vez"). Se RECUERDA la
+        // elección y el diálogo la aplica al CERRARSE (en partida cambia el modo; fuera
+        // de partida solo persiste la preferencia de arranque).
+        pending_fullscreen = snap_fullscreen;
         JComboBox<String> display_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.modo_ventana"),
             Translator.translate("settings.modo_pantalla_completa")
@@ -131,8 +150,8 @@ public class AppearanceSettingsPanel extends JPanel {
         });
         addLeft(pantalla, labeledRow("/images/menu/full_screen.png", "settings.modo_pantalla", display_combo));
 
-        // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). Aplica al
-        // vuelo al nivel elegido.
+        // Zoom: spinner en % (cada paso = 5% = un nivel de zoom interno). En partida aplica
+        // al vuelo al nivel elegido; fuera de partida solo persiste la preferencia.
         int zoom_pct = Math.round((1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) * 100f);
         // Los límites SIEMPRE contienen el valor actual (no hay tope superior de zoom
         // en el motor) para que SpinnerNumberModel no lance si el zoom guardado se sale.
@@ -142,12 +161,18 @@ public class AppearanceSettingsPanel extends JPanel {
                 return;
             }
             int pct = (Integer) zoom_spinner.getValue();
-            gf.setZoomLevel(Math.round((pct - 100) / (GameFrame.ZOOM_STEP * 100f)));
+            int level = Math.round((pct - 100) / (GameFrame.ZOOM_STEP * 100f));
+            if (gf != null) {
+                gf.setZoomLevel(level);
+            } else {
+                GameFrame.ZOOM_LEVEL = level;
+                persist("zoom_level", String.valueOf(level));
+            }
         });
         addLeft(pantalla, labeledRow("/images/menu/zoom.png", "settings.zoom_pct", zoom_spinner));
 
         // Vista compacta: desplegable tri-estado (0=off, 1=compacta, 2=compacta+cartas),
-        // aplica al vuelo.
+        // aplica al vuelo en partida / solo persiste fuera de partida.
         JComboBox<String> compact_combo = new JComboBox<>(new String[]{
             Translator.translate("settings.compacta_off"),
             Translator.translate("settings.compacta_on"),
@@ -158,11 +183,22 @@ public class AppearanceSettingsPanel extends JPanel {
             if (building) {
                 return;
             }
-            gf.setCompactView(compact_combo.getSelectedIndex());
+            int idx = compact_combo.getSelectedIndex();
+            if (gf != null) {
+                gf.setCompactView(idx);
+            } else {
+                GameFrame.VISTA_COMPACTA = idx;
+                persist("vista_compacta", String.valueOf(idx));
+            }
         });
         addLeft(pantalla, labeledRow("/images/menu/tiny.png", "view.vista_compacta", compact_combo));
 
-        addLeft(pantalla, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM, gf.getAuto_fit_zoom_menu()));
+        addLeft(pantalla, delegatingCheckbox("/images/menu/zoom_auto.png", "menu.auto_ajustar", GameFrame.AUTO_ZOOM,
+                gf != null ? gf.getAuto_fit_zoom_menu() : null,
+                () -> {
+                    GameFrame.AUTO_ZOOM = !GameFrame.AUTO_ZOOM;
+                    persist("auto_zoom", String.valueOf(GameFrame.AUTO_ZOOM));
+                }));
 
         // "Pantalla y zoom" es más corta que la columna derecha y se estira para igualarla;
         // el glue empuja sus filas arriba y deja el hueco abajo (como "Varios" en Partida).
@@ -171,8 +207,9 @@ public class AppearanceSettingsPanel extends JPanel {
         // ---------------- Mesa ----------------
         JPanel mesa = titledColumn("settings.apariencia_mesa");
 
-        // Baraja: combo con las barajas disponibles (incluye las de MODs), delega en
-        // el item de radio del submenú de barajas con ese nombre.
+        // Baraja: combo con las barajas disponibles (incluye las de MODs). En partida delega
+        // en el item de radio del submenú de barajas con ese nombre (recarga las imágenes);
+        // fuera de partida solo persiste la preferencia.
         List<String> decks = new ArrayList<>(Card.BARAJAS.keySet());
         Collections.sort(decks);
         JComboBox<String> baraja_combo = new JComboBox<>(decks.toArray(new String[0]));
@@ -183,17 +220,23 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             String sel = (String) baraja_combo.getSelectedItem();
             if (sel != null && !sel.equals(GameFrame.BARAJA)) {
-                for (Component c : gf.getMenu_barajas().getMenuComponents()) {
-                    if (c instanceof JMenuItem && ((JMenuItem) c).getText().equals(sel)) {
-                        ((JMenuItem) c).doClick();
-                        break;
+                if (gf != null) {
+                    for (Component c : gf.getMenu_barajas().getMenuComponents()) {
+                        if (c instanceof JMenuItem && ((JMenuItem) c).getText().equals(sel)) {
+                            ((JMenuItem) c).doClick();
+                            break;
+                        }
                     }
+                } else {
+                    GameFrame.BARAJA = sel;
+                    persist("baraja", sel);
                 }
             }
         });
         addLeft(mesa, labeledRow("/images/menu/baraja.png", "menu.barajas", baraja_combo));
 
-        // Tapete: combo con los 5 colores; delega en el radio correspondiente.
+        // Tapete: combo con los 5 colores; en partida delega en el radio correspondiente
+        // (refresca la mesa); fuera de partida solo persiste el color base.
         JComboBox<String> tapete_combo = new JComboBox<>(new String[]{
             Translator.translate("menu.verde"),
             Translator.translate("menu.azul"),
@@ -206,31 +249,53 @@ public class AppearanceSettingsPanel extends JPanel {
             if (building) {
                 return;
             }
-            switch (tapete_combo.getSelectedIndex()) {
-                case 0:
-                    gf.getMenu_tapete_verde().doClick();
-                    break;
-                case 1:
-                    gf.getMenu_tapete_azul().doClick();
-                    break;
-                case 2:
-                    gf.getMenu_tapete_rojo().doClick();
-                    break;
-                case 3:
-                    gf.getMenu_tapete_negro().doClick();
-                    break;
-                case 4:
-                    gf.getMenu_tapete_madera().doClick();
-                    break;
-                default:
-                    break;
+            int idx = tapete_combo.getSelectedIndex();
+            if (gf != null) {
+                switch (idx) {
+                    case 0:
+                        gf.getMenu_tapete_verde().doClick();
+                        break;
+                    case 1:
+                        gf.getMenu_tapete_azul().doClick();
+                        break;
+                    case 2:
+                        gf.getMenu_tapete_rojo().doClick();
+                        break;
+                    case 3:
+                        gf.getMenu_tapete_negro().doClick();
+                        break;
+                    case 4:
+                        gf.getMenu_tapete_madera().doClick();
+                        break;
+                    default:
+                        break;
+                }
+            } else {
+                String color = tapeteColorForIndex(idx);
+                GameFrame.COLOR_TAPETE = color;
+                persist("color_tapete", color);
             }
         });
         addLeft(mesa, labeledRow("/images/menu/tapetes.png", "menu.tapetes", tapete_combo));
 
-        addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK, gf.getTime_menu()));
-        addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR, gf.getCoste_igualar_menu()));
-        addLeft(mesa, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME, gf.getChat_image_menu()));
+        addLeft(mesa, delegatingCheckbox("/images/menu/clock.png", "action.mostrar_reloj", GameFrame.SHOW_CLOCK,
+                gf != null ? gf.getTime_menu() : null,
+                () -> {
+                    GameFrame.SHOW_CLOCK = !GameFrame.SHOW_CLOCK;
+                    persist("show_time", String.valueOf(GameFrame.SHOW_CLOCK));
+                }));
+        addLeft(mesa, delegatingCheckbox("/images/menu/eyes.png", "menu.coste_igualar", GameFrame.MOSTRAR_COSTE_IGUALAR,
+                gf != null ? gf.getCoste_igualar_menu() : null,
+                () -> {
+                    GameFrame.MOSTRAR_COSTE_IGUALAR = !GameFrame.MOSTRAR_COSTE_IGUALAR;
+                    persist("mostrar_coste_igualar", String.valueOf(GameFrame.MOSTRAR_COSTE_IGUALAR));
+                }));
+        addLeft(mesa, delegatingCheckbox("/images/menu/chat_image.png", "menu.imagenes_del_chat_en_el_juego", GameFrame.CHAT_IMAGES_INGAME,
+                gf != null ? gf.getChat_image_menu() : null,
+                () -> {
+                    GameFrame.CHAT_IMAGES_INGAME = !GameFrame.CHAT_IMAGES_INGAME;
+                    persist("chat_images_ingame", String.valueOf(GameFrame.CHAT_IMAGES_INGAME));
+                }));
 
         // ---------------- Animaciones ----------------
         JPanel anim = titledColumn("settings.apariencia_animaciones");
@@ -240,9 +305,23 @@ public class AppearanceSettingsPanel extends JPanel {
         JCheckBox anim_master = new JCheckBox(Translator.translate("menu.efectos_animacion_general"), GameFrame.ANIMACIONES);
         anim_master.addActionListener(e -> {
             boolean on = anim_master.isSelected();
-            gf.setAnimacionesMaster(on);
+            if (gf != null) {
+                gf.setAnimacionesMaster(on);
+            } else {
+                // Fuera de partida: persiste el maestro y recalcula los 5 flags efectivos
+                // = on && preferencia (leída de PROPERTIES), igual que applyAnimationMaster
+                // pero sin items de menú vivos.
+                GameFrame.ANIMACIONES = on;
+                persist("animaciones", String.valueOf(on));
+                GameFrame.CINEMATICAS = on && prefBool("cinematicas");
+                GameFrame.ANIMACION_REPARTO = on && prefBool("animacion_reparto");
+                GameFrame.ANIMACION_CIEGAS_DEALER = on && prefBool("animacion_ciegas_dealer");
+                GameFrame.ANIMACION_APUESTAS = on && prefBool("animacion_apuestas");
+                GameFrame.ANIMACION_CONTADORES = on && prefBool("animacion_contadores");
+            }
             for (int i = 0; i < anim_sub_cb.size(); i++) {
-                anim_sub_cb.get(i).setEnabled(on && anim_sub_menu.get(i).isEnabled());
+                JMenuItem m = anim_sub_menu.get(i);
+                anim_sub_cb.get(i).setEnabled(on && (m == null || m.isEnabled()));
             }
         });
         JPanel master_row = naturalRow();
@@ -250,11 +329,16 @@ public class AppearanceSettingsPanel extends JPanel {
         master_row.add(anim_master);
         addLeft(anim, master_row);
 
-        addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas", gf.getMenu_cinematicas()));
-        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto", gf.getAnim_reparto_menu()));
-        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer", gf.getAnim_ciegas_dealer_menu()));
-        addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas", gf.getAnim_apuestas_menu()));
-        addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores", gf.getAnim_contadores_menu()));
+        addLeft(anim, animCheckbox("/images/menu/video.png", "menu.cinematicas",
+                gf != null ? gf.getMenu_cinematicas() : null, "cinematicas", v -> GameFrame.CINEMATICAS = v));
+        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_reparto",
+                gf != null ? gf.getAnim_reparto_menu() : null, "animacion_reparto", v -> GameFrame.ANIMACION_REPARTO = v));
+        addLeft(anim, animCheckbox("/images/menu/dealer.png", "menu.efectos_animacion_ciegas_dealer",
+                gf != null ? gf.getAnim_ciegas_dealer_menu() : null, "animacion_ciegas_dealer", v -> GameFrame.ANIMACION_CIEGAS_DEALER = v));
+        addLeft(anim, animCheckbox("/images/menu/rebuy.png", "menu.efectos_animacion_apuestas",
+                gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS = v));
+        addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
+                gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES = v));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -286,22 +370,25 @@ public class AppearanceSettingsPanel extends JPanel {
     // (no en vivo: el toggle dispone y recrea el frame y corrompería el diálogo abierto).
     // Solo actúa si el usuario CAMBIÓ el combo respecto al estado de apertura; si no, no
     // toca AUTO_FULLSCREEN, para que guardar un ajuste no relacionado no reescriba la
-    // preferencia de arranque (p.ej. tras un ALT+F transitorio que no la cambia).
+    // preferencia de arranque (p.ej. tras un ALT+F transitorio que no la cambia). En
+    // partida cambia el modo del frame; fuera de partida solo persiste la preferencia.
     public void applyPendingDisplayMode() {
         if (pending_fullscreen == snap_fullscreen) {
             return;
         }
-        GameFrame gf = GameFrame.getInstance();
         if (gf != null) {
             gf.setDisplayModeFullScreen(pending_fullscreen);
+        } else {
+            GameFrame.AUTO_FULLSCREEN = pending_fullscreen;
+            persist("auto_fullscreen", String.valueOf(pending_fullscreen));
         }
     }
 
     // ¿Hay cambios de apariencia respecto al estado de apertura? (incluye el modo de
     // pantalla pendiente, que aún no se ha aplicado). Lo usa el diálogo para preguntar
-    // antes de descartar al cancelar.
+    // antes de descartar al cancelar. Las preferencias de animación se leen de PROPERTIES
+    // (equivalente al item de menú, ver nota de clase), así que no depende de gf.
     public boolean isDirty() {
-        GameFrame gf = GameFrame.getInstance();
         return GameFrame.ZOOM_LEVEL != snap_zoom_level
                 || GameFrame.VISTA_COMPACTA != snap_vista_compacta
                 || !snap_baraja.equals(GameFrame.BARAJA)
@@ -309,25 +396,31 @@ public class AppearanceSettingsPanel extends JPanel {
                 || GameFrame.AUTO_ZOOM != snap_auto_zoom
                 || GameFrame.SHOW_CLOCK != snap_show_clock
                 || GameFrame.MOSTRAR_COSTE_IGUALAR != snap_coste_igualar
-                || gf.getMenu_cinematicas().isSelected() != snap_cinematicas
-                || gf.getAnim_reparto_menu().isSelected() != snap_anim_reparto
-                || gf.getAnim_ciegas_dealer_menu().isSelected() != snap_anim_ciegas_dealer
-                || gf.getAnim_apuestas_menu().isSelected() != snap_anim_apuestas
-                || gf.getAnim_contadores_menu().isSelected() != snap_anim_contadores
+                || prefBool("cinematicas") != snap_cinematicas
+                || prefBool("animacion_reparto") != snap_anim_reparto
+                || prefBool("animacion_ciegas_dealer") != snap_anim_ciegas_dealer
+                || prefBool("animacion_apuestas") != snap_anim_apuestas
+                || prefBool("animacion_contadores") != snap_anim_contadores
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen;
     }
 
     // Revierte (al CANCELAR el diálogo transaccional) los ajustes de apariencia al
-    // estado capturado al abrir: re-aplica cada uno por su camino normal (toggles por
-    // doClick si difieren; zoom/compacta por su setter; baraja/tapete re-seleccionando
-    // el radio). El modo de pantalla pendiente NO se aplica si se cancela.
+    // estado capturado al abrir. En partida re-aplica cada uno por su camino normal
+    // (efecto en vivo); fuera de partida solo re-persiste las preferencias.
     public void revert() {
-        GameFrame gf = GameFrame.getInstance();
-        if (gf == null) {
-            return;
+        if (gf != null) {
+            revertLive();
+        } else {
+            revertStandalone();
         }
+    }
+
+    // Revert EN PARTIDA: re-aplica cada ajuste por su camino normal (toggles por doClick
+    // si difieren; zoom/compacta por su setter; baraja/tapete re-seleccionando el radio).
+    // El modo de pantalla pendiente NO se aplica si se cancela.
+    private void revertLive() {
         if (GameFrame.ZOOM_LEVEL != snap_zoom_level) {
             gf.setZoomLevel(snap_zoom_level);
         }
@@ -396,6 +489,41 @@ public class AppearanceSettingsPanel extends JPanel {
         }
     }
 
+    // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
+    // vivo, no hay mesa). Fija los flags estáticos y vuelca PROPERTIES una sola vez.
+    private void revertStandalone() {
+        GameFrame.ZOOM_LEVEL = snap_zoom_level;
+        GameFrame.VISTA_COMPACTA = snap_vista_compacta;
+        GameFrame.BARAJA = snap_baraja;
+        GameFrame.COLOR_TAPETE = snap_color_tapete;
+        GameFrame.AUTO_ZOOM = snap_auto_zoom;
+        GameFrame.SHOW_CLOCK = snap_show_clock;
+        GameFrame.MOSTRAR_COSTE_IGUALAR = snap_coste_igualar;
+        GameFrame.CHAT_IMAGES_INGAME = snap_chat_images;
+        GameFrame.ANIMACIONES = snap_animaciones;
+        GameFrame.CINEMATICAS = snap_animaciones && snap_cinematicas;
+        GameFrame.ANIMACION_REPARTO = snap_animaciones && snap_anim_reparto;
+        GameFrame.ANIMACION_CIEGAS_DEALER = snap_animaciones && snap_anim_ciegas_dealer;
+        GameFrame.ANIMACION_APUESTAS = snap_animaciones && snap_anim_apuestas;
+        GameFrame.ANIMACION_CONTADORES = snap_animaciones && snap_anim_contadores;
+
+        Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
+        Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
+        Helpers.PROPERTIES.setProperty("baraja", snap_baraja);
+        Helpers.PROPERTIES.setProperty("color_tapete", snap_color_tapete);
+        Helpers.PROPERTIES.setProperty("auto_zoom", String.valueOf(snap_auto_zoom));
+        Helpers.PROPERTIES.setProperty("show_time", String.valueOf(snap_show_clock));
+        Helpers.PROPERTIES.setProperty("mostrar_coste_igualar", String.valueOf(snap_coste_igualar));
+        Helpers.PROPERTIES.setProperty("chat_images_ingame", String.valueOf(snap_chat_images));
+        Helpers.PROPERTIES.setProperty("animaciones", String.valueOf(snap_animaciones));
+        Helpers.PROPERTIES.setProperty("cinematicas", String.valueOf(snap_cinematicas));
+        Helpers.PROPERTIES.setProperty("animacion_reparto", String.valueOf(snap_anim_reparto));
+        Helpers.PROPERTIES.setProperty("animacion_ciegas_dealer", String.valueOf(snap_anim_ciegas_dealer));
+        Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(snap_anim_apuestas));
+        Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
+        Helpers.savePropertiesFile();
+    }
+
     private static void selectBaraja(GameFrame gf, String baraja) {
         for (Component c : gf.getMenu_barajas().getMenuComponents()) {
             if (c instanceof JMenuItem && ((JMenuItem) c).getText().equals(baraja)) {
@@ -417,6 +545,38 @@ public class AppearanceSettingsPanel extends JPanel {
         } else {
             gf.getMenu_tapete_verde().doClick();
         }
+    }
+
+    // Color base del tapete para el índice del combo (0=verde..4=madera). Fuera de
+    // partida se persiste este valor base (sin sufijos de easter-egg, que solo se
+    // resuelven en la mesa viva).
+    private static String tapeteColorForIndex(int idx) {
+        switch (idx) {
+            case 1:
+                return "azul";
+            case 2:
+                return "rojo";
+            case 3:
+                return "negro";
+            case 4:
+                return "madera";
+            default:
+                return "verde";
+        }
+    }
+
+    // Lee una preferencia booleana de PROPERTIES (todas las de animación tienen default
+    // true). Equivalente a leer el isSelected del item de menú (ver nota de clase) y no
+    // depende de que haya GameFrame.
+    private static boolean prefBool(String key) {
+        return Boolean.parseBoolean(Helpers.PROPERTIES.getProperty(key, "true"));
+    }
+
+    // Persiste una preferencia (clave -> valor) sin efecto en vivo. Lo usan los controles
+    // en modo fuera-de-partida.
+    private static void persist(String key, String value) {
+        Helpers.PROPERTIES.setProperty(key, value);
+        Helpers.savePropertiesFile();
     }
 
     private JPanel titledColumn(String titleKey) {
@@ -456,12 +616,20 @@ public class AppearanceSettingsPanel extends JPanel {
         };
     }
 
-    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu) {
+    // Checkbox que REFLEJA un toggle de apariencia. En partida (menu != null) un clic =
+    // un clic en el item de menú (aplica en vivo + persiste + refleja en el popup). Fuera
+    // de partida (menu == null) ejecuta el persist-only suministrado. Ambos conmutan un
+    // paso, así que quedan sincronizados con el estado.
+    private JComponent delegatingCheckbox(String iconPath, String i18nKey, boolean selected, JMenuItem menu, Runnable standalone) {
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), selected);
-        cb.setEnabled(menu.isEnabled());
-        // Un clic en el checkbox => un clic en el item de menú (aplica + persiste +
-        // refleja en el popup). Ambos conmutan un paso, así que quedan sincronizados.
-        cb.addActionListener(e -> menu.doClick());
+        cb.setEnabled(menu == null || menu.isEnabled());
+        cb.addActionListener(e -> {
+            if (menu != null) {
+                menu.doClick();
+            } else {
+                standalone.run();
+            }
+        });
         // Icono a la izquierda (el mismo del antiguo ítem de menú) para dar paridad con
         // la pestaña Partida y con los menús que este diálogo sustituye.
         JPanel row = naturalRow();
@@ -471,13 +639,23 @@ public class AppearanceSettingsPanel extends JPanel {
     }
 
     // Como delegatingCheckbox pero para los toggles de animacion gobernados por el maestro:
-    // el estado MARCADO refleja la PREFERENCIA (isSelected del item de menu, que se conserva
-    // aunque el maestro este off) y el checkbox se registra para que el maestro lo habilite/
-    // deshabilite. Arranca deshabilitado si el maestro esta off.
-    private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu) {
-        JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), menu.isSelected());
-        cb.setEnabled(menu.isEnabled() && GameFrame.ANIMACIONES);
-        cb.addActionListener(e -> menu.doClick());
+    // el estado MARCADO refleja la PREFERENCIA (leída del item de menú en partida, o de
+    // PROPERTIES fuera de ella) y el checkbox se registra para que el maestro lo habilite/
+    // deshabilite. Arranca deshabilitado si el maestro esta off. En partida (menu != null)
+    // delega en el item; fuera de partida persiste la preferencia y fija el flag efectivo.
+    private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter) {
+        boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey);
+        JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), pref);
+        cb.setEnabled((menu == null || menu.isEnabled()) && GameFrame.ANIMACIONES);
+        cb.addActionListener(e -> {
+            if (menu != null) {
+                menu.doClick();
+            } else {
+                boolean now = cb.isSelected();
+                persist(prefKey, String.valueOf(now));
+                effSetter.accept(GameFrame.ANIMACIONES && now);
+            }
+        });
         anim_sub_cb.add(cb);
         anim_sub_menu.add(menu);
         // Sangrado: los individuales cuelgan visualmente del maestro "Usar animaciones".
@@ -517,5 +695,4 @@ public class AppearanceSettingsPanel extends JPanel {
         }
         return 0;
     }
-
 }

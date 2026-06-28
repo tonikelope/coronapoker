@@ -254,6 +254,8 @@ public class Init extends JFrame {
 
         // También los Tooltips
         sound_icon.putClientProperty("i18n.tooltip_key", "ui.click_para_activar_desactivar_sonido");
+        settings_icon.putClientProperty("i18n.tooltip_key", "settings.ajustes");
+        Helpers.setScaledIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
 
     }
 
@@ -377,7 +379,7 @@ public class Init extends JFrame {
                         Audio.VOLUME_TIMER.start();
                     }
 
-                    AudioSettingsDialog.refreshVolume();
+                    AudioSettingsPanel.refreshVolume();
 
                     if (!GameFrame.SONIDOS) {
                         if (GameFrame.getInstance() != null) {
@@ -432,7 +434,7 @@ public class Init extends JFrame {
                         Audio.VOLUME_TIMER.start();
                     }
 
-                    AudioSettingsDialog.refreshVolume();
+                    AudioSettingsPanel.refreshVolume();
                 }
 
                 if (VOLUME_DIALOG != null) {
@@ -575,6 +577,7 @@ public class Init extends JFrame {
         stats_button = new javax.swing.JButton();
         create_button = new javax.swing.JButton();
         jPanel1 = new javax.swing.JPanel();
+        settings_icon = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
         exit_button = new javax.swing.JButton();
         language_combobox = new javax.swing.JComboBox<>();
@@ -705,6 +708,15 @@ public class Init extends JFrame {
 
         jPanel1.setOpaque(false);
 
+        settings_icon.setToolTipText("Ajustes");
+        settings_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        settings_icon.setPreferredSize(new java.awt.Dimension(30, 30));
+        settings_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                settings_iconMouseClicked(evt);
+            }
+        });
+
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
         sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
         sound_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -745,6 +757,8 @@ public class Init extends JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(language_combobox, javax.swing.GroupLayout.PREFERRED_SIZE, 183, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(settings_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         jPanel1Layout.setVerticalGroup(
@@ -753,6 +767,7 @@ public class Init extends JFrame {
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(language_combobox, javax.swing.GroupLayout.DEFAULT_SIZE, 58, Short.MAX_VALUE)
                     .addComponent(exit_button)
+                    .addComponent(settings_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(sound_icon, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addGap(0, 0, Short.MAX_VALUE))
         );
@@ -874,14 +889,14 @@ public class Init extends JFrame {
         }
     }
 
+    private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
+        // Abre el diálogo de ajustes en modo general (Apariencia + Sonido): no hay
+        // GameFrame en el lanzador, así que la pestaña Partida no se monta.
+        SettingsDialog.open(this);
+    }
+
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
         // TODO add your handling code here:
-
-        // evt is null when invoked from the keyboard shortcut
-        if (evt != null && javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-            AudioSettingsDialog.showSpeakerPopup(sound_icon, this, evt.getX(), evt.getY());
-            return;
-        }
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
@@ -1410,6 +1425,7 @@ public class Init extends JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JButton join_button;
     private javax.swing.JComboBox<String> language_combobox;
+    private javax.swing.JLabel settings_icon;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JButton stats_button;
     private com.tonikelope.coronapoker.InitPanel tapete;

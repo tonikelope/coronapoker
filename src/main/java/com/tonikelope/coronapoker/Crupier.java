@@ -3768,6 +3768,19 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     public void auditorCuentas() {
+        auditorCuentas(true);
+    }
+
+    // 'print': si es false, refresca el mapa del auditor (y reconcilia el bote
+    // sobrante / detecta descuadres igual que siempre) pero NO vuelca la tabla
+    // de cuentas (NICK/STACK/BUYIN) al registro. finTransmision lo llama así:
+    // solo necesita el mapa fresco para el snapshot del marcador final
+    // (NICK/RESULTADO), que ya es el resumen de cierre — la tabla de stacks debe
+    // salir SOLO al arrancar cada mano. Esto evita además que esa tabla, impresa
+    // desde el hilo de finTransmision (threadRun), se cuele entre las acciones que
+    // el hilo del Crupier sigue logueando (el print del registro es asíncrono y
+    // no garantiza orden entre hilos).
+    public void auditorCuentas(boolean print) {
 
         synchronized (this.getLock_contabilidad()) {
 
@@ -3919,13 +3932,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             status.append("\n(##) ").append(gridBorderLine('└', '┴', '┘', bal_cols));
 
-            GameFrame.getInstance().getRegistro().print(status.toString());
+            if (print) {
+                GameFrame.getInstance().getRegistro().print(status.toString());
 
-            // Indicador de antes activos: el ante es simetrico (todos antean), no es
-            // un rol por-nick como el straddle, asi que va en una linea propia con el
-            // icono de fichas (token "(A )").
-            if (GameFrame.ANTE) {
-                GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
+                // Indicador de antes activos: el ante es simetrico (todos antean), no es
+                // un rol por-nick como el straddle, asi que va en una linea propia con el
+                // icono de fichas (token "(A )").
+                if (GameFrame.ANTE) {
+                    GameFrame.getInstance().getRegistro().print("(A ) " + Translator.translate("game.antes_activos", Helpers.money2String(this.ciega_pequeña)));
+                }
             }
 
             if (error_auditor) {

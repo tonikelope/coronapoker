@@ -138,8 +138,10 @@ import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
@@ -238,6 +240,14 @@ public class Helpers {
     private static final Logger LOGGER = Logger.getLogger(Helpers.class.getName());
 
     public static volatile ThreadPoolExecutor THREAD_POOL;
+    // Cola FIFO de un solo hilo para el registro (GameLogDialog.print). THREAD_POOL es
+    // multi-hilo, asi que dos print() concurrentes —o incluso secuenciales del mismo
+    // hilo— podian aplicarse al log en orden distinto al de llamada (p.ej. la tabla de
+    // fin de timba colandose entre las acciones de una mano). Un unico consumidor
+    // garantiza el orden de llegada. Mismo ciclo de vida que THREAD_POOL (creado y
+    // destruido por partida en CREATE/SHUTDOWN_THREAD_POOL), asi se drena y recrea
+    // igual y no fuga hilos ni arrastra prints entre timbas.
+    public static volatile ExecutorService LOG_POOL;
     public static final int THREAD_POOL_SHUTDOWN_TIMEOUT = 5;
     public static final String USER_AGENT_WEB_BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0";
     public static final String USER_AGENT_CORONAPOKER = "CoronaPoker " + AboutDialog.VERSION + " tonikelope@gmail.com";
@@ -1640,11 +1650,18 @@ public class Helpers {
 
         THREAD_POOL.shutdownNow();
 
+        if (LOG_POOL != null) {
+            LOG_POOL.shutdown();
+            LOG_POOL.shutdownNow();
+        }
+
         LOGGER.log(Level.INFO, "Thread pool shutdown — cooperative cancellation notices that follow are expected.");
     }
 
     public static void CREATE_THREAD_POOL() {
         THREAD_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+
+        LOG_POOL = Executors.newSingleThreadExecutor();
 
         LOGGER.log(Level.INFO, "New thread pool created");
     }
@@ -4467,6 +4484,44 @@ public class Helpers {
 
         return THREAD_POOL.submit(r);
 
+    }
+
+    // Encola una tarea del registro en el consumidor FIFO de un solo hilo (LOG_POOL):
+    // garantiza que los print() se apliquen en orden de llamada. Defensivo ante el
+    // cierre del pool entre partidas (el registro de esa timba ya termino).
+    public static void logRun(Runnable r) {
+
+        ExecutorService pool = LOG_POOL;
+
+        if (pool == null) {
+            return;
+        }
+
+        try {
+            pool.execute(r);
+        } catch (RejectedExecutionException ignored) {
+        }
+    }
+
+    // Espera a que el consumidor del log (LOG_POOL) aplique todos los print()
+    // encolados — drena la cola FIFO. Se usa antes de exportar el registro a fichero
+    // (finTransmision) para que el .log incluya hasta la ultima linea, en orden, y no
+    // pierda lo recien encolado (footer + marcador final). No-op en el EDT: esperar
+    // ahi podria trabarse con actualizarCartasPerdedores (retiene log_lock dentro de
+    // un GUIRunAndWait que necesita el EDT). Best-effort con tope de tiempo.
+    public static void logFlush() {
+
+        ExecutorService pool = LOG_POOL;
+
+        if (pool == null || SwingUtilities.isEventDispatchThread()) {
+            return;
+        }
+
+        try {
+            pool.submit(() -> {
+            }).get(THREAD_POOL_SHUTDOWN_TIMEOUT, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
     }
 
     public static Future futureRun(Callable c) {

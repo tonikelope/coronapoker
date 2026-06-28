@@ -882,7 +882,10 @@ public final class GameLogDialog extends JDialog {
 
         if (!this.fin_transmision) {
 
-            Helpers.threadRun(() -> {
+            // logRun (no threadRun): un unico hilo consumidor en orden FIFO, para que
+            // las lineas del registro se apliquen en el orden en que se llamo a print()
+            // y no se reordenen entre si (el pool general multi-hilo lo permitia).
+            Helpers.logRun(() -> {
                 synchronized (log_lock) {
                     String message = Translator.translate(msg);
                     GameLogDialog.LOG_TEXT += message + "\n\n";

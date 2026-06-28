@@ -3006,7 +3006,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         HashMap<String, Double[]> auditor_snapshot = null;
         if (partida_terminada && crupier != null) {
             synchronized (crupier.getLock_contabilidad()) {
-                crupier.auditorCuentas();
+                // print=false: refrescamos el mapa del auditor para el snapshot SIN
+                // volcar la tabla de stacks (NICK/STACK/BUYIN) al registro. Esa tabla
+                // sale SOLO al arrancar cada mano; el cierre ya lo resume el marcador
+                // final NICK/RESULTADO de más abajo. Imprimirla aquí (desde este hilo
+                // de finTransmision) la metía además en medio de las acciones que el
+                // hilo del Crupier seguía logueando.
+                crupier.auditorCuentas(false);
                 auditor_snapshot = new HashMap<>(crupier.getAuditor());
             }
         }
@@ -3188,6 +3194,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // saneo para encontrar el fichero — coordinación crítica.
                 String log_file = Init.LOGS_DIR + "/CORONAPOKER_TIMBA_" + Helpers.safeNickForFilename(sala_espera.getServer_nick()) + "_" + fecha + ".log";
 
+                // Drenamos la cola del registro: print() es asincrono (LOG_POOL), asi
+                // que el footer + el marcador final recien encolados pueden no estar
+                // todavia en LOG_TEXT cuando getText() construye el .log. logFlush espera
+                // a que se apliquen para que el fichero quede completo y en orden.
+                Helpers.logFlush();
+
                 try {
 
                     String previous_log_data = "";
@@ -3313,9 +3325,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Audio.closeAllPreloadedWavs();
 
-            GameLogDialog.resetLOG();
-
+            // SHUTDOWN antes de resetLOG (no al reves): el shutdownNow() descarta las
+            // tareas de log encoladas en LOG_POOL ANTES de vaciar LOG_TEXT, asi ninguna
+            // straggler de la timba anterior puede hacer un append fantasma sobre el log
+            // ya reseteado de la siguiente. logFlush() en finTransmision ya drena la cola
+            // mucho antes; esto es defensa en profundidad (resetLOG es solo una asignacion
+            // de String, no usa el pool, asi que moverla detras del shutdown es inocuo).
             Helpers.SHUTDOWN_THREAD_POOL();
+
+            GameLogDialog.resetLOG();
 
             //Reiniciamos
             Helpers.GUIRunAndWait(() -> {

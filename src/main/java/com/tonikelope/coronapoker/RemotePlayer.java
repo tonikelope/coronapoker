@@ -2419,6 +2419,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         return stack;
     }
 
+    // Lectura SIN lock del stack (volatile): la usa el frame final del llenado de stacks en
+    // el EDT para no coger el monitor del jugador (ver Player.getStackUnlocked).
+    @Override
+    public double getStackUnlocked() {
+        return stack;
+    }
+
     public JLabel getPlayer_action() {
         return player_action;
     }

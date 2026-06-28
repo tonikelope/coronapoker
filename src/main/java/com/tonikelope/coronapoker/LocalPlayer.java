@@ -881,6 +881,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return stack;
     }
 
+    // Lectura SIN lock del stack (volatile): la usa el frame final del llenado de stacks en
+    // el EDT para no coger el monitor del jugador (ver Player.getStackUnlocked).
+    @Override
+    public double getStackUnlocked() {
+        return stack;
+    }
+
     // Rodaje vivo del label del stack (EDT-confined). El render solo escribe el
     // texto; el color lo siguen poniendo setStack/setStackDisplay. Creación perezosa.
     private RollingCounter stack_roller;

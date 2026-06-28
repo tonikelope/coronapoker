@@ -286,6 +286,14 @@ public class StatsDialog extends JFrame {
         Font original_dialog_font = res_table.getFont();
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
+
+        // Los dos checkboxes de sync, un pelín más grandes que el resto del diálogo.
+        // updateFonts ya les puso GUI_FONT; derivamos +2pt sobre ese tamaño (debe ir
+        // DESPUÉS de updateFonts o lo sobrescribiría).
+        Font sync_checkbox_font = receive_stats_checkbox.getFont().deriveFont(receive_stats_checkbox.getFont().getSize2D() + 2f);
+        receive_stats_checkbox.setFont(sync_checkbox_font);
+        share_stats_checkbox.setFont(sync_checkbox_font);
+
         pack();
         res_table.setFont(original_dialog_font);
         showdown_table.setFont(original_dialog_font);

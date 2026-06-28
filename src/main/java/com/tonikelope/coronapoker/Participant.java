@@ -828,6 +828,11 @@ public class Participant implements Runnable {
             BinaryWire.Decoded decoded = BinaryWire.decode(payload);
             if (decoded.type == BinaryWire.TYPE_VOICE) {
                 sala_espera.recibirNotaVoz(nick, decoded.payload);
+            } else if (decoded.type == BinaryWire.TYPE_DB) {
+                // Stats DB sync from this client. Attribute to the connection's
+                // AUTHENTICATED nick (never the frame's claimed nick), same
+                // anti-spoof rule as a voice note.
+                sala_espera.statsSyncOnMessage(nick, decoded.payload, true);
             }
         } catch (Exception ex) {
             LOGGER.log(Level.WARNING, "Dropped malformed binary frame from peer {0}", nick);

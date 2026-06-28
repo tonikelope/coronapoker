@@ -103,10 +103,10 @@ public class BalanceDialog extends JDialog {
 
     private volatile boolean recover = false;
 
-    // Rueda de ajustes + altavoz (mute) de la esquina superior derecha de la barra (fin de
-    // timba). Iconos claros (blancos) sobre el tapete oscuro de fondo.
-    private static final int SETTINGS_ICON_SZ = 36;
-    private JLabel settings_icon;
+    // Altavoz (mute) de la esquina superior derecha de la barra (fin de timba). Icono claro
+    // (blanco) sobre el tapete oscuro. Sin rueda de ajustes a proposito: durante la pantalla
+    // final no se tocan ajustes (la timba ya termino), solo el mute global.
+    private static final int SOUND_ICON_SZ = 36;
     private JLabel sound_icon;
 
     // Snapshot del tapete (solo si el sistema NO soporta transparencia por
@@ -278,13 +278,13 @@ public class BalanceDialog extends JDialog {
             row.add(cell);
         }
 
-        // Rueda de ajustes + altavoz a la derecha de los botones (misma fila, esquina
-        // superior derecha): no molesta y queda donde se espera. La rueda abre Ajustes en
-        // modo GENERAL (la timba ya terminó): solo Apariencia + Sonido, como en el lanzador.
+        // Altavoz (mute) en la esquina superior derecha, a la derecha de los botones (misma
+        // fila): discreto y donde se espera. Sin rueda: durante el fin de timba no se tocan
+        // ajustes, solo el mute.
         JPanel line = new JPanel(new BorderLayout(20, 0));
         line.setOpaque(false);
         line.add(row, BorderLayout.CENTER);
-        line.add(buildSettingsCluster(), BorderLayout.EAST);
+        line.add(buildSoundCorner(), BorderLayout.EAST);
 
         JPanel bar = new JPanel(new BorderLayout());
         bar.setOpaque(false);
@@ -293,21 +293,10 @@ public class BalanceDialog extends JDialog {
         return bar;
     }
 
-    // Rueda de ajustes (abre Ajustes en modo general: Apariencia + Sonido, la timba ya
-    // terminó) + altavoz (mute rápido). sound.png/mute.png ya son blancos; la rueda se
-    // tinta de blanco para verse sobre el tapete oscuro.
-    private JComponent buildSettingsCluster() {
-        settings_icon = new JLabel();
-        Helpers.setScaledWhiteIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), SETTINGS_ICON_SZ, SETTINGS_ICON_SZ);
-        settings_icon.setToolTipText(Translator.translate("settings.ajustes"));
-        settings_icon.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        settings_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                SettingsDialog.openGeneral(GameFrame.getInstance());
-            }
-        });
-
+    // Altavoz (mute rapido) en la esquina superior derecha. sound.png/mute.png ya son
+    // blancos, asi que se ven sobre el tapete oscuro. Sin rueda de ajustes: la timba ya
+    // termino, no se tocan ajustes durante la pantalla final (solo el mute, que es global).
+    private JComponent buildSoundCorner() {
         sound_icon = new JLabel();
         refreshBalanceSoundIcon();
         sound_icon.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
@@ -327,16 +316,15 @@ public class BalanceDialog extends JDialog {
             }
         });
 
-        JPanel cluster = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
-        cluster.setOpaque(false);
-        cluster.add(settings_icon);
-        cluster.add(sound_icon);
-        return cluster;
+        JPanel corner = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        corner.setOpaque(false);
+        corner.add(sound_icon);
+        return corner;
     }
 
     // Refleja el estado de SONIDOS en el icono del altavoz (sound/mute), como in-game.
     private void refreshBalanceSoundIcon() {
-        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), SETTINGS_ICON_SZ, SETTINGS_ICON_SZ);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), SOUND_ICON_SZ, SOUND_ICON_SZ);
     }
 
     private JButton navButton(String text, Color bg) {

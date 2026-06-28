@@ -178,6 +178,9 @@ public class WaitingRoomFrame extends JFrame {
     private final Object lock_new_client = new Object();
     private final boolean server;
     private final String local_nick;
+    // Stats DB sync (P2P): the protocol logic lives in StatsSyncManager; the
+    // per-peer channel keys and TYPE_DB framing glue live in this class.
+    private final StatsSyncManager stats_sync_manager = new StatsSyncManager(this);
     private volatile String server_ip_port;  // ip:port — host (para parsear puerto local) y cliente (para conectar).
     private volatile String server_nick;
     private volatile String gameinfo_original = null;
@@ -2290,6 +2293,10 @@ public class WaitingRoomFrame extends JFrame {
                             runSocketReaderClientThread();
                             runPingPongThreadCliente();
 
+                            // Fully connected and reading: kick off the stats DB sync
+                            // (background, non-blocking; no-op if both prefs are off).
+                            statsSyncOnConnectedToServer();
+
                             do {
                                 recibido = net_client.getLocal_client_socket_reader_queue().take();
 
@@ -4338,6 +4345,72 @@ public class WaitingRoomFrame extends JFrame {
         });
     }
 
+    // ===================================================================
+    // Stats DB sync (P2P): wire/keys glue. The protocol logic lives in
+    // StatsSyncManager; this layer owns the per-peer channel keys and the
+    // BinaryWire TYPE_DB framing, mirroring the voice-note send sites.
+    // ===================================================================
+
+    public void statsSyncOnConnectedToServer() {
+        stats_sync_manager.onConnectedToServer();
+    }
+
+    public void statsSyncOnMessage(String peerNick, byte[] dbMessage, boolean iAmHost) {
+        stats_sync_manager.onMessage(peerNick, dbMessage, iAmHost);
+    }
+
+    public void statsSyncOnPeerGone(String nick) {
+        stats_sync_manager.onPeerGone(nick);
+    }
+
+    /** CLIENT → host: one stats-sync message over an encrypted TYPE_DB binary frame. */
+    public void statsSyncRawSendToServer(byte[] dbMessage) {
+        try {
+            writeBinaryToServer(Helpers.encryptBytes(
+                    BinaryWire.encode(BinaryWire.TYPE_DB, local_nick, dbMessage),
+                    getLocal_client_aes_key(), getLocal_client_hmac_key()));
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "StatsSync: send to host failed", ex);
+        }
+    }
+
+    /**
+     * HOST → one client: a stats-sync message over an encrypted TYPE_DB binary
+     * frame. Returns false if the client is gone (its socket is closed), so an
+     * in-flight push can stop promptly instead of churning the remaining batches.
+     */
+    public boolean statsSyncRawSendToClient(String nick, byte[] dbMessage) {
+        Participant p = participantes.get(nick);
+        if (p == null || p.isCpu()) {
+            return false;
+        }
+        try {
+            // writeBinaryFromServer returns true on a write failure (socket closed).
+            boolean failed = p.writeBinaryFromServer(Helpers.encryptBytes(
+                    BinaryWire.encode(BinaryWire.TYPE_DB, local_nick, dbMessage),
+                    p.getAes_key(), p.getHmac_key()));
+            return !failed;
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "StatsSync: send to client " + nick + " failed", ex);
+            return false;
+        }
+    }
+
+    /** HOST: nicks of the currently connected (non-CPU) clients. */
+    public java.util.List<String> statsSyncClientNicks() {
+        java.util.ArrayList<Participant> snapshot;
+        synchronized (participantes) {
+            snapshot = new java.util.ArrayList<>(participantes.values());
+        }
+        java.util.ArrayList<String> nicks = new java.util.ArrayList<>();
+        for (Participant p : snapshot) {
+            if (p != null && !p.isCpu()) {
+                nicks.add(p.getNick());
+            }
+        }
+        return nicks;
+    }
+
     public void enviarMensajeChat(String nick, String msg) {
 
         Helpers.threadRun(() -> {
@@ -4423,6 +4496,10 @@ public class WaitingRoomFrame extends JFrame {
         participantes.remove(nick);
 
         onParticipantRemoved(nick, avatar_src);
+
+        // A client can leave the lobby at any time: drop its stats-sync tracking
+        // so the host stops considering it for re-forwards.
+        statsSyncOnPeerGone(nick);
 
         if (isServer() && !isPartida_empezada() && !exit) {
             try {

@@ -84,6 +84,11 @@ public class StatsDialog extends JFrame {
     // Barra con el spinner de "Global Chart Zoom" (escala de fuentes de las gráficas).
     private javax.swing.JPanel chart_toolbar;
     private javax.swing.JSpinner chart_zoom_spinner;
+    // Sincronización P2P de estadísticas: dos checkboxes hand-añadidos (no en el
+    // .form), en una barra al pie del content pane envuelto. Recibir/Compartir al
+    // conectar a un servidor; persisten en Helpers.PROPERTIES al togglear.
+    private javax.swing.JCheckBox receive_stats_checkbox;
+    private javax.swing.JCheckBox share_stats_checkbox;
 
     // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
     // compartida + lectura de logs/chat) en UN solo hilo. Antes,
@@ -237,9 +242,58 @@ public class StatsDialog extends JFrame {
             stats_combo.addItem(entry.getKey());
         }
 
+        // Sincronización P2P de estadísticas: dos preferencias globales (recibir /
+        // compartir al conectar a un servidor) en una barra al pie. Se cuelga
+        // envolviendo el content pane (BorderLayout.SOUTH), sin tocar el .form ni el
+        // GroupLayout. Los listeners NO persisten durante la construcción (init).
+        receive_stats_checkbox = new javax.swing.JCheckBox(Translator.translate("stats.sync_receive"));
+        receive_stats_checkbox.putClientProperty("i18n.key", "stats.sync_receive");
+        receive_stats_checkbox.setOpaque(false);
+        receive_stats_checkbox.setSelected(GameFrame.SYNC_STATS_RECEIVE_PREF);
+        receive_stats_checkbox.addItemListener(e -> {
+            if (init) {
+                return;
+            }
+            GameFrame.SYNC_STATS_RECEIVE_PREF = receive_stats_checkbox.isSelected();
+            Helpers.PROPERTIES.setProperty("sync_stats_receive", String.valueOf(GameFrame.SYNC_STATS_RECEIVE_PREF));
+            Helpers.savePropertiesFile();
+        });
+
+        share_stats_checkbox = new javax.swing.JCheckBox(Translator.translate("stats.sync_share"));
+        share_stats_checkbox.putClientProperty("i18n.key", "stats.sync_share");
+        share_stats_checkbox.setOpaque(false);
+        share_stats_checkbox.setSelected(GameFrame.SYNC_STATS_SHARE_PREF);
+        share_stats_checkbox.addItemListener(e -> {
+            if (init) {
+                return;
+            }
+            GameFrame.SYNC_STATS_SHARE_PREF = share_stats_checkbox.isSelected();
+            Helpers.PROPERTIES.setProperty("sync_stats_share", String.valueOf(GameFrame.SYNC_STATS_SHARE_PREF));
+            Helpers.savePropertiesFile();
+        });
+
+        javax.swing.JPanel sync_stats_bar = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 16, 4));
+        sync_stats_bar.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 8, 2, 8));
+        sync_stats_bar.add(receive_stats_checkbox);
+        sync_stats_bar.add(share_stats_checkbox);
+
+        javax.swing.JComponent old_content = (javax.swing.JComponent) getContentPane();
+        javax.swing.JPanel content_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
+        content_wrapper.add(old_content, java.awt.BorderLayout.CENTER);
+        content_wrapper.add(sync_stats_bar, java.awt.BorderLayout.SOUTH);
+        setContentPane(content_wrapper);
+
         Font original_dialog_font = res_table.getFont();
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
+
+        // Los dos checkboxes de sync, un pelín más grandes que el resto del diálogo.
+        // updateFonts ya les puso GUI_FONT; derivamos +2pt sobre ese tamaño (debe ir
+        // DESPUÉS de updateFonts o lo sobrescribiría).
+        Font sync_checkbox_font = receive_stats_checkbox.getFont().deriveFont(receive_stats_checkbox.getFont().getSize2D() + 2f);
+        receive_stats_checkbox.setFont(sync_checkbox_font);
+        share_stats_checkbox.setFont(sync_checkbox_font);
+
         pack();
         res_table.setFont(original_dialog_font);
         showdown_table.setFont(original_dialog_font);

@@ -1086,6 +1086,9 @@ public class WaitingRoomFrame extends JFrame {
         image_button.setToolTipText(Translator.translate("tooltip.send_image"));
         sound_icon.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
 
+        Helpers.setScaledIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
+        settings_icon.setToolTipText(Translator.translate("settings.ajustes"));
+
         if (avatar != null) {
             avatar_label.setPreferredSize(
                     new Dimension(NewGameDialog.DEFAULT_AVATAR_WIDTH, NewGameDialog.DEFAULT_AVATAR_WIDTH));
@@ -4540,6 +4543,7 @@ public class WaitingRoomFrame extends JFrame {
         main_panel = new javax.swing.JPanel();
         panel_arriba = new javax.swing.JPanel();
         status = new javax.swing.JLabel();
+        settings_icon = new javax.swing.JLabel();
         sound_icon = new javax.swing.JLabel();
         panel_con = new javax.swing.JPanel();
         panel_conectados = new javax.swing.JScrollPane();
@@ -4619,6 +4623,16 @@ public class WaitingRoomFrame extends JFrame {
         status.setForeground(new java.awt.Color(51, 153, 0));
         status.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         status.setDoubleBuffered(true);
+
+        settings_icon.setToolTipText("Ajustes");
+        settings_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        settings_icon.setDoubleBuffered(true);
+        settings_icon.setPreferredSize(new java.awt.Dimension(30, 30));
+        settings_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                settings_iconMouseClicked(evt);
+            }
+        });
 
         sound_icon.setBackground(new java.awt.Color(153, 153, 153));
         sound_icon.setToolTipText("Click para activar/desactivar el sonido. (SHIFT + ARRIBA/ABAJO PARA CAMBIAR VOLUMEN)");
@@ -4842,6 +4856,8 @@ public class WaitingRoomFrame extends JFrame {
                         .addGroup(panel_arribaLayout.createSequentialGroup()
                                 .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(settings_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         panel_arribaLayout.setVerticalGroup(
@@ -4853,6 +4869,7 @@ public class WaitingRoomFrame extends JFrame {
                                         .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addGroup(panel_arribaLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                        .addComponent(settings_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                         .addComponent(sound_icon, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                         .addComponent(status, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -5339,13 +5356,13 @@ public class WaitingRoomFrame extends JFrame {
 
     }//GEN-LAST:event_formWindowClosing
 
-    private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
+    private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
+        // Abre el diálogo de ajustes en modo general (Apariencia + Sonido): no hay
+        // GameFrame en la sala de espera, así que la pestaña Partida no se monta.
+        SettingsDialog.open(this);
+    }
 
-        // evt is null when invoked from the keyboard shortcut
-        if (evt != null && javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-            AudioSettingsDialog.showSpeakerPopup(sound_icon, this, evt.getX(), evt.getY());
-            return;
-        }
+    private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
@@ -5985,6 +6002,7 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JLabel pass_icon;
     private javax.swing.JLabel send_label;
     private javax.swing.JLabel server_address_label;
+    private javax.swing.JLabel settings_icon;
     private javax.swing.JLabel sound_icon;
     private javax.swing.JLabel status;
     private javax.swing.JLabel tot_conectados;

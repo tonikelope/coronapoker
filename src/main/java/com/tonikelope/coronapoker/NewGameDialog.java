@@ -590,7 +590,7 @@ public class NewGameDialog extends JDialog {
      * Titled borders for the four configuration groups (blinds, buy-in, game and
      * bots), so each block reads on its own. A TitledBorder is not a component, so
      * Helpers.updateFonts cannot reach it: the title font is set here from an
-     * already-scaled label font (same approach as AudioSettingsDialog). Must be
+     * already-scaled label font (same approach as SettingsDialog). Must be
      * called after Helpers.updateFonts and before pack() so the border insets are
      * accounted for in the dialog's preferred size.
      */

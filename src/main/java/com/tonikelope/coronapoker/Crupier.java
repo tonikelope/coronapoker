@@ -2744,12 +2744,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // como el llenado NO bloquea, la ciega/ante puede haberse posteado a
                         // mitad (el stack ya esta descontado). Usar to[i] dejaria el label
                         // demasiado alto (por el importe de la ciega) hasta la siguiente
-                        // actualizacion. getStackUnlocked() = valor real (campo volatile) SIN
-                        // coger el monitor del jugador: getStack() es synchronized y tomarlo
-                        // aqui (EDT) mientras el hilo de juego lo tiene via GUIRunAndWait en
-                        // setBet/setStack (posteo de ciegas concurrente con el llenado)
-                        // DEADLOCKEA -worker espera al EDT, EDT espera al monitor-.
-                        players.get(i).setStackDisplay(players.get(i).getStackUnlocked());
+                        // actualizacion. getStack() = valor real, lock-free: el campo es
+                        // volatile y getStack ya NO es synchronized (como el resto de
+                        // accesores), asi que leerlo en el EDT NO coge el monitor del jugador
+                        // -> imposible el deadlock EDT<->worker (ver setStack/setBet).
+                        players.get(i).setStackDisplay(players.get(i).getStack());
                     }
                     latch.countDown();
                     return;

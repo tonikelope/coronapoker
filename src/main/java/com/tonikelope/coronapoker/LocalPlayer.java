@@ -800,19 +800,19 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         return avatar;
     }
 
-    public synchronized double getPagar() {
+    public double getPagar() {
         return pagar;
     }
 
-    public synchronized double getBote() {
+    public double getBote() {
         return bote;
     }
 
-    public synchronized boolean isExit() {
+    public boolean isExit() {
         return exit;
     }
 
-    public synchronized void setExit() {
+    public void setExit() {
 
         if (!this.exit) {
             this.exit = true;
@@ -877,14 +877,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         });
     }
 
-    public synchronized double getStack() {
-        return stack;
-    }
-
-    // Lectura SIN lock del stack (volatile): la usa el frame final del llenado de stacks en
-    // el EDT para no coger el monitor del jugador (ver Player.getStackUnlocked).
-    @Override
-    public double getStackUnlocked() {
+    public double getStack() {
         return stack;
     }
 
@@ -2225,7 +2218,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
-    public synchronized double getEffectiveStack() {
+    public double getEffectiveStack() {
 
         return Helpers.doubleClean(this.stack) + Helpers.doubleClean(this.bote) + Helpers.doubleClean(this.pagar);
 
@@ -3740,7 +3733,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized void setPagar(double pagar) {
+    public void setPagar(double pagar) {
         this.pagar = pagar;
     }
 

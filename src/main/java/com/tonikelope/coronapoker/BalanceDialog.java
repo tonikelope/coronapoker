@@ -103,6 +103,12 @@ public class BalanceDialog extends JDialog {
 
     private volatile boolean recover = false;
 
+    // Altavoz (mute) de la esquina superior derecha de la barra (fin de timba). Icono claro
+    // (blanco) sobre el tapete oscuro. Sin rueda de ajustes a proposito: durante la pantalla
+    // final no se tocan ajustes (la timba ya termino), solo el mute global.
+    private static final int SOUND_ICON_SZ = 36;
+    private JLabel sound_icon;
+
     // Snapshot del tapete (solo si el sistema NO soporta transparencia por
     // píxel): se pinta como fondo opaco para conservar el aspecto "tapete".
     private BufferedImage table_snapshot = null;
@@ -272,11 +278,70 @@ public class BalanceDialog extends JDialog {
             row.add(cell);
         }
 
+        // Altavoz (mute) en la esquina superior derecha, a la derecha de los botones (misma
+        // fila): discreto y donde se espera. Sin rueda: durante el fin de timba no se tocan
+        // ajustes, solo el mute.
+        JPanel line = new JPanel(new BorderLayout(20, 0));
+        line.setOpaque(false);
+        line.add(row, BorderLayout.CENTER);
+        line.add(buildSoundCorner(), BorderLayout.EAST);
+
         JPanel bar = new JPanel(new BorderLayout());
         bar.setOpaque(false);
         bar.setBorder(BorderFactory.createEmptyBorder(34, 28, 0, 28));
-        bar.add(row, BorderLayout.NORTH);
+        bar.add(line, BorderLayout.NORTH);
         return bar;
+    }
+
+    // Altavoz (mute rápido) en la esquina superior derecha, dentro de un CHIP con fondo
+    // redondeado translúcido (NO transparente). Razón: la pantalla final es un overlay con
+    // transparencia POR PÍXEL, y en esos overlays los píxeles TRANSPARENTES (el padding del
+    // icono) DEJAN PASAR el ratón a la ventana de detrás -> el hover/click fallaba a ratos
+    // (solo registraba sobre la forma sólida, pequeña, del altavoz). Un chip de píxeles
+    // OPACOS hace que TODA su área capture el ratón de forma fiable, da un hit-area amplio y
+    // una affordance de botón. El listener va en el icono Y en el chip (un clic en el icono
+    // lo recibe el label, no el chip). sound.png/mute.png son blancos y resaltan sobre él.
+    private JComponent buildSoundCorner() {
+        sound_icon = new JLabel();
+        refreshBalanceSoundIcon();
+
+        java.awt.event.MouseAdapter toggle = new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                // setSonidos hace el flip + persiste + mute/unmute (y refresca los iconos de
+                // altavoz que existan); aquí solo refrescamos el NUESTRO (que no conoce).
+                GameFrame.setSonidos(!GameFrame.SONIDOS);
+                refreshBalanceSoundIcon();
+            }
+        };
+        sound_icon.addMouseListener(toggle);
+
+        JPanel chip = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 0, 0, 90));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.dispose();
+            }
+        };
+        chip.setOpaque(false);
+        chip.setBorder(BorderFactory.createEmptyBorder(7, 11, 7, 11));
+        chip.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        chip.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
+        chip.addMouseListener(toggle);
+        chip.add(sound_icon);
+
+        JPanel corner = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        corner.setOpaque(false);
+        corner.add(chip);
+        return corner;
+    }
+
+    // Refleja el estado de SONIDOS en el icono del altavoz (sound/mute), como in-game.
+    private void refreshBalanceSoundIcon() {
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), SOUND_ICON_SZ, SOUND_ICON_SZ);
     }
 
     private JButton navButton(String text, Color bg) {

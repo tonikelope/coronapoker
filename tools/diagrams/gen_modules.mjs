@@ -42,7 +42,7 @@ const boxes = [
   { id:'crypto', c:C.eng, x:1305, y:482, w:230, h:84, name:'Crypto / SRA', sub:'Verifiable dealing (Ristretto255 · DLEQ · Bayer-Groth) · Ed25519 · H_t/H_final' },
   // Z4 support
   { id:'chat',  c:C.sup, x:450,  y:682, w:260, h:78, name:'Chat / Voice', sub:'EmojiChatBox · EmojiPanel · ChatImageDialog · FastChat · VoiceMessageManager' },
-  { id:'audio', c:C.sup, x:770,  y:682, w:260, h:78, name:'Audio', sub:'Audio · AudioDeviceManager · AudioSettingsDialog · CoronaMP3FilePlayer' },
+  { id:'audio', c:C.sup, x:770,  y:682, w:260, h:78, name:'Audio', sub:'Audio · AudioDeviceManager · CoronaMP3FilePlayer' },
   { id:'stats', c:C.sup, x:1090, y:682, w:260, h:78, name:'Stats / History', sub:'StatsDialog · GameLogDialog · Hand · SQLStats' },
   // Z5 foundation
   { id:'helpers', c:C.found, x:300, y:872, w:1200, h:70, name:'Helpers  —  shared utilities &amp; persistence', sub:'SQLite · secure channel (AES-CBC + HMAC) · threading/EDT · imaging/fonts · money formatting · OS abstraction  ·  used by EVERY module' },

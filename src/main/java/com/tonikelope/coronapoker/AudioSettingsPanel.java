@@ -52,12 +52,11 @@ import javax.swing.ListSelectionModel;
 import javax.swing.border.TitledBorder;
 
 /**
- * Contenido de los ajustes de audio como JPanel reutilizable. Lo usan tanto el
- * diálogo independiente {@link AudioSettingsDialog} (acceso rápido desde el icono
- * del altavoz, también en lobby/sala de espera donde no hay partida) como la
- * pestaña "Audio" del diálogo unificado de ajustes. Cada cambio se aplica y
- * persiste al instante (el volumen maestro es el mismo valor que mueve el atajo
- * global Shift+Arriba/Abajo).
+ * Contenido de los ajustes de audio como JPanel reutilizable: lo usa la pestaña "Audio"
+ * del diálogo unificado de ajustes ({@link SettingsDialog}), accesible desde la rueda
+ * dentada en el lanzador, la sala de espera y la partida. Cada cambio se aplica y
+ * persiste al instante (el volumen maestro es el mismo valor que mueve el atajo global
+ * Shift+Arriba/Abajo).
  *
  * El "host" (diálogo) debe: llamar a {@link #applyFontsAndSizing()} tras añadir el
  * panel, gestionar la pila de modales y llamar a {@link #cleanup()} al cerrarse

@@ -1516,6 +1516,18 @@ public class Helpers {
     // dibujo). Para iconos pensados para fondo claro (p. ej. el engranaje del menú)
     // que se muestran sobre el tapete oscuro, como el icono del altavoz.
     public static void setScaledWhiteIconLabel(JLabel label, URL path, int width, int height) {
+        setScaledTintedIconLabel(label, path, width, height, java.awt.Color.WHITE);
+    }
+
+    // Igual que el anterior pero recoloreando a NEGRO. Para el engranaje de ajustes
+    // en la pantalla de inicio y la sala de espera, donde el altavoz es negro.
+    public static void setScaledBlackIconLabel(JLabel label, URL path, int width, int height) {
+        setScaledTintedIconLabel(label, path, width, height, java.awt.Color.BLACK);
+    }
+
+    // Escala el icono y recolorea su silueta (las zonas opacas) al color dado,
+    // preservando la transparencia vía SRC_ATOP.
+    private static void setScaledTintedIconLabel(JLabel label, URL path, int width, int height, java.awt.Color tint) {
         if (width <= 0 || height <= 0) {
             return;
         }
@@ -1527,10 +1539,10 @@ public class Helpers {
                 Graphics2D g = bi.createGraphics();
                 g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 g.drawImage(src, 0, 0, width, height, null);
-                // SRC_ATOP pinta blanco SOLO donde ya había opacidad: recolorea la
-                // silueta del icono a blanco sin tocar las zonas transparentes.
+                // SRC_ATOP pinta el color SOLO donde ya había opacidad: recolorea la
+                // silueta del icono sin tocar las zonas transparentes.
                 g.setComposite(AlphaComposite.SrcAtop);
-                g.setColor(java.awt.Color.WHITE);
+                g.setColor(tint);
                 g.fillRect(0, 0, width, height);
                 g.dispose();
                 label.setIcon(new ImageIcon(bi));
@@ -5731,7 +5743,7 @@ public class Helpers {
 
                 CINEMATICAS_MENU = new LeftClickCheckBoxMenuItem(cinematicasAction);
                 CINEMATICAS_MENU.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/video.png")));
-                CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS);
+                CINEMATICAS_MENU.setSelected(GameFrame.CINEMATICAS_PREF);
                 VISTA_MENU.add(CINEMATICAS_MENU);
 
                 // Submenú "Efectos de animación" con tres efectos combinables.
@@ -5739,19 +5751,19 @@ public class Helpers {
                 efectos_anim_menu.setIcon(new javax.swing.ImageIcon(Helpers.class.getResource("/images/menu/dealer.png")));
 
                 ANIM_REPARTO_MENU = new LeftClickCheckBoxMenuItem(animRepartoAction);
-                ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO);
+                ANIM_REPARTO_MENU.setSelected(GameFrame.ANIMACION_REPARTO_PREF);
                 efectos_anim_menu.add(ANIM_REPARTO_MENU);
 
                 ANIM_CIEGAS_DEALER_MENU = new LeftClickCheckBoxMenuItem(animCiegasDealerAction);
-                ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER);
+                ANIM_CIEGAS_DEALER_MENU.setSelected(GameFrame.ANIMACION_CIEGAS_DEALER_PREF);
                 efectos_anim_menu.add(ANIM_CIEGAS_DEALER_MENU);
 
                 ANIM_APUESTAS_MENU = new LeftClickCheckBoxMenuItem(animApuestasAction);
-                ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS);
+                ANIM_APUESTAS_MENU.setSelected(GameFrame.ANIMACION_APUESTAS_PREF);
                 efectos_anim_menu.add(ANIM_APUESTAS_MENU);
 
                 ANIM_CONTADORES_MENU = new LeftClickCheckBoxMenuItem(animContadoresAction);
-                ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES);
+                ANIM_CONTADORES_MENU.setSelected(GameFrame.ANIMACION_CONTADORES_PREF);
                 efectos_anim_menu.add(ANIM_CONTADORES_MENU);
 
                 VISTA_MENU.add(efectos_anim_menu);

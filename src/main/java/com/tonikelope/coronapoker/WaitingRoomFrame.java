@@ -1086,7 +1086,7 @@ public class WaitingRoomFrame extends JFrame {
         image_button.setToolTipText(Translator.translate("tooltip.send_image"));
         sound_icon.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
 
-        Helpers.setScaledWhiteIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
+        Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), 30, 30);
         settings_icon.setToolTipText(Translator.translate("settings.ajustes"));
 
         if (avatar != null) {

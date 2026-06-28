@@ -1785,6 +1785,17 @@ public class StatsDialog extends JFrame {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
 
+        // A purge cascades across game/hand/action/... and frees a large number
+        // of pages, but SQLite keeps them on its free-list — the file does NOT
+        // shrink on its own (auto_vacuum is NONE). The game-end VACUUM only runs
+        // when a whole timba finishes, so a purge done from the lobby would
+        // otherwise leave the reclaimed space stuck on disk until the next game.
+        // Reclaim it now, while we are already off the EDT and the "cargando"
+        // spinner is up. SQLITEVAC() is self-gating (it only rewrites the file
+        // when there is significant free space), so this is a cheap no-op when
+        // little was actually freed.
+        Helpers.SQLITEVAC();
+
         Helpers.GUIRunAndWait(() -> {
             cargando.setVisible(false);
             setEnabled(true);
@@ -1820,6 +1831,12 @@ public class StatsDialog extends JFrame {
         } catch (SQLException ex) {
             Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+        // Reclaim the free-list pages left by the cascading delete (see
+        // deleteAllGames). Self-gating: a no-op unless this deletion actually
+        // freed a significant fraction of the file, so deleting one small timba
+        // does not trigger a full-file rewrite.
+        Helpers.SQLITEVAC();
 
         return true;
     }

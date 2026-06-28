@@ -293,15 +293,19 @@ public class BalanceDialog extends JDialog {
         return bar;
     }
 
-    // Altavoz (mute rapido) en la esquina superior derecha. sound.png/mute.png ya son
-    // blancos, asi que se ven sobre el tapete oscuro. Sin rueda de ajustes: la timba ya
-    // termino, no se tocan ajustes durante la pantalla final (solo el mute, que es global).
+    // Altavoz (mute rápido) en la esquina superior derecha, dentro de un CHIP con fondo
+    // redondeado translúcido (NO transparente). Razón: la pantalla final es un overlay con
+    // transparencia POR PÍXEL, y en esos overlays los píxeles TRANSPARENTES (el padding del
+    // icono) DEJAN PASAR el ratón a la ventana de detrás -> el hover/click fallaba a ratos
+    // (solo registraba sobre la forma sólida, pequeña, del altavoz). Un chip de píxeles
+    // OPACOS hace que TODA su área capture el ratón de forma fiable, da un hit-area amplio y
+    // una affordance de botón. El listener va en el icono Y en el chip (un clic en el icono
+    // lo recibe el label, no el chip). sound.png/mute.png son blancos y resaltan sobre él.
     private JComponent buildSoundCorner() {
         sound_icon = new JLabel();
         refreshBalanceSoundIcon();
-        sound_icon.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
-        sound_icon.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
+
+        java.awt.event.MouseAdapter toggle = new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 GameFrame.SONIDOS = !GameFrame.SONIDOS;
@@ -314,11 +318,29 @@ public class BalanceDialog extends JDialog {
                 }
                 refreshBalanceSoundIcon();
             }
-        });
+        };
+        sound_icon.addMouseListener(toggle);
+
+        JPanel chip = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 0, 0, 90));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.dispose();
+            }
+        };
+        chip.setOpaque(false);
+        chip.setBorder(BorderFactory.createEmptyBorder(7, 11, 7, 11));
+        chip.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        chip.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
+        chip.addMouseListener(toggle);
+        chip.add(sound_icon);
 
         JPanel corner = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         corner.setOpaque(false);
-        corner.add(sound_icon);
+        corner.add(chip);
         return corner;
     }
 

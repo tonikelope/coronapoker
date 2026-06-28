@@ -67,13 +67,29 @@ public class SettingsDialog extends JDialog {
         });
     }
 
+    // Abre el diálogo en modo GENERAL forzado (solo Apariencia + Sonido, sin Partida) aunque
+    // exista un GameFrame. Lo usa la pantalla de fin de timba: la partida ya terminó, así que
+    // los ajustes se comportan como en el lanzador (Apariencia persiste sin previsualizar).
+    public static void openGeneral(java.awt.Frame parent) {
+        Helpers.GUIRun(() -> {
+            SettingsDialog dialog = new SettingsDialog(parent, true, true);
+            dialog.setLocationRelativeTo(parent);
+            dialog.setVisible(true);
+        });
+    }
+
     public SettingsDialog(java.awt.Frame parent, boolean modal) {
+        this(parent, modal, false);
+    }
+
+    public SettingsDialog(java.awt.Frame parent, boolean modal, boolean general_mode) {
         super(parent, modal);
 
-        // Fuera de partida (lanzador / sala de espera) no hay GameFrame: el diálogo se abre
-        // en modo "general" con solo Apariencia y Sonido (preferencias locales). La pestaña
-        // Partida (ciegas + reglas) solo tiene sentido y se monta en partida.
-        boolean has_game = GameFrame.getInstance() != null;
+        // Fuera de partida (lanzador / sala de espera) no hay GameFrame, y al terminar la
+        // timba se fuerza general_mode: el diálogo se abre en modo "general" con solo
+        // Apariencia y Sonido (preferencias locales). La pestaña Partida (ciegas + reglas)
+        // solo tiene sentido y se monta con partida en curso.
+        boolean has_game = !general_mode && GameFrame.getInstance() != null;
         boolean read_only = !has_game || !GameFrame.getInstance().isPartida_local();
 
         setTitle(Translator.translate("settings.ajustes"));
@@ -81,7 +97,7 @@ public class SettingsDialog extends JDialog {
         // que el botón Cancelar).
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 
-        appearance_panel = new AppearanceSettingsPanel();
+        appearance_panel = new AppearanceSettingsPanel(!has_game);
         audio_panel = new AudioSettingsPanel();
         game_panel = has_game ? new GameSettingsPanel(read_only) : null;
 

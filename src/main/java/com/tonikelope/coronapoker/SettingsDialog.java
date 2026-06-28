@@ -39,11 +39,15 @@ import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
 
 /**
- * Diálogo unificado de ajustes (en partida), con 3 pestañas: Apariencia, Audio y
- * Partida. Apariencia y Audio se aplican EN VIVO (preferencias locales); Partida
- * (ciegas + reglas) solo al pulsar GUARDAR. Para clientes la pestaña Partida es de
- * solo-lectura (las reglas las manda el host) y GUARDAR queda deshabilitado;
- * Apariencia y Audio siguen siendo editables (son locales).
+ * Diálogo unificado de ajustes. En partida muestra 3 pestañas: Apariencia, Audio y
+ * Partida. Fuera de partida (lanzador / sala de espera, sin GameFrame) se abre en modo
+ * "general" con solo Apariencia y Audio; la pestaña Partida (ciegas + reglas) solo se
+ * monta en partida.
+ *
+ * Apariencia y Audio se aplican EN VIVO en partida (preferencia local) y solo PERSISTEN
+ * la preferencia fuera de ella (no hay mesa contra la que previsualizar). Partida (ciegas
+ * + reglas) solo al pulsar GUARDAR. Para clientes la pestaña Partida es de solo-lectura
+ * (las reglas las manda el host); Apariencia y Audio siguen siendo editables (locales).
  *
  * @author tonikelope
  */
@@ -66,7 +70,11 @@ public class SettingsDialog extends JDialog {
     public SettingsDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        boolean read_only = GameFrame.getInstance() == null || !GameFrame.getInstance().isPartida_local();
+        // Fuera de partida (lanzador / sala de espera) no hay GameFrame: el diálogo se abre
+        // en modo "general" con solo Apariencia y Sonido (preferencias locales). La pestaña
+        // Partida (ciegas + reglas) solo tiene sentido y se monta en partida.
+        boolean has_game = GameFrame.getInstance() != null;
+        boolean read_only = !has_game || !GameFrame.getInstance().isPartida_local();
 
         setTitle(Translator.translate("settings.ajustes"));
         // DO_NOTHING: la X la gestiona windowClosing (pregunta antes de descartar, igual
@@ -75,7 +83,7 @@ public class SettingsDialog extends JDialog {
 
         appearance_panel = new AppearanceSettingsPanel();
         audio_panel = new AudioSettingsPanel();
-        game_panel = new GameSettingsPanel(read_only);
+        game_panel = has_game ? new GameSettingsPanel(read_only) : null;
 
         // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
@@ -84,7 +92,9 @@ public class SettingsDialog extends JDialog {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), scrollableTab(appearance_panel));
         tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), scrollableTab(audio_panel));
-        tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
+        if (has_game) {
+            tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
+        }
 
         // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
         // previsualización, pero GUARDAR es lo que los CONFIRMA y además aplica el modo
@@ -97,7 +107,9 @@ public class SettingsDialog extends JDialog {
         save_button.setForeground(new java.awt.Color(255, 255, 255));
         save_button.addActionListener(e -> {
             committed = true;
-            game_panel.applyToGame();
+            if (game_panel != null) {
+                game_panel.applyToGame();
+            }
             appearance_panel.applyPendingDisplayMode();
             dispose();
         });
@@ -210,7 +222,7 @@ public class SettingsDialog extends JDialog {
     // aplican en vivo; Partida es apply-on-save.) Se usa para preguntar antes de
     // descartar al cancelar.
     private boolean isDirty() {
-        return appearance_panel.isDirty() || audio_panel.isDirty() || game_panel.isDirty();
+        return appearance_panel.isDirty() || audio_panel.isDirty() || (game_panel != null && game_panel.isDirty());
     }
 
     // Cierra descartando los cambios; si hay cambios sin confirmar, pregunta primero.

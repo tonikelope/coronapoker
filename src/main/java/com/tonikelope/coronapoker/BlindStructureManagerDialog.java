@@ -45,7 +45,7 @@ import javax.swing.table.DefaultTableModel;
  * new-game dialog. The built-in default ladder is NOT listed here: it lives
  * implicitly in the new-game combo and is never editable.
  *
- * Hand-coded (no .form), following the same idiom as AudioSettingsDialog: a
+ * Hand-coded (no .form), following the same idiom as SettingsDialog: a
  * modal dialog assembled with plain layout managers, translated and font-scaled
  * via Helpers. Editing happens on an in-memory working copy keyed by name; the
  * level table commits each cell live into that copy (reverting unparseable

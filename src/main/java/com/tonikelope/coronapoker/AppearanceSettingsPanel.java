@@ -100,15 +100,12 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
 
-    // standalone=true fuerza el modo "solo persiste preferencia" aunque exista un GameFrame
-    // (fin de timba: la partida ha terminado, no hay mesa viva contra la que previsualizar).
-    // Si es false, usa el GameFrame en curso (null fuera de partida) y aplica en vivo.
-    public AppearanceSettingsPanel(boolean standalone) {
+    public AppearanceSettingsPanel() {
 
         super(new java.awt.BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        gf = standalone ? null : GameFrame.getInstance();
+        gf = GameFrame.getInstance();
 
         snap_zoom_level = GameFrame.ZOOM_LEVEL;
         snap_vista_compacta = GameFrame.VISTA_COMPACTA;

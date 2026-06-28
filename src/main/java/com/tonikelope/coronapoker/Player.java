@@ -162,14 +162,6 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public double getStack();
 
-    // Lectura del stack del modelo SIN coger el monitor del jugador (el campo es volatile
-    // -> lectura atomica y visible). La usa SOLO el frame final de la animacion de llenado
-    // de stacks, que corre en el EDT: getStack() es synchronized, y tomar ese monitor en el
-    // EDT mientras el hilo de juego lo tiene cogido a traves de un GUIRunAndWait (setBet/
-    // setStack postean la ciega a la vez que el llenado rueda) deadlockea -el worker espera
-    // al EDT, el EDT espera al monitor-. Leer el volatile lo evita.
-    public double getStackUnlocked();
-
     public void setBet(double bet);
 
     // Postea un ante (dinero muerto: del stack al bote, SIN tocar bet) por el

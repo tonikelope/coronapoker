@@ -746,12 +746,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized boolean isExit() {
+    public boolean isExit() {
         return exit;
     }
 
     @Override
-    public synchronized void setExit() {
+    public void setExit() {
 
         if (!this.exit) {
             this.exit = true;
@@ -787,12 +787,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized double getPagar() {
+    public double getPagar() {
         return pagar;
     }
 
     @Override
-    public synchronized double getBote() {
+    public double getBote() {
         return bote;
     }
 
@@ -1427,7 +1427,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     }
 
-    public synchronized double getEffectiveStack() {
+    public double getEffectiveStack() {
 
         return Helpers.doubleClean(this.stack) + Helpers.doubleClean(this.bote) + Helpers.doubleClean(this.pagar);
 
@@ -2414,15 +2414,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         }
     }
 
+    // Accesores LOCK-FREE: stack/bote/pagar/exit son volatile, así que estos getters/setters
+    // simples NO necesitan synchronized. CLAVE anti-deadlock: el EDT los lee (display de la
+    // mesa, menú de recompra, setSpectator, etc.); si fueran synchronized cogerían el monitor
+    // del jugador, y con el hilo de juego manteniéndolo a través de un GUIRunAndWait (setBet/
+    // setStack postean ciegas a la vez que el llenado de stacks rueda en el EDT) -> deadlock
+    // permanente EDT<->worker. Lock-free lo hace IMPOSIBLE en cualquier sitio. Solo los
+    // mutadores COMPUESTOS del dinero (setStack/setBet/postAnte/postStraddle/reComprar) siguen
+    // synchronized; el EDT no los invoca (los dispara el hilo de juego).
     @Override
-    public synchronized double getStack() {
-        return stack;
-    }
-
-    // Lectura SIN lock del stack (volatile): la usa el frame final del llenado de stacks en
-    // el EDT para no coger el monitor del jugador (ver Player.getStackUnlocked).
-    @Override
-    public double getStackUnlocked() {
+    public double getStack() {
         return stack;
     }
 
@@ -2946,7 +2947,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     @Override
-    public synchronized void setPagar(double pagar) {
+    public void setPagar(double pagar) {
         this.pagar = pagar;
     }
 

@@ -62,6 +62,21 @@ public final class FakePotPlayer implements Player {
     }
 
     @Override
+    public void setStackDisplay(double value) {
+        throw nope();
+    }
+
+    @Override
+    public void setCounterRollDeferred(boolean deferred) {
+        throw nope();
+    }
+
+    @Override
+    public void rollCountersToModel() {
+        throw nope();
+    }
+
+    @Override
     public void setContaWin(int conta) {
         throw nope();
     }

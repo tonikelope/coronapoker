@@ -304,6 +304,7 @@ public class StatsDialog extends JFrame {
         private_game_label.putClientProperty("i18n.key", "stats.partida_privada");
         private_game_label.setForeground(new java.awt.Color(204, 0, 0));
         private_game_label.setIconTextGap(8);
+        private_game_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 8, 4, 8));
         private_game_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         private_game_label.setToolTipText(Translator.translate("stats.quitar_privada"));
         private_game_label.setVisible(false);
@@ -333,20 +334,28 @@ public class StatsDialog extends JFrame {
             }
         });
 
-        // Inserta el banner sobre "Duración": envuelve la etiqueta de duración en un
-        // BorderLayout con el banner al norte. replace() conserva el hueco del
-        // GroupLayout generado en el .form sin tocarlo.
-        javax.swing.JPanel playtime_label_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout(0, 2));
-        playtime_label_wrapper.setOpaque(false);
-        ((javax.swing.GroupLayout) game_data_panel.getLayout()).replace(game_playtime_label, playtime_label_wrapper);
-        playtime_label_wrapper.add(private_game_label, java.awt.BorderLayout.NORTH);
-        playtime_label_wrapper.add(game_playtime_label, java.awt.BorderLayout.CENTER);
+        // Inserta el banner a TODO EL ANCHO justo encima del bloque de datos de la
+        // timba (sobre "Duración"): envuelve game_data_panel en un BorderLayout con el
+        // banner al norte. replace() conserva el hueco del GroupLayout del .form sin
+        // tocarlo. El banner es hermano de game_data_panel, así que un ComponentListener
+        // lo oculta cuando el panel de datos se oculta (p.ej. al elegir "todas las timbas").
+        javax.swing.JPanel private_banner_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
+        private_banner_wrapper.setOpaque(false);
+        ((javax.swing.GroupLayout) stats_panel.getLayout()).replace(game_data_panel, private_banner_wrapper);
+        private_banner_wrapper.add(private_game_label, java.awt.BorderLayout.NORTH);
+        private_banner_wrapper.add(game_data_panel, java.awt.BorderLayout.CENTER);
+        game_data_panel.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentHidden(java.awt.event.ComponentEvent e) {
+                private_game_label.setVisible(false);
+            }
+        });
 
         // Botón por-timba: marcar la timba seleccionada como privada (junto a eliminar).
         private_game_button = new javax.swing.JButton(Translator.translate("stats.hacer_privada"),
                 new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
         private_game_button.putClientProperty("i18n.key", "stats.hacer_privada");
-        private_game_button.setBackground(new java.awt.Color(0, 0, 0));
+        private_game_button.setBackground(new java.awt.Color(123, 31, 162)); // morado
         private_game_button.setForeground(new java.awt.Color(255, 255, 255));
         private_game_button.setFont(new java.awt.Font("Dialog", 1, 14));
         private_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));

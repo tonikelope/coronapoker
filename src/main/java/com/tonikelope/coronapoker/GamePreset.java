@@ -35,10 +35,14 @@ import java.util.logging.Logger;
  * preferences, switched in-game, not table-creation config).
  *
  * <p>The dialog maps its controls to/from the {@link Settings} carrier; a preset
- * just persists that carrier's {@link Settings#serialize() serialized form}. The
- * carrier never touches {@link GameFrame}: the dialog stages everything in its
- * controls and only commits to GameFrame when the host accepts (presets follow
- * the same rule, so loading one and cancelling is a no-op).
+ * just persists that carrier's {@link Settings#serialize() serialized form}. As a
+ * staging carrier it does not commit to GameFrame on its own — the dialog stages
+ * everything in its controls and only writes to GameFrame when the host accepts
+ * (presets follow the same rule, so loading one and cancelling is a no-op). The two
+ * explicit bridges {@link Settings#fromGameFrame()} and
+ * {@link Settings#applyToGameFrame(boolean)} are the controlled exceptions, used by
+ * the waiting-room "Partida" tab (and its peer-to-peer mirror) to read/commit the
+ * static GameFrame config when there is no running game/Crupier.
  *
  * <p>The registry lives in the shared {@code coronapoker.properties}, keyed by
  * {@link #PROP_COUNT} + {@link #PROP_PREFIX} (mirrors BlindStructure).
@@ -222,6 +226,70 @@ public final class GamePreset {
                 }
             }
             return s;
+        }
+
+        /**
+         * Reads the current static {@link GameFrame} game config into a Settings. Used
+         * by the waiting-room "Partida" tab (server side) and by the peer-to-peer mirror
+         * to ship the full config to clients. Only READS GameFrame; never mutates it.
+         */
+        public static Settings fromGameFrame() {
+            Settings s = new Settings();
+            s.smallBlind = GameFrame.CIEGA_PEQUEÑA;
+            s.bigBlind = GameFrame.CIEGA_GRANDE;
+            s.structure = GameFrame.ACTIVE_BLIND_STRUCTURE;
+            s.buyin = GameFrame.BUYIN;
+            s.fixedBuyin = GameFrame.FIXED_BUYIN;
+            s.minBb = GameFrame.BUYIN_MIN_BB;
+            s.maxBb = GameFrame.BUYIN_MAX_BB;
+            s.rebuy = GameFrame.REBUY;
+            s.rebuyLimit = GameFrame.REBUY_LIMIT;
+            s.botRebuy = GameFrame.BOT_REBUY;
+            s.rebuyCapPolicy = GameFrame.REBUY_CAP_POLICY;
+            s.doubleEvery = GameFrame.CIEGAS_DOUBLE;
+            s.doubleType = GameFrame.CIEGAS_DOUBLE_TYPE;
+            s.blindCap = GameFrame.BLIND_CAP;
+            s.handLimit = GameFrame.MANOS;
+            s.ante = GameFrame.ANTE;
+            s.straddle = GameFrame.STRADDLE;
+            s.iwtsth = GameFrame.IWTSTH_RULE;
+            s.runItTwice = GameFrame.RUN_IT_TWICE;
+            s.rabbit = GameFrame.RABBIT_HUNTING;
+            s.difficulty = Bot.DIFFICULTY;
+            return s;
+        }
+
+        /**
+         * Commits this Settings into the static {@link GameFrame} game config. Mirror of
+         * the old {@code NewGameDialog} UPDATE branch: direct static assignments (NOT the
+         * in-game setters {@code setIwtsthRule/...}, which assume a live Crupier/broadcast).
+         * Bot difficulty is server-local, so it is only applied when {@code partida_local}.
+         * Called ONLY on the host's GUARDAR in the waiting room (never from a client).
+         */
+        public void applyToGameFrame(boolean partida_local) {
+            GameFrame.MANOS = handLimit;
+            GameFrame.REBUY = rebuy;
+            GameFrame.ANTE = ante;
+            GameFrame.STRADDLE = straddle;
+            GameFrame.IWTSTH_RULE = iwtsth;
+            GameFrame.RUN_IT_TWICE = runItTwice;
+            GameFrame.RABBIT_HUNTING = rabbit;
+            GameFrame.BOT_REBUY = botRebuy;
+            GameFrame.REBUY_LIMIT = rebuyLimit;
+            GameFrame.BLIND_CAP = blindCap;
+            GameFrame.BUYIN = buyin;
+            GameFrame.FIXED_BUYIN = fixedBuyin;
+            GameFrame.BUYIN_MIN_BB = minBb;
+            GameFrame.BUYIN_MAX_BB = maxBb;
+            GameFrame.REBUY_CAP_POLICY = rebuyCapPolicy;
+            GameFrame.CIEGA_GRANDE = bigBlind;
+            GameFrame.CIEGA_PEQUEÑA = smallBlind;
+            GameFrame.ACTIVE_BLIND_STRUCTURE = structure;
+            GameFrame.CIEGAS_DOUBLE = doubleEvery;
+            GameFrame.CIEGAS_DOUBLE_TYPE = doubleType;
+            if (partida_local) {
+                Bot.DIFFICULTY = difficulty;
+            }
         }
     }
 

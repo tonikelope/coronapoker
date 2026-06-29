@@ -84,7 +84,6 @@ public class NewGameDialog extends JDialog {
     private volatile boolean dialog_ok = false;
     private volatile boolean partida_local;
     private volatile File avatar = null;
-    private volatile boolean update = false;
     private volatile boolean init = false;
     private final static ConcurrentLinkedQueue<String> SERVER_HISTORY_QUEUE = loadServerHistory();
     private volatile int conta_history = SERVER_HISTORY_QUEUE.isEmpty() ? 0 : SERVER_HISTORY_QUEUE.size() - 1;
@@ -117,194 +116,6 @@ public class NewGameDialog extends JDialog {
 
     public boolean isDialog_ok() {
         return dialog_ok;
-    }
-
-    public NewGameDialog(java.awt.Frame parent, boolean modal) {
-        super(parent, modal);
-
-        initComponents();
-
-        blind_cap_spinner.addChangeListener((javax.swing.event.ChangeEvent e) -> updateBlindCapLabel());
-
-        Helpers.attachPasswordStrengthHint(pass_text);
-        Helpers.attachPasswordRevealButton(pass_text);
-
-        update = true;
-
-        partida_local = (WaitingRoomFrame.getInstance() != null && WaitingRoomFrame.getInstance().isServer());
-
-        titulo_ventana.setText(Translator.translate("game.modificar_opciones_de_la_timba"));
-
-        recover_checkbox_label.setText(Translator.translate("game.continuar_timba_anterior"));
-
-        scroll_panel.getVerticalScrollBar().setUnitIncrement(16);
-        scroll_panel.getHorizontalScrollBar().setUnitIncrement(16);
-        url_panel.setVisible(false);
-        nick_pass_panel.setVisible(false);
-        config_partida_panel.setVisible(true);
-
-        // Los presets solo aplican al CREAR una timba, no al modificar opciones en vivo.
-        presets_panel.setVisible(false);
-
-        this.recover_panel.setVisible(false);
-        this.vamos.setText(Translator.translate("ui.guardar"));
-
-        if (partida_local) {
-            DefaultComboBoxModel<String> bots_combobox_model = new DefaultComboBoxModel<>();
-
-            bots_combobox_model.addElement(Translator.translate("ui.bots_facil"));
-
-            bots_combobox_model.addElement(Translator.translate("ui.bots_media"));
-
-            bots_combobox_model.addElement(Translator.translate("ui.bots_dificil"));
-
-            bots_combobox.setModel(bots_combobox_model);
-
-            bots_combobox.setSelectedIndex(this.getCurrentBotLevel());
-
-            bots_label.setText(Translator.translate("ui.bots_dificultad"));
-
-            Helpers.setScaledIconLabel(bots_avatar_label, getClass().getResource("/images/avatar_bot.png"), 56, 56);
-
-        } else {
-            bots_panel.setVisible(false);
-        }
-
-        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
-
-        double_blinds_radio_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-
-        double_blinds_radio_manos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-
-        if (GameFrame.CIEGAS_DOUBLE_TYPE <= 1) {
-            doblar_ciegas_spinner_minutos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_minutos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
-            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
-            doblar_ciegas_spinner_manos.setEnabled(false);
-            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
-            double_blinds_radio_minutos.setSelected(true);
-            double_blinds_radio_manos.setSelected(false);
-        } else {
-            doblar_ciegas_spinner_manos.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-            doblar_ciegas_spinner_manos.setModel(new SpinnerNumberModel(GameFrame.CIEGAS_DOUBLE > 0 ? GameFrame.CIEGAS_DOUBLE : 60, 1, null, 1));
-            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_manos, false);
-            doblar_ciegas_spinner_minutos.setEnabled(false);
-            Helpers.makeNumericSpinnerEditable(doblar_ciegas_spinner_minutos, false);
-            double_blinds_radio_minutos.setSelected(false);
-            double_blinds_radio_manos.setSelected(true);
-        }
-
-        this.manos_spinner.setEnabled(GameFrame.MANOS > 0);
-        this.manos_checkbox.setSelected(GameFrame.MANOS > 0);
-        manos_spinner.setModel(new SpinnerNumberModel(GameFrame.MANOS > 0 ? GameFrame.MANOS : 100, 1, null, 1));
-        Helpers.makeNumericSpinnerEditable(manos_spinner, false);
-        ((javax.swing.JSpinner.DefaultEditor) manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-
-        this.rebuy_checkbox.setSelected(GameFrame.REBUY);
-        this.ante_checkbox.setSelected(GameFrame.ANTE);
-        this.straddle_checkbox.setSelected(GameFrame.STRADDLE);
-
-        // Reglas de juego (IWTSTH / Run It Twice / Rabbit) preseleccionadas con el
-        // estado actual de GameFrame. El combo de rabbit se rellena traducido aquí
-        // (índice 0..3 = off/free/free+sb/free+sb+bb).
-        this.iwtsth_checkbox.setSelected(GameFrame.IWTSTH_RULE);
-        this.rit_checkbox.setSelected(GameFrame.RUN_IT_TWICE);
-        this.rabbit_combo.setModel(new DefaultComboBoxModel<>(new String[]{
-            Translator.translate("menu.off"),
-            Translator.translate("menu.free"),
-            Translator.translate("menu.free_sb"),
-            Translator.translate("menu.free_sb_bb")
-        }));
-        this.rabbit_combo.setSelectedIndex(Math.min(Math.max(GameFrame.RABBIT_HUNTING, 0), 3));
-
-        this.doblar_checkbox.setSelected(GameFrame.CIEGAS_DOUBLE > 0);
-
-        this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
-        this.bot_rebuy_checkbox.setEnabled(GameFrame.REBUY);
-
-        this.fixed_buyin_checkbox.setSelected(GameFrame.FIXED_BUYIN);
-        this.buyin_spinner.setEnabled(GameFrame.FIXED_BUYIN);
-
-        initBuyinRangeAndCapUI();
-
-        this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
-        this.rebuy_limit_checkbox.setEnabled(GameFrame.REBUY);
-        this.rebuy_limit_spinner.setEnabled(GameFrame.REBUY && GameFrame.REBUY_LIMIT > 0);
-        this.rebuy_limit_spinner.setModel(new SpinnerNumberModel(GameFrame.REBUY_LIMIT > 0 ? GameFrame.REBUY_LIMIT : 3, 1, null, 1));
-        Helpers.makeNumericSpinnerEditable(rebuy_limit_spinner, false);
-
-        this.rebuy_cap_label.setEnabled(GameFrame.REBUY);
-        this.rebuy_cap_combo.setEnabled(GameFrame.REBUY);
-
-        this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
-        this.blind_cap_checkbox.setEnabled(GameFrame.CIEGAS_DOUBLE > 0);
-        setBlindCapControlsEnabled(GameFrame.CIEGAS_DOUBLE > 0 && GameFrame.BLIND_CAP > 0f);
-
-        // Selector de estructura: refleja la estructura activa (si la hay) y deja el
-        // combo de niveles con sus ciegas, para que la búsqueda de abajo seleccione
-        // el nivel actual también en estructuras personalizadas.
-        initBlindStructureUI();
-
-        String ciegas = BlindStructure.formatLevel(GameFrame.CIEGA_PEQUEÑA, GameFrame.CIEGA_GRANDE);
-
-        int i = 0, t = this.ciegas_combobox.getModel().getSize();
-
-        while (i < t) {
-            String item = this.ciegas_combobox.getItemAt(i);
-
-            if (item.equals(ciegas)) {
-                break;
-            }
-
-            i++;
-        }
-
-        int buyin_lo_ctor = BuyinRules.min(GameFrame.CIEGA_GRANDE, GameFrame.BUYIN_MIN_BB);
-        int buyin_hi_ctor = Math.max(buyin_lo_ctor, BuyinRules.max(GameFrame.CIEGA_GRANDE, GameFrame.BUYIN_MAX_BB));
-        buyin_spinner.setModel(new SpinnerNumberModel(Math.max(buyin_lo_ctor, Math.min((int) GameFrame.BUYIN, buyin_hi_ctor)), buyin_lo_ctor, buyin_hi_ctor, (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
-
-        Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
-
-        if (i < t) {
-            this.ciegas_combobox.setSelectedIndex(i);
-        }
-
-        modelBlindCapSpinner(blindCapDoublingsFromCap());
-
-        Helpers.setTranslatedTitle(this, update ? "update.actualizar_timba" : (partida_local ? "ui.crear_timba" : "ui.unirme_a_timba"));
-        Helpers.updateFonts(this, Helpers.GUI_FONT, null);
-        Helpers.translateComponents(this, false);
-
-        applyGroupTitledBorders();
-
-        updateAnteStraddleLabels();
-
-        pack();
-
-        // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
-        // tareas), no al tamano total de pantalla: en baja resolucion la
-        // ventana cabe entera por encima de la barra de tareas y el scroll
-        // vertical del scroll_panel cubre el resto. Los botones VAMOS/CANCELAR
-        // quedan fijos abajo (fuera del scroll), siempre visibles.
-        Rectangle usable_bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-
-        int w = Math.min(getWidth(), Math.round(usable_bounds.width * 0.95f));
-
-        int h = Math.min(getHeight(), Math.round(usable_bounds.height * 0.95f));
-
-        if (w != getWidth() || h != getHeight()) {
-            setSize(w, h);
-
-            setPreferredSize(getSize());
-
-            pack();
-
-            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), usable_bounds.width, 0.1f);
-
-        }
-
-        init = true;
-
     }
 
     @Override
@@ -1700,36 +1511,79 @@ public class NewGameDialog extends JDialog {
         // Guard de re-entrada: en el flujo force_recover, formWindowActivated invoca
         // este método directamente. Si un modal devolviera el foco al diálogo se
         // encolaría una segunda activación que, sin guard, re-entraría y crearía un
-        // SEGUNDO WaitingRoomFrame (rama else, update=false). dialog_ok solo se pone
-        // a true tras un commit exitoso, así que cortar aquí no afecta a la primera
-        // llamada ni a reintentos tras error de validación (dejan dialog_ok=false).
+        // SEGUNDO WaitingRoomFrame. dialog_ok solo se pone a true tras un commit
+        // exitoso, así que cortar aquí no afecta a la primera llamada ni a reintentos
+        // tras error de validación (dejan dialog_ok=false).
         if (dialog_ok) {
             return;
         }
         vamos.setEnabled(false);
 
-        if (update) {
+        // La rama UPDATE (modificar opciones en la sala) se eliminó: esa edición vive
+        // ahora en la rueda (SettingsDialog -> pestaña Partida). Aquí solo queda CREAR/unirse.
+        if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
+
+            vamos.setEnabled(false);
+
+            Audio.playWavResource("misc/laser.wav");
+
+            String elnick = this.nick.getText().trim().replaceAll("\\$", "");
+
+            Helpers.PROPERTIES.setProperty("nick", elnick);
+
+            // Identity: load or generate the Ed25519 keypair bound to the nick the user
+            // is about to enter the waiting room. Per-nick files in CORONA_DIR let different
+            // test instances on the same machine use distinct identities, and switching back
+            // to a known nick reloads the existing keypair. Abort the join if storage fails —
+            // networked games cannot proceed without a stable identity.
+            IdentityManager im = IdentityManager.initializeForNick(elnick);
+            if (!im.isReady()) {
+                vamos.setEnabled(true);
+                Helpers.mostrarMensajeError(getContentPane(),
+                        Translator.translate("ui.identity.load_error", im.getLoadError()));
+                return;
+            }
+
+            if (this.partida_local) {
+                Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
+            } else {
+
+                Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
+
+                if (SERVER_HISTORY_QUEUE.contains(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim())) {
+
+                    SERVER_HISTORY_QUEUE.remove(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim());
+                }
+
+                SERVER_HISTORY_QUEUE.add(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim());
+
+                Helpers.PROPERTIES.setProperty("server_history", getServerHistoryString());
+            }
+
+            Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
+
+            if (this.avatar != null) {
+                Helpers.PROPERTIES.setProperty("avatar", this.avatar.getAbsolutePath());
+            } else {
+                Helpers.PROPERTIES.setProperty("avatar", "");
+            }
+
+            Helpers.savePropertiesFile();
+
+            GameFrame.setRECOVER(this.recover_checkbox.isSelected());
+
+            if (GameFrame.RECOVER) {
+                GameFrame.RECOVER_ID = (int) game.get(this.last_game_key).get("id");
+            }
 
             if (this.manos_checkbox.isSelected()) {
 
                 GameFrame.MANOS = (int) this.manos_spinner.getValue();
-
             } else {
-
                 GameFrame.MANOS = -1;
             }
 
             GameFrame.REBUY = this.rebuy_checkbox.isSelected();
-
-            GameFrame.ANTE = this.ante_checkbox.isSelected();
-
-            GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
-
-            GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
-
-            GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
-
-            GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
 
             GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
 
@@ -1739,23 +1593,44 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
-            GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
+            // Modo de buy-in, rango [min,max] BB y política de tope de recompra: en
+            // RECOVER NO se tocan (los restaura applyRecoverSettings al cargar la
+            // timba anterior; sus controles están deshabilitados con valores stale).
+            // Sin este guard, los spinners/combo deshabilitados pisarían la config
+            // recuperada con los valores por defecto y la re-persistirían corrupta.
+            if (!GameFrame.RECOVER) {
+                GameFrame.ANTE = this.ante_checkbox.isSelected();
 
-            GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
+                GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
 
-            GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
+                GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
 
-            GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+                GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
+
+                GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
+
+                GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
+
+                GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
+
+                GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
+
+                GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+            }
 
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 
-            GameFrame.CIEGA_GRANDE = Double.valueOf(valores_ciegas[1].trim());
+            GameFrame.CIEGA_GRANDE = Double.parseDouble(valores_ciegas[1].trim());
 
-            GameFrame.CIEGA_PEQUEÑA = Double.valueOf(valores_ciegas[0].trim());
+            GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(valores_ciegas[0].trim());
 
-            // Estructura personalizada activa (null = escalera por defecto). Viaja a
-            // los clientes y se persiste en recover desde aquí (ver C5/C6).
-            GameFrame.ACTIVE_BLIND_STRUCTURE = pending_structure != null ? pending_structure.getLevels() : null;
+            // Estructura personalizada activa (null = escalera por defecto). En
+            // RECOVER no se toca: la restaura applyRecoverSettings al cargar la
+            // timba anterior. En timba nueva refleja la estructura del combo y
+            // viaja a los clientes en el INIT (C5).
+            if (!GameFrame.RECOVER) {
+                GameFrame.ACTIVE_BLIND_STRUCTURE = pending_structure != null ? pending_structure.getLevels() : null;
+            }
 
             if (this.doblar_checkbox.isSelected()) {
 
@@ -1771,183 +1646,46 @@ public class NewGameDialog extends JDialog {
                 GameFrame.CIEGAS_DOUBLE = 0;
             }
 
+            // Issue#9: en recover, BUYIN/CIEGAS/CIEGAS_DOUBLE/REBUY del spinner
+            // son los valores por defecto del form (no se cargan desde la timba
+            // a continuar — los controles solo se deshabilitan visualmente).
+            // Cargar la verdad desde la fila game antes de WaitingRoomFrame +
+            // GameFrame para que un late-joiner que se siente en la mesa
+            // capture el BUYIN correcto en su slot (RemotePlayer field
+            // initializer + loop simetrico setStack/setBuyin en GameFrame
+            // constructor).
+            if (GameFrame.RECOVER) {
+                GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
+            }
+
             commitBotDifficultyFromCombo();
 
             this.dialog_ok = true;
 
-            setVisible(false);
-
-            WaitingRoomFrame.getInstance().pack();
-
-        } else {
-
-            if (!this.nick.getText().trim().isEmpty() && !this.server_ip_textfield.getText().trim().isEmpty() && !this.server_port_textfield.getText().trim().isEmpty()) {
-
-                vamos.setEnabled(false);
-
-                Audio.playWavResource("misc/laser.wav");
-
-                String elnick = this.nick.getText().trim().replaceAll("\\$", "");
-
-                Helpers.PROPERTIES.setProperty("nick", elnick);
-
-                // Identity: load or generate the Ed25519 keypair bound to the nick the user
-                // is about to enter the waiting room. Per-nick files in CORONA_DIR let different
-                // test instances on the same machine use distinct identities, and switching back
-                // to a known nick reloads the existing keypair. Abort the join if storage fails —
-                // networked games cannot proceed without a stable identity.
-                IdentityManager im = IdentityManager.initializeForNick(elnick);
-                if (!im.isReady()) {
-                    vamos.setEnabled(true);
-                    Helpers.mostrarMensajeError(getContentPane(),
-                            Translator.translate("ui.identity.load_error", im.getLoadError()));
-                    return;
+            // Identity: warn the host if the game password is weak.
+            // Non-blocking informational popup — the user dismisses with OK and proceeds.
+            if (this.partida_local && pass_text.getPassword().length > 0) {
+                String pwd = new String(pass_text.getPassword());
+                int entropyBits = Helpers.estimatePasswordEntropyBits(pwd);
+                if (entropyBits < 60) {
+                    Helpers.mostrarMensajeInformativo(
+                            getContentPane(),
+                            Translator.translate("ui.password_debil_aviso", entropyBits));
                 }
-
-                if (this.partida_local) {
-                    Helpers.PROPERTIES.setProperty("local_ip", this.server_ip_textfield.getText().trim());
-                } else {
-
-                    Helpers.PROPERTIES.setProperty("server_ip", this.server_ip_textfield.getText().trim());
-
-                    if (SERVER_HISTORY_QUEUE.contains(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim())) {
-
-                        SERVER_HISTORY_QUEUE.remove(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim());
-                    }
-
-                    SERVER_HISTORY_QUEUE.add(this.server_ip_textfield.getText().trim() + ":" + this.server_port_textfield.getText().trim());
-
-                    Helpers.PROPERTIES.setProperty("server_history", getServerHistoryString());
-                }
-
-                Helpers.PROPERTIES.setProperty(this.partida_local ? "local_port" : "server_port", this.server_port_textfield.getText().trim());
-
-                if (this.avatar != null) {
-                    Helpers.PROPERTIES.setProperty("avatar", this.avatar.getAbsolutePath());
-                } else {
-                    Helpers.PROPERTIES.setProperty("avatar", "");
-                }
-
-                Helpers.savePropertiesFile();
-
-                GameFrame.setRECOVER(this.recover_checkbox.isSelected());
-
-                if (GameFrame.RECOVER) {
-                    GameFrame.RECOVER_ID = (int) game.get(this.last_game_key).get("id");
-                }
-
-                if (this.manos_checkbox.isSelected()) {
-
-                    GameFrame.MANOS = (int) this.manos_spinner.getValue();
-                } else {
-                    GameFrame.MANOS = -1;
-                }
-
-                GameFrame.REBUY = this.rebuy_checkbox.isSelected();
-
-                GameFrame.BOT_REBUY = this.bot_rebuy_checkbox.isSelected();
-
-                GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
-
-                GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0f;
-
-                GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
-
-                // Modo de buy-in, rango [min,max] BB y política de tope de recompra: en
-                // RECOVER NO se tocan (los restaura applyRecoverSettings al cargar la
-                // timba anterior; sus controles están deshabilitados con valores stale).
-                // Sin este guard, los spinners/combo deshabilitados pisarían la config
-                // recuperada con los valores por defecto y la re-persistirían corrupta.
-                if (!GameFrame.RECOVER) {
-                    GameFrame.ANTE = this.ante_checkbox.isSelected();
-
-                    GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
-
-                    GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
-
-                    GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
-
-                    GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
-
-                    GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
-
-                    GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
-
-                    GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
-
-                    GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
-                }
-
-                String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
-
-                GameFrame.CIEGA_GRANDE = Double.parseDouble(valores_ciegas[1].trim());
-
-                GameFrame.CIEGA_PEQUEÑA = Double.parseDouble(valores_ciegas[0].trim());
-
-                // Estructura personalizada activa (null = escalera por defecto). En
-                // RECOVER no se toca: la restaura applyRecoverSettings al cargar la
-                // timba anterior. En timba nueva refleja la estructura del combo y
-                // viaja a los clientes en el INIT (C5).
-                if (!GameFrame.RECOVER) {
-                    GameFrame.ACTIVE_BLIND_STRUCTURE = pending_structure != null ? pending_structure.getLevels() : null;
-                }
-
-                if (this.doblar_checkbox.isSelected()) {
-
-                    if (this.double_blinds_radio_minutos.isSelected()) {
-                        GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_minutos.getValue();
-                        GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-                    } else {
-                        GameFrame.CIEGAS_DOUBLE = (int) this.doblar_ciegas_spinner_manos.getValue();
-                        GameFrame.CIEGAS_DOUBLE_TYPE = 2;
-                    }
-                } else {
-                    GameFrame.CIEGAS_DOUBLE_TYPE = 1;
-                    GameFrame.CIEGAS_DOUBLE = 0;
-                }
-
-                // Issue#9: en recover, BUYIN/CIEGAS/CIEGAS_DOUBLE/REBUY del spinner
-                // son los valores por defecto del form (no se cargan desde la timba
-                // a continuar — los controles solo se deshabilitan visualmente).
-                // Cargar la verdad desde la fila game antes de WaitingRoomFrame +
-                // GameFrame para que un late-joiner que se siente en la mesa
-                // capture el BUYIN correcto en su slot (RemotePlayer field
-                // initializer + loop simetrico setStack/setBuyin en GameFrame
-                // constructor).
-                if (GameFrame.RECOVER) {
-                    GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
-                }
-
-                commitBotDifficultyFromCombo();
-
-                this.dialog_ok = true;
-
-                // Identity: warn the host if the game password is weak.
-                // Non-blocking informational popup — the user dismisses with OK and proceeds.
-                if (this.partida_local && pass_text.getPassword().length > 0) {
-                    String pwd = new String(pass_text.getPassword());
-                    int entropyBits = Helpers.estimatePasswordEntropyBits(pwd);
-                    if (entropyBits < 60) {
-                        Helpers.mostrarMensajeInformativo(
-                                getContentPane(),
-                                Translator.translate("ui.password_debil_aviso", entropyBits));
-                    }
-                }
-
-                WaitingRoomFrame espera = new WaitingRoomFrame(partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
-
-                WaitingRoomFrame.setInstance(espera);
-
-                espera.setLocationRelativeTo(this);
-
-                setVisible(false);
-
-                espera.setVisible(true);
-
-            } else {
-                Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.faltan_campos"));
             }
 
+            WaitingRoomFrame espera = new WaitingRoomFrame(partida_local, elnick, server_ip_textfield.getText().trim() + ":" + server_port_textfield.getText().trim(), avatar, pass_text.getPassword().length == 0 ? null : new String(pass_text.getPassword()), upnp_checkbox.isSelected());
+
+            WaitingRoomFrame.setInstance(espera);
+
+            espera.setLocationRelativeTo(this);
+
+            setVisible(false);
+
+            espera.setVisible(true);
+
+        } else {
+            Helpers.mostrarMensajeError(getContentPane(), Translator.translate("ui.error.faltan_campos"));
         }
 
     }//GEN-LAST:event_vamosActionPerformed
@@ -2448,18 +2186,9 @@ public class NewGameDialog extends JDialog {
         ciegas_comboboxActionPerformed(null);
     }
 
-    // Inicializa el selector de estructura desde el estado actual
-    // (GameFrame.ACTIVE_BLIND_STRUCTURE). Si hay una estructura personalizada activa
-    // y sigue existiendo, puebla el combo de niveles con la suya y la selecciona; si
-    // no, deja la escalera por defecto. Llamar ANTES de la lógica que busca y
-    // selecciona el nivel de ciega actual en el combo.
-    private void initBlindStructureUI() {
-        initBlindStructureUIFrom(GameFrame.ACTIVE_BLIND_STRUCTURE);
-    }
-
-    // Igual que initBlindStructureUI pero tomando la estructura activa como
-    // parámetro (null = escalera por defecto), para que cargar un preset refleje
-    // SU estructura en el combo sin pasar por GameFrame.
+    // Inicializa el selector de estructura tomando la estructura activa como parámetro
+    // (null = escalera por defecto), reflejándola en el combo de niveles. Llamar ANTES de
+    // la lógica que busca y selecciona el nivel de ciega actual en el combo.
     private void initBlindStructureUIFrom(double[][] active) {
         pending_structure = null;
         String selectName = null;

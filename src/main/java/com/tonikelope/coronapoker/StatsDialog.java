@@ -320,7 +320,23 @@ public class StatsDialog extends JFrame {
 
         setExtendedState(getExtendedState() | java.awt.Frame.MAXIMIZED_BOTH);
 
-        stats_db_executor.submit(this::loadGames);
+        stats_db_executor.submit(() -> {
+            loadGames();
+            // Vista por defecto al abrir: la última timba (la más reciente, índice 1 tras
+            // "todas las timbas") con la subconsulta de ganancias/pérdidas, consultada
+            // automáticamente. Seleccionar la timba encola loadGameData + loadHands en este
+            // mismo executor de un solo hilo; fijamos la stat en una tarea POSTERIOR para
+            // que el hand_combo ya esté poblado (índice 0) cuando corra la consulta —igual
+            // que en el flujo manual— y no se dispare dos veces. Si no hay timbas, se queda
+            // en "todas las timbas".
+            Helpers.GUIRunAndWait(() -> {
+                if (game_combo.getItemCount() > 1) {
+                    game_combo.setSelectedIndex(1);
+                }
+            });
+            stats_db_executor.submit(() -> Helpers.GUIRun(()
+                    -> stats_combo.setSelectedItem(Translator.translate("ui.gananciasperdidas"))));
+        });
 
         init = false;
     }

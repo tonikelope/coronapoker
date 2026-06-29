@@ -179,7 +179,10 @@ public final class StatsSync {
 
     public static List<String> listShareableUgis(Connection conn) throws Exception {
         List<String> out = new ArrayList<>();
-        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND local = 0 AND end IS NOT NULL";
+        // private = 1 games are deliberately withheld from sync (the user marked
+        // them as not shareable), regardless of the global "share" preference. The
+        // NULL guard covers pre-migration rows (before the column existed).
+        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND local = 0 AND end IS NOT NULL AND (private IS NULL OR private = 0)";
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 out.add(rs.getString("ugi"));

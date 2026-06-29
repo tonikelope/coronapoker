@@ -90,6 +90,16 @@ public class StatsDialog extends JFrame {
     private javax.swing.JCheckBox receive_stats_checkbox;
     private javax.swing.JCheckBox share_stats_checkbox;
 
+    // "Partida privada": una timba marcada como privada NUNCA se comparte por la
+    // sync P2P, aunque "Compartir" esté activo (ver StatsSync.listShareableUgis).
+    // Componentes hand-añadidos (no en el .form, como el resto de extras de este
+    // diálogo): un banner sobre "Duración" (clic derecho -> quitar la marca), un
+    // botón por-timba y dos botones globales (como purgar) junto al filtro.
+    private javax.swing.JLabel private_game_label;
+    private javax.swing.JButton private_game_button;
+    private javax.swing.JButton private_all_button;
+    private javax.swing.JButton unprivate_all_button;
+
     // StatsDialog hace TODO su trabajo de fondo (consultas a la conexión SQLite
     // compartida + lectura de logs/chat) en UN solo hilo. Antes,
     // game_comboItemStateChanged disparaba loadGameData + loadHands + el stat A LA VEZ
@@ -283,6 +293,111 @@ public class StatsDialog extends JFrame {
         content_wrapper.add(sync_stats_bar, java.awt.BorderLayout.SOUTH);
         setContentPane(content_wrapper);
 
+        // ====================================================================
+        // "Partida privada" (hand-añadido, fuera del .form como el resto de
+        // extras de este diálogo). Se construye ANTES de updateFonts/
+        // translateComponents para que herede fuente e i18n como los demás.
+        // ====================================================================
+        // Banner sobre "Duración" (solo visible si la timba seleccionada es privada).
+        private_game_label = new javax.swing.JLabel(Translator.translate("stats.partida_privada"),
+                new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")), javax.swing.SwingConstants.LEFT);
+        private_game_label.putClientProperty("i18n.key", "stats.partida_privada");
+        private_game_label.setForeground(new java.awt.Color(204, 0, 0));
+        private_game_label.setIconTextGap(8);
+        private_game_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        private_game_label.setToolTipText(Translator.translate("stats.quitar_privada"));
+        private_game_label.setVisible(false);
+
+        // Clic derecho sobre el banner -> "Quitar privada" (desmarca la timba seleccionada).
+        javax.swing.JPopupMenu unprivate_popup = new javax.swing.JPopupMenu();
+        javax.swing.JMenuItem unprivate_item = new javax.swing.JMenuItem(Translator.translate("stats.quitar_privada"),
+                new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
+        unprivate_item.putClientProperty("i18n.key", "stats.quitar_privada");
+        unprivate_item.addActionListener(e -> setSelectedGamePrivateAsync(false));
+        unprivate_popup.add(unprivate_item);
+        private_game_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                maybePopup(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                maybePopup(e);
+            }
+
+            private void maybePopup(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger() && private_game_label.isVisible()) {
+                    unprivate_popup.show(private_game_label, e.getX(), e.getY());
+                }
+            }
+        });
+
+        // Inserta el banner sobre "Duración": envuelve la etiqueta de duración en un
+        // BorderLayout con el banner al norte. replace() conserva el hueco del
+        // GroupLayout generado en el .form sin tocarlo.
+        javax.swing.JPanel playtime_label_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout(0, 2));
+        playtime_label_wrapper.setOpaque(false);
+        ((javax.swing.GroupLayout) game_data_panel.getLayout()).replace(game_playtime_label, playtime_label_wrapper);
+        playtime_label_wrapper.add(private_game_label, java.awt.BorderLayout.NORTH);
+        playtime_label_wrapper.add(game_playtime_label, java.awt.BorderLayout.CENTER);
+
+        // Botón por-timba: marcar la timba seleccionada como privada (junto a eliminar).
+        private_game_button = new javax.swing.JButton(Translator.translate("stats.hacer_privada"),
+                new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
+        private_game_button.putClientProperty("i18n.key", "stats.hacer_privada");
+        private_game_button.setBackground(new java.awt.Color(0, 0, 0));
+        private_game_button.setForeground(new java.awt.Color(255, 255, 255));
+        private_game_button.setFont(new java.awt.Font("Dialog", 1, 14));
+        private_game_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        private_game_button.addActionListener(e -> setSelectedGamePrivateAsync(true));
+
+        // Cap a tamaño preferido: el "glue" izquierdo de la fila absorbe el espacio
+        // extra y mantiene los botones pegados a la derecha.
+        javax.swing.JPanel delete_button_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 18, 0)) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return getPreferredSize();
+            }
+        };
+        delete_button_group.setOpaque(false);
+        ((javax.swing.GroupLayout) game_data_panel.getLayout()).replace(delete_game_button, delete_button_group);
+        delete_button_group.add(private_game_button);
+        delete_button_group.add(delete_game_button);
+
+        // Botones globales (como purgar): marcar / desmarcar privadas TODAS las
+        // timbas del jugador filtrado. Activos solo con filtro de jugador.
+        private_all_button = new javax.swing.JButton(Translator.translate("stats.hacer_privadas"),
+                new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
+        private_all_button.putClientProperty("i18n.key", "stats.hacer_privadas");
+        private_all_button.setBackground(new java.awt.Color(0, 0, 0));
+        private_all_button.setForeground(new java.awt.Color(255, 255, 255));
+        private_all_button.setFont(new java.awt.Font("Dialog", 1, 14));
+        private_all_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        private_all_button.addActionListener(e -> markFilteredGamesPrivateAsync(true));
+
+        unprivate_all_button = new javax.swing.JButton(Translator.translate("stats.quitar_privadas"));
+        unprivate_all_button.putClientProperty("i18n.key", "stats.quitar_privadas");
+        unprivate_all_button.setBackground(new java.awt.Color(0, 0, 0));
+        unprivate_all_button.setForeground(new java.awt.Color(255, 255, 255));
+        unprivate_all_button.setFont(new java.awt.Font("Dialog", 1, 14));
+        unprivate_all_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        unprivate_all_button.addActionListener(e -> markFilteredGamesPrivateAsync(false));
+
+        // getMaximumSize -> preferido: que NO crezca y robe espacio al game_combo
+        // (el único que debe estirarse en esta fila).
+        javax.swing.JPanel purge_button_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 6, 0)) {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return getPreferredSize();
+            }
+        };
+        purge_button_group.setOpaque(false);
+        ((javax.swing.GroupLayout) stats_panel.getLayout()).replace(purge_games_button, purge_button_group);
+        purge_button_group.add(purge_games_button);
+        purge_button_group.add(private_all_button);
+        purge_button_group.add(unprivate_all_button);
+
         Font original_dialog_font = res_table.getFont();
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
@@ -293,6 +408,9 @@ public class StatsDialog extends JFrame {
         Font sync_checkbox_font = receive_stats_checkbox.getFont().deriveFont(receive_stats_checkbox.getFont().getSize2D() + 2f);
         receive_stats_checkbox.setFont(sync_checkbox_font);
         share_stats_checkbox.setFont(sync_checkbox_font);
+
+        // Banner "PARTIDA PRIVADA" en negrita (updateFonts lo dejó en redonda).
+        private_game_label.setFont(private_game_label.getFont().deriveFont(java.awt.Font.BOLD));
 
         pack();
         res_table.setFont(original_dialog_font);
@@ -309,7 +427,7 @@ public class StatsDialog extends JFrame {
 
         cargando.setVisible(false);
 
-        purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+        refreshFilterButtonsEnabled();
 
         pack();
 
@@ -1282,6 +1400,7 @@ public class StatsDialog extends JFrame {
                 boolean found = false;
                 boolean logEnabled = false;
                 boolean chatEnabled = false;
+                boolean isPrivate = false;
                 String playtimeText = "";
                 String playersText = "";
                 String buyinText = "";
@@ -1314,6 +1433,7 @@ public class StatsDialog extends JFrame {
                             blindsText = Helpers.money2String(rs.getDouble("sb")) + " / " + Helpers.money2String(rs.getDouble("sb") * 2);
                             blindsDoubleText = rs.getInt("blinds_time") != -1 ? String.valueOf(rs.getInt("blinds_time")) + (rs.getInt("blinds_time_type") <= 1 ? " min" : " *") : "NO";
                             rebuyText = rs.getBoolean("rebuy") ? Translator.translate("ui.si") : "NO";
+                            isPrivate = rs.getInt("private") == 1;
                         }
                     }
                 } catch (Exception ex) {
@@ -1330,6 +1450,7 @@ public class StatsDialog extends JFrame {
                 final String fBlinds = blindsText;
                 final String fBlindsDouble = blindsDoubleText;
                 final String fRebuy = rebuyText;
+                final boolean fPrivate = isPrivate;
 
                 Helpers.GUIRunAndWait(() -> {
                     game_textarea_scrollpane.setVisible(false);
@@ -1344,6 +1465,7 @@ public class StatsDialog extends JFrame {
                         game_blinds_double_val.setText(fBlindsDouble);
                         game_rebuy_val.setText(fRebuy);
                     }
+                    refreshPrivateUI(fFound && fPrivate);
                 });
             } finally {
                 Helpers.GUIRunAndWait(() -> {
@@ -1351,7 +1473,7 @@ public class StatsDialog extends JFrame {
                     setEnabled(true);
                     game_data_panel.setVisible(true);
                     game_combo_blocked = false;
-                    purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+                    refreshFilterButtonsEnabled();
                 });
             }
         });
@@ -1857,6 +1979,133 @@ public class StatsDialog extends JFrame {
         return true;
     }
 
+    // =====================================================================
+    // "Partida privada" — una timba privada nunca se comparte por la sync P2P
+    // (StatsSync.listShareableUgis la excluye), aunque "Compartir" esté activo.
+    // El flag es puramente local (no viaja en el payload de sincronización).
+    // =====================================================================
+
+    /** EDT. Sincroniza los 3 botones de la barra (purgar + privadas globales) con el filtro de jugador. */
+    private void refreshFilterButtonsEnabled() {
+        boolean filter_active = game_combo_filter.getBackground() == Color.YELLOW;
+        purge_games_button.setEnabled(filter_active);
+        private_all_button.setEnabled(filter_active);
+        unprivate_all_button.setEnabled(filter_active);
+    }
+
+    /** EDT. Muestra/oculta el banner y habilita el botón "HACER PRIVADA" según el estado de la timba seleccionada. */
+    private void refreshPrivateUI(boolean is_private) {
+        private_game_label.setVisible(is_private);
+        private_game_button.setEnabled(!is_private);
+        java.awt.Container parent = private_game_label.getParent();
+        if (parent != null) {
+            parent.revalidate();
+            parent.repaint();
+        }
+    }
+
+    /** Marca/desmarca como privada la timba seleccionada (off-EDT) y refresca el banner/botón. */
+    private void setSelectedGamePrivateAsync(boolean priv) {
+        Helpers.GUIRun(() -> private_game_button.setEnabled(false));
+        stats_db_executor.submit(() -> {
+            boolean ok = setSelectedGamePrivate(priv);
+            // Si falla, refleja el estado real (sin cambios).
+            Helpers.GUIRun(() -> refreshPrivateUI(ok ? priv : !priv));
+        });
+    }
+
+    /** Off-EDT. UPDATE del flag private de la timba seleccionada + coherencia del mapa en memoria. */
+    private boolean setSelectedGamePrivate(boolean priv) {
+        final int[] idHolder = {-1};
+        Helpers.GUIRunAndWait(() -> {
+            HashMap<String, Object> g = game.get((String) game_combo.getSelectedItem());
+            if (g != null) {
+                idHolder[0] = (int) g.get("id");
+            }
+        });
+
+        if (idHolder[0] == -1) {
+            return false;
+        }
+
+        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement("UPDATE game SET private=? WHERE id=?")) {
+            statement.setQueryTimeout(30);
+            statement.setInt(1, priv ? 1 : 0);
+            statement.setInt(2, idHolder[0]);
+            statement.executeUpdate();
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
+
+        // Mantener el mapa en memoria coherente (lo consulta la selección de timba).
+        Helpers.GUIRun(() -> {
+            HashMap<String, Object> g = game.get((String) game_combo.getSelectedItem());
+            if (g != null) {
+                g.put("private", priv ? 1 : 0);
+            }
+        });
+
+        return true;
+    }
+
+    /** Marca/desmarca privadas TODAS las timbas del jugador filtrado (como purgar), con confirmación. */
+    private void markFilteredGamesPrivateAsync(boolean priv) {
+        Helpers.GUIRun(() -> {
+            private_all_button.setEnabled(false);
+            unprivate_all_button.setEnabled(false);
+        });
+
+        String confirm_key = priv ? "player.marcar_privadas_todas_las_timbas" : "player.quitar_privadas_todas_las_timbas";
+
+        if (Helpers.mostrarMensajeInformativoSINO(getContentPane(), Translator.translate(confirm_key), new ImageIcon(Init.class.getResource("/images/lock.png"))) == 0) {
+            stats_db_executor.submit(() -> {
+                if (setFilteredGamesPrivate(priv)) {
+                    Helpers.mostrarMensajeInformativo(getContentPane(), Translator.translate(priv ? "player.se_han_marcado_privadas_todas" : "player.se_han_quitado_privadas_todas"), new ImageIcon(Init.class.getResource("/images/lock.png")));
+                    loadGames();
+                    Helpers.GUIRun(() -> {
+                        game_combo.setSelectedIndex(0);
+                        game_data_panel.setVisible(false);
+                    });
+                }
+                Helpers.GUIRun(this::refreshFilterButtonsEnabled);
+            });
+        } else {
+            Helpers.GUIRun(this::refreshFilterButtonsEnabled);
+        }
+    }
+
+    /** Off-EDT. UPDATE del flag private para todas las timbas actualmente en el combo (= las del jugador filtrado). */
+    private boolean setFilteredGamesPrivate(boolean priv) {
+        final String[][] idsHolder = new String[1][];
+        Helpers.GUIRunAndWait(() -> {
+            if (game_combo.getItemCount() > 1) {
+                String[] ids = new String[game_combo.getItemCount() - 1];
+                for (int i = 1; i <= ids.length; i++) {
+                    ids[i - 1] = String.valueOf((int) game.get((String) game_combo.getItemAt(i)).get("id"));
+                }
+                idsHolder[0] = ids;
+            }
+        });
+
+        if (idsHolder[0] == null) {
+            return false;
+        }
+
+        // ids vienen de nuestro propio mapa (enteros), no de texto del usuario — como en deleteAllGames.
+        String sql = "UPDATE game SET private=" + (priv ? 1 : 0) + " WHERE id in (" + String.join(",", idsHolder[0]) + ")";
+
+        try (Statement statement = Helpers.getSQLITE().createStatement()) {
+            statement.setQueryTimeout(30);
+            statement.executeUpdate(sql);
+        } catch (SQLException ex) {
+            Logger.getLogger(StatsDialog.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
+
+        return true;
+    }
+
     private void loadGames() {
 
         Helpers.GUIRunAndWait(() -> {
@@ -1896,6 +2145,7 @@ public class StatsDialog extends JFrame {
                         HashMap<String, Object> map = new HashMap<>();
                         map.put("id", rs.getInt("id"));
                         map.put("start_timestamp", rs.getLong("start"));
+                        map.put("private", rs.getInt("private"));
                         String game_length = Helpers.seconds2FullTime(rs.getLong("play_time"));
                         loaded.put(rs.getString("server") + " @ " + timeZoneFormat.format(date) + " @ " + game_length, map);
                     }
@@ -1917,7 +2167,7 @@ public class StatsDialog extends JFrame {
             if (filtro != null && loaded.isEmpty()) {
                 game_combo_filter.setBackground(Color.RED);
             }
-            purge_games_button.setEnabled(game_combo_filter.getBackground() == Color.YELLOW);
+            refreshFilterButtonsEnabled();
         });
 
         Helpers.GUIRunAndWait(() -> {

@@ -264,7 +264,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // importe). Solo aplica con AUTO_ACTION_BUTTONS activo. En fichas (la ficha
     // mínima del motor es el céntimo, 0,01).
     public static volatile boolean AUTO_CALL_ENABLED = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_call_enabled", "false"));
-    public static volatile double AUTO_CALL_MAX = Double.parseDouble(Helpers.PROPERTIES.getProperty("auto_call_max", "1.0"));
+    public static volatile double AUTO_CALL_MAX = Double.parseDouble(Helpers.PROPERTIES.getProperty("auto_call_max", "0.0"));
     public static volatile String COLOR_TAPETE = Helpers.PROPERTIES.getProperty("color_tapete", "verde");
     public static volatile String LANGUAGE = Helpers.PROPERTIES.getProperty("lenguaje", "es").toLowerCase();
     public static volatile boolean CINEMATICAS_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("cinematicas", "true"));
@@ -5417,6 +5417,15 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // Abre el diálogo modal de AUTO CALL: checkbox Activado (on/off) + spinner del
     // límite (0 = sin límite, sin tope por arriba).
     public void openAutoCallMaxDialog() {
+        // Por seguridad, al abrir el ajuste desarmamos cualquier pre-pulsado de los
+        // botones AUTO: el umbral puede estar a punto de cambiar y no queremos que un
+        // check/call ya armado dispare con el límite viejo si nos llega el turno con el
+        // diálogo abierto.
+        LocalPlayer lp = getLocalPlayer();
+        if (lp != null) {
+            lp.desPrePulsarAutoTodo();
+        }
+
         AutoCallMaxDialog dlg = new AutoCallMaxDialog(this, GameFrame.AUTO_CALL_ENABLED, GameFrame.AUTO_CALL_MAX);
         dlg.setVisible(true);
         if (dlg.isAccepted()) {

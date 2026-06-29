@@ -185,12 +185,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // NO depende de este flag: su contador se da SIEMPRE.
     public static volatile boolean ANIMACION_CONTADORES_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_contadores", "true"));
 
-    // Sincronización P2P de estadísticas: dos preferencias globales independientes.
-    // RECIBIR = importar las partidas que me faltan al conectar a un servidor (ON
-    // por defecto). COMPARTIR = enviar mis partidas que al otro le faltan (OFF por
-    // defecto: privacidad de fábrica, el dato solo se propaga si el usuario lo activa).
+    // Sincronización P2P de estadísticas: dos preferencias globales independientes,
+    // ambas ON por defecto. RECIBIR = importar las partidas que me faltan al conectar
+    // a un servidor. COMPARTIR = enviar mis partidas que al otro le faltan (las timbas
+    // marcadas como privadas nunca se propagan, aunque COMPARTIR esté activo).
     public static volatile boolean SYNC_STATS_RECEIVE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_receive", "true"));
-    public static volatile boolean SYNC_STATS_SHARE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_share", "false"));
+    public static volatile boolean SYNC_STATS_SHARE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_share", "true"));
 
     // Maestro de animaciones: GATE global. Los 5 flags *_PREF (CINEMATICAS_PREF y los 4
     // ANIMACION_*_PREF) guardan la PREFERENCIA cruda de cada efecto, como antes de existir

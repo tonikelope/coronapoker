@@ -1230,6 +1230,12 @@ public class WaitingRoomFrame extends JFrame {
                     (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
         }
 
+        // The stats window is ownerless and survives a screen change: close it
+        // before installing the waiting-room loops so stats_music cannot keep
+        // looping on top of them. false = leave the background muted (we set up
+        // our own loops right below).
+        StatsDialog.disposeIfOpen(false);
+
         Audio.muteLoopMp3("misc/background_music.mp3");
 
         Audio.playLoopMp3Resource("misc/waiting_room.mp3");

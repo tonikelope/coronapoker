@@ -71,6 +71,9 @@ public class StatsDialog extends JFrame {
     private final LinkedHashMap<String, SQLStats> sqlstats = new LinkedHashMap<>();
     private volatile boolean init = false;
     private volatile String last_mp3_loop = null;
+    // Set by disposeIfOpen(): the caller already settled the loop state, so the
+    // window's own formWindowClosed must not restore last_mp3_loop a second time.
+    private volatile boolean suppress_music_restore = false;
     private volatile boolean game_combo_blocked = false;
     private volatile boolean hand_combo_blocked = false;
     private volatile boolean backup = false;
@@ -133,6 +136,40 @@ public class StatsDialog extends JFrame {
         INSTANCE = new StatsDialog();
         INSTANCE.setLocationRelativeTo(locationRelativeTo);
         INSTANCE.setVisible(true);
+    }
+
+    /**
+     * Closes the stats window if one is open. This is an ownerless, non-modal,
+     * APPLICATION_EXCLUDE frame, so it survives screen transitions on its own: if
+     * the user opens it and then starts/joins a game (or leaves the balance
+     * screen) without closing it, stats_music.mp3 would keep looping on top of the
+     * next screen's music — two loops at once. Callers performing such a
+     * transition close it here.
+     *
+     * stats_music is stopped synchronously so it cannot outlive the window.
+     * restore_previous_loop unmutes the loop the dialog muted on open: a caller
+     * that installs its own loops afterwards (the waiting room) passes false to
+     * keep the background muted; a caller that just hands control back to the
+     * running screen (the balance dialog) passes true.
+     */
+    public static synchronized void disposeIfOpen(boolean restore_previous_loop) {
+
+        StatsDialog dlg = INSTANCE;
+
+        if (dlg == null) {
+            return;
+        }
+
+        // The window's formWindowClosed must not redo the loop handling below.
+        dlg.suppress_music_restore = true;
+
+        Audio.stopLoopMp3("misc/stats_music.mp3");
+
+        if (restore_previous_loop && dlg.last_mp3_loop != null) {
+            Audio.unmuteLoopMp3(dlg.last_mp3_loop);
+        }
+
+        Helpers.GUIRun(dlg::dispose);
     }
 
     /**
@@ -2917,7 +2954,9 @@ public class StatsDialog extends JFrame {
 
         Audio.stopLoopMp3("misc/stats_music.mp3");
 
-        if (last_mp3_loop != null) {
+        // Skipped when disposeIfOpen() already settled the loop state for a screen
+        // transition (it would otherwise unmute a loop the new screen just muted).
+        if (!suppress_music_restore && last_mp3_loop != null) {
             Audio.unmuteLoopMp3(last_mp3_loop);
         }
     }//GEN-LAST:event_formWindowClosed

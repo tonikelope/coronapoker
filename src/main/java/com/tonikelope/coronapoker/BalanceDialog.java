@@ -187,6 +187,15 @@ public class BalanceDialog extends JDialog {
             }
 
             @Override
+            public void windowClosed(WindowEvent evt) {
+                // Stats can be opened from this dialog (it is ownerless, so it does
+                // not close with us). Close it on the way out so stats_music does
+                // not keep looping over the next screen. true = restore the loop
+                // stats muted, since control just returns to the running screen.
+                StatsDialog.disposeIfOpen(true);
+            }
+
+            @Override
             public void windowActivated(WindowEvent evt) {
                 if (isModal()) {
                     Init.CURRENT_MODAL_DIALOG.add(BalanceDialog.this);

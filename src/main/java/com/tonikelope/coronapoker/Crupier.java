@@ -910,6 +910,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean badbeat = false;
     private volatile int jugada_ganadora = 0;
     private volatile boolean sincronizando_mano = false;
+    // True between starting recovering.mp3 (background_music stopped) and the
+    // recovery-completion path that swaps it back. Tracking the actual swap state
+    // instead of re-reading GameFrame.MUSICA_AMBIENTAL at each end makes the
+    // start/stop symmetric even if that flag were toggled mid-recovery: recovering
+    // never outlives the recovery and background_music is never duplicated.
+    private volatile boolean recovering_music_active = false;
     private volatile RecoverDialog recover_dialog = null;
     private volatile String current_local_cinematic_b64 = null;
     private volatile String current_remote_cinematic_b64 = null;
@@ -5976,6 +5982,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (GameFrame.MUSICA_AMBIENTAL) {
                 Audio.stopLoopMp3("misc/background_music.mp3");
                 Audio.playLoopMp3Resource("misc/recovering.mp3");
+                recovering_music_active = true;
             }
 
             final float old_brightness = GameFrame.getInstance().getCapa_brillo().getBrightness();
@@ -6021,9 +6028,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     Audio.playWavResource("misc/startplay.wav");
                 }
 
-                if (GameFrame.MUSICA_AMBIENTAL) {
+                if (recovering_music_active) {
                     Audio.stopLoopMp3("misc/recovering.mp3");
                     Audio.playLoopMp3Resource("misc/background_music.mp3");
+                    recovering_music_active = false;
                 }
                 Helpers.GUIRun(() -> {
                     if (recover_dialog != null) {
@@ -11730,9 +11738,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (GameFrame.LANGUAGE.equals(GameFrame.DEFAULT_LANGUAGE)) {
                         Audio.playWavResource("misc/startplay.wav");
                     }
-                    if (GameFrame.MUSICA_AMBIENTAL) {
+                    if (recovering_music_active) {
                         Audio.stopLoopMp3("misc/recovering.mp3");
                         Audio.playLoopMp3Resource("misc/background_music.mp3");
+                        recovering_music_active = false;
                     }
                 }
 
@@ -14174,10 +14183,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 Audio.playWavResource("misc/startplay.wav");
             }
 
-            if (GameFrame.MUSICA_AMBIENTAL) {
+            if (recovering_music_active) {
                 Audio.stopLoopMp3("misc/recovering.mp3");
                 Audio.playLoopMp3Resource("misc/background_music.mp3");
-
+                recovering_music_active = false;
             }
 
         }
@@ -14254,9 +14263,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         if (wasSyncing) {
             this.setSincronizando_mano(false);
             this.acciones_locales_recuperadas.clear();
-            if (GameFrame.MUSICA_AMBIENTAL) {
+            if (recovering_music_active) {
                 Audio.stopLoopMp3("misc/recovering.mp3");
                 Audio.playLoopMp3Resource("misc/background_music.mp3");
+                recovering_music_active = false;
             }
         }
     }
@@ -15921,9 +15931,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 Audio.playWavResource("misc/startplay.wav");
                             }
 
-                            if (GameFrame.MUSICA_AMBIENTAL) {
+                            if (recovering_music_active) {
                                 Audio.stopLoopMp3("misc/recovering.mp3");
                                 Audio.playLoopMp3Resource("misc/background_music.mp3");
+                                recovering_music_active = false;
                             }
                         }
 

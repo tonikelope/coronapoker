@@ -552,6 +552,13 @@ public class BalanceDialog extends JDialog {
             double value = from + (to - from) * eased;
             amount_label.setText(Helpers.money2String(Helpers.doubleClean(value)));
         });
+
+        // Retro point-counting SFX, synced to the roll: its blips decelerate with
+        // the same ease-out curve and the closing accent lands at ~1.5s, on the
+        // +/- reveal. force_close restarts it cleanly if the screen re-animates;
+        // volume/mute follow the global sound flags via Audio.setClipVolume.
+        Audio.playWavResource("misc/balance_count.wav");
+
         roll.start();
     }
 

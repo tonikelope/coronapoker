@@ -309,10 +309,13 @@ public class StatsDialog extends JFrame {
         private_game_label.setToolTipText(Translator.translate("stats.quitar_privada"));
         private_game_label.setVisible(false);
 
+        // Candado TACHADO (diagonal roja sobre lock.png) para las acciones de "quitar
+        // privada": candado = hacer privada, candado tachado = quitarla.
+        javax.swing.ImageIcon struck_lock = struckIcon(getClass().getResource("/images/lock.png"));
+
         // Clic derecho sobre el banner -> "Quitar privada" (desmarca la timba seleccionada).
         javax.swing.JPopupMenu unprivate_popup = new javax.swing.JPopupMenu();
-        javax.swing.JMenuItem unprivate_item = new javax.swing.JMenuItem(Translator.translate("stats.quitar_privada"),
-                new javax.swing.ImageIcon(getClass().getResource("/images/lock.png")));
+        javax.swing.JMenuItem unprivate_item = new javax.swing.JMenuItem(Translator.translate("stats.quitar_privada"), struck_lock);
         unprivate_item.putClientProperty("i18n.key", "stats.quitar_privada");
         unprivate_item.addActionListener(e -> setSelectedGamePrivateAsync(false));
         unprivate_popup.add(unprivate_item);
@@ -385,7 +388,7 @@ public class StatsDialog extends JFrame {
         private_all_button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         private_all_button.addActionListener(e -> markFilteredGamesPrivateAsync(true));
 
-        unprivate_all_button = new javax.swing.JButton(Translator.translate("stats.quitar_privadas"));
+        unprivate_all_button = new javax.swing.JButton(Translator.translate("stats.quitar_privadas"), struck_lock);
         unprivate_all_button.putClientProperty("i18n.key", "stats.quitar_privadas");
         unprivate_all_button.setBackground(new java.awt.Color(0, 0, 0));
         unprivate_all_button.setForeground(new java.awt.Color(255, 255, 255));
@@ -1993,6 +1996,30 @@ public class StatsDialog extends JFrame {
     // (StatsSync.listShareableUgis la excluye), aunque "Compartir" esté activo.
     // El flag es puramente local (no viaja en el payload de sincronización).
     // =====================================================================
+
+    /**
+     * Genera un candado TACHADO: dibuja una diagonal roja (con halo blanco para que
+     * se vea sobre cualquier fondo) sobre el icono dado. Para las acciones de "quitar
+     * privada" (candado = hacer privada, candado tachado = quitarla).
+     */
+    private static javax.swing.ImageIcon struckIcon(java.net.URL url) {
+        javax.swing.ImageIcon base = new javax.swing.ImageIcon(url);
+        int w = base.getIconWidth();
+        int h = base.getIconHeight();
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(base.getImage(), 0, 0, null);
+        // Halo blanco bajo la diagonal + diagonal roja encima, de esquina a esquina.
+        g.setStroke(new java.awt.BasicStroke(4f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g.setColor(new java.awt.Color(255, 255, 255, 220));
+        g.drawLine(3, h - 3, w - 3, 3);
+        g.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g.setColor(new java.awt.Color(204, 0, 0));
+        g.drawLine(3, h - 3, w - 3, 3);
+        g.dispose();
+        return new javax.swing.ImageIcon(img);
+    }
 
     /** EDT. Sincroniza los 3 botones de la barra (purgar + privadas globales) con el filtro de jugador. */
     private void refreshFilterButtonsEnabled() {

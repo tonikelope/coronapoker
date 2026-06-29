@@ -56,8 +56,15 @@ public class SettingsDialog extends JDialog {
     private final AppearanceSettingsPanel appearance_panel;
     private final AudioSettingsPanel audio_panel;
     private final GameSettingsPanel game_panel;
+    // Pestaña "Partida" de la SALA DE ESPERA (config de timba antes de empezar). Excluyente
+    // con game_panel: uno u otro según el contexto (in-game vs sala), nunca los dos.
+    private final WaitingGameSettingsPanel waiting_panel;
     // Diálogo transaccional: true solo si se pulsó GUARDAR (entonces NO se revierte).
     private boolean committed = false;
+
+    // Instancia abierta (único modal a la vez). La usa el cierre automático al arrancar la
+    // partida (closeIfOpen) y el refresco del espejo de la pestaña Partida de sala.
+    private static volatile SettingsDialog INSTANCE;
 
     public static void open(java.awt.Frame parent) {
         Helpers.GUIRun(() -> {
@@ -70,11 +77,18 @@ public class SettingsDialog extends JDialog {
     public SettingsDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
-        // Fuera de partida (lanzador / sala de espera) no hay GameFrame: el diálogo se abre
-        // en modo "general" con solo Apariencia y Sonido (preferencias locales). La pestaña
-        // Partida (ciegas + reglas) solo tiene sentido y se monta en partida.
-        boolean has_game = GameFrame.getInstance() != null;
-        boolean read_only = !has_game || !GameFrame.getInstance().isPartida_local();
+        // Tres contextos según dónde se abra la rueda:
+        //  - EN PARTIDA (hay GameFrame): pestaña Partida EN VIVO (GameSettingsPanel).
+        //  - EN LA SALA DE ESPERA (parent = WaitingRoomFrame, sin partida empezada): pestaña
+        //    Partida de SALA (WaitingGameSettingsPanel, config completa pre-timba).
+        //  - LANZADOR (ni juego ni sala): solo Apariencia y Sonido (sin pestaña Partida).
+        boolean in_game = GameFrame.getInstance() != null;
+        boolean in_waiting = !in_game && (parent instanceof WaitingRoomFrame)
+                && !((WaitingRoomFrame) parent).isPartida_empezada();
+        boolean read_only_game = !in_game || !GameFrame.getInstance().isPartida_local();
+        // En la sala: editable solo para el HOST y nunca al recuperar una timba (la config
+        // recuperada es fija). Clientes y recover -> solo lectura.
+        boolean read_only_wait = !in_waiting || GameFrame.isRECOVER() || !((WaitingRoomFrame) parent).isServer();
 
         setTitle(Translator.translate("settings.ajustes"));
         // DO_NOTHING: la X la gestiona windowClosing (pregunta antes de descartar, igual
@@ -83,7 +97,8 @@ public class SettingsDialog extends JDialog {
 
         appearance_panel = new AppearanceSettingsPanel();
         audio_panel = new AudioSettingsPanel();
-        game_panel = has_game ? new GameSettingsPanel(read_only) : null;
+        game_panel = in_game ? new GameSettingsPanel(read_only_game) : null;
+        waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait) : null;
 
         // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero
@@ -92,8 +107,10 @@ public class SettingsDialog extends JDialog {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab(Translator.translate("settings.tab_apariencia"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/gear.png")), scrollableTab(appearance_panel));
         tabs.addTab(Translator.translate("settings.tab_audio"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/sound.png")), scrollableTab(audio_panel));
-        if (has_game) {
+        if (in_game) {
             tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(game_panel));
+        } else if (in_waiting) {
+            tabs.addTab(Translator.translate("settings.tab_partida"), new javax.swing.ImageIcon(getClass().getResource("/images/menu/baraja.png")), scrollableTab(waiting_panel));
         }
 
         // Diálogo TRANSACCIONAL: Apariencia y Audio se aplican en vivo como
@@ -109,6 +126,9 @@ public class SettingsDialog extends JDialog {
             committed = true;
             if (game_panel != null) {
                 game_panel.applyToGame();
+            }
+            if (waiting_panel != null) {
+                waiting_panel.applyToGame();
             }
             appearance_panel.applyPendingDisplayMode();
             dispose();
@@ -154,13 +174,18 @@ public class SettingsDialog extends JDialog {
             public void windowClosed(WindowEvent e) {
                 // Si NO se guardó (Cancelar / cerrar), revierte los cambios EN VIVO de
                 // Apariencia y Audio al estado de apertura. El modo de pantalla y la
-                // pestaña Partida solo se aplican al GUARDAR (no aquí).
+                // pestaña Partida solo se aplican al GUARDAR (no aquí). Esto corre también
+                // en el cierre automático (dispose) al arrancar la partida: descarta sin
+                // preguntar (windowClosing -y su confirmación- no se dispara con dispose()).
                 if (!committed) {
                     appearance_panel.revert();
                     audio_panel.revert();
                 }
                 // Cierra la captura de tecla del panel de audio + persiste el volumen.
                 audio_panel.cleanup();
+                if (INSTANCE == SettingsDialog.this) {
+                    INSTANCE = null;
+                }
             }
         });
 
@@ -196,6 +221,10 @@ public class SettingsDialog extends JDialog {
         // baja / escalado alto), se recorta y cada pestaña pasa a scrollear. Los botones
         // GUARDAR/Cancelar viven en el SOUTH, fuera del scroll, así que siempre se ven.
         capToScreen();
+
+        // Único modal a la vez: registrarse como la instancia abierta (la limpia
+        // windowClosed). Lo usan closeIfOpen (auto-cierre al arrancar) y refreshWaitingMirror.
+        INSTANCE = this;
     }
 
     // Recorta el tamaño empaquetado al área útil de la pantalla (95%). Solo encoge.
@@ -222,7 +251,32 @@ public class SettingsDialog extends JDialog {
     // aplican en vivo; Partida es apply-on-save.) Se usa para preguntar antes de
     // descartar al cancelar.
     private boolean isDirty() {
-        return appearance_panel.isDirty() || audio_panel.isDirty() || (game_panel != null && game_panel.isDirty());
+        return appearance_panel.isDirty() || audio_panel.isDirty()
+                || (game_panel != null && game_panel.isDirty())
+                || (waiting_panel != null && waiting_panel.isDirty());
+    }
+
+    // Cierra el diálogo abierto (si lo hay) SIN preguntar por cambios sin guardar. Lo usa
+    // el arranque de partida en el cliente: una vez empezada la timba los ajustes de la
+    // pestaña Partida de sala ya no aplican. dispose() directo NO dispara windowClosing
+    // (donde vive la confirmación de descarte), así que cierra como un Alt+F4 pero sin el
+    // diálogo de "¿descartar cambios?"; los cambios sin guardar se descartan. Idempotente.
+    public static void closeIfOpen() {
+        Helpers.GUIRun(() -> {
+            SettingsDialog d = INSTANCE;
+            if (d != null && d.isDisplayable()) {
+                d.dispose();
+            }
+        });
+    }
+
+    // Refresca (en vivo) la pestaña Partida de SALA en SOLO-LECTURA cuando llega un nuevo
+    // espejo de config del host (GAMECONFIG). Llamar en el EDT.
+    public static void refreshWaitingMirror() {
+        SettingsDialog d = INSTANCE;
+        if (d != null && d.waiting_panel != null) {
+            d.waiting_panel.refreshFromMirror();
+        }
     }
 
     // Cierra descartando los cambios; si hay cambios sin confirmar, pregunta primero.

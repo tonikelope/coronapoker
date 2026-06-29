@@ -188,6 +188,12 @@ public class WaitingRoomFrame extends JFrame {
     // variable: la sala de espera oculta la caracteristica de buyin (la bolsa),
     // porque cada jugador elige su buy-in al entrar al tablero.
     private static final String VARIABLE_BUYIN_TAG = "VAR";
+    // Espejo COMPLETO de la config de timba que el HOST difunde (GamePreset.Settings
+    // serializado) para que la pestaña "Partida" de la rueda en SOLO-LECTURA del cliente
+    // muestre todo el detalle. Llega en el handshake (NICKOK) y se refresca con cada
+    // GAMECONFIG. El cliente NO escribe GameFrame.* con esto (la config real le llega en el
+    // INIT al arrancar); solo lo lee el panel read-only. null hasta el primer sync.
+    public static volatile String GAMECONFIG_MIRROR = null;
     private volatile boolean chat_enabled = true;
     private volatile boolean upnp = false;
     private volatile int server_port = 0;
@@ -2183,6 +2189,13 @@ public class WaitingRoomFrame extends JFrame {
 
                             gameinfo_original = new String(Base64.getDecoder().decode(partes[2].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
 
+                            // Cuarto campo (opcional) del NICKOK: espejo COMPLETO de la config
+                            // para la pestaña Partida en solo-lectura. Solo se guarda (NO se
+                            // escribe GameFrame.*); la config real llega en el INIT al arrancar.
+                            if (partes.length > 3) {
+                                GAMECONFIG_MIRROR = new String(Base64.getDecoder().decode(partes[3].replaceAll("[^A-Za-z0-9+/=]", "")), "UTF-8");
+                            }
+
                             Helpers.GUIRun(() -> {
                                 status.setText(Translator.translate("status.recibiendo_info_servidor"));
                                 applyGameInfoBuyinLabel(gameinfo_original.split("\\|"));
@@ -3242,6 +3255,13 @@ public class WaitingRoomFrame extends JFrame {
                                                                 applyGameInfoBuyinLabel(game_info2);
                                                             });
                                                             break;
+                                                        case "GAMECONFIG":
+                                                            // Espejo COMPLETO de la config (el HOST la cambió). Solo
+                                                            // se guarda en el holder (NO se escribe GameFrame.*) y, si
+                                                            // la rueda está abierta, se refresca su pestaña Partida.
+                                                            GAMECONFIG_MIRROR = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                            Helpers.GUIRun(() -> SettingsDialog.refreshWaitingMirror());
+                                                            break;
                                                         case "DELUSER":
                                                             try {
                                                                 borrarParticipante(new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8"));
@@ -3418,6 +3438,11 @@ public class WaitingRoomFrame extends JFrame {
                                                             }
                                                             Helpers.GUIRunAndWait(new Runnable() {
                                                                 public void run() {
+                                                                    // Si el cliente tenía la rueda abierta (con la pestaña
+                                                                    // Partida de sala), se cierra sola al arrancar: los
+                                                                    // ajustes ya no aplican. dispose() directo = sin el
+                                                                    // diálogo de "descartar cambios".
+                                                                    SettingsDialog.closeIfOpen();
                                                                     new GameFrame(THIS, local_nick, false);
                                                                 }
                                                             });
@@ -3917,11 +3942,17 @@ public class WaitingRoomFrame extends JFrame {
                             client_avatar = null;
                         }
 
+                        // Cuarto campo (#) AÑADIDO al mismo comando NICKOK: el espejo COMPLETO
+                        // de la config (GamePreset.Settings serializado) para que el cliente recién
+                        // unido pueble en gris su pestaña Partida. Es un campo extra del MISMO
+                        // mensaje (no un read nuevo), así no se altera la secuencia del handshake.
                         writeCommandFromServer(Helpers.encryptCommand(
                                 "NICKOK#" + (password == null ? "0" : "1") + "#"
                                 + Base64.getEncoder().encodeToString(
                                         (game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
-                                                + game_info_hands.getText()).getBytes("UTF-8")),
+                                                + game_info_hands.getText()).getBytes("UTF-8"))
+                                + "#" + Base64.getEncoder().encodeToString(
+                                        GamePreset.Settings.fromGameFrame().serialize().getBytes("UTF-8")),
                                 aes_key, hmac_key), client_socket);
 
                         byte[] avatar_bytes = null;
@@ -5346,6 +5377,9 @@ public class WaitingRoomFrame extends JFrame {
                         } while (ocupados);
 
                         Helpers.GUIRunAndWait(() -> {
+                            // Defensivo (en el host la rueda es modal y bloquea "Empezar",
+                            // así que normalmente no estaría abierta): cerrar sin preguntar.
+                            SettingsDialog.closeIfOpen();
                             new GameFrame(WaitingRoomFrame.this, local_nick, true);
                         });
                         partida_empezada = true;
@@ -5687,73 +5721,61 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     private void game_info_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_info_buyinMouseClicked
+        // DESACTIVADO: la config de la timba en la sala se edita ahora desde la rueda
+        // (SettingsDialog -> pestaña Partida), no haciendo click sobre las ciegas. El
+        // listener sigue registrado en el .form pero el handler es un no-op (los labels
+        // de buyin/ciegas/manos delegan en este método, así que los tres quedan inertes).
+    }//GEN-LAST:event_game_info_buyinMouseClicked
 
-        if (server && !GameFrame.isRECOVER() && !isPartida_empezada() && !isPartida_empezando()
-                && game_info_buyin.isEnabled()) {
+    // Refresca los labels buyin/ciegas/manos de la sala desde GameFrame.* y difunde a los
+    // clientes el GAMEINFO (display) + el GAMECONFIG (espejo COMPLETO). Lo invoca el panel
+    // de la pestaña Partida de la rueda al GUARDAR (solo el HOST). Reemplaza al broadcast
+    // que hacía el viejo click sobre las ciegas.
+    public void broadcastGameConfigAndLabels() {
 
-            game_info_buyin.setEnabled(false);
+        final String[] payload = new String[1];
 
-            game_info_blinds.setEnabled(false);
-
-            game_info_hands.setEnabled(false);
-
-            NewGameDialog dialog = new NewGameDialog(this, true);
-
-            dialog.setLocationRelativeTo(dialog.getParent());
-
-            dialog.setVisible(true);
-
-            if (dialog.isDialog_ok()) {
-
-                if (GameFrame.FIXED_BUYIN) {
-                    game_info_buyin.setVisible(true);
-                    game_info_buyin.setText(Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
-                } else {
-                    // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
-                    game_info_buyin.setText(VARIABLE_BUYIN_TAG);
-                    game_info_buyin.setVisible(false);
-                }
-
-                game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
-                        + Helpers.money2String(GameFrame.CIEGA_GRANDE)
-                        + (GameFrame.CIEGAS_DOUBLE > 0
-                                ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE)
-                                + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*")
-                                : ""));
-
-                game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
-
-                game_info_hands.setVisible(!"".equals(game_info_hands.getText()));
-
-                Helpers.threadRun(() -> {
-                    try {
-                        broadcastASYNCGAMECommandFromServer("GAMEINFO#" + Base64.getEncoder().encodeToString((game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
-                                + game_info_hands.getText()).getBytes("UTF-8")),
-                                null);
-                    } catch (UnsupportedEncodingException ex) {
-                        LOGGER.log(Level.SEVERE, null, ex);
-                    }
-                    Helpers.GUIRun(() -> {
-                        game_info_buyin.setEnabled(true);
-                        game_info_blinds.setEnabled(true);
-                        game_info_hands.setEnabled(true);
-                    });
-                });
-
-                pack();
-
-                Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(),
-                        (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
-
+        Helpers.GUIRunAndWait(() -> {
+            if (GameFrame.FIXED_BUYIN) {
+                game_info_buyin.setVisible(true);
+                game_info_buyin.setText(Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
             } else {
-                game_info_buyin.setEnabled(true);
-                game_info_blinds.setEnabled(true);
-                game_info_hands.setEnabled(true);
+                // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
+                game_info_buyin.setText(VARIABLE_BUYIN_TAG);
+                game_info_buyin.setVisible(false);
             }
 
-        }
+            game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
+                    + Helpers.money2String(GameFrame.CIEGA_GRANDE)
+                    + (GameFrame.CIEGAS_DOUBLE > 0
+                            ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE)
+                            + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*")
+                            : ""));
 
-    }//GEN-LAST:event_game_info_buyinMouseClicked
+            game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
+            game_info_hands.setVisible(!"".equals(game_info_hands.getText()));
+
+            // Capturar el payload del display EN EL EDT (no leer Swing fuera de él).
+            payload[0] = game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
+                    + game_info_hands.getText();
+
+            pack();
+            Helpers.windowAutoFitToRemoveHScrollBar(this, main_scroll_panel.getHorizontalScrollBar(),
+                    (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth(), 0.1f);
+        });
+
+        Helpers.threadRun(() -> {
+            try {
+                broadcastASYNCGAMECommandFromServer("GAMEINFO#"
+                        + Base64.getEncoder().encodeToString(payload[0].getBytes("UTF-8")), null);
+                broadcastASYNCGAMECommandFromServer("GAMECONFIG#"
+                        + Base64.getEncoder().encodeToString(
+                                GamePreset.Settings.fromGameFrame().serialize().getBytes("UTF-8")), null);
+            } catch (UnsupportedEncodingException ex) {
+                LOGGER.log(Level.SEVERE, null, ex);
+            }
+        });
+    }
 
     private void chat_notificationsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chat_notificationsActionPerformed
 

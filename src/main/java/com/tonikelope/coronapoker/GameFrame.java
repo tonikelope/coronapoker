@@ -250,8 +250,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean MOSTRAR_COSTE_IGUALAR = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("mostrar_coste_igualar", "true"));
     public static volatile boolean AUTO_ACTION_BUTTONS = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_buttons", "false")) && !TEST_MODE;
     // Si está activo, una pulsación de un botón AUTO sobrevive entre manos en vez
-    // de resetearse (solo aplica con AUTO_ACTION_BUTTONS activo).
-    public static volatile boolean AUTO_ACTION_PERSIST = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_persist", "false"));
+    // de resetearse (solo aplica con AUTO_ACTION_BUTTONS activo). Activado por defecto.
+    public static volatile boolean AUTO_ACTION_PERSIST = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("auto_action_persist", "true"));
     // Si está activo, antes de ejecutar una acción automática del pre-pulsado se
     // muestra un diálogo modal de cuenta atrás (MODO AUTO) que permite vetarla.
     public static volatile boolean MODO_AUTO_CONFIRM = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("modo_auto_confirm", "true"));
@@ -2969,6 +2969,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         Helpers.translateComponents(Helpers.TapetePopupMenu.popup, false);
 
+        // El rótulo de "AUTO igualar" lleva el estado actual (ACTIVADO/DESACTIVADO)
+        // entre paréntesis; se fija aquí, tras la traducción, para que no lo pise.
+        refreshAutoCallMenuText();
+
     }
 
     public JMenuItem getMax_hands_menu() {
@@ -5418,6 +5422,24 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         Helpers.PROPERTIES.setProperty("auto_call_enabled", String.valueOf(enabled));
         Helpers.PROPERTIES.setProperty("auto_call_max", String.valueOf(GameFrame.AUTO_CALL_MAX));
         Helpers.savePropertiesFile();
+        refreshAutoCallMenuText();
+    }
+
+    // Refresca el rótulo de "AUTO igualar" en la barra de menú y en el popup del
+    // tapete para que muestre entre paréntesis si está ACTIVADO o DESACTIVADO
+    // (reutiliza las claves del diálogo de auto-call). Se llama al construir el
+    // menú y cada vez que cambia AUTO_CALL_ENABLED.
+    public void refreshAutoCallMenuText() {
+        String text = Translator.translate("menu.auto_call") + " ("
+                + Translator.translate(GameFrame.AUTO_CALL_ENABLED ? "auto_call.activado" : "auto_call.desactivado") + ")";
+
+        if (auto_call_menu != null) {
+            auto_call_menu.setText(text);
+        }
+
+        if (Helpers.TapetePopupMenu.AUTO_CALL_MENU != null) {
+            Helpers.TapetePopupMenu.AUTO_CALL_MENU.setText(text);
+        }
     }
 
     // Abre el diálogo modal de AUTO CALL: checkbox Activado (on/off) + spinner del

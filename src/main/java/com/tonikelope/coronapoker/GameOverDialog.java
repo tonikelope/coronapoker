@@ -50,6 +50,17 @@ public class GameOverDialog extends JDialog {
     private volatile RebuyDialog buyin_dialog = null;
     private volatile boolean exit = false;
 
+    // Sin cinemáticas el GIF de game over no debe reproducirse: en su lugar se pinta un
+    // "GAME OVER" estático (rojo borde negro sobre fondo negro) con una CUENTA ATRÁS de
+    // ALT_COUNTDOWN_SECONDS y SIN audio alguno (ni game_over.wav ni los efectos). Esa
+    // cuenta atrás es además la ventana de decisión de este diálogo alternativo (al
+    // llegar a 0 -> espectador). Los botones continuar/espectador son los mismos.
+    // Congruente con el rótulo BARAJANDO del barajado sin gif.
+    private static final int ALT_COUNTDOWN_SECONDS = 10;
+    private final boolean cinematics_off = !GameFrame.cinematicasOn();
+    private volatile int countdown_seconds = ALT_COUNTDOWN_SECONDS;
+    private volatile javax.swing.Timer countdown_timer = null;
+
     public RebuyDialog getBuyin_dialog() {
         return buyin_dialog;
     }
@@ -76,7 +87,7 @@ public class GameOverDialog extends JDialog {
 
         Helpers.translateComponents(this, false);
 
-        gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over.gif")), 782, 326);
+        showGameOverActive();
 
         pack();
     }
@@ -101,12 +112,126 @@ public class GameOverDialog extends JDialog {
         if (direct_gameover) {
             spectator_button.setEnabled(false);
             continue_button.setEnabled(false);
-            gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
+            showGameOverFinal();
         } else {
-            gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over.gif")), 782, 326);
+            showGameOverActive();
         }
 
         pack();
+    }
+
+    // Game over interactivo: con cinemáticas reproduce el GIF; sin cinemáticas pinta el
+    // "GAME OVER" estático con la cuenta atrás actual (countdown_seconds).
+    private void showGameOverActive() {
+        if (cinematics_off) {
+            gifPanel.setGifIcon(renderGameOverStatic(false, countdown_seconds), 782, 326);
+        } else {
+            gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over.gif")), 782, 326);
+        }
+    }
+
+    // Estado final (sin recompra / se acabó la cuenta atrás): con cinemáticas el GIF
+    // game_over_zero; sin cinemáticas el "GAME OVER" estático sin número. Para la cuenta.
+    private void showGameOverFinal() {
+        stopCountdown();
+        if (cinematics_off) {
+            gifPanel.setGifIcon(renderGameOverStatic(true, 0), 782, 326);
+        } else {
+            gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
+        }
+    }
+
+    // Arranca la cuenta atrás visual (1 Hz) del game over alternativo: cada tick baja el
+    // número y repinta el "GAME OVER" estático. Es además la VENTANA de decisión (sin
+    // game_over.wav): al llegar a 0, si no se ha elegido, queda en espectador
+    // (onCountdownTimeout). Solo en game over interactivo sin cinemáticas.
+    private void startCountdown() {
+        if (!cinematics_off || direct_gameover) {
+            return;
+        }
+        stopCountdown();
+        countdown_timer = new javax.swing.Timer(1000, (e) -> {
+            countdown_seconds = Math.max(0, countdown_seconds - 1);
+            showGameOverActive();
+            if (countdown_seconds <= 0) {
+                ((javax.swing.Timer) e.getSource()).stop();
+                onCountdownTimeout();
+            }
+        });
+        countdown_timer.setInitialDelay(1000);
+        countdown_timer.start();
+    }
+
+    private void stopCountdown() {
+        if (countdown_timer != null) {
+            countdown_timer.stop();
+            countdown_timer = null;
+        }
+    }
+
+    // Fin de la cuenta atrás del game over alternativo sin que se haya elegido: queda en
+    // espectador y cierra. SIN audios (el usuario los quiere mudos en este diálogo); el
+    // estado en espectador lo aplica Crupier al cerrarse el diálogo (isContinua()=false).
+    private void onCountdownTimeout() {
+        if (continua || exit) {
+            return;
+        }
+        exit = true;
+        spectator_button.setEnabled(false);
+        continue_button.setEnabled(false);
+        showGameOverFinal();
+        dispose();
+    }
+
+    // Pinta un lienzo 782x326 (mismo tamaño que el GIF) negro con "GAME OVER" centrado
+    // arriba (rojo, borde negro) y, salvo en el estado final, el número de la cuenta
+    // atrás debajo (blanco, borde negro). Sustituto NO animado del game_over.gif.
+    private javax.swing.ImageIcon renderGameOverStatic(boolean zero, int seconds) {
+        final int w = 782;
+        final int h = 326;
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g2 = img.createGraphics();
+        try {
+            g2.setColor(java.awt.Color.BLACK);
+            g2.fillRect(0, 0, w, h);
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+            boolean show_number = !zero && seconds > 0;
+            double game_over_cy = show_number ? h * 0.34 : h * 0.5;
+
+            drawOutlinedCentered(g2, "GAME OVER", new java.awt.Font("Dialog", java.awt.Font.BOLD, 120),
+                    new java.awt.Color(220, 30, 30), w / 2.0, game_over_cy, w * 0.92);
+
+            if (show_number) {
+                drawOutlinedCentered(g2, String.valueOf(seconds), new java.awt.Font("Dialog", java.awt.Font.BOLD, 130),
+                        java.awt.Color.WHITE, w / 2.0, h * 0.74, w * 0.92);
+            }
+        } finally {
+            g2.dispose();
+        }
+        return new javax.swing.ImageIcon(img);
+    }
+
+    // Texto centrado en (cx,cy) pintado como contorno (borde negro) + relleno, encogido
+    // si hace falta para caber en max_width.
+    private static void drawOutlinedCentered(java.awt.Graphics2D g2, String text, java.awt.Font font, java.awt.Color fill, double cx, double cy, double max_width) {
+        java.awt.font.FontRenderContext frc = g2.getFontRenderContext();
+        java.awt.font.TextLayout tl = new java.awt.font.TextLayout(text, font, frc);
+        double tw = tl.getAdvance();
+        if (tw > max_width && tw > 0) {
+            font = font.deriveFont((float) (font.getSize2D() * max_width / tw));
+            tl = new java.awt.font.TextLayout(text, font, frc);
+        }
+        java.awt.geom.Rectangle2D b = tl.getBounds();
+        double x = cx - b.getWidth() / 2.0 - b.getX();
+        double y = cy - b.getHeight() / 2.0 - b.getY();
+        java.awt.Shape outline = tl.getOutline(java.awt.geom.AffineTransform.getTranslateInstance(x, y));
+        g2.setStroke(new java.awt.BasicStroke(Math.max(2f, font.getSize2D() * 0.06f), java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+        g2.setColor(java.awt.Color.BLACK);
+        g2.draw(outline);
+        g2.setColor(fill);
+        g2.fill(outline);
     }
 
     /**
@@ -248,6 +373,22 @@ public class GameOverDialog extends JDialog {
 
         continue_button.requestFocus();
 
+        // Game over ALTERNATIVO (sin cinemáticas): SIN audios. No se silencia la música
+        // de fondo ni se reproduce game_over.wav/efectos. La cuenta atrás de 10s es la
+        // ventana de decisión (onCountdownTimeout -> espectador). El directo muestra el
+        // "GAME OVER" estático un par de segundos y cierra.
+        if (cinematics_off) {
+            if (!direct_gameover && !continua) {
+                startCountdown();
+            } else if (!continua) {
+                Helpers.threadRun(() -> {
+                    Helpers.parkThreadMillis(2500);
+                    Helpers.GUIRun(this::dispose);
+                });
+            }
+            return;
+        }
+
         Helpers.threadRun(() -> {
             last_mp3_loop = Audio.getCurrentLoopMp3Playing();
             if (GameFrame.SONIDOS && last_mp3_loop != null && !Audio.MP3_LOOP_MUTED.contains(last_mp3_loop)) {
@@ -261,7 +402,7 @@ public class GameOverDialog extends JDialog {
                     Helpers.GUIRun(() -> {
                         spectator_button.setEnabled(false);
                         continue_button.setEnabled(false);
-                        gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
+                        showGameOverFinal();
                     });
                     Audio.playWavResourceAndWait("misc/nocontinue.wav");
                     if (GameFrame.SONIDOS && GameFrame.SONIDOS_CHORRA) {
@@ -284,6 +425,8 @@ public class GameOverDialog extends JDialog {
         // Ya no se oculta la mesa al abrir el game over (ver formWindowOpened),
         // así que no hay visibilidad que restaurar al cerrarlo.
 
+        stopCountdown();
+
         if (last_mp3_loop != null) {
             Audio.unmuteLoopMp3(last_mp3_loop);
         }
@@ -297,7 +440,10 @@ public class GameOverDialog extends JDialog {
 
         Audio.stopWavResource("misc/game_over.wav");
 
-        Audio.playWavResource("misc/rebuy.wav");
+        // Game over alternativo (sin cinemáticas): mudo, sin el wav de recompra.
+        if (!cinematics_off) {
+            Audio.playWavResource("misc/rebuy.wav");
+        }
 
         dispose();
 
@@ -322,7 +468,13 @@ public class GameOverDialog extends JDialog {
 
         spectator_button.setEnabled(false);
         continue_button.setEnabled(false);
-        gifPanel.setGifIcon(new ImageIcon(getClass().getResource("/cinematics/misc/game_over_zero.gif")), 782, 326);
+        showGameOverFinal();
+
+        // Game over alternativo (sin cinemáticas): mudo, cierra directamente.
+        if (cinematics_off) {
+            dispose();
+            return;
+        }
 
         Helpers.threadRun(() -> {
             Audio.stopWavResource("misc/game_over.wav");

@@ -44,15 +44,21 @@ public class StatsSyncTest {
     // =========================================================================
 
     @Test
-    void listShareableUgis_keepsOnlyFinishedP2pGamesWithKey() throws Exception {
+    void listShareableUgis_keepsFinishedKeyedNonPrivateGames_regardlessOfHost() throws Exception {
         try (Connection c = mem()) {
             seedRichGame(c, "UGI_OK");                                            // local=0, end set, ugi set
-            ins(c, "game", "ugi", "UGI_LOCAL", "local", 1, "start", 1000L, "end", 2000L); // offline
+            // local=1 means "I hosted this table", NOT "offline": a finished hosted
+            // game is shared too (the host is its authoritative source). This is the
+            // exact case the old local=0 filter wrongly muted.
+            ins(c, "game", "ugi", "UGI_HOSTED", "local", 1, "start", 1000L, "end", 2000L); // hosted (local=1)
             ins(c, "game", "ugi", "UGI_OPEN", "local", 0, "start", 1000L);                // unfinished (end NULL)
             ins(c, "game", "local", 0, "start", 1000L, "end", 2000L);                     // no ugi (no key)
             ins(c, "game", "ugi", "UGI_PRIVATE", "local", 0, "start", 1000L, "end", 2000L, "private", 1); // marked private
 
-            assertEquals(List.of("UGI_OK"), StatsSync.listShareableUgis(c));
+            // Order of the result set is not contractually defined (no ORDER BY), so
+            // compare as a set: both finished+keyed+non-private games are shared.
+            assertEquals(java.util.Set.of("UGI_OK", "UGI_HOSTED"),
+                    new java.util.HashSet<>(StatsSync.listShareableUgis(c)));
         }
     }
 
@@ -98,6 +104,23 @@ public class StatsSyncTest {
             assertEquals(hands, count(dst, "hand"));
             assertEquals(actions, count(dst, "action"));
             assertNoOrphans(dst);
+        }
+    }
+
+    @Test
+    void import_forcesLocalZero_soReceivedGameIsNotMistakenForHosted() throws Exception {
+        try (Connection src = mem(); Connection dst = mem()) {
+            long gid = seedRichGame(src, "UGI_HOSTED");
+            try (Statement st = src.createStatement()) {
+                st.executeUpdate("UPDATE game SET local=1 WHERE id=" + gid); // hosted on the sender
+            }
+            byte[] blob = StatsSync.exportGames(src, List.of("UGI_HOSTED"));
+            assertEquals(1, StatsSync.importGames(dst, blob));
+
+            // The receiver did not host it, so its copy must be local=0 — otherwise
+            // NewGameDialog.loadLastGame (WHERE local == 1) would offer to recover a
+            // game this machine never hosted.
+            assertEquals("0", scalarStr(dst, "SELECT local FROM game WHERE ugi='UGI_HOSTED'"));
         }
     }
 

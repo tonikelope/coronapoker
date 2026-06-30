@@ -101,9 +101,16 @@ public final class StatsSync {
     // =========================================================================
 
     /**
-     * UGIs of the games this peer is willing to share: finished, peer-to-peer
-     * games that carry a merge key. Pre-ugi games (no key) and solo/offline
-     * games ({@code local = 1}) are never propagated.
+     * UGIs of the games this peer is willing to share: finished games that carry
+     * a merge key ({@code ugi}) and are not marked private. Pre-ugi games (no key)
+     * and unfinished games (no {@code end}) are never propagated.
+     *
+     * <p>The {@code game.local} column is deliberately NOT a filter here: it means
+     * "this machine was the <em>host</em> of the table" (it is written as
+     * {@code isPartida_local() ? 1 : 0} and used by the recover-last-game feature),
+     * <em>not</em> "offline/solo game". Filtering it out would mute every game this
+     * peer hosted — exactly the games it is the authoritative source for — so it is
+     * left untouched and convergence is by {@code ugi} alone.
      */
     public static List<String> listShareableUgis() {
         synchronized (GameFrame.SQL_LOCK) {
@@ -179,10 +186,13 @@ public final class StatsSync {
 
     public static List<String> listShareableUgis(Connection conn) throws Exception {
         List<String> out = new ArrayList<>();
-        // private = 1 games are deliberately withheld from sync (the user marked
-        // them as not shareable), regardless of the global "share" preference. The
-        // NULL guard covers pre-migration rows (before the column existed).
-        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND local = 0 AND end IS NOT NULL AND (private IS NULL OR private = 0)";
+        // Shareable = finished (end set) + has a merge key (ugi) + not private.
+        // NOTE: game.local is intentionally absent from this filter — it flags
+        // "I was the host" (see the public wrapper's javadoc), not "offline", so it
+        // must not gate sharing. private = 1 games are deliberately withheld (the
+        // user marked them not shareable), regardless of the global "share"
+        // preference; the NULL guard covers pre-migration rows (before the column).
+        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND end IS NOT NULL AND (private IS NULL OR private = 0)";
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 out.add(rs.getString("ugi"));
@@ -440,6 +450,12 @@ public final class StatsSync {
             LOGGER.log(Level.FINE, "StatsSync: game already present, skipped (ugi={0})", ugi);
             return false; // idempotent: already have it
         }
+
+        // 'local' is a per-machine flag ("I hosted this table here") that the
+        // recover-last-game feature reads. A received game was, by definition, not
+        // hosted on this machine — if it had been, the dedup check above would have
+        // skipped it — so it must never inherit the exporter's local=1.
+        g.game[GAME.indexOf("local")] = 0L;
 
         boolean previousAutoCommit = conn.getAutoCommit();
         conn.setAutoCommit(false);

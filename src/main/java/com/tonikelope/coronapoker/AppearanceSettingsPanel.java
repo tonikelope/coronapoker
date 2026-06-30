@@ -48,7 +48,10 @@ import javax.swing.SpinnerNumberModel;
  * - FUERA DE PARTIDA (gf == null: lanzador / sala de espera): no hay mesa contra la que
  *   previsualizar, así que los controles SOLO PERSISTEN la preferencia (flag estático +
  *   {@code Helpers.PROPERTIES} + {@code savePropertiesFile()}); surte efecto cuando se
- *   crea la timba (el GameFrame lee esas preferencias al construirse). Sin efecto en vivo.
+ *   crea la timba (el GameFrame lee esas preferencias al construirse). Sin efecto en vivo,
+ *   SALVO el tapete: la pantalla de inicio pinta su fondo con ese color ({@code InitPanel}),
+ *   así que cambiarlo refresca el lanzador al vuelo como previsualización (y se revierte al
+ *   cancelar, igual que en partida).
  *
  * El diálogo es TRANSACCIONAL en ambos modos: los cambios se revierten al estado de
  * apertura si se cancela (revert()); GUARDAR los conserva.
@@ -236,7 +239,9 @@ public class AppearanceSettingsPanel extends JPanel {
         addLeft(mesa, labeledRow("/images/menu/baraja.png", "menu.barajas", baraja_combo));
 
         // Tapete: combo con los 5 colores; en partida delega en el radio correspondiente
-        // (refresca la mesa); fuera de partida solo persiste el color base.
+        // (refresca la mesa); fuera de partida persiste el color base y refresca al vuelo el
+        // fondo de la pantalla de inicio (InitPanel), que es lo único que previsualiza el
+        // tapete fuera de la mesa.
         JComboBox<String> tapete_combo = new JComboBox<>(new String[]{
             Translator.translate("menu.verde"),
             Translator.translate("menu.azul"),
@@ -274,6 +279,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 String color = tapeteColorForIndex(idx);
                 GameFrame.COLOR_TAPETE = color;
                 persist("color_tapete", color);
+                refreshLauncherTapete();
             }
         });
         addLeft(mesa, labeledRow("/images/menu/tapetes.png", "menu.tapetes", tapete_combo));
@@ -487,6 +493,10 @@ public class AppearanceSettingsPanel extends JPanel {
     // Revert FUERA DE PARTIDA: re-persiste cada preferencia a su snapshot (sin efecto en
     // vivo, no hay mesa). Fija los flags estáticos y vuelca PROPERTIES una sola vez.
     private void revertStandalone() {
+        // El tapete es el único ajuste con previsualización en vivo fuera de partida (fondo
+        // del lanzador); si cambió durante la sesión hay que repintar el inicio al revertir.
+        boolean tapete_changed = !snap_color_tapete.equals(GameFrame.COLOR_TAPETE);
+
         GameFrame.ZOOM_LEVEL = snap_zoom_level;
         GameFrame.VISTA_COMPACTA = snap_vista_compacta;
         GameFrame.BARAJA = snap_baraja;
@@ -517,6 +527,21 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(snap_anim_apuestas));
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
         Helpers.savePropertiesFile();
+
+        if (tapete_changed) {
+            refreshLauncherTapete();
+        }
+    }
+
+    // Repinta al vuelo el fondo de la pantalla de inicio (InitPanel) con el COLOR_TAPETE
+    // actual: es la previsualización en vivo del tapete fuera de partida. No-op si el
+    // lanzador aún no existe (arranque). El InitPanel recarga la textura en segundo plano,
+    // y para los colores base es independiente del tamaño del panel, así que es seguro
+    // aunque el lanzador esté oculto (p. ej. abriendo el diálogo desde la sala de espera).
+    private static void refreshLauncherTapete() {
+        if (Init.VENTANA_INICIO != null) {
+            Init.VENTANA_INICIO.getTapete().refresh();
+        }
     }
 
     private static void selectBaraja(GameFrame gf, String baraja) {

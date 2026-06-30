@@ -268,6 +268,16 @@ public class StatsDialog extends JFrame {
 
         scroll_stats_panel.getVerticalScrollBar().setUnitIncrement(16);
         scroll_stats_panel.getHorizontalScrollBar().setUnitIncrement(16);
+
+        // En resoluciones bajas el panel de estadísticas (una maquetación vertical) sacaba
+        // un scroll HORIZONTAL espurio: al ser un JPanel normal, el viewport lo dimensionaba
+        // a su ancho PREFERIDO (~1200px por los tamaños fijos del .form) y, al no caber en
+        // pantalla, mostraba la barra lateral. Lo envolvemos en un contenedor que SIGUE el
+        // ancho del viewport (Scrollable.getScrollableTracksViewportWidth) -> el GroupLayout
+        // reflota al ancho disponible y la barra horizontal ya no aparece; la vertical sigue
+        // saliendo si el contenido no cabe en alto (que es lo esperado y único razonable).
+        scroll_stats_panel.setViewportView(new FitWidthPanel(stats_panel));
+        scroll_stats_panel.setHorizontalScrollBarPolicy(javax.swing.JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         res_table_warning.setVisible(false);
         showdown_panel.setVisible(false);
         game_textarea_scrollpane.setVisible(false);
@@ -506,6 +516,43 @@ public class StatsDialog extends JFrame {
         });
 
         init = false;
+    }
+
+    // Contenedor de la vista del scroll de estadísticas que SIGUE el ancho del viewport
+    // (no su propio preferido), de modo que el panel reflota a lo ancho disponible y nunca
+    // provoca scroll horizontal; en alto conserva su preferido (puede scrollear en vertical).
+    private static final class FitWidthPanel extends javax.swing.JPanel implements javax.swing.Scrollable {
+
+        FitWidthPanel(java.awt.Component view) {
+            super(new java.awt.BorderLayout());
+            setOpaque(false);
+            add(view, java.awt.BorderLayout.CENTER);
+        }
+
+        @Override
+        public java.awt.Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(java.awt.Rectangle visibleRect, int orientation, int direction) {
+            return 16;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(java.awt.Rectangle visibleRect, int orientation, int direction) {
+            return Math.max(16, orientation == javax.swing.SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width);
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 
     /**

@@ -3994,10 +3994,16 @@ public class Helpers {
      * The start window is created maximized on the PRIMARY monitor and merely
      * hidden between games, so returning to it would always pop it back on the
      * primary screen even when the game and its final screen were on a
-     * secondary monitor. Dropping the frame's restored bounds onto the target
-     * monitor before re-maximizing brings it back on the same screen the
-     * player was using. A null config (no reference window) just shows the
+     * secondary monitor. A null config (no reference window) just shows the
      * frame where it already was.
+     *
+     * Same proven technique as GameFrame.placeOnWaitingRoomMonitor: place the
+     * window centered on the target monitor while in NORMAL state and maximize
+     * BEFORE setVisible — on Windows setExtendedState(MAXIMIZED_BOTH) honors the
+     * monitor where the window currently is. Because this frame came back from a
+     * maximized+hidden state on the primary monitor (whose retained native
+     * placement would otherwise snap it back), setMaximizedBounds pins the
+     * maximized rectangle to the target monitor's work area explicitly.
      */
     public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
 
@@ -4009,15 +4015,22 @@ public class Helpers {
 
                     Rectangle screen = gc.getBounds();
 
-                    // Clear the maximized state the frame kept from the primary
-                    // monitor and fill the target screen in restored state so
-                    // the frame is unambiguously on it; realizing it there
-                    // BEFORE maximizing makes the OS maximize on that monitor
-                    // and not back on the primary one.
+                    Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
+
+                    Rectangle usable = new Rectangle(
+                            screen.x + insets.left,
+                            screen.y + insets.top,
+                            screen.width - insets.left - insets.right,
+                            screen.height - insets.top - insets.bottom);
+
+                    int w = frame.getWidth() > 0 ? frame.getWidth() : Math.min(screen.width, 1024);
+                    int h = frame.getHeight() > 0 ? frame.getHeight() : Math.min(screen.height, 768);
+
                     frame.setExtendedState(JFrame.NORMAL);
-                    frame.setBounds(screen);
-                    frame.setVisible(true);
+                    frame.setLocation(screen.x + Math.max(0, (screen.width - w) / 2), screen.y + Math.max(0, (screen.height - h) / 2));
+                    frame.setMaximizedBounds(usable);
                     frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    frame.setVisible(true);
 
                 } else {
                     frame.setVisible(true);

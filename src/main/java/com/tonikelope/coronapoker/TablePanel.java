@@ -80,6 +80,13 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
 
     protected final GifLabel central_label = new GifLabel();
 
+    // Rótulo "BARAJANDO" que se muestra centrado donde iría el gif de barajado cuando
+    // ESE gif NO se reproduce (la baraja no trae shuffle.gif, o las animaciones están
+    // desactivadas): mismas letras que el mensaje gigante de la pantalla final (relleno
+    // blanco, borde negro), con el ancho del panel de comunitarias. Vive en su propia
+    // capa por encima de la mesa y solo está visible durante el barajado sin gif.
+    protected final ShufflingTextLabel shuffling_label = new ShufflingTextLabel();
+
     // Overlay opcional sobre las comunitarias: muestra en grande el coste de igualar
     // del jugador local — cuánto tendrá que poner cuando le toque. Texto con relleno
     // negro semitransparente y halo blanco para leerse sobre cualquier fondo (cartas
@@ -164,6 +171,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             central_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             central_label.setBarrier(central_label_barrier);
             add(central_label, JLayeredPane.POPUP_LAYER);
+
+            // Rótulo "BARAJANDO" (fallback sin gif de barajado): misma capa que el gif
+            // central, oculto salvo durante el barajado sin animación.
+            shuffling_label.setFocusable(false);
+            shuffling_label.setVisible(false);
+            add(shuffling_label, JLayeredPane.POPUP_LAYER);
 
             // Overlay de coste de igualar: por encima de las comunitarias (capa
             // PALETTE, debajo del shuffle/flying). Pinta su propio texto con halo
@@ -1100,6 +1113,70 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
+    // Rótulo "BARAJANDO": texto centrado pintado como contorno (borde negro) + relleno
+    // blanco, igual que el mensaje gigante de la pantalla final (HAS GANADO). La fuente se
+    // REESCALA en cada paint para LLENAR el ancho del componente (que se fija al ancho del
+    // panel de comunitarias), limitada por el alto. Sustituto visual del gif de barajado
+    // cuando ese gif no se reproduce.
+    private static final class ShufflingTextLabel extends javax.swing.JLabel {
+
+        private final java.awt.Color fill = java.awt.Color.WHITE;
+        private final java.awt.Color halo = new java.awt.Color(0, 0, 0, 235);
+        private static final float STROKE_RATIO = 0.06f;
+
+        ShufflingTextLabel() {
+            super("", javax.swing.SwingConstants.CENTER);
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            final String text = getText();
+            if (text == null || text.isEmpty()) {
+                return;
+            }
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                        java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                java.awt.Font base = getFont();
+                java.awt.font.FontRenderContext frc = g2.getFontRenderContext();
+
+                // Reescala la fuente para que el texto LLENE el ancho disponible (96%),
+                // limitada por el alto: así "BARAJANDO" ocupa el ancho del panel de
+                // comunitarias sea cual sea la resolución.
+                java.awt.font.TextLayout probe = new java.awt.font.TextLayout(text, base, frc);
+                double tw = probe.getAdvance();
+                double th = probe.getAscent() + probe.getDescent();
+                double avail_w = getWidth() * 0.96;
+                double avail_h = getHeight() * 0.96;
+                double scale = tw > 0 ? avail_w / tw : 1.0;
+                if (th * scale > avail_h && th > 0) {
+                    scale = Math.min(scale, avail_h / th);
+                }
+                java.awt.Font font = base.deriveFont((float) Math.max(8.0, base.getSize2D() * scale));
+
+                java.awt.font.TextLayout tl = new java.awt.font.TextLayout(text, font, frc);
+                java.awt.geom.Rectangle2D b = tl.getBounds();
+                double x = (getWidth() - b.getWidth()) / 2.0 - b.getX();
+                double y = (getHeight() - b.getHeight()) / 2.0 - b.getY();
+                java.awt.Shape outline = tl.getOutline(java.awt.geom.AffineTransform.getTranslateInstance(x, y));
+
+                float stroke = Math.max(2f, font.getSize2D() * STROKE_RATIO);
+                g2.setStroke(new java.awt.BasicStroke(stroke, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+                g2.setColor(halo);
+                g2.draw(outline);
+                g2.setColor(fill);
+                g2.fill(outline);
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
     // smoothstep clásico (Hermite): 0 en x≤a, 1 en x≥b, suave en medio.
     private static double smoothstep(double a, double b, double x) {
         double t = Math.max(0.0, Math.min(1.0, (x - a) / (b - a)));
@@ -1694,6 +1771,37 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         return central_label;
     }
 
+    // Muestra "BARAJANDO" centrado donde iría el gif de barajado, con el ANCHO del panel
+    // de comunitarias (las letras se reescalan para llenar ese ancho). Es el sustituto
+    // visual cuando el gif de barajado NO se reproduce (baraja sin shuffle.gif o
+    // animaciones desactivadas). EDT-safe; la mantiene visible hasta hideShufflingText().
+    public void showShufflingText() {
+        Helpers.GUIRun(() -> {
+            int cw = getCommunityCards().getWidth();
+            if (cw <= 0) {
+                cw = Math.round(getWidth() * 0.5f);
+            }
+            // Un poco más pequeño que el ancho completo de las comunitarias (las letras
+            // llenan esta caja, así que el factor fija el tamaño final del rótulo).
+            int w = Math.round(cw * 0.80f);
+            int h = Math.max(40, Math.round(w * 0.30f));
+            shuffling_label.setText(Translator.translate("game.barajando"));
+            // Fuente base; el propio paint la reescala para llenar el ancho.
+            shuffling_label.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, Math.max(12, h)));
+            shuffling_label.setSize(w, h);
+            shuffling_label.setLocation(Math.round((getWidth() - w) / 2f), Math.round((getHeight() - h) / 2f));
+            shuffling_label.setVisible(true);
+            shuffling_label.repaint();
+        });
+    }
+
+    public void hideShufflingText() {
+        Helpers.GUIRun(() -> {
+            shuffling_label.setVisible(false);
+            shuffling_label.setText("");
+        });
+    }
+
     public void hideALL() {
 
         Helpers.GUIRun(() -> {
@@ -1704,6 +1812,10 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             getCommunityCards().setVisible(false);
 
             central_label.setVisible(false);
+
+            // Rótulo "BARAJANDO": vive en su capa, fuera del flujo normal de la mesa; al
+            // ocultar el tapete (salir, game over, balance) quedaría flotando en el centro.
+            shuffling_label.setVisible(false);
 
             // El overlay de coste de igualar vive en una capa propia del tapete:
             // sin esto quedaría flotando en el centro al ocultarse la mesa (salir,

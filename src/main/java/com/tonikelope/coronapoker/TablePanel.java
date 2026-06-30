@@ -1120,13 +1120,19 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // cuando ese gif no se reproduce.
     private static final class ShufflingTextLabel extends javax.swing.JLabel {
 
-        private final java.awt.Color fill = java.awt.Color.WHITE;
+        // Relleno = color de los contadores del tapete (blanco en tapete oscuro/madera,
+        // su color en verde/azul/rojo); borde negro fijo. setFill lo actualiza al mostrar.
+        private java.awt.Color fill = java.awt.Color.WHITE;
         private final java.awt.Color halo = new java.awt.Color(0, 0, 0, 235);
         private static final float STROKE_RATIO = 0.06f;
 
         ShufflingTextLabel() {
             super("", javax.swing.SwingConstants.CENTER);
             setOpaque(false);
+        }
+
+        void setFill(java.awt.Color c) {
+            this.fill = (c != null) ? c : java.awt.Color.WHITE;
         }
 
         @Override
@@ -1777,14 +1783,22 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
     // animaciones desactivadas). EDT-safe; la mantiene visible hasta hideShufflingText().
     public void showShufflingText() {
         Helpers.GUIRun(() -> {
-            int cw = getCommunityCards().getWidth();
-            if (cw <= 0) {
-                cw = Math.round(getWidth() * 0.5f);
-            }
-            // Un poco más pequeño que el ancho completo de las comunitarias (las letras
-            // llenan esta caja, así que el factor fija el tamaño final del rótulo).
-            int w = Math.round(cw * 0.80f);
+            // El ancho se fija como fracción del TAPETE (no del panel de comunitarias):
+            // es la única referencia INVARIANTE por mano. El ancho del panel de
+            // comunitarias depende del estado de layout/zoom, que se asienta tras la
+            // primera mano -> antes daba un rótulo grande la primera vez y más pequeño
+            // las siguientes. El tapete no cambia con el zoom, así que el rótulo sale
+            // SIEMPRE igual. 0.35 del ancho del tapete = tamaño elegido por el usuario.
+            int w = Math.round(getWidth() * 0.35f);
             int h = Math.max(40, Math.round(w * 0.30f));
+            // Relleno = color de los contadores del tapete (se adapta al fondo elegido);
+            // blanco si aún no está definido. Borde negro fijo (lo pone el propio label).
+            java.awt.Color tapete_color = null;
+            try {
+                tapete_color = getCommunityCards().getColor_contadores();
+            } catch (Exception ex) {
+            }
+            shuffling_label.setFill(tapete_color);
             shuffling_label.setText(Translator.translate("game.barajando"));
             // Fuente base; el propio paint la reescala para llenar el ancho.
             shuffling_label.setFont(new java.awt.Font("Dialog", java.awt.Font.BOLD, Math.max(12, h)));

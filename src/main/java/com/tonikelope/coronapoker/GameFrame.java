@@ -3305,6 +3305,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void RESET_GAME(boolean recover) {
 
+        // Monitor donde estaba el tablero (y la pantalla final): la ventana de
+        // inicio se creo maximizada en el primario y solo se oculta entre
+        // timbas, asi que sin esto reaparece en el primario aunque la partida
+        // estuviera en un monitor secundario. Se captura ANTES del resetInstance.
+        final java.awt.GraphicsConfiguration return_screen = this.getGraphicsConfiguration();
+
         new Thread(() -> {
 
             boolean local = GameFrame.getInstance().isPartida_local();
@@ -3361,7 +3367,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
             Helpers.GUIRunAndWait(() -> {
                 Init.VENTANA_INICIO.getTapete().refresh();
-                Init.VENTANA_INICIO.setVisible(true);
+                Helpers.showFrameOnScreen(Init.VENTANA_INICIO, return_screen);
 
                 if (recover) {
                     Init.VENTANA_INICIO.setEnabled(false);

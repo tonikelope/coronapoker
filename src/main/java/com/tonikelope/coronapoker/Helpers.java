@@ -3988,6 +3988,44 @@ public class Helpers {
         });
     }
 
+    /**
+     * Shows a (typically maximized) JFrame on the monitor described by the
+     * given GraphicsConfiguration instead of wherever it was last realized.
+     * The start window is created maximized on the PRIMARY monitor and merely
+     * hidden between games, so returning to it would always pop it back on the
+     * primary screen even when the game and its final screen were on a
+     * secondary monitor. Dropping the frame's restored bounds onto the target
+     * monitor before re-maximizing brings it back on the same screen the
+     * player was using. A null config (no reference window) just shows the
+     * frame where it already was.
+     */
+    public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
+
+        GUIRunAndWait(new Runnable() {
+            @Override
+            public void run() {
+
+                if (gc != null) {
+
+                    Rectangle screen = gc.getBounds();
+
+                    // Clear the maximized state the frame kept from the primary
+                    // monitor and fill the target screen in restored state so
+                    // the frame is unambiguously on it; realizing it there
+                    // BEFORE maximizing makes the OS maximize on that monitor
+                    // and not back on the primary one.
+                    frame.setExtendedState(JFrame.NORMAL);
+                    frame.setBounds(screen);
+                    frame.setVisible(true);
+                    frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+                } else {
+                    frame.setVisible(true);
+                }
+            }
+        });
+    }
+
     public static void mostrarMensajeInformativo(Container container, String msg, ImageIcon icon) {
         mostrarMensajeInformativo(container, msg, "center", null, icon);
     }

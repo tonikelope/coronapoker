@@ -105,6 +105,10 @@ public class Init extends JFrame {
     public static volatile ConcurrentHashMap<String, Object> MOD = null;
     public static volatile Connection SQLITE = null;
     public static volatile Init VENTANA_INICIO = null;
+    // Snapshot (tamaño + estado) de la ventana de inicio en el momento de lanzar
+    // la timba, para reabrirla igual al cancelar desde la sala de espera.
+    public static volatile java.awt.Dimension LAUNCH_FRAME_SIZE = null;
+    public static volatile boolean LAUNCH_FRAME_MAXIMIZED = false;
     public static volatile Method M1 = null;
     public static volatile Method M2 = null;
     public static volatile Image I1 = null;
@@ -526,6 +530,18 @@ public class Init extends JFrame {
 
     }
 
+    /**
+     * Guarda pantalla, tamaño, posición y estado (maximizado o normal) de la
+     * ventana de inicio justo antes de ocultarla para lanzar una timba, de modo
+     * que al cancelar desde la sala o volver al menú se reabra exactamente igual.
+     */
+    public static void captureLaunchFrameState() {
+        if (VENTANA_INICIO != null) {
+            LAUNCH_FRAME_MAXIMIZED = (VENTANA_INICIO.getExtendedState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
+            LAUNCH_FRAME_SIZE = VENTANA_INICIO.getSize();
+        }
+    }
+
     public void continueLastGame(boolean local) {
 
         NewGameDialog dialog = new NewGameDialog(this, true, local);
@@ -555,6 +571,7 @@ public class Init extends JFrame {
             GameFrame.RUN_IT_TWICE_RECOVER = null;
             GameFrame.PASSWORD_RECOVER = null;
         } else {
+            captureLaunchFrameState();
             setVisible(false);
         }
     }
@@ -1027,6 +1044,7 @@ public class Init extends JFrame {
         if (!dialog.isDialog_ok()) {
             setVisible(true);
         } else {
+            captureLaunchFrameState();
             setVisible(false);
         }
     }//GEN-LAST:event_create_buttonActionPerformed
@@ -1060,6 +1078,7 @@ public class Init extends JFrame {
         if (!dialog.isDialog_ok()) {
             setVisible(true);
         } else {
+            captureLaunchFrameState();
             setVisible(false);
         }
     }//GEN-LAST:event_join_buttonActionPerformed

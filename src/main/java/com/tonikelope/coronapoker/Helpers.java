@@ -3997,6 +3997,13 @@ public class Helpers {
      * secondary monitor. A null config (no reference window) just shows the
      * frame where it already was.
      *
+     * When {@code maximized} is false and {@code restoreSize} is valid (the size
+     * the window had right before it was hidden to launch the game), the window
+     * is reopened in NORMAL state at that size, centered on the target monitor
+     * {@code gc} (the screen the waiting room is on, which may differ from the
+     * one it launched from). Otherwise it is maximized on the target monitor as
+     * described below.
+     *
      * Same proven technique as GameFrame.placeOnWaitingRoomMonitor: place the
      * window centered on the target monitor while in NORMAL state and maximize
      * BEFORE setVisible — on Windows setExtendedState(MAXIMIZED_BOTH) honors the
@@ -4017,43 +4024,60 @@ public class Helpers {
      * rectangle. Clearing it restores the native behavior of maximizing on
      * whatever monitor the window currently sits on.
      */
-    public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
+    public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc, java.awt.Dimension restoreSize, boolean maximized) {
 
         GUIRunAndWait(new Runnable() {
             @Override
             public void run() {
 
-                if (gc != null) {
-
-                    Rectangle screen = gc.getBounds();
-
-                    Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
-
-                    Rectangle usable = new Rectangle(
-                            screen.x + insets.left,
-                            screen.y + insets.top,
-                            screen.width - insets.left - insets.right,
-                            screen.height - insets.top - insets.bottom);
-
-                    int rw = (int) Math.round(screen.width * 0.8);
-                    int rh = (int) Math.round(screen.height * 0.8);
-
-                    frame.setExtendedState(JFrame.NORMAL);
-                    frame.setBounds(screen.x + (screen.width - rw) / 2, screen.y + (screen.height - rh) / 2, rw, rh);
-                    frame.setMaximizedBounds(usable);
-                    frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                if (gc == null) {
                     frame.setVisible(true);
-
-                    // Liberar el rectangulo fijo de maximizacion para no clavar
-                    // las futuras maximizaciones manuales del usuario a este
-                    // monitor; la maximizacion inicial ya esta aplicada.
-                    SwingUtilities.invokeLater(() -> frame.setMaximizedBounds(null));
-
-                } else {
-                    frame.setVisible(true);
+                    return;
                 }
+
+                Rectangle screen = gc.getBounds();
+
+                // No estaba maximizada: reabrir con su mismo tamaño, CENTRADA en la
+                // pantalla destino (la de la sala, que el usuario pudo mover a otro
+                // monitor). Solo se recuerda el tamaño, no la posición.
+                if (!maximized && restoreSize != null && restoreSize.width > 0 && restoreSize.height > 0) {
+                    frame.setExtendedState(JFrame.NORMAL);
+                    frame.setBounds(screen.x + (screen.width - restoreSize.width) / 2, screen.y + (screen.height - restoreSize.height) / 2, restoreSize.width, restoreSize.height);
+                    frame.setVisible(true);
+                    return;
+                }
+
+                Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
+
+                Rectangle usable = new Rectangle(
+                        screen.x + insets.left,
+                        screen.y + insets.top,
+                        screen.width - insets.left - insets.right,
+                        screen.height - insets.top - insets.bottom);
+
+                int rw = (int) Math.round(screen.width * 0.8);
+                int rh = (int) Math.round(screen.height * 0.8);
+
+                frame.setExtendedState(JFrame.NORMAL);
+                frame.setBounds(screen.x + (screen.width - rw) / 2, screen.y + (screen.height - rh) / 2, rw, rh);
+                frame.setMaximizedBounds(usable);
+                frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                frame.setVisible(true);
+
+                // Liberar el rectangulo fijo de maximizacion para no clavar
+                // las futuras maximizaciones manuales del usuario a este
+                // monitor; la maximizacion inicial ya esta aplicada.
+                SwingUtilities.invokeLater(() -> frame.setMaximizedBounds(null));
             }
         });
+    }
+
+    /**
+     * Maximiza el frame en el monitor indicado con tamaño restaurado al 80%
+     * (sin snapshot de estado normal previo). Atajo para el arranque.
+     */
+    public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
+        showFrameOnScreen(frame, gc, null, true);
     }
 
     public static void mostrarMensajeInformativo(Container container, String msg, ImageIcon icon) {

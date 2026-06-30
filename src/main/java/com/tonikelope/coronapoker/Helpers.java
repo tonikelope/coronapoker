@@ -1415,7 +1415,7 @@ public class Helpers {
             @Override
             public void run() {
 
-                Rectangle usable = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+                Rectangle usable = getUsableBoundsForWindow(window);
 
                 int x = window.getX();
                 int y = window.getY();
@@ -1436,6 +1436,53 @@ public class Helpers {
                 }
             }
         });
+    }
+
+    /**
+     * Usable bounds (work area, taskbar excluded) of the monitor the window
+     * currently sits on, chosen as the screen device whose bounds overlap the
+     * window the most. GraphicsEnvironment.getMaximumWindowBounds() only ever
+     * reports the PRIMARY display's work area, so a dialog centered over a
+     * parent that lives on a secondary monitor would be dragged back onto the
+     * primary screen by the clamp; resolving the device per-window keeps it on
+     * the monitor it was centered on. Falls back to the primary work area when
+     * the window overlaps no screen at all.
+     */
+    private static Rectangle getUsableBoundsForWindow(Window window) {
+
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+
+        Rectangle window_bounds = window.getBounds();
+
+        java.awt.GraphicsConfiguration best = null;
+        long best_area = 0;
+
+        for (java.awt.GraphicsDevice device : ge.getScreenDevices()) {
+
+            java.awt.GraphicsConfiguration config = device.getDefaultConfiguration();
+
+            Rectangle intersection = config.getBounds().intersection(window_bounds);
+
+            long area = intersection.isEmpty() ? 0 : (long) intersection.width * intersection.height;
+
+            if (area > best_area) {
+                best_area = area;
+                best = config;
+            }
+        }
+
+        if (best == null) {
+            return ge.getMaximumWindowBounds();
+        }
+
+        Rectangle bounds = best.getBounds();
+        Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(best);
+
+        return new Rectangle(
+                bounds.x + insets.left,
+                bounds.y + insets.top,
+                bounds.width - insets.left - insets.right,
+                bounds.height - insets.top - insets.bottom);
     }
 
     public static void setLocationContainerRelativeTo(Container reference, Container current) {

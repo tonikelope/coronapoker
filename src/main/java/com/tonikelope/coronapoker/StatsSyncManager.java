@@ -53,17 +53,20 @@ public final class StatsSyncManager {
     /** CLIENT: the connection to the host is fully established. */
     void onConnectedToServer() {
         if (!GameFrame.SYNC_STATS_RECEIVE_PREF && !GameFrame.SYNC_STATS_SHARE_PREF) {
+            LOGGER.log(Level.INFO, "StatsSync [CLIENT]: connected to host, but stats sync is fully OFF "
+                    + "(both RECEIVE and SHARE disabled) — not syncing anything.");
             return; // fully opted out
         }
         Helpers.threadRun(() -> {
             try {
-                byte[] manifest = StatsSyncProtocol.manifestMessage(
-                        StatsSync.listShareableUgis(), GameFrame.SYNC_STATS_RECEIVE_PREF);
+                List<String> mine = StatsSync.listShareableUgis();
+                byte[] manifest = StatsSyncProtocol.manifestMessage(mine, GameFrame.SYNC_STATS_RECEIVE_PREF);
                 room.statsSyncRawSendToServer(manifest);
-                LOGGER.log(Level.INFO, "StatsSync: sent manifest to host (receive={0}, share={1})",
-                        new Object[]{GameFrame.SYNC_STATS_RECEIVE_PREF, GameFrame.SYNC_STATS_SHARE_PREF});
+                LOGGER.log(Level.INFO, "StatsSync [CLIENT]: connected — sent my manifest to the host: I hold {0} "
+                        + "shareable game(s); wantsReceive={1}, willShare={2}. Now waiting for the host to reply.",
+                        new Object[]{mine.size(), GameFrame.SYNC_STATS_RECEIVE_PREF, GameFrame.SYNC_STATS_SHARE_PREF});
             } catch (Exception ex) {
-                LOGGER.log(Level.WARNING, "StatsSync: manifest send to host failed", ex);
+                LOGGER.log(Level.WARNING, "StatsSync [CLIENT]: failed to send my manifest to the host", ex);
             }
         });
     }
@@ -71,7 +74,7 @@ public final class StatsSyncManager {
     /** HOST: a client disconnected — drop its tracking state. */
     void onPeerGone(String nick) {
         if (peers.remove(nick) != null) {
-            LOGGER.log(Level.FINE, "StatsSync: forgot sync state for {0}", nick);
+            LOGGER.log(Level.INFO, "StatsSync [HOST]: client {0} left — dropped its sync tracking state.", nick);
         }
     }
 
@@ -94,6 +97,7 @@ public final class StatsSyncManager {
     }
 
     private void handleManifest(String peerNick, byte[] message, boolean iAmHost) {
+        String side = iAmHost ? "HOST" : "CLIENT";
         try {
             StatsSyncProtocol.Manifest manifest = StatsSyncProtocol.readManifest(message);
             List<String> mine = StatsSync.listShareableUgis();
@@ -104,45 +108,78 @@ public final class StatsSyncManager {
                 peers.put(peerNick, state);
             }
 
-            LOGGER.log(Level.INFO, "StatsSync: manifest from {0} — {1} ugis, wantsReceive={2}, iAmHost={3}",
-                    new Object[]{peerNick, manifest.ugis.size(), manifest.wantsReceive, iAmHost});
+            LOGGER.log(Level.INFO, "StatsSync [{0}]: received manifest from {1} — it holds {2} game(s) and "
+                    + "wantsReceive={3}; I hold {4} shareable game(s).",
+                    new Object[]{side, peerNick, manifest.ugis.size(), manifest.wantsReceive, mine.size()});
 
-            // Push what the peer lacks, if I share and the peer wants to receive.
-            if (GameFrame.SYNC_STATS_SHARE_PREF && manifest.wantsReceive) {
-                pushGames(peerNick, StatsSync.difference(mine, manifest.ugis), iAmHost);
+            // Decide whether to push the games the peer is missing.
+            if (!GameFrame.SYNC_STATS_SHARE_PREF) {
+                LOGGER.log(Level.INFO, "StatsSync [{0}]: my SHARE is OFF — not sending any of my games to {1}.",
+                        new Object[]{side, peerNick});
+            } else if (!manifest.wantsReceive) {
+                LOGGER.log(Level.INFO, "StatsSync [{0}]: {1} does not want to receive — not sending it any games.",
+                        new Object[]{side, peerNick});
+            } else {
+                List<String> missing = StatsSync.difference(mine, manifest.ugis);
+                if (missing.isEmpty()) {
+                    LOGGER.log(Level.INFO, "StatsSync [{0}]: {1} already has all {2} of my game(s) — nothing to send.",
+                            new Object[]{side, peerNick, mine.size()});
+                } else {
+                    LOGGER.log(Level.INFO, "StatsSync [{0}]: {1} is missing {2} of my {3} game(s) — sending them now.",
+                            new Object[]{side, peerNick, missing.size(), mine.size()});
+                    pushGames(peerNick, missing, iAmHost);
+                }
             }
 
             // The host replies with its own manifest so the client can push back —
             // only if the host itself wants to receive. The client never replies
             // (it already sent its manifest on connect), so there is no loop.
-            if (iAmHost && GameFrame.SYNC_STATS_RECEIVE_PREF) {
-                room.statsSyncRawSendToClient(peerNick,
-                        StatsSyncProtocol.manifestMessage(mine, true));
+            if (iAmHost) {
+                if (GameFrame.SYNC_STATS_RECEIVE_PREF) {
+                    LOGGER.log(Level.INFO, "StatsSync [HOST]: asking {0} for whatever I am missing — replying with "
+                            + "my manifest ({1} game(s)).", new Object[]{peerNick, mine.size()});
+                    room.statsSyncRawSendToClient(peerNick,
+                            StatsSyncProtocol.manifestMessage(mine, true));
+                } else {
+                    LOGGER.log(Level.INFO, "StatsSync [HOST]: my RECEIVE is OFF — not requesting any games from {0}.",
+                            peerNick);
+                }
             }
         } catch (Exception ex) {
-            LOGGER.log(Level.WARNING, "StatsSync: bad manifest from " + peerNick, ex);
+            LOGGER.log(Level.WARNING, "StatsSync [" + side + "]: could not process the manifest from " + peerNick, ex);
         }
     }
 
     private void handleGames(String peerNick, byte[] message, boolean iAmHost) {
+        String side = iAmHost ? "HOST" : "CLIENT";
         if (!GameFrame.SYNC_STATS_RECEIVE_PREF) {
+            LOGGER.log(Level.INFO, "StatsSync [{0}]: my RECEIVE is OFF — ignoring a games batch from {1}.",
+                    new Object[]{side, peerNick});
             return; // we did not ask for games
         }
         try {
-            int imported = StatsSync.importGames(StatsSyncProtocol.gamesBlob(message));
+            byte[] blob = StatsSyncProtocol.gamesBlob(message);
+            LOGGER.log(Level.INFO, "StatsSync [{0}]: receiving a games batch from {1} ({2} bytes) — importing...",
+                    new Object[]{side, peerNick, blob.length});
+            int imported = StatsSync.importGames(blob);
+            LOGGER.log(Level.INFO, "StatsSync [{0}]: imported {1} NEW game(s) from {2} (the rest were already known).",
+                    new Object[]{side, imported, peerNick});
             if (iAmHost && imported > 0) {
                 // Same-session convergence: spread freshly-acquired games to the
                 // other connected clients that still lack them.
+                LOGGER.log(Level.INFO, "StatsSync [HOST]: spreading {0} freshly-received game(s) to the other clients.",
+                        imported);
                 forwardToOtherClients(peerNick);
             }
         } catch (Exception ex) {
-            LOGGER.log(Level.WARNING, "StatsSync: bad games from " + peerNick, ex);
+            LOGGER.log(Level.WARNING, "StatsSync [" + side + "]: could not process a games batch from " + peerNick, ex);
         }
     }
 
     /** HOST: push games each other client is still missing (idempotent, deduped per client). */
     private void forwardToOtherClients(String exceptNick) {
         if (!GameFrame.SYNC_STATS_SHARE_PREF) {
+            LOGGER.log(Level.INFO, "StatsSync [HOST]: my SHARE is OFF — not forwarding to the other clients.");
             return;
         }
         List<String> mine = StatsSync.listShareableUgis();
@@ -152,9 +189,17 @@ public final class StatsSyncManager {
             }
             PeerState state = peers.get(nick);
             if (state == null || !state.wantsReceive) {
+                LOGGER.log(Level.FINE, "StatsSync [HOST]: skipping {0} when forwarding (unknown or not receiving).", nick);
                 continue;
             }
-            pushGames(nick, StatsSync.difference(mine, state.knownUgis), true);
+            List<String> missing = StatsSync.difference(mine, state.knownUgis);
+            if (missing.isEmpty()) {
+                LOGGER.log(Level.FINE, "StatsSync [HOST]: {0} already has everything — nothing to forward.", nick);
+            } else {
+                LOGGER.log(Level.INFO, "StatsSync [HOST]: forwarding {0} game(s) to {1}.",
+                        new Object[]{missing.size(), nick});
+                pushGames(nick, missing, true);
+            }
         }
     }
 
@@ -167,12 +212,18 @@ public final class StatsSyncManager {
         if (ugis == null || ugis.isEmpty()) {
             return;
         }
+        String side = iAmHost ? "HOST" : "CLIENT";
         PeerState state = iAmHost ? peers.get(peerNick) : null;
+        int totalBatches = (ugis.size() + GAMES_PER_BATCH - 1) / GAMES_PER_BATCH;
+        LOGGER.log(Level.INFO, "StatsSync [{0}]: sending {1} game(s) to {2} in {3} batch(es) of up to {4}...",
+                new Object[]{side, ugis.size(), peerNick, totalBatches, GAMES_PER_BATCH});
         int sent = 0;
         for (int i = 0; i < ugis.size(); i += GAMES_PER_BATCH) {
             List<String> batch = ugis.subList(i, Math.min(i + GAMES_PER_BATCH, ugis.size()));
             byte[] blob = StatsSync.exportGames(batch);
             if (blob == null) {
+                LOGGER.log(Level.WARNING, "StatsSync [{0}]: could not serialize a batch of {1} game(s) for {2} — "
+                        + "skipping that batch.", new Object[]{side, batch.size(), peerNick});
                 continue; // export failed (logged in StatsSync); skip this batch
             }
             byte[] gamesMessage = StatsSyncProtocol.gamesMessage(blob);
@@ -187,7 +238,8 @@ public final class StatsSyncManager {
                 delivered = true; // client→host is best-effort; NetClient handles a dead socket
             }
             if (!delivered) {
-                LOGGER.log(Level.FINE, "StatsSync: {0} gone mid-push, stopping after {1} games", new Object[]{peerNick, sent});
+                LOGGER.log(Level.INFO, "StatsSync [{0}]: {1} disconnected mid-send — stopped after {2} of {3} game(s); "
+                        + "the rest will go out on the next sync.", new Object[]{side, peerNick, sent, ugis.size()});
                 break;
             }
             // Only mark a game as known once it actually went out, so a reconnect
@@ -196,9 +248,12 @@ public final class StatsSyncManager {
                 state.knownUgis.addAll(batch);
             }
             sent += batch.size();
+            LOGGER.log(Level.FINE, "StatsSync [{0}]: sent batch {1}/{2} ({3} game(s)) to {4}.",
+                    new Object[]{side, (i / GAMES_PER_BATCH) + 1, totalBatches, batch.size(), peerNick});
         }
         if (sent > 0) {
-            LOGGER.log(Level.INFO, "StatsSync: pushed {0} games to {1}", new Object[]{sent, peerNick});
+            LOGGER.log(Level.INFO, "StatsSync [{0}]: finished sending {1} game(s) to {2}.",
+                    new Object[]{side, sent, peerNick});
         }
     }
 

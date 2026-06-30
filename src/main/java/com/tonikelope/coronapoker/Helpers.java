@@ -4009,6 +4009,13 @@ public class Helpers {
      * centered, so that when the user un-maximizes the window it lands at a
      * sane size instead of the default oversized restored bounds that would
      * spill off-screen.
+     *
+     * setMaximizedBounds is used ONLY to force this initial maximization onto
+     * the target monitor and then released (null) on the next EDT cycle:
+     * because it persists, leaving it set would pin EVERY later maximization
+     * (including the user maximizing by hand on another monitor) to this same
+     * rectangle. Clearing it restores the native behavior of maximizing on
+     * whatever monitor the window currently sits on.
      */
     public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
 
@@ -4036,6 +4043,11 @@ public class Helpers {
                     frame.setMaximizedBounds(usable);
                     frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
                     frame.setVisible(true);
+
+                    // Liberar el rectangulo fijo de maximizacion para no clavar
+                    // las futuras maximizaciones manuales del usuario a este
+                    // monitor; la maximizacion inicial ya esta aplicada.
+                    SwingUtilities.invokeLater(() -> frame.setMaximizedBounds(null));
 
                 } else {
                     frame.setVisible(true);

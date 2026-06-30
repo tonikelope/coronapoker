@@ -1664,6 +1664,16 @@ public class WaitingRoomFrame extends JFrame {
                         runPingPongThreadCliente();
                     }
 
+                    // Resume a stats DB sync that the drop may have cut short: re-send our
+                    // manifest so the host pushes whatever did not make it across before the
+                    // socket died. Best-effort, background, and idempotent (imports dedup by
+                    // ugi; no-op if both sync prefs are off) — same call as the initial
+                    // connect. Its socket write waits on reconnecting=false (cleared in the
+                    // finally below) since it is offloaded to a background thread.
+                    if (!exit) {
+                        statsSyncOnConnectedToServer();
+                    }
+
                     Audio.playWavResource("misc/yahoo.wav");
 
                     if (WaitingRoomFrame.getInstance().isPartida_empezada() && GameFrame.getInstance() != null) {

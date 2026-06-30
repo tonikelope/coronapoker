@@ -1249,8 +1249,10 @@ public class Init extends JFrame {
 
         Helpers.GUIRun(() -> {
             VENTANA_INICIO = new Init();
-            VENTANA_INICIO.setExtendedState(JFrame.MAXIMIZED_BOTH);
-            VENTANA_INICIO.setVisible(true);
+            // Maximizada en el monitor primario, pero con el tamaño restaurado
+            // (al desmaximizar) fijado al 80% centrado en vez del enorme por
+            // defecto que se salia de la pantalla.
+            Helpers.showFrameOnScreen(VENTANA_INICIO, java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration());
         });
 
         if (PEGI18_MOD && !Files.isReadable(Paths.get(Helpers.getCurrentJarParentPath() + "/mod/.pegi18_warning"))) {

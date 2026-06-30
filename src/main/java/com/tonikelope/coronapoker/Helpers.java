@@ -4004,6 +4004,11 @@ public class Helpers {
      * maximized+hidden state on the primary monitor (whose retained native
      * placement would otherwise snap it back), setMaximizedBounds pins the
      * maximized rectangle to the target monitor's work area explicitly.
+     *
+     * The restored (NORMAL) bounds are set to 80% of the target monitor,
+     * centered, so that when the user un-maximizes the window it lands at a
+     * sane size instead of the default oversized restored bounds that would
+     * spill off-screen.
      */
     public static void showFrameOnScreen(JFrame frame, java.awt.GraphicsConfiguration gc) {
 
@@ -4023,11 +4028,11 @@ public class Helpers {
                             screen.width - insets.left - insets.right,
                             screen.height - insets.top - insets.bottom);
 
-                    int w = frame.getWidth() > 0 ? frame.getWidth() : Math.min(screen.width, 1024);
-                    int h = frame.getHeight() > 0 ? frame.getHeight() : Math.min(screen.height, 768);
+                    int rw = (int) Math.round(screen.width * 0.8);
+                    int rh = (int) Math.round(screen.height * 0.8);
 
                     frame.setExtendedState(JFrame.NORMAL);
-                    frame.setLocation(screen.x + Math.max(0, (screen.width - w) / 2), screen.y + Math.max(0, (screen.height - h) / 2));
+                    frame.setBounds(screen.x + (screen.width - rw) / 2, screen.y + (screen.height - rh) / 2, rw, rh);
                     frame.setMaximizedBounds(usable);
                     frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
                     frame.setVisible(true);

@@ -1,4 +1,4 @@
-# Smoke harness — invariantes rápidas para refactor
+# Smoke harness: invariantes rápidas para refactor
 
 Este paquete contiene los **smoke tests de invariantes** que se ejecutan antes de mergear cualquier sprint de refactor (ver `docs/refactoring-audit-2026-05-v2.md`).
 
@@ -12,7 +12,7 @@ Diseñados para responder UNA pregunta: *después de mi cambio, ¿el flujo bási
 
 - **Después de cualquier cambio en `Crupier.java`, `Bot.java`, `bot/*` o cualquier código que afecte al flujo de mano.**
 - Antes de mergear cualquier rama `sprint-*` a master.
-- NO se ejecutan automáticamente con `mvn test` — hay que pedirlo explícito.
+- NO se ejecutan automáticamente con `mvn test`, hay que pedirlo explícito.
 
 ## Cómo ejecutar (solo los smoke, sin pisar la máquina)
 
@@ -28,8 +28,8 @@ cd tools\qa
 
 - Tests de calidad/equity del bot → `bot/harness/`.
 - Tests de cripto SRA → `sra/`.
-- Tests de protocolo de red real (NetServer/NetClient con sockets) → no existen aún; smoke manual por checklist en `docs/smoke-checklist/`.
-- Tests UI (Swing) → no automatizables sin Robot framework / AWT headless; smoke manual.
+- Tests de protocolo de red real (NetServer/NetClient con sockets) → no existen aún. Smoke manual por checklist en `docs/smoke-checklist/`.
+- Tests UI (Swing) → no automatizables sin Robot framework / AWT headless. Smoke manual.
 
 ## Estructura
 

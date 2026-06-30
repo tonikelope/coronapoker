@@ -1,4 +1,4 @@
-# CoronaPoker — Bot AI
+# CoronaPoker: Bot AI
 
 This document describes how the CoronaPoker CPU players ("bots") think: their
 architecture, the hand-evaluation maths, the personality model, the per-turn
@@ -7,7 +7,7 @@ distinguishable. It is the bot counterpart of [`SECURITY.md`](SECURITY.md).
 
 The implementation lives almost entirely in
 [`Bot.java`](../src/main/java/com/tonikelope/coronapoker/Bot.java) plus the
-`bot/eval` and `bot/context` packages; the underlying combinatorics come from the
+`bot/eval` and `bot/context` packages. The underlying combinatorics come from the
 University of Alberta Poker Research Group library under `org.alberta.poker`.
 
 ---
@@ -16,8 +16,8 @@ University of Alberta Poker Research Group library under `org.alberta.poker`.
 
 The bot is a **hand-crafted heuristic**, not a solver. It does not run CFR and it
 does not compute equity against per-opponent ranges. The chosen ceiling is an
-*elite heuristic* whose primary axis is **feeling human** — unpredictable,
-capable of a credible bluff, and hard to read or exploit — rather than raw
+*elite heuristic* whose primary axis is **feeling human** (unpredictable,
+capable of a credible bluff, and hard to read or exploit) rather than raw
 GTO strength. A home game against friends wants opponents that are fun and
 believable across a clear skill ladder, not a perfect machine.
 
@@ -27,11 +27,11 @@ Three properties follow from that:
   like a mix of nits, calling stations and aggressive regulars rather than nine
   copies of one strategy.
 - **A real difficulty gradient.** EASY < MEDIUM < HARD is guaranteed *by
-  construction* (see §8), not by hand-waving — the weaker levels commit
+  construction* (see §8), not by hand-waving. The weaker levels commit
   recognisable poker mistakes at increasing frequencies.
 - **Measurable calibration.** Every behavioural change is validated in an offline
   simulation harness (`tools/qa`) over thousands of hands. The rule is *measure
-  before you touch* — bot "improvements" judged by eye have repeatedly turned out
+  before you touch*. Bot "improvements" judged by eye have repeatedly turned out
   to be regressions.
 
 ---
@@ -43,19 +43,19 @@ Three properties follow from that:
 The bot subsystem is layered, and the layers are joined by deliberately narrow
 **`«interface»` seams**:
 
-- **`DealerView`** — a read-only slice of the dealer/table state the bot needs
+- **`DealerView`**: a read-only slice of the dealer/table state the bot needs
   (street, pot, current bet, last raise, blinds, bet count, limpers, the dealer /
   SB / BB / UTG nicks, the last aggressor, players in seating order, and the
   board cards). `Crupier` implements it directly.
-- **`BotPlayerView`** — a read-only slice of a player (nick, stack, current bet,
+- **`BotPlayerView`**: a read-only slice of a player (nick, stack, current bet,
   active flag, hole cards). The full `Player` interface extends it, so any
   concrete player satisfies it for free.
-- **`BotEvaluator`** — the umbrella evaluation contract
+- **`BotEvaluator`**: the umbrella evaluation contract
   (`HandStrengthEvaluator` + `DrawPotentialEvaluator` + `HandRankResolver`).
 
 These seams are the **testability boundary**: because the bot only ever talks to
 the table through them, the offline QA harness can inject a *fake* dealer, fake
-players and a seeded RNG and run thousands of hands head-less — no Swing, no
+players and a seeded RNG and run thousands of hands head-less, no Swing, no
 sockets. Production wires the real `Crupier`, real `Player`s and the
 `MemoizedAlbertaEvaluator`.
 
@@ -69,10 +69,10 @@ seat, calls `calculateBotDecision(opponents)`, and the engine returns one of
 
 The bot reduces every situation to two numbers from the `BotEvaluator`:
 
-- **Hand strength** — `handStrengthVsN(hole1, hole2, board, opponents)`: the
+- **Hand strength**: `handStrengthVsN(hole1, hole2, board, opponents)`: the
   probability the current hand is best against *N* independent random hands on the
   current board.
-- **Potential** — `potential(...)` returns a **`Potential`** = `(PPot, NPot)`
+- **Potential**: `potential(...)` returns a **`Potential`** = `(PPot, NPot)`
   (Papp 1998 §5.3):
   - **PPot** (positive potential): probability a hand currently *behind* improves
     to best as more board cards arrive.
@@ -85,8 +85,8 @@ These are combined into the single number the rest of the engine reasons about:
 effective strength = strength + (1 − strength)·PPot − strength·NPot
 ```
 
-It is then nudged down by texture-aware penalties — an under-pair facing two
-overcards, a made hand with a weak kicker — and floored at `0.10`.
+It is then nudged down by texture-aware penalties (an under-pair facing two
+overcards, a made hand with a weak kicker) and floored at `0.10`.
 
 ### Card encoding
 
@@ -99,12 +99,12 @@ Alberta encoding.
 
 ```
 BotEvaluator
- ├── AlbertaEvaluatorAdapter     (reference / oracle — uncached)
- └── MemoizedAlbertaEvaluator    (production — memoized PPot/NPot)
+ ├── AlbertaEvaluatorAdapter     (reference / oracle, uncached)
+ └── MemoizedAlbertaEvaluator    (production, memoized PPot/NPot)
 ```
 
 On the flop a two-card look-ahead evaluates a 7-card hand on the order of two
-million times, the vast majority of them redundant; with no native `libeval`
+million times, the vast majority of them redundant. With no native `libeval`
 present (every platform except Linux/Solaris) each goes through the Java
 `rankHand` fallback. **`MemoizedAlbertaEvaluator`** therefore caches the repeated
 rank look-ups (the bot's own 7-card rank, independent of the opponent's cards,
@@ -139,7 +139,7 @@ a table changes with difficulty:
 | HARD   | 0%  | 35% | 65% |
 
 **Profile is rolled from the skill** (recreational players skew toward STATION,
-especially on EASY; sharks are only TAG/LAG).
+especially on EASY. Sharks are only TAG/LAG).
 
 **Profile elasticity** (`adjustProfileElasticity`, once per hand) adapts the base
 profile to the situation by stack depth (the *M*-ratio): a short stack collapses
@@ -163,13 +163,13 @@ action from **position × profile × bet level**:
 
 - **Open / fold** by position (EARLY/MIDDLE/LATE/BLINDS) and profile, with NITs
   tighter and LAGs/late position wider.
-- **3-bet / 4-bet / 5-bet** for value with premium tiers; small pairs set-mine
+- **3-bet / 4-bet / 5-bet** for value with premium tiers. Small pairs set-mine
   versus a 3-bet.
 - **Bluffs and steals:** blocker-based 3-bet bluffs and squeezes for sharks, late
   trash steals, and (heads-up) a wide button-open / BB-defend matrix tuned by a
   per-difficulty *looseness offset* (see §8).
 - Tiers are also nudged by table size (an early-position tier-3 tightens at a full
-  ring; marginal hands loosen short-handed).
+  ring, marginal hands loosen short-handed).
 
 ### 5.2 Postflop
 
@@ -177,33 +177,33 @@ The postflop branch builds the picture in stages (all cached so a betting round
 does not recompute invariants):
 
 1. **`strength`** ← `handStrengthVsN` (cached per street + opponent count).
-2. **`PPot` / `NPot`** ← `potential` (cached per street; the river is `0`).
+2. **`PPot` / `NPot`** ← `potential` (cached per street, the river is `0`).
 3. **`effective strength`** ← the formula in §3, minus overcard / weak-kicker
    penalties, floored at `0.10`.
 4. **Scare-card detection:** on a new street, an effective-strength drop greater
    than `0.15` flags a scare card (and can downgrade an aggressive plan).
 5. **`winProb` adjustments** to the raw equity for the *context*:
    - −0.10 in a 3-bet-or-larger pot, −0.04 per extra multiway opponent,
-     −0.12 on a scare card, −0.03 out of position;
+     −0.12 on a scare card, −0.03 out of position.
    - opponent read (when there is enough data): −0.18 vs a nit, +0.12 vs a
-     maniac, −0.03 vs a station;
+     maniac, −0.03 vs a station.
    - a small shark edge on HARD/MEDIUM, and a touch of random noise on EASY.
-6. **Expected value:** `EV(call)`, `EV(raise)` and **fold equity** are computed;
-   safe draws get an implied-odds bonus, and fold equity is forced to `0` against
+6. **Expected value:** `EV(call)`, `EV(raise)` and **fold equity** are computed.
+   Safe draws get an implied-odds bonus, and fold equity is forced to `0` against
    a calling station.
 7. **Pot commitment:** at low SPR with a strong hand the bot treats itself as
    committed and stops folding.
 
 The result routes to one of two sub-routines:
 
-**`decisionWhenCheckedTo`** (no bet to call) — slow-play traps with monsters,
+**`decisionWhenCheckedTo`** (no bet to call): slow-play traps with monsters,
 flop **C-bets** (boosted by a range advantage and dry boards, cut on wet/paired
 boards and multiway), **semi-bluffs** with strong draws (the PPot threshold is
-*street-aware* — lower on the turn, where only one card is to come), river **value
+*street-aware*, lower on the turn, where only one card is to come), river **value
 / thin value / polarized bluffs**, street-plan barrels, and finally a plain
 EV-driven value bet.
 
-**`decisionWhenFacingBet`** (a bet to call) — dynamic **check-raises**, **floats**
+**`decisionWhenFacingBet`** (a bet to call): dynamic **check-raises**, **floats**
 (call in position to bluff a later street), pot-committed shoves/calls, **value
 raises** (the threshold drops on HARD so sharks generate real aggression), a
 heads-up-only **medium-strength raise** booster, **squeezes**, implied-odds draw
@@ -219,7 +219,7 @@ on adjusted EV.
 boards get a polarized split (large for value, a small block-bet otherwise), with
 profile multipliers (LAG bigger, NIT smaller) and an occasional shark river
 overbet. The size is computed **once during the decision** and reused verbatim by
-the dealer — recomputing it would redraw the RNG-laced jitter and bet a different
+the dealer. Recomputing it would redraw the RNG-laced jitter and bet a different
 amount than the EV was evaluated on. Everything is rounded up to the current small
 blind so the bet is always legal even after blinds double or after recovery.
 
@@ -247,7 +247,7 @@ abandoned if the opponent overbets or a nit applies real pressure.
 
 Every opponent gets an **`OpponentTracker`** kept in the session-wide
 `TRACKER_MEMORY` map (keyed by nick, persisting across hands). The dealer records
-each player's actions into it; the bot reads it back.
+each player's actions into it. The bot reads it back.
 
 - **VPIP** (voluntarily put money in pot), **PFR** (preflop raise) and **AF**
   (aggression factor) are the headline stats.
@@ -256,7 +256,7 @@ each player's actions into it; the bot reads it back.
   with zero aggression) that fires *before* the full sample so the bot stops
   firing −EV bluffs at a fish during the first orbit.
 - The reads feed both the `winProb` adjustment (§5.2) and **fold equity**: fold
-  equity is zeroed against any live opponent who never folds — checked over the
+  equity is zeroed against any live opponent who never folds, checked over the
   *active* players, not just the last aggressor, so it works even when the bot is
   first to act and opening a bluff.
 
@@ -278,8 +278,8 @@ mechanisms enforce it:
    | EASY   | 45% |
 
    The leaks are a sticky calldown, a hero fold, a missed value bet and a spewy
-   preflop call. All of them downgrade toward passivity or surrender — none
-   *adds* a bet — so a weaker bot bleeds expected value without becoming a
+   preflop call. All of them downgrade toward passivity or surrender (none
+   *adds* a bet) so a weaker bot bleeds expected value without becoming a
    maniac. This is the "Stockfish skill-level" pattern: the same engine, more
    self-sabotage at lower levels.
 
@@ -288,7 +288,7 @@ mechanisms enforce it:
 3. **Tuning knobs** that scale with difficulty: a heads-up *looseness offset*
    (`EASY +25`, `MEDIUM −16`, `HARD −52` percentage points on steal/defend
    frequencies), the **river bluff frequency** (`HARD 38%`, `MEDIUM 14%`,
-   `EASY 0%` — EASY plays its river face-up), and HARD-only refinements such as a
+   `EASY 0%`, EASY plays its river face-up), and HARD-only refinements such as a
    lower value-raise threshold and the MDF bluff-catch.
 
 > Note: earlier releases shipped four levels including a separate `EXPERT`. It was
@@ -302,19 +302,19 @@ mechanisms enforce it:
 
 The behaviours that make the bot hard to read, all gated so they stay +EV:
 
-- **Polarized river bluff** — with air and genuine fold equity against a single
+- **Polarized river bluff**: with air and genuine fold equity against a single
   foldable opponent, the bot represents its value range a balanced fraction of
   the time instead of always checking (a barrel that only ever means "I have it"
   is a transparent tell). A busted draw or a hand that has been barrelling tells
   the most credible story and bluffs a little more often. Fold equity is `0`
   against a station, so the bot never bluffs a player who never folds.
-- **Street-aware semi-bluffs** — strong draws bet for fold equity + improvement;
-  the PPot threshold is lower on the turn (one card to come) so the turn is not
+- **Street-aware semi-bluffs**: strong draws bet for fold equity + improvement.
+  The PPot threshold is lower on the turn (one card to come) so the turn is not
   played face-up.
 - **Preflop 3-bet bluffs and squeezes** with blocker hands.
-- **Floats** — calling in position on the flop to take the pot away on a later
+- **Floats**: calling in position on the flop to take the pot away on a later
   street.
-- **Reading the calling station** — the single biggest "human" fix: the bot
+- **Reading the calling station**: the single biggest "human" fix: the bot
   detects a non-folder (even early, via `looksPassiveStation()`) and switches from
   bluffing to thin value-betting, exactly as a thinking player would.
 
@@ -323,13 +323,13 @@ The behaviours that make the bot hard to read, all gated so they stay +EV:
 ## 10. Determinism, RNG and timing
 
 - All randomness flows through a single injectable `Random` (`setRng`). Production
-  uses the shared CSPRNG; the harness seeds it so a session is **bit-for-bit
+  uses the shared CSPRNG. The harness seeds it so a session is **bit-for-bit
   reproducible**.
 - The bot is **not** thread-safe and does not need to be: bot decisions are
   evaluated **sequentially** (one seat at a time) on the dealer thread. The
   shared evaluator and trackers rely on that contract.
 - A fixed **`BOT_THINK_TIME` (1500 ms)** "thinking" pause is applied by the dealer
-  so a bot does not act instantly — the heavy evaluation runs off the UI thread,
+  so a bot does not act instantly. The heavy evaluation runs off the UI thread,
   hidden behind this pause.
 
 ---
@@ -359,7 +359,7 @@ Because the harness depends on the installed game artifact, the workflow is
 
 > Hard-won rule: a finding that is *technically* a bug is not necessarily worth
 > "fixing". The loose, fixed-strength preflop calls that make EASY/MEDIUM feel
-> like fish are the *engine* of their character — tightening them measured worse
+> like fish are the *engine* of their character. Tightening them measured worse
 > even though it looked cleaner. Always measure the product, not the code.
 
 ---

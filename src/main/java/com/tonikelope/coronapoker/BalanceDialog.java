@@ -134,6 +134,16 @@ public class BalanceDialog extends JDialog {
     // total hasta el stack final (estilo recuento de puntuación de videojuego) y luego se
     // revela como +/- el neto. Solo si hay ganancia/pérdida (no en empate).
     private OutlinedLabel amount_label;
+
+    // Las tres piezas apiladas de la franja central, para fijar su mínimo/máximo
+    // vertical una vez finalizadas las fuentes (finalizeCenterSizing): el bloque de
+    // título es RÍGIDO (no se comprime nunca -> la fila de la fecha no se recorta en
+    // resoluciones bajas) y el mensaje gigante + el importe son los que absorben el
+    // déficit encogiendo (se auto-reescalan a su caja, OutlinedLabel).
+    private JComponent title_block;
+    private JComponent hero_label;
+    private JComponent amount_component;
+
     private double anim_buyin;
     private double anim_stack;
     private double anim_ganancia;
@@ -218,6 +228,11 @@ public class BalanceDialog extends JDialog {
         Helpers.translateComponents(this, false);
 
         fitTaggedLabels(getContentPane());
+
+        // Tras finalizar las fuentes (updateFonts/fitTaggedLabels cambian los tamaños
+        // preferidos): fija el reparto vertical de la franja central para que la fila de
+        // la fecha no se recorte en resoluciones bajas (ver finalizeCenterSizing).
+        finalizeCenterSizing();
 
         normalizeNavButtons();
 
@@ -377,35 +392,70 @@ public class BalanceDialog extends JDialog {
     // -------------------------------------------------------------------------
     // Franja central (entre la barra de botones y el carrusel).
     // -------------------------------------------------------------------------
-    // Franja central: el título de fin de timba + la fecha CENTRADOS verticalmente
-    // en el hueco que queda sobre el mensaje gigante, y el mensaje gigante centrado
-    // en la franja (entre la barra de botones y el carrusel). Filas con weighty
-    // 1/0/1 -> el gigante queda centrado y el bloque de título, centrado encima.
+    // Franja central: el título de fin de timba + la fecha sobre el mensaje gigante,
+    // con la cantidad justo debajo (entre la barra de botones y el carrusel).
+    //
+    // BoxLayout vertical con pegamentos (glue): el sobrante de la franja lo absorben
+    // los glue (centran el bloque de título arriba y dejan hueco bajo el importe), y
+    // el DÉFICIT (resoluciones bajas: la franja no da para todo) lo absorben SOLO el
+    // mensaje gigante y el importe encogiendo —se auto-reescalan a su caja—, mientras
+    // el bloque de título permanece RÍGIDO (su mínimo = su preferido, fijado en
+    // finalizeCenterSizing). Antes, con GridBagLayout y weighty 1/0/1, el déficit caía
+    // sobre la fila del título y RECORTABA la fecha (un JLabel plano no se reescala).
     private JComponent buildCenter() {
-        JPanel center = new JPanel(new GridBagLayout());
+        JPanel center = new JPanel();
         center.setOpaque(false);
-        GridBagConstraints g = new GridBagConstraints();
-        g.gridx = 0;
-        g.weightx = 1.0;
-        g.fill = GridBagConstraints.HORIZONTAL;
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
 
-        g.gridy = 0;
-        g.weighty = 1.0;
-        g.anchor = GridBagConstraints.CENTER;
-        center.add(buildTitleBlock(), g);
+        title_block = buildTitleBlock();
+        title_block.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        g.gridy = 1;
-        g.weighty = 0.0;
-        center.add(buildHeroMessage(), g);
+        hero_label = buildHeroMessage();
+        hero_label.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // La cantidad, en la misma letra gigante, justo DEBAJO del mensaje (anclada
-        // arriba del hueco para que quede cerca y no flotando en mitad del carrusel).
-        g.gridy = 2;
-        g.weighty = 1.0;
-        g.anchor = GridBagConstraints.NORTH;
-        center.add(buildAmount(), g);
+        // La cantidad, en la misma letra gigante, justo DEBAJO del mensaje.
+        amount_component = buildAmount();
+        amount_component.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // Reparto del sobrante igual que el GridBagLayout anterior (weighty 1/0/1):
+        // S/4 sobre el título, S/4 entre título y mensaje, S/2 bajo el importe (dos
+        // glue al pie) -> el bloque queda en la MISMA posición que antes en alta
+        // resolución; el resto del comportamiento (déficit, fecha sin recortar) cambia.
+        center.add(Box.createVerticalGlue());
+        center.add(title_block);
+        center.add(Box.createVerticalGlue());
+        center.add(hero_label);
+        center.add(amount_component);
+        center.add(Box.createVerticalGlue());
+        center.add(Box.createVerticalGlue());
 
         return center;
+    }
+
+    // Fija el reparto vertical de la franja central UNA VEZ finalizadas las fuentes
+    // (tras updateFonts/fitTaggedLabels, que cambian los tamaños preferidos). El bloque
+    // de título queda rígido (mín = pref) para que su fila de la fecha no se recorte; el
+    // mensaje gigante y el importe pueden encoger (mín pequeño) y absorben el déficit en
+    // resoluciones bajas reescalándose. Todos con ancho máximo libre (ocupan el ancho).
+    private void finalizeCenterSizing() {
+        if (title_block != null) {
+            int h = title_block.getPreferredSize().height;
+            title_block.setMinimumSize(new Dimension(0, h));
+            title_block.setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
+        }
+        makeVerticallyShrinkable(hero_label);
+        makeVerticallyShrinkable(amount_component);
+    }
+
+    // Deja crecer NADA en vertical (su sobrante va a los glue) pero permite ENCOGER
+    // hasta un mínimo holgado: el OutlinedLabel se auto-reescala a la altura que le den.
+    private static void makeVerticallyShrinkable(JComponent c) {
+        if (c == null) {
+            return;
+        }
+        int h = c.getPreferredSize().height;
+        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
+        c.setMinimumSize(new Dimension(0, Math.min(h, Math.max(24, h / 4))));
     }
 
     // "LA TIMBA HA TERMINADO" + fecha/hora/duración: fuente normal (sin contorno) y

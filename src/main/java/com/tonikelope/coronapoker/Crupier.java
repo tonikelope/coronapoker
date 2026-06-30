@@ -7506,16 +7506,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         });
                     }
                 } else if (!isFin_de_la_transmision()) {
+                    // Sin gif de barajado (la baraja no trae shuffle.gif, o las animaciones
+                    // estan desactivadas): ocultamos las comunitarias —igual que el camino
+                    // del gif— y mostramos "BARAJANDO" centrado donde iria el gif, con el
+                    // ancho del panel de comunitarias, mientras suena el barajado en bucle.
                     Helpers.GUIRunAndWait(() -> {
-                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+                        GameFrame.getInstance().getTapete().getCommunityCards().setVisible(false);
+                        GameFrame.getInstance().getTapete().showShufflingText();
                     });
-                    // Audio-only fallback when there is no shuffle.gif for this deck (or
-                    // when animations are disabled). playWavResourceAndWait blocks for the
-                    // natural duration of the clip, so the do-while replays it back-to-back
-                    // with no silence in between. Minimum 1 play guaranteed.
+                    // playWavResourceAndWait blocks for the natural duration of the clip, so
+                    // the do-while replays it back-to-back with no silence in between, while
+                    // the "BARAJANDO" label stays up. Minimum 1 play guaranteed.
                     do {
                         Audio.playWavResourceAndWait("misc/shuffle.wav");
                     } while (barajando && !isFin_de_la_transmision());
+
+                    // Ocultar el rotulo SIEMPRE es seguro (el barajado terminó); restaurar
+                    // las comunitarias solo si no hay fin de transmisión (igual que el gif).
+                    Helpers.GUIRunAndWait(() -> {
+                        GameFrame.getInstance().getTapete().hideShufflingText();
+                        if (!isFin_de_la_transmision()) {
+                            GameFrame.getInstance().getTapete().getCommunityCards().setVisible(true);
+                        }
+                    });
                 }
                 synchronized (shuffle_lock) {
                     gif_thread_done[0] = true;

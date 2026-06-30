@@ -103,11 +103,15 @@ public class BalanceDialog extends JDialog {
 
     private volatile boolean recover = false;
 
-    // Altavoz (mute) de la esquina superior derecha de la barra (fin de timba). Icono claro
+    // Altavoz (mute) a la derecha de la barra de botones (fin de timba). Icono claro
     // (blanco) sobre el tapete oscuro. Sin rueda de ajustes a proposito: durante la pantalla
-    // final no se tocan ajustes (la timba ya termino), solo el mute global.
+    // final no se tocan ajustes (la timba ya termino), solo el mute global. El chip se
+    // dimensiona CUADRADO con la MISMA altura que los botones (normalizeNavButtons), y el
+    // tamaño del icono se deriva de esa altura.
     private static final int SOUND_ICON_SZ = 36;
     private JLabel sound_icon;
+    private JComponent sound_chip;
+    private int sound_icon_sz = SOUND_ICON_SZ;
 
     // Snapshot del tapete (solo si el sistema NO soporta transparencia por
     // píxel): se pinta como fondo opaco para conservar el aspecto "tapete".
@@ -302,9 +306,9 @@ public class BalanceDialog extends JDialog {
             row.add(cell);
         }
 
-        // Altavoz (mute) en la esquina superior derecha, a la derecha de los botones (misma
-        // fila): discreto y donde se espera. Sin rueda: durante el fin de timba no se tocan
-        // ajustes, solo el mute.
+        // Altavoz (mute) a la derecha de los botones, en su MISMA fila y alineado con ellos
+        // (mismo alto, cuadrado): discreto y donde se espera. Sin rueda: durante el fin de
+        // timba no se tocan ajustes, solo el mute.
         JPanel line = new JPanel(new BorderLayout(20, 0));
         line.setOpaque(false);
         line.add(row, BorderLayout.CENTER);
@@ -340,7 +344,10 @@ public class BalanceDialog extends JDialog {
         };
         sound_icon.addMouseListener(toggle);
 
-        JPanel chip = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0)) {
+        // GridBagLayout: centra el icono dentro del chip cuadrado (H y V). El tamaño
+        // cuadrado (= alto de los botones) lo fija normalizeNavButtons; aquí solo se
+        // construye con la misma arc (18) que los botones para que parezca uno más.
+        JPanel chip = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -351,21 +358,24 @@ public class BalanceDialog extends JDialog {
             }
         };
         chip.setOpaque(false);
-        chip.setBorder(BorderFactory.createEmptyBorder(7, 11, 7, 11));
         chip.setCursor(new Cursor(Cursor.HAND_CURSOR));
         chip.setToolTipText(Translator.translate("sound.click_para_activardesactivar_el_sonido"));
         chip.addMouseListener(toggle);
         chip.add(sound_icon);
+        sound_chip = chip;
 
-        JPanel corner = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        // GridBagLayout centra el chip VERTICALMENTE dentro del EAST (que toma todo el alto
+        // de la fila), de modo que queda alineado con los botones aunque la fila creciera.
+        JPanel corner = new JPanel(new GridBagLayout());
         corner.setOpaque(false);
         corner.add(chip);
         return corner;
     }
 
-    // Refleja el estado de SONIDOS en el icono del altavoz (sound/mute), como in-game.
+    // Refleja el estado de SONIDOS en el icono del altavoz (sound/mute), como in-game. El
+    // tamaño (sound_icon_sz) lo deriva normalizeNavButtons del alto de los botones.
     private void refreshBalanceSoundIcon() {
-        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), SOUND_ICON_SZ, SOUND_ICON_SZ);
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), sound_icon_sz, sound_icon_sz);
     }
 
     private JButton navButton(String text, Color bg) {
@@ -916,6 +926,19 @@ public class BalanceDialog extends JDialog {
             b.setPreferredSize(uniform);
             b.setMinimumSize(uniform);
             b.setMaximumSize(uniform);
+        }
+
+        // El altavoz queda CUADRADO con el mismo alto que los botones (su ancho pasa a ser
+        // ese alto) y el icono se escala a ~la mitad de ese lado. Asi se alinea con la fila
+        // y parece un boton mas, redondo-cuadrado, en cualquier resolucion.
+        if (sound_chip != null) {
+            Dimension square = new Dimension(max_h, max_h);
+            sound_chip.setPreferredSize(square);
+            sound_chip.setMinimumSize(square);
+            sound_chip.setMaximumSize(square);
+            sound_icon_sz = Math.max(16, Math.round(max_h * 0.5f));
+            refreshBalanceSoundIcon();
+            sound_chip.revalidate();
         }
     }
 

@@ -224,7 +224,8 @@ public final class StatsSync {
             out.writeBoolean(false); // end of games
         }
         byte[] result = baos.toByteArray();
-        LOGGER.log(Level.INFO, "StatsSync: exported {0} of {1} requested games ({2} bytes gzipped)",
+        // Per-batch detail behind the manager's INFO headline ("sent N game(s) to X").
+        LOGGER.log(Level.FINE, "StatsSync: exported {0} of {1} requested games ({2} bytes gzipped)",
                 new Object[]{serialized, ugis.size(), result.length});
         return result;
     }
@@ -300,7 +301,8 @@ public final class StatsSync {
                 LOGGER.log(Level.WARNING, "StatsSync: a game was rejected on import", ex);
             }
         }
-        LOGGER.log(Level.INFO, "StatsSync: import done — {0} new, {1} already-known, {2} rejected",
+        // Per-batch breakdown behind the manager's INFO headline ("imported N new game(s) from X").
+        LOGGER.log(Level.FINE, "StatsSync: import done — {0} new, {1} already-known, {2} rejected",
                 new Object[]{imported, skipped, failed});
         return imported;
     }

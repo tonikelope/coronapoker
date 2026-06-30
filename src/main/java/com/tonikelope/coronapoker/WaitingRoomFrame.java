@@ -3541,7 +3541,8 @@ public class WaitingRoomFrame extends JFrame {
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 Helpers.GUIRunAndWait(() -> {
-                    Init.VENTANA_INICIO.setVisible(true);
+                    // Vuelve al inicio en el monitor donde estaba la sala, no en el primario.
+                    Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration());
                     dispose();
                 });
                 Audio.stopLoopMp3("misc/waiting_room.mp3");
@@ -4161,7 +4162,8 @@ public class WaitingRoomFrame extends JFrame {
             }
             if (GameFrame.getInstance() == null || !GameFrame.getInstance().getCrupier().isFin_de_la_transmision()) {
                 Helpers.GUIRun(() -> {
-                    Init.VENTANA_INICIO.setVisible(true);
+                    // Vuelve al inicio en el monitor donde estaba la sala, no en el primario.
+                    Helpers.showFrameOnScreen(Init.VENTANA_INICIO, getGraphicsConfiguration());
                     dispose();
                 });
                 Audio.stopLoopMp3("misc/waiting_room.mp3");

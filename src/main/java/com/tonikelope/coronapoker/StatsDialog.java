@@ -569,7 +569,13 @@ public class StatsDialog extends JFrame {
 
         @Override
         public boolean getScrollableTracksViewportHeight() {
-            return false;
+            // Rellenar el alto del viewport SOLO cuando sobra sitio (viewport más alto que
+            // el contenido preferido): así el hueco muerto bajo las gráficas desaparece y el
+            // slot de las gráficas (max=32767 en el GroupLayout) crece hasta el pie. Si el
+            // contenido NO cabe en alto (resoluciones bajas) devolvemos false -> el contenido
+            // usa su alto preferido y el scroll vertical sigue saliendo como debe.
+            java.awt.Container parent = getParent();
+            return parent instanceof javax.swing.JViewport && parent.getHeight() > getPreferredSize().height;
         }
     }
 

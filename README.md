@@ -136,7 +136,9 @@ Distinct sounds for every action (deal, check, call, raise, fold, all-in, showdo
 - **Local SQLite database** stores every hand played: timestamps, actions per street, board, stacks, winner and pot.
 - **Per-session and per-hand stats viewer**: browse past games, replay any single hand and inspect aggregated metrics per player.
 - **Live in-game log**: real-time scrolling action log for the current hand.
-- **All data stays on your machine**: no cloud sync, no upload, ever.
+- **No cloud, no accounts**: there is no server upload and no online account. Your database is just a local file.
+- **Peer-to-peer stats sync**: optionally, the players at a table converge their finished games directly with one another (no server in the middle), so everyone builds up the same shared history over time. Receiving and sharing are independent toggles, both on by default.
+- **Private games and share exclusions**: mark a game private to keep it out of what you share, and open the "Exclude" dialog to leave out private games (excluded by default) or every game that one or more nicks from a comma-separated list took part in.
 
 ---
 

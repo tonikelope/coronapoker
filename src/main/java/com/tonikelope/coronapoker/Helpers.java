@@ -1952,10 +1952,11 @@ public class Helpers {
                     statement.execute("ALTER TABLE game ADD recover_settings TEXT");
                 } catch (Exception ex) {
                 }
-                // Per-game "private" flag (0/1). A private game is never propagated
-                // by the stats P2P sync, even when "share" is enabled — see
-                // StatsSync.listShareableUgis(). Purely local: it is NOT part of the
-                // sync payload, so a game received from a peer is never private here.
+                // Per-game "private" flag (0/1). A private game is withheld from the
+                // stats P2P sync by default — the "exclude private games" share-exclusion
+                // is ON out of the box, though the user can turn it off in the Exclude
+                // dialog; see StatsSync.listShareableUgis(). Purely local: it is NOT part
+                // of the sync payload, so a game received from a peer is never private here.
                 try {
                     statement.execute("ALTER TABLE game ADD private INTEGER DEFAULT 0");
                 } catch (Exception ex) {

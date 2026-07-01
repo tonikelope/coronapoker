@@ -102,8 +102,16 @@ public final class StatsSync {
 
     /**
      * UGIs of the games this peer is willing to share: finished games that carry
-     * a merge key ({@code ugi}) and are not marked private. Pre-ugi games (no key)
-     * and unfinished games (no {@code end}) are never propagated.
+     * a merge key ({@code ugi}), minus the user's share-exclusions. Pre-ugi games
+     * (no key) and unfinished games (no {@code end}) are never propagated.
+     *
+     * <p>The user can carve out a subset of their own games from what they share
+     * (see the "Exclude" dialog in {@link StatsDialog}), read here from three global
+     * preferences: exclude private games (ON by default, the historical behavior),
+     * and exclude every game in which any of a comma-separated nick list took part
+     * (OFF by default). These filters shape a single source of truth — every point
+     * that decides what to send (manifest, push, host re-forward) calls this — so an
+     * excluded game is invisible to the whole share path.
      *
      * <p>The {@code game.local} column is deliberately NOT a filter here: it means
      * "this machine was the <em>host</em> of the table" (it is written as
@@ -115,7 +123,10 @@ public final class StatsSync {
     public static List<String> listShareableUgis() {
         synchronized (GameFrame.SQL_LOCK) {
             try {
-                return listShareableUgis(Helpers.getSQLITE());
+                java.util.Set<String> excludeNicks = GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF
+                        ? parseExcludedNicks(GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF)
+                        : java.util.Collections.emptySet();
+                return listShareableUgis(Helpers.getSQLITE(), GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF, excludeNicks);
             } catch (Exception ex) {
                 LOGGER.log(Level.WARNING, "StatsSync: listing shareable ugis failed", ex);
                 return new ArrayList<>();
@@ -184,21 +195,95 @@ public final class StatsSync {
     // Core — Connection injected (testable, may throw)
     // =========================================================================
 
+    /**
+     * Historical default (used by the round-trip / dedup tests): exclude private
+     * games, no nick filter. Kept as a thin overload so those tests read cleanly.
+     */
     public static List<String> listShareableUgis(Connection conn) throws Exception {
+        return listShareableUgis(conn, true, java.util.Collections.emptySet());
+    }
+
+    /**
+     * Shareable ugis honoring the caller-supplied share-exclusions. A game is
+     * shareable when it is finished ({@code end} set) and carries a merge key
+     * ({@code ugi}); it is then dropped if it is private and {@code excludePrivate},
+     * or if any of {@code excludeNicks} took part in it.
+     *
+     * <p>{@code game.local} is intentionally absent from the filter — it flags "I was
+     * the host" (see the no-arg wrapper's javadoc), not "offline", so it must not gate
+     * sharing. The {@code private} NULL guard covers pre-migration rows (before the
+     * column existed).
+     *
+     * @param conn          the stats database
+     * @param excludePrivate drop games flagged {@code private = 1}
+     * @param excludeNicks  already-normalized (trimmed, upper-cased) nicks; drop any
+     *                      game in which at least one of them took part. Empty/null
+     *                      means no nick filter (and the {@code players} column is not
+     *                      even read).
+     */
+    public static List<String> listShareableUgis(Connection conn, boolean excludePrivate, java.util.Set<String> excludeNicks) throws Exception {
+        boolean nickFilter = excludeNicks != null && !excludeNicks.isEmpty();
+        StringBuilder sql = new StringBuilder("SELECT ugi");
+        if (nickFilter) {
+            sql.append(", players"); // only needed (and decoded) when a nick filter is active
+        }
+        sql.append(" FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND end IS NOT NULL");
+        if (excludePrivate) {
+            sql.append(" AND (private IS NULL OR private = 0)");
+        }
         List<String> out = new ArrayList<>();
-        // Shareable = finished (end set) + has a merge key (ugi) + not private.
-        // NOTE: game.local is intentionally absent from this filter — it flags
-        // "I was the host" (see the public wrapper's javadoc), not "offline", so it
-        // must not gate sharing. private = 1 games are deliberately withheld (the
-        // user marked them not shareable), regardless of the global "share"
-        // preference; the NULL guard covers pre-migration rows (before the column).
-        String sql = "SELECT ugi FROM game WHERE ugi IS NOT NULL AND ugi <> '' AND end IS NOT NULL AND (private IS NULL OR private = 0)";
-        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql.toString())) {
             while (rs.next()) {
+                if (nickFilter && gameInvolvesAny(rs.getString("players"), excludeNicks)) {
+                    continue;
+                }
                 out.add(rs.getString("ugi"));
             }
         }
         return out;
+    }
+
+    /**
+     * Splits a comma-separated nick list into a normalized set (trimmed, upper-cased,
+     * blanks dropped). Mirrors the normalization the games-by-player filter in
+     * {@link StatsDialog} applies, so an exclusion matches exactly what that filter
+     * would match.
+     */
+    static java.util.Set<String> parseExcludedNicks(String csv) {
+        java.util.Set<String> set = new java.util.HashSet<>();
+        if (csv != null) {
+            for (String token : csv.split(",")) {
+                String nick = token.trim().toUpperCase();
+                if (!nick.isEmpty()) {
+                    set.add(nick);
+                }
+            }
+        }
+        return set;
+    }
+
+    /**
+     * True if the game's participant list — the {@code '#'}-separated Base64 nicks in
+     * {@code game.players} — contains at least one of {@code excludeNicks}. A token
+     * that fails to decode is skipped (it simply cannot match); a null/blank list
+     * never matches. Nicks are compared trimmed + upper-cased, as the player filter does.
+     */
+    private static boolean gameInvolvesAny(String players, java.util.Set<String> excludeNicks) {
+        if (players == null || players.isEmpty()) {
+            return false;
+        }
+        for (String token : players.split("#")) {
+            String nick;
+            try {
+                nick = new String(java.util.Base64.getDecoder().decode(token), StandardCharsets.UTF_8).trim().toUpperCase();
+            } catch (IllegalArgumentException badBase64) {
+                continue; // malformed token cannot match a real nick — keep scanning
+            }
+            if (excludeNicks.contains(nick)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static byte[] exportGames(Connection conn, Collection<String> ugis) throws Exception {

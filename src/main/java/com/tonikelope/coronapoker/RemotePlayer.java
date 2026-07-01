@@ -3383,7 +3383,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 // Rueda solo el % conservando el nombre de la jugada. Gate por la opcion
                 // "Contadores" de Apariencia (isCounterRollEnabled; salta en recover). Via el
                 // roller -> render con setActionTextFittedRaw (no se auto-invalida).
-                jugadaProbRoller().roll(win_per, GameFrame.isCounterRollEnabled());
+                boolean animate = GameFrame.isCounterRollEnabled();
+                RollingCounter roller = jugadaProbRoller();
+                // Primer reveal del all-in: el roller no tiene valor (la accion previa lo
+                // invalido), asi que roll() saltaria de golpe SOLO la primera calle y animaria
+                // las siguientes. Sembramos 0 para que ruede 0->% en la misma duracion fija,
+                // de modo que TODAS las calles tarden igual.
+                if (animate && !roller.isValid()) {
+                    roller.set(0);
+                }
+                roller.roll(win_per, animate);
             } else {
                 // Aun sin simulacion: "(--%)" en crudo (sin invalidar) para que el valor del
                 // roller sobreviva y el % de la calle siguiente ruede desde el actual.

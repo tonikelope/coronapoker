@@ -151,6 +151,14 @@ public class RollingCounter {
         this.shown_valid = false;
     }
 
+    /**
+     * true si el valor mostrado es numérico y válido (es decir, se puede animar
+     * DESDE él). false tras invalidate() o antes del primer set/roll. EDT-only.
+     */
+    public boolean isValid() {
+        return shown_valid;
+    }
+
     public void setSpeed(double speed) {
         this.speed = speed;
     }

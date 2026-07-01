@@ -41,6 +41,7 @@ public class RollingCounter {
     private double speed;   // unidades de dinero por segundo
     private long min_ms;
     private long max_ms;
+    private long fixed_ms;  // >0 => duración FIJA por tramo (tiempo constante); ignora speed/min/max
 
     private double shown;          // valor pintado ahora mismo
     private boolean shown_valid;   // false si el label muestra algo no-numérico ("----", "ver buy-in"...)
@@ -56,6 +57,19 @@ public class RollingCounter {
         this.speed = speed;
         this.min_ms = min_ms;
         this.max_ms = max_ms;
+        this.shown_valid = false;
+    }
+
+    /**
+     * Variante de TIEMPO CONSTANTE: cada tramo dura fixed_ms sin importar la
+     * distancia recorrida, así varios contadores que arrancan a la vez terminan
+     * a la vez (p.ej. las probabilidades del all-in, que deben alcanzar su valor
+     * todas en el mismo tiempo). El resto del comportamiento (coalescente, salto
+     * si !animate o valor no válido) es idéntico al de velocidad constante.
+     */
+    public RollingCounter(DoubleConsumer render, long fixed_ms) {
+        this.render = render;
+        this.fixed_ms = fixed_ms;
         this.shown_valid = false;
     }
 
@@ -85,7 +99,9 @@ public class RollingCounter {
         this.leg_from = shown;
         this.target = value;
         this.leg_start_ms = System.currentTimeMillis();
-        this.leg_dur_ms = Math.max(min_ms, Math.min(max_ms, Math.round(dist / speed * 1000.0)));
+        this.leg_dur_ms = fixed_ms > 0
+                ? fixed_ms
+                : Math.max(min_ms, Math.min(max_ms, Math.round(dist / speed * 1000.0)));
 
         if (timer == null) {
             timer = new javax.swing.Timer(16, (e) -> tick());

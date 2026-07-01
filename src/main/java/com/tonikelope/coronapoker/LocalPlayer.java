@@ -3831,7 +3831,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         if (jugada_prob_roller == null) {
             jugada_prob_roller = new RollingCounter(
                     (v) -> setActionTextFittedRaw(jugada_prob_prefix + " (" + Helpers.floatClean((float) v) + "%)"),
-                    GameFrame.PROB_ROLL_SPEED, GameFrame.PROB_ROLL_MIN_MS, GameFrame.PROB_ROLL_MAX_MS);
+                    GameFrame.PROB_ROLL_MS);
         }
         return jugada_prob_roller;
     }

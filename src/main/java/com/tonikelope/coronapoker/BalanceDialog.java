@@ -159,6 +159,17 @@ public class BalanceDialog extends JDialog {
     public BalanceDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
 
+        // El SFX del contador (balance_count.wav) va en lockstep con la animacion
+        // del importe (startAmountAnimation). Se precarga aqui, FUERA del camino
+        // sync-critico y off-EDT, para que la reproduccion arranque instantanea sobre
+        // una linea ya abierta. Si se abre una linea nueva en el momento de animar,
+        // ese open() se atasca cuando el dispositivo esta ocupado (p.ej. justo tras el
+        // teardown de audio de la salida, mientras las lineas del tablero aun se
+        // liberan), dejando la animacion muda y el sonido cayendo tarde. La
+        // construccion del dialogo (snapshot, avatares, layout) da tiempo de sobra a
+        // que la linea abra antes del windowOpened. Mismo patron que shuffle.wav.
+        Helpers.threadRun(() -> Audio.preloadWav("misc/balance_count.wav"));
+
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setUndecorated(true);
         setResizable(false);
@@ -202,6 +213,11 @@ public class BalanceDialog extends JDialog {
 
             @Override
             public void windowClosed(WindowEvent evt) {
+                // Suelta la linea del SFX del contador precargada en el constructor
+                // (RESET_GAME tambien llama a closeAllPreloadedWavs, pero cerrarla aqui
+                // no deja la linea colgada mientras tanto). Idempotente si no se abrio.
+                Audio.closePreloadedWav("misc/balance_count.wav");
+
                 // Stats can be opened from this dialog (it is ownerless, so it does
                 // not close with us). Close it on the way out so stats_music does
                 // not keep looping over the next screen. true = restore the loop
@@ -624,9 +640,13 @@ public class BalanceDialog extends JDialog {
 
         // Retro point-counting SFX, synced to the roll: its blips decelerate with
         // the same ease-out curve and the closing accent lands at ~1.5s, on the
-        // +/- reveal. force_close restarts it cleanly if the screen re-animates;
-        // volume/mute follow the global sound flags via Audio.setClipVolume.
-        Audio.playWavResource("misc/balance_count.wav");
+        // +/- reveal. Se reproduce sobre el clip PRECARGADO en el constructor (linea
+        // ya abierta) para arrancar instantaneo y en lockstep con el roll, sin un
+        // open() al vuelo que se atasque con el dispositivo ocupado y desincronice el
+        // sonido. Off-EDT: si la precarga aun no termino, playPreloadedWav la resuelve
+        // en este hilo (nunca en el EDT). playPreloadedWav rebobina y reaplica el
+        // volumen/mute (setClipVolume), asi que reanimar la pantalla lo reinicia limpio.
+        Helpers.threadRun(() -> Audio.playPreloadedWav("misc/balance_count.wav"));
 
         roll.start();
     }

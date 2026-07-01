@@ -336,11 +336,18 @@ public class StatsDialog extends JFrame {
         exclude_stats_button.putClientProperty("i18n.key", "stats.sync_exclude");
         exclude_stats_button.addActionListener(e -> showShareExclusionsDialog());
 
+        // "Compartir" + "Excluir..." forman un solo grupo (la exclusión acota lo que se
+        // comparte), enmarcado con una línea negra fina para leerse como una unidad.
+        javax.swing.JPanel share_group = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 2));
+        share_group.setOpaque(false);
+        share_group.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.BLACK, 1));
+        share_group.add(share_stats_checkbox);
+        share_group.add(exclude_stats_button);
+
         javax.swing.JPanel sync_stats_bar = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 16, 4));
         sync_stats_bar.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 8, 2, 8));
         sync_stats_bar.add(receive_stats_checkbox);
-        sync_stats_bar.add(share_stats_checkbox);
-        sync_stats_bar.add(exclude_stats_button);
+        sync_stats_bar.add(share_group);
 
         javax.swing.JComponent old_content = (javax.swing.JComponent) getContentPane();
         javax.swing.JPanel content_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
@@ -475,6 +482,9 @@ public class StatsDialog extends JFrame {
         Font sync_checkbox_font = receive_stats_checkbox.getFont().deriveFont(receive_stats_checkbox.getFont().getSize2D() + 2f);
         receive_stats_checkbox.setFont(sync_checkbox_font);
         share_stats_checkbox.setFont(sync_checkbox_font);
+        // El botón "Excluir..." un pelín más grande también, para casar con "Compartir"
+        // dentro de su marco.
+        exclude_stats_button.setFont(sync_checkbox_font);
 
         // Banner "PARTIDA PRIVADA" en negrita (updateFonts lo dejó en redonda).
         private_game_label.setFont(private_game_label.getFont().deriveFont(java.awt.Font.BOLD));
@@ -2109,7 +2119,7 @@ public class StatsDialog extends JFrame {
         nicks_check.putClientProperty("i18n.key", "stats.sync_exclude_nicks");
         nicks_check.setSelected(GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF);
 
-        javax.swing.JTextField nicks_field = new javax.swing.JTextField(GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF, 24);
+        javax.swing.JTextField nicks_field = new javax.swing.JTextField(GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF, 36);
         Helpers.JTextFieldRegularPopupMenu.addTo(nicks_field);
         // La lista solo edita/aplica cuando su casilla está marcada.
         nicks_field.setEnabled(nicks_check.isSelected());
@@ -2120,9 +2130,14 @@ public class StatsDialog extends JFrame {
         javax.swing.JButton cancel = new javax.swing.JButton(Translator.translate("ui.cancelar_2"));
         cancel.putClientProperty("i18n.key", "ui.cancelar_2");
         ok.addActionListener(ev -> {
+            String nicks = nicks_field.getText().trim();
+            // Blindaje de estado coherente: casilla marcada pero lista vacía no excluye
+            // nada, así que se persiste como DESACTIVADA (evita el estado engañoso
+            // "excluyo por nick" sin ningún nick). El texto tecleado se conserva.
+            boolean nicks_enabled = nicks_check.isSelected() && !nicks.isEmpty();
             GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF = private_check.isSelected();
-            GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF = nicks_check.isSelected();
-            GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF = nicks_field.getText().trim();
+            GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF = nicks_enabled;
+            GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF = nicks;
             Helpers.PROPERTIES.setProperty("sync_stats_exclude_private", String.valueOf(GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF));
             Helpers.PROPERTIES.setProperty("sync_stats_exclude_nicks_enabled", String.valueOf(GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF));
             Helpers.PROPERTIES.setProperty("sync_stats_exclude_nicks", GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF);
@@ -2160,6 +2175,9 @@ public class StatsDialog extends JFrame {
 
         Helpers.setUniformFont(root, Helpers.GUI_FONT, 14);
         dlg.getRootPane().setDefaultButton(ok);
+        // Se crea un diálogo nuevo en cada apertura: liberarlo al cerrar con la X (el
+        // default HIDE_ON_CLOSE lo dejaría oculto en memoria, acumulándose).
+        dlg.setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         dlg.pack();
         dlg.setResizable(false);
         dlg.setLocationRelativeTo(this);

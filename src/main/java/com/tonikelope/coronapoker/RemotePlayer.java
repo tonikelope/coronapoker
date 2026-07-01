@@ -3319,6 +3319,17 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
      * the original size when it fits again. Must run on the EDT.
      */
     private void setActionTextFitted(String msg) {
+        // Cualquier texto de accion NORMAL (CALL/RAISE/pensando/se pira/reset...) invalida
+        // el rodaje del % del all-in: el proximo % saltara en vez de rodar desde un valor
+        // que ya no aplica (p.ej. el de un all-in anterior). El propio rodaje y el "(--%)"
+        // usan setActionTextFittedRaw para NO auto-invalidarse.
+        if (jugada_prob_roller != null) {
+            jugada_prob_roller.invalidate();
+        }
+        setActionTextFittedRaw(msg);
+    }
+
+    private void setActionTextFittedRaw(String msg) {
 
         Font base_font = (orig_action_font != null) ? orig_action_font : player_action.getFont();
 
@@ -3340,6 +3351,22 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setText(msg);
     }
 
+    // Rodaje vivo del % de probabilidad del all-in en la label de accion (JUGADA + PROB).
+    // El numero rueda a velocidad constante conservando el nombre de la jugada como
+    // prefijo; el render reconstruye "JUGADA (NN%)" via setActionTextFittedRaw (para no
+    // auto-invalidarse) y lo pasa por el auto-fit de fuente. EDT-only (creacion perezosa).
+    private RollingCounter jugada_prob_roller;
+    private String jugada_prob_prefix = "";
+
+    private RollingCounter jugadaProbRoller() {
+        if (jugada_prob_roller == null) {
+            jugada_prob_roller = new RollingCounter(
+                    (v) -> setActionTextFittedRaw(jugada_prob_prefix + " (" + Helpers.floatClean((float) v) + "%)"),
+                    GameFrame.PROB_ROLL_SPEED, GameFrame.PROB_ROLL_MIN_MS, GameFrame.PROB_ROLL_MAX_MS);
+        }
+        return jugada_prob_roller;
+    }
+
     @Override
     public void setJugadaParcial(Hand jugada, boolean ganador, float win_per) {
 
@@ -3348,11 +3375,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
             player_action.setForeground(ganador ? Color.BLACK : Color.WHITE);
 
-            String msg = jugada.getName() + (win_per >= 0 ? " (" + win_per + "%)" : " (--%)");
-
-            setActionTextFitted(msg);
-
             setPlayerActionIcon(null);
+
+            jugada_prob_prefix = jugada.getName();
+
+            if (win_per >= 0) {
+                // Rueda solo el % conservando el nombre de la jugada. Gate por la opcion
+                // "Contadores" de Apariencia (isCounterRollEnabled; salta en recover). Via el
+                // roller -> render con setActionTextFittedRaw (no se auto-invalida).
+                jugadaProbRoller().roll(win_per, GameFrame.isCounterRollEnabled());
+            } else {
+                // Aun sin simulacion: "(--%)" en crudo (sin invalidar) para que el valor del
+                // roller sobreviva y el % de la calle siguiente ruede desde el actual.
+                setActionTextFittedRaw(jugada_prob_prefix + " (--%)");
+            }
         });
     }
 

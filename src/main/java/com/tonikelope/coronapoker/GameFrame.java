@@ -240,6 +240,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final long COUNTER_ROLL_MIN_MS = 120;
     public static final long COUNTER_ROLL_MAX_MS = 900;
 
+    // Rodaje del % de probabilidad del all-in (JUGADA + PROB en la label de accion).
+    // El rango es 0-100, asi que lleva velocidad/topes propios (con la del dinero seria
+    // instantaneo). Mismo gate y modelo lineal que los contadores vivos.
+    public static final double PROB_ROLL_SPEED = 55.0; // puntos porcentuales/segundo
+    public static final long PROB_ROLL_MIN_MS = 150;
+    public static final long PROB_ROLL_MAX_MS = 800;
+
     // Gate del rodaje de contadores VIVOS: respeta la opción de Ajustes y se salta en
     // recover (los valores recuperados se fijan de golpe, sin animar). El gate de la
     // cortinilla/recompra es Crupier.isStackFillAnimated (añade fin de transmisión).

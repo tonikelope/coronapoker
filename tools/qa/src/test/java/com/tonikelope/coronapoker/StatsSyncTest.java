@@ -63,6 +63,52 @@ public class StatsSyncTest {
     }
 
     @Test
+    void listShareableUgis_excludePrivateFalse_alsoSharesPrivateGames() throws Exception {
+        try (Connection c = mem()) {
+            ins(c, "game", "ugi", "UGI_NORMAL", "local", 0, "start", 1000L, "end", 2000L);
+            ins(c, "game", "ugi", "UGI_PRIVATE", "local", 0, "start", 1000L, "end", 2000L, "private", 1);
+
+            // Default (excludePrivate=true): the private game is withheld.
+            assertEquals(java.util.Set.of("UGI_NORMAL"),
+                    new java.util.HashSet<>(StatsSync.listShareableUgis(c, true, java.util.Collections.emptySet())));
+
+            // excludePrivate=false: the user chose to share private games too.
+            assertEquals(java.util.Set.of("UGI_NORMAL", "UGI_PRIVATE"),
+                    new java.util.HashSet<>(StatsSync.listShareableUgis(c, false, java.util.Collections.emptySet())));
+        }
+    }
+
+    @Test
+    void listShareableUgis_excludeNicks_dropsAnyGameWithAListedParticipant() throws Exception {
+        try (Connection c = mem()) {
+            // game.players in production format: Base64(nick) tokens joined by '#'.
+            ins(c, "game", "ugi", "UGI_AB", "local", 0, "start", 1000L, "end", 2000L,
+                    "players", "YWxpY2U=#Ym9i");      // alice, bob
+            ins(c, "game", "ugi", "UGI_CD", "local", 0, "start", 1000L, "end", 2000L,
+                    "players", "Y2Fyb2w=#ZGF2ZQ==");  // carol, dave
+
+            // Excluding "BOB" drops only the game bob took part in.
+            assertEquals(java.util.Set.of("UGI_CD"),
+                    new java.util.HashSet<>(StatsSync.listShareableUgis(c, true, java.util.Set.of("BOB"))));
+
+            // A nick nobody played under excludes nothing.
+            assertEquals(java.util.Set.of("UGI_AB", "UGI_CD"),
+                    new java.util.HashSet<>(StatsSync.listShareableUgis(c, true, java.util.Set.of("ZZZ"))));
+
+            // "any of" (non-exclusive): listing several nicks drops every game touching at least one.
+            assertEquals(java.util.Set.of(),
+                    new java.util.HashSet<>(StatsSync.listShareableUgis(c, true, java.util.Set.of("BOB", "CAROL"))));
+        }
+    }
+
+    @Test
+    void parseExcludedNicks_trimsUppercasesAndDropsBlanks() {
+        assertEquals(java.util.Set.of("BOB", "ALICE"), StatsSync.parseExcludedNicks("  bob , ALICE ,, ,"));
+        assertEquals(java.util.Set.of(), StatsSync.parseExcludedNicks(""));
+        assertEquals(java.util.Set.of(), StatsSync.parseExcludedNicks(null));
+    }
+
+    @Test
     void roundTrip_preservesSubtreeAndRemapsKeys() throws Exception {
         try (Connection src = mem(); Connection dst = mem()) {
             seedRichGame(src, "UGI1");

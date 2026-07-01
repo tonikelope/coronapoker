@@ -329,10 +329,18 @@ public class StatsDialog extends JFrame {
             Helpers.savePropertiesFile();
         });
 
+        // Botón "Excluir...": abre el diálogo de exclusiones de COMPARTIR (privadas /
+        // por nick). Solo tiene sentido junto a COMPARTIR, pero se deja siempre visible
+        // (las exclusiones se persisten aunque COMPARTIR esté momentáneamente en OFF).
+        javax.swing.JButton exclude_stats_button = new javax.swing.JButton(Translator.translate("stats.sync_exclude"));
+        exclude_stats_button.putClientProperty("i18n.key", "stats.sync_exclude");
+        exclude_stats_button.addActionListener(e -> showShareExclusionsDialog());
+
         javax.swing.JPanel sync_stats_bar = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 16, 4));
         sync_stats_bar.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 8, 2, 8));
         sync_stats_bar.add(receive_stats_checkbox);
         sync_stats_bar.add(share_stats_checkbox);
+        sync_stats_bar.add(exclude_stats_button);
 
         javax.swing.JComponent old_content = (javax.swing.JComponent) getContentPane();
         javax.swing.JPanel content_wrapper = new javax.swing.JPanel(new java.awt.BorderLayout());
@@ -2076,10 +2084,87 @@ public class StatsDialog extends JFrame {
     }
 
     // =====================================================================
-    // "Partida privada" — una timba privada nunca se comparte por la sync P2P
-    // (StatsSync.listShareableUgis la excluye), aunque "Compartir" esté activo.
-    // El flag es puramente local (no viaja en el payload de sincronización).
+    // "Partida privada" — una timba privada queda fuera de la sync P2P por
+    // defecto: la exclusión "Partidas privadas" viene activada (StatsSync.
+    // listShareableUgis la aplica), aunque el usuario puede desactivarla en el
+    // diálogo "Excluir...". El flag es puramente local (no viaja en el payload).
     // =====================================================================
+
+    /**
+     * Diálogo modal de EXCLUSIONES de "Compartir": elige qué subconjunto de MIS
+     * partidas queda fuera de lo que propago (privadas y/o partidas donde participó
+     * ALGUNO de una lista de nicks separados por comas). Persiste las tres preferencias
+     * globales al aceptar; surten efecto en el siguiente intercambio de manifiestos
+     * (StatsSync.listShareableUgis las aplica). Construido a mano, fuera del .form,
+     * como el resto de extras de este diálogo.
+     */
+    private void showShareExclusionsDialog() {
+        final javax.swing.JDialog dlg = new javax.swing.JDialog(this, Translator.translate("stats.sync_exclude_title"), true);
+
+        javax.swing.JCheckBox private_check = new javax.swing.JCheckBox(Translator.translate("stats.sync_exclude_private"));
+        private_check.putClientProperty("i18n.key", "stats.sync_exclude_private");
+        private_check.setSelected(GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF);
+
+        javax.swing.JCheckBox nicks_check = new javax.swing.JCheckBox(Translator.translate("stats.sync_exclude_nicks"));
+        nicks_check.putClientProperty("i18n.key", "stats.sync_exclude_nicks");
+        nicks_check.setSelected(GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF);
+
+        javax.swing.JTextField nicks_field = new javax.swing.JTextField(GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF, 24);
+        Helpers.JTextFieldRegularPopupMenu.addTo(nicks_field);
+        // La lista solo edita/aplica cuando su casilla está marcada.
+        nicks_field.setEnabled(nicks_check.isSelected());
+        nicks_check.addItemListener(ev -> nicks_field.setEnabled(nicks_check.isSelected()));
+
+        javax.swing.JButton ok = new javax.swing.JButton(Translator.translate("ui.aceptar"));
+        ok.putClientProperty("i18n.key", "ui.aceptar");
+        javax.swing.JButton cancel = new javax.swing.JButton(Translator.translate("ui.cancelar_2"));
+        cancel.putClientProperty("i18n.key", "ui.cancelar_2");
+        ok.addActionListener(ev -> {
+            GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF = private_check.isSelected();
+            GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF = nicks_check.isSelected();
+            GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF = nicks_field.getText().trim();
+            Helpers.PROPERTIES.setProperty("sync_stats_exclude_private", String.valueOf(GameFrame.SYNC_STATS_EXCLUDE_PRIVATE_PREF));
+            Helpers.PROPERTIES.setProperty("sync_stats_exclude_nicks_enabled", String.valueOf(GameFrame.SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF));
+            Helpers.PROPERTIES.setProperty("sync_stats_exclude_nicks", GameFrame.SYNC_STATS_EXCLUDE_NICKS_PREF);
+            Helpers.savePropertiesFile();
+            dlg.dispose();
+        });
+        cancel.addActionListener(ev -> dlg.dispose());
+
+        javax.swing.JPanel body = new javax.swing.JPanel();
+        body.setLayout(new javax.swing.BoxLayout(body, javax.swing.BoxLayout.Y_AXIS));
+        body.setBorder(javax.swing.BorderFactory.createEmptyBorder(14, 18, 8, 18));
+        private_check.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        nicks_check.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+
+        // La caja de nicks sangrada bajo su casilla, para leerse como sub-opción.
+        javax.swing.JPanel field_row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
+        field_row.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        field_row.add(javax.swing.Box.createHorizontalStrut(26));
+        field_row.add(nicks_field);
+
+        body.add(private_check);
+        body.add(javax.swing.Box.createVerticalStrut(12));
+        body.add(nicks_check);
+        body.add(javax.swing.Box.createVerticalStrut(4));
+        body.add(field_row);
+
+        javax.swing.JPanel button_row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 8));
+        button_row.add(ok);
+        button_row.add(cancel);
+
+        javax.swing.JPanel root = new javax.swing.JPanel(new java.awt.BorderLayout());
+        root.add(body, java.awt.BorderLayout.CENTER);
+        root.add(button_row, java.awt.BorderLayout.SOUTH);
+        dlg.setContentPane(root);
+
+        Helpers.setUniformFont(root, Helpers.GUI_FONT, 14);
+        dlg.getRootPane().setDefaultButton(ok);
+        dlg.pack();
+        dlg.setResizable(false);
+        dlg.setLocationRelativeTo(this);
+        dlg.setVisible(true);
+    }
 
     /**
      * Genera un candado TACHADO: dibuja una diagonal roja (con halo blanco para que

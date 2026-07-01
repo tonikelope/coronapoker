@@ -187,10 +187,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     // Sincronización P2P de estadísticas: dos preferencias globales independientes,
     // ambas ON por defecto. RECIBIR = importar las partidas que me faltan al conectar
-    // a un servidor. COMPARTIR = enviar mis partidas que al otro le faltan (las timbas
-    // marcadas como privadas nunca se propagan, aunque COMPARTIR esté activo).
+    // a un servidor. COMPARTIR = enviar mis partidas que al otro le faltan.
     public static volatile boolean SYNC_STATS_RECEIVE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_receive", "true"));
     public static volatile boolean SYNC_STATS_SHARE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_share", "true"));
+
+    // Exclusiones de COMPARTIR: subconjunto de MIS partidas que quedan fuera de lo que
+    // propago, aunque COMPARTIR esté activo (se aplican en StatsSync.listShareableUgis).
+    // Privadas ON por defecto (comportamiento histórico: las timbas privadas nunca se
+    // compartían). Por nick OFF por defecto: la lista es de nicks separados por comas y
+    // excluye toda partida donde haya participado ALGUNO de ellos.
+    public static volatile boolean SYNC_STATS_EXCLUDE_PRIVATE_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_exclude_private", "true"));
+    public static volatile boolean SYNC_STATS_EXCLUDE_NICKS_ENABLED_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("sync_stats_exclude_nicks_enabled", "false"));
+    public static volatile String SYNC_STATS_EXCLUDE_NICKS_PREF = Helpers.PROPERTIES.getProperty("sync_stats_exclude_nicks", "");
 
     // Maestro de animaciones: GATE global. Los 5 flags *_PREF (CINEMATICAS_PREF y los 4
     // ANIMACION_*_PREF) guardan la PREFERENCIA cruda de cada efecto, como antes de existir

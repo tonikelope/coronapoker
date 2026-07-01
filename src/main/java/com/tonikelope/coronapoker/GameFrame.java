@@ -245,7 +245,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // CONSTANTE: cada cambio de calle rueda en PROB_ROLL_MS fijo sin importar cuanto
     // cambie el %, asi TODAS las probabilidades alcanzan su valor en el mismo tiempo
     // (arrancan y terminan a la vez).
-    public static final long PROB_ROLL_MS = 500;
+    public static final long PROB_ROLL_MS = 300;
 
     // Gate del rodaje de contadores VIVOS: respeta la opción de Ajustes y se salta en
     // recover (los valores recuperados se fijan de golpe, sin animar). El gate de la

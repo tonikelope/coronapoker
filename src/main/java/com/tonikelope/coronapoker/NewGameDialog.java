@@ -195,6 +195,12 @@ public class NewGameDialog extends JDialog {
         }));
         this.rabbit_combo.setSelectedIndex(Math.min(Math.max(GameFrame.RABBIT_HUNTING, 0), 3));
 
+        // Tiempo de pensar: arranca con el último valor de sesión (como rabbit); por defecto
+        // activo a Crupier.TIEMPO_PENSAR (40 s). El spinner ya acota al rango 10-120.
+        this.think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
+        this.think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)));
+        this.think_time_spinner.setEnabled(GameFrame.THINK_TIME_ENABLED);
+
         titulo_ventana.setText(loc ? Translator.translate("game.crear_timba") : Translator.translate("game.unirme_a_timba"));
 
         recover_checkbox_label.setText(Translator.translate("game.continuar_timba_anterior"));
@@ -530,6 +536,9 @@ public class NewGameDialog extends JDialog {
         manos_checkbox = new javax.swing.JCheckBox();
         limite_manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
+        think_time_checkbox = new javax.swing.JCheckBox();
+        think_time_label = new javax.swing.JLabel();
+        think_time_spinner = new javax.swing.JSpinner();
         iwtsth_icon = new javax.swing.JLabel();
         iwtsth_checkbox = new javax.swing.JCheckBox();
         rit_icon = new javax.swing.JLabel();
@@ -1037,7 +1046,7 @@ public class NewGameDialog extends JDialog {
             recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(recompra_panelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(recompra_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(rebuy_checkbox)
                     .addComponent(recomprar_label))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -1131,6 +1140,31 @@ public class NewGameDialog extends JDialog {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        // Tiempo de pensar: checkbox (activa/desactiva) + etiqueta con icono (reloj) + spinner
+        // de segundos (10-120, def 40). Mismo patrón que "Límite de manos".
+        think_time_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        think_time_checkbox.setDoubleBuffered(true);
+        think_time_checkbox.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                think_time_checkboxActionPerformed(evt);
+            }
+        });
+
+        think_time_label.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
+        think_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png"))); // NOI18N
+        think_time_label.setText("Tiempo de pensar:");
+        think_time_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        think_time_label.setDoubleBuffered(true);
+        think_time_label.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                think_time_labelMouseClicked(evt);
+            }
+        });
+
+        think_time_spinner.setFont(new java.awt.Font("Dialog", 0, 16)); // NOI18N
+        think_time_spinner.setModel(new javax.swing.SpinnerNumberModel(40, 10, 120, 5));
+        think_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         // Cada regla: checkbox (sin texto) + etiqueta con icono y texto (primero el
         // checkbox, luego el icono), igual que la fila "Límite de manos".
         iwtsth_icon.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
@@ -1167,17 +1201,23 @@ public class NewGameDialog extends JDialog {
                 .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(manos_checkbox)
-                        .addGap(0, 0, 0)
+                        .addGap(4, 4, 4)
                         .addComponent(limite_manos_label)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(partida_panelLayout.createSequentialGroup()
+                        .addComponent(think_time_checkbox)
+                        .addGap(4, 4, 4)
+                        .addComponent(think_time_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(iwtsth_checkbox)
-                        .addGap(0, 0, 0)
+                        .addGap(4, 4, 4)
                         .addComponent(iwtsth_icon))
                     .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(rit_checkbox)
-                        .addGap(0, 0, 0)
+                        .addGap(4, 4, 4)
                         .addComponent(rit_icon))
                     .addGroup(partida_panelLayout.createSequentialGroup()
                         .addComponent(rabbit_icon)
@@ -1197,6 +1237,11 @@ public class NewGameDialog extends JDialog {
                     .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(think_time_checkbox)
+                    .addComponent(think_time_label)
+                    .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(partida_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(iwtsth_icon)
                     .addComponent(iwtsth_checkbox))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -1212,6 +1257,7 @@ public class NewGameDialog extends JDialog {
         );
 
         limite_manos_label.putClientProperty("i18n.key", "game.limite_de_manos");
+        think_time_label.putClientProperty("i18n.key", "newgame.tiempo_pensar");
         iwtsth_icon.putClientProperty("i18n.key", "menu.regla_iwtsth");
         rit_icon.putClientProperty("i18n.key", "menu.regla_run_it_twice");
         rabbit_label.putClientProperty("i18n.key", "menu.rabbit_hunting");
@@ -1582,6 +1628,9 @@ public class NewGameDialog extends JDialog {
             } else {
                 GameFrame.MANOS = -1;
             }
+
+            GameFrame.THINK_TIME = (int) this.think_time_spinner.getValue();
+            GameFrame.THINK_TIME_ENABLED = this.think_time_checkbox.isSelected();
 
             GameFrame.REBUY = this.rebuy_checkbox.isSelected();
 
@@ -2466,6 +2515,10 @@ public class NewGameDialog extends JDialog {
         this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
     }//GEN-LAST:event_manos_checkboxActionPerformed
 
+    private void think_time_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_think_time_checkboxActionPerformed
+        this.think_time_spinner.setEnabled(this.think_time_checkbox.isSelected());
+    }//GEN-LAST:event_think_time_checkboxActionPerformed
+
     private void blind_cap_checkboxActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_blind_cap_checkboxActionPerformed
         setBlindCapControlsEnabled(this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected());
     }//GEN-LAST:event_blind_cap_checkboxActionPerformed
@@ -2488,6 +2541,10 @@ public class NewGameDialog extends JDialog {
         // TODO add your handling code here:
         manos_checkbox.doClick();
     }//GEN-LAST:event_limite_manos_labelMouseClicked
+
+    private void think_time_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_think_time_labelMouseClicked
+        think_time_checkbox.doClick();
+    }//GEN-LAST:event_think_time_labelMouseClicked
 
     private void nickActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nickActionPerformed
         // TODO add your handling code here:
@@ -2651,6 +2708,8 @@ public class NewGameDialog extends JDialog {
         }
         s.blindCap = blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0;
         s.handLimit = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
+        s.thinkTime = ((Number) think_time_spinner.getValue()).intValue();
+        s.thinkTimeEnabled = think_time_checkbox.isSelected();
         s.ante = ante_checkbox.isSelected();
         s.straddle = straddle_checkbox.isSelected();
         s.iwtsth = iwtsth_checkbox.isSelected();
@@ -2728,6 +2787,12 @@ public class NewGameDialog extends JDialog {
             manos_spinner.setModel(new SpinnerNumberModel(s.handLimit > 0 ? s.handLimit : 100, 1, null, 1));
             Helpers.makeNumericSpinnerEditable(manos_spinner, false);
             ((javax.swing.JSpinner.DefaultEditor) manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+
+            // Tiempo de pensar.
+            think_time_checkbox.setSelected(s.thinkTimeEnabled);
+            think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, s.thinkTime)));
+            think_time_spinner.setEnabled(s.thinkTimeEnabled);
+            Helpers.makeNumericSpinnerEditable(think_time_spinner, false);
 
             // Recompra + ante + straddle.
             rebuy_checkbox.setSelected(s.rebuy);
@@ -2878,6 +2943,10 @@ public class NewGameDialog extends JDialog {
     private javax.swing.JPanel main_panel;
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JSpinner manos_spinner;
+    // Tiempo de pensar configurable/desactivable del subpanel "Partida" (creación de timba).
+    private javax.swing.JCheckBox think_time_checkbox;
+    private javax.swing.JLabel think_time_label;
+    private javax.swing.JSpinner think_time_spinner;
     // Reglas de juego del subpanel "Partida" (creación de timba): IWTSTH, Run It
     // Twice y Rabbit Hunting. Mismas que el diálogo "Ajustes de partida" en vivo.
     private javax.swing.JLabel iwtsth_icon;

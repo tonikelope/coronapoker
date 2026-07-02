@@ -451,6 +451,24 @@ public class NewGameDialog extends JDialog {
                         bots_combobox.setSelectedIndex(getCurrentBotLevel());
                     }
 
+                    // Ajustes de "Partida" EDITABLES al recuperar: se pueblan con los valores de la
+                    // timba recuperada (para IWTSTH/RIT/rabbit gana el override *_RECOVER si aplica;
+                    // MANOS y el tiempo de pensar los deja applyRecoverSettings en el estático
+                    // directo). El usuario puede retocarlos antes de reenganchar.
+                    boolean rec_iwtsth = GameFrame.IWTSTH_RULE_RECOVER != null ? GameFrame.IWTSTH_RULE_RECOVER : GameFrame.IWTSTH_RULE;
+                    int rec_rabbit = GameFrame.RABBIT_HUNTING_RECOVER != null ? GameFrame.RABBIT_HUNTING_RECOVER : GameFrame.RABBIT_HUNTING;
+                    boolean rec_rit = GameFrame.RUN_IT_TWICE_RECOVER != null ? GameFrame.RUN_IT_TWICE_RECOVER : GameFrame.RUN_IT_TWICE;
+                    this.iwtsth_checkbox.setSelected(rec_iwtsth);
+                    this.rit_checkbox.setSelected(rec_rit);
+                    this.rabbit_combo.setSelectedIndex(Math.min(Math.max(rec_rabbit, 0), 3));
+                    boolean rec_manos_on = GameFrame.MANOS != -1;
+                    this.manos_checkbox.setSelected(rec_manos_on);
+                    this.manos_spinner.setModel(new SpinnerNumberModel(rec_manos_on ? GameFrame.MANOS : 100, 1, null, 1));
+                    Helpers.makeNumericSpinnerEditable(this.manos_spinner, false);
+                    ((javax.swing.JSpinner.DefaultEditor) this.manos_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+                    this.think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
+                    this.think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)));
+
                     this.blind_cap_checkbox.setSelected(GameFrame.BLIND_CAP > 0f);
                     modelBlindCapSpinner(blindCapDoublingsFromCap());
                     this.rebuy_limit_checkbox.setSelected(GameFrame.REBUY_LIMIT > 0);
@@ -1642,21 +1660,26 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
 
-            // Modo de buy-in, rango [min,max] BB y política de tope de recompra: en
-            // RECOVER NO se tocan (los restaura applyRecoverSettings al cargar la
-            // timba anterior; sus controles están deshabilitados con valores stale).
-            // Sin este guard, los spinners/combo deshabilitados pisarían la config
-            // recuperada con los valores por defecto y la re-persistirían corrupta.
+            // Ajustes de "Partida" (IWTSTH, run-it-twice, rabbit): se aplican SIEMPRE, también en
+            // recover (son editables antes de reenganchar). Al aplicarlos se ANULAN los overrides
+            // *_RECOVER para que el re-guardado de recover_settings use el valor EDITADO, no el
+            // recuperado original. (MANOS y el tiempo de pensar ya se leen más arriba sin guard.)
+            GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
+            GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
+            GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
+            GameFrame.IWTSTH_RULE_RECOVER = null;
+            GameFrame.RUN_IT_TWICE_RECOVER = null;
+            GameFrame.RABBIT_HUNTING_RECOVER = null;
+
+            // Economía de la timba (ante/straddle, modo/rango de buy-in y política de tope de
+            // recompra): en RECOVER NO se tocan (los restaura applyRecoverSettings al cargar la
+            // timba anterior; sus controles están deshabilitados con valores stale). Sin este
+            // guard, los controles deshabilitados pisarían la config recuperada con los defaults
+            // y la re-persistirían corrupta.
             if (!GameFrame.RECOVER) {
                 GameFrame.ANTE = this.ante_checkbox.isSelected();
 
                 GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
-
-                GameFrame.IWTSTH_RULE = this.iwtsth_checkbox.isSelected();
-
-                GameFrame.RUN_IT_TWICE = this.rit_checkbox.isSelected();
-
-                GameFrame.RABBIT_HUNTING = this.rabbit_combo.getSelectedIndex();
 
                 GameFrame.FIXED_BUYIN = this.fixed_buyin_checkbox.isSelected();
 
@@ -1861,21 +1884,26 @@ public class NewGameDialog extends JDialog {
 
                 this.rebuy_cap_label.setEnabled(false);
 
-                // Ante/straddle, bots, límite de manos y presets: también bloqueados al
-                // recuperar (la config de la timba recuperada es fija; solo se puede jugar).
+                // Ante/straddle y presets: bloqueados al recuperar (economía de la timba fija;
+                // ante/straddle son dinero muerto ligado a las ciegas).
                 this.ante_checkbox.setEnabled(false);
                 this.straddle_checkbox.setEnabled(false);
-                this.bots_combobox.setEnabled(false);
-                this.bots_label.setEnabled(false);
-                this.manos_checkbox.setEnabled(false);
-                this.manos_spinner.setEnabled(false);
-                this.iwtsth_checkbox.setEnabled(false);
-                this.rit_checkbox.setEnabled(false);
-                this.rabbit_combo.setEnabled(false);
                 this.presets_combobox.setEnabled(false);
                 this.preset_save_button.setEnabled(false);
                 this.preset_delete_button.setEnabled(false);
                 this.preset_label.setEnabled(false);
+                // Ajustes de "Partida" (límite de manos, IWTSTH, run-it-twice, rabbit, tiempo de
+                // pensar) + dificultad de bots: EDITABLES antes de reenganchar. loadLastGame los ha
+                // poblado con los valores de la timba recuperada; aquí solo se garantiza el enable.
+                this.bots_combobox.setEnabled(true);
+                this.bots_label.setEnabled(true);
+                this.manos_checkbox.setEnabled(true);
+                this.manos_spinner.setEnabled(this.manos_checkbox.isSelected());
+                this.iwtsth_checkbox.setEnabled(true);
+                this.rit_checkbox.setEnabled(true);
+                this.rabbit_combo.setEnabled(true);
+                this.think_time_checkbox.setEnabled(true);
+                this.think_time_spinner.setEnabled(this.think_time_checkbox.isSelected());
 
                 this.recover_checkbox_label.setOpaque(true);
 

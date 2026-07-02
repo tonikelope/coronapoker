@@ -1052,23 +1052,10 @@ public class WaitingRoomFrame extends JFrame {
         danger_server.setVisible(false);
 
         if (GameFrame.isRECOVER()) {
-            game_info_buyin.setText(Translator.translate("game.continuando_timba_anterior"));
-            game_info_buyin.setOpaque(true);
-            game_info_buyin.setBackground(Color.YELLOW);
-            game_info_buyin.setIcon(null);
-            // Las ciegas y el límite de manos SÍ se muestran al recuperar (parte de la config
-            // recuperada; el buy-in ya lo indica el banner "Continuando timba anterior"). El host
-            // no recibe GAMEINFO —lo emite él—, así que si no se pusieran aquí quedarían ocultos
-            // y sin refrescar (la aplicación general de labels está gateada por !isRECOVER()).
-            game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
-                    + Helpers.money2String(GameFrame.CIEGA_GRANDE)
-                    + (GameFrame.CIEGAS_DOUBLE > 0
-                            ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE)
-                            + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*")
-                            : ""));
-            game_info_blinds.setVisible(true);
-            game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
-            game_info_hands.setVisible(GameFrame.MANOS != -1);
+            // El buy-in y las ciegas muestran sus valores recuperados (igual que una timba nueva,
+            // vía applyGameInfoBuyinLabel en el host / GAMEINFO en el cliente); el indicador
+            // "Continuando timba anterior" va en su propia etiqueta, en la fila de debajo.
+            game_info_recover.setVisible(true);
         }
 
         if (server) {
@@ -1156,7 +1143,7 @@ public class WaitingRoomFrame extends JFrame {
                             : "")
                     + (GameFrame.MANOS != -1 ? "|" + String.valueOf(GameFrame.MANOS) : "");
 
-            if (game_info_buyin.isEnabled() && !GameFrame.isRECOVER()) {
+            if (game_info_buyin.isEnabled()) {
                 applyGameInfoBuyinLabel(gameinfo_original.split("\\|"));
             }
 
@@ -4704,6 +4691,7 @@ public class WaitingRoomFrame extends JFrame {
         game_info_hands = new javax.swing.JLabel();
         logo = new javax.swing.JLabel();
         game_info_buyin = new javax.swing.JLabel();
+        game_info_recover = new javax.swing.JLabel();
         jPanel3 = new javax.swing.JPanel();
         pass_icon = new javax.swing.JLabel();
         tot_conectados = new javax.swing.JLabel();
@@ -4907,6 +4895,13 @@ public class WaitingRoomFrame extends JFrame {
             }
         });
 
+        game_info_recover.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
+        game_info_recover.setText("CONTINUANDO TIMBA ANTERIOR");
+        game_info_recover.putClientProperty("i18n.key", "game.continuando_timba_anterior");
+        game_info_recover.setOpaque(true);
+        game_info_recover.setBackground(java.awt.Color.YELLOW);
+        game_info_recover.setVisible(false);
+
         pass_icon.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/lock.png"))); // NOI18N
         Helpers.setTranslatedToolTip(pass_icon, "tooltip.manage_password");
         pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -4964,8 +4959,10 @@ public class WaitingRoomFrame extends JFrame {
                                         .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                         .addComponent(new_bot_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                         .addComponent(logo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(game_info_buyin)
+                                        .addComponent(game_info_recover)
                                         .addGroup(jPanel2Layout.createSequentialGroup()
+                                                .addComponent(game_info_buyin)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                                 .addComponent(game_info_blinds)
                                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                                 .addComponent(game_info_hands))))
@@ -4978,11 +4975,12 @@ public class WaitingRoomFrame extends JFrame {
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(game_info_buyin)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                         .addComponent(game_info_blinds)
-                                        .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                        .addComponent(game_info_hands, javax.swing.GroupLayout.PREFERRED_SIZE, 32, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addComponent(game_info_buyin))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(game_info_recover)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                                 .addComponent(new_bot_button, javax.swing.GroupLayout.PREFERRED_SIZE, 84, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addGap(0, 0, 0))
@@ -5775,21 +5773,13 @@ public class WaitingRoomFrame extends JFrame {
         final String[] payload = new String[1];
 
         Helpers.GUIRunAndWait(() -> {
-            // En RECOVER el label del buy-in NO se toca (mantiene el banner "Continuando timba
-            // anterior"); aun así el payload GAMEINFO lleva el valor real para que los clientes lo
-            // muestren. Fuera de recover, el label refleja buy-in fijo / variable como siempre.
-            String buyin_payload = GameFrame.FIXED_BUYIN
-                    ? Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*")
-                    : VARIABLE_BUYIN_TAG;
-            if (!GameFrame.isRECOVER()) {
-                if (GameFrame.FIXED_BUYIN) {
-                    game_info_buyin.setVisible(true);
-                    game_info_buyin.setText(buyin_payload);
-                } else {
-                    // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via el payload.
-                    game_info_buyin.setText(VARIABLE_BUYIN_TAG);
-                    game_info_buyin.setVisible(false);
-                }
+            if (GameFrame.FIXED_BUYIN) {
+                game_info_buyin.setVisible(true);
+                game_info_buyin.setText(Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
+            } else {
+                // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
+                game_info_buyin.setText(VARIABLE_BUYIN_TAG);
+                game_info_buyin.setVisible(false);
             }
 
             game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
@@ -5802,9 +5792,8 @@ public class WaitingRoomFrame extends JFrame {
             game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
             game_info_hands.setVisible(!"".equals(game_info_hands.getText()));
 
-            // Capturar el payload del display EN EL EDT (no leer Swing fuera de él). El buy-in va
-            // del valor calculado (no del label, que en recover es el banner).
-            payload[0] = buyin_payload + "|" + game_info_blinds.getText() + "|"
+            // Capturar el payload del display EN EL EDT (no leer Swing fuera de él).
+            payload[0] = game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
                     + game_info_hands.getText();
 
             pack();
@@ -6132,6 +6121,9 @@ public class WaitingRoomFrame extends JFrame {
     private javax.swing.JLabel game_info_blinds;
     private javax.swing.JLabel game_info_buyin;
     private javax.swing.JLabel game_info_hands;
+    // Indicador "Continuando timba anterior" en su propia fila, debajo de buy-in/ciegas; solo
+    // visible al recuperar (el buy-in y las ciegas muestran los valores recuperados como siempre).
+    private javax.swing.JLabel game_info_recover;
     private javax.swing.JButton image_button;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;

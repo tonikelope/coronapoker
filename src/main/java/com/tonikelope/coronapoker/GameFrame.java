@@ -101,7 +101,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static final int WAIT_PAUSE = 1000;
     public static final int CLIENT_RECEPTION_TIMEOUT = 10000;
     public static final int CONFIRMATION_TIMEOUT = 10000;
-    public static final int CLIENT_RECON_TIMEOUT = 2 * Crupier.TIEMPO_PENSAR * 1000; // 2 * TIEMPO_PENSAR: grace extendido cuando el peer ya esta intentando reconectar activamente, y umbral del Reconnect2ServerDialog en el cliente.
+    // Ventana de gracia de reconexion P2P (ms). Constante INDEPENDIENTE del tiempo de pensar:
+    // la desconexion se detecta por PING/PONG y timeouts de socket (Participant.RECIBIDO_TIMEOUT
+    // = 45s = MAX_CONSECUTIVE_PING_FAILURES * (PING_INTERVAL_MS + PING_PONG_TIMEOUT)), NUNCA por
+    // la barra de accion. 80s = holgura sobre esa ventana de deteccion (~45s) para que un peer
+    // que ya esta reconectando complete socket+handshake+HMAC antes de darlo por perdido; es
+    // tambien el umbral del Reconnect2ServerDialog en el cliente. (Antes derivaba del tiempo de
+    // pensar por defecto (2 * 40s): acoplamiento erroneo entre reconexion y pensar, ya corregido.)
+    public static final int CLIENT_RECON_TIMEOUT = 80000; // 80 s
     public static final int CLIENT_RECON_ERROR_PAUSE = 5000;
     public static final int REBUY_TIMEOUT = 25000;
     public static final String BARAJA_DEFAULT = "coronapoker";
@@ -156,13 +163,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int RABBIT_HUNTING = 0;
     // Tiempo de pensar (segundos) que tiene un jugador para actuar en su turno + si esta
     // activo. Configurable por timba (10-120) desde la creacion y la sala de espera;
-    // BLOQUEADO una vez empezada la partida. THINK_TIME_ENABLED=false => sin limite de
-    // tiempo (barra llena estatica, sin auto-fold por timeout; el host sigue plegando al que
-    // se desconecta de verdad via isExit()). Valor por defecto = Crupier.TIEMPO_PENSAR.
-    // IMPORTANTE: la ventana de gracia de reconexion (CLIENT_RECON_TIMEOUT) NO depende de
-    // esto; sigue anclada a Crupier.TIEMPO_PENSAR para no debilitar la reconexion P2P al
-    // bajar o desactivar el tiempo de pensar.
-    public static volatile int THINK_TIME = Crupier.TIEMPO_PENSAR;
+    // BLOQUEADO una vez empezada la partida. THINK_TIME_ENABLED=false => sin limite de tiempo
+    // (barra llena estatica, sin auto-fold por timeout). Esto gobierna SOLO el temporizador de
+    // ACCION: la salud de la conexion (PING/PONG, timeouts de socket, RECIBIDO_TIMEOUT,
+    // CLIENT_RECON_TIMEOUT) va por otro camino (ver Participant) y NO se toca al desactivar el
+    // tiempo de pensar; el host sigue plegando al que se DESCONECTA de verdad via isExit().
+    public static final int DEFAULT_THINK_TIME = 40; // segundos (valor inicial de THINK_TIME)
+    public static volatile int THINK_TIME = DEFAULT_THINK_TIME;
     public static volatile boolean THINK_TIME_ENABLED = true;
     public static final int THINK_TIME_MIN = 10;  // segundos (tope inferior del spinner + clamp)
     public static final int THINK_TIME_MAX = 120; // segundos (tope superior del spinner + clamp)

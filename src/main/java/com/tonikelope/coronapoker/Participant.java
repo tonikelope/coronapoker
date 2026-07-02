@@ -41,8 +41,8 @@ public class Participant implements Runnable {
     //       garantiza que el host no se rinda ANTES de que el propio peer pueda
     //       siquiera enterarse de que se cayo y empezar a reconectar (antes eran
     //       40s, justo por debajo de los 45s de deteccion).
-    //   CLIENT_RECON_TIMEOUT  = 80s (2 * TIEMPO_PENSAR) -> grace EXTENDIDO tras un
-    //       intent autenticado / umbral del dialogo manual en el cliente.
+    //   CLIENT_RECON_TIMEOUT  = 80s (constante propia, INDEPENDIENTE del tiempo de pensar) ->
+    //       grace EXTENDIDO tras un intent autenticado / umbral del dialogo manual en el cliente.
     //
     // Si durante el grace base el cliente consigue abrir socket + handshake + HMAC
     // contra hmac_key_orig (intent autenticado criptograficamente),

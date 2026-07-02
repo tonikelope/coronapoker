@@ -442,12 +442,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
-    // Tiempo de pensar POR DEFECTO (segundos) + ancla de la ventana de gracia de reconexion
-    // (GameFrame.CLIENT_RECON_TIMEOUT = 2 * TIEMPO_PENSAR). El tiempo de pensar EFECTIVO de la
-    // timba (configurable/desactivable) vive en GameFrame.THINK_TIME/THINK_TIME_ENABLED, que
-    // es lo que gobierna la barra y el auto-fold; esta constante solo fija el valor inicial y
-    // la reconexion (que se mantiene desacoplada del ajuste para no debilitarla).
-    public static final int TIEMPO_PENSAR = 40; // Segundos
     public static final int PAUSA_ENTRE_MANOS = 10; // Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos

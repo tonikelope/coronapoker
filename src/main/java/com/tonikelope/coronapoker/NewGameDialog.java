@@ -196,7 +196,7 @@ public class NewGameDialog extends JDialog {
         this.rabbit_combo.setSelectedIndex(Math.min(Math.max(GameFrame.RABBIT_HUNTING, 0), 3));
 
         // Tiempo de pensar: arranca con el último valor de sesión (como rabbit); por defecto
-        // activo a Crupier.TIEMPO_PENSAR (40 s). El spinner ya acota al rango 10-120.
+        // activo a GameFrame.DEFAULT_THINK_TIME (40 s). El spinner ya acota al rango 10-120.
         this.think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
         this.think_time_spinner.setValue(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)));
         this.think_time_spinner.setEnabled(GameFrame.THINK_TIME_ENABLED);

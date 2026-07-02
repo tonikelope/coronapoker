@@ -105,7 +105,7 @@ public final class GamePreset {
         public boolean iwtsth = false;        // regla "Quiero ver la mano"
         public boolean runItTwice = false;    // ALL-IN run it twice
         public int rabbit = 0;                // 0=off 1=free 2=free+sb 3=free+sb+bb
-        public int thinkTime = Crupier.TIEMPO_PENSAR; // tiempo de pensar en segundos
+        public int thinkTime = GameFrame.DEFAULT_THINK_TIME; // tiempo de pensar en segundos
         public boolean thinkTimeEnabled = true;       // false = sin limite de tiempo
         public Bot.Difficulty difficulty = Bot.Difficulty.MEDIUM;
 

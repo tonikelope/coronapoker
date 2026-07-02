@@ -3441,8 +3441,8 @@ public class WaitingRoomFrame extends JFrame {
                                                             // Tiempo de pensar (segundos, índice 22) + si está activo (índice 23):
                                                             // campos FIJOS antes de la estructura; el cliente debe arrancar con el
                                                             // mismo tiempo de pensar (o sin límite) que fijó el host. Guardas de
-                                                            // longitud por si faltan (default = TIEMPO_PENSAR / activo).
-                                                            GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : Crupier.TIEMPO_PENSAR;
+                                                            // longitud por si faltan (default = DEFAULT_THINK_TIME / activo).
+                                                            GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : GameFrame.DEFAULT_THINK_TIME;
                                                             GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
                                                             // Estructura de ciegas personalizada (campo opcional al final, ahora
                                                             // en el índice 24): el cliente recomputa la escalada con la MISMA

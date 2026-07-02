@@ -326,9 +326,8 @@
                                   <Component id="jPanel3" max="32767" attributes="0"/>
                                   <Component id="new_bot_button" alignment="0" max="32767" attributes="0"/>
                                   <Component id="logo" alignment="0" max="32767" attributes="0"/>
+                                  <Component id="game_info_buyin" alignment="0" min="-2" max="-2" attributes="0"/>
                                   <Group type="102" alignment="0" attributes="0">
-                                      <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
-                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
                                       <Component id="game_info_blinds" min="-2" max="-2" attributes="0"/>
                                       <EmptySpace type="unrelated" max="32767" attributes="0"/>
                                       <Component id="game_info_hands" min="-2" max="-2" attributes="0"/>
@@ -345,10 +344,11 @@
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
                               <EmptySpace type="unrelated" max="-2" attributes="0"/>
+                              <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
+                              <EmptySpace max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Component id="game_info_blinds" alignment="0" max="-2" attributes="0"/>
                                   <Component id="game_info_hands" alignment="0" min="-2" pref="32" max="-2" attributes="0"/>
-                                  <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
                               </Group>
                               <EmptySpace max="32767" attributes="0"/>
                               <Component id="new_bot_button" min="-2" pref="84" max="-2" attributes="0"/>

@@ -252,6 +252,14 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         GameFrame.IWTSTH_RULE_RECOVER = null;
         GameFrame.RUN_IT_TWICE_RECOVER = null;
         GameFrame.RABBIT_HUNTING_RECOVER = null;
+        // Recompra (editable al recuperar): permitir / límite por jugador / recomprar bots / tope.
+        GameFrame.REBUY = rebuy_checkbox.isSelected();
+        GameFrame.REBUY_LIMIT = rebuy_limit_checkbox.isSelected() ? ((Number) rebuy_limit_spinner.getValue()).intValue() : 0;
+        GameFrame.BOT_REBUY = bot_rebuy_checkbox.isSelected();
+        GameFrame.REBUY_CAP_POLICY = rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+        // "Permitir recomprar" no viaja en recover_settings: se persiste en game.rebuy para que
+        // el resume no revierta la edición (ver GameFrame.persistRecoverRebuy).
+        GameFrame.persistRecoverRebuy(GameFrame.RECOVER_ID, GameFrame.REBUY);
         Bot.DIFFICULTY = botDifficultyFromComboIndex(bots_combobox.getSelectedIndex());
     }
 
@@ -315,12 +323,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         buyin_spinner.setEnabled(e);
         buyin_min_bb_spinner.setEnabled(e);
         buyin_max_bb_spinner.setEnabled(e);
-        rebuy_checkbox.setEnabled(e);
-        rebuy_limit_checkbox.setEnabled(e);
-        rebuy_limit_spinner.setEnabled(e);
-        bot_rebuy_checkbox.setEnabled(e);
-        rebuy_cap_label.setEnabled(e);
-        rebuy_cap_combo.setEnabled(e);
+        // La recompra (permitir / límite / recomprar bots / tope) queda EDITABLE al recuperar:
+        // NO se bloquea aquí; su estado de enable lo fija applySettingsToControls según "permitir
+        // recomprar" y lo mantiene rebuy_checkboxActionPerformed.
         presets_panel.setVisible(false);
     }
 

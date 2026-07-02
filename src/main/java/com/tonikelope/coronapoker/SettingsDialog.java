@@ -86,9 +86,13 @@ public class SettingsDialog extends JDialog {
         boolean in_waiting = !in_game && (parent instanceof WaitingRoomFrame)
                 && !((WaitingRoomFrame) parent).isPartida_empezada();
         boolean read_only_game = !in_game || !GameFrame.getInstance().isPartida_local();
-        // En la sala: editable solo para el HOST y nunca al recuperar una timba (la config
-        // recuperada es fija). Clientes y recover -> solo lectura.
-        boolean read_only_wait = !in_waiting || GameFrame.isRECOVER() || !((WaitingRoomFrame) parent).isServer();
+        // En la sala: editable solo para el HOST. Cliente / no-servidor -> solo lectura TOTAL.
+        // Al RECUPERAR una timba (parada para admitir jugadores), el HOST puede editar los
+        // ajustes de "Partida" (reglas + tiempo de pensar) y la dificultad de bots, pero la
+        // economía (compra, recompra, ciegas, estructura, ante, straddle) sigue BLOQUEADA con
+        // los valores de la timba recuperada -> modo recover parcial (no read-only total).
+        boolean read_only_wait = !in_waiting || !((WaitingRoomFrame) parent).isServer();
+        boolean recover_wait = in_waiting && !read_only_wait && GameFrame.isRECOVER();
 
         setTitle(Translator.translate("settings.ajustes"));
         // DO_NOTHING: la X la gestiona windowClosing (pregunta antes de descartar, igual
@@ -98,7 +102,7 @@ public class SettingsDialog extends JDialog {
         appearance_panel = new AppearanceSettingsPanel();
         audio_panel = new AudioSettingsPanel();
         game_panel = in_game ? new GameSettingsPanel(read_only_game) : null;
-        waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait) : null;
+        waiting_panel = in_waiting ? new WaitingGameSettingsPanel(read_only_wait, recover_wait) : null;
 
         // Cada pestaña va dentro de un JScrollPane (ScrollableTabPanel): sigue el ancho
         // del viewport (sin barra horizontal espuria) y rellena el alto cuando cabe, pero

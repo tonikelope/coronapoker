@@ -1033,7 +1033,16 @@ public class Init extends JFrame {
     private void create_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_create_buttonActionPerformed
         // TODO add your handling code here:
 
+        // Nueva timba: arranca SIEMPRE en la configuracion por defecto. Igual que ya se hace
+        // con la dificultad de los bots, se resetean aqui los ajustes que de otro modo se
+        // arrastrarian de la timba anterior via estaticos de sesion (rabbit y tiempo de pensar).
+        // El resto de controles ya arrancan en su default en el constructor del dialogo. Para
+        // reutilizar una config hay que guardarla como preset favorito. (En recover, loadLastGame
+        // repuebla estos controles con los valores de la timba recuperada.)
         Bot.DIFFICULTY = Bot.Difficulty.MEDIUM;
+        GameFrame.RABBIT_HUNTING = 0;
+        GameFrame.THINK_TIME = GameFrame.DEFAULT_THINK_TIME;
+        GameFrame.THINK_TIME_ENABLED = true;
 
         NewGameDialog dialog = new NewGameDialog(this, true, true);
 

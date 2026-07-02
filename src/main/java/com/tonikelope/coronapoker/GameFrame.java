@@ -503,7 +503,12 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                 // Política de tope de recompra (0=BUYIN, 1=stack más alto).
                 + "#RBCAP=" + REBUY_CAP_POLICY
                 + "#ANTE=" + (ANTE ? "1" : "0")
-                + "#STRADDLE=" + (STRADDLE ? "1" : "0");
+                + "#STRADDLE=" + (STRADDLE ? "1" : "0")
+                // Limite de manos + tiempo de pensar: ajustes de "Partida", EDITABLES al recuperar
+                // (se persisten para que el control arranque en el valor de la timba recuperada).
+                + "#MANOS=" + MANOS
+                + "#THINKT=" + THINK_TIME
+                + "#THINKON=" + (THINK_TIME_ENABLED ? "1" : "0");
     }
 
     public static void applyRecoverSettings(String serialized) {
@@ -524,6 +529,11 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         // de otra timba abierta en esta misma sesion.
         ANTE = false;
         STRADDLE = false;
+        // Limite de manos + tiempo de pensar: una fila anterior a esta feature no trae las
+        // claves, asi que se parte de sus defaults (sin limite / activo a DEFAULT_THINK_TIME).
+        MANOS = -1;
+        THINK_TIME = DEFAULT_THINK_TIME;
+        THINK_TIME_ENABLED = true;
         if (serialized == null || serialized.isEmpty()) {
             return;
         }
@@ -604,6 +614,21 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     break;
                 case "STRADDLE":
                     STRADDLE = "1".equals(val);
+                    break;
+                case "MANOS":
+                    try {
+                        MANOS = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "THINKT":
+                    try {
+                        THINK_TIME = Integer.parseInt(val);
+                    } catch (NumberFormatException ignore) {
+                    }
+                    break;
+                case "THINKON":
+                    THINK_TIME_ENABLED = "1".equals(val);
                     break;
                 case "BLINDS":
                     // Vacío = escalera por defecto (null). Parse defensivo: si la lista

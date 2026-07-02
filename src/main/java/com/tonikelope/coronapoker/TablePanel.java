@@ -911,15 +911,18 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
             hidePlayerCallCostOverlays();
             return;
         }
-        // Apuesta actual de la ronda: el overlay solo va sobre quien ya la haya
-        // igualado o subido (su bet coincide), no sobre quien siga en el bote sin hablar.
+        // El overlay del river va SOLO sobre el ÚLTIMO AGRESOR (quien hizo la última subida o
+        // resubida que el local tiene que igualar), no sobre todos los que igualan antes de mi
+        // turno. current_bet se mantiene como guarda de robustez (el agresor fijó la apuesta
+        // actual, así que su bet coincide) + para las comprobaciones de cartas en el bote.
         double current_bet = GameFrame.getInstance().getCrupier().getApuesta_actual();
+        Player last_aggressor = GameFrame.getInstance().getCrupier().getLast_aggressor();
         for (RemotePlayer rp : rps) {
             if (rp == null) {
                 continue;
             }
             CallCostOverlayLabel lbl = player_call_cost_labels.get(rp);
-            if (isPotPlayerMatchingCurrentBet(rp, current_bet)) {
+            if (rp == last_aggressor && isPotPlayerMatchingCurrentBet(rp, current_bet)) {
                 if (lbl == null) {
                     lbl = new CallCostOverlayLabel();
                     lbl.setFocusable(false);
@@ -944,14 +947,12 @@ public abstract class TablePanel extends javax.swing.JLayeredPane implements Zoo
         }
     }
 
-    // Un RemotePlayer recibe el overlay del river si (a) sigue en el bote con sus dos
-    // hole cards visibles en mesa (al foldear se ocultan con setVisibleCard(false)) y
-    // boca abajo —eso excluye foldeados, all-in revelados y, por usar remotePlayers, al
-    // jugador local— y (b) ya ha IGUALADO o SUBIDO la apuesta actual de esta ronda (su
-    // bet coincide con apuesta_actual). Los que siguen en el bote pero aún no han hablado
-    // (bet < apuesta_actual) no lo muestran hasta que igualen. El motor no distingue
-    // call de raise por decisión (ambos son BET con distinto importe), así que el
-    // criterio fiable es el importe igualado, no el enum de decisión.
+    // Guarda de "sigue en el bote con cartas ocultas + ya igualó la apuesta": (a) el RemotePlayer
+    // sigue en el bote con sus dos hole cards visibles en mesa (al foldear se ocultan con
+    // setVisibleCard(false)) y boca abajo —eso excluye foldeados, all-in revelados y, por usar
+    // remotePlayers, al jugador local— y (b) su bet coincide con apuesta_actual. El caller
+    // (updatePlayerCallCostOverlays) ADEMÁS exige que sea el ÚLTIMO AGRESOR, así que el overlay
+    // del river sale SOLO sobre el que subió/resubió, no sobre cada uno que iguala.
     private static boolean isPotPlayerMatchingCurrentBet(RemotePlayer rp, double current_bet) {
         Card c1 = rp.getHoleCard1();
         Card c2 = rp.getHoleCard2();

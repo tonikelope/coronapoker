@@ -1056,8 +1056,19 @@ public class WaitingRoomFrame extends JFrame {
             game_info_buyin.setOpaque(true);
             game_info_buyin.setBackground(Color.YELLOW);
             game_info_buyin.setIcon(null);
-            game_info_blinds.setVisible(false);
-            game_info_hands.setVisible(false);
+            // Las ciegas y el límite de manos SÍ se muestran al recuperar (parte de la config
+            // recuperada; el buy-in ya lo indica el banner "Continuando timba anterior"). El host
+            // no recibe GAMEINFO —lo emite él—, así que si no se pusieran aquí quedarían ocultos
+            // y sin refrescar (la aplicación general de labels está gateada por !isRECOVER()).
+            game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
+                    + Helpers.money2String(GameFrame.CIEGA_GRANDE)
+                    + (GameFrame.CIEGAS_DOUBLE > 0
+                            ? " @ " + String.valueOf(GameFrame.CIEGAS_DOUBLE)
+                            + (GameFrame.CIEGAS_DOUBLE_TYPE <= 1 ? "'" : "*")
+                            : ""));
+            game_info_blinds.setVisible(true);
+            game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
+            game_info_hands.setVisible(GameFrame.MANOS != -1);
         }
 
         if (server) {
@@ -5764,13 +5775,21 @@ public class WaitingRoomFrame extends JFrame {
         final String[] payload = new String[1];
 
         Helpers.GUIRunAndWait(() -> {
-            if (GameFrame.FIXED_BUYIN) {
-                game_info_buyin.setVisible(true);
-                game_info_buyin.setText(Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*"));
-            } else {
-                // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via getText().
-                game_info_buyin.setText(VARIABLE_BUYIN_TAG);
-                game_info_buyin.setVisible(false);
+            // En RECOVER el label del buy-in NO se toca (mantiene el banner "Continuando timba
+            // anterior"); aun así el payload GAMEINFO lleva el valor real para que los clientes lo
+            // muestren. Fuera de recover, el label refleja buy-in fijo / variable como siempre.
+            String buyin_payload = GameFrame.FIXED_BUYIN
+                    ? Helpers.money2String(GameFrame.BUYIN) + (GameFrame.REBUY ? "" : "*")
+                    : VARIABLE_BUYIN_TAG;
+            if (!GameFrame.isRECOVER()) {
+                if (GameFrame.FIXED_BUYIN) {
+                    game_info_buyin.setVisible(true);
+                    game_info_buyin.setText(buyin_payload);
+                } else {
+                    // Variable: la bolsa no aplica. El tag viaja en el GAMEINFO via el payload.
+                    game_info_buyin.setText(VARIABLE_BUYIN_TAG);
+                    game_info_buyin.setVisible(false);
+                }
             }
 
             game_info_blinds.setText(Helpers.money2String(GameFrame.CIEGA_PEQUEÑA) + " / "
@@ -5783,8 +5802,9 @@ public class WaitingRoomFrame extends JFrame {
             game_info_hands.setText(GameFrame.MANOS != -1 ? String.valueOf(GameFrame.MANOS) : "");
             game_info_hands.setVisible(!"".equals(game_info_hands.getText()));
 
-            // Capturar el payload del display EN EL EDT (no leer Swing fuera de él).
-            payload[0] = game_info_buyin.getText() + "|" + game_info_blinds.getText() + "|"
+            // Capturar el payload del display EN EL EDT (no leer Swing fuera de él). El buy-in va
+            // del valor calculado (no del label, que en recover es el banner).
+            payload[0] = buyin_payload + "|" + game_info_blinds.getText() + "|"
                     + game_info_hands.getText();
 
             pack();

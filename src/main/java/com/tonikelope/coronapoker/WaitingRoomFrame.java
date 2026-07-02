@@ -1192,13 +1192,6 @@ public class WaitingRoomFrame extends JFrame {
             game_info_buyin.setToolTipText(null);
             game_info_blinds.setToolTipText(null);
             game_info_hands.setToolTipText(null);
-
-            // Cliente: sin AÑADIR BOT / ¡A JUGAR! / Expulsar, el panel superior sobraba de alto
-            // (tiene un preferido fijo 700x487 pensado para el host) y el hueco se rellenaba de un
-            // gran hueco gris. Se reajusta el alto a su contenido real (con esos controles ya
-            // ocultos), manteniendo el ancho; así el chat sube y no queda el hueco.
-            panel_arriba.setPreferredSize(null);
-            panel_arriba.setPreferredSize(new java.awt.Dimension(700, panel_arriba.getPreferredSize().height));
         }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
@@ -4759,7 +4752,10 @@ public class WaitingRoomFrame extends JFrame {
         main_scroll_panel.setDoubleBuffered(true);
         main_scroll_panel.setPreferredSize(new java.awt.Dimension(700, 750));
 
-        panel_arriba.setPreferredSize(new java.awt.Dimension(700, 487));
+        // SIN preferido de alto fijo (antes 700x487): panel_arriba se dimensiona a su CONTENIDO
+        // real vía el constraint del main_panel. Así el host (con AÑADIR BOT / ¡A JUGAR!) y el
+        // cliente (que los oculta) usan cada uno su alto y el cliente ya no arrastra un hueco gris
+        // por el sobrante. El ancho lo fija el constraint horizontal (688), no este preferido.
 
         status.setFont(new java.awt.Font("Dialog", 1, 20)); // NOI18N
         status.setForeground(new java.awt.Color(51, 153, 0));
@@ -5233,7 +5229,7 @@ public class WaitingRoomFrame extends JFrame {
                                 .addGap(1, 1, 1)
                                 .addComponent(danger_server)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, 508, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(panel_arriba, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(chat_notifications)
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)

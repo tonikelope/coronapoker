@@ -1032,7 +1032,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null && !GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && !WaitingRoomFrame.getInstance().isExit() && response_counter > 0 && t == GameFrame.getInstance().getCrupier().getTurno() && auto_action.isRunning() && getDecision() == Player.NODEC) {
 
-                                response_counter--;
+                                // Desactivado => NO decrementa (contador congelado): la barra remota
+                                // no cuenta atrás y el auto-stop por timeout no dispara; el host
+                                // decide el turno del jugador remoto por su cuenta.
+                                if (GameFrame.THINK_TIME_ENABLED) {
+                                    response_counter--;
+                                }
 
                                 // setValue(response_counter) redundante: smoothCountdown
                                 // ya repinta la barra en escala ms via Timer interno.

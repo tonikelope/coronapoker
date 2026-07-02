@@ -1536,7 +1536,12 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                             if (!GameFrame.getInstance().getCrupier().isFin_de_la_transmision() && !GameFrame.getInstance().getCrupier().isSomePlayerTimeout() && !GameFrame.getInstance().isTimba_pausada() && response_counter > 0 && auto_action.isRunning() && t == GameFrame.getInstance().getCrupier().getTurno()) {
 
-                                response_counter--;
+                                // Desactivado => NO decrementa (contador congelado): nunca llega a
+                                // 0/10, así que ni hurry-up ni auto-fold, pero el bucle sigue vivo
+                                // para la seguridad getJugadoresActivos()<2 durante todo el turno.
+                                if (GameFrame.THINK_TIME_ENABLED) {
+                                    response_counter--;
+                                }
 
                                 // setValue(response_counter) redundante: smoothCountdown ya tiene
                                 // su Timer interno actualizando la barra cada 50ms.

@@ -427,7 +427,7 @@ public class NewGameDialog extends JDialog {
 
     private void loadLastGame() {
 
-        String sql = "SELECT id,start,server,recover_settings FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC LIMIT 1";
+        String sql = "SELECT id,start,server,recover_settings,rebuy FROM game WHERE (ugi IS NOT NULL AND local == 1) ORDER BY start DESC LIMIT 1";
 
         try (Statement statement = Helpers.getSQLITE().createStatement()) {
             statement.setQueryTimeout(30);
@@ -476,6 +476,10 @@ public class NewGameDialog extends JDialog {
                         this.rebuy_limit_spinner.setValue(GameFrame.REBUY_LIMIT);
                     }
                     this.bot_rebuy_checkbox.setSelected(GameFrame.BOT_REBUY);
+                    // Recompra EDITABLE al recuperar: permitir recomprar desde la columna
+                    // game.rebuy; tope de recompra desde la config recuperada (REBUY_CAP_POLICY).
+                    this.rebuy_checkbox.setSelected(rs.getBoolean("rebuy"));
+                    this.rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
                     game.put(rs.getString("server") + " @ " + timeZoneFormat.format(date), map);
                     this.last_game_key = rs.getString("server") + " @ " + timeZoneFormat.format(date);
 
@@ -1656,6 +1660,10 @@ public class NewGameDialog extends JDialog {
 
             GameFrame.REBUY_LIMIT = this.rebuy_limit_checkbox.isSelected() ? (int) this.rebuy_limit_spinner.getValue() : 0;
 
+            // Tope de recompra (política): editable también al recuperar, junto con el resto de la
+            // recompra (permitir / límite / recomprar bots).
+            GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
+
             GameFrame.BLIND_CAP = this.blind_cap_checkbox.isSelected() ? blindCapSelectedBB() : 0f;
 
             GameFrame.BUYIN = (int) this.buyin_spinner.getValue();
@@ -1671,11 +1679,10 @@ public class NewGameDialog extends JDialog {
             GameFrame.RUN_IT_TWICE_RECOVER = null;
             GameFrame.RABBIT_HUNTING_RECOVER = null;
 
-            // Economía de la timba (ante/straddle, modo/rango de buy-in y política de tope de
-            // recompra): en RECOVER NO se tocan (los restaura applyRecoverSettings al cargar la
-            // timba anterior; sus controles están deshabilitados con valores stale). Sin este
-            // guard, los controles deshabilitados pisarían la config recuperada con los defaults
-            // y la re-persistirían corrupta.
+            // Economía de la timba (ante/straddle, modo y rango de buy-in): en RECOVER NO se tocan
+            // (los restaura applyRecoverSettings al cargar la timba anterior; sus controles están
+            // deshabilitados con valores stale). Sin este guard, los controles deshabilitados
+            // pisarían la config recuperada con los defaults y la re-persistirían corrupta.
             if (!GameFrame.RECOVER) {
                 GameFrame.ANTE = this.ante_checkbox.isSelected();
 
@@ -1686,8 +1693,6 @@ public class NewGameDialog extends JDialog {
                 GameFrame.BUYIN_MIN_BB = ((Number) this.buyin_min_bb_spinner.getValue()).intValue();
 
                 GameFrame.BUYIN_MAX_BB = ((Number) this.buyin_max_bb_spinner.getValue()).intValue();
-
-                GameFrame.REBUY_CAP_POLICY = this.rebuy_cap_combo.getSelectedIndex() == 1 ? GameFrame.REBUY_CAP_HIGHEST_STACK : GameFrame.REBUY_CAP_BUYIN;
             }
 
             String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
@@ -1718,16 +1723,17 @@ public class NewGameDialog extends JDialog {
                 GameFrame.CIEGAS_DOUBLE = 0;
             }
 
-            // Issue#9: en recover, BUYIN/CIEGAS/CIEGAS_DOUBLE/REBUY del spinner
-            // son los valores por defecto del form (no se cargan desde la timba
-            // a continuar — los controles solo se deshabilitan visualmente).
-            // Cargar la verdad desde la fila game antes de WaitingRoomFrame +
-            // GameFrame para que un late-joiner que se siente en la mesa
-            // capture el BUYIN correcto en su slot (RemotePlayer field
-            // initializer + loop simetrico setStack/setBuyin en GameFrame
-            // constructor).
+            // Issue#9: en recover, BUYIN/CIEGAS/CIEGAS_DOUBLE del spinner son los valores por
+            // defecto del form (no se cargan desde la timba a continuar — sus controles solo se
+            // deshabilitan visualmente). Cargar la verdad desde la fila game antes de
+            // WaitingRoomFrame + GameFrame para que un late-joiner que se siente en la mesa
+            // capture el BUYIN correcto en su slot (RemotePlayer field initializer + loop
+            // simetrico setStack/setBuyin en GameFrame constructor).
             if (GameFrame.RECOVER) {
                 GameFrame.applyRecoveredGameStats(GameFrame.RECOVER_ID);
+                // "Permitir recomprar" es editable al recuperar: se persiste game.rebuy con el
+                // valor editado para que el resume (el Crupier relee game.rebuy) no lo revierta.
+                GameFrame.persistRecoverRebuy(GameFrame.RECOVER_ID, GameFrame.REBUY);
             }
 
             commitBotDifficultyFromCombo();
@@ -1862,14 +1868,6 @@ public class NewGameDialog extends JDialog {
 
                 setBlindCapControlsEnabled(false);
 
-                this.rebuy_checkbox.setEnabled(false);
-
-                this.rebuy_limit_checkbox.setEnabled(false);
-
-                this.rebuy_limit_spinner.setEnabled(false);
-
-                this.bot_rebuy_checkbox.setEnabled(false);
-
                 this.fixed_buyin_checkbox.setEnabled(false);
 
                 this.buyin_min_bb_spinner.setEnabled(false);
@@ -1879,10 +1877,6 @@ public class NewGameDialog extends JDialog {
                 this.buyin_range_label.setEnabled(false);
 
                 this.buyin_range_sep_label.setEnabled(false);
-
-                this.rebuy_cap_combo.setEnabled(false);
-
-                this.rebuy_cap_label.setEnabled(false);
 
                 // Ante/straddle y presets: bloqueados al recuperar (economía de la timba fija;
                 // ante/straddle son dinero muerto ligado a las ciegas).
@@ -1904,6 +1898,14 @@ public class NewGameDialog extends JDialog {
                 this.rabbit_combo.setEnabled(true);
                 this.think_time_checkbox.setEnabled(true);
                 this.think_time_spinner.setEnabled(this.think_time_checkbox.isSelected());
+                // Recompra (permitir / límite / recomprar bots / tope): EDITABLE al recuperar.
+                // Enables según "permitir recomprar" (igual que rebuy_checkboxActionPerformed).
+                this.rebuy_checkbox.setEnabled(true);
+                this.rebuy_limit_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
+                this.rebuy_limit_spinner.setEnabled(this.rebuy_checkbox.isSelected() && this.rebuy_limit_checkbox.isSelected());
+                this.bot_rebuy_checkbox.setEnabled(this.rebuy_checkbox.isSelected());
+                this.rebuy_cap_label.setEnabled(this.rebuy_checkbox.isSelected());
+                this.rebuy_cap_combo.setEnabled(this.rebuy_checkbox.isSelected());
 
                 this.recover_checkbox_label.setOpaque(true);
 

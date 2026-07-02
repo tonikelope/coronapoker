@@ -754,6 +754,26 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
+    // Persiste SOLO la columna game.rebuy (permitir recomprar). Necesario porque esa marca es
+    // EDITABLE al recuperar y NO viaja en recover_settings (a diferencia de límite/bots/tope de
+    // recompra): sin esto, al reanudar la timba el Crupier relee game.rebuy (valor original) y
+    // pisaría la edición del usuario.
+    public static void persistRecoverRebuy(int gameId, boolean rebuy) {
+        if (gameId <= 0) {
+            return;
+        }
+        synchronized (GameFrame.SQL_LOCK) {
+            try (PreparedStatement st = Helpers.getSQLITE().prepareStatement("UPDATE game SET rebuy=? WHERE id=?")) {
+                st.setQueryTimeout(30);
+                st.setBoolean(1, rebuy);
+                st.setInt(2, gameId);
+                st.executeUpdate();
+            } catch (SQLException ex) {
+                Logger.getLogger(GameFrame.class.getName()).log(Level.SEVERE, "Failed to persist recover rebuy", ex);
+            }
+        }
+    }
+
     // Issue#9: en modo recover, NewGameDialog deja BUYIN/CIEGAS al valor por
     // defecto del spinner (BUYIN=10, ciegas 0.10/0.20) porque los controles del
     // form se deshabilitan pero nunca se cargan desde SQL — el form mantiene
@@ -772,7 +792,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
             return;
         }
         synchronized (GameFrame.SQL_LOCK) {
-            String sql = "SELECT buyin, round(sb,2) AS sb, blinds_time, blinds_time_type, rebuy FROM game WHERE id=?";
+            String sql = "SELECT buyin, round(sb,2) AS sb, blinds_time, blinds_time_type FROM game WHERE id=?";
             try (PreparedStatement st = Helpers.getSQLITE().prepareStatement(sql)) {
                 st.setQueryTimeout(30);
                 st.setInt(1, gameId);
@@ -790,7 +810,9 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                         CIEGAS_DOUBLE = rs.getInt("blinds_time");
                         int bt = rs.getInt("blinds_time_type");
                         CIEGAS_DOUBLE_TYPE = bt > 0 ? bt : 1;
-                        REBUY = rs.getBoolean("rebuy");
+                        // REBUY (permitir recomprar) ya NO se restaura aquí: es EDITABLE al
+                        // recuperar (lo lee loadLastGame de la columna game.rebuy hacia el control
+                        // y lo aplica vamos). Restaurarlo aquí pisaría la edición del usuario.
                     }
                 }
             } catch (SQLException ex) {

@@ -53,6 +53,10 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox manos_checkbox;
     private javax.swing.JLabel manos_label;
     private javax.swing.JSpinner manos_spinner;
+    // Tiempo de pensar: SOLO lectura en partida (no cambiable una vez empezada).
+    private javax.swing.JCheckBox think_time_checkbox;
+    private javax.swing.JLabel think_time_label;
+    private javax.swing.JSpinner think_time_spinner;
     private javax.swing.JCheckBox iwtsth_checkbox;
     private javax.swing.JLabel iwtsth_label;
     private javax.swing.JCheckBox rit_checkbox;
@@ -180,6 +184,15 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         manos_checkbox.setSelected(manos_on);
         manos_spinner.setEnabled(manos_on);
 
+        // Tiempo de pensar: SOLO lectura en partida (no cambiable una vez empezada). Muestra
+        // el valor vigente y se DESHABILITA para host y cliente (no entra en el apply).
+        think_time_checkbox.setSelected(GameFrame.THINK_TIME_ENABLED);
+        think_time_spinner.setModel(new SpinnerNumberModel(Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, GameFrame.THINK_TIME)), GameFrame.THINK_TIME_MIN, GameFrame.THINK_TIME_MAX, 5));
+        Helpers.makeNumericSpinnerEditable(think_time_spinner, false);
+        ((javax.swing.JSpinner.DefaultEditor) think_time_spinner.getEditor()).getTextField().setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        think_time_checkbox.setEnabled(false);
+        think_time_spinner.setEnabled(false);
+
         iwtsth_checkbox.setSelected(GameFrame.IWTSTH_RULE);
         rit_checkbox.setSelected(GameFrame.RUN_IT_TWICE);
 
@@ -266,6 +279,9 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         manos_checkbox = new javax.swing.JCheckBox();
         manos_label = new javax.swing.JLabel();
         manos_spinner = new javax.swing.JSpinner();
+        think_time_checkbox = new javax.swing.JCheckBox();
+        think_time_label = new javax.swing.JLabel();
+        think_time_spinner = new javax.swing.JSpinner();
         iwtsth_checkbox = new javax.swing.JCheckBox();
         iwtsth_label = new javax.swing.JLabel();
         rit_checkbox = new javax.swing.JCheckBox();
@@ -307,6 +323,17 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         manos_spinner.setModel(new javax.swing.SpinnerNumberModel(100, 1, null, 1));
         manos_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
 
+        think_time_label.setFont(new java.awt.Font("Dialog", 1, 16));
+        think_time_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/clock.png")));
+        think_time_label.setText("Tiempo de pensar:");
+        think_time_label.putClientProperty("i18n.key", "newgame.tiempo_pensar");
+
+        think_time_checkbox.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        think_time_spinner.setFont(new java.awt.Font("Dialog", 0, 16));
+        think_time_spinner.setModel(new javax.swing.SpinnerNumberModel(40, 10, 120, 5));
+        think_time_spinner.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
         iwtsth_label.setFont(new java.awt.Font("Dialog", 1, 16));
         iwtsth_label.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/menu/eyes.png")));
         iwtsth_label.setText("Regla IWTSTH");
@@ -343,6 +370,12 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(rules_panelLayout.createSequentialGroup()
+                        .addComponent(think_time_checkbox)
+                        .addGap(0, 0, 0)
+                        .addComponent(think_time_label)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(rules_panelLayout.createSequentialGroup()
                         .addComponent(iwtsth_checkbox)
                         .addGap(0, 0, 0)
                         .addComponent(iwtsth_label))
@@ -364,6 +397,11 @@ public class GameSettingsPanel extends javax.swing.JPanel {
                     .addComponent(manos_checkbox)
                     .addComponent(manos_label)
                     .addComponent(manos_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(think_time_checkbox)
+                    .addComponent(think_time_label)
+                    .addComponent(think_time_spinner, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(rules_panelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
                     .addComponent(iwtsth_checkbox)

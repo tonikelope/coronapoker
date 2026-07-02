@@ -1192,6 +1192,13 @@ public class WaitingRoomFrame extends JFrame {
             game_info_buyin.setToolTipText(null);
             game_info_blinds.setToolTipText(null);
             game_info_hands.setToolTipText(null);
+
+            // Cliente: sin AÑADIR BOT / ¡A JUGAR! / Expulsar, el panel superior sobraba de alto
+            // (tiene un preferido fijo 700x487 pensado para el host) y el hueco se rellenaba de un
+            // gran hueco gris. Se reajusta el alto a su contenido real (con esos controles ya
+            // ocultos), manteniendo el ancho; así el chat sube y no queda el hueco.
+            panel_arriba.setPreferredSize(null);
+            panel_arriba.setPreferredSize(new java.awt.Dimension(700, panel_arriba.getPreferredSize().height));
         }
 
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);

@@ -684,7 +684,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public int getResponseTime() {
 
-        return Crupier.TIEMPO_PENSAR - response_counter;
+        return GameFrame.THINK_TIME - response_counter;
     }
 
     public Bot getBot() {
@@ -1005,7 +1005,13 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 setPlayerActionIcon("action/thinking.png");
 
-                Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                // Tiempo de pensar configurable: desactivado => barra LLENA estatica (sin
+                // cuenta atras). El auto-fold real lo hace el host via isExit(), no esta barra.
+                if (GameFrame.THINK_TIME_ENABLED) {
+                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
+                } else {
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
+                }
 
             });
 
@@ -1013,7 +1019,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
                 //Tiempo máximo para pensar
                 Helpers.GUIRun(() -> {
-                    response_counter = Crupier.TIEMPO_PENSAR;
+                    response_counter = GameFrame.THINK_TIME;
                     if (auto_action != null) {
                         auto_action.stop();
                     }
@@ -1032,11 +1038,11 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 // ya repinta la barra en escala ms via Timer interno.
                                 // Hacer setValue aqui en escala segundos generaba parpadeo.
 
-                                if (response_counter == 10 && Helpers.doubleSecureCompare(0f, call_required) < 0) {
+                                if (GameFrame.THINK_TIME_ENABLED && response_counter == 10 && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                     Audio.playWavResource("misc/hurryup.wav");
                                 }
 
-                                if (response_counter == 0) {
+                                if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
                                     Helpers.threadRun(() -> {
                                         Audio.playWavResourceAndWait("misc/timeout.wav");
                                         GameFrame.getInstance().checkPause();
@@ -1070,7 +1076,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     public void setDecisionFromRemotePlayer(int decision, double bet) {
         Helpers.threadRun(() -> {
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
             Helpers.GUIRun(() -> {
                 if (auto_action != null) {
                     auto_action.stop();

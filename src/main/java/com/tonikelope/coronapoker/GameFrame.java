@@ -154,6 +154,18 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile int MANOS = -1;
     public static volatile boolean IWTSTH_RULE = false;
     public static volatile int RABBIT_HUNTING = 0;
+    // Tiempo de pensar (segundos) que tiene un jugador para actuar en su turno + si esta
+    // activo. Configurable por timba (10-120) desde la creacion y la sala de espera;
+    // BLOQUEADO una vez empezada la partida. THINK_TIME_ENABLED=false => sin limite de
+    // tiempo (barra llena estatica, sin auto-fold por timeout; el host sigue plegando al que
+    // se desconecta de verdad via isExit()). Valor por defecto = Crupier.TIEMPO_PENSAR.
+    // IMPORTANTE: la ventana de gracia de reconexion (CLIENT_RECON_TIMEOUT) NO depende de
+    // esto; sigue anclada a Crupier.TIEMPO_PENSAR para no debilitar la reconexion P2P al
+    // bajar o desactivar el tiempo de pensar.
+    public static volatile int THINK_TIME = Crupier.TIEMPO_PENSAR;
+    public static volatile boolean THINK_TIME_ENABLED = true;
+    public static final int THINK_TIME_MIN = 10;  // segundos (tope inferior del spinner + clamp)
+    public static final int THINK_TIME_MAX = 120; // segundos (tope superior del spinner + clamp)
     public static volatile boolean VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("voice_messages", "true"));
     public static volatile boolean RUN_IT_TWICE = false;
     // Congela el cambio de RUN_IT_TWICE durante el run-out del all-in (desde que
@@ -2175,7 +2187,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
                     nuevo_tapete.hideALL();
                 }
 
-                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                 updateSoundIcon();
 
@@ -2877,7 +2889,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         updateSoundIcon();
 
-        Helpers.resetBarra(tapete.getCommunityCards().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(tapete.getCommunityCards().getBarra_tiempo(), GameFrame.THINK_TIME);
 
         server_separator_menu.setVisible(partida_local);
 

@@ -3438,13 +3438,19 @@ public class WaitingRoomFrame extends JFrame {
                                                             GameFrame.IWTSTH_RULE = partes_comando.length > 19 && "1".equals(partes_comando[19]);
                                                             GameFrame.RUN_IT_TWICE = partes_comando.length > 20 && "1".equals(partes_comando[20]);
                                                             GameFrame.RABBIT_HUNTING = partes_comando.length > 21 ? Integer.parseInt(partes_comando[21]) : 0;
+                                                            // Tiempo de pensar (segundos, índice 22) + si está activo (índice 23):
+                                                            // campos FIJOS antes de la estructura; el cliente debe arrancar con el
+                                                            // mismo tiempo de pensar (o sin límite) que fijó el host. Guardas de
+                                                            // longitud por si faltan (default = TIEMPO_PENSAR / activo).
+                                                            GameFrame.THINK_TIME = partes_comando.length > 22 ? Integer.parseInt(partes_comando[22]) : Crupier.TIEMPO_PENSAR;
+                                                            GameFrame.THINK_TIME_ENABLED = partes_comando.length <= 23 || "1".equals(partes_comando[23]);
                                                             // Estructura de ciegas personalizada (campo opcional al final, ahora
-                                                            // en el índice 22): el cliente recomputa la escalada con la MISMA
+                                                            // en el índice 24): el cliente recomputa la escalada con la MISMA
                                                             // lista que el host. Ausente = escalera por defecto (null). Nunca
                                                             // conservar una estructura stale de una partida anterior.
-                                                            if (partes_comando.length > 22 && !partes_comando[22].isEmpty()) {
+                                                            if (partes_comando.length > 24 && !partes_comando[24].isEmpty()) {
                                                                 try {
-                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[22]);
+                                                                    GameFrame.ACTIVE_BLIND_STRUCTURE = BlindStructure.parseValidatedLevels(partes_comando[24]);
                                                                 } catch (IllegalArgumentException blinds_ex) {
                                                                     LOGGER.log(Level.WARNING, "INIT custom blind structure parse failed or invalid; falling back to default", blinds_ex);
                                                                     GameFrame.ACTIVE_BLIND_STRUCTURE = null;

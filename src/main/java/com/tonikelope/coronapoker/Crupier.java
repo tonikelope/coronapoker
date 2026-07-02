@@ -442,6 +442,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
+    // Tiempo de pensar POR DEFECTO (segundos) + ancla de la ventana de gracia de reconexion
+    // (GameFrame.CLIENT_RECON_TIMEOUT = 2 * TIEMPO_PENSAR). El tiempo de pensar EFECTIVO de la
+    // timba (configurable/desactivable) vive en GameFrame.THINK_TIME/THINK_TIME_ENABLED, que
+    // es lo que gobierna la barra y el auto-fold; esta constante solo fija el valor inicial y
+    // la reconexion (que se mantiene desacoplada del ajuste para no debilitarla).
     public static final int TIEMPO_PENSAR = 40; // Segundos
     public static final int PAUSA_ENTRE_MANOS = 10; // Segundos
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
@@ -3560,7 +3565,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     gif_dialog.dispose();
                                 }
 
-                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                                Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
                             });
 
                             synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
@@ -3586,7 +3591,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         current_remote_cinematic_b64 = null;
 
-                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                         synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                             GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -3610,7 +3615,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                     current_remote_cinematic_b64 = null;
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                     synchronized (GameFrame.getInstance().getCrupier().getLock_apuestas()) {
                         GameFrame.getInstance().getCrupier().getLock_apuestas().notifyAll();
@@ -4180,7 +4185,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         }
 
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
     }
 
     // Fija el buy-in INICIAL de un jugador (modo variable). NO es una recompra:
@@ -4401,7 +4406,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
     }
 
     public synchronized void remotePlayerQuit(String nick, String testamento) {
@@ -7591,7 +7596,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // -> converge en todos los peers antes de la ronda preflop. No-op si STRADDLE
             // off / heads-up / <=2 activos. Revela por fin las cartas tapadas del UTG local.
             resolveVoluntaryStraddle();
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
@@ -7605,7 +7610,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     jugador.pagar(jugador.getBet(), null);
                 }
             }
-            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+            Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
             Helpers.GUIRun(() -> {
                 GameFrame.getInstance().getExit_menu().setEnabled(true);
             });
@@ -15809,7 +15814,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     @Override
     public void run() {
-        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
         if (GameFrame.getInstance().isPartida_local()) {
             GameFrame.UGI = this.getUGI();
@@ -15823,6 +15828,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     // Rabbit Hunting): campos fijos, ANTES del campo opcional de estructura,
                     // para que un cliente que se une conozca las reglas de salida.
                     + "#" + (GameFrame.IWTSTH_RULE ? "1" : "0") + "#" + (GameFrame.RUN_IT_TWICE ? "1" : "0") + "#" + String.valueOf(GameFrame.RABBIT_HUNTING)
+                    // Tiempo de pensar (segundos) + si esta activo: campos FIJOS, ANTES del
+                    // campo opcional de estructura, para que el cliente arranque con el mismo
+                    // tiempo de pensar (o sin limite) que fijo el host al crear/configurar.
+                    + "#" + String.valueOf(GameFrame.THINK_TIME) + "#" + (GameFrame.THINK_TIME_ENABLED ? "1" : "0")
                     // Estructura de ciegas personalizada (campo opcional al final): los
                     // clientes recomputan la escalada por su cuenta, así que TODOS deben
                     // caminar la misma lista o desincronizan al subir las ciegas. Solo se

@@ -501,7 +501,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public int getResponseTime() {
 
-        return Crupier.TIEMPO_PENSAR - response_counter;
+        return GameFrame.THINK_TIME - response_counter;
     }
 
     public Timer getAuto_action() {
@@ -1473,7 +1473,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                     player_allin_button.setIcon(null);
                 }
 
-                Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                // Tiempo de pensar configurable: si esta desactivado, barra LLENA estatica (sin
+                // cuenta atras) => tiempo ilimitado, nada auto-pliega al jugador local.
+                if (GameFrame.THINK_TIME_ENABLED) {
+                    Helpers.smoothCountdown(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
+                } else {
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
+                }
 
                 Helpers.setTranslatedText(player_action, "action.hablas_tu");
 
@@ -1516,7 +1522,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 } else {
 
                     //Tiempo máximo para pensar
-                    response_counter = Crupier.TIEMPO_PENSAR;
+                    response_counter = GameFrame.THINK_TIME;
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -1535,7 +1541,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 // setValue(response_counter) redundante: smoothCountdown ya tiene
                                 // su Timer interno actualizando la barra cada 50ms.
 
-                                if (response_counter == 10) {
+                                if (GameFrame.THINK_TIME_ENABLED && response_counter == 10) {
                                     Audio.playWavResource("misc/hurryup.wav");
                                     if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                         if (hurryup_timer != null) {
@@ -1560,9 +1566,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                     }
                                 }
 
-                                if (response_counter == 0 || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
+                                if ((GameFrame.THINK_TIME_ENABLED && response_counter == 0) || GameFrame.getInstance().getCrupier().getJugadoresActivos() < 2) {
                                     Helpers.threadRun(() -> {
-                                        if (response_counter == 0) {
+                                        if (GameFrame.THINK_TIME_ENABLED && response_counter == 0) {
                                             Audio.playWavResourceAndWait("misc/timeout.wav"); //Mientras dura la bocina aún estaríamos a tiempo de elegir
                                         }
 
@@ -2875,7 +2881,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -2923,7 +2929,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -2993,7 +2999,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                         desactivarControles();
 
-                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                        Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                         if (auto_action != null) {
                             auto_action.stop();
@@ -3097,7 +3103,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                     if (auto_action != null) {
                         auto_action.stop();
@@ -3146,7 +3152,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
                     desactivarControles();
 
-                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), Crupier.TIEMPO_PENSAR);
+                    Helpers.resetBarra(GameFrame.getInstance().getBarra_tiempo(), GameFrame.THINK_TIME);
 
                     if (auto_action != null) {
                         auto_action.stop();

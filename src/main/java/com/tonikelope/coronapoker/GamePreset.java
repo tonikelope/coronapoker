@@ -105,6 +105,8 @@ public final class GamePreset {
         public boolean iwtsth = false;        // regla "Quiero ver la mano"
         public boolean runItTwice = false;    // ALL-IN run it twice
         public int rabbit = 0;                // 0=off 1=free 2=free+sb 3=free+sb+bb
+        public int thinkTime = Crupier.TIEMPO_PENSAR; // tiempo de pensar en segundos
+        public boolean thinkTimeEnabled = true;       // false = sin limite de tiempo
         public Bot.Difficulty difficulty = Bot.Difficulty.MEDIUM;
 
         /**
@@ -131,6 +133,8 @@ public final class GamePreset {
                     + "#IWTSTH=" + (iwtsth ? "1" : "0")
                     + "#RIT=" + (runItTwice ? "1" : "0")
                     + "#RABBIT=" + rabbit
+                    + "#THINKT=" + thinkTime
+                    + "#THINKON=" + (thinkTimeEnabled ? "1" : "0")
                     + "#DIFF=" + difficulty.name();
         }
 
@@ -213,6 +217,12 @@ public final class GamePreset {
                         case "RABBIT":
                             s.rabbit = Integer.parseInt(val);
                             break;
+                        case "THINKT":
+                            s.thinkTime = Integer.parseInt(val);
+                            break;
+                        case "THINKON":
+                            s.thinkTimeEnabled = "1".equals(val);
+                            break;
                         case "DIFF":
                             // "EXPERT" es un valor legacy del esquema de 4 niveles -> HARD.
                             s.difficulty = "EXPERT".equals(val)
@@ -255,6 +265,8 @@ public final class GamePreset {
             s.iwtsth = GameFrame.IWTSTH_RULE;
             s.runItTwice = GameFrame.RUN_IT_TWICE;
             s.rabbit = GameFrame.RABBIT_HUNTING;
+            s.thinkTime = GameFrame.THINK_TIME;
+            s.thinkTimeEnabled = GameFrame.THINK_TIME_ENABLED;
             s.difficulty = Bot.DIFFICULTY;
             return s;
         }
@@ -274,6 +286,10 @@ public final class GamePreset {
             GameFrame.IWTSTH_RULE = iwtsth;
             GameFrame.RUN_IT_TWICE = runItTwice;
             GameFrame.RABBIT_HUNTING = rabbit;
+            // Clamp defensivo: un preset hand-editado o un blob antiguo/corrupto no debe
+            // meter un tiempo de pensar fuera de rango (el spinner ya acota 10-120).
+            GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, thinkTime));
+            GameFrame.THINK_TIME_ENABLED = thinkTimeEnabled;
             GameFrame.BOT_REBUY = botRebuy;
             GameFrame.REBUY_LIMIT = rebuyLimit;
             GameFrame.BLIND_CAP = blindCap;

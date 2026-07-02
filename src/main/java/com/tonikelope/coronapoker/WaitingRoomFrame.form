@@ -326,8 +326,10 @@
                                   <Component id="jPanel3" max="32767" attributes="0"/>
                                   <Component id="new_bot_button" alignment="0" max="32767" attributes="0"/>
                                   <Component id="logo" alignment="0" max="32767" attributes="0"/>
-                                  <Component id="game_info_buyin" alignment="0" min="-2" max="-2" attributes="0"/>
+                                  <Component id="game_info_recover" alignment="0" min="-2" max="-2" attributes="0"/>
                                   <Group type="102" alignment="0" attributes="0">
+                                      <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
+                                      <EmptySpace type="unrelated" max="-2" attributes="0"/>
                                       <Component id="game_info_blinds" min="-2" max="-2" attributes="0"/>
                                       <EmptySpace type="unrelated" max="32767" attributes="0"/>
                                       <Component id="game_info_hands" min="-2" max="-2" attributes="0"/>
@@ -344,12 +346,13 @@
                               <EmptySpace max="-2" attributes="0"/>
                               <Component id="jPanel3" min="-2" max="-2" attributes="0"/>
                               <EmptySpace type="unrelated" max="-2" attributes="0"/>
-                              <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
-                              <EmptySpace max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Component id="game_info_blinds" alignment="0" max="-2" attributes="0"/>
                                   <Component id="game_info_hands" alignment="0" min="-2" pref="32" max="-2" attributes="0"/>
+                                  <Component id="game_info_buyin" min="-2" max="-2" attributes="0"/>
                               </Group>
+                              <EmptySpace max="-2" attributes="0"/>
+                              <Component id="game_info_recover" min="-2" max="-2" attributes="0"/>
                               <EmptySpace max="32767" attributes="0"/>
                               <Component id="new_bot_button" min="-2" pref="84" max="-2" attributes="0"/>
                               <EmptySpace min="0" pref="0" max="-2" attributes="0"/>
@@ -450,6 +453,22 @@
                       <Events>
                         <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_buyinMouseClicked"/>
                       </Events>
+                    </Component>
+                    <Component class="javax.swing.JLabel" name="game_info_recover">
+                      <Properties>
+                        <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                          <Font name="Dialog" size="18" style="1"/>
+                        </Property>
+                        <Property name="background" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
+                          <Color blue="0" green="ff" red="ff" type="rgb"/>
+                        </Property>
+                        <Property name="text" type="java.lang.String" value="CONTINUANDO TIMBA ANTERIOR"/>
+                        <Property name="opaque" type="boolean" value="true"/>
+                        <Property name="visible" type="boolean" value="false"/>
+                      </Properties>
+                      <AuxValues>
+                        <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="game_info_recover.putClientProperty(&quot;i18n.key&quot;, &quot;game.continuando_timba_anterior&quot;);"/>
+                      </AuxValues>
                     </Component>
                     <Container class="javax.swing.JPanel" name="jPanel3">
 

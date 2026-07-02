@@ -538,8 +538,13 @@ public class AppearanceSettingsPanel extends JPanel {
     // lanzador aún no existe (arranque). El InitPanel recarga la textura en segundo plano,
     // y para los colores base es independiente del tamaño del panel, así que es seguro
     // aunque el lanzador esté oculto (p. ej. abriendo el diálogo desde la sala de espera).
+    // Reproduce ademas el mismo efecto de sonido (mat.wav) que TablePanel.refresh() en
+    // partida, para que cambiar (o revertir) el tapete suene igual dentro y fuera de la
+    // mesa. El sonido va DENTRO del guard y aqui, NO en InitPanel.refresh(): ese metodo
+    // tambien corre en el resize del tapete secreto "*", donde no debe sonar.
     private static void refreshLauncherTapete() {
         if (Init.VENTANA_INICIO != null) {
+            Audio.playWavResource("misc/mat.wav");
             Init.VENTANA_INICIO.getTapete().refresh();
         }
     }

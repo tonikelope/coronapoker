@@ -47,6 +47,12 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
     private final boolean read_only;
 
+    // Modo recover parcial (host que reengancha una timba parada para admitir jugadores): la
+    // economía (compra/recompra/ciegas/estructura/ante/straddle) queda BLOQUEADA con los valores
+    // recuperados, pero los ajustes de "Partida" (reglas + tiempo de pensar) y la dificultad de
+    // bots SON editables. Solo aplica cuando read_only es false (host).
+    private final boolean recover;
+
     // Firma de los valores de los controles al ABRIR; isDirty() compara con la actual
     // para saber si la pestaña tiene cambios sin guardar (se aplica al GUARDAR).
     private String snap_signature;
@@ -129,8 +135,9 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JButton preset_save_button;
     private javax.swing.JButton preset_delete_button;
 
-    public WaitingGameSettingsPanel(boolean read_only) {
+    public WaitingGameSettingsPanel(boolean read_only, boolean recover) {
         this.read_only = read_only;
+        this.recover = recover;
         initComponents();
 
         // Fuente única: el HOST lee la config viva (estáticos); el cliente lee el espejo
@@ -156,6 +163,8 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
 
         if (read_only) {
             applyReadOnlyState();
+        } else if (recover) {
+            applyRecoverLockState();
         }
 
         snap_signature = controlsSignature();
@@ -215,13 +224,35 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
             return;
         }
 
-        GamePreset.Settings s = captureSettingsFromControls();
-        s.applyToGameFrame(true);
+        if (recover) {
+            // Recover: SOLO se aplican los ajustes EDITABLES (Partida + bots). La economía se
+            // mantiene tal cual de la timba recuperada (sus controles están bloqueados).
+            applyRecoverEditableToGame();
+        } else {
+            GamePreset.Settings s = captureSettingsFromControls();
+            s.applyToGameFrame(true);
+        }
 
         WaitingRoomFrame room = WaitingRoomFrame.getInstance();
         if (room != null) {
             room.broadcastGameConfigAndLabels();
         }
+    }
+
+    // Recover: aplica a GameFrame SOLO los ajustes editables (subpanel "Partida" + dificultad de
+    // bots), sin tocar la economía (que se restaura de la timba recuperada). Anula los overrides
+    // *_RECOVER de iwtsth/rit/rabbit para que el re-guardado use el valor editado, no el original.
+    private void applyRecoverEditableToGame() {
+        GameFrame.MANOS = manos_checkbox.isSelected() ? ((Number) manos_spinner.getValue()).intValue() : -1;
+        GameFrame.THINK_TIME = Math.max(GameFrame.THINK_TIME_MIN, Math.min(GameFrame.THINK_TIME_MAX, ((Number) think_time_spinner.getValue()).intValue()));
+        GameFrame.THINK_TIME_ENABLED = think_time_checkbox.isSelected();
+        GameFrame.IWTSTH_RULE = iwtsth_checkbox.isSelected();
+        GameFrame.RUN_IT_TWICE = rit_checkbox.isSelected();
+        GameFrame.RABBIT_HUNTING = rabbit_combo.getSelectedIndex();
+        GameFrame.IWTSTH_RULE_RECOVER = null;
+        GameFrame.RUN_IT_TWICE_RECOVER = null;
+        GameFrame.RABBIT_HUNTING_RECOVER = null;
+        Bot.DIFFICULTY = botDifficultyFromComboIndex(bots_combobox.getSelectedIndex());
     }
 
     // Deshabilita todos los controles (cliente) y oculta el panel de presets. Se reaplica
@@ -259,6 +290,37 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         rebuy_cap_combo.setEnabled(e);
         bots_label.setEnabled(e);
         bots_combobox.setEnabled(e);
+        presets_panel.setVisible(false);
+    }
+
+    // Recover parcial (host): bloquea SOLO la economía (compra/rango/recompra/ciegas/estructura/
+    // aumento/tope/ante/straddle), dejando editables los ajustes de "Partida" (manos, IWTSTH,
+    // run-it-twice, rabbit, tiempo de pensar) y la dificultad de bots, que ya quedaron con su
+    // estado correcto en applySettingsToControls. Oculta los presets (no aplican al recuperar).
+    private void applyRecoverLockState() {
+        boolean e = false;
+        estructura_combobox.setEnabled(e);
+        ciegas_combobox.setEnabled(e);
+        doblar_checkbox.setEnabled(e);
+        double_blinds_radio_minutos.setEnabled(e);
+        double_blinds_radio_manos.setEnabled(e);
+        doblar_ciegas_spinner_minutos.setEnabled(e);
+        doblar_ciegas_spinner_manos.setEnabled(e);
+        blind_cap_checkbox.setEnabled(e);
+        blind_cap_spinner.setEnabled(e);
+        blind_cap_label.setEnabled(e);
+        ante_checkbox.setEnabled(e);
+        straddle_checkbox.setEnabled(e);
+        fixed_buyin_checkbox.setEnabled(e);
+        buyin_spinner.setEnabled(e);
+        buyin_min_bb_spinner.setEnabled(e);
+        buyin_max_bb_spinner.setEnabled(e);
+        rebuy_checkbox.setEnabled(e);
+        rebuy_limit_checkbox.setEnabled(e);
+        rebuy_limit_spinner.setEnabled(e);
+        bot_rebuy_checkbox.setEnabled(e);
+        rebuy_cap_label.setEnabled(e);
+        rebuy_cap_combo.setEnabled(e);
         presets_panel.setVisible(false);
     }
 

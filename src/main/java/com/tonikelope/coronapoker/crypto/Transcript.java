@@ -47,23 +47,32 @@ public final class Transcript {
 
     private byte[] state;
 
+    // Un único MessageDigest reutilizado (reset()+update()) en vez de MessageDigest.getInstance()
+    // por cada hash: un prove/verify dispara ~1000-1500 hashes y cada getInstance hace lookup de
+    // proveedor + clonado del SPI (caro, sobre todo en frío / interpretado). Salida byte-idéntica:
+    // reset() deja el digest en su estado inicial, igual que una instancia nueva, y el hash es
+    // SHA-512 de la misma secuencia de bytes. Transcript NO es thread-safe (es el estado de UNA
+    // prueba), así que un digest por instancia es correcto.
+    private final MessageDigest md;
+
     public Transcript(String domain) {
         if (domain == null) {
             domain = "";
         }
-        this.state = sha512(DOMAIN_PREFIX, domain.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static byte[] sha512(byte[]... parts) {
         try {
-            MessageDigest md = MessageDigest.getInstance("SHA-512");
-            for (byte[] p : parts) {
-                md.update(p);
-            }
-            return md.digest();
+            this.md = MessageDigest.getInstance("SHA-512");
         } catch (Exception e) {
             throw new IllegalStateException("SHA-512 unavailable", e);
         }
+        this.state = hash(DOMAIN_PREFIX, domain.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private byte[] hash(byte[]... parts) {
+        md.reset();
+        for (byte[] p : parts) {
+            md.update(p);
+        }
+        return md.digest();
     }
 
     /** Big-endian 8-byte length prefix + payload, so framed fields are unambiguous. */
@@ -85,7 +94,7 @@ public final class Transcript {
         if (data == null) {
             data = new byte[0];
         }
-        state = sha512(state, TAG_ABSORB,
+        state = hash(state, TAG_ABSORB,
                 lenPrefixed(label.getBytes(StandardCharsets.UTF_8)),
                 lenPrefixed(data));
     }
@@ -117,13 +126,13 @@ public final class Transcript {
         int produced = 0;
         long counter = 0;
         while (produced < n) {
-            byte[] block = sha512(state, TAG_CHALLENGE, lbl, counterBytes(counter));
+            byte[] block = hash(state, TAG_CHALLENGE, lbl, counterBytes(counter));
             int take = Math.min(block.length, n - produced);
             System.arraycopy(block, 0, out, produced, take);
             produced += take;
             counter++;
         }
-        state = sha512(state, TAG_FOLD, out);
+        state = hash(state, TAG_FOLD, out);
         return out;
     }
 

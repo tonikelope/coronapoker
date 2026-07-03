@@ -2044,6 +2044,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.List<byte[]> bgRotRemoteProofs = this.cascade_rotation_remote_proofs;
         if (bgDecks != null && bgPerm != null) {
             Helpers.threadRun(() -> {
+                final Thread bgVerifyThread = Thread.currentThread();
+                final int bgVerifyPrio = bgVerifyThread.getPriority();
+                // Prioridad rebajada mientras corre el prove/verify de fondo: no debe competir
+                // de tú a tú con el EDT durante la ráfaga de apuestas de las primeras manos en
+                // PCs de 1-2 núcleos. Restaurada en finally porque el hilo es del pool cacheado
+                // (Helpers.threadRun) y se reutiliza para otras tareas.
+                bgVerifyThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
                 try {
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
@@ -2127,6 +2134,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } catch (Exception bgEx) {
                     this.cascade_verified = -1;
                     LOGGER.log(Level.SEVERE, "SHUFFLE-VERIFY: background cascade self-check threw", bgEx);
+                } finally {
+                    bgVerifyThread.setPriority(bgVerifyPrio);
                 }
             });
         }

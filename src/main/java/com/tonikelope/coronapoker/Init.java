@@ -1237,6 +1237,11 @@ public class Init extends JFrame {
         // el arranque, para que la primera mano no pague el decode
         Crupier.warmShuffleAnimCache();
 
+        // Calienta el JIT de la cripto pesada (cascada SRA + prueba/verificación de barajado)
+        // en background, para que las primeras manos no corran interpretadas / en C1 en PCs
+        // lentos (multi-segundo en frío vs ~0,1 s ya compilado). Ver CryptoWarmup.
+        com.tonikelope.coronapoker.crypto.CryptoWarmup.warmup();
+
         Card.updateCachedImages(1f + GameFrame.ZOOM_LEVEL * GameFrame.getZOOM_STEP(), true);
 
         // A corrupt master_volume used to cascade: >1.0 overflows the gain control

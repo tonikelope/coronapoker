@@ -5018,7 +5018,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return false;
     }
 
-    public void showPlayerCards(String nick, String sraKeyB64, String sigB64) {
+    public boolean showPlayerCards(String nick, String sraKeyB64, String sigB64) {
         synchronized (lock_mostrar) {
             // SHOWCARDS = botón MOSTRAR voluntario mid-hand. NO es el showdown
             // (eso es POTCARDS). Aún así llevamos sig Ed25519 para que el host
@@ -5029,33 +5029,49 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             {
                 Player jugador = nick2player.get(nick);
                 if (jugador == null) {
-                    return;
+                    return false;
                 }
 
                 // BLINDAJE V61: Si el server nos hace un echo de nuestro propio paquete en un cliente remoto, LO IGNORAMOS.
                 if (!GameFrame.getInstance().isPartida_local() && jugador.equals(GameFrame.getInstance().getLocalPlayer())) {
                     setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
-                    return;
+                    return false;
                 }
 
+                boolean decrypted = false;
                 if (jugador.getHoleCard1().isTapada()) {
-                    boolean decrypted = false;
                     boolean keyProvided = (sraKeyB64 != null && !sraKeyB64.equals("*"));
                     boolean sigProvided = (sigB64 != null && !sigB64.equals("*"));
                     if (keyProvided && !sigProvided) {
-                        LOGGER.log(Level.SEVERE,
-                                "ZERO-TRUST: SHOWCARDS for {0} arrived WITHOUT sig — host stripped or legacy. Host hostile, lockdown.",
-                                nick);
-                        triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                        // Sig ausente. En un CLIENTE = el host stripeó/forjó la sig -> host hostil -> LOCKDOWN
+                        // (§8.2: cliente detecta ataque del host -> LEAVE). En el HOST procesando el SHOWCARDS
+                        // de un peer = dato malformado AISLADO a ese peer -> SILENT-REFUSE (no destapar, SIN
+                        // lockdown). Un peer NO puede matar la timba de todos con un SHOWCARDS sin firma.
+                        if (!GameFrame.getInstance().isPartida_local()) {
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST: SHOWCARDS for {0} arrived WITHOUT sig — host stripped or legacy. Host hostile, lockdown.",
+                                    nick);
+                            triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                        } else {
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST: peer {0} sent SHOWCARDS without sig — refusing (card stays face-down, no lockdown).",
+                                    nick);
+                        }
                     } else if (keyProvided && sigProvided) {
                         try {
                             byte[] sraKey = Base64.getDecoder().decode(sraKeyB64);
                             byte[] sig = Base64.getDecoder().decode(sigB64);
                             if (sraKey.length != 32 || sig.length != 64) {
-                                LOGGER.log(Level.SEVERE,
-                                        "ZERO-TRUST: SHOWCARDS for {0} has bad lengths (key={1}, sig={2}) — malformed host wire, lockdown.",
-                                        new Object[]{nick, sraKey.length, sig.length});
-                                triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                if (!GameFrame.getInstance().isPartida_local()) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: SHOWCARDS for {0} has bad lengths (key={1}, sig={2}) — malformed host wire, lockdown.",
+                                            new Object[]{nick, sraKey.length, sig.length});
+                                    triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_missing"));
+                                } else {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: peer {0} sent SHOWCARDS with bad lengths (key={1}, sig={2}) — refusing (no lockdown).",
+                                            new Object[]{nick, sraKey.length, sig.length});
+                                }
                             } else {
                                 byte[] signerPubkey = resolveShowdownSignerPubkey(nick);
                                 if (signerPubkey == null || this.current_hand_id == null) {
@@ -5063,10 +5079,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             "SHOWCARDS for {0}: signer pubkey or hand_id not resolved yet — card stays face-down (no lockdown, possible TOFU race)",
                                             nick);
                                 } else if (!IdentityManager.verifyShowdownReveal(signerPubkey, this.current_hand_id, nick, sraKey, sig)) {
-                                    LOGGER.log(Level.SEVERE,
-                                            "ZERO-TRUST: SHOWCARDS sig verify FAILED for {0} — host substituting key. Host hostile, lockdown.",
-                                            nick);
-                                    triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                    if (!GameFrame.getInstance().isPartida_local()) {
+                                        LOGGER.log(Level.SEVERE,
+                                                "ZERO-TRUST: SHOWCARDS sig verify FAILED for {0} — host substituting key. Host hostile, lockdown.",
+                                                nick);
+                                        triggerSecurityLockdown(Translator.translate("zero_trust.host_showdown_sig_invalid"));
+                                    } else {
+                                        LOGGER.log(Level.SEVERE,
+                                                "ZERO-TRUST: peer {0} SHOWCARDS sig verify FAILED — refusing (card stays face-down, no lockdown).",
+                                                nick);
+                                    }
                                 } else {
                                     Participant p = GameFrame.getInstance().getParticipantes().get(nick);
                                     if (p != null) {
@@ -5153,6 +5175,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
                     setTiempo_pausa(GameFrame.TEST_MODE ? PAUSA_ENTRE_MANOS_TEST : PAUSA_ENTRE_MANOS);
                 }
+                return decrypted;
             }
         }
     }

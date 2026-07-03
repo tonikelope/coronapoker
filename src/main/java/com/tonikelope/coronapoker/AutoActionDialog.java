@@ -155,6 +155,14 @@ public class AutoActionDialog extends JDialog {
         // sigue respondiendo al ratón aunque la ventana no sea focusable.
         setFocusableWindowState(false);
 
+        // Siempre por encima: el veto de MODO AUTO es un diálogo ACCIONABLE (cuenta atrás +
+        // botón Cancelar) y debe quedar visible/clicable aunque el REGISTRO (u otra ventana
+        // hermana no-modal del mismo GameFrame) esté abierto. Sin esto el z-order dependía del
+        // ORDEN de apertura (gana la última mostrada): si el registro se abría después tapaba el
+        // modo auto, y al revés el modo auto tapaba el registro. alwaysOnTop lo fija por encima
+        // de forma consistente, sin depender del orden.
+        setAlwaysOnTop(true);
+
         Helpers.updateFonts(this, Helpers.GUI_FONT, null);
         Helpers.translateComponents(this, false);
 

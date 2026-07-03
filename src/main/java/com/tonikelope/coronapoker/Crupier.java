@@ -469,6 +469,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // temprano se tragaba todos los siguientes). Llave = el reason (mensaje distinto por anomalia).
     private final java.util.Set<String> suspicious_host_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    // Simetrico host-side: una alerta por (peer + anomalia) por partida, para no spamear popups bajo un
+    // ataque activo. Llave = peerNick + "|" + reason.
+    private final java.util.Set<String> malicious_peer_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /**
      * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
      * que NO da certeza de manipulación (siempre presumimos buena fe: podría ser un bug del
@@ -549,6 +553,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
         });
+    }
+
+    // Simetrico HOST-side de warnSuspiciousHost: el host ha detectado comportamiento anomalo o abusivo de
+    // UN peer concreto (flood de mensajes, negativa a la cascada, forfeit por datos que no resuelven a una
+    // carta genesis, etc.). Da la MISMA visibilidad que en el lado cliente pero nombrando al JUGADOR
+    // sospechoso: registro EN ROJO (prefijo zero_trust.peer_alert -> ST_ALERT) + popup, dedup por
+    // (peer + anomalia) por partida. La ACCION que proceda segun gravedad (descartar / expulsar / misdeal /
+    // forfeit) la aplica el LLAMADOR; esto solo informa. Fail-safe total: se invoca desde caminos criticos
+    // (incluido el hilo lector de un Participant o en pleno reparto) y NUNCA debe lanzar.
+    public void warnMaliciousPeer(String peerNick, String reasonKey) {
+        try {
+            String dedupKey = peerNick + "|" + reasonKey;
+            if (!malicious_peer_warned_reasons.add(dedupKey)) {
+                return; // ya avisado de ESTA anomalia de ESTE peer en esta partida
+            }
+            String suspect = MessageFormat.format(Translator.translate("zero_trust.suspect_peer_prefix"),
+                    (peerNick != null && !peerNick.isEmpty()) ? peerNick : "?");
+            final String line = suspect + " " + Translator.translate(reasonKey);
+            try {
+                if (GameFrame.getInstance() != null && GameFrame.getInstance().getRegistro() != null) {
+                    GameFrame.getInstance().getRegistro().print(
+                            Translator.translate("zero_trust.peer_alert") + " " + line);
+                }
+            } catch (Exception ignored) {
+            }
+            Helpers.threadRun(() -> {
+                try {
+                    Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                            Translator.translate("zero_trust.peer_suspicious_header")
+                            + line + "\n\n"
+                            + Translator.translate("zero_trust.peer_suspicious_body"));
+                } catch (Exception ignored) {
+                }
+            });
+        } catch (Exception ignored) {
+        }
     }
 
     // Torneo/anti-trampa: esta mano el mazo NO se pudo verificar como barajado honesto (host no mandó
@@ -1591,6 +1631,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             LOGGER.log(Level.SEVERE,
                                     "ZERO-TRUST: peer {0} refused the cascade (alive but no valid DECK_CASCADE_RESP) — aborting hand, game continues",
                                     currNick);
+                            warnMaliciousPeer(currNick, "zero_trust.cascade_refused");
                             cancelarManoYDevolverApuestas("zero_trust.cascade_refused");
                             return false;
                         }

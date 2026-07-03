@@ -468,7 +468,7 @@ public final class GameLogDialog extends JDialog {
         java.util.List<Object[]> rules = CATEGORY_RULES;
         if (rules == null) {
             rules = new java.util.ArrayList<>();
-            for (String k : new String[]{"zero_trust.security_alert", "zero_trust.suspicious_alert", "zero_trust.lockdown_activated",
+            for (String k : new String[]{"zero_trust.security_alert", "zero_trust.suspicious_alert", "zero_trust.peer_alert", "zero_trust.lockdown_activated",
                 "game.mano_verificacion_divergente", "game.mano_verificacion_jugador_ausente", "game.mano_verificacion_firma_invalida",
                 "game.mano_verificacion_host_sin_prueba", "game.firma_accion_invalida"}) {
                 addCategoryRule(rules, k, ST_ALERT);

@@ -1231,6 +1231,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
             if (!ok) {
+                // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en timeout
+                // (reconexión): ese tiempo no cuenta contra el peer (evita un MISDEAL espurio).
+                if (GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout()) {
+                    deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
+                }
                 long remainingMs = deadlineMs - System.currentTimeMillis();
                 if (remainingMs <= 0) {
                     LOGGER.log(Level.SEVERE,
@@ -6868,12 +6873,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 synchronized (lock_nueva_mano) {
                     long deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                     while (!isFin_de_la_transmision()) {
-                        boolean paused = false;
+                        boolean holdDeadline = false;
                         try {
-                            paused = GameFrame.getInstance().isTimba_pausada();
+                            // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en
+                            // timeout (reconexión). Un peer legítimo puede tardar en confirmar HAND_READY
+                            // porque está reconectando o rehaciendo un RECOVER, no por retener nada.
+                            holdDeadline = GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout();
                         } catch (Exception ignored) {
                         }
-                        if (paused) {
+                        if (holdDeadline) {
                             deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
                         }
                         Participant stalling = null;
@@ -10003,8 +10011,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 if (!ok && !jugador.isExit()) {
                     boolean pausedNow = GameFrame.getInstance().checkPause();
-                    if (pausedNow) {
-                        // El tiempo en pausa NO cuenta contra el think-time: refresca el deadline.
+                    // El cliente CONGELA el contador de think-time del que actúa mientras haya CUALQUIER peer
+                    // en timeout (reconexión) o la timba pausada (LocalPlayer.auto_action usa exactamente
+                    // !isSomePlayerTimeout() && !isTimba_pausada()). El host DEBE congelar su deadline en las
+                    // MISMAS condiciones o expulsaría a un jugador HONESTO que legítimamente espera con su
+                    // barra parada (p.ej. otro peer sufre un corte de red durante su turno). Ese tiempo no
+                    // cuenta contra el think-time.
+                    if (pausedNow || isSomePlayerTimeout()) {
                         actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
                     }
                     if (thinkTimeEnforced && System.currentTimeMillis() >= actionDeadlineMs) {
@@ -13718,12 +13731,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // más allá del tope se le EXPULSA (la mesa sigue: al quedar exit se le saca de
                         // pendientes en la siguiente vuelta y el broadcast completa). Un peer caído de verdad
                         // ya sale por isExit (socket muerto). Antes el host reintentaba para siempre.
-                        boolean paused = false;
+                        boolean holdDeadline = false;
                         try {
-                            paused = GameFrame.getInstance().isTimba_pausada();
+                            // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en
+                            // timeout (reconexión): un cliente lento reconectando y procesando una baraja
+                            // SRA grande puede tardar sin estar reteniendo nada.
+                            holdDeadline = GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout();
                         } catch (Exception ignored) {
                         }
-                        if (paused) {
+                        if (holdDeadline) {
                             broadcastDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
                         } else if (System.currentTimeMillis() >= broadcastDeadlineMs) {
                             for (String nick : new ArrayList<>(pendientes)) {

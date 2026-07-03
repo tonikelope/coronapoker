@@ -1738,11 +1738,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.math.BigInteger stepScalar = null;
             byte[] stepRemoteProof = null;
             if (currNick.equals(GameFrame.getInstance().getNick_local())) {
-                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_unlock);
-                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, this.local_sra_lock_community);
+                // Rotación en UN solo lock: aplicar uPocket y luego kCommunity equivale a
+                // multiplicar cada punto por s = uPocket*kCommunity (mod L). Ese escalar producto
+                // es el MISMO que ya necesita la prueba de rotación (stepScalar), así que un solo
+                // pase da bytes idénticos pero hace la MITAD de scalarMul (no re-decodifica ni
+                // re-cifra el estado community intermedio).
                 stepScalar = RistrettoSRA.bytesToScalar(this.local_sra_unlock)
                         .multiply(RistrettoSRA.bytesToScalar(this.local_sra_lock_community))
                         .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+                communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, RistrettoSRA.scalarToBytes(stepScalar));
             } else {
                 Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                 if (p != null && p.isCpu()) {
@@ -1755,11 +1759,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         rotationOk = false;
                         break;
                     }
-                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botUnlock);
-                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, botCommunityLock);
+                    // Rotación en UN solo lock (ver nota en la rama local): s = uPocket*kCommunity.
                     stepScalar = RistrettoSRA.bytesToScalar(botUnlock)
                             .multiply(RistrettoSRA.bytesToScalar(botCommunityLock))
                             .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L);
+                    communityPieces = RistrettoSRA.applyCommutativeLock(communityPieces, RistrettoSRA.scalarToBytes(stepScalar));
                 } else if (p != null && !p.isExit()) {
                     byte[] rotated = requestRemoteRotation(currNick, communityPieces, p);
                     if (rotated != null) {
@@ -17783,7 +17787,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             ArrayList<Integer> deck_iteration = new ArrayList<>(deck);
 
-            Collections.shuffle(deck_iteration, Helpers.CSPRNG_GENERATOR);
+            // Barajado del Montecarlo de probabilidades (SOLO display): PRNG rápido en lugar
+            // del DRBG criptográfico (Helpers.CSPRNG_GENERATOR). El % es una estimación de N
+            // muestras; la calidad criptográfica del azar es estadísticamente irrelevante y el
+            // DRBG costaba ~45k draws por reparto en el hilo de juego (tirón en all-ins de PCs
+            // lentos). NO afecta al reparto justo verificable, que va por la cascada cripto.
+            Collections.shuffle(deck_iteration, java.util.concurrent.ThreadLocalRandom.current());
 
             org.alberta.poker.Hand board_iteration = new org.alberta.poker.Hand(board);
 

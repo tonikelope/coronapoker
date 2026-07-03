@@ -47,6 +47,15 @@ public final class Fe25519 {
     public static final Fe25519 ZERO = new Fe25519(BigInteger.ZERO);
     public static final Fe25519 ONE = new Fe25519(BigInteger.ONE);
 
+    /**
+     * sqrt(-1) como Fe25519, cacheado UNA vez. {@link #sqrtRatioM1} lo usaba vía {@code of(SQRT_M1)}
+     * dos veces por llamada, y se llama en cada {@code encode}/{@code decode} (~104 veces por
+     * bloqueo de baraja): cada {@code of(SQRT_M1)} hacía un {@code new Fe25519} + {@code BigInteger.mod}
+     * y forzaba re-descomponer a limbs en el siguiente {@code mul}. Como constante compartida, su
+     * {@code limbsCache} se puebla una vez y se reutiliza. Valor idéntico, sin cambiar la reducción.
+     */
+    private static final Fe25519 SQRT_M1_FE = of(SQRT_M1);
+
     private static final BigInteger P_MINUS_2 = P.subtract(BigInteger.TWO);
     private static final BigInteger P_MINUS_5_DIV_8 =
             P.subtract(BigInteger.valueOf(5)).divide(BigInteger.valueOf(8));
@@ -429,13 +438,13 @@ public final class Fe25519 {
         Fe25519 check = v.mul(r.sqr());       // v * r^2
 
         Fe25519 uNeg = u.negate();
-        Fe25519 uNegI = uNeg.mul(of(SQRT_M1));
+        Fe25519 uNegI = uNeg.mul(SQRT_M1_FE);
 
         boolean correctSignSqrt = check.ctEq(u);
         boolean flippedSignSqrt = check.ctEq(uNeg);
         boolean flippedSignSqrtI = check.ctEq(uNegI);
 
-        Fe25519 rPrime = r.mul(of(SQRT_M1));
+        Fe25519 rPrime = r.mul(SQRT_M1_FE);
         if (flippedSignSqrt || flippedSignSqrtI) {
             r = rPrime;
         }

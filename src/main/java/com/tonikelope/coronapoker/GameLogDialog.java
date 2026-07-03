@@ -473,12 +473,11 @@ public final class GameLogDialog extends JDialog {
                 "game.mano_verificacion_host_sin_prueba", "game.firma_accion_invalida"}) {
                 addCategoryRule(rules, k, ST_ALERT);
             }
-            // El mensaje de consenso lleva ahora el ordinal ({0}), así que la regla casa por
-            // una sub-frase FIJA (el _tag) en vez del texto completo. Igual para las dos líneas
-            // del barajado: verde "verificado", amarillo (ST_BLIND) "sin verificar todavía".
-            addCategoryRule(rules, "game.mano_verificada_consenso_tag", ST_WIN);
-            addCategoryRule(rules, "game.barajado_verificado_tag", ST_WIN);
-            addCategoryRule(rules, "game.barajado_pendiente_tag", ST_BLIND);
+            // Consenso + las dos líneas del barajado (verde "verificado", amarillo "sin verificar
+            // todavía"). Llevan el ordinal {0}, pero addCategoryRule ya casa por el prefijo fijo.
+            addCategoryRule(rules, "game.mano_verificada_consenso", ST_WIN);
+            addCategoryRule(rules, "game.barajado_verificado", ST_WIN);
+            addCategoryRule(rules, "game.barajado_pendiente", ST_BLIND);
             for (String k : new String[]{"game.gana_bote_2", "game.gana_bote_principal", "game.gana_bote_secundario", "game.gana_bote"}) {
                 addCategoryRule(rules, k, ST_WIN);
             }
@@ -495,12 +494,31 @@ public final class GameLogDialog extends JDialog {
     }
 
     private static void addCategoryRule(java.util.List<Object[]> rules, String key, SimpleAttributeSet style) {
-        String phrase = Translator.translate(key);
-        if (phrase != null) {
-            phrase = phrase.trim();
-            if (phrase.length() >= 3 && !phrase.equals(key)) {
-                rules.add(new Object[]{phrase, style});
+        // Registra el marcador en el idioma ACTIVO y tambien en INGLES forzado (alguna linea del
+        // registro puede salir en un idioma distinto al de construccion de las reglas). El marcador
+        // es la frase hasta el primer "{": asi las claves con {0} (p. ej. el ordinal de mano) casan
+        // por su PREFIJO fijo, ya que la linea real lleva el valor formateado y no el placeholder
+        // (sin esto, cualquier mensaje de categoria con {0} quedaba SIN color).
+        addCategoryPhrase(rules, Translator.translate(key), key, style);
+        addCategoryPhrase(rules, Translator.translate(key, true), key, style);
+    }
+
+    private static void addCategoryPhrase(java.util.List<Object[]> rules, String phrase, String key, SimpleAttributeSet style) {
+        if (phrase == null || phrase.equals(key)) {
+            return; // clave no encontrada (translate devuelve la propia clave)
+        }
+        int brace = phrase.indexOf('{');
+        if (brace >= 0) {
+            phrase = phrase.substring(0, brace);
+        }
+        phrase = phrase.trim();
+        if (phrase.length() >= 3) {
+            for (Object[] r : rules) {
+                if (phrase.equals(r[0])) {
+                    return; // ya registrada (misma frase en ambos idiomas)
+                }
             }
+            rules.add(new Object[]{phrase, style});
         }
     }
 

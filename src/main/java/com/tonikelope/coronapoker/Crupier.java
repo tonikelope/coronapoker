@@ -484,6 +484,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // ataque activo. Llave = peerNick + "|" + reason.
     private final java.util.Set<String> malicious_peer_warned_reasons = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    // Anti-DoS: un peer que rechaza el barajado (cascada) o la rotacion del mazo (crypto invalida o
+    // withhold) fuerza un MISDEAL en ESA mano; sin mas, podria repetirlo cada mano y dejar la timba sin
+    // progreso (loop de MISDEAL, quema CPU). Un cliente de la MISMA version JAMAS produce estos fallos, asi
+    // que se cuentan por peer y por partida; alcanzado el tope se AUTO-EXPULSA (la mesa sigue sin el). Tope
+    // pequeno pero > 1 para presumir buena fe ante un fallo puntual.
+    private static final int MAX_DEAL_REFUSAL_STRIKES = 3;
+    private final java.util.concurrent.ConcurrentHashMap<String, Integer> deal_refusal_strikes = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * Aviso SUAVE de comportamiento anómalo del host del que el juego PUEDE recuperarse y
      * que NO da certeza de manipulación (siempre presumimos buena fe: podría ser un bug del
@@ -598,6 +606,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } catch (Exception ignored) {
                 }
             });
+        } catch (Exception ignored) {
+        }
+    }
+
+    // Anti-DoS: registra una negativa al reparto (cascada o rotacion) de ESTE peer. Alcanzado
+    // MAX_DEAL_REFUSAL_STRIKES en la partida, lo AUTO-EXPULSA (markExitAndNotify + socketClose) para que no
+    // pueda forzar un MISDEAL cada mano indefinidamente. El MISDEAL de la mano actual lo hace el llamador;
+    // esto solo escala tras varias. Fail-safe: nunca lanza.
+    private void registerDealRefusal(String nick) {
+        try {
+            int strikes = deal_refusal_strikes.merge(nick, 1, Integer::sum);
+            LOGGER.log(Level.WARNING, "ZERO-TRUST: deal refusal strike {0}/{1} for peer {2}",
+                    new Object[]{strikes, MAX_DEAL_REFUSAL_STRIKES, nick});
+            if (strikes >= MAX_DEAL_REFUSAL_STRIKES) {
+                Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+                if (pp != null && !pp.isExit() && !pp.isCpu()) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST DoS: peer {0} forced {1} deal refusals (cascade/rotation) — AUTO-EXPEL, table continues",
+                            new Object[]{nick, strikes});
+                    warnMaliciousPeer(nick, "zero_trust.peer_deal_refusal_expelled");
+                    pp.markExitAndNotify("repeated deal refusal (cascade/rotation)");
+                    try {
+                        pp.socketClose();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
         } catch (Exception ignored) {
         }
     }
@@ -1648,6 +1683,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "ZERO-TRUST: peer {0} refused the cascade (alive but no valid DECK_CASCADE_RESP) — aborting hand, game continues",
                                     currNick);
                             warnMaliciousPeer(currNick, "zero_trust.cascade_refused");
+                            registerDealRefusal(currNick);
                             cancelarManoYDevolverApuestas("zero_trust.cascade_refused");
                             return false;
                         }
@@ -1736,6 +1772,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 "Peer {0} refused rotation (alive but no response) — aborting hand and stopping game",
                                 currNick);
                         warnMaliciousPeer(currNick, "zero_trust.rotation_refused");
+                        registerDealRefusal(currNick);
                         rotationOk = false;
                         rotationFailMotivo = "zero_trust.rotation_refused";
                         break;

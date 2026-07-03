@@ -396,6 +396,11 @@ public class AudioSettingsPanel extends JPanel {
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
+        // Contenido centrado verticalmente: los glue de arriba y abajo mandan el hueco
+        // sobrante a los extremos, así el panel CRECE para absorber parte del alto de la
+        // columna (que sobra respecto a la izquierda) manteniendo sus filas juntas y
+        // centradas, en vez de dejárselo entero al panel de "Ajustes globales".
+        notes_panel.add(Box.createVerticalGlue());
         notes_panel.add(voice_key_panel);
         notes_panel.add(Box.createVerticalStrut(5));
         notes_panel.add(block_notes_checkbox);
@@ -403,6 +408,7 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.add(Box.createVerticalStrut(5));
         notes_panel.add(retention_panel);
         notes_panel.add(purge_panel);
+        notes_panel.add(Box.createVerticalGlue());
 
         // --- Voz (TTS): bloqueo local (la regla global vive más abajo) ---
         block_tts_local_checkbox = new JCheckBox(Translator.translate("audio.bloquear_tts_local"), AudioDeviceManager.isBlockTtsLocal());
@@ -411,7 +417,12 @@ public class AudioSettingsPanel extends JPanel {
         tts_panel = new JPanel();
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
         tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
+        // Checkbox centrado verticalmente (glue arriba y abajo): el panel crece para
+        // absorber parte del alto sobrante de la columna y su único control queda en el
+        // centro, en vez de quedar pegado arriba con todo el hueco en "Ajustes globales".
+        tts_panel.add(Box.createVerticalGlue());
         tts_panel.add(iconRow(menuIcon("/images/menu/mute.png"), block_tts_local_checkbox));
+        tts_panel.add(Box.createVerticalGlue());
 
         // --- Ajustes globales (solo server): reglas de la timba (TTS y notas de
         // voz). Preseleccionables; si eres cliente en partida mandan las del
@@ -502,12 +513,15 @@ public class AudioSettingsPanel extends JPanel {
         retention_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, retention_panel.getPreferredSize().height));
         purge_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, purge_panel.getPreferredSize().height));
 
-        // Estos paneles solo llevan checkboxes y son más estrechos que el título de
-        // su borde. Se estiran al ancho de su columna (sin recortar alto) para que el
-        // título quepa entero. DESPUÉS de updateFonts: el alto preferido ya refleja la
-        // fuente escalada y el contenido no se corta por abajo.
+        // "Sonido y música" solo lleva checkboxes y es más estrecho que el título de su
+        // borde: se estira al ancho de su columna PERO con el alto fijado al preferido para
+        // NO estirarse en vertical (es el panel superior de la columna izquierda, la más
+        // alta; debe quedar compacto arriba). DESPUÉS de updateFonts, para que el alto
+        // preferido ya refleje la fuente escalada y no se corte por abajo.
+        // "Voz (TTS)" NO se topa aquí a propósito: SÍ estira en vertical (glue interno que
+        // centra su checkbox) para repartir con "Notas de voz" el alto sobrante de la
+        // columna derecha y que "Ajustes globales" no quede desproporcionadamente alto.
         sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
-        tts_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, tts_panel.getPreferredSize().height));
 
         // global_panel es el ÚLTIMO de la columna derecha (la más corta): NO se le pone
         // tope de alto a propósito, para que estire su borde hasta abajo y quede alineado
@@ -702,7 +716,17 @@ public class AudioSettingsPanel extends JPanel {
     // and enabled state still operate on the same object.
     private static JComponent iconRow(javax.swing.Icon icon, JComponent control) {
 
-        JPanel row = new JPanel();
+        // Alto MÁXIMO = preferido: en un BoxLayout vertical la fila NUNCA se estira para
+        // rellenar el hueco. El glue horizontal interno (empuja el control a la izquierda)
+        // tiene alto máximo ilimitado y, sin este tope, arrastraría a la fila entera y
+        // separaría los controles al repartirse el hueco sobrante (era el caso de los dos
+        // checkboxes de "Ajustes globales", que quedaban muy espaciados).
+        JPanel row = new JPanel() {
+            @Override
+            public java.awt.Dimension getMaximumSize() {
+                return new java.awt.Dimension(Short.MAX_VALUE, getPreferredSize().height);
+            }
+        };
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 

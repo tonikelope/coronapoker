@@ -376,7 +376,7 @@
                               <EmptySpace type="unrelated" max="-2" attributes="0"/>
                               <Group type="103" groupAlignment="0" attributes="0">
                                   <Component id="partida_panel" min="-2" max="-2" attributes="0"/>
-                                  <Component id="bots_panel" min="-2" max="-2" attributes="0"/>
+                                  <Component id="bots_panel" max="32767" attributes="0"/>
                               </Group>
                               <EmptySpace max="-2" attributes="0"/>
                           </Group>

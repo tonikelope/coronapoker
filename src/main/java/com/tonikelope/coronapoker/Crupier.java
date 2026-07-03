@@ -471,19 +471,39 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * cuando ya hemos neutralizado la anomalía rechazando la operación (p.ej. una segunda
      * rotación) y congelar sería desproporcionado si resultara ser un bug.
      */
+    // Antepone "SOSPECHOSO: host «X»" al mensaje cuando somos CLIENTE (la anomalía zero-trust la causa
+    // el host, que reparte/coordina). En el HOST (auto-detección, posible bug propio) devuelve el
+    // mensaje tal cual, sin señalar a nadie.
+    private String withSuspectHostPrefix(String reason) {
+        try {
+            if (GameFrame.getInstance().isPartida_local()) {
+                return reason;
+            }
+            String host = WaitingRoomFrame.getInstance().getServer_nick();
+            String hostNick = (host != null && !host.isEmpty()) ? host : "?";
+            return MessageFormat.format(Translator.translate("zero_trust.suspect_host_prefix"), hostNick) + " " + reason;
+        } catch (Exception ex) {
+            return reason;
+        }
+    }
+
     public void warnSuspiciousHost(String reason) {
         if (!suspicious_host_warned_reasons.add(reason)) {
             return; // ya avisado de ESTA anomalia en esta partida
         }
+        // SOSPECHOSO: en un CLIENTE, la anomalía la causa el HOST (reparte/coordina) -> se antepone
+        // "SOSPECHOSO: host «X»" al mensaje (registro rojo + popup). En el HOST es auto-detección
+        // (posible bug propio), no se señala a nadie.
+        final String fullReason = withSuspectHostPrefix(reason);
         try {
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + reason);
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.suspicious_alert") + " " + fullReason);
         } catch (Exception ignored) {
         }
         Helpers.threadRun(() -> {
             // Modal: desde este hilo de fondo bloquea hasta que el usuario pulsa OK.
             Helpers.mostrarMensajeError(GameFrame.getInstance(),
                     Translator.translate("zero_trust.suspicious_header")
-                    + reason + "\n\n"
+                    + fullReason + "\n\n"
                     + Translator.translate("zero_trust.suspicious_body"));
             // El aviso recomienda abandonar la mesa: tras cerrarlo se lo ponemos a un click
             // abriendo el flujo de salida ya existente (mismo camino que el menu Salir /
@@ -506,19 +526,37 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // se fuerza salida: se REGISTRA en el log del juego EN ROJO (el prefijo zero_trust.suspicious_alert
     // lo colorea vía ST_ALERT, como los demás errores zero-trust) y se avisa con un popup UNA vez por
     // partida. La evidencia firmada ya va en el recibo + disputed_hands; el jugador decide si sigue.
+    private volatile byte[] deck_unverified_warned_megapacket = null;
+
     public void warnDeckUnverified() {
+        // Dedup POR MANO (megapacket), NO por partida: esto NO debería pasar NUNCA en una partida
+        // legítima; si pasa es GRAVE, así que se avisa (popup + registro rojo) en CADA mano afectada.
+        // El dedup por megapacket evita duplicar dentro de la MISMA mano si saltan el gate y onDishonest.
+        byte[] mp = this.local_mega_packet;
+        if (mp != null && java.util.Arrays.equals(mp, this.deck_unverified_warned_megapacket)) {
+            return;
+        }
+        this.deck_unverified_warned_megapacket = mp;
+
+        // SOSPECHOSO: el host (reparte y difunde la prueba de barajado). Se nombra por su nick.
+        String host;
+        try {
+            host = WaitingRoomFrame.getInstance().getServer_nick();
+        } catch (Exception ex) {
+            host = null;
+        }
+        final String hostNick = (host != null && !host.isEmpty()) ? host : "?";
+
         try {
             GameFrame.getInstance().getRegistro().print(
-                    Translator.translate("zero_trust.suspicious_alert") + " " + Translator.translate("zero_trust.deck_unverified"));
+                    Translator.translate("zero_trust.suspicious_alert") + " "
+                    + MessageFormat.format(Translator.translate("zero_trust.deck_unverified"), hostNick));
         } catch (Exception ignored) {
-        }
-        if (!suspicious_host_warned_reasons.add("DECK_UNVERIFIED")) {
-            return; // popup una sola vez por partida (el registro rojo sí se escribe cada mano afectada)
         }
         Helpers.threadRun(() -> {
             Helpers.mostrarMensajeError(GameFrame.getInstance(),
                     Translator.translate("zero_trust.suspicious_header")
-                    + Translator.translate("zero_trust.deck_unverified") + "\n\n"
+                    + MessageFormat.format(Translator.translate("zero_trust.deck_unverified"), hostNick) + "\n\n"
                     + Translator.translate("zero_trust.deck_unverified_body"));
         });
     }
@@ -601,7 +639,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             synchronized (protocol_state_lock) {
                 protocol_state_lock.notifyAll();
             }
-            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + reason);
+            // SOSPECHOSO: en cliente, la anomalía la causa el host -> se nombra en el aviso rojo + popup.
+            final String fullReason = withSuspectHostPrefix(reason);
+            GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.security_alert") + " " + fullReason);
             GameFrame.getInstance().getRegistro().print(Translator.translate("zero_trust.lockdown_activated"));
 
             // Si somos cliente, cerramos el socket con el host inmediatamente.
@@ -624,7 +664,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             Helpers.threadRun(() -> {
                 Helpers.mostrarMensajeError(GameFrame.getInstance(),
                         Translator.translate("zero_trust.critical_alert_header")
-                        + reason + "\n\n"
+                        + fullReason + "\n\n"
                         + Translator.translate("zero_trust.critical_alert_body"));
                 // Tras el popup del lockdown la timba se da por acabada para
                 // este peer. El HOST se entera por socket caido + cascade

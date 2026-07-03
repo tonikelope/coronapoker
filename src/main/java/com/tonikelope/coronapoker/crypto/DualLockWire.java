@@ -64,6 +64,30 @@ public final class DualLockWire {
     }
 
     /**
+     * Verify a SINGLE rotation step from flat bytes: is {@code proofBytes} a valid RotationProof that
+     * {@code afterBytes = s · beforeBytes} for some secret scalar s? Analogous to
+     * {@link ShuffleCascade#verifyStepWire}. The host uses this to authenticate a REMOTE peer's rotation
+     * proof at ingestion before folding it into the broadcast bundle: a peer can rotate the pieces
+     * correctly (they pass the on-curve check) yet ship a well-formed-but-invalid 64-byte proof; without
+     * this check that garbage makes the host's own full-chain self-check fail while the bundle is still
+     * broadcast, framing the host as dishonest table-wide. Total: malformed input yields {@code false},
+     * never an exception.
+     */
+    public static boolean verifyRotationStepWire(byte[] beforeBytes, byte[] afterBytes, byte[] proofBytes) {
+        try {
+            EdwardsPoint[] in = ShuffleCascade.decodeDeck(beforeBytes);
+            EdwardsPoint[] out = ShuffleCascade.decodeDeck(afterBytes);
+            RotationProof.Proof p = decodeRotationProof(proofBytes);
+            if (in == null || out == null || p == null || in.length != out.length) {
+                return false;
+            }
+            return RotationProof.verify(in, out, p);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
      * Verify the full dual-lock chain from flat bytes. {@code genesisBytes} is the locally-recomputed
      * anchor (never trust a sender's genesis). {@code cascadeDeckBytes} are decks {@code [1..N]} (deck 0
      * is the genesis, prepended here); {@code rotationStateBytes} are community states {@code [1..M]}

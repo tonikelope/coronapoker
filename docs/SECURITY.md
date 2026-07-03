@@ -6,7 +6,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 
 ## Diagrams
 
-Two reference diagrams give the whole picture at a glance. Editable `.drawio` sources sit next to the PNGs in [`diagrams/`](diagrams/).
+Three reference diagrams give the whole picture at a glance. Editable `.drawio` sources sit next to the PNGs in [`diagrams/`](diagrams/).
 
 ### Component architecture
 
@@ -19,6 +19,12 @@ The layers of the crypto subsystem and how they depend on one another, namely th
 Every cryptographic message exchanged during **one complete hand**, covering handshake and identity pinning, the SRA shuffle/rotation cascade, verifiable dealing, signed betting, the verifiable community reveals for all four streets, the showdown key reveal, and the settlement-receipt consensus. Topology: the host (dealer + player) plus two human clients. Every message is drawn explicitly.
 
 ![CoronaPoker per-hand cryptographic protocol sequence](diagrams/crypto-hand-sequence.png)
+
+### Denial-of-service resistance and the reaction ladder
+
+The availability side of the same threat model, covered in detail in §8. The three layers that stop an authenticated peer from exhausting or freezing the table, the six-tier reaction ladder from SILENT-REFUSE to HARD-LOCKDOWN, and the pause-aware progress deadline that turns a withheld message into an AUTO-EXPEL instead of a permanent freeze.
+
+![CoronaPoker denial-of-service resistance and the section 8 reaction ladder](diagrams/dos-resistance.png)
 
 ---
 
@@ -37,6 +43,9 @@ Every cryptographic message exchanged during **one complete hand**, covering han
 | Off-curve / weak-point attacks on the SRA cascade | Yes | Ristretto255 canonical-encoding validation on every received point (prime-order group ⇒ no small-order / non-canonical ambiguities), atomic security lockdown on failure |
 | Card substitution at showdown | Yes | Pocket key reveals signed under a domain-separated context. Mismatch aborts the hand |
 | Cross-recipient board fork (host announces different community cards to different peers) | Yes | Host signs community-card announcements. Signature absorbed into every recipient's `H_t` |
+| Authenticated peer flooding to exhaust host resources | Yes | Per-peer size cap and token bucket on the text command path, plus a separate bucket for the binary channel. Over budget drops the frame, enough strikes AUTO-EXPEL the peer (§8.4) |
+| Authenticated peer answering PING but withholding a message the table needs, to freeze it | Yes | Every host-side wait has a generous, pause-aware progress deadline. On expiry the peer is AUTO-EXPELLED (or the hand MISDEALS) and the table moves on (§8.4) |
+| Authenticated peer acting, voting or poisoning the deal in another peer's name | Yes | Every nick-bearing response subcommand is bound to the connection's authenticated nick at the choke point (§8.4) |
 | Local trojan / Ring-0 attacker on the victim's machine | No | Identity keys live in `~/.coronapoker/identity_<player_id>.ed25519` with restricted ACLs. A sufficiently privileged local attacker reads them |
 | Collusion of N-1 peers against 1 victim | Inherent | Victim sees the divergent receipt in the disputed-hands log and can refuse to settle |
 
@@ -310,17 +319,18 @@ On `continue-last-game`:
 
 Every cryptographic check has a **defined, role-aware reaction**. The reaction depends on **who detects the fault** (a client and the host have different tools) and on **what is at stake** (one peer's data vs the whole table). All reactions **presume good faith**: an anomaly may be a software bug, not an attack, so the engine never accuses anyone and always prefers the *least destructive* response that still keeps honest players safe.
 
-### 8.1 The five reactions
+### 8.1 The six reactions
 
 | Reaction | What it does | Who can use it |
 |---|---|---|
-| **SILENT-REFUSE** | Drop the operation and log it, no user-facing signal | host & client |
-| **SOFT-WARN**: `warnSuspiciousHost` | Inform the user, strongly recommend leaving, **keep playing** | host & client |
-| **FORFEIT** | Kill **one** peer's hand (its cards stay sealed / it cannot win the showdown), and the hand settles for everyone else | host only |
+| **SILENT-REFUSE** | Drop the operation and log it. No user-facing signal for a benign race. A security-significant refusal is escalated to SOFT-WARN or higher so it is never silent | host & client |
+| **SOFT-WARN**: `warnSuspiciousHost` / `warnMaliciousPeer` | Inform the user, name the suspect, strongly recommend leaving (client side), **keep playing** | host & client |
+| **FORFEIT** | Kill **one** peer's hand (its cards stay sealed and it cannot win the showdown), and the hand settles for everyone else | host only |
 | **MISDEAL**: `cancelarManoYDevolverApuestas` | Abort the hand, **refund all bets**, continue to the next hand | host only |
+| **AUTO-EXPEL**: `markExitAndNotify` + `socketClose` | Remove **one** abusive peer from the game and **keep the table running** for everyone else. The reserved response for availability attacks, namely a flood or a peer that answers PING while withholding a message the table needs to move on | host only |
 | **HARD-LOCKDOWN**: `triggerSecurityLockdown` | Freeze balance, blacklist the peer, close the socket, **end the game for this side** | host & client |
 
-A **client cannot MISDEAL or FORFEIT** (it does not run the hand). Its heaviest tool is to **leave** (lock down its own side). The **host rarely needs LOCKDOWN** because it has the proportionate MISDEAL and FORFEIT. Ending the whole game because one peer misbehaves is almost never the right answer.
+A **client cannot MISDEAL, FORFEIT or AUTO-EXPEL** (it does not run the hand). Its heaviest tool is to **leave** (lock down its own side). The **host rarely needs LOCKDOWN** because it has the proportionate MISDEAL, FORFEIT and AUTO-EXPEL. Ending the whole game because one peer misbehaves is almost never the right answer. AUTO-EXPEL is the availability counterpart of FORFEIT: FORFEIT isolates one peer's bad **data** for one hand, AUTO-EXPEL isolates one peer's bad **behaviour** for the rest of the game, and in both cases the honest players keep playing.
 
 ### 8.2 The decision rule
 
@@ -333,9 +343,40 @@ A **client cannot MISDEAL or FORFEIT** (it does not run the hand). Its heaviest 
    - The fault is **isolated to one peer's data**, where its showdown key or reveal won't resolve to a genesis card, or its signature is malformed → **FORFEIT that peer** (its cards stay sealed, the hand settles without it). This is the proportionate response the philosophy reserves for "could be a peer bug": it does not punish the honest players at the table.
    - The fault proves the **global board/deck is forged**, whether a community announcement that disagrees with the unlocks, a cross-recipient fork, plaintext ≠ SRA-decrypt → **MISDEAL** (the board is bad for everyone). **HARD-LOCKDOWN** only if it proves the engine itself is compromised.
 
-### 8.3 Warnings are per-anomaly, not one-shot
+### 8.3 Every reaction is visible, and it names the suspect
 
-The soft warning is shown **once per distinct anomaly type per game**, so a later, *different* anomaly is never swallowed by an earlier one.
+Every reaction above a benign SILENT-REFUSE surfaces on three channels at once:
+
+1. A **debug log** line through `java.util.logging` for the author reading the logs.
+2. A **red line in the in-game registro**. The line carries a translated marker (`security_alert`, `suspicious_alert` or `peer_alert`) that `GameLogDialog` maps to the red `ST_ALERT` style, so the incident stands out from normal play.
+3. A **popup** for the player at the table.
+
+The alert **names the suspect** whenever there is one. On a **client**, the party that deals and coordinates is the host, so `warnSuspiciousHost` / `triggerSecurityLockdown` prepend `SUSPECT: host "X"`. On the **host**, the party at fault is a peer, so `warnMaliciousPeer` prepends `SUSPECT: player "X"`. The FORFEIT and MISDEAL sites choose the direction from `isPartida_local()`, so the same anomaly points at the host on a client and at the peer on the host. A benign-race SILENT-REFUSE names nobody because there is no incident to attribute.
+
+The warning is shown **once per distinct anomaly per game** (`warnSuspiciousHost`), or once per **(peer, anomaly)** per game (`warnMaliciousPeer`). This matters twice over. A later, *different* anomaly is never swallowed by an earlier one. And an active attacker cannot turn the visibility itself into a popup flood, which would be a self-inflicted denial of service. The one deliberate exception is `warnDeckUnverified`, which dedups **per hand**: a deck that fails its honest-shuffle proof should never happen in a legitimate game, so every affected hand earns its own alert.
+
+### 8.4 Denial-of-service resistance
+
+The threat here is different from cheating. The adversary is a peer who already passed the AES + HMAC channel (an invited colleague running a modified client) and now tries to **exhaust or freeze** the table rather than read cards or forge results. Liveness answering a PING is not the same as making progress. Three layers close this off, and they all reduce to the same philosophy as §8.2: detect the abuse, remove the one peer responsible with AUTO-EXPEL, and keep the table running for everyone else.
+
+**1. Identity binding at the choke point.** Every response subcommand that carries a nick (`ACTION`, `REBUY`, `BUYIN`, `RESP_SHOWDOWN_KEY`, `DECK_CASCADE_RESP`, `DECK_ROTATION_RESP`, `RESP_SRA_UNLOCK_CHAIN`, `RIT_VOTE_RESP`, `SHOWCARDS`) is bound to the connection's **authenticated** nick before it is queued. A peer cannot act, vote, override an economy value, suppress a reveal or poison the deal **in another peer's name**. A mismatch adds a strike and can AUTO-EXPEL.
+
+**2. Inbound rate limit and AUTO-EXPEL.** Every inbound text command passes a per-peer **size cap** and **token bucket** before the command switch. Over budget drops the frame (SILENT-REFUSE) and adds a strike. Enough strikes AUTO-EXPEL the peer while the table plays on. The thresholds are far above any real game, so an honest client never trips them. The **binary channel** (voice notes and the stats-sync database) is handled inline on the reader thread and never passed through the text bucket, so it has its **own** generous token bucket. A binary flood is **dropped without a strike**: a large but legitimate stats burst is indistinguishable from abuse, and dropping is harmless because imports are idempotent and resume next session. Bounding the arrival rate bounds the downstream work (threads, disk, relay bandwidth) to a constant, since the per-frame work is already size-capped.
+
+**3. Progress deadlines.** A peer that answers PING but withholds a message the table is blocked on used to freeze it **forever**. Every host-side wait now carries a **generous, pause-aware progress deadline**. On expiry the withholding peer is AUTO-EXPELLED (or, for the very first crypto step, the hand MISDEALS) and the table moves on through the same path a genuine disconnect already uses. Four waits were unbounded:
+
+| Wait | Was | Now |
+|---|---|---|
+| SRA cascade response (`requestRemoteCascade`) | infinite, plus a livelock on invalid crypto | deadline, then MISDEAL (peer alive) or restart without it (peer gone) |
+| `HAND_READY` between hands | infinite | pause-aware deadline, then AUTO-EXPEL |
+| Remote betting `ACTION` | infinite | deadline gated on the think-time limit, pause-aware, then AUTO-EXPEL |
+| Synchronous broadcast ACK (`broadcastGAMECommandFromServer`) | infinite retry | pause-aware deadline, then AUTO-EXPEL |
+
+Three properties keep these deadlines from ever punishing an honest player. They are set **far above** any legitimate slow client or slow-PC crypto. They **do not count paused time**, so a table paused for a long discussion is never mistaken for a stall. And a genuinely dead peer still leaves through the normal socket-death path (`isExit`), not through the deadline. The betting deadline has one extra guard: it only applies when the **think-time limit is enabled** (the default). With think-time disabled the game allows unlimited thinking on purpose, so a withheld action cannot be told apart from a human taking their time, and the remedy there is a manual kick.
+
+The three layers, the six-tier reaction ladder and the withheld-message AUTO-EXPEL flow are drawn together below. Editable `.drawio` source in [`diagrams/`](diagrams/).
+
+![CoronaPoker denial-of-service resistance and the section 8 reaction ladder](diagrams/dos-resistance.png)
 
 ---
 
@@ -349,6 +390,8 @@ For honesty's sake:
 - **N-1 collusion.** Pure consensus systems cannot detect this. The victim will see divergent receipts and can choose not to settle.
 - **First-contact MITM without password.** TOFU has no anchor on first contact. The identicon dialog exists precisely to give you an OOB comparison option. Always pin a password for first-time games with new peers.
 - **The optional Google Translate TTS** for fast-chat readout makes outbound requests to `translate.google.com`. Disable TTS if you want a fully air-gappable session.
+- **Unlimited thinking with the think-time limit disabled.** When the table turns the think-time limit off, the game allows a player to think for as long as they want, on purpose. The host cannot then tell a slow human apart from a peer withholding its action, so it imposes no betting deadline in that mode. A player who stalls the table this way is removed with a **manual kick**, not automatically.
+- **A hostile host flooding a client over the binary channel.** The rate limits and AUTO-EXPEL protect the **host** from a client. A client at a hostile host's table is already at that host's mercy for the whole game, so the client-side binary path is not hardened the same way. The client's remedy is the one it always has, which is to leave.
 
 ---
 
@@ -359,7 +402,8 @@ If you want to follow any of the above end-to-end:
 - SRA group + verifiable-dealing engine (Ristretto255): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/), with `Fe25519`, `EdwardsPoint`, `Ristretto255`, `RistrettoSRA`, `Dleq`, `VerifiableUnlock`, `DealChain`
 - Verifiable shuffle (§2.6): [`crypto/`](../src/main/java/com/tonikelope/coronapoker/crypto/), with `ShuffleArgument`, `ShuffleCascade`, `RotationProof`, `DualLockCascade`, `DualLockWire`, `ProofCodec`, `PedersenVectorCommit`, `MultiplicationProof`, `ProductArgument`, `PermutationArgument`, `WeightedSumArgument`
 - Shuffle primitive: [`DeterministicShuffle.java`](../src/main/java/com/tonikelope/coronapoker/DeterministicShuffle.java) (`shuffleDeck`)
-- Cascade orchestration, recovery, lockdown, soft warning: [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java)
+- Cascade orchestration, recovery, lockdown, soft warning, progress deadlines (§8.4): [`Crupier.java`](../src/main/java/com/tonikelope/coronapoker/Crupier.java) (`warnSuspiciousHost`, `warnMaliciousPeer`, `triggerSecurityLockdown`, `requestRemoteCascade`, `readActionFromRemotePlayer`, `broadcastGAMECommandFromServer`)
+- Inbound rate limit, AUTO-EXPEL, identity binding at the choke point (§8.4): [`Participant.java`](../src/main/java/com/tonikelope/coronapoker/Participant.java) (`inboundAbuse`, `binaryInboundAbuse`, `registerAbuseStrike`, `autoExpel`, `markExitAndNotify`)
 - Channel encryption: [`Helpers.java`](../src/main/java/com/tonikelope/coronapoker/Helpers.java) (`encryptCommand`, `decryptCommand`, `deriveChannelSecret`)
 - Identity layer: [`IdentityManager.java`](../src/main/java/com/tonikelope/coronapoker/IdentityManager.java), [`TOFUResolver.java`](../src/main/java/com/tonikelope/coronapoker/TOFUResolver.java)
 - Action record format: [`CanonicalActionRecord.java`](../src/main/java/com/tonikelope/coronapoker/CanonicalActionRecord.java)

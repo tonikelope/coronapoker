@@ -884,36 +884,47 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         presets_panel.add(preset_delete_button);
 
         // ---------------- Ensamblado ----------------
-        // Filas a su ALTO NATURAL en el NORTE; el hueco vertical sobrante cae limpio
-        // debajo (no se mete dentro de los subpaneles titulados).
-        rules_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
-        ciegas_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
-        compra_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
-        bots_panel.setAlignmentY(java.awt.Component.TOP_ALIGNMENT);
+        // Rejilla 2x2 con el MISMO orden que el diálogo de nueva timba (CREAR TIMBA):
+        //   Compra | Ciegas
+        //   Varios | Bots
+        // GridBagLayout liga el ancho de cada columna ENTRE las dos filas (col. izquierda
+        // idéntica en Compra y Varios; col. derecha idéntica en Ciegas y Bots), de modo que
+        // todo queda alineado en vez de que cada fila calcule su propio corte (antes cada
+        // BoxLayout medía el ancho por separado y "Varios" sobresalía de "Compra"). fill BOTH:
+        // cada subpanel RELLENA su celda (mismo alto que su vecino de fila), así el borde
+        // titulado llega hasta abajo y no queda un hueco vació debajo del más corto (p. ej.
+        // "Compra" bajo "Tope recompra"). weighty 0 -> las filas quedan a su alto natural y el
+        // sobrante vertical del diálogo cae limpio DEBAJO de la rejilla (va al CENTER, no dentro
+        // de los paneles).
+        javax.swing.JPanel grid = new javax.swing.JPanel(new java.awt.GridBagLayout());
+        java.awt.GridBagConstraints gc = new java.awt.GridBagConstraints();
+        gc.fill = java.awt.GridBagConstraints.BOTH;
+        gc.weightx = 0.5;
+        gc.weighty = 0.0;
 
-        javax.swing.JPanel row1 = new javax.swing.JPanel();
-        row1.setLayout(new javax.swing.BoxLayout(row1, javax.swing.BoxLayout.X_AXIS));
-        row1.add(rules_panel);
-        row1.add(javax.swing.Box.createHorizontalStrut(12));
-        row1.add(ciegas_panel);
-        row1.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
-
-        javax.swing.JPanel row2 = new javax.swing.JPanel();
-        row2.setLayout(new javax.swing.BoxLayout(row2, javax.swing.BoxLayout.X_AXIS));
-        row2.add(compra_panel);
-        row2.add(javax.swing.Box.createHorizontalStrut(12));
-        row2.add(bots_panel);
-        row2.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        gc.gridx = 0;
+        gc.gridy = 0;
+        gc.insets = new java.awt.Insets(0, 0, 8, 6);
+        grid.add(compra_panel, gc);
+        gc.gridx = 1;
+        gc.insets = new java.awt.Insets(0, 6, 8, 0);
+        grid.add(ciegas_panel, gc);
+        gc.gridx = 0;
+        gc.gridy = 1;
+        gc.insets = new java.awt.Insets(0, 0, 0, 6);
+        grid.add(rules_panel, gc);
+        gc.gridx = 1;
+        gc.insets = new java.awt.Insets(0, 6, 0, 0);
+        grid.add(bots_panel, gc);
 
         presets_panel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
+        grid.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
 
         javax.swing.JPanel north = new javax.swing.JPanel();
         north.setLayout(new javax.swing.BoxLayout(north, javax.swing.BoxLayout.Y_AXIS));
         north.add(presets_panel);
         north.add(javax.swing.Box.createVerticalStrut(8));
-        north.add(row1);
-        north.add(javax.swing.Box.createVerticalStrut(8));
-        north.add(row2);
+        north.add(grid);
 
         add(north, java.awt.BorderLayout.NORTH);
     }

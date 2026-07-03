@@ -51,6 +51,16 @@ public class Participant implements Runnable {
     // handshake tarde en redes lentas.
     public static final int RECIBIDO_TIMEOUT = 45000;
 
+    // ZERO-TRUST: subcomandos de respuesta cuyo partes[3] es el nick del EMISOR. Antes de
+    // encolarlos en received_commands (donde el Crupier los empareja por ese nick), el reader
+    // exige que partes[3] == el nick que posee ESTA conexión autenticada. Sin esto un peer podía
+    // inyectar la respuesta de OTRO (force-fold del rival, framear en la cascada, suprimir su
+    // showdown, override económico de REBUY/BUYIN, secuestrar el voto RIT, envenenar el reparto).
+    // HANDVERIFY y STRADDLE_RESP ya llevaban este guard con case propio; aquí se generaliza.
+    private static final java.util.Set<String> NICK_BOUND_SUBCOMMANDS = java.util.Set.of(
+            "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
+            "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP");
+
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
@@ -1289,6 +1299,24 @@ public class Participant implements Runnable {
                                             }
                                             break;
                                         default:
+                                            // ZERO-TRUST: si es un subcomando de respuesta con nick de emisor,
+                                            // atarlo a ESTA conexión (partes[3] == this.nick). Si no coincide (o
+                                            // viene malformado), se descarta: un peer NO puede hablar por otro.
+                                            if (NICK_BOUND_SUBCOMMANDS.contains(partes_comando[2])) {
+                                                boolean nickOk;
+                                                try {
+                                                    nickOk = partes_comando.length >= 4
+                                                            && new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8").equals(this.nick);
+                                                } catch (Exception ex) {
+                                                    nickOk = false;
+                                                }
+                                                if (!nickOk) {
+                                                    LOGGER.log(Level.SEVERE,
+                                                            "ZERO-TRUST: dropping {0} with nick mismatch on connection {1}",
+                                                            new Object[]{partes_comando[2], this.nick});
+                                                    break;
+                                                }
+                                            }
                                             synchronized (GameFrame.getInstance().getCrupier().getReceived_commands()) {
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().add(recibido);
                                                 GameFrame.getInstance().getCrupier().getReceived_commands().notifyAll();

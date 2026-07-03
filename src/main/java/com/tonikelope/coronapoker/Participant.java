@@ -270,6 +270,20 @@ public class Participant implements Runnable {
         return force_reset_socket;
     }
 
+    // Anti-DoS: true si el socket de este peer esta CAIDO o en plena reconexion (reset en curso, reconexion
+    // forzada por el host, o socket nulo/cerrado). Un peer que RETIENE (vivo, contestando PING pero sin
+    // enviar lo que se espera) da FALSE: su socket sigue abierto. Los deadlines de progreso de broadcast/
+    // recuperacion lo usan para NO expulsar a un peer que legitimamente esta reconectando (le dan su grace),
+    // pero SI expulsar a uno vivo que retiene. No se usa el flag Player.timeout porque esos bucles lo ponen
+    // ellos mismos a true en los pendientes (mostrar "esperando"), contaminandolo.
+    public boolean isSocketDownOrReconnecting() {
+        if (resetting_socket || force_reset_socket) {
+            return true;
+        }
+        Socket s = this.socket;
+        return s == null || s.isClosed();
+    }
+
     public boolean isAsync_wait() {
         return async_wait;
     }

@@ -1,0 +1,97 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="dos-resistance" name="DoS resistance and reaction ladder">
+    <mxGraphModel dx="1400" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1420" pageHeight="840" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Denial-of-service resistance and the section 8 reaction ladder" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="16" width="1340" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Threat model: an invited peer who already passed AES and HMAC, now trying to exhaust or freeze the table rather than read cards. The philosophy is always the same. Detect the abuse, remove the one peer responsible, keep the table running for everyone else." style="text;html=1;fontSize=13;align=center;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1340" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lh" value="Three layers of resistance" style="text;html=1;fontSize=17;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="104" width="620" height="28" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f1" value="&lt;b&gt;F1. Identity binding at the choke point&lt;/b&gt;&lt;br&gt;&lt;br&gt;Every response subcommand that carries a nick (ACTION, REBUY, BUYIN, RESP_SHOWDOWN_KEY, DECK_CASCADE_RESP, DECK_ROTATION_RESP, RESP_SRA_UNLOCK_CHAIN, RIT_VOTE_RESP, SHOWCARDS) is bound to the connection's authenticated nick before it is queued. No peer can act, vote, override an economy value or poison the deal in another peer's name. A mismatch adds a strike." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="138" width="620" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f2" value="&lt;b&gt;F2. Inbound rate limit and AUTO-EXPEL&lt;/b&gt;&lt;br&gt;&lt;br&gt;A per-peer size cap and token bucket gate every inbound text command before the switch. Over budget drops the frame (SILENT-REFUSE) and adds a strike. Enough strikes AUTO-EXPEL the peer while the table plays on. Thresholds sit far above any real game.&lt;br&gt;&lt;br&gt;The binary channel (voice notes, stats-sync database) runs inline on the reader thread and never reached the text bucket, so it has its own generous token bucket. A binary flood is dropped without a strike, because a large but legitimate stats burst looks the same as abuse and dropping is harmless (imports are idempotent)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="300" width="620" height="210" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f3" value="&lt;b&gt;F3. Progress deadlines (liveness is not progress)&lt;/b&gt;&lt;br&gt;&lt;br&gt;A peer that answers PING but withholds a message the table is blocked on used to freeze it forever. Every host-side wait now carries a generous, pause-aware progress deadline. On expiry the withholding peer is AUTO-EXPELLED, or the hand MISDEALS for the very first crypto step, and the table moves on through the same path a real disconnect already uses.&lt;br&gt;&lt;br&gt;Four waits were unbounded and are now bounded: the SRA cascade response, HAND_READY between hands, the remote betting ACTION (only when the think-time limit is on), and the synchronous broadcast ACK. The deadlines never count paused time and sit far above any slow client." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="522" width="620" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rh" value="The section 8 reaction ladder" style="text;html=1;fontSize=17;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="740" y="104" width="560" height="28" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1" value="&lt;b&gt;SILENT-REFUSE&lt;/b&gt;   Drop and log. No user-facing signal for a benign race. host and client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="740" y="138" width="580" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" value="&lt;b&gt;SOFT-WARN&lt;/b&gt;   Name the suspect, red registro line and popup, keep playing. warnSuspiciousHost names the host, warnMaliciousPeer names the peer. host and client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="740" y="214" width="580" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="r3" value="&lt;b&gt;FORFEIT&lt;/b&gt;   Kill one peer's hand, its cards stay sealed, the hand settles for everyone else. host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="740" y="290" width="580" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="r4" value="&lt;b&gt;MISDEAL&lt;/b&gt;   Abort the hand, refund all bets, continue to the next hand. host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="740" y="360" width="580" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="r5" value="&lt;b&gt;AUTO-EXPEL&lt;/b&gt;   Remove one abusive peer and keep the table running. The reserved response for availability attacks (flood, or withholding a needed message). host only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="740" y="430" width="580" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="r6" value="&lt;b&gt;HARD-LOCKDOWN&lt;/b&gt;   Freeze balance, blacklist the peer, close the socket, end the game for this side. host and client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="740" y="506" width="580" height="66" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sevArrow" value="increasing severity" style="endArrow=classic;html=1;rounded=0;fontSize=11;fontColor=#666666;strokeColor=#666666;verticalAlign=bottom;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="716" y="150" as="sourcePoint" />
+            <mxPoint x="716" y="566" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="ladderNote" value="The engine presumes good faith and always picks the least destructive response that still protects the honest players. AUTO-EXPEL is the availability counterpart of FORFEIT. FORFEIT isolates one peer's bad data for one hand, AUTO-EXPEL isolates one peer's bad behaviour for the rest of the game, and in both cases the honest players keep playing." style="text;html=1;fontSize=12;align=left;verticalAlign=top;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="740" y="580" width="580" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flowHead" value="AUTO-EXPEL on a withheld message (F3)" style="text;html=1;fontSize=15;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="756" width="700" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="b1" value="Peer answers PING (looks alive)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="788" width="200" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="but withholds cascade RESP / HAND_READY / ACTION / broadcast ACK" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="268" y="788" width="212" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="Progress deadline expires (pause-aware, far above any slow client)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="508" y="788" width="212" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="warnMaliciousPeer: red registro line and popup, names the peer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="748" y="788" width="212" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" value="AUTO-EXPEL (markExitAndNotify + socketClose)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="988" y="788" width="200" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="b6" value="Table continues without the peer (fold synthesised, or dropped from pending)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1216" y="788" width="164" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="endArrow=classic;html=1;strokeColor=#666666;" edge="1" parent="1" source="b1" target="b2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" style="endArrow=classic;html=1;strokeColor=#666666;" edge="1" parent="1" source="b2" target="b3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" style="endArrow=classic;html=1;strokeColor=#666666;" edge="1" parent="1" source="b3" target="b4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" style="endArrow=classic;html=1;strokeColor=#666666;" edge="1" parent="1" source="b4" target="b5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" style="endArrow=classic;html=1;strokeColor=#666666;" edge="1" parent="1" source="b5" target="b6"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

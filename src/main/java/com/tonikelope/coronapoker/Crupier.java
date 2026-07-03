@@ -459,6 +459,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // en CPU o red y las animaciones de fin de mano. Al vencer se expulsa SOLO al peer que retiene (la mesa
     // sigue). Antes NO había timeout y un peer que contesta PING pero no manda HAND_READY congelaba la mesa.
     public static final int HAND_READY_PROGRESS_TIMEOUT_MS = 120000;
+    // Deadline de PROGRESO para un broadcast SÍNCRONO del host (espera de ACK de todos los peers).
+    // PAUSE-AWARE. Un peer que contesta PING pero NO confirma el broadcast hacía reintentar al host para
+    // siempre (congelaba MEGAPACKET / POCKET_CARDS / START_SRA_CASCADE / MISDEAL / HANDVERIFY). Muy generoso
+    // para cubrir clientes lentos procesando una baraja SRA grande. Al vencer se expulsa SOLO al que retiene.
+    public static final int BROADCAST_PROGRESS_TIMEOUT_MS = 120000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
@@ -13659,6 +13664,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // tiempo acumulado. Es solo info forense — no acelera el kick ni
             // dispara timeouts: el flujo sigue dependiendo de TCP/isExit.
             long broadcastStartMs = System.currentTimeMillis();
+            long broadcastDeadlineMs = broadcastStartMs + BROADCAST_PROGRESS_TIMEOUT_MS;
             int slowIterCount = 0;
             do {
                 String full_command = "GAME#" + String.valueOf(id) + "#" + command;
@@ -13704,6 +13710,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                             nick, false);
                                 } catch (UnsupportedEncodingException ex) {
                                     LOGGER.log(Level.SEVERE, null, ex);
+                                }
+                            }
+                        }
+                        // Deadline de progreso PAUSE-AWARE: el tiempo en pausa NO cuenta (un peer no confirma
+                        // porque el juego está pausado). Con la timba EN MARCHA, si algún peer sigue sin ACK
+                        // más allá del tope se le EXPULSA (la mesa sigue: al quedar exit se le saca de
+                        // pendientes en la siguiente vuelta y el broadcast completa). Un peer caído de verdad
+                        // ya sale por isExit (socket muerto). Antes el host reintentaba para siempre.
+                        boolean paused = false;
+                        try {
+                            paused = GameFrame.getInstance().isTimba_pausada();
+                        } catch (Exception ignored) {
+                        }
+                        if (paused) {
+                            broadcastDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+                        } else if (System.currentTimeMillis() >= broadcastDeadlineMs) {
+                            for (String nick : new ArrayList<>(pendientes)) {
+                                Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+                                if (pp != null && !pp.isExit() && !pp.isCpu()) {
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST DoS: peer {0} withheld broadcast ACK past {1}ms (game running, answering PING) — expelling, table continues",
+                                            new Object[]{nick, BROADCAST_PROGRESS_TIMEOUT_MS});
+                                    warnMaliciousPeer(nick, "zero_trust.peer_conf_withheld");
+                                    pp.markExitAndNotify("withheld broadcast ACK (progress deadline)");
+                                    try {
+                                        pp.socketClose();
+                                    } catch (Exception ignored) {
+                                    }
                                 }
                             }
                         }

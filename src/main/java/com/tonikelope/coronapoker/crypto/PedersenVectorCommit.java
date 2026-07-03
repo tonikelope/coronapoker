@@ -46,6 +46,17 @@ public final class PedersenVectorCommit {
 
     private static volatile EdwardsPoint[] gens = new EdwardsPoint[0];
 
+    // --- Comb de base fija para el caso r·H + v·G_0 (el commit de UN valor, ~360 por prove) ---
+    // H y G_0 son constantes: precomputamos una tabla comb (estilo Lim–Lee) por generador UNA vez y
+    // la reutilizamos en todas las manos. Procesa COMB_COLS(=32) columnas => ~32 doblados en vez de
+    // los ~256 del ladder Straus, con el MISMO resultado (mismo punto de grupo). Tablas de 2^h puntos
+    // por generador (h=COMB_TEETH=8), one-time sub-ms. La suma en curva es abeliana, así que el orden
+    // distinto de sumas no cambia el punto final ni su encoding canónico (ver PedersenCombTest).
+    private static final int COMB_TEETH = 8;   // h: bits del índice por columna
+    private static final int COMB_COLS = 32;   // b = 256 / h  (cubre escalares reducidos < 2^253 < 2^256)
+    private static final EdwardsPoint[] COMB_H = buildCombTable(H);
+    private static final EdwardsPoint[] COMB_G0 = buildCombTable(generator(0));
+
     private PedersenVectorCommit() {
     }
 
@@ -87,6 +98,12 @@ public final class PedersenVectorCommit {
 
     /** Commit to the vector {@code a} with blinding {@code r}: canonical encoding of {@code r·H + Σ a_i·G_i}. */
     public static byte[] commit(BigInteger[] a, BigInteger r) {
+        // Caso de UN solo valor (r·H + v·G_0), con diferencia el más frecuente en las pruebas
+        // (~360 por prove): combs de base fija sobre H y G_0 (constantes) en vez del ladder Straus
+        // de ~256 doblados. Mismo punto de grupo => encoding byte-idéntico (ver PedersenCombTest).
+        if (a.length == 1) {
+            return Ristretto255.encode(combRHplusVG0(r, a[0]));
+        }
         // Single Straus multi-scalar multiplication over [H, G_0, …, G_{n-1}] (shared doubling ladder).
         int n = a.length;
         BigInteger[] scalars = new BigInteger[n + 1];
@@ -98,6 +115,57 @@ public final class PedersenVectorCommit {
             points[i + 1] = generator(i);
         }
         return Ristretto255.encode(EdwardsPoint.multiscalarMul(scalars, points));
+    }
+
+    // Tabla comb de base fija de p: base[row] = 2^(row·COMB_COLS)·p; t[j] = Σ_{row en j} base[row].
+    private static EdwardsPoint[] buildCombTable(EdwardsPoint p) {
+        EdwardsPoint[] base = new EdwardsPoint[COMB_TEETH];
+        base[0] = p;
+        EdwardsPoint cur = p;
+        for (int row = 1; row < COMB_TEETH; row++) {
+            for (int k = 0; k < COMB_COLS; k++) {
+                cur = cur.dbl(); // cur = 2^(row·COMB_COLS)·p
+            }
+            base[row] = cur;
+        }
+        int size = 1 << COMB_TEETH;
+        EdwardsPoint[] t = new EdwardsPoint[size];
+        t[0] = EdwardsPoint.IDENTITY;
+        for (int j = 1; j < size; j++) {
+            t[j] = t[j & (j - 1)].add(base[Integer.numberOfTrailingZeros(j)]);
+        }
+        return t;
+    }
+
+    // Índice comb de la columna `col`: bit `row` puesto sii el bit (row·COMB_COLS + col) de s.
+    private static int combIndex(BigInteger s, int col) {
+        int idx = 0;
+        for (int row = 0; row < COMB_TEETH; row++) {
+            if (s.testBit(row * COMB_COLS + col)) {
+                idx |= (1 << row);
+            }
+        }
+        return idx;
+    }
+
+    // r·H + v·G_0 con las combs de base fija (ladder de doblados compartido). Byte-idéntico a
+    // EdwardsPoint.multiscalarMul([r, v], [H, G_0]); reduce mod L igual que aquél.
+    private static EdwardsPoint combRHplusVG0(BigInteger r, BigInteger v) {
+        BigInteger rr = r.mod(EdwardsPoint.L);
+        BigInteger vv = v.mod(EdwardsPoint.L);
+        EdwardsPoint result = EdwardsPoint.IDENTITY;
+        for (int col = COMB_COLS - 1; col >= 0; col--) {
+            result = result.dbl();
+            int ih = combIndex(rr, col);
+            if (ih != 0) {
+                result = result.add(COMB_H[ih]);
+            }
+            int ig = combIndex(vv, col);
+            if (ig != 0) {
+                result = result.add(COMB_G0[ig]);
+            }
+        }
+        return result;
     }
 
 }

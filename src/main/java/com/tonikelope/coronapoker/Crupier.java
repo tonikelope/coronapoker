@@ -10045,6 +10045,44 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         // de mano DIVERGENT detectará el incidente offline para
                                                         // forenses, pero el dinero NO se mueve por la falsificación.
                                                         synthesizeFoldAction(action);
+                                                    } else {
+                                                        // Firma OK. ZERO-TRUST (🟠-HIGH cerrado): ATAR el importe
+                                                        // FIRMADO a la accion realmente jugada. El AMOUNT_CENTS del
+                                                        // record debe coincidir con lo que la decision + el estado
+                                                        // PRE-accion implican (expectedActionAmountCents, la MISMA
+                                                        // formula del firmante en buildLocalActionRecordAndSig).
+                                                        // Sin esto, un cliente modificado podia firmar un importe
+                                                        // (el que va al historial firmado y a H_t) DISTINTO del bet
+                                                        // en claro (partes[5]) que mueve el bote en vivo. Cada peer
+                                                        // lo recomputa con su propio estado replicado, identico al
+                                                        // del firmante (o la cadena ya habria divergido), asi que
+                                                        // una accion honesta SIEMPRE coincide y esto NUNCA salta en
+                                                        // juego sano. Ante discrepancia (o un importe
+                                                        // irrepresentable: NaN/Inf en el bet, que una accion
+                                                        // legitima jamas produce) se trata IGUAL que una firma
+                                                        // invalida: synth-fold simetrico en todo receptor + flag
+                                                        // saw_invalid_action_sig -> el consenso de cierre lo marca.
+                                                        boolean amountForged;
+                                                        try {
+                                                            long signedCents = CanonicalActionRecord.readAmountCents(wireRecord);
+                                                            long expectedCents = predictPostActionBetCents((int) action[0], action[1], jugador);
+                                                            amountForged = (signedCents != expectedCents);
+                                                            if (amountForged) {
+                                                                LOGGER.log(Level.SEVERE,
+                                                                        "ZERO-TRUST: action by {0} signs amount {1} cents but the played decision implies {2} — SYNTHESIZING FOLD (signed amount does not bind to the action)",
+                                                                        new Object[]{jugador.getNickname(), signedCents, expectedCents});
+                                                            }
+                                                        } catch (RuntimeException amtEx) {
+                                                            amountForged = true;
+                                                            LOGGER.log(Level.SEVERE,
+                                                                    "ZERO-TRUST: action by {0} carries an unrepresentable amount — SYNTHESIZING FOLD",
+                                                                    new Object[]{jugador.getNickname()});
+                                                        }
+                                                        if (amountForged) {
+                                                            printInvalidActionSigToRegistro(jugador.getNickname());
+                                                            this.saw_invalid_action_sig = true;
+                                                            synthesizeFoldAction(action);
+                                                        }
                                                     }
                                                 }
                                             } catch (Exception parseEx) {
@@ -13470,23 +13508,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * </ul>
      */
     private long predictPostActionBetCents(int javaDecision, Object originalActionBet, Player player) {
+        double betAbsoluteTarget = 0;
+        if (originalActionBet instanceof Number) {
+            betAbsoluteTarget = ((Number) originalActionBet).doubleValue();
+        }
+        return expectedActionAmountCents(javaDecision, betAbsoluteTarget,
+                player.getBet(), player.getStack(), this.apuesta_actual);
+    }
+
+    /**
+     * Identity / anti-forgery (PURA y testeable): el importe en centimos que el AMOUNT_CENTS de un action
+     * record DEBE llevar, derivado SOLO de la decision y del estado PRE-accion del jugador. Es exactamente
+     * la formula que usa el FIRMANTE (buildLocalActionRecordAndSig via predictPostActionBetCents), asi que
+     * todo peer que replica la misma secuencia de acciones tiene identico estado pre-accion y obtiene
+     * identico resultado. El receptor la recomputa para ATAR el importe firmado a la accion realmente jugada
+     * (partes[4]/partes[5]): un cliente modificado que firme un importe distinto del que juega no cuela.
+     *
+     * FOLD -> 0; CHECK/CALL -> apuesta_actual; BET -> objetivo absoluto (== partes[5] del wire);
+     * ALLIN -> bet + stack (invariante pre/post: el all-in mueve TODO el stack al bote).
+     */
+    static long expectedActionAmountCents(int javaDecision, double betAbsoluteTarget,
+            double playerBet, double playerStack, double apuestaActual) {
         switch (javaDecision) {
             case Player.FOLD:
                 return 0L;
             case Player.CHECK:
-                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(this.apuesta_actual));
-            case Player.BET: {
-                double betAmount = 0;
-                if (originalActionBet instanceof Double) {
-                    betAmount = (Double) originalActionBet;
-                } else if (originalActionBet instanceof Number) {
-                    betAmount = ((Number) originalActionBet).doubleValue();
-                }
-                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(betAmount));
-            }
+                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(apuestaActual));
+            case Player.BET:
+                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(betAbsoluteTarget));
             case Player.ALLIN:
-                return CanonicalActionRecord.amountToCents(
-                        Helpers.doubleClean(player.getBet() + player.getStack()));
+                return CanonicalActionRecord.amountToCents(Helpers.doubleClean(playerBet + playerStack));
             default:
                 return 0L;
         }

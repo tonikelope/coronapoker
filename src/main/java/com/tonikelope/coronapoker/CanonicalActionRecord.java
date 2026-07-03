@@ -316,6 +316,29 @@ public final class CanonicalActionRecord {
         return record[OFFSET_ACTION_TYPE] & 0xFF;
     }
 
+    /**
+     * Identity: reads the 32-byte {@code PLAYER_ID} field (fresh defensive copy).
+     * Lets a receiver bind a signed record to the actual acting player, so a peer
+     * cannot sign an action attributing it to a different player.
+     */
+    public static byte[] readPlayerId(byte[] record) {
+        if (record == null || record.length != RECORD_BYTES) {
+            throw new IllegalArgumentException("record must be " + RECORD_BYTES + " bytes");
+        }
+        return java.util.Arrays.copyOfRange(record, OFFSET_PLAYER_ID, OFFSET_PLAYER_ID + HASH_BYTES);
+    }
+
+    /**
+     * Identity: reads the 16-byte {@code HAND_ID} field (fresh defensive copy).
+     * Lets a receiver bind a signed record to the current hand.
+     */
+    public static byte[] readHandId(byte[] record) {
+        if (record == null || record.length != RECORD_BYTES) {
+            throw new IllegalArgumentException("record must be " + RECORD_BYTES + " bytes");
+        }
+        return java.util.Arrays.copyOfRange(record, OFFSET_HAND_ID, OFFSET_HAND_ID + HAND_ID_BYTES);
+    }
+
     private static long readInt64BE(byte[] buf, int offset) {
         return ((long) (buf[offset] & 0xFF) << 56)
                 | ((long) (buf[offset + 1] & 0xFF) << 48)

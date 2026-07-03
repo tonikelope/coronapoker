@@ -136,9 +136,13 @@ public class ActionAmountBindingTest {
         assertTrue(roundTripAmount(0L, true) == 0L);
     }
 
-    // ---- full binding: TYPE + AMOUNT (signedRecordBindsToAction) ----------
+    // ---- full binding: TYPE + PLAYER_ID + HAND_ID + AMOUNT ----------------
 
-    /** Builds a record carrying a chosen wire ACTION_TYPE and amount. */
+    // The identifiers baked into every record built by recordWith().
+    private static final byte[] PID = fill(32, (byte) 0x33);
+    private static final byte[] HID = fill(16, (byte) 0x22);
+
+    /** Builds a record with a chosen ACTION_TYPE/amount and the canonical PID/HID above. */
     private static byte[] recordWith(int wireActionType, long amountCents, boolean isAllin) {
         return CanonicalActionRecord.encode(
                 fill(32, (byte) 0x11), fill(16, (byte) 0x22), fill(32, (byte) 0x33),
@@ -146,52 +150,75 @@ public class ActionAmountBindingTest {
     }
 
     @Test
-    public void bindsWhenTypeAndAmountBothMatchTheAction() {
-        // FOLD: type ACTION_FOLD + amount 0.
+    public void bindsWhenTypePlayerHandAndAmountAllMatch() {
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_FOLD, 0L, false),
-                Player.FOLD, 0.0, 5.0, 100.0, 12.34));
-        // CHECK/CALL: type ACTION_CHECK + amount == apuesta_actual.
+                Player.FOLD, 0.0, 5.0, 100.0, 12.34, PID, HID));
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_CHECK, 2000L, false),
-                Player.CHECK, 0.0, 0.0, 0.0, 20.0));
-        // BET: type ACTION_BET + amount == wire target.
+                Player.CHECK, 0.0, 0.0, 0.0, 20.0, PID, HID));
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0));
-        // ALLIN: type ACTION_ALLIN + amount == bet + stack.
+                Player.BET, 50.0, 0.0, 0.0, 0.0, PID, HID));
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_ALLIN, 10000L, true),
-                Player.ALLIN, 0.0, 40.0, 60.0, 0.0));
+                Player.ALLIN, 0.0, 40.0, 60.0, 0.0, PID, HID));
     }
 
     @Test
     public void rejectsTypeMismatchEvenWhenAmountMatches() {
-        // The key case the amount alone cannot catch: FOLD and a CHECK at
-        // apuesta_actual=0 BOTH carry amount 0. Binding the action TYPE tells
-        // them apart. A record that signs CHECK while the player played FOLD
-        // (both 0 cents) must NOT bind.
+        // FOLD and a CHECK at apuesta_actual=0 BOTH carry amount 0; binding the
+        // action TYPE tells them apart.
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_CHECK, 0L, false),
-                Player.FOLD, 0.0, 5.0, 100.0, 0.0));
-        // And the reverse: signs FOLD while the player checked at 0.
+                Player.FOLD, 0.0, 5.0, 100.0, 0.0, PID, HID));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_FOLD, 0L, false),
-                Player.CHECK, 0.0, 5.0, 100.0, 0.0));
-        // Signs BET while the player went all-in for the same cents.
+                Player.CHECK, 0.0, 5.0, 100.0, 0.0, PID, HID));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 10000L, false),
-                Player.ALLIN, 0.0, 40.0, 60.0, 0.0));
+                Player.ALLIN, 0.0, 40.0, 60.0, 0.0, PID, HID));
     }
 
     @Test
     public void rejectsAmountMismatchWithMatchingType() {
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 9999L, false),
-                Player.BET, 50.0, 0.0, 0.0, 0.0));
+                Player.BET, 50.0, 0.0, 0.0, 0.0, PID, HID));
         assertFalse(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_CHECK, 1L, false),
-                Player.CHECK, 0.0, 0.0, 0.0, 40.0));
+                Player.CHECK, 0.0, 0.0, 0.0, 40.0, PID, HID));
+    }
+
+    @Test
+    public void rejectsPlayerIdMismatch() {
+        // A record that signs a valid action but attributes it to a DIFFERENT
+        // player must not bind, even though type + amount match.
+        byte[] otherPid = fill(32, (byte) 0x44);
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
+                Player.BET, 50.0, 0.0, 0.0, 0.0, otherPid, HID));
+    }
+
+    @Test
+    public void rejectsHandIdMismatch() {
+        // A record replayed from a different hand must not bind.
+        byte[] otherHid = fill(16, (byte) 0x55);
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
+                Player.BET, 50.0, 0.0, 0.0, 0.0, PID, otherHid));
+    }
+
+    @Test
+    public void nullExpectedIdentifiersSkipThatCheckButKeepTheRest() {
+        // Null expected PID/HID (e.g., chain not seeded) must not throw and must
+        // still enforce type + amount.
+        assertTrue(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
+                Player.BET, 50.0, 0.0, 0.0, 0.0, null, null));
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 9999L, false),
+                Player.BET, 50.0, 0.0, 0.0, 0.0, null, null));
     }
 
     @Test
@@ -200,7 +227,7 @@ public class ActionAmountBindingTest {
         // binding must ignore it and use bet+stack, never throw on the String.
         assertTrue(Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_ALLIN, 6050L, true),
-                Player.ALLIN, "cinematic_b64_blob", 12.5, 48.0, 999.0));
+                Player.ALLIN, "cinematic_b64_blob", 12.5, 48.0, 999.0, PID, HID));
     }
 
     @Test
@@ -209,7 +236,7 @@ public class ActionAmountBindingTest {
         // the receiver's try/catch turns it into a synth-fold.
         assertThrows(RuntimeException.class, () -> Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                -999, 50.0, 0.0, 0.0, 0.0));
+                -999, 50.0, 0.0, 0.0, 0.0, PID, HID));
     }
 
     @Test
@@ -217,6 +244,6 @@ public class ActionAmountBindingTest {
         // NaN/Inf bet on a BET must throw (caught upstream as forgery), not bind.
         assertThrows(RuntimeException.class, () -> Crupier.signedRecordBindsToAction(
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
-                Player.BET, Double.NaN, 0.0, 0.0, 0.0));
+                Player.BET, Double.NaN, 0.0, 0.0, 0.0, PID, HID));
     }
 }

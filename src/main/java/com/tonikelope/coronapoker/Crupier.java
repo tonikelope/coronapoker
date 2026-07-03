@@ -10066,9 +10066,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         // -> el consenso de cierre marca el incidente.
                                                         boolean recordForged;
                                                         try {
+                                                            byte[] expectedPid = CanonicalActionRecord.playerIdFromNick(jugador.getNickname());
+                                                            byte[] expectedHid = (this.hand_state_chain != null)
+                                                                    ? this.hand_state_chain.getHandId() : null;
                                                             recordForged = !signedRecordBindsToAction(wireRecord,
                                                                     (int) action[0], action[1],
-                                                                    jugador.getBet(), jugador.getStack(), this.apuesta_actual);
+                                                                    jugador.getBet(), jugador.getStack(), this.apuesta_actual,
+                                                                    expectedPid, expectedHid);
                                                             if (recordForged) {
                                                                 LOGGER.log(Level.SEVERE,
                                                                         "ZERO-TRUST: signed record for action by {0} does not bind to the played (type/amount) — SYNTHESIZING FOLD",
@@ -13558,12 +13562,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * llamador). {@code betObj} es el bet en claro del wire (Double para BET, ignorado en el resto).
      */
     static boolean signedRecordBindsToAction(byte[] record, int javaDecision, Object betObj,
-            double playerBet, double playerStack, double apuestaActual) {
+            double playerBet, double playerStack, double apuestaActual,
+            byte[] expectedPlayerId, byte[] expectedHandId) {
+        // TIPO de accion (puro valor de wire).
         int signedType = CanonicalActionRecord.readActionType(record);
         int expectedType = mapJavaActionToWire(javaDecision);
         if (signedType != expectedType) {
             return false;
         }
+        // JUGADOR: el record no puede atribuir la accion a otro jugador (aunque la firma sea del actor,
+        // el PLAYER_ID debe ser el suyo). MANO: no puede reutilizar un record de otra mano. Ambos son
+        // identificadores ESTABLES durante toda la mano (cero timing). Tolerante a expected nulo
+        // (p.ej. cadena aun no sembrada): si no se puede derivar el esperado, no se exige.
+        if (expectedPlayerId != null
+                && !java.util.Arrays.equals(CanonicalActionRecord.readPlayerId(record), expectedPlayerId)) {
+            return false;
+        }
+        if (expectedHandId != null
+                && !java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)) {
+            return false;
+        }
+        // IMPORTE.
         double betAbsoluteTarget = (betObj instanceof Number) ? ((Number) betObj).doubleValue() : 0;
         long signedCents = CanonicalActionRecord.readAmountCents(record);
         long expectedCents = expectedActionAmountCents(javaDecision, betAbsoluteTarget,

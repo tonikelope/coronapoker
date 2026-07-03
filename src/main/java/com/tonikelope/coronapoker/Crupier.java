@@ -1368,6 +1368,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (fatalError) {
+                // Violacion zero-trust del peer (identity echo / deck off-curve / commitments invalidos):
+                // NO es un simple drop de red, es un peer MANIPULADO. Se le trata como CAIDO
+                // (markExitAndNotify marca Participant.exit Y Player.exit y despierta los waits) para que
+                // el reintento de la cascada lo SALTE (guard !p.isExit() abajo) en vez de re-pedirle el
+                // paso y volver a fallar en bucle infinito (livelock del hilo de reparto). Reusa la misma
+                // maquinaria de "peer se fue a mitad de cascada"; la mano se reparte sin el.
+                p.markExitAndNotify("zero-trust cascade violation (manipulated peer)");
                 return null;
             }
             if (!ok) {
@@ -1765,22 +1772,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             chainStepK.add(null);
                             chainDecks.add(workingDeck);
                         } else if (p.isExit()) {
-                            // El peer cayó durante el cascade (su Participant lo marcó
-                            // exit por socket muerto). Aún no hemos repartido nada, así
-                            // que volvemos a empezar la cascada SIN él.
+                            // El peer quedó marcado exit durante el cascade. Dos causas, mismo
+                            // tratamiento: o su socket murió (su Participant lo marcó exit), o cometió
+                            // una violación zero-trust y requestRemoteCascade lo marcó exit
+                            // (markExitAndNotify) para no reintentar con él en bucle. Reiniciamos la
+                            // cascada SIN él (el guard !p.isExit() de arriba lo salta en el reintento).
+                            // Aún no hemos repartido nada.
                             LOGGER.log(Level.WARNING,
-                                    "Peer {0} dropped during cascade — restarting shuffle without them",
+                                    "Peer {0} left during cascade (drop or zero-trust violation) — restarting shuffle without them",
                                     currNick);
                             restart = true;
                         } else {
                             // El peer sigue VIVO (contesta PING) pero no entregó una
-                            // DECK_CASCADE_RESP válida: o CALLÓ hasta vencer el deadline de
-                            // progreso (withhold), o mandó crypto inválida (fatalError). En
-                            // ambos casos es un REFUSAL zero-trust. Igual que la rotación
-                            // (requestRemoteRotation): MISDEAL — cancela la mano, devuelve las
-                            // apuestas y la timba sigue. Antes esto CONGELABA la mesa (withhold,
-                            // sin deadline) o LIVELOCKEABA (crypto inválida: null sin exit ->
-                            // restart -> se le re-pedía y volvía a fallar sin fin).
+                            // DECK_CASCADE_RESP válida a tiempo: CALLÓ hasta vencer el deadline de
+                            // progreso (withhold). Igual que la rotación (requestRemoteRotation):
+                            // MISDEAL, cancela la mano, devuelve las apuestas y la timba sigue. Una
+                            // crypto inválida (fatalError) NO llega aquí: requestRemoteCascade ya marcó
+                            // exit a ese peer y cae en la rama de arriba (restart sin él). Antes esto
+                            // CONGELABA la mesa (withhold, sin deadline).
                             LOGGER.log(Level.SEVERE,
                                     "ZERO-TRUST: peer {0} refused the cascade (alive but no valid DECK_CASCADE_RESP) — aborting hand, game continues",
                                     currNick);

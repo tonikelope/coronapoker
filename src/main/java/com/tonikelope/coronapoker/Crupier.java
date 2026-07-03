@@ -14346,6 +14346,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         | (recordBytes[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
                                 res[5] = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
                             }
+                            // ZERO-TRUST RECOVER: verificar la FIRMA Ed25519 de la accion recuperada. El host la
+                            // sirve por wire; el path EN VIVO la verifica (resolveActionSignerPubkey + verifyAction),
+                            // pero el replay de recuperacion NO lo hacia -> un host podia inyectar acciones FORJADAS
+                            // ("el rival se retiro", "yo iguale y gane") en la cadena H_t. Si la pubkey del firmante
+                            // esta disponible y la firma NO verifica -> se rechaza el record+sig (el gate de la cadena
+                            // lo trata como no-firmado) + aviso (sospechoso host, rojo). Pubkey null (TOFU race) -> se
+                            // deja pasar, igual que el path en vivo (no es evidencia de ataque).
+                            byte[] recoverSignerPubkey = resolveActionSignerPubkey(name, Boolean.TRUE.equals(res[5]));
+                            if (recoverSignerPubkey != null && !IdentityManager.verifyAction(recoverSignerPubkey, recordBytes, sigBytes)) {
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST RECOVER: recovered action for {0} FAILED signature verify — host forging, refusing record",
+                                        name);
+                                warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                                res[3] = null;
+                                res[4] = null;
+                            }
                         } catch (Exception decodeEx) {
                             LOGGER.log(Level.WARNING, "Failed to decode persisted record/sig on recovery replay", decodeEx);
                             res[3] = null;

@@ -75,6 +75,21 @@ public class Participant implements Runnable {
     private long inbound_last_refill_ns = 0L;
     private int abuse_strikes = 0;
 
+    // F2 ANTI-DoS (canal BINARIO: voz + sync de stats). Los frames binarios se manejan INLINE en el hilo
+    // lector (handleBinaryFromClient), NO en el bucle de run(), así que NO pasan por inboundAbuse/strikes.
+    // Cada uno dispara trabajo pesado async (StatsSync = 1 hilo+DB por frame; nota de voz = escritura a
+    // disco + relay a N peers). Como el trabajo por-frame ya está acotado (tamaño por WireFrame, gzip-bomb
+    // cerrado), acotar la TASA de llegada acota el crecimiento de hilos/CPU/disco/relay a una constante.
+    // Presupuesto generoso pero MUY por encima del uso legítimo (voz humana ~1/s; ráfaga de stats al
+    // conectar << burst). Exceso -> DROP silencioso (SILENT-REFUSE), SIN strike/expulsión: una ráfaga
+    // legítima de stats (backlog grande) es indistinguible de abuso y descartar es inofensivo (import
+    // idempotente, resync la próxima sesión). La expulsión de floods sigue viva en el path de texto (F2).
+    // Único hilo (el lector del peer) -> sin sincronización.
+    private static final double BINARY_INBOUND_BURST = 128.0;            // ráfaga binaria tolerada de golpe
+    private static final double BINARY_INBOUND_REFILL_PER_SEC = 8.0;     // sostenido binario (legit: << 1/s)
+    private double binary_inbound_tokens = BINARY_INBOUND_BURST;
+    private long binary_inbound_last_refill_ns = 0L;
+
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
@@ -844,6 +859,12 @@ public class Participant implements Runnable {
      * A malformed or HMAC-failing frame is dropped without tearing down the reader.
      */
     private void handleBinaryFromClient(byte[] frameBody) {
+        // F2 ANTI-DoS: rate-limit del canal binario ANTES de descifrar/procesar. Corta el flood de frames
+        // binarios (voz/stats) que NO pasa por el bucket de texto de run() y cada uno dispara trabajo pesado
+        // async. Exceso -> DROP silencioso (SIN strike/expulsión; ver campos BINARY_INBOUND_*).
+        if (binaryInboundAbuse()) {
+            return;
+        }
         try {
             byte[] payload = Helpers.decryptBytes(frameBody, getAes_key(), getHmac_key());
             if (payload == null) {
@@ -1114,6 +1135,24 @@ public class Participant implements Runnable {
         inbound_tokens = Math.min(INBOUND_BURST, inbound_tokens + elapsed * INBOUND_REFILL_PER_SEC);
         if (inbound_tokens >= 1.0) {
             inbound_tokens -= 1.0;
+            return false;
+        }
+        return true; // sin tokens -> exceso de frecuencia
+    }
+
+    // F2 ANTI-DoS (binario): true si este frame binario excede la frecuencia tolerada (token-bucket propio,
+    // ver campos BINARY_INBOUND_*). Solo lo llama handleBinaryFromClient en el hilo lector -> sin lock.
+    private boolean binaryInboundAbuse() {
+        long now = System.nanoTime();
+        if (binary_inbound_last_refill_ns == 0L) {
+            binary_inbound_last_refill_ns = now;
+        }
+        double elapsed = (now - binary_inbound_last_refill_ns) / 1_000_000_000.0;
+        binary_inbound_last_refill_ns = now;
+        binary_inbound_tokens = Math.min(BINARY_INBOUND_BURST,
+                binary_inbound_tokens + elapsed * BINARY_INBOUND_REFILL_PER_SEC);
+        if (binary_inbound_tokens >= 1.0) {
+            binary_inbound_tokens -= 1.0;
             return false;
         }
         return true; // sin tokens -> exceso de frecuencia

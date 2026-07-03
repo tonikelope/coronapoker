@@ -2707,8 +2707,10 @@ public class WaitingRoomFrame extends JFrame {
                                                                             crupier.dual_lock_expect_bundle_for, crupier.dual_lock_verified_megapacket,
                                                                             crupier.dual_lock_warned_megapacket)) {
                                                                         crupier.dual_lock_warned_megapacket = megapacket;
-                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — warning (host may not have sent the bundle)");
-                                                                        crupier.warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_missing"));
+                                                                        LOGGER.log(Level.SEVERE, "ZERO-TRUST: revealing community without a verified honest-shuffle proof for this deck — red log entry + popup");
+                                                                        // Se sirve el unlock (la mano se juega: cartas ya repartidas). NO se bloquea
+                                                                        // ni se fuerza salida: se registra en rojo + popup (una vez por partida).
+                                                                        crupier.warnDeckUnverified();
                                                                     }
                                                                     java.util.List<UnlockChainWire.ReqItem> items = UnlockChainWire.parseReq(payloadChain);
                                                                     if (items == null) {

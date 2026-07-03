@@ -501,6 +501,28 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
 
+    // Torneo/anti-trampa: esta mano el mazo NO se pudo verificar como barajado honesto (host no mandó
+    // el bundle, o llegó mal, o se probó deshonesto). NO se bloquea la mano (cartas ya repartidas) ni
+    // se fuerza salida: se REGISTRA en el log del juego EN ROJO (el prefijo zero_trust.suspicious_alert
+    // lo colorea vía ST_ALERT, como los demás errores zero-trust) y se avisa con un popup UNA vez por
+    // partida. La evidencia firmada ya va en el recibo + disputed_hands; el jugador decide si sigue.
+    public void warnDeckUnverified() {
+        try {
+            GameFrame.getInstance().getRegistro().print(
+                    Translator.translate("zero_trust.suspicious_alert") + " " + Translator.translate("zero_trust.deck_unverified"));
+        } catch (Exception ignored) {
+        }
+        if (!suspicious_host_warned_reasons.add("DECK_UNVERIFIED")) {
+            return; // popup una sola vez por partida (el registro rojo sí se escribe cada mano afectada)
+        }
+        Helpers.threadRun(() -> {
+            Helpers.mostrarMensajeError(GameFrame.getInstance(),
+                    Translator.translate("zero_trust.suspicious_header")
+                    + Translator.translate("zero_trust.deck_unverified") + "\n\n"
+                    + Translator.translate("zero_trust.deck_unverified_body"));
+        });
+    }
+
     /**
      * Decisión PURA del gate "exigir prueba de barajado": avisar al ir a revelar community SII es fase
      * community (la ventana de lectura del smuggle), el mazo viene de un reparto FRESCO ({@code expect}),
@@ -548,9 +570,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         @Override
                         public void onDishonest(byte[] megapacket, int handId) {
                             LOGGER.log(Level.SEVERE,
-                                    "SHUFFLE-VERIFY: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning",
+                                    "SHUFFLE-VERIFY: deck PROVEN DISHONEST (hand {0}) — host cheating or bug, warning + red log entry",
                                     handId);
-                            warnSuspiciousHost(Translator.translate("zero_trust.host_shuffle_proof_failed"));
+                            // Mazo PROBADO deshonesto: se juega la mano (cartas repartidas), se registra
+                            // en rojo + popup. Evidencia firmada ya en recibo + disputed_hands.
+                            warnDeckUnverified();
                         }
 
                         @Override

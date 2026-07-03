@@ -1719,6 +1719,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         LOGGER.log(Level.WARNING,
                                 "Peer {0} refused rotation (alive but no response) — aborting hand and stopping game",
                                 currNick);
+                        warnMaliciousPeer(currNick, "zero_trust.rotation_refused");
                         rotationOk = false;
                         rotationFailMotivo = "zero_trust.rotation_refused";
                         break;
@@ -1871,6 +1872,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                     }
                     if (!allCovered) {
+                        warnMaliciousPeer(hNick, "zero_trust.pocket_unlock_refused");
                         cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
                         return false;
                     }
@@ -1881,6 +1883,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         return false;
                     }
                 } else {
+                    warnMaliciousPeer(hNick, "zero_trust.pocket_unlock_refused");
                     cancelarManoYDevolverApuestas("zero_trust.pocket_unlock_refused");
                     return false;
                 }
@@ -5321,7 +5324,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         LOGGER.log(Level.SEVERE,
                                                 "ZERO-TRUST: SHOWCARDS for {0} — sig OK but SRA does not resolve. Malicious peer or bug -> FORFEIT (cards not revealed) + warning.",
                                                 nick);
-                                        warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                        // Visibilidad §8 con SOSPECHOSO correcto: en el HOST la culpa es del
+                                        // PEER (warnMaliciousPeer lo nombra en rojo + popup); en un cliente es
+                                        // el host quien relaya la clave mala (warnSuspiciousHost nombra al host).
+                                        if (GameFrame.getInstance().isPartida_local()) {
+                                            warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
+                                        } else {
+                                            warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                        }
                                     }
                                 }
                             }
@@ -11456,6 +11466,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     if (!allCovered) {
                         if (abortOnFail) {
+                            warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
                             cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
                         }
                         return null;
@@ -11472,6 +11483,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 } else {
                     // Peer vivo, NO respondió, no testament. REFUSAL → para la timba.
                     if (abortOnFail) {
+                        warnMaliciousPeer(h, "zero_trust.community_unlock_refused");
                         cancelarManoYDevolverApuestas("zero_trust.community_unlock_refused");
                     }
                     return null;
@@ -12924,13 +12936,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (id1 < 0 || id2 < 0) {
                 // Sig OK pero la clave firmada NO resuelve a una carta genesis: el peer firmo una
                 // clave mala (bug/cliente corrupto) o intenta algo — no podemos distinguir. Esto es el
-                // HOST detectando a UN peer -> FORFEIT silencioso (return false -> sus cartas no se
-                // revelan, el showdown las muckea), NO terminamos la partida de todos. Sin popup: es un
-                // peer, no un ataque del host hacia mi (warnSuspiciousHost seria mis-framed). Coherente
-                // con los demas return false de este metodo (sin/mala sig, sin pocket cards).
+                // HOST detectando a UN peer -> FORFEIT (return false -> sus cartas no se revelan, el
+                // showdown las muckea), NO terminamos la partida de todos. Visibilidad §8: registro EN ROJO
+                // + popup nombrando al JUGADOR sospechoso (warnMaliciousPeer, el simetrico host-side; antes
+                // se dejaba silencioso porque warnSuspiciousHost habria mis-frameado al host, no al peer).
                 LOGGER.log(Level.SEVERE,
                         "ZERO-TRUST: RESP_SHOWDOWN_KEY from {0} — sig OK but SRA does not resolve (ids={1},{2}). Malicious peer or bug -> FORFEIT (their cards are not revealed).",
                         new Object[]{nick, id1, id2});
+                warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
                 return false;
             }
 
@@ -15388,7 +15401,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                             nick + " " + Translator.translate("zero_trust.peer_sra_corrupt_registro"));
                                                 } catch (Exception ignored) {
                                                 }
-                                                warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                                // Visibilidad §8 con SOSPECHOSO correcto: en el HOST nombra al
+                                                // PEER (rojo + popup); en un cliente el host relaya la clave mala.
+                                                if (GameFrame.getInstance().isPartida_local()) {
+                                                    warnMaliciousPeer(nick, "zero_trust.peer_sra_corrupt");
+                                                } else {
+                                                    warnSuspiciousHost(Translator.translate("zero_trust.peer_sra_corrupt"));
+                                                }
                                                 continue;
                                             }
 

@@ -2732,12 +2732,29 @@ public class WaitingRoomFrame extends JFrame {
                                                                             break;
                                                                         }
                                                                     }
+                                                                    // ANTI "ver el board futuro": en una fase COMMUNITY, el slot que el host me
+                                                                    // pide pelar DEBE caer en los slots que ESA fase puede tocar (derivados LOCAL:
+                                                                    // ver Crupier.communitySlotRange). El host controla offsetBase; si pide un slot
+                                                                    // de otra calle (turn/river durante el flop) está leyendo el board antes de
+                                                                    // tiempo -> ataque contra mí -> lockdown. POCKET (commRange==null) ya lo cubren
+                                                                    // el espacio de escalar disjunto + el self-strip de abajo.
+                                                                    final int[] commRange = Crupier.communitySlotRange(phase, ring.length);
                                                                     java.util.List<UnlockChainWire.RespItem> resp = new java.util.ArrayList<>();
                                                                     for (UnlockChainWire.ReqItem it : items) {
                                                                         if (it.peerIdx >= 0 && it.peerIdx < ring.length && ring[it.peerIdx].equals(local_nick)) {
                                                                             LOGGER.log(Level.SEVERE, "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN asks me to unlock my own slot — extraction, refusing");
                                                                             crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_pocket_extraction"));
                                                                             return;
+                                                                        }
+                                                                        if (commRange != null) {
+                                                                            int reqLast = it.offsetBase + it.chains.size() - 1;
+                                                                            if (it.chains.isEmpty() || it.offsetBase < commRange[0] || reqLast >= commRange[0] + commRange[1]) {
+                                                                                LOGGER.log(Level.SEVERE,
+                                                                                        "ZERO-TRUST: REQ_SRA_UNLOCK_CHAIN offset {0}(+{1}) outside phase {2} community slots [{3},{4}) — host reading the future board, refusing",
+                                                                                        new Object[]{it.offsetBase, it.chains.size(), phase, commRange[0], commRange[0] + commRange[1]});
+                                                                                crupier.triggerSecurityLockdown(Translator.translate("zero_trust.host_board_peek"));
+                                                                                return;
+                                                                            }
                                                                         }
                                                                         java.util.List<String> outChains = new java.util.ArrayList<>();
                                                                         for (int j = 0; j < it.chains.size(); j++) {

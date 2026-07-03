@@ -4788,6 +4788,63 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int UNLOCK_PHASE_RIT2_TURN = 8;
     public static final int UNLOCK_PHASE_RIT2_RIVER = 9;
 
+    // ANTI "leer el board futuro": el host controla offsetBase en REQ_SRA_UNLOCK_CHAIN, así que un
+    // cliente que va a ayudar a revelar community DEBE exigir que el slot REALMENTE pelado caiga en los
+    // slots que ESA fase puede tocar (derivados LOCAL del layout + ring.length, NUNCA fiados del host).
+    // Sin esto el host pide, durante el flop, los slots de turn/river y lee el board antes de tiempo
+    // (GATE-6 no lo pilla: el host se quita su lock el último, en local). Layout IDÉNTICO al de
+    // enviarCartasComunitarias / enviarRabbitComunitarias / SIDE-B: pocketCount=2N; FLOP off=2N+1 (3
+    // cartas), TURN 2N+5, RIVER 2N+7; RIT2 = +RIT2_BOARD_SPAN. Devuelve {primerSlot, numCartas} o null si
+    // la fase NO es community (POCKET: espacio de escalar disjunto + self-strip ya lo cubren).
+    public static int[] communitySlotRange(int phase, int numPlayers) {
+        int streetKind; // 0=flop, 1=turn, 2=river
+        boolean rit2;
+        switch (phase) {
+            case UNLOCK_PHASE_FLOP:
+            case UNLOCK_PHASE_RABBIT_FLOP:
+                streetKind = 0;
+                rit2 = false;
+                break;
+            case UNLOCK_PHASE_TURN:
+            case UNLOCK_PHASE_RABBIT_TURN:
+                streetKind = 1;
+                rit2 = false;
+                break;
+            case UNLOCK_PHASE_RIVER:
+            case UNLOCK_PHASE_RABBIT_RIVER:
+                streetKind = 2;
+                rit2 = false;
+                break;
+            case UNLOCK_PHASE_RIT2_FLOP:
+                streetKind = 0;
+                rit2 = true;
+                break;
+            case UNLOCK_PHASE_RIT2_TURN:
+                streetKind = 1;
+                rit2 = true;
+                break;
+            case UNLOCK_PHASE_RIT2_RIVER:
+                streetKind = 2;
+                rit2 = true;
+                break;
+            default:
+                return null; // POCKET u otra: sin binding community aquí
+        }
+        int offset = numPlayers * 2 + (rit2 ? RIT2_BOARD_SPAN : 0);
+        int numCards;
+        if (streetKind == 0) {
+            offset += 1;                 // flop: burn + 3 cartas
+            numCards = 3;
+        } else if (streetKind == 1) {
+            offset += 1 + 3 + 1;         // turn: burn + 3 + burn + 1
+            numCards = 1;
+        } else {
+            offset += 1 + 3 + 1 + 1 + 1; // river: burn + 3 + burn + turn + burn + 1
+            numCards = 1;
+        }
+        return new int[]{offset, numCards};
+    }
+
     // Tags ya servidas esta mano (clave compuesta phase:peer_idx para todas
     // las phases en v3 — comunitaria también es per-recipient). Bloquea que
     // el host pida el mismo (phase, peer_idx) dos veces engañando con bytes

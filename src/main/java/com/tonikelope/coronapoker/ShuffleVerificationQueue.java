@@ -127,6 +127,9 @@ public final class ShuffleVerificationQueue {
         running = true;
         worker = new Thread(this::runLoop, "shuffle-verify-queue");
         worker.setDaemon(true);
+        // Prioridad rebajada: el chequeo de honestidad del mazo va FUERA del camino crítico
+        // (drena el backlog en background); no debe robar CPU a la partida en PCs lentos.
+        worker.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
         worker.start();
     }
 

@@ -925,11 +925,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
     public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remoto: null
     public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remoto: null
-    // Pruebas generadas en BACKGROUND (durante las apuestas) a partir del registro de arriba.
-    public volatile java.util.List<byte[]> cascade_chain_proofs = null;
-    // Resultado de la verificacion en background: 0 = pendiente, 1 = OK, -1 = FALLO (trampa/bug).
-    // El settlement (antes de mover fichas) espera a que sea != 0 y aborta si es -1.
-    public volatile int cascade_verified = 0;
     // Cierre del flanco ROTACION (dual-lock): estados community tras cada paso de rotacion + un
     // RotationProof (batch-DLEQ) por paso. Junto a la cascada cierra genesis->MEGAPACKET
     // (DualLockCascade). host/bot: prueba generada inline (batch-DLEQ es barato, ~ms); remoto: la
@@ -1311,7 +1306,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 // a TODOS via MEGAPACKET. Si el peer (malicioso o comprometido)
                                 // devuelve bytes que no son puntos de Curve25519, no podemos
                                 // contaminar la cascada — aborta la mano antes de propagar.
-                                if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
+                                if (java.util.Arrays.equals(candidate, currentDeck)) {
+                                    // ZERO-TRUST: un barajado honesto (lock con k!=1 + shuffle) JAMAS devuelve
+                                    // el deck de entrada intacto. Un "identity echo" es un peer manipulado y,
+                                    // ademas, aliasaria el hash(deckOut) del paso previo (colision -> su prueba
+                                    // se aceptaria por el paso EQUIVOCADO y el host difundiria un bundle que falla
+                                    // -> framearia al host honesto). Se rechaza antes de propagar.
+                                    LOGGER.log(Level.SEVERE,
+                                            "ZERO-TRUST: DECK_CASCADE_RESP from {0} echoed its input deck unchanged (no shuffle/lock) — refusing cascade",
+                                            nick);
+                                    fatalError = true;
+                                } else if (candidate.length == 1664 && RistrettoSRA.arePointsValid(candidate)) {
                                     newDeck = candidate;
                                     ok = true;
                                     // Capturar los commitments K del peer (partes[5]=K_pocket,
@@ -1800,10 +1805,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         }
 
-        // Marcar la verificacion de la cadena como PENDIENTE. El calculo pesado se lanza al
-        // FINAL de repartirCartas (despues de repartir), para no pisar la animacion del barajado.
-        this.cascade_verified = 0;
-
         // ROTACIÓN dual-lock de community pieces.
         //
         // Tras la cascade, workingDeck tiene 52 cartas * 32 bytes = 1664 bytes.
@@ -2169,10 +2170,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         }
                         proofs.add(stepProof);
                     }
-                    this.cascade_chain_proofs = proofs;
                     boolean ok = com.tonikelope.coronapoker.crypto.ShuffleCascade
                             .verifyChainWire(bgGenesis, bgDecks, proofs);
-                    this.cascade_verified = ok ? 1 : -1;
                     LOGGER.log(ok ? Level.INFO : Level.SEVERE,
                             "SHUFFLE-VERIFY: background cascade-chain self-check = {0} ({1} steps)",
                             new Object[]{ok, proofs.size()});
@@ -2237,27 +2236,34 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 gfBg.getRegistro().print(
                                         MessageFormat.format(Translator.translate("game.barajado_verificado"), String.valueOf(bgHandOrdinal)));
                             }
-                        }
-                        // Difundir el bundle a los peers para que CADA UNO verifique por su
-                        // cuenta (el host verificandose a si mismo no protege). El peer deriva pocketCount
-                        // LOCAL y recomputa el genesis. NO mandamos pocketCount (no fiarse del host).
-                        // Fire-and-forget; si falla en el peer -> avisa pero permite seguir (no abort duro).
-                        try {
-                            String bundle = "DUALLOCK_BUNDLE#"
-                                    + joinB64(bgDecks.subList(1, bgDecks.size())) + "#"
-                                    + joinB64(proofs) + "#"
-                                    + joinB64(bgRotStates) + "#"
-                                    + joinB64(rotProofsBg);
-                            broadcastGAMECommandFromServer(bundle, null);
-                        } catch (Exception bcEx) {
-                            LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE broadcast failed", bcEx);
+                            // Difundir el bundle a los peers para que CADA UNO verifique por su cuenta (el
+                            // host verificandose a si mismo no protege). El peer deriva pocketCount LOCAL y
+                            // recomputa el genesis. NO mandamos pocketCount (no fiarse del host). Fire-and-forget.
+                            // SOLO si el auto-chequeo (fullOk) pasa: difundir un bundle que falla localmente haria
+                            // que TODOS los peers lo rechazasen y, como quien lo difunde es el host, se leeria como
+                            // "host deshonesto" en toda la mesa (un peer malicioso podria forzar ese fallo). Si no
+                            // pasa NO se difunde -> los peers avisan "missing proof" en el reveal (proteccion intacta).
+                            try {
+                                String bundle = "DUALLOCK_BUNDLE#"
+                                        + joinB64(bgDecks.subList(1, bgDecks.size())) + "#"
+                                        + joinB64(proofs) + "#"
+                                        + joinB64(bgRotStates) + "#"
+                                        + joinB64(rotProofsBg);
+                                broadcastGAMECommandFromServer(bundle, null);
+                            } catch (Exception bcEx) {
+                                LOGGER.log(Level.WARNING, "DUALLOCK_BUNDLE broadcast failed", bcEx);
+                            }
+                        } else {
+                            // Auto-chequeo FALLIDO: NO difundir (evita framear al host). Los peers no reciben
+                            // bundle -> avisan "missing proof" al revelar community. Degradacion = proofless.
+                            LOGGER.log(Level.SEVERE,
+                                    "SHUFFLE-VERIFY: full-chain self-check FAILED — NOT broadcasting bundle (peers will warn 'missing proof'); likely a manipulated peer");
                         }
                     } else {
                         LOGGER.log(Level.INFO,
                                 "SHUFFLE-VERIFY: background full-chain self-check skipped (rotation incomplete or remote step without proof)");
                     }
                 } catch (Exception bgEx) {
-                    this.cascade_verified = -1;
                     LOGGER.log(Level.SEVERE, "SHUFFLE-VERIFY: background cascade self-check threw", bgEx);
                 } finally {
                     bgVerifyThread.setPriority(bgVerifyPrio);

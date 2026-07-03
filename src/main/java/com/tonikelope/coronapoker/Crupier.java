@@ -14708,6 +14708,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    /**
+     * ZERO-TRUST RECOVER (PURA y testeable): en el replay de recuperación el cliente reproduce sus PROPIAS
+     * acciones a partir de la copia que sirve el HOST y, si no llevan record, las RE-FIRMA con su clave. Un
+     * host hostil podía por tanto forjar la decisión/importe de la víctima (firmados luego por ella, limpios
+     * en H_t). Esta función ata el plaintext reproducido (decisión + importe) al record FIRMADO que lo
+     * acompaña, sin depender del estado reconstruido: TIPO (siempre), IMPORTE de BET (partes[2]; el de
+     * CHECK/ALLIN lo fija la regla del juego, no el record, así que no es forjable por aquí), PLAYER_ID y
+     * HAND_ID. Devuelve false (= forja) ante cualquier discrepancia o record/decisión no representables. El
+     * llamador, ante false, sintetiza FOLD en vez de reproducir/re-firmar lo forjado.
+     */
+    static boolean recoveredActionBindsToRecord(byte[] record, int decision, Object betObj, String nick,
+            byte[] expectedHandId) {
+        try {
+            if (CanonicalActionRecord.readActionType(record) != mapJavaActionToWire(decision)) {
+                return false;
+            }
+            if (decision == Player.BET) {
+                double bet = (betObj instanceof Number) ? ((Number) betObj).doubleValue() : 0;
+                if (CanonicalActionRecord.readAmountCents(record)
+                        != CanonicalActionRecord.amountToCents(Helpers.doubleClean(bet))) {
+                    return false;
+                }
+            }
+            if (!java.util.Arrays.equals(CanonicalActionRecord.readPlayerId(record),
+                    CanonicalActionRecord.playerIdFromNick(nick))) {
+                return false;
+            }
+            if (expectedHandId != null
+                    && !java.util.Arrays.equals(CanonicalActionRecord.readHandId(record), expectedHandId)) {
+                return false;
+            }
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private Object[] siguienteAccionLocalRecuperada(String nick) {
 
         Object[] res = null;
@@ -14745,6 +14782,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     res[5] = Boolean.TRUE;
                     if (accion_partes.length >= 5
                             && !"*".equals(accion_partes[3]) && !"*".equals(accion_partes[4])) {
+                        boolean recoverForged = false;
                         try {
                             byte[] recordBytes = Base64.getDecoder().decode(accion_partes[3]);
                             byte[] sigBytes = Base64.getDecoder().decode(accion_partes[4]);
@@ -14755,37 +14793,58 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         | (recordBytes[CanonicalActionRecord.OFFSET_FLAGS + 1] & 0xff);
                                 res[5] = ((flags >> CanonicalActionRecord.FLAG_BIT_VOLUNTARY) & 1) != 0;
                             }
-                            // ZERO-TRUST RECOVER: verificar la FIRMA Ed25519 de la accion recuperada. El host la
-                            // sirve por wire; el path EN VIVO la verifica (resolveActionSignerPubkey + verifyAction),
-                            // pero el replay de recuperacion NO lo hacia -> un host podia inyectar acciones FORJADAS
-                            // ("el rival se retiro", "yo iguale y gane") en la cadena H_t. Si la pubkey del firmante
-                            // esta disponible y la firma NO verifica -> se rechaza el record+sig (el gate de la cadena
-                            // lo trata como no-firmado) + aviso (sospechoso host, rojo). Pubkey null (TOFU race) -> se
-                            // deja pasar, igual que el path en vivo (no es evidencia de ataque).
+                            // ZERO-TRUST RECOVER (HIGH cerrado): (1) verificar la FIRMA Ed25519 (el host sirve el
+                            // record por wire; pubkey null en carrera TOFU -> se salta la firma, no es evidencia de
+                            // ataque). (2) ATAR la decision/importe reproducidos (res[0]/res[1], que MUEVEN dinero y
+                            // que el cliente RE-FIRMA con SU clave aguas abajo) al record firmado (recoveredActionBinds
+                            // ToRecord) -> un host no puede servir un record valido con un plaintext distinto. Ambas
+                            // fallando = forja.
                             byte[] recoverSignerPubkey = resolveActionSignerPubkey(name, Boolean.TRUE.equals(res[5]));
-                            if (recoverSignerPubkey != null && !IdentityManager.verifyAction(recoverSignerPubkey, recordBytes, sigBytes)) {
+                            if (recoverSignerPubkey != null
+                                    && !IdentityManager.verifyAction(recoverSignerPubkey, recordBytes, sigBytes)) {
                                 LOGGER.log(Level.SEVERE,
-                                        "ZERO-TRUST RECOVER: recovered action for {0} FAILED signature verify — host forging, refusing record",
+                                        "ZERO-TRUST RECOVER: recovered action for {0} FAILED signature verify — host forging",
                                         name);
-                                warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
-                                res[3] = null;
-                                res[4] = null;
-                                // Residual conocido (LOW, auditoria): NO sintetizamos FOLD en res[0]/res[1]
-                                // aqui (a diferencia del path en vivo, 10029), es decir la DECISION forjada
-                                // aun se reproduce en la reconstruccion LOCAL del estado. Se acota adrede:
-                                // (1) al anular record+sig el forjado queda FUERA de H_t, asi que no corrompe
-                                // la cadena; (2) el dinero lo gobierna la reconciliacion de saldos con el
-                                // SQLite local (readLocalRecoverBalances), no el replay; (3) el usuario ya
-                                // recibe el aviso rojo y se le recomienda salir. Tocar el replay aqui podria
-                                // divergir la reconstruccion entre peers con distinto estado TOFU, riesgo peor
-                                // que el residual. El fix limpio seria que el cliente sirva sus PROPIOS records
-                                // firmados desde su SQLite en vez de fiarse de la copia del host.
+                                recoverForged = true;
+                            } else if (!recoveredActionBindsToRecord(recordBytes, (int) res[0], res[1], name,
+                                    this.hand_state_chain != null ? this.hand_state_chain.getHandId() : null)) {
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST RECOVER: recovered action for {0} does not bind to its signed record (type/amount/player/hand) — host forging",
+                                        name);
+                                recoverForged = true;
                             }
                         } catch (Exception decodeEx) {
-                            LOGGER.log(Level.WARNING, "Failed to decode persisted record/sig on recovery replay", decodeEx);
+                            LOGGER.log(Level.WARNING, "Failed to decode/verify persisted record/sig on recovery replay", decodeEx);
+                            recoverForged = true;
+                        }
+                        if (recoverForged) {
+                            // NO reproducir la decision/importe forjados NI re-firmarlos con la clave de la
+                            // victima: se sintetiza un FOLD (simetrico en todo receptor via el re-broadcast del
+                            // replay -> converge por omision mutua) y se marca el incidente para el consenso de
+                            // cierre. Cierra el HIGH: antes se anulaba record+sig pero se mantenia res[0]/res[1],
+                            // que el cliente re-firmaba con su clave -> forja LIMPIA en H_t.
+                            warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                            res[0] = Player.FOLD;
+                            res[1] = 0d;
                             res[3] = null;
                             res[4] = null;
+                            res[5] = Boolean.FALSE;
+                            this.saw_invalid_action_sig = true;
                         }
+                    } else if (this.hand_state_chain != null) {
+                        // Record ausente/"*" con la CADENA ACTIVA. En una mano identity-mode TODAS las acciones
+                        // propias llevan record firmado (chain!=null <=> la mano tenia records), asi que un "*"
+                        // aqui = el host quito la firma para forjar la decision/importe (que el cliente re-firmaria
+                        // con SU clave). Mismo trato que el path en vivo (no-record + chain activa -> synth-fold).
+                        // En modo legacy sin cadena (chain==null) se deja pasar (recovery de manos viejas).
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST RECOVER: recovered action for {0} carries no signed record while the chain is active — host forging",
+                                name);
+                        warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
+                        res[0] = Player.FOLD;
+                        res[1] = 0d;
+                        res[5] = Boolean.FALSE;
+                        this.saw_invalid_action_sig = true;
                     }
 
                     break;

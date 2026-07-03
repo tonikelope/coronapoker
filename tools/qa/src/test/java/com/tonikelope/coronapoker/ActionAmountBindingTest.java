@@ -246,4 +246,78 @@ public class ActionAmountBindingTest {
                 recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
                 Player.BET, Double.NaN, 0.0, 0.0, 0.0, PID, HID));
     }
+
+    // ---- RECOVER replay binding (recoveredActionBindsToRecord) -------------
+    // Closes the HIGH: on recovery the client replays its OWN actions from the
+    // host's copy and re-signs them; this state-free bind stops a hostile host
+    // from serving a forged decision/amount for the victim's own action.
+
+    /** A record carrying nick's real PLAYER_ID and a chosen hand id / type / amount. */
+    private static byte[] recoveryRecord(String nick, byte[] handId, int wireActionType, long amountCents) {
+        return CanonicalActionRecord.encode(
+                fill(32, (byte) 0x11), handId, CanonicalActionRecord.playerIdFromNick(nick),
+                CanonicalActionRecord.STREET_PREFLOP, wireActionType, amountCents, false, true);
+    }
+
+    @Test
+    public void recoveredActionBindsWhenTypePlayerHandAndBetMatch() {
+        byte[] hid = fill(16, (byte) 0x77);
+        assertTrue(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 5000L),
+                Player.BET, 50.0, "alice", hid));
+        assertTrue(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_FOLD, 0L),
+                Player.FOLD, 0.0, "alice", hid));
+        // CHECK/ALLIN amount is game-rule derived (not forgeable via the record here),
+        // so only type/player/hand are bound; a nonzero record amount still binds.
+        assertTrue(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_CHECK, 9999L),
+                Player.CHECK, 0.0, "alice", hid));
+    }
+
+    @Test
+    public void recoveredActionRejectsBetAmountForgery() {
+        byte[] hid = fill(16, (byte) 0x77);
+        assertFalse(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 9999L),
+                Player.BET, 50.0, "alice", hid));
+    }
+
+    @Test
+    public void recoveredActionRejectsTypePlayerAndHandForgery() {
+        byte[] hid = fill(16, (byte) 0x77);
+        // Host serves a FOLD record but replays it as a CHECK (both 0 cents) — type binding catches it.
+        assertFalse(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_FOLD, 0L),
+                Player.CHECK, 0.0, "alice", hid));
+        // Record signed for alice, replayed under bob's slot — player binding catches it.
+        assertFalse(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 5000L),
+                Player.BET, 50.0, "bob", hid));
+        // Record from a different hand replayed into this one — hand binding catches it.
+        assertFalse(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 5000L),
+                Player.BET, 50.0, "alice", fill(16, (byte) 0x88)));
+    }
+
+    @Test
+    public void recoveredActionNullHandIdSkipsOnlyTheHandCheck() {
+        byte[] hid = fill(16, (byte) 0x77);
+        assertTrue(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 5000L),
+                Player.BET, 50.0, "alice", null));
+        // type/player still enforced even with a null hand id
+        assertFalse(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 5000L),
+                Player.BET, 50.0, "bob", null));
+    }
+
+    @Test
+    public void recoveredActionUnmappableDecisionIsRejectedNotThrown() {
+        // A garbage decision cannot map to a wire type; the helper returns false (forgery), never throws.
+        byte[] hid = fill(16, (byte) 0x77);
+        assertFalse(Crupier.recoveredActionBindsToRecord(
+                recoveryRecord("alice", hid, CanonicalActionRecord.ACTION_BET, 5000L),
+                -999, 50.0, "alice", hid));
+    }
 }

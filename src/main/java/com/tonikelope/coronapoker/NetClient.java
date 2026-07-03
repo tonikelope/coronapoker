@@ -369,6 +369,34 @@ public class NetClient {
         return null;
     }
 
+    // F2 ANTI-DoS (canal BINARIO lado CLIENTE): simétrico de Participant.binaryInboundAbuse. Un HOST hostil
+    // podría floodear al cliente con frames binarios (voz/stats) y agotar hilos/disco/CPU de SU máquina
+    // (statsSyncOnMessage = 1 hilo+SQLite por frame; nota de voz = escritura a disco + reproducción). Igual
+    // que en el host: token-bucket propio, exceso -> DROP silencioso ANTES de descifrar/procesar. SIN aviso:
+    // un push de stats grande y LEGÍTIMO del host (un cliente con mucho backlog al conectar) es
+    // indistinguible de abuso, y descartar es inofensivo (import idempotente, resync la próxima vez); avisar
+    // acusaría a un host honesto. Único hilo (el lector, serializado en local_client_buffer_read_is) -> sin lock.
+    private static final double BINARY_INBOUND_BURST = 128.0;
+    private static final double BINARY_INBOUND_REFILL_PER_SEC = 8.0;
+    private double binary_inbound_tokens = BINARY_INBOUND_BURST;
+    private long binary_inbound_last_refill_ns = 0L;
+
+    private boolean binaryInboundAbuse() {
+        long now = System.nanoTime();
+        if (binary_inbound_last_refill_ns == 0L) {
+            binary_inbound_last_refill_ns = now;
+        }
+        double elapsed = (now - binary_inbound_last_refill_ns) / 1_000_000_000.0;
+        binary_inbound_last_refill_ns = now;
+        binary_inbound_tokens = Math.min(BINARY_INBOUND_BURST,
+                binary_inbound_tokens + elapsed * BINARY_INBOUND_REFILL_PER_SEC);
+        if (binary_inbound_tokens >= 1.0) {
+            binary_inbound_tokens -= 1.0;
+            return false;
+        }
+        return true; // sin tokens -> exceso de frecuencia
+    }
+
     /**
      * Decrypts and dispatches a binary frame relayed by the host. The host is trusted
      * to label the sender, so a voice note uses the frame's carried nick (parity with
@@ -376,6 +404,10 @@ public class NetClient {
      * frame is dropped without disturbing the command stream.
      */
     private void handleBinaryFromServer(byte[] frameBody) {
+        // F2 ANTI-DoS: rate-limit del canal binario ANTES de descifrar/procesar. Exceso -> DROP silencioso.
+        if (binaryInboundAbuse()) {
+            return;
+        }
         try {
             byte[] payload = Helpers.decryptBytes(frameBody, local_client_aes_key, local_client_hmac_key);
             if (payload == null) {

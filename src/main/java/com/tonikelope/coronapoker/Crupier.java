@@ -9633,12 +9633,48 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return actions;
     }
 
+    // Deadline de progreso compartido por los dos broadcasts SÍNCRONOS de recuperación
+    // (enviarDatosClaveRecuperados / enviarAccionesRecuperadas, ambos en el hilo del dealer). Congela el
+    // reloj mientras la timba esté pausada o haya algún peer reconectando (ese tiempo no cuenta); si no, y
+    // venció el tope, expulsa a los peers que siguen sin confirmar (markExitAndNotify + socketClose) para que
+    // waitSyncConfirmations los saque de pendientes y el reparto de recuperación avance. La mesa sigue.
+    // Devuelve el deadline, refrescado si estaba en pausa/timeout.
+    private long expelStalledRecoveryPeers(ArrayList<String> pendientes, long recoverDeadlineMs) {
+        boolean hold;
+        try {
+            hold = GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout();
+        } catch (Exception ignored) {
+            hold = true;
+        }
+        if (hold) {
+            return System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
+        }
+        if (System.currentTimeMillis() >= recoverDeadlineMs) {
+            for (String nick : new ArrayList<>(pendientes)) {
+                Participant pp = GameFrame.getInstance().getParticipantes().get(nick);
+                if (pp != null && !pp.isExit() && !pp.isCpu()) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST DoS: peer {0} withheld recovery ACK past {1}ms (game running, answering PING) — expelling, table continues",
+                            new Object[]{nick, BROADCAST_PROGRESS_TIMEOUT_MS});
+                    warnMaliciousPeer(nick, "zero_trust.peer_conf_withheld");
+                    pp.markExitAndNotify("withheld recovery ACK (progress deadline)");
+                    try {
+                        pp.socketClose();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
+        return recoverDeadlineMs;
+    }
+
     public void enviarDatosClaveRecuperados(ArrayList<String> pendientes, HashMap<String, Object> datos) {
 
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
+        long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         do {
             ObjectOutputStream out = null;
             try {
@@ -9659,11 +9695,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 this.waitSyncConfirmations(id, pendientes);
 
-                // Sin timeout artificial: si un cliente tarda en confirmar la
-                // recuperación de datos (red lenta, payload grande), esperamos.
-                // La única salida es que el cliente se marque exit por su socket
-                // muerto, en cuyo caso waitSyncConfirmations sale por su cuenta
-                // y la siguiente vuelta del do-while reevalúa pendientes.
+                // Deadline de progreso PAUSE/TIMEOUT-aware (igual que broadcastGAMECommandFromServer). Antes
+                // no había timeout: un peer que contesta PING pero NO confirma la recuperación bloqueaba el
+                // hilo del dealer para siempre. El reloj no corre en pausa ni mientras haya algún peer
+                // reconectando. Al vencer con la timba en marcha se expulsa al que retiene y la mesa sigue
+                // (al quedar exit, waitSyncConfirmations lo saca de pendientes en la vuelta siguiente).
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
@@ -9674,6 +9710,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
+                    recoverDeadlineMs = expelStalledRecoveryPeers(pendientes, recoverDeadlineMs);
                 }
             } catch (IOException ex) {
                 LOGGER.log(Level.SEVERE, null, ex);
@@ -9695,6 +9732,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         byte[] iv = new byte[16];
         Helpers.CSPRNG_GENERATOR.nextBytes(iv);
 
+        long recoverDeadlineMs = System.currentTimeMillis() + BROADCAST_PROGRESS_TIMEOUT_MS;
         do {
             try {
                 String command = "GAME#" + String.valueOf(id) + "#ACTIONDATA#"
@@ -9712,7 +9750,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 this.waitSyncConfirmations(id, pendientes);
 
-                // Sin timeout artificial: ver enviarDatosClaveRecuperados.
+                // Deadline de progreso PAUSE/TIMEOUT-aware: ver enviarDatosClaveRecuperados y el helper
+                // expelStalledRecoveryPeers. Antes no había timeout y un peer que no confirmaba congelaba
+                // el hilo del dealer para siempre.
                 if (!pendientes.isEmpty()) {
                     for (String nick : pendientes) {
                         nick2player.get(nick).setTimeout(true);
@@ -9723,6 +9763,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             }
                         }
                     }
+                    recoverDeadlineMs = expelStalledRecoveryPeers(pendientes, recoverDeadlineMs);
                 }
             } catch (Exception ex) {
                 LOGGER.log(Level.SEVERE, null, ex);

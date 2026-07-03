@@ -174,6 +174,13 @@ public class WaitingRoomFrame extends JFrame {
 
     private final File local_avatar;
     private final Map<String, Participant> participantes = Collections.synchronizedMap(new LinkedHashMap<>());
+
+    // Anti-DoS pre-auth: tope de handshakes (keygen EC + hilo) SIMULTANEOS. El accept loop reserva un slot
+    // ANTES de gastar recursos; agotados, la conexion entrante se descarta al instante (sin hilo ni keygen).
+    // El slot se libera al terminar el handshake (finally en serverSocketHandler). Generoso para una timba
+    // entre colegas (los joins legitimos son pocos); acota un flood de conexiones a MAX_CONCURRENT_HANDSHAKES.
+    public static final int MAX_CONCURRENT_HANDSHAKES = 16;
+    private final java.util.concurrent.Semaphore handshake_slots = new java.util.concurrent.Semaphore(MAX_CONCURRENT_HANDSHAKES);
     private final Object ping_pong_lock = new Object();
     private final Object lock_new_client = new Object();
     private final boolean server;
@@ -3666,7 +3673,10 @@ public class WaitingRoomFrame extends JFrame {
 
     private void serverSocketHandler(final Socket client_socket) {
 
+        // El accept loop ya reservo un slot de handshake (handshake_slots). Este try/finally garantiza que
+        // se libere pase lo que pase (exito, rechazo, excepcion o cualquiera de los early-return del cuerpo).
         Helpers.threadRun(() -> {
+            try {
 
             LOGGER.log(Level.INFO, "A client is trying to connect...");
             net_server.getClient_threads().add(Thread.currentThread().threadId());
@@ -4175,6 +4185,11 @@ public class WaitingRoomFrame extends JFrame {
                 }
             }
             net_server.getClient_threads().remove(Thread.currentThread().threadId());
+            } finally {
+                // Anti-DoS pre-auth: libera el slot reservado en el accept loop, terminase como terminase
+                // el handshake. Sin esto un handshake que sale por return/excepcion filtraria el permiso.
+                handshake_slots.release();
+            }
         });
 
     }
@@ -4215,7 +4230,20 @@ public class WaitingRoomFrame extends JFrame {
                     ss.setReuseAddress(true);
                     ss.bind(new InetSocketAddress(server_port));
                     while (!ss.isClosed()) {
-                        serverSocketHandler(ss.accept());
+                        Socket incoming = ss.accept();
+                        // Anti-DoS pre-auth: solo procesamos el handshake si hay slot libre. Agotados,
+                        // descartamos la conexion SIN gastar hilo ni keygen EC (el peer legitimo reintenta).
+                        if (handshake_slots.tryAcquire()) {
+                            serverSocketHandler(incoming);
+                        } else {
+                            LOGGER.log(Level.WARNING,
+                                    "Handshake slots exhausted ({0}) — dropping an inbound connection (anti-DoS pre-auth flood)",
+                                    MAX_CONCURRENT_HANDSHAKES);
+                            try {
+                                incoming.close();
+                            } catch (Exception ignored) {
+                            }
+                        }
                     }
                 } catch (IOException ex) {
                     if (net_server.getServer_socket() == null) {

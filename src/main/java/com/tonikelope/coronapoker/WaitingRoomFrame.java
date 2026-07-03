@@ -2472,18 +2472,28 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // deck cascadeado, para que el host los agregue y se anclen en H_0.
                                                                     String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
                                                                     String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    // Prueba de barajado verificable de ESTE paso de cascada
-                                                                    // (deckOut = shuffle(k·deckIn)). El host la agrega a la cadena que TODOS
-                                                                    // verifican, así un host modificado no puede colar una carta. "" si la
-                                                                    // generación falla (peer legacy / degradado): el host lo trata como
-                                                                    // ausente (sin enforcement todavía).
-                                                                    int myPermN = incomingDeck.length / 32;
-                                                                    int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
-                                                                    byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
-                                                                            .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
-                                                                    String proofB64 = (cascadeProof != null)
-                                                                            ? Base64.getEncoder().encodeToString(cascadeProof) : "";
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64 + "#" + proofB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    // B1: mandar el RESP con la baraja + commitments YA, con la prueba VACÍA, para
+                                                                    // que el host NO espere el prove (132/377/8900 ms) DENTRO del reparto. La prueba
+                                                                    // de barajado (deckOut = shuffle(k·deckIn)) viaja aparte, ASYNC, en un
+                                                                    // DECK_CASCADE_PROOF emparejado por hash(deckOut) (ver Crupier.collectAsyncCascadeProofs).
+                                                                    // El host la agrega a la cadena que TODOS verifican, así un host modificado no
+                                                                    // puede colar una carta. Si su generación falla o no llega a tiempo, el host la
+                                                                    // trata como ausente (degradación = peer proofless de hoy, sin enforcement).
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64 + "#", net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    try {
+                                                                        int myPermN = incomingDeck.length / 32;
+                                                                        int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);
+                                                                        byte[] cascadeProof = com.tonikelope.coronapoker.crypto.ShuffleCascade
+                                                                                .proveStepWire(incomingDeck, shuffled, myPerm, lockScalar);
+                                                                        if (cascadeProof != null) {
+                                                                            String deckHashB64 = Base64.getEncoder().encodeToString(
+                                                                                    java.security.MessageDigest.getInstance("SHA-256").digest(shuffled));
+                                                                            int proofId = Helpers.CSPRNG_GENERATOR.nextInt();
+                                                                            writeCommandToServer(Helpers.encryptCommand("GAME#" + proofId + "#DECK_CASCADE_PROOF#" + deckHashB64 + "#" + Base64.getEncoder().encodeToString(cascadeProof), net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                        }
+                                                                    } catch (Exception proofEx) {
+                                                                        LOGGER.log(Level.WARNING, "Failed to generate/send async cascade proof (host treats as proofless)", proofEx);
+                                                                    }
                                                                 } catch (Exception e) {
                                                                     LOGGER.log(Level.SEVERE, "Failed to process DECK_CASCADE_REQ; host will time out and abort the hand", e);
                                                                 }

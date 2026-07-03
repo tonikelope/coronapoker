@@ -453,6 +453,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public static final int PAUSA_ENTRE_MANOS_TEST = 1;
     public static final int PAUSA_ANTES_DE_SHOWDOWN = 1; // Segundos
     public static final int NEW_HAND_READY_WAIT_TIMEOUT = 30000;
+    // Deadline de PROGRESO para HAND_READY (arranque de la mano siguiente). PAUSE-AWARE: mientras la timba
+    // esté PAUSADA el reloj no corre (un peer legítimo puede callar HAND_READY porque el juego está en
+    // pausa), así que solo cuenta el tiempo con la timba EN MARCHA. Muy generoso para cubrir clientes lentos
+    // en CPU o red y las animaciones de fin de mano. Al vencer se expulsa SOLO al peer que retiene (la mesa
+    // sigue). Antes NO había timeout y un peer que contesta PING pero no manda HAND_READY congelaba la mesa.
+    public static final int HAND_READY_PROGRESS_TIMEOUT_MS = 120000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
@@ -6830,10 +6836,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         this.local_hand_seed = jvm_entropy;
 
         if (GameFrame.getInstance().isPartida_local()) {
-            // Espera a que todos los humanos conectados envíen HAND_READY. Sin
-            // timeout artificial — clientes lentos en la red o en CPU NO se kickean;
-            // la única salida del bucle es que estén ready o que su socket muera
-            // (isExit() lo refleja, gestionado por su propio Participant.run()).
+            // Espera a que todos los humanos conectados envíen HAND_READY. Deadline de PROGRESO
+            // PAUSE-AWARE (HAND_READY_PROGRESS_TIMEOUT_MS): antes NO había timeout y un peer que contesta
+            // PING pero no manda HAND_READY congelaba el arranque de la mano para SIEMPRE. Ahora, si un peer
+            // retiene HAND_READY con la timba EN MARCHA más allá del tope, se le expulsa y la mesa sigue. El
+            // reloj NO corre mientras la timba está PAUSADA (un peer que calla porque el juego está en pausa
+            // nunca se expulsa) y el tope es enorme, así que un cliente simplemente lento tampoco. Un peer
+            // caído de verdad sale por isExit() (socket muerto), no por este deadline.
             //
             // Se espera a TODOS los humanos no exitados, incluidos joiners pasivos
             // (calentando) y espectadores (bust). Aunque no participen de la
@@ -6846,25 +6855,57 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // quedara fuera, un HAND_READY podía llegar (setNew_hand_ready +
             // notifyAll) justo entre el chequeo y el wait y se perdía la
             // notificación, durmiendo el NEW_HAND_READY_WAIT completo (~1s) aunque
-            // el peer ya estuviera listo.
-            synchronized (lock_nueva_mano) {
-                boolean ready = false;
-                while (!ready && !isFin_de_la_transmision()) {
-                    ready = true;
-                    for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
-                        Participant p = entry.getValue();
-                        if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())
-                                && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
-                            ready = false;
+            // el peer ya estuviera listo. La expulsión al vencer el deadline se hace FUERA del synchronized
+            // (markExitAndNotify anida otros monitores; se evita anidarlos bajo lock_nueva_mano).
+            boolean allReady = false;
+            while (!allReady && !isFin_de_la_transmision()) {
+                Participant expel = null;
+                synchronized (lock_nueva_mano) {
+                    long deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
+                    while (!isFin_de_la_transmision()) {
+                        boolean paused = false;
+                        try {
+                            paused = GameFrame.getInstance().isTimba_pausada();
+                        } catch (Exception ignored) {
+                        }
+                        if (paused) {
+                            deadlineMs = System.currentTimeMillis() + HAND_READY_PROGRESS_TIMEOUT_MS;
+                        }
+                        Participant stalling = null;
+                        for (Map.Entry<String, Participant> entry : GameFrame.getInstance().getParticipantes().entrySet()) {
+                            Participant p = entry.getValue();
+                            if (p != null && !p.getNick().equals(GameFrame.getInstance().getNick_local())
+                                    && !p.isCpu() && !p.isExit() && p.getNew_hand_ready() <= this.conta_mano) {
+                                stalling = p;
+                                break;
+                            }
+                        }
+                        if (stalling == null) {
+                            allReady = true;
                             break;
                         }
-                    }
-                    if (!ready) {
+                        long remaining = deadlineMs - System.currentTimeMillis();
+                        if (remaining <= 0) {
+                            expel = stalling; // se expulsa FUERA del lock
+                            break;
+                        }
                         try {
-                            lock_nueva_mano.wait(NEW_HAND_READY_WAIT);
+                            lock_nueva_mano.wait(Math.min(NEW_HAND_READY_WAIT, Math.max(1, remaining)));
                         } catch (InterruptedException ex) {
                         }
                     }
+                }
+                if (expel != null) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST DoS: peer {0} withheld HAND_READY past {1}ms (game running, answering PING) — expelling, table continues",
+                            new Object[]{expel.getNick(), HAND_READY_PROGRESS_TIMEOUT_MS});
+                    warnMaliciousPeer(expel.getNick(), "zero_trust.peer_hand_ready_withheld");
+                    expel.markExitAndNotify("withheld HAND_READY (progress deadline)");
+                    try {
+                        expel.socketClose();
+                    } catch (Exception ignored) {
+                    }
+                    // El outer while re-entra: el expulsado ya cuenta como exit y se re-evalúa el resto.
                 }
             }
 

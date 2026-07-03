@@ -3633,6 +3633,37 @@ public class WaitingRoomFrame extends JFrame {
         }
     }
 
+    /**
+     * Identity/consensus guard: returns true when {@code client_nick} would collapse
+     * to the same canonical PLAYER_ID as an already-seated participant (the host
+     * included — its own nick lives in {@code participantes} with a null value).
+     *
+     * <p>The settlement layer derives PLAYER_ID from NFC(nick) (see
+     * {@link CanonicalActionRecord#playerIdFromNick}). Two raw nicks whose bytes
+     * differ but whose NFC form is identical — e.g. a precomposed «é» (U+00E9)
+     * vs. «e» + combining acute (U+0301) — share a single PLAYER_ID. The exact-string
+     * NICKFAIL check upstream does NOT catch that (the strings differ), so both would
+     * seat; the SettlementRecord then rejects the second as a duplicate id and DISABLES
+     * settlement consensus for the whole table. Rejecting the join keeps every seated
+     * identity distinct at the PLAYER_ID level.
+     *
+     * <p>Uses the same NFC form (no trim) as {@code playerIdFromNick} / the JOIN
+     * self-sig payload, so it flags exactly the pairs that collide in settlement and
+     * nothing else. Compares KEYS only, under the map's monitor (a synchronizedMap
+     * iterator is not otherwise safe against a concurrent join).
+     */
+    private boolean nickCollisionNFC(String client_nick) {
+        String nfc_incoming = java.text.Normalizer.normalize(client_nick, java.text.Normalizer.Form.NFC);
+        synchronized (participantes) {
+            for (String existing : participantes.keySet()) {
+                if (java.text.Normalizer.normalize(existing, java.text.Normalizer.Form.NFC).equals(nfc_incoming)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private void serverSocketHandler(final Socket client_socket) {
 
         Helpers.threadRun(() -> {
@@ -3938,7 +3969,10 @@ public class WaitingRoomFrame extends JFrame {
                             client_socket.close();
                         } catch (Exception ex) {
                         }
-                    } else if (participantes.containsKey(client_nick)) {
+                    } else if (participantes.containsKey(client_nick) || nickCollisionNFC(client_nick)) {
+                        // NICKFAIL cubre el nick idéntico Y el que colisiona en forma NFC
+                        // (mismo PLAYER_ID → rompería el consenso de settlement). Ver
+                        // nickCollisionNFC.
                         writeCommandFromServer(Helpers.encryptCommand("NICKFAIL", aes_key, hmac_key), client_socket);
                         try {
                             client_socket.close();
@@ -4045,7 +4079,8 @@ public class WaitingRoomFrame extends JFrame {
                                 if (participantes.size() < MAX_PARTICIPANTES
                                         && !WaitingRoomFrame.getInstance().isPartida_empezando()
                                         && !WaitingRoomFrame.getInstance().isPartida_empezada()
-                                        && !participantes.containsKey(client_nick)) {
+                                        && !participantes.containsKey(client_nick)
+                                        && !nickCollisionNFC(client_nick)) {
                                     // Handshake completado: el Participant toma control del socket
                                     // y sus reads normales (PING/PONG, GAME, etc.) no deben heredar
                                     // el deadline del handshake.

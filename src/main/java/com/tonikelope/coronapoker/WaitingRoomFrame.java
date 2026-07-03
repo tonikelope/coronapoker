@@ -2472,14 +2472,14 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // deck cascadeado, para que el host los agregue y se anclen en H_0.
                                                                     String kPocketB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(lockScalar));
                                                                     String kCommunityB64 = Base64.getEncoder().encodeToString(RistrettoSRA.commitment(communityLockScalar));
-                                                                    // B1: mandar el RESP con la baraja + commitments YA, con la prueba VACÍA, para
+                                                                    // B1: mandar el RESP con la baraja + commitments YA (sin la prueba), para
                                                                     // que el host NO espere el prove (132/377/8900 ms) DENTRO del reparto. La prueba
                                                                     // de barajado (deckOut = shuffle(k·deckIn)) viaja aparte, ASYNC, en un
                                                                     // DECK_CASCADE_PROOF emparejado por hash(deckOut) (ver Crupier.collectAsyncCascadeProofs).
                                                                     // El host la agrega a la cadena que TODOS verifican, así un host modificado no
                                                                     // puede colar una carta. Si su generación falla o no llega a tiempo, el host la
                                                                     // trata como ausente (degradación = peer proofless de hoy, sin enforcement).
-                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64 + "#", net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
+                                                                    writeCommandToServer(Helpers.encryptCommand("GAME#" + respId + "#DECK_CASCADE_RESP#" + myNickB64 + "#" + b64Deck + "#" + kPocketB64 + "#" + kCommunityB64, net_client.getLocal_client_aes_key(), net_client.getLocal_client_hmac_key()));
                                                                     try {
                                                                         int myPermN = incomingDeck.length / 32;
                                                                         int[] myPerm = DeterministicShuffle.shufflePermutation(myPermN, mySeed);

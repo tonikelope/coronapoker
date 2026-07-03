@@ -47,4 +47,34 @@ public class RistrettoSRARotationSingleLockTest {
                     "trial " + trial + ": single-lock product must equal two sequential locks byte-for-byte");
         }
     }
+
+    // Boundary scalars: exercises the scalarToBytes/bytesToScalar round-trip at the edges
+    // (s=1, L-1, small values with leading-zero LE bytes, 2^200) plus the algebra, which the
+    // random test only hits statistically.
+    @Test
+    public void twoPassEqualsProductBoundaryScalars() {
+        BigInteger L = RistrettoSRA.L;
+        BigInteger[] vals = {
+            BigInteger.ONE, BigInteger.TWO, BigInteger.valueOf(5), BigInteger.valueOf(255),
+            L.subtract(BigInteger.ONE), L.subtract(BigInteger.TWO), BigInteger.ONE.shiftLeft(200)
+        };
+        byte[] deck = RistrettoSRA.getGenesisDeck();
+        for (BigInteger u : vals) {
+            for (BigInteger k : vals) {
+                byte[] unlock = RistrettoSRA.scalarToBytes(u);
+                byte[] lock = RistrettoSRA.scalarToBytes(k);
+
+                byte[] twoPass = RistrettoSRA.applyCommutativeLock(deck, unlock);
+                twoPass = RistrettoSRA.applyCommutativeLock(twoPass, lock);
+
+                BigInteger product = u.multiply(k).mod(L);
+                byte[] singlePass = RistrettoSRA.applyCommutativeLock(deck, RistrettoSRA.scalarToBytes(product));
+
+                assertNotNull(twoPass, "two-pass null (u=" + u + ", k=" + k + ")");
+                assertNotNull(singlePass, "single-pass null (u=" + u + ", k=" + k + ")");
+                assertArrayEquals(twoPass, singlePass,
+                        "boundary u=" + u + " k=" + k + ": single-lock product must equal two passes");
+            }
+        }
+    }
 }

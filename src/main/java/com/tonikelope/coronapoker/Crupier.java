@@ -925,14 +925,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     public volatile java.util.List<byte[]> cascade_chain_decks = null;
     public volatile java.util.List<int[]> cascade_step_perm = null;          // host/bot: perm; remoto: null
     public volatile java.util.List<byte[]> cascade_step_k = null;            // host/bot: k; remoto: null
-    public volatile java.util.List<byte[]> cascade_step_remote_proof = null; // remoto: prueba; host/bot: null
     // Pruebas generadas en BACKGROUND (durante las apuestas) a partir del registro de arriba.
     public volatile java.util.List<byte[]> cascade_chain_proofs = null;
     // Resultado de la verificacion en background: 0 = pendiente, 1 = OK, -1 = FALLO (trampa/bug).
     // El settlement (antes de mover fichas) espera a que sea != 0 y aborta si es -1.
     public volatile int cascade_verified = 0;
-    // Prueba del último paso remoto, parseada en requestRemoteCascade y leída por el bucle.
-    private volatile byte[] last_remote_cascade_proof = null;
     // Cierre del flanco ROTACION (dual-lock): estados community tras cada paso de rotacion + un
     // RotationProof (batch-DLEQ) por paso. Junto a la cascada cierra genesis->MEGAPACKET
     // (DualLockCascade). host/bot: prueba generada inline (batch-DLEQ es barato, ~ms); remoto: la
@@ -1201,12 +1198,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     //    (first-wins) -> mazo sin verificar / falso "host deshonesto". Una basura se descarta y se
     //    sigue esperando la buena.
     private java.util.Map<String, byte[]> collectAsyncCascadeProofs(
-            java.util.List<byte[]> decks, java.util.List<int[]> perms, java.util.List<byte[]> inlineProofs) {
+            java.util.List<byte[]> decks, java.util.List<int[]> perms) {
         java.util.Map<String, byte[]> collected = new java.util.HashMap<>();
         java.util.Map<String, Integer> hashToStep = new java.util.HashMap<>();
         for (int s = 0; s < perms.size(); s++) {
-            // Paso remoto (perm null) sin prueba inline (cliente nuevo): su prueba viene async.
-            if (perms.get(s) == null && inlineProofs.get(s) == null) {
+            // Paso remoto (perm null): su prueba de barajado viene async.
+            if (perms.get(s) == null) {
                 String h = cascadeDeckHash(decks.get(s + 1));
                 if (h != null) {
                     hashToStep.put(h, s);
@@ -1257,14 +1254,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             if (collected.size() < hashToStep.size()) {
+                // Espera acotada INCONDICIONAL (250 ms) como el resto de bucles de espera del host:
+                // el throttle es el timeout del wait. NO guardar con isEmpty(): como re-encolamos todo
+                // lo que no es NUESTRO proof, la cola casi nunca está vacía durante las apuestas -> con
+                // el guard el while giraría sin dormir (busy-spin, 100% núcleo).
                 synchronized (this.getReceived_commands()) {
-                    if (this.getReceived_commands().isEmpty()) {
-                        try {
-                            this.received_commands.wait(WAIT_QUEUES);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            break;
-                        }
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
                     }
                 }
             }
@@ -1341,17 +1340,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                         LOGGER.log(Level.SEVERE, "ZERO-TRUST: DECK_CASCADE_RESP from {0} carries no commitments — refusing", nick);
                                         fatalError = true;
                                         ok = false;
-                                    }
-                                    // Prueba de barajado de ESTE paso remoto (campo extra partes[7]).
-                                    // "" o ausente -> null (el bucle acumula la cadena; un paso sin prueba
-                                    // deja el full-chain verify pendiente, no rompe la mano).
-                                    last_remote_cascade_proof = null;
-                                    if (partes.length >= 8 && partes[7] != null && !partes[7].isEmpty()) {
-                                        try {
-                                            last_remote_cascade_proof = Base64.getDecoder().decode(partes[7]);
-                                        } catch (Exception exProof) {
-                                            last_remote_cascade_proof = null;
-                                        }
                                     }
                                 } else {
                                     LOGGER.log(Level.SEVERE,
@@ -1724,7 +1712,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             java.util.List<byte[]> chainDecks = new java.util.ArrayList<>();
             java.util.List<int[]> chainStepPerm = new java.util.ArrayList<>();   // host/bot: perm; remoto: null
             java.util.List<byte[]> chainStepK = new java.util.ArrayList<>();      // host/bot: k; remoto: null
-            java.util.List<byte[]> chainStepRemoteProof = new java.util.ArrayList<>(); // remoto: prueba; host/bot: null
             chainDecks.add(cascadeGenesis);
 
             workingDeck = RistrettoSRA.applyCommutativeLock(cascadeGenesis, this.local_sra_lock);
@@ -1732,7 +1719,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Paso del host: registrar (perm, k) para generar su prueba luego en background.
             chainStepPerm.add(DeterministicShuffle.shufflePermutation(cascadeGenesis.length / 32, this.local_hand_seed));
             chainStepK.add(this.local_sra_lock);
-            chainStepRemoteProof.add(null);
             chainDecks.add(workingDeck);
 
             boolean restart = false;
@@ -1763,16 +1749,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // Registrar el paso del bot (perm, k); su prueba va en background.
                         chainStepPerm.add(DeterministicShuffle.shufflePermutation(workingDeck.length / 32, botSeed));
                         chainStepK.add(botLock);
-                        chainStepRemoteProof.add(null);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
                         byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
-                            // Registrar la prueba del paso remoto (ya la genero el cliente).
+                            // Paso remoto: sin perm/k local; su prueba de barajado llega ASYNC
+                            // (DECK_CASCADE_PROOF) y se empareja por hash(deckOut) en background.
                             chainStepPerm.add(null);
                             chainStepK.add(null);
-                            chainStepRemoteProof.add(last_remote_cascade_proof);
                             chainDecks.add(workingDeck);
                         } else if (p.isExit()) {
                             // El peer cayó durante el cascade (su Participant lo marcó
@@ -1804,13 +1789,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (!restart) {
                 // SOLO REGISTRAR la cadena (decks + datos de cada paso: perm/k del host
-                // y bots, prueba ya hecha de los remotos). NO se genera ni verifica nada aqui -> CERO
-                // CPU extra en el barajado (antes bloqueaba el hilo del juego y se congelaba la barra
-                // de tiempo). La generacion+verificacion corre luego en background.
+                // y bots; los pasos remotos sin perm/k, su prueba llega async). NO se genera ni
+                // verifica nada aqui -> CERO CPU extra en el barajado (antes bloqueaba el hilo del
+                // juego y se congelaba la barra de tiempo). La generacion+verificacion corre luego
+                // en background.
                 this.cascade_chain_decks = chainDecks;
                 this.cascade_step_perm = chainStepPerm;
                 this.cascade_step_k = chainStepK;
-                this.cascade_step_remote_proof = chainStepRemoteProof;
                 break;
             }
         }
@@ -2149,7 +2134,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;
         final java.util.List<byte[]> bgK = this.cascade_step_k;
-        final java.util.List<byte[]> bgRemote = this.cascade_step_remote_proof;
         final int bgPocketCount = numPlayersFinal * 2;
         final byte[] bgMega = this.local_mega_packet;
         final java.util.List<byte[]> bgRotStates = this.cascade_rotation_states;
@@ -2166,11 +2150,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 bgVerifyThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
                 try {
                     // B1: recoger primero las pruebas de barajado ASYNC de los pasos remotos. Un
-                    // cliente nuevo manda su deck+commitments YA y la prueba APARTE (DECK_CASCADE_PROOF),
+                    // cliente manda su deck+commitments YA y la prueba APARTE (DECK_CASCADE_PROOF),
                     // para no bloquear el reparto con su prove (132/377/8900 ms). Aquí, fuera del path de
-                    // reparto, se esperan (acotado) emparejadas por hash del deckOut. Un cliente antiguo
-                    // manda la prueba inline en el RESP (bgRemote != null) y se usa tal cual.
-                    java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(bgDecks, bgPerm, bgRemote);
+                    // reparto, se esperan (acotado) emparejadas por hash del deckOut.
+                    java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(bgDecks, bgPerm);
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
                         byte[] stepProof;
@@ -2178,11 +2161,8 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             // Paso del host o de un bot: la prueba se genera localmente aquí.
                             stepProof = com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
                                     bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s));
-                        } else if (bgRemote.get(s) != null) {
-                            // Paso remoto con prueba INLINE en el RESP (cliente antiguo).
-                            stepProof = bgRemote.get(s);
                         } else {
-                            // Paso remoto con prueba ASYNC (cliente nuevo): emparejada por hash(deckOut).
+                            // Paso remoto: prueba ASYNC emparejada por hash(deckOut).
                             // null si no llegó en la ventana -> degradación = peer proofless de hoy.
                             String h = cascadeDeckHash(bgDecks.get(s + 1));
                             stepProof = (h != null) ? asyncProofs.get(h) : null;

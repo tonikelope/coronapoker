@@ -719,6 +719,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 dual_lock_verified_megapacket = megapacket;
                             }
                             LOGGER.log(Level.INFO, "SHUFFLE-VERIFY: deck verified OK (hand {0})", handId);
+                            // Registro: barajado verificado (posiblemente TARDE, incluso de una mano ya
+                            // pasada — la cola es persistente). Usa el ordinal del Job (handId), no getMano(),
+                            // que ya podría apuntar a otra mano. Guarda por correr en el hilo de la cola.
+                            GameFrame gf = GameFrame.getInstance();
+                            if (gf != null && gf.getRegistro() != null) {
+                                gf.getRegistro().print(
+                                        MessageFormat.format(Translator.translate("game.barajado_verificado"), String.valueOf(handId)));
+                            }
                         }
 
                         @Override
@@ -2033,6 +2041,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         // lectura (avisar+permitir-seguir si falla, no abort duro). El anti-peek de una carta de jugador
         // VIVO ya lo da la cadena DLEQ en tiempo real (self-strip + anclaje + GATE 6 en WaitingRoomFrame).
         final byte[] bgGenesis = RistrettoSRA.getGenesisDeck();
+        final int bgHandOrdinal = getMano(); // ordinal de ESTA mano, para el "barajado verificado" del registro
         final java.util.List<byte[]> bgDecks = this.cascade_chain_decks;
         final java.util.List<int[]> bgPerm = this.cascade_step_perm;
         final java.util.List<byte[]> bgK = this.cascade_step_k;
@@ -2112,6 +2121,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         if (fullOk) {
                             // El host tambien firma "mazo verificado" en su receipt (su auto-verify).
                             this.dual_lock_verified_megapacket = bgMega;
+                            // Registro: barajado (honestidad del mazo) verificado localmente por el host.
+                            GameFrame gfBg = GameFrame.getInstance();
+                            if (gfBg != null && gfBg.getRegistro() != null) {
+                                gfBg.getRegistro().print(
+                                        MessageFormat.format(Translator.translate("game.barajado_verificado"), String.valueOf(bgHandOrdinal)));
+                            }
                         }
                         // Difundir el bundle a los peers para que CADA UNO verifique por su
                         // cuenta (el host verificandose a si mismo no protege). El peer deriva pocketCount
@@ -8921,6 +8936,9 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             final byte[] handIdSnap = chainSnap.getHandId();
             final byte[] hFinalSnap = chainSnap.getCurrentHash();
+            // Ordinal de la mano (HAND X) para los mensajes del registro; se fija aquí, al cerrar la
+            // mano, para que un readyForNextHand posterior no lo desplace.
+            final int handOrdinalSnap = getMano();
 
             // Build our own receipt and emit it. Identity-not-ready is logged but does
             // not prevent the loop below from collecting others' receipts (we will appear
@@ -9046,7 +9064,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             // Final refresh: a peer might have exited between the last loop check
             // and now, especially after the wait wake-up that broke the loop.
             expected = computeExpectedConsensusSigners();
-            runConsensusCheck(receipts, expected, handIdSnap, hFinalSnap);
+            runConsensusCheck(receipts, expected, handIdSnap, hFinalSnap, handOrdinalSnap);
         } catch (RuntimeException ex) {
             LOGGER.log(Level.SEVERE, "runSettlementConsensus failed", ex);
         }
@@ -9245,7 +9263,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * </ul>
      */
     private void runConsensusCheck(java.util.Map<String, byte[]> receipts, Set<String> expected,
-            byte[] handIdLocal, byte[] hFinalLocal) {
+            byte[] handIdLocal, byte[] hFinalLocal, int handOrdinal) {
         Set<String> missing = new LinkedHashSet<>();
         Set<String> divergent = new LinkedHashSet<>();
         Set<String> invalidSigReporters = new LinkedHashSet<>();
@@ -9388,6 +9406,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             LOGGER.log(Level.WARNING,
                     "Hand {0} verified; shuffle proof still pending (slow peer) for: [{1}], local_H={2}",
                     new Object[]{sqlite_id_hand, deckList, localHB64});
+            // Aviso AMARILLO en el registro (NO popup, no acusa de nada): el barajado de esta mano
+            // aún no se pudo confirmar por cliente(s) lento(s); la verificación diferida sigue viva y
+            // emitirá su "barajado verificado" cuando termine.
+            GameFrame.getInstance().getRegistro().print(
+                    MessageFormat.format(Translator.translate("game.barajado_pendiente"), String.valueOf(handOrdinal)));
             insertDisputedHandRow(receipts, hFinalLocal, "DECK_UNVERIFIED");
         } else {
             LOGGER.log(Level.INFO,
@@ -9428,7 +9451,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         new Object[]{sqlite_id_hand, String.join(", ", unverifiedTofu)});
             }
             GameFrame.getInstance().getRegistro().print(
-                    Translator.translate("game.mano_verificada_consenso"));
+                    MessageFormat.format(Translator.translate("game.mano_verificada_consenso"), String.valueOf(handOrdinal)));
         }
     }
 

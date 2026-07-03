@@ -473,7 +473,12 @@ public final class GameLogDialog extends JDialog {
                 "game.mano_verificacion_host_sin_prueba", "game.firma_accion_invalida"}) {
                 addCategoryRule(rules, k, ST_ALERT);
             }
-            addCategoryRule(rules, "game.mano_verificada_consenso", ST_WIN);
+            // El mensaje de consenso lleva ahora el ordinal ({0}), así que la regla casa por
+            // una sub-frase FIJA (el _tag) en vez del texto completo. Igual para las dos líneas
+            // del barajado: verde "verificado", amarillo (ST_BLIND) "sin verificar todavía".
+            addCategoryRule(rules, "game.mano_verificada_consenso_tag", ST_WIN);
+            addCategoryRule(rules, "game.barajado_verificado_tag", ST_WIN);
+            addCategoryRule(rules, "game.barajado_pendiente_tag", ST_BLIND);
             for (String k : new String[]{"game.gana_bote_2", "game.gana_bote_principal", "game.gana_bote_secundario", "game.gana_bote"}) {
                 addCategoryRule(rules, k, ST_WIN);
             }

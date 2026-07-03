@@ -17,6 +17,7 @@ package com.tonikelope.coronapoker;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -133,5 +134,89 @@ public class ActionAmountBindingTest {
             assertEquals(cents, roundTripAmount(cents, false));
         }
         assertTrue(roundTripAmount(0L, true) == 0L);
+    }
+
+    // ---- full binding: TYPE + AMOUNT (signedRecordBindsToAction) ----------
+
+    /** Builds a record carrying a chosen wire ACTION_TYPE and amount. */
+    private static byte[] recordWith(int wireActionType, long amountCents, boolean isAllin) {
+        return CanonicalActionRecord.encode(
+                fill(32, (byte) 0x11), fill(16, (byte) 0x22), fill(32, (byte) 0x33),
+                CanonicalActionRecord.STREET_PREFLOP, wireActionType, amountCents, isAllin, true);
+    }
+
+    @Test
+    public void bindsWhenTypeAndAmountBothMatchTheAction() {
+        // FOLD: type ACTION_FOLD + amount 0.
+        assertTrue(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_FOLD, 0L, false),
+                Player.FOLD, 0.0, 5.0, 100.0, 12.34));
+        // CHECK/CALL: type ACTION_CHECK + amount == apuesta_actual.
+        assertTrue(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_CHECK, 2000L, false),
+                Player.CHECK, 0.0, 0.0, 0.0, 20.0));
+        // BET: type ACTION_BET + amount == wire target.
+        assertTrue(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
+                Player.BET, 50.0, 0.0, 0.0, 0.0));
+        // ALLIN: type ACTION_ALLIN + amount == bet + stack.
+        assertTrue(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_ALLIN, 10000L, true),
+                Player.ALLIN, 0.0, 40.0, 60.0, 0.0));
+    }
+
+    @Test
+    public void rejectsTypeMismatchEvenWhenAmountMatches() {
+        // The key case the amount alone cannot catch: FOLD and a CHECK at
+        // apuesta_actual=0 BOTH carry amount 0. Binding the action TYPE tells
+        // them apart. A record that signs CHECK while the player played FOLD
+        // (both 0 cents) must NOT bind.
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_CHECK, 0L, false),
+                Player.FOLD, 0.0, 5.0, 100.0, 0.0));
+        // And the reverse: signs FOLD while the player checked at 0.
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_FOLD, 0L, false),
+                Player.CHECK, 0.0, 5.0, 100.0, 0.0));
+        // Signs BET while the player went all-in for the same cents.
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 10000L, false),
+                Player.ALLIN, 0.0, 40.0, 60.0, 0.0));
+    }
+
+    @Test
+    public void rejectsAmountMismatchWithMatchingType() {
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 9999L, false),
+                Player.BET, 50.0, 0.0, 0.0, 0.0));
+        assertFalse(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_CHECK, 1L, false),
+                Player.CHECK, 0.0, 0.0, 0.0, 40.0));
+    }
+
+    @Test
+    public void allInBindingIgnoresTheCinematicStringInBetSlot() {
+        // On ALLIN the wire bet slot is overloaded with a cinematic String; the
+        // binding must ignore it and use bet+stack, never throw on the String.
+        assertTrue(Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_ALLIN, 6050L, true),
+                Player.ALLIN, "cinematic_b64_blob", 12.5, 48.0, 999.0));
+    }
+
+    @Test
+    public void unmappableDecisionThrowsSoTheReceiverTreatsItAsForgery() {
+        // A garbage decision cannot map to a wire type; the pure check throws and
+        // the receiver's try/catch turns it into a synth-fold.
+        assertThrows(RuntimeException.class, () -> Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
+                -999, 50.0, 0.0, 0.0, 0.0));
+    }
+
+    @Test
+    public void unrepresentableBetAmountThrowsInFullBindingToo() {
+        // NaN/Inf bet on a BET must throw (caught upstream as forgery), not bind.
+        assertThrows(RuntimeException.class, () -> Crupier.signedRecordBindsToAction(
+                recordWith(CanonicalActionRecord.ACTION_BET, 5000L, false),
+                Player.BET, Double.NaN, 0.0, 0.0, 0.0));
     }
 }

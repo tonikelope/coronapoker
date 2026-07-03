@@ -10046,39 +10046,43 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                                         // forenses, pero el dinero NO se mueve por la falsificación.
                                                         synthesizeFoldAction(action);
                                                     } else {
-                                                        // Firma OK. ZERO-TRUST (🟠-HIGH cerrado): ATAR el importe
-                                                        // FIRMADO a la accion realmente jugada. El AMOUNT_CENTS del
-                                                        // record debe coincidir con lo que la decision + el estado
-                                                        // PRE-accion implican (expectedActionAmountCents, la MISMA
+                                                        // Firma OK. ZERO-TRUST (🟠-HIGH cerrado): ATAR el record
+                                                        // FIRMADO (TIPO de accion + IMPORTE) a la accion realmente
+                                                        // jugada (signedRecordBindsToAction). El ACTION_TYPE y el
+                                                        // AMOUNT_CENTS del record deben coincidir con lo que la
+                                                        // decision + el estado PRE-accion implican (la MISMA
                                                         // formula del firmante en buildLocalActionRecordAndSig).
-                                                        // Sin esto, un cliente modificado podia firmar un importe
-                                                        // (el que va al historial firmado y a H_t) DISTINTO del bet
-                                                        // en claro (partes[5]) que mueve el bote en vivo. Cada peer
-                                                        // lo recomputa con su propio estado replicado, identico al
-                                                        // del firmante (o la cadena ya habria divergido), asi que
-                                                        // una accion honesta SIEMPRE coincide y esto NUNCA salta en
-                                                        // juego sano. Ante discrepancia (o un importe
-                                                        // irrepresentable: NaN/Inf en el bet, que una accion
-                                                        // legitima jamas produce) se trata IGUAL que una firma
-                                                        // invalida: synth-fold simetrico en todo receptor + flag
-                                                        // saw_invalid_action_sig -> el consenso de cierre lo marca.
-                                                        boolean amountForged;
+                                                        // Sin esto, un cliente modificado podia firmar un tipo o un
+                                                        // importe (lo que va al historial firmado y a H_t) DISTINTO
+                                                        // del que juega en claro (partes[4]/partes[5]) y que mueve
+                                                        // el bote en vivo. Cada peer lo recomputa con su propio
+                                                        // estado replicado, identico al del firmante (o la cadena
+                                                        // ya habria divergido), asi que una accion honesta SIEMPRE
+                                                        // coincide y esto NUNCA salta en juego sano. Ante
+                                                        // discrepancia (o un importe irrepresentable NaN/Inf, o una
+                                                        // decision no mapeable, que una accion legitima jamas
+                                                        // produce) se trata IGUAL que una firma invalida: synth-fold
+                                                        // simetrico en todo receptor + flag saw_invalid_action_sig
+                                                        // -> el consenso de cierre marca el incidente.
+                                                        boolean recordForged;
                                                         try {
-                                                            long signedCents = CanonicalActionRecord.readAmountCents(wireRecord);
-                                                            long expectedCents = predictPostActionBetCents((int) action[0], action[1], jugador);
-                                                            amountForged = (signedCents != expectedCents);
-                                                            if (amountForged) {
+                                                            recordForged = !signedRecordBindsToAction(wireRecord,
+                                                                    (int) action[0], action[1],
+                                                                    jugador.getBet(), jugador.getStack(), this.apuesta_actual);
+                                                            if (recordForged) {
                                                                 LOGGER.log(Level.SEVERE,
-                                                                        "ZERO-TRUST: action by {0} signs amount {1} cents but the played decision implies {2} — SYNTHESIZING FOLD (signed amount does not bind to the action)",
-                                                                        new Object[]{jugador.getNickname(), signedCents, expectedCents});
+                                                                        "ZERO-TRUST: signed record for action by {0} does not bind to the played (type/amount) — SYNTHESIZING FOLD",
+                                                                        jugador.getNickname());
                                                             }
-                                                        } catch (RuntimeException amtEx) {
-                                                            amountForged = true;
+                                                        } catch (RuntimeException recEx) {
+                                                            // Decision no mapeable o importe irrepresentable
+                                                            // (NaN/Inf): una accion legitima jamas lo produce.
+                                                            recordForged = true;
                                                             LOGGER.log(Level.SEVERE,
-                                                                    "ZERO-TRUST: action by {0} carries an unrepresentable amount — SYNTHESIZING FOLD",
-                                                                    new Object[]{jugador.getNickname()});
+                                                                    "ZERO-TRUST: action by {0} has an unmappable decision or unrepresentable amount — SYNTHESIZING FOLD",
+                                                                    jugador.getNickname());
                                                         }
-                                                        if (amountForged) {
+                                                        if (recordForged) {
                                                             printInvalidActionSigToRegistro(jugador.getNickname());
                                                             this.saw_invalid_action_sig = true;
                                                             synthesizeFoldAction(action);
@@ -13541,6 +13545,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             default:
                 return 0L;
         }
+    }
+
+    /**
+     * Identity / anti-forgery (PURA y testeable): true SII el record firmado representa FIELMENTE la accion
+     * realmente jugada, atando a la vez su TIPO (ACTION_TYPE) y su IMPORTE (AMOUNT_CENTS). El tipo se ata via
+     * {@link #mapJavaActionToWire} (puro valor de wire, cero dependencia de estado), asi que dos decisiones
+     * con el mismo importe (p.ej. FOLD y un CHECK con apuesta_actual=0) no se confunden; el importe via
+     * {@link #expectedActionAmountCents}. Puede lanzar RuntimeException ante una decision no mapeable o un
+     * importe irrepresentable (NaN/Inf) del bet: una accion legitima jamas lo produce, y el llamador lo trata
+     * como forja (synth-fold). {@code record} debe tener ya longitud RECORD_BYTES (garantizado por el
+     * llamador). {@code betObj} es el bet en claro del wire (Double para BET, ignorado en el resto).
+     */
+    static boolean signedRecordBindsToAction(byte[] record, int javaDecision, Object betObj,
+            double playerBet, double playerStack, double apuestaActual) {
+        int signedType = CanonicalActionRecord.readActionType(record);
+        int expectedType = mapJavaActionToWire(javaDecision);
+        if (signedType != expectedType) {
+            return false;
+        }
+        double betAbsoluteTarget = (betObj instanceof Number) ? ((Number) betObj).doubleValue() : 0;
+        long signedCents = CanonicalActionRecord.readAmountCents(record);
+        long expectedCents = expectedActionAmountCents(javaDecision, betAbsoluteTarget,
+                playerBet, playerStack, apuestaActual);
+        return signedCents == expectedCents;
     }
 
     /**

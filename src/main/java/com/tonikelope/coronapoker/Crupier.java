@@ -463,7 +463,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // PAUSE-AWARE. Un peer que contesta PING pero NO confirma el broadcast hacía reintentar al host para
     // siempre (congelaba MEGAPACKET / POCKET_CARDS / START_SRA_CASCADE / MISDEAL / HANDVERIFY). Muy generoso
     // para cubrir clientes lentos procesando una baraja SRA grande. Al vencer se expulsa SOLO al que retiene.
-    public static final int BROADCAST_PROGRESS_TIMEOUT_MS = 120000;
+    public static final int BROADCAST_PROGRESS_TIMEOUT_MS = 180000;
     public static final int IWTSTH_ANTI_FLOOD_TIME = 15 * 60 * 1000; // 15 minutes BAN
     public static final int IWTSTH_TIMEOUT = 15000;
     public static final int RIT_VOTE_TIMEOUT = 15; // Segundos que dura la votación run-it-twice (timeout = NORMAL)
@@ -9672,14 +9672,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Deadline de progreso compartido por los dos broadcasts SÍNCRONOS de recuperación
     // (enviarDatosClaveRecuperados / enviarAccionesRecuperadas, ambos en el hilo del dealer). Congela el
-    // reloj mientras la timba esté pausada o haya algún peer reconectando (ese tiempo no cuenta); si no, y
-    // venció el tope, expulsa a los peers que siguen sin confirmar (markExitAndNotify + socketClose) para que
+    // reloj mientras la timba esté pausada o mientras algún peer PENDIENTE esté genuinamente reconectando
+    // (socket caído/en reset, isSocketDownOrReconnecting) — ese tiempo no cuenta; si no, y venció el tope,
+    // expulsa a los peers VIVOS que siguen sin confirmar (markExitAndNotify + socketClose) para que
     // waitSyncConfirmations los saque de pendientes y el reparto de recuperación avance. La mesa sigue.
-    // Devuelve el deadline, refrescado si estaba en pausa/timeout.
+    // NO usa isSomePlayerTimeout(): los llamadores marcan timeout=true a los pendientes justo antes, así que
+    // estaría siempre true y el deadline no vencería nunca (mismo bug de interacción que el broadcast).
     private long expelStalledRecoveryPeers(ArrayList<String> pendientes, long recoverDeadlineMs) {
         boolean hold;
         try {
-            hold = GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout();
+            boolean anyPendingReconnecting = false;
+            for (String pnick : pendientes) {
+                Participant pep = GameFrame.getInstance().getParticipantes().get(pnick);
+                if (pep != null && pep.isSocketDownOrReconnecting()) {
+                    anyPendingReconnecting = true;
+                    break;
+                }
+            }
+            hold = GameFrame.getInstance().isTimba_pausada() || anyPendingReconnecting;
         } catch (Exception ignored) {
             hold = true;
         }
@@ -13909,10 +13919,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         // ya sale por isExit (socket muerto). Antes el host reintentaba para siempre.
                         boolean holdDeadline = false;
                         try {
-                            // Congela el deadline mientras la timba esté PAUSADA o haya CUALQUIER peer en
-                            // timeout (reconexión): un cliente lento reconectando y procesando una baraja
-                            // SRA grande puede tardar sin estar reteniendo nada.
-                            holdDeadline = GameFrame.getInstance().isTimba_pausada() || isSomePlayerTimeout();
+                            // Congela el deadline mientras la timba esté PAUSADA o mientras ALGÚN peer
+                            // PENDIENTE esté genuinamente reconectando (socket caído/en reset). NO se usa
+                            // isSomePlayerTimeout(): este mismo bucle acaba de marcar timeout=true a TODOS los
+                            // pendientes (para la UI de "esperando"), así que isSomePlayerTimeout() estaría
+                            // SIEMPRE true y el deadline no vencería jamás (bug de interacción con f2db6f7c). El
+                            // socket VIVO distingue al que RETIENE (contesta PING, se le expulsa) del que
+                            // reconecta (socket muerto, se le respeta su grace).
+                            boolean anyPendingReconnecting = false;
+                            for (String pnick : pendientes) {
+                                Participant pep = GameFrame.getInstance().getParticipantes().get(pnick);
+                                if (pep != null && pep.isSocketDownOrReconnecting()) {
+                                    anyPendingReconnecting = true;
+                                    break;
+                                }
+                            }
+                            holdDeadline = GameFrame.getInstance().isTimba_pausada() || anyPendingReconnecting;
                         } catch (Exception ignored) {
                         }
                         if (holdDeadline) {

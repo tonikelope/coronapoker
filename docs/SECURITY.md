@@ -367,12 +367,14 @@ The threat here is different from cheating. The adversary is a peer who already 
 
 | Wait | Was | Now |
 |---|---|---|
-| SRA cascade response (`requestRemoteCascade`) | infinite, plus a livelock on invalid crypto | deadline, then MISDEAL (peer alive) or restart without it (peer gone) |
-| `HAND_READY` between hands | infinite | pause-aware deadline, then AUTO-EXPEL |
-| Remote betting `ACTION` | infinite | deadline gated on the think-time limit, pause-aware, then AUTO-EXPEL |
-| Synchronous broadcast ACK (`broadcastGAMECommandFromServer`) | infinite retry | pause-aware deadline, then AUTO-EXPEL |
+| SRA cascade response (`requestRemoteCascade`) | infinite, plus a livelock on invalid crypto | deadline, then MISDEAL (peer alive) or restart without it (peer gone); repeated refusal AUTO-EXPELS |
+| `HAND_READY` between hands | infinite | deadline, then AUTO-EXPEL |
+| Remote betting `ACTION` | infinite | deadline gated on the think-time limit, then AUTO-EXPEL |
+| Synchronous broadcast ACK (`broadcastGAMECommandFromServer`, plus the two recovery broadcasts) | infinite retry | deadline, then AUTO-EXPEL |
 
-Three properties keep these deadlines from ever punishing an honest player. They are set **far above** any legitimate slow client or slow-PC crypto. They **do not count paused time**, so a table paused for a long discussion is never mistaken for a stall. And a genuinely dead peer still leaves through the normal socket-death path (`isExit`), not through the deadline. The betting deadline has one extra guard: it only applies when the **think-time limit is enabled** (the default). With think-time disabled the game allows unlimited thinking on purpose, so a withheld action cannot be told apart from a human taking their time, and the remedy there is a manual kick.
+Three properties keep these deadlines from ever punishing an honest player. They are set **far above** any legitimate slow client or slow-PC crypto. They **do not count paused time, nor time while any peer is reconnecting** (this is exactly the condition under which each client freezes the acting player's think-time countdown, so the host stays in lockstep with the clients and never expels an honest player who is simply waiting out someone else's network blip). And a genuinely dead peer still leaves through the normal socket-death path (`isExit`), not through the deadline. The betting deadline has one extra guard: it only applies when the **think-time limit is enabled** (the default). With think-time disabled the game allows unlimited thinking on purpose, so a withheld action cannot be told apart from a human taking their time, and the remedy there is a manual kick.
+
+Because a single refusal or one slow reveal might be a bug, the deadlines respond proportionately. The cascade and rotation MISDEAL first and only AUTO-EXPEL a peer that forces **several** cancellations in a row (a same-version client never produces invalid crypto or withholds past the deadline, so a repeat is unambiguous). This keeps a one-off hiccup from removing anyone while still stopping a peer from looping MISDEALs forever.
 
 The three layers, the six-tier reaction ladder and the withheld-message AUTO-EXPEL flow are drawn together below. Editable `.drawio` source in [`diagrams/`](diagrams/).
 
@@ -392,6 +394,7 @@ For honesty's sake:
 - **The optional Google Translate TTS** for fast-chat readout makes outbound requests to `translate.google.com`. Disable TTS if you want a fully air-gappable session.
 - **Unlimited thinking with the think-time limit disabled.** When the table turns the think-time limit off, the game allows a player to think for as long as they want, on purpose. The host cannot then tell a slow human apart from a peer withholding its action, so it imposes no betting deadline in that mode. A player who stalls the table this way is removed with a **manual kick**, not automatically.
 - **A hostile host flooding a client over the binary channel.** The rate limits and AUTO-EXPEL protect the **host** from a client. A client at a hostile host's table is already at that host's mercy for the whole game, so the client-side binary path is not hardened the same way. The client's remedy is the one it always has, which is to leave.
+- **A griefer imposing bounded stalls via pause or repeated reconnection.** The progress deadlines are deliberately lenient. They freeze while the table is paused or while any peer is reconnecting, precisely so an honest slow or reconnecting player is never expelled by mistake. A peer can lean on that leniency to stall the hands it is in, by asserting a pause or by dropping and reconnecting in a loop. Each stall is bounded (a reconnection grace lasts at most about 80 s, and the host can force-resume a pause), and the table always makes progress in between, so this cannot freeze the game outright. But the automated deadline will not remove such a griefer on its own. The remedy is the manual kick the host already has. Choosing leniency here is deliberate, because a false expulsion of an honest player is worse than a bounded, recoverable stall.
 
 ---
 

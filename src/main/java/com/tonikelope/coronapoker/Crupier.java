@@ -14650,6 +14650,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 warnSuspiciousHost(Translator.translate("zero_trust.host_recover_action_forged"));
                                 res[3] = null;
                                 res[4] = null;
+                                // Residual conocido (LOW, auditoria): NO sintetizamos FOLD en res[0]/res[1]
+                                // aqui (a diferencia del path en vivo, 10029), es decir la DECISION forjada
+                                // aun se reproduce en la reconstruccion LOCAL del estado. Se acota adrede:
+                                // (1) al anular record+sig el forjado queda FUERA de H_t, asi que no corrompe
+                                // la cadena; (2) el dinero lo gobierna la reconciliacion de saldos con el
+                                // SQLite local (readLocalRecoverBalances), no el replay; (3) el usuario ya
+                                // recibe el aviso rojo y se le recomienda salir. Tocar el replay aqui podria
+                                // divergir la reconstruccion entre peers con distinto estado TOFU, riesgo peor
+                                // que el residual. El fix limpio seria que el cliente sirva sus PROPIOS records
+                                // firmados desde su SQLite en vez de fiarse de la copia del host.
                             }
                         } catch (Exception decodeEx) {
                             LOGGER.log(Level.WARNING, "Failed to decode persisted record/sig on recovery replay", decodeEx);

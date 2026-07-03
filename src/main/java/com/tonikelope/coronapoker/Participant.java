@@ -863,6 +863,14 @@ public class Participant implements Runnable {
         // binarios (voz/stats) que NO pasa por el bucket de texto de run() y cada uno dispara trabajo pesado
         // async. Exceso -> DROP silencioso (SIN strike/expulsión; ver campos BINARY_INBOUND_*).
         if (binaryInboundAbuse()) {
+            // Visibilidad §8 uniforme: registro EN ROJO + popup (dedup por partida en warnMaliciousPeer, asi
+            // que bajo un flood sostenido sale UNA sola vez, no por frame). Solo si hay partida en curso.
+            try {
+                if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                    GameFrame.getInstance().getCrupier().warnMaliciousPeer(this.nick, "zero_trust.peer_binary_flood");
+                }
+            } catch (Exception ignored) {
+            }
             return;
         }
         try {
@@ -1176,6 +1184,14 @@ public class Participant implements Runnable {
         markExitAndNotify("auto-expel: " + reason);
         try {
             socketClose();
+        } catch (Exception ignored) {
+        }
+        // Visibilidad §8 uniforme: registro EN ROJO + popup nombrando al jugador expulsado (dedup por
+        // partida en warnMaliciousPeer). Solo si hay partida en curso (en la sala no hay Crupier/registro).
+        try {
+            if (GameFrame.getInstance() != null && GameFrame.getInstance().getCrupier() != null) {
+                GameFrame.getInstance().getCrupier().warnMaliciousPeer(this.nick, "zero_trust.peer_expelled_flood");
+            }
         } catch (Exception ignored) {
         }
     }

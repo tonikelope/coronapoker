@@ -61,6 +61,20 @@ public class Participant implements Runnable {
             "ACTION", "REBUY", "BUYIN", "RESP_SHOWDOWN_KEY",
             "DECK_CASCADE_RESP", "DECK_ROTATION_RESP", "RESP_SRA_UNLOCK_CHAIN", "RIT_VOTE_RESP");
 
+    // F2 ANTI-DoS: cota de tamaño por comando de texto + token-bucket de frecuencia POR PEER. Los
+    // umbrales son ENORMES respecto al tráfico legítimo (un comando de juego real pesa < 10 KB y un
+    // cliente honesto manda un puñado por segundo), así que en juego normal NUNCA disparan; solo bajo
+    // flood/OOM. Exceso -> SILENT-REFUSE (se descarta) + strike; strikes acumulados -> AUTO-EXPEL (se
+    // echa a ESTE peer y la mesa sigue para el resto). El reader es UN hilo por peer, así que estos
+    // campos los toca un solo hilo -> sin sincronización.
+    private static final int MAX_INBOUND_COMMAND_CHARS = 512 * 1024;  // corta el OOM de 12 MB/entrada (legit << 10 KB)
+    private static final double INBOUND_BURST = 2000.0;               // ráfaga tolerada de golpe
+    private static final double INBOUND_REFILL_PER_SEC = 500.0;       // sostenido tolerado (legit: unos pocos/s)
+    private static final int MAX_ABUSE_STRIKES = 50;                  // faltas antes de expulsar
+    private double inbound_tokens = INBOUND_BURST;
+    private long inbound_last_refill_ns = 0L;
+    private int abuse_strikes = 0;
+
     private final Object ping_pong_lock = new Object();
     private final Object participant_socket_lock = new Object();
     private final HashMap<String, Integer> last_received = new HashMap<>();
@@ -1085,6 +1099,48 @@ public class Participant implements Runnable {
         return !pending.isEmpty();
     }
 
+    // F2 ANTI-DoS: true si este frame excede el tope de tamaño o la frecuencia tolerada (token-bucket).
+    // Umbrales enormes: en juego normal jamás devuelve true. Único hilo (el reader del peer) -> sin lock.
+    private boolean inboundAbuse(String frame) {
+        if (frame.length() > MAX_INBOUND_COMMAND_CHARS) {
+            return true;
+        }
+        long now = System.nanoTime();
+        if (inbound_last_refill_ns == 0L) {
+            inbound_last_refill_ns = now;
+        }
+        double elapsed = (now - inbound_last_refill_ns) / 1_000_000_000.0;
+        inbound_last_refill_ns = now;
+        inbound_tokens = Math.min(INBOUND_BURST, inbound_tokens + elapsed * INBOUND_REFILL_PER_SEC);
+        if (inbound_tokens >= 1.0) {
+            inbound_tokens -= 1.0;
+            return false;
+        }
+        return true; // sin tokens -> exceso de frecuencia
+    }
+
+    // F2 ANTI-DoS: suma una falta a ESTE peer; true si alcanzó el umbral de expulsión.
+    private boolean registerAbuseStrike(String reason) {
+        abuse_strikes++;
+        if (abuse_strikes == 1 || abuse_strikes % 25 == 0) {
+            LOGGER.log(Level.SEVERE, "ZERO-TRUST DoS: peer {0} abuse strike {1} ({2})",
+                    new Object[]{this.nick, abuse_strikes, reason});
+        }
+        return abuse_strikes >= MAX_ABUSE_STRIKES;
+    }
+
+    // F2 ANTI-DoS: expulsa a ESTE peer sin tocar a los demás — marca exit + propaga a Player.exit +
+    // despierta los waits del Crupier (markExitAndNotify) y CORTA el socket (para el flood). La mesa
+    // sigue: el resto ve el EXIT por el teardown normal (remotePlayerQuit al salir del bucle reader).
+    private void autoExpel(String reason) {
+        LOGGER.log(Level.SEVERE, "ZERO-TRUST DoS: AUTO-EXPEL peer {0} — {1}", new Object[]{this.nick, reason});
+        markExitAndNotify("auto-expel: " + reason);
+        try {
+            socketClose();
+        } catch (Exception ignored) {
+        }
+    }
+
     @Override
     public void run() {
         if (socket != null) {
@@ -1101,6 +1157,16 @@ public class Participant implements Runnable {
                 try {
                     recibido = socket_reader_queue.take();
                     if (!POISON_PILL.equals(recibido)) {
+                        // F2 ANTI-DoS: cota de tamaño + rate-limit por peer ANTES de procesar nada. Exceso
+                        // -> descartar el frame (SILENT-REFUSE) + strike; strikes acumulados -> AUTO-EXPEL
+                        // (echar a ESTE peer, la mesa sigue). Umbrales enormes -> nunca afecta a un honesto.
+                        if (inboundAbuse(recibido)) {
+                            if (registerAbuseStrike("inbound flood/oversize")) {
+                                autoExpel("inbound flood/oversize");
+                                break;
+                            }
+                            continue;
+                        }
                         String[] partes_comando = recibido.split("#");
 
                         switch (partes_comando[0]) {
@@ -1314,6 +1380,10 @@ public class Participant implements Runnable {
                                                     LOGGER.log(Level.SEVERE,
                                                             "ZERO-TRUST: dropping {0} with nick mismatch on connection {1}",
                                                             new Object[]{partes_comando[2], this.nick});
+                                                    // Hablar por otro es abuso deliberado -> strike (y expulsión si reincide).
+                                                    if (registerAbuseStrike("nick spoof " + partes_comando[2])) {
+                                                        autoExpel("repeated nick spoofing");
+                                                    }
                                                     break;
                                                 }
                                             }

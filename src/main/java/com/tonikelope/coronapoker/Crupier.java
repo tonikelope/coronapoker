@@ -12701,8 +12701,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     if (verifyAndStoreShowdownKey(nick, keyB64, sigB64)) {
                                         nick2key.put(nick, keyB64);
                                         nick2sig.put(nick, sigB64);
+                                        // Solo se quita de pendientes al VERIFICAR: una RESP_SHOWDOWN_KEY con
+                                        // firma inválida NO consume el slot del peer (antes lo muckeaba). Sigue
+                                        // esperando una RESP válida o el timeout. Con el nick-binding (F1) la RESP
+                                        // solo puede venir del propio peer -> a lo sumo auto-daño.
+                                        pendientes.remove(nick);
                                     }
-                                    pendientes.remove(nick);
                                 } else {
                                     rejected.add(comando);
                                 }
@@ -15150,6 +15154,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (partes.length >= 3) {
                         switch (partes[2]) {
                             case "REQ_SHOWDOWN_KEY":
+                                // ZERO-TRUST confidencialidad: solo revelo mi k_pocket si SOY CONTENDIENTE
+                                // del showdown (estoy en `resistencia`, computada LOCALMENTE). Un jugador
+                                // RETIRADO entra aquí solo para MIRAR el reveal; si respondiera, un host
+                                // malicioso podría pedirle la clave (REQ_SHOWDOWN_KEY no solicitado) y
+                                // desenmascarar sus cartas MUCKED. Verificado contra MI estado, no el del host.
+                                if (!resistencia.contains(GameFrame.getInstance().getLocalPlayer())) {
+                                    LOGGER.log(Level.WARNING,
+                                            "Ignoring REQ_SHOWDOWN_KEY: local player is not a showdown contender (folded/watcher) — not revealing pocket key");
+                                    break;
+                                }
                                 // PHASE A.1: respondemos con nuestra pocket-unlock + sig Ed25519.
                                 // La sig demuestra al host (y al resto via rebroadcast) que la
                                 // clave fue autorizada por NUESTRA privkey — el host no la

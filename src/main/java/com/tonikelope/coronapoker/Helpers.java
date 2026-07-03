@@ -3715,62 +3715,58 @@ public class Helpers {
     // exactitud del float el resultado es el de siempre (timbas normales sin cambios).
     public static String money2String(double cantidad) {
 
+        boolean es = GameFrame.LANGUAGE.toLowerCase().equals("es");
+        char sep = es ? ',' : '.';
+
         if (Math.abs(cantidad) < 1000.0) {
 
             cantidad = Helpers.doubleClean(cantidad);
 
-            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
-
-            DecimalFormat df;
-
-            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
-
-                otherSymbols.setDecimalSeparator(',');
-
-                df = new DecimalFormat("0.00", otherSymbols);
-
-                return df.format(cantidad).replaceAll("\\,00$", "");
-
-            } else {
-
-                otherSymbols.setDecimalSeparator('.');
-
-                df = new DecimalFormat("0.00", otherSymbols);
-
-                return df.format(cantidad).replaceAll("\\.00$", "");
-            }
+            return (es ? MONEY_STRIP_2_ES : MONEY_STRIP_2_EN).matcher(moneyFormat(false, sep).format(cantidad)).replaceAll("");
 
         } else {
 
             double cantidad_format_k = Helpers.doubleClean(cantidad / 1000.0, 3);
 
-            DecimalFormatSymbols otherSymbols = new DecimalFormatSymbols();
+            DecimalFormat df = moneyFormat(true, sep);
+            String base = df.format(cantidad_format_k);
+            String f = (es ? MONEY_STRIP_3_ES : MONEY_STRIP_3_EN).matcher(base).replaceAll("$1K");
 
-            DecimalFormat df;
-
-            if (GameFrame.LANGUAGE.toLowerCase().equals("es")) {
-
-                otherSymbols.setDecimalSeparator(',');
-
-                df = new DecimalFormat("0.000", otherSymbols);
-
-                String f = df.format(cantidad_format_k).replaceAll("(?:(\\,[1-9])00$)|\\,000$", "$1K");
-
-                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\,000$", "") : f;
-
-            } else {
-
-                otherSymbols.setDecimalSeparator('.');
-
-                df = new DecimalFormat("0.000", otherSymbols);
-
-                String f = df.format(cantidad_format_k).replaceAll("(?:(\\.[1-9])00$)|\\.000$", "$1K");
-
-                return f.equals(df.format(cantidad_format_k)) ? df.format(cantidad).replaceAll("\\.000$", "") : f;
-            }
-
+            return f.equals(base) ? (es ? MONEY_STRIP_3F_ES : MONEY_STRIP_3F_EN).matcher(df.format(cantidad)).replaceAll("") : f;
         }
 
+    }
+
+    // money2String se llama en la ruta de los contadores animados (stack/bote/apuesta a
+    // ~60fps, varios a la vez): antes creaba un DecimalFormatSymbols + DecimalFormat y
+    // COMPILABA una regex (String.replaceAll compila una Pattern) en CADA llamada -> ráfaga
+    // de basura para el GC en PCs lentos. Ahora las regex son Pattern estáticos (compilados
+    // una vez) y el DecimalFormat se cachea por hilo (NO es thread-safe; se llama en el EDT
+    // y fuera desde los logs), reconstruido solo si cambia el separador decimal (idioma).
+    // Salida byte-idéntica a la versión anterior.
+    private static final java.util.regex.Pattern MONEY_STRIP_2_ES = java.util.regex.Pattern.compile(",00$");
+    private static final java.util.regex.Pattern MONEY_STRIP_2_EN = java.util.regex.Pattern.compile("\\.00$");
+    private static final java.util.regex.Pattern MONEY_STRIP_3_ES = java.util.regex.Pattern.compile("(?:(,[1-9])00$)|,000$");
+    private static final java.util.regex.Pattern MONEY_STRIP_3_EN = java.util.regex.Pattern.compile("(?:(\\.[1-9])00$)|\\.000$");
+    private static final java.util.regex.Pattern MONEY_STRIP_3F_ES = java.util.regex.Pattern.compile(",000$");
+    private static final java.util.regex.Pattern MONEY_STRIP_3F_EN = java.util.regex.Pattern.compile("\\.000$");
+
+    private static final ThreadLocal<DecimalFormat> MONEY_DF_2 = new ThreadLocal<>();
+    private static final ThreadLocal<DecimalFormat> MONEY_DF_3 = new ThreadLocal<>();
+    private static final ThreadLocal<Character> MONEY_DF_SEP = new ThreadLocal<>();
+
+    // DecimalFormat cacheado por hilo para el patrón pedido ("0.00" o "0.000"), reconstruido
+    // solo si el separador decimal (idioma) cambió respecto al último uso en este hilo.
+    private static DecimalFormat moneyFormat(boolean thousands, char sep) {
+        Character cached = MONEY_DF_SEP.get();
+        if (cached == null || cached.charValue() != sep) {
+            DecimalFormatSymbols sym = new DecimalFormatSymbols();
+            sym.setDecimalSeparator(sep);
+            MONEY_DF_2.set(new DecimalFormat("0.00", sym));
+            MONEY_DF_3.set(new DecimalFormat("0.000", sym));
+            MONEY_DF_SEP.set(sep);
+        }
+        return thousands ? MONEY_DF_3.get() : MONEY_DF_2.get();
     }
 
     public synchronized static void savePropertiesFile() {

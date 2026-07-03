@@ -167,7 +167,7 @@ public final class RistrettoSRA {
         return new BigInteger(1, be);
     }
 
-    static byte[] scalarToBytes(BigInteger s) {
+    public static byte[] scalarToBytes(BigInteger s) {
         byte[] be = s.toByteArray();
         byte[] le = new byte[32];
         for (int i = 0; i < be.length && i < 32; i++) {

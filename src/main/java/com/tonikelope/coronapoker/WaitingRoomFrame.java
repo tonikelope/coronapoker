@@ -2554,8 +2554,15 @@ public class WaitingRoomFrame extends JFrame {
                                                                     // Rotación: aplicar uPocket + kCommunity en ese orden. El resultado
                                                                     // mantiene la longitud y sigue siendo válido en la curva (el output
                                                                     // de scalar mult sobre puntos en la curva permanece en la curva).
-                                                                    byte[] rotated = RistrettoSRA.applyCommutativeLock(incomingPieces, myPocketUnlock);
-                                                                    rotated = RistrettoSRA.applyCommutativeLock(rotated, crupierRot.local_sra_lock_community);
+                                                                    // Rotación en UN solo lock: uPocket luego kCommunity = multiplicar por
+                                                                    // s = uPocket*kCommunity (mod L), el MISMO escalar que la prueba de
+                                                                    // rotación de más abajo. Un pase en vez de dos => mitad de scalarMul,
+                                                                    // bytes idénticos.
+                                                                    byte[] rotated = RistrettoSRA.applyCommutativeLock(incomingPieces,
+                                                                            RistrettoSRA.scalarToBytes(
+                                                                                    RistrettoSRA.bytesToScalar(myPocketUnlock)
+                                                                                            .multiply(RistrettoSRA.bytesToScalar(crupierRot.local_sra_lock_community))
+                                                                                            .mod(com.tonikelope.coronapoker.crypto.EdwardsPoint.L)));
                                                                     // Rotación servida: cualquier otra esta cascada se rechaza (anti-replay).
                                                                     crupierRot.rotation_served_this_cascade = true;
 

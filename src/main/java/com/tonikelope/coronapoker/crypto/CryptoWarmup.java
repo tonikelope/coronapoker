@@ -33,8 +33,9 @@ import java.util.logging.Logger;
  * mismas rutas que un paso de cascada real: lock del deck, shuffle, {@code proveStepWire},
  * {@code verifyChainWire}, commitment y unlock— sobre datos DUMMY fijos, descartando el
  * resultado, hasta que el tiempo por ciclo deja de mejorar (el JIT ya compiló a C2) o se
- * alcanza un tope duro. Sin dependencia del orden del CSPRNG (escalar fijo) ni efecto en
- * el juego.
+ * alcanza un tope duro. Las ENTRADAS del warmup son fijas (escalar dummy), aunque el prover
+ * sí saca escalares de blinding del CSPRNG — inofensivo: SecureRandom es thread-safe y el
+ * juego no depende de una secuencia reproducible. Ningún efecto en el juego.
  *
  * <p>Es el análogo cripto de {@code Crupier.warmShuffleAnimCache()} (que pre-decodifica el
  * GIF del barajado). Ejecutar el MISMO camino que el reparto real evita además que la
@@ -94,6 +95,12 @@ public final class CryptoWarmup {
             return;
         }
         Helpers.threadRun(() -> {
+            final Thread warmupThread = Thread.currentThread();
+            final int warmupPrio = warmupThread.getPriority();
+            // Prioridad ligeramente rebajada: el warmup hace ciclos cripto completos que en un PC
+            // lento competirían con el EDT pintando la ventana de inicio. NORM-1 (no NORM-2) para
+            // que aún alcance C2 pronto. Restaurada en finally (hilo del pool cacheado, reutilizado).
+            warmupThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 1));
             try {
                 long best = Long.MAX_VALUE;
                 int stable = 0;
@@ -122,6 +129,8 @@ public final class CryptoWarmup {
             } catch (Throwable t) {
                 // El warmup nunca debe romper el arranque.
                 LOGGER.log(Level.FINE, "Crypto JIT warmup skipped", t);
+            } finally {
+                warmupThread.setPriority(warmupPrio);
             }
         });
     }

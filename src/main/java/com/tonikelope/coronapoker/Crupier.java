@@ -1187,57 +1187,84 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     // Recoge (fuera del path de reparto) las pruebas de barajado ASYNC de los pasos REMOTOS cuyo
     // cliente las mandó aparte (deck ya, prueba después). Sondea received_commands por mensajes
-    // DECK_CASCADE_PROOF#hash(deckOut)#proof, re-encolando lo que no es suyo (mismo patrón que el
-    // resto de esperas del host), con espera acotada. Devuelve mapa hash(deckOut) -> prueba; los
-    // que no lleguen a tiempo quedan fuera (su paso queda null).
+    // DECK_CASCADE_PROOF#hash(deckOut)#proof, con espera acotada. Devuelve mapa hash(deckOut) ->
+    // prueba; los que no lleguen a tiempo quedan fuera (su paso queda null -> el bundle no se
+    // difunde, igual que hoy con un peer proofless).
+    //
+    // Dos blindajes clave:
+    //  - RE-ENCOLA todo lo que NO sea un DECK_CASCADE_PROOF de NUESTROS hashes (incluidas pruebas
+    //    de otro builder de una mano solapada): si no, un builder se comería las pruebas de otro y
+    //    lo degradaría a falso "host sin prueba" en toda la mesa.
+    //  - VERIFICA cada prueba (verifyStepWire) contra (deckIn, deckOut) del paso antes de aceptarla,
+    //    FUERA del lock (es cara). El deckOut de un peer lo conoce el siguiente en la cascada (es su
+    //    input), así que sin esto un peer podría PISAR la prueba honesta de otro con una basura
+    //    (first-wins) -> mazo sin verificar / falso "host deshonesto". Una basura se descarta y se
+    //    sigue esperando la buena.
     private java.util.Map<String, byte[]> collectAsyncCascadeProofs(
             java.util.List<byte[]> decks, java.util.List<int[]> perms, java.util.List<byte[]> inlineProofs) {
         java.util.Map<String, byte[]> collected = new java.util.HashMap<>();
-        java.util.Set<String> needed = new java.util.HashSet<>();
+        java.util.Map<String, Integer> hashToStep = new java.util.HashMap<>();
         for (int s = 0; s < perms.size(); s++) {
             // Paso remoto (perm null) sin prueba inline (cliente nuevo): su prueba viene async.
             if (perms.get(s) == null && inlineProofs.get(s) == null) {
                 String h = cascadeDeckHash(decks.get(s + 1));
                 if (h != null) {
-                    needed.add(h);
+                    hashToStep.put(h, s);
                 }
             }
         }
-        if (needed.isEmpty()) {
+        if (hashToStep.isEmpty()) {
             return collected;
         }
         long deadline = System.currentTimeMillis() + CASCADE_ASYNC_PROOF_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline
-                && !collected.keySet().containsAll(needed)
+                && collected.size() < hashToStep.size()
                 && !isFin_de_la_transmision()) {
+            // Bajo el lock: SOLO sacar los DECK_CASCADE_PROOF de NUESTROS hashes aún no aceptados
+            // (a un buffer); re-encolar TODO lo demás. NO verificar aquí (verifyStepWire es caro y
+            // bloquearía al reader que mete comandos).
+            java.util.List<String[]> candidates = new java.util.ArrayList<>();
             synchronized (this.getReceived_commands()) {
                 java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
                 while (!this.getReceived_commands().isEmpty()) {
                     String cmd = this.received_commands.poll();
                     String[] partes = cmd.split("#");
-                    if (partes.length >= 5 && "DECK_CASCADE_PROOF".equals(partes[2])) {
-                        String h = partes[3];
-                        if (needed.contains(h) && !collected.containsKey(h)) {
-                            try {
-                                collected.put(h, Base64.getDecoder().decode(partes[4]));
-                            } catch (Exception ex) {
-                                // Prueba mal formada: se ignora (el paso quedará como no recibido).
-                            }
-                        }
-                        // Consumida (válida o no) — no re-encolar.
+                    if (partes.length >= 5 && "DECK_CASCADE_PROOF".equals(partes[2])
+                            && hashToStep.containsKey(partes[3]) && !collected.containsKey(partes[3])) {
+                        candidates.add(new String[]{partes[3], partes[4]});
                     } else {
-                        rejected.add(cmd);
+                        rejected.add(cmd); // no es NUESTRO proof -> re-encolar (otro builder / otro comando)
                     }
                 }
                 if (!rejected.isEmpty()) {
                     this.getReceived_commands().addAll(rejected);
                 }
-                if (!collected.keySet().containsAll(needed)) {
-                    try {
-                        this.received_commands.wait(WAIT_QUEUES);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
+            }
+            // Fuera del lock: verificar cada candidato y aceptar SOLO los válidos.
+            for (String[] c : candidates) {
+                if (collected.containsKey(c[0])) {
+                    continue;
+                }
+                try {
+                    byte[] proof = Base64.getDecoder().decode(c[1]);
+                    int step = hashToStep.get(c[0]);
+                    if (com.tonikelope.coronapoker.crypto.ShuffleCascade.verifyStepWire(
+                            decks.get(step), decks.get(step + 1), proof)) {
+                        collected.put(c[0], proof);
+                    }
+                } catch (Exception ex) {
+                    // Prueba mal formada o inválida: se descarta (se sigue esperando la buena).
+                }
+            }
+            if (collected.size() < hashToStep.size()) {
+                synchronized (this.getReceived_commands()) {
+                    if (this.getReceived_commands().isEmpty()) {
+                        try {
+                            this.received_commands.wait(WAIT_QUEUES);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
                     }
                 }
             }

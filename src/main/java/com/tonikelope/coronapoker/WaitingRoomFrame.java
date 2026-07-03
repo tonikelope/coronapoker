@@ -4234,7 +4234,15 @@ public class WaitingRoomFrame extends JFrame {
                         // Anti-DoS pre-auth: solo procesamos el handshake si hay slot libre. Agotados,
                         // descartamos la conexion SIN gastar hilo ni keygen EC (el peer legitimo reintenta).
                         if (handshake_slots.tryAcquire()) {
-                            serverSocketHandler(incoming);
+                            try {
+                                serverSocketHandler(incoming);
+                            } catch (RuntimeException handoffEx) {
+                                // Si el submit del hilo de handshake fallara (p.ej. pool cerrandose en
+                                // teardown), su finally NO liberaria el slot: lo liberamos aqui para no
+                                // filtrarlo. Re-lanzamos para no alterar el manejo/log de la excepcion.
+                                handshake_slots.release();
+                                throw handoffEx;
+                            }
                         } else {
                             LOGGER.log(Level.WARNING,
                                     "Handshake slots exhausted ({0}) — dropping an inbound connection (anti-DoS pre-auth flood)",

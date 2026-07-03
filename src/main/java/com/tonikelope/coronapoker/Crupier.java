@@ -2191,7 +2191,15 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             byte[] after = bgRotStates.get(r);
                             byte[] stepP;
                             if (bgRotRemoteProofs.get(r) != null) {
-                                stepP = bgRotRemoteProofs.get(r);
+                                // Paso remoto: VERIFICAR la prueba del peer contra (before, after) ANTES
+                                // de aceptarla. Un peer puede rotar bien las piezas (pasan el on-curve) pero
+                                // mandar una prueba basura bien formada: el full-chain self-check (fullOk)
+                                // fallaria pero el bundle se difunde igual -> falso "host deshonesto" en toda
+                                // la mesa. Si no verifica, se trata como paso SIN prueba (rotComplete=false ->
+                                // no se difunde el bundle -> degradacion identica a un peer proofless de hoy).
+                                byte[] cand = bgRotRemoteProofs.get(r);
+                                stepP = com.tonikelope.coronapoker.crypto.DualLockWire.verifyRotationStepWire(before, after, cand)
+                                        ? cand : null;
                             } else if (bgRotScalars.get(r) != null) {
                                 com.tonikelope.coronapoker.crypto.EdwardsPoint[] inR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(before);
                                 com.tonikelope.coronapoker.crypto.EdwardsPoint[] outR = com.tonikelope.coronapoker.crypto.ShuffleCascade.decodeDeck(after);

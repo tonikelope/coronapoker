@@ -123,4 +123,59 @@ public class DualLockWireTest {
         assertFalse(DualLockWire.verifyFullChainWire(null, null, null, POCKET, null, null, null),
                 "nulls -> false");
     }
+
+    // --- verifyRotationStepWire: autenticacion por-paso de la prueba de rotacion REMOTA en la ingestion.
+    // El host la usa para NO aceptar de un peer una prueba basura bien formada que rotaria las piezas OK
+    // pero haria fallar su full-chain self-check mientras difunde el bundle igual (falso "host deshonesto").
+
+    // Un paso de rotacion honesto: after[i] = s · before[i]; proof = RotationProof.prove(s, before, after).
+    // Devuelve {beforeBytes, afterBytes, proofBytes}.
+    private static byte[][] honestRotationStep() {
+        EdwardsPoint[] before = new EdwardsPoint[COMMUNITY];
+        for (int i = 0; i < COMMUNITY; i++) {
+            before[i] = EdwardsPoint.BASE.scalarMul(scalar());
+        }
+        BigInteger s = scalar();
+        EdwardsPoint[] after = new EdwardsPoint[COMMUNITY];
+        for (int i = 0; i < COMMUNITY; i++) {
+            after[i] = before[i].scalarMul(s.mod(L));
+        }
+        byte[] proof = DualLockWire.encodeRotationProof(RotationProof.prove(s, before, after));
+        return new byte[][]{DualLockWire.encodeDeck(before), DualLockWire.encodeDeck(after), proof};
+    }
+
+    @Test
+    public void rotationStepHonestVerifies() {
+        byte[][] st = honestRotationStep();
+        assertTrue(DualLockWire.verifyRotationStepWire(st[0], st[1], st[2]),
+                "paso de rotacion honesto -> verifica");
+    }
+
+    @Test
+    public void rotationStepGarbageProofRejected() {
+        // El vector del MEDIUM: piezas rotadas OK, pero prueba basura bien formada (64 bytes).
+        byte[][] st = honestRotationStep();
+        byte[] garbage = new byte[64];
+        Helpers.CSPRNG_GENERATOR.nextBytes(garbage);
+        assertFalse(DualLockWire.verifyRotationStepWire(st[0], st[1], garbage),
+                "prueba basura de 64 bytes -> false (no se acepta en la ingestion)");
+    }
+
+    @Test
+    public void rotationStepTamperedAfterRejected() {
+        byte[][] st = honestRotationStep();
+        st[1][0] ^= 0x01; // tocar el estado 'after' -> la prueba honesta ya no cuadra
+        assertFalse(DualLockWire.verifyRotationStepWire(st[0], st[1], st[2]),
+                "'after' manipulado -> false");
+    }
+
+    @Test
+    public void rotationStepMalformedRejectedCleanly() {
+        byte[][] st = honestRotationStep();
+        assertFalse(DualLockWire.verifyRotationStepWire(st[0], st[1], new byte[]{1, 2, 3}),
+                "prueba de longitud invalida -> false, sin excepcion");
+        assertFalse(DualLockWire.verifyRotationStepWire(null, st[1], st[2]), "before null -> false");
+        assertFalse(DualLockWire.verifyRotationStepWire(st[0], null, st[2]), "after null -> false");
+        assertFalse(DualLockWire.verifyRotationStepWire(st[0], st[1], null), "proof null -> false");
+    }
 }

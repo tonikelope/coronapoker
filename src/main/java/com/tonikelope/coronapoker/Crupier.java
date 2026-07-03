@@ -1168,6 +1168,83 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // and consensus passes anyway" hole. Cleared in readyForNextHand.
     private volatile boolean saw_invalid_action_sig = false;
 
+    // Ventana de espera (fuera del reparto) para recoger las pruebas de barajado ASYNC de los
+    // pasos remotos (B1). Generosa: el prove del cliente puede tardar segundos en frío, y esto
+    // corre durante las apuestas (que suelen durar más); si aun así no llega, el paso degrada a
+    // "sin prueba" (el bundle no se difunde, igual que hoy con un peer proofless).
+    private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 15000;
+
+    // Base64(SHA-256(deck)): identificador content-addressed del deckOut de un paso, para emparejar
+    // la prueba async del cliente (DECK_CASCADE_PROOF) con su paso en la cadena. Único por mano, así
+    // que una prueba de una mano vieja no casa con ningún deckOut actual y se descarta sola.
+    private static String cascadeDeckHash(byte[] deck) {
+        try {
+            return Base64.getEncoder().encodeToString(java.security.MessageDigest.getInstance("SHA-256").digest(deck));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // Recoge (fuera del path de reparto) las pruebas de barajado ASYNC de los pasos REMOTOS cuyo
+    // cliente las mandó aparte (deck ya, prueba después). Sondea received_commands por mensajes
+    // DECK_CASCADE_PROOF#hash(deckOut)#proof, re-encolando lo que no es suyo (mismo patrón que el
+    // resto de esperas del host), con espera acotada. Devuelve mapa hash(deckOut) -> prueba; los
+    // que no lleguen a tiempo quedan fuera (su paso queda null).
+    private java.util.Map<String, byte[]> collectAsyncCascadeProofs(
+            java.util.List<byte[]> decks, java.util.List<int[]> perms, java.util.List<byte[]> inlineProofs) {
+        java.util.Map<String, byte[]> collected = new java.util.HashMap<>();
+        java.util.Set<String> needed = new java.util.HashSet<>();
+        for (int s = 0; s < perms.size(); s++) {
+            // Paso remoto (perm null) sin prueba inline (cliente nuevo): su prueba viene async.
+            if (perms.get(s) == null && inlineProofs.get(s) == null) {
+                String h = cascadeDeckHash(decks.get(s + 1));
+                if (h != null) {
+                    needed.add(h);
+                }
+            }
+        }
+        if (needed.isEmpty()) {
+            return collected;
+        }
+        long deadline = System.currentTimeMillis() + CASCADE_ASYNC_PROOF_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline
+                && !collected.keySet().containsAll(needed)
+                && !isFin_de_la_transmision()) {
+            synchronized (this.getReceived_commands()) {
+                java.util.ArrayList<String> rejected = new java.util.ArrayList<>();
+                while (!this.getReceived_commands().isEmpty()) {
+                    String cmd = this.received_commands.poll();
+                    String[] partes = cmd.split("#");
+                    if (partes.length >= 5 && "DECK_CASCADE_PROOF".equals(partes[2])) {
+                        String h = partes[3];
+                        if (needed.contains(h) && !collected.containsKey(h)) {
+                            try {
+                                collected.put(h, Base64.getDecoder().decode(partes[4]));
+                            } catch (Exception ex) {
+                                // Prueba mal formada: se ignora (el paso quedará como no recibido).
+                            }
+                        }
+                        // Consumida (válida o no) — no re-encolar.
+                    } else {
+                        rejected.add(cmd);
+                    }
+                }
+                if (!rejected.isEmpty()) {
+                    this.getReceived_commands().addAll(rejected);
+                }
+                if (!collected.keySet().containsAll(needed)) {
+                    try {
+                        this.received_commands.wait(WAIT_QUEUES);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+        return collected;
+    }
+
     private byte[] requestRemoteCascade(String nick, byte[] currentDeck, Participant p) {
         int id = Helpers.CSPRNG_GENERATOR.nextInt();
         byte[] iv = new byte[16];
@@ -2061,11 +2138,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 // (Helpers.threadRun) y se reutiliza para otras tareas.
                 bgVerifyThread.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 2));
                 try {
+                    // B1: recoger primero las pruebas de barajado ASYNC de los pasos remotos. Un
+                    // cliente nuevo manda su deck+commitments YA y la prueba APARTE (DECK_CASCADE_PROOF),
+                    // para no bloquear el reparto con su prove (132/377/8900 ms). Aquí, fuera del path de
+                    // reparto, se esperan (acotado) emparejadas por hash del deckOut. Un cliente antiguo
+                    // manda la prueba inline en el RESP (bgRemote != null) y se usa tal cual.
+                    java.util.Map<String, byte[]> asyncProofs = collectAsyncCascadeProofs(bgDecks, bgPerm, bgRemote);
                     java.util.List<byte[]> proofs = new java.util.ArrayList<>();
                     for (int s = 0; s < bgPerm.size(); s++) {
-                        proofs.add((bgRemote.get(s) != null) ? bgRemote.get(s)
-                                : com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
-                                        bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s)));
+                        byte[] stepProof;
+                        if (bgPerm.get(s) != null) {
+                            // Paso del host o de un bot: la prueba se genera localmente aquí.
+                            stepProof = com.tonikelope.coronapoker.crypto.ShuffleCascade.proveStepWire(
+                                    bgDecks.get(s), bgDecks.get(s + 1), bgPerm.get(s), bgK.get(s));
+                        } else if (bgRemote.get(s) != null) {
+                            // Paso remoto con prueba INLINE en el RESP (cliente antiguo).
+                            stepProof = bgRemote.get(s);
+                        } else {
+                            // Paso remoto con prueba ASYNC (cliente nuevo): emparejada por hash(deckOut).
+                            // null si no llegó en la ventana -> degradación = peer proofless de hoy.
+                            String h = cascadeDeckHash(bgDecks.get(s + 1));
+                            stepProof = (h != null) ? asyncProofs.get(h) : null;
+                        }
+                        proofs.add(stepProof);
                     }
                     this.cascade_chain_proofs = proofs;
                     boolean ok = com.tonikelope.coronapoker.crypto.ShuffleCascade

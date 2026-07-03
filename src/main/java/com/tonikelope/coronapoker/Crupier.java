@@ -471,6 +471,29 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      * cuando ya hemos neutralizado la anomalía rechazando la operación (p.ej. una segunda
      * rotación) y congelar sería desproporcionado si resultara ser un bug.
      */
+    // RECOVER anti-chip-theft: lee el saldo VERAZ del PROPIO SQLite del cliente (misma query que usa el
+    // host para construir el RECOVERDATA, pero sobre MI BD — cada peer persiste balance por mano). Devuelve
+    // player -> {stack, buyin, rebuy_count}. Robusto: ante cualquier fallo devuelve mapa VACÍO (el balance
+    // se fía entonces del host, como antes).
+    private java.util.Map<String, double[]> readLocalRecoverBalances() {
+        java.util.Map<String, double[]> out = new java.util.HashMap<>();
+        String sql = "select balance.player as PLAYER, round(balance.stack,2) as STACK, balance.buyin as BUYIN, balance.rebuy_count as REBUY_COUNT from balance,hand,game where balance.id_hand=hand.id and game.id=? and hand.id=(SELECT max(hand.id) from hand,balance where hand.id=balance.id_hand and hand.id_game=?)";
+        try (PreparedStatement statement = Helpers.getSQLITE().prepareStatement(sql)) {
+            statement.setQueryTimeout(30);
+            statement.setInt(1, this.sqlite_id_game);
+            statement.setInt(2, this.sqlite_id_game);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    out.put(rs.getString("PLAYER"),
+                            new double[]{rs.getDouble("STACK"), rs.getInt("BUYIN"), rs.getInt("REBUY_COUNT")});
+                }
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.WARNING, "RECOVER: could not read local balances for reconciliation (falling back to host)", ex);
+        }
+        return out;
+    }
+
     // Antepone "SOSPECHOSO: host «X»" al mensaje cuando somos CLIENTE (la anomalía zero-trust la causa
     // el host, que reparte/coordina). En el HOST (auto-detección, posible bug propio) devuelve el
     // mensaje tal cual, sin señalar a nadie.
@@ -5991,6 +6014,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             if (map.get("balance") != null) {
                 String[] bal = ((String) map.get("balance")).split("@");
                 java.util.ArrayList<String> nicksRec = new java.util.ArrayList<>();
+                // ANTI robo de fichas en RECOVER: mi saldo VERAZ está persistido en MI PROPIO SQLite (cada
+                // peer guarda balance por mano). El balance del host es solo una PISTA; abajo se PREFIERE el
+                // local y se detecta si el host lo manipula (chip theft en la recuperación).
+                final java.util.Map<String, double[]> localBal = readLocalRecoverBalances();
                 for (String d : bal) {
                     if (d.isEmpty()) {
                         continue;
@@ -5999,23 +6026,41 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     try {
                         String name = new String(Base64.getDecoder().decode(p[0]), "UTF-8");
                         nicksRec.add(name);
+                        double hostStack = Double.parseDouble(p[1]);
+                        int hostBuyin = Integer.parseInt(p[2]);
+                        int hostRebuy = (p.length > 3) ? Integer.parseInt(p[3]) : 0;
+                        // Preferir el saldo LOCAL (mi verdad); el del host SOLO si no tengo dato local (join
+                        // nuevo, etc.). Si el host difiere de lo que YO persistí -> está manipulando el ledger
+                        // en la recuperación -> uso el local + aviso (sospechoso host, rojo, queda registrado).
+                        double stack = hostStack;
+                        int buyin = hostBuyin;
+                        int rebuy = hostRebuy;
+                        double[] local = localBal.get(name);
+                        if (local != null) {
+                            stack = local[0];
+                            buyin = (int) local[1];
+                            rebuy = (int) local[2];
+                            if (Helpers.doubleSecureCompare(stack, hostStack) != 0 || buyin != hostBuyin || rebuy != hostRebuy) {
+                                LOGGER.log(Level.SEVERE,
+                                        "ZERO-TRUST RECOVER: host balance for {0} (stack={1}, buyin={2}, rebuy={3}) != local (stack={4}, buyin={5}, rebuy={6}) — using LOCAL + warning",
+                                        new Object[]{name, hostStack, hostBuyin, hostRebuy, stack, buyin, rebuy});
+                                warnSuspiciousHost(Translator.translate("zero_trust.host_recover_balance_mismatch"));
+                            }
+                        }
                         Player jug = nick2player.get(name);
                         if (jug != null) {
-                            jug.setStack(Double.parseDouble(p[1]));
-                            jug.setBuyin(Integer.parseInt(p[2]));
+                            jug.setStack(stack);
+                            jug.setBuyin(buyin);
                             jug.setBet(0f);
-                            this.auditor.put(name, new Double[]{Double.parseDouble(p[1]), Double.parseDouble(p[2])});
+                            this.auditor.put(name, new Double[]{stack, (double) buyin});
                             if (Helpers.doubleSecureCompare(0f, jug.getStack()) == 0) {
                                 jug.setSpectator(null);
                             }
                         } else {
-                            this.auditor.put(name, new Double[]{Double.parseDouble(p[1]), Double.parseDouble(p[2])});
+                            this.auditor.put(name, new Double[]{stack, (double) buyin});
                         }
-                        if (p.length > 3) {
-                            int rc = Integer.parseInt(p[3]);
-                            if (rc > 0) {
-                                rebuy_counts.put(name, rc);
-                            }
+                        if (rebuy > 0) {
+                            rebuy_counts.put(name, rebuy);
                         }
                     } catch (Exception e) {
                     }

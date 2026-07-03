@@ -439,6 +439,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // un loop de MISDEAL+recover. Con timeout duro el host aborta la mano rapido
     // y vuelve a un estado consistente.
     public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 30000;
+    // Deadline de PROGRESO para la cascada (DECK_CASCADE_RESP). Un peer que contesta PING/PONG
+    // (sigue "vivo") pero CALLA su respuesta de cascada dejaría al host esperando para siempre
+    // -> mesa congelada (p.isExit() no se activa porque el PING lo mantiene vivo). MUCHO más
+    // generoso que REMOTE_SRA_PEER_TIMEOUT_MS porque el paso de cascada puede incluir la
+    // generación de la prueba de barajado en un PC lento: err generoso para NUNCA abortar a un
+    // cliente legítimo lento; solo acota la congelación de infinito a este tope.
+    public static final int REMOTE_CASCADE_RESP_TIMEOUT_MS = 120000;
     public static final int PAUSA_DESTAPAR_CARTA = 1000;
     public static final int PAUSA_DESTAPAR_CARTA_ALLIN = 2000;
     public static final int PAUSA_ENTRE_DESTAPES_SHOWDOWN = 1000;
@@ -1078,11 +1085,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return null;
         }
 
-        // Sin timeout artificial: la cascada SRA con N peers se alarga linealmente
-        // con N (y con la latencia de los clientes más lentos). Un timeout fijo
-        // aborta cascadas legítimas en mesas grandes o con clientes lentos. La
-        // única señal real de "este peer no va a responder" es que su propio thread
-        // de Participant lo marca exit por inactividad de PING/PONG; usamos eso.
+        // Deadline de PROGRESO host-side (anti-DoS por congelación). Antes NO había
+        // timeout: la única señal de "este peer no responderá" era que su propio thread
+        // de Participant lo marcase exit por inactividad de PING/PONG. Pero un peer
+        // MALICIOSO puede contestar los PING (seguir "vivo") y CALLAR su DECK_CASCADE_RESP
+        // -> este bucle giraba para siempre y CONGELABA la mesa (p.isExit() nunca se
+        // activaba). El deadline es por-peer (no lo multiplica el tamaño de la mesa) y MUY
+        // generoso (REMOTE_CASCADE_RESP_TIMEOUT_MS) para no abortar jamás a un cliente
+        // legítimo lento; al vencer devolvemos null (el peer sigue vivo) y el llamador lo
+        // trata como REFUSAL zero-trust -> MISDEAL, igual que la rotación.
+        long deadlineMs = System.currentTimeMillis() + REMOTE_CASCADE_RESP_TIMEOUT_MS;
         boolean ok = false;
         boolean fatalError = false;
         byte[] newDeck = null;
@@ -1168,15 +1180,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return null;
             }
             if (!ok) {
+                long remainingMs = deadlineMs - System.currentTimeMillis();
+                if (remainingMs <= 0) {
+                    LOGGER.log(Level.SEVERE,
+                            "ZERO-TRUST DoS: peer {0} withheld DECK_CASCADE_RESP past {1}ms (answering PING but stalling the deal) — treating as refusal",
+                            new Object[]{nick, REMOTE_CASCADE_RESP_TIMEOUT_MS});
+                    return null;
+                }
                 synchronized (this.getReceived_commands()) {
                     try {
-                        this.getReceived_commands().wait(WAIT_QUEUES);
+                        this.getReceived_commands().wait(Math.min(WAIT_QUEUES, remainingMs));
                     } catch (InterruptedException ex) {
                         Thread.currentThread().interrupt();
                     }
                 }
             }
-        } while (!ok && !isFin_de_la_transmision() && !p.isExit());
+        } while (!ok && !isFin_de_la_transmision() && !p.isExit() && System.currentTimeMillis() < deadlineMs);
         if (!ok) {
             return null;
         }
@@ -1552,7 +1571,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                             chainStepK.add(null);
                             chainStepRemoteProof.add(last_remote_cascade_proof);
                             chainDecks.add(workingDeck);
-                        } else {
+                        } else if (p.isExit()) {
                             // El peer cayó durante el cascade (su Participant lo marcó
                             // exit por socket muerto). Aún no hemos repartido nada, así
                             // que volvemos a empezar la cascada SIN él.
@@ -1560,6 +1579,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     "Peer {0} dropped during cascade — restarting shuffle without them",
                                     currNick);
                             restart = true;
+                        } else {
+                            // El peer sigue VIVO (contesta PING) pero no entregó una
+                            // DECK_CASCADE_RESP válida: o CALLÓ hasta vencer el deadline de
+                            // progreso (withhold), o mandó crypto inválida (fatalError). En
+                            // ambos casos es un REFUSAL zero-trust. Igual que la rotación
+                            // (requestRemoteRotation): MISDEAL — cancela la mano, devuelve las
+                            // apuestas y la timba sigue. Antes esto CONGELABA la mesa (withhold,
+                            // sin deadline) o LIVELOCKEABA (crypto inválida: null sin exit ->
+                            // restart -> se le re-pedía y volvía a fallar sin fin).
+                            LOGGER.log(Level.SEVERE,
+                                    "ZERO-TRUST: peer {0} refused the cascade (alive but no valid DECK_CASCADE_RESP) — aborting hand, game continues",
+                                    currNick);
+                            cancelarManoYDevolverApuestas("zero_trust.cascade_refused");
+                            return false;
                         }
                     }
                 }

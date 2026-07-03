@@ -1169,19 +1169,32 @@ public class Participant implements Runnable {
                                             Helpers.threadRun(() -> {
                                                 try {
                                                     String shNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                    // ZERO-TRUST: un SHOWCARDS solo puede revelar las cartas del nick que
+                                                    // posee ESTA conexión autenticada (paridad con HANDVERIFY/STRADDLE_RESP).
+                                                    // Si no, un peer podría nombrar a otro y, vía showPlayerCards, disparar el
+                                                    // LOCKDOWN del host con una firma ausente/inválida -> matar la timba con un
+                                                    // solo mensaje. Se descarta.
+                                                    if (!shNick.equals(this.nick)) {
+                                                        LOGGER.log(Level.SEVERE,
+                                                                "ZERO-TRUST: dropping SHOWCARDS with nick mismatch on connection {0} (claimed {1})",
+                                                                new Object[]{this.nick, shNick});
+                                                        return;
+                                                    }
                                                     String sraKeyB64 = partes_comando[4];
                                                     // PHASE A.1: la sig Ed25519 acompaña a la SRA key. El host NO puede
                                                     // modificarla — es la prueba de que viene de la privkey del nick.
                                                     String sigB64 = (partes_comando.length >= 6) ? partes_comando[5] : null;
 
-                                                    // 1. El servidor verifica firma + descifra localmente
-                                                    GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
+                                                    // 1. El servidor verifica firma + descifra localmente. En el HOST un
+                                                    // SHOWCARDS de un peer con firma ausente/inválida NO hace lockdown
+                                                    // (SILENT-REFUSE): devuelve false y NO se rebota.
+                                                    boolean revealed = GameFrame.getInstance().getCrupier().showPlayerCards(shNick, sraKeyB64, sigB64);
 
-                                                    // 2. Efecto Espejo: rebotamos el SHOWCARDS al resto incluyendo la sig
-                                                    // intacta. El host NO la altera — los receptores re-verifican.
-                                                    if (GameFrame.getInstance().isPartida_local()) {
-                                                        String sigPart = (sigB64 != null) ? sigB64 : "*";
-                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64 + "#" + sigPart;
+                                                    // 2. Efecto Espejo: rebotamos SOLO un SHOWCARDS VERIFICADO al resto, con la
+                                                    // sig intacta (los receptores re-verifican). Nunca rebotamos uno sin verificar:
+                                                    // los clientes lo leerían como host hostil y harían lockdown (kill amplificado).
+                                                    if (revealed && GameFrame.getInstance().isPartida_local()) {
+                                                        String rebroadcastCmd = "SHOWCARDS#" + partes_comando[3] + "#" + sraKeyB64 + "#" + sigB64;
                                                         GameFrame.getInstance().getCrupier().broadcastGAMECommandFromServer(rebroadcastCmd, shNick);
                                                     }
                                                 } catch (Exception e) {

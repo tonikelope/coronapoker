@@ -9848,13 +9848,22 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         //   [5] isVoluntary     (Boolean — false only for host-issued auto-fold §4.5)
         Object[] action = new Object[6];
 
-        // Sin timeout artificial en el host: cada cliente tiene su propio
-        // contador de tiempo de pensar (LocalPlayer.response_counter) que al
-        // llegar a cero hace auto-click en CHECK o FOLD y envía la ACTION.
-        // Si el reloj del cliente está desfasado respecto al del host (clientes
-        // lentos, GC stalls, latencia), forzar FOLD desde el host expulsaría
-        // la decisión real del jugador. Confiamos en la ACTION del cliente y
-        // sólo salimos del bucle si su socket muere de verdad (isExit).
+        // Deadline de PROGRESO gated en el think-time del cliente (Cluster B anti-DoS). Con
+        // THINK_TIME_ENABLED cada cliente tiene su contador de tiempo de pensar
+        // (LocalPlayer.response_counter) que al llegar a cero hace auto-click en CHECK o FOLD y envía la
+        // ACTION, así que un peer legítimo SIEMPRE responde dentro de THINK_TIME + un margen amplio (red, GC,
+        // skew de reloj). Un peer que contesta PING pero RETIENE su ACTION más allá de eso, con la timba EN
+        // MARCHA, congelaría la ronda: se le expulsa y la mesa sigue (al quedar isExit el bucle sale y
+        // synthesizeFoldAction lo foldea; el broadcast de EXIT hace converger al resto por omisión mutua).
+        // PAUSE-AWARE: el tiempo en pausa NO cuenta (checkPause bloquea y refrescamos el deadline al volver).
+        // Con THINK_TIME_ENABLED=false NO hay deadline: el juego permite pensar indefinidamente por diseño y
+        // ahí el kick es MANUAL. Antes NO había timeout de ningún tipo y un peer podía congelar la ronda para
+        // siempre. Forzar el FOLD desde el host se evita a propósito: con think-time ON solo EXPULSAMOS al que
+        // se pasa del tope (no pisamos su decisión, que ya habría llegado dentro del tope si fuera legítimo).
+        Participant actor = GameFrame.getInstance().getParticipantes().get(jugador.getNickname());
+        boolean thinkTimeEnforced = GameFrame.THINK_TIME_ENABLED && actor != null && !actor.isCpu();
+        long actionBudgetMs = (long) GameFrame.THINK_TIME * 1000L + 60000L;
+        long actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
         do {
             ok = false;
 
@@ -9988,10 +9997,30 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
 
                 if (!ok && !jugador.isExit()) {
-                    GameFrame.getInstance().checkPause();
+                    boolean pausedNow = GameFrame.getInstance().checkPause();
+                    if (pausedNow) {
+                        // El tiempo en pausa NO cuenta contra el think-time: refresca el deadline.
+                        actionDeadlineMs = System.currentTimeMillis() + actionBudgetMs;
+                    }
+                    if (thinkTimeEnforced && System.currentTimeMillis() >= actionDeadlineMs) {
+                        // Peer vivo (contesta PING) que retiene su ACTION con la timba EN MARCHA más allá del
+                        // think-time + margen amplio. Se le expulsa: al quedar isExit, el bucle sale y
+                        // synthesizeFoldAction lo foldea; el broadcast de EXIT hace converger al resto.
+                        LOGGER.log(Level.SEVERE,
+                                "ZERO-TRUST DoS: peer {0} withheld ACTION past think-time + margin ({1}ms, game running, answering PING) — expelling, table continues",
+                                new Object[]{jugador.getNickname(), actionBudgetMs});
+                        warnMaliciousPeer(jugador.getNickname(), "zero_trust.peer_action_withheld");
+                        actor.markExitAndNotify("withheld ACTION (progress deadline)");
+                        try {
+                            actor.socketClose();
+                        } catch (Exception ignored) {
+                        }
+                        continue; // el while re-evalúa: jugador.isExit() ya es true -> sale del bucle
+                    }
                     synchronized (this.getReceived_commands()) {
                         try {
-                            this.received_commands.wait(WAIT_QUEUES);
+                            this.received_commands.wait(Math.min(WAIT_QUEUES,
+                                    Math.max(1L, actionDeadlineMs - System.currentTimeMillis())));
                         } catch (InterruptedException ex) {
                         }
                     }

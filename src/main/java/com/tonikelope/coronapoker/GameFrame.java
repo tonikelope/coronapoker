@@ -905,6 +905,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
         THIS.setVisible(false);
 
+        // Detener la cola de verificacion de barajado del Crupier de ESTA partida antes de descartar el
+        // GameFrame: su worker daemon queda bloqueado en take() reteniendo el Crupier entero via la Sink,
+        // fugando un hilo + su grafo por cada partida jugada en la misma sesion de la app.
+        if (THIS.getCrupier() != null) {
+            THIS.getCrupier().shutdownShuffleVerifyQueue();
+        }
+
         THIS.dispose();
 
         THIS = null;

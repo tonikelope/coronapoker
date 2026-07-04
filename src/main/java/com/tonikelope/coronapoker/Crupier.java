@@ -754,6 +754,16 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         return q;
     }
 
+    /** Detiene la cola de verificacion de barajado de este Crupier (si llego a crearse), para no fugar
+     *  su worker daemon ni el grafo del Crupier (retenido via la Sink) al arrancar una partida nueva.
+     *  Idempotente y fail-safe. */
+    public void shutdownShuffleVerifyQueue() {
+        ShuffleVerificationQueue q = this.shuffle_verify_queue;
+        if (q != null) {
+            q.shutdown();
+        }
+    }
+
     public void triggerSecurityLockdown(String reason) {
         if (!Crupier.SECURITY_LOCKDOWN) {
             Crupier.SECURITY_LOCKDOWN = true;
@@ -1369,11 +1379,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             if (fatalError) {
                 // Violacion zero-trust del peer (identity echo / deck off-curve / commitments invalidos):
-                // NO es un simple drop de red, es un peer MANIPULADO. Se le trata como CAIDO
-                // (markExitAndNotify marca Participant.exit Y Player.exit y despierta los waits) para que
-                // el reintento de la cascada lo SALTE (guard !p.isExit() abajo) en vez de re-pedirle el
-                // paso y volver a fallar en bucle infinito (livelock del hilo de reparto). Reusa la misma
-                // maquinaria de "peer se fue a mitad de cascada"; la mano se reparte sin el.
+                // NO es un simple drop de red, es un peer MANIPULADO. Primero se le NOMBRA como sospechoso
+                // (registro rojo + popup, visibilidad §8) y se le anota un strike de negativa al reparto
+                // (registerDealRefusal, que AUTO-EXPULSA tras MAX_DEAL_REFUSAL_STRIKES), igual que la rotacion.
+                // Esto DEBE ir aqui: el markExitAndNotify de abajo lo marca isExit, asi que el llamador lo
+                // encamina a la rama "restart sin el" (silenciosa) en vez de a la rama MISDEAL que emitia
+                // estos avisos. Sin esto, la cripto-violacion mas flagrante quedaba SIN visibilidad ni
+                // escalado a expulsion. Un drop de red honesto NO llega aqui (no activa fatalError), asi que
+                // no se acusa a nadie por caerse.
+                warnMaliciousPeer(nick, "zero_trust.cascade_refused");
+                registerDealRefusal(nick);
+                // Se le trata como CAIDO (markExitAndNotify marca Participant.exit Y Player.exit y despierta
+                // los waits) para que el reintento de la cascada lo SALTE (guard !p.isExit() abajo) en vez de
+                // re-pedirle el paso y volver a fallar en bucle infinito (livelock del hilo de reparto). Reusa
+                // la misma maquinaria de "peer se fue a mitad de cascada"; la mano se reparte sin el.
                 p.markExitAndNotify("zero-trust cascade violation (manipulated peer)");
                 return null;
             }
@@ -1876,11 +1895,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     if (rotated != null) {
                         communityPieces = rotated;
                         stepRemoteProof = this.last_remote_rotation_proof; // prueba del cliente (DECK_ROTATION_RESP partes[5])
-                    } else {
-                        // Peer está vivo (no exit) pero no respondió — REFUSAL.
-                        // Aplica la regla "no entrega secreto" → para la timba.
+                    } else if (p.isExit() || p.isSocketDownOrReconnecting()) {
+                        // El peer se CAYO o esta RECONECTANDO durante la rotacion (al reconectar mid-cascade
+                        // pierde sus scalars SRA efimeros y no puede responder, issue#9). NO es una negativa
+                        // maliciosa: MISDEAL SIN acusar ni dar strike, igual que la rama de peer-exit de abajo.
+                        // Un abuso REPETIDO de reconexion lo caza el strike de tormenta de reconexion, aparte.
                         LOGGER.log(Level.WARNING,
-                                "Peer {0} refused rotation (alive but no response) — aborting hand and stopping game",
+                                "Peer {0} unavailable for rotation (drop/reconnect), aborting hand without strike, game continues",
+                                currNick);
+                        rotationOk = false;
+                        rotationFailMotivo = "peer.dropped_during_rotation";
+                        break;
+                    } else {
+                        // Peer VIVO y conectado que no entrego una rotacion valida: crypto invalida (fatalError)
+                        // o withhold hasta vencer el deadline. REFUSAL zero-trust: nombrar (rojo + popup) mas
+                        // strike hacia AUTO-EXPEL, y MISDEAL. Paridad con la cascada.
+                        LOGGER.log(Level.WARNING,
+                                "Peer {0} refused rotation (alive, connected, no valid response), aborting hand, game continues",
                                 currNick);
                         warnMaliciousPeer(currNick, "zero_trust.rotation_refused");
                         registerDealRefusal(currNick);
@@ -5079,7 +5110,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Phase enum para REQ_SRA_UNLOCK_CHAIN. Cada item del batch lleva un
     // (phase, peer_idx); el cliente valida que (phase, peer_idx) encaja con
     // su estado local y aún no se ha servido en esta mano (anti-reuse, ver
-    // isSraUnlockRequestLegitimate).
+    // isUnlockPhaseAllowedForStreet + communitySlotRange, el gate vivo del batch).
     public static final int UNLOCK_PHASE_POCKET = 0;
     public static final int UNLOCK_PHASE_FLOP = 1;
     public static final int UNLOCK_PHASE_TURN = 2;
@@ -5349,100 +5380,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             default:
                 return false;
         }
-    }
-
-    /**
-     * Zero-trust gate for REQ_SRA_UNLOCK_CHAIN items (validated one by one).
-     *
-     * The host declares which slot it is asking the client to unlock via
-     * (phase, peer_idx, hand_id). Cada recipient (pocket o comunitaria)
-     * tiene su propia copia per-destinatario, por lo que peer_idx siempre
-     * identifica al destinatario en el ring para CUALQUIER phase. El cliente
-     * valida:
-     *   1) MEGAPACKET ya recibido (sin él no hay nada que unlockear).
-     *   2) hand_id == conta_mano (anti replay cross-hand).
-     *   3) (phase, peer_idx) no ha sido servida ya esta mano (anti-reuse).
-     *   4) payload length coherente con phase.
-     *   5) state machine: la phase es legal AHORA según flags locales.
-     *   6) peer_idx ∈ [0, ring_size) y ring[peer_idx] != mi_nick. Con per-recipient
-     *      copies, pedirme que abra mi propia copia equivaldría a extraer mis
-     *      cartas privadas o mi propio piece comunitario.
-     *
-     * El caller registra la tag-key en sra_unlock_tags_served DESPUÉS de responder.
-     */
-    public boolean isSraUnlockRequestLegitimate(int phase, int peer_idx, int hand_id, int length) {
-        if (this.local_mega_packet == null) {
-            return false;
-        }
-        if (hand_id != this.conta_mano) {
-            return false;
-        }
-        if (this.sra_unlock_tags_served.contains(sraUnlockTagKey(phase, peer_idx))) {
-            return false;
-        }
-        if (this.active_crypto_ring == null
-                || peer_idx < 0 || peer_idx >= this.active_crypto_ring.length) {
-            return false;
-        }
-        String targetNick = this.active_crypto_ring[peer_idx];
-        String myNick = GameFrame.getInstance().getNick_local();
-        if (targetNick == null || targetNick.equals(myNick)) {
-            return false;
-        }
-        switch (phase) {
-            case UNLOCK_PHASE_POCKET:
-                // Una vez se ha revelado cualquier carta comunitaria, la phase POCKET
-                // está cerrada para esta mano: cualquier petición POCKET posterior es
-                // un host intentando downgrade del state machine para extraer pockets
-                // ya entregados (re-uso de tags ya está cortado por sra_unlock_tags_served,
-                // pero esto cierra además el flanco de "tag nueva para mismo peer_idx").
-                return length == 64
-                        && !this.flop_revealed
-                        && !this.turn_revealed
-                        && !this.river_revealed;
-            // Para TURN/RIVER usamos sra_unlock_tags_served (lo que YO he servido)
-            // en lugar de los flags flop_revealed/turn_revealed (que se setean al
-            // recibir el broadcast del host). Si dependiéramos del broadcast, un
-            // host malicioso podría enviar bytes sin haber hecho la cascada
-            // de unlock y abrir la phase TURN sin más. Con esta versión, sólo
-            // TÚ puedes avanzar el state machine sirviendo el tag legítimo.
-            //
-            // El anti-reuse usa la tag compuesta (phase:peer_idx); el predicate
-            // "sirví alguna tag de la phase anterior" exige containsAny sobre
-            // todas las peer_idx posibles de esa phase.
-            case UNLOCK_PHASE_FLOP:
-                return length == 96 && !this.flop_revealed;
-            case UNLOCK_PHASE_TURN:
-                return length == 32
-                        && servedAnyForPhase(UNLOCK_PHASE_FLOP)
-                        && !this.turn_revealed;
-            case UNLOCK_PHASE_RIVER:
-                return length == 32
-                        && servedAnyForPhase(UNLOCK_PHASE_TURN)
-                        && !this.river_revealed;
-            case UNLOCK_PHASE_RABBIT_FLOP:
-                return length == 96 && this.show_time && !this.flop_revealed;
-            case UNLOCK_PHASE_RABBIT_TURN:
-                return length == 32 && this.show_time && !this.turn_revealed;
-            case UNLOCK_PHASE_RABBIT_RIVER:
-                return length == 32 && this.show_time && !this.river_revealed;
-            default:
-                return false;
-        }
-    }
-
-    // ¿He servido AL MENOS UNA tag (phase:*) de esta phase esta mano? Indica
-    // que el cascade previo de la calle anterior ya pasó por mí al menos para
-    // un recipient — equivalente al containsAny implícito que antes hacíamos
-    // con tags no compuestas.
-    private boolean servedAnyForPhase(int phase) {
-        String prefix = phase + ":";
-        for (String tag : this.sra_unlock_tags_served) {
-            if (tag.startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean showPlayerCards(String nick, String sraKeyB64, String sigB64) {
@@ -10332,8 +10269,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     synchronized (this.getReceived_commands()) {
                         try {
-                            this.received_commands.wait(Math.min(WAIT_QUEUES,
-                                    Math.max(1L, actionDeadlineMs - System.currentTimeMillis())));
+                            // Con think-time ON el wait se acota al deadline para despertar justo a tiempo de
+                            // expulsar (arriba). Con think-time OFF (pensar ilimitado por diseno) NO hay expulsion
+                            // por deadline, asi que NO dejamos que el deadline ya vencido encoja el wait a 1ms:
+                            // eso degeneraba en busy-spin (poll cada 1ms) mientras se retiene la ACTION >100s.
+                            long waitMs = thinkTimeEnforced
+                                    ? Math.max(1L, Math.min(WAIT_QUEUES, actionDeadlineMs - System.currentTimeMillis()))
+                                    : WAIT_QUEUES;
+                            this.received_commands.wait(waitMs);
                         } catch (InterruptedException ex) {
                         }
                     }

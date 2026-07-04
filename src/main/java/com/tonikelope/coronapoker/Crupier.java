@@ -2365,10 +2365,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                 }
                                 this.active_crypto_ring = ringList.toArray(new String[0]);
                                 logCryptoRingDebug("CLIENT (received order)", this.active_crypto_ring);
-                                // Comparación de consenso del anillo: qué orden DERIVARÍA este cliente
-                                // localmente (getAnilloCriptografico, el fallback usado pre-MEGAPACKET/
-                                // recovery). Debe dar el MISMO hash que el recibido; con orden alfabético
-                                // siempre coincide. Solo lee, no muta nada. Clave para validar la Fase 2.
+                                // DEBUG del anillo: qué orden DERIVARÍA este cliente localmente
+                                // (getAnilloCriptografico). OJO: desde que el anillo arranca por el DEALER,
+                                // este "local derive" puede DIFERIR legítimamente del "received" si el cliente
+                                // aún no tiene el dealer_nick de esta mano (stale/null/carrera con POSITIONS).
+                                // NO implica divergencia de consenso: el orden autoritativo es el DIFUNDIDO
+                                // (active_crypto_ring, arriba); esta derivación local nunca se usa para
+                                // verificar. Solo lee, no muta nada.
                                 try {
                                     java.util.ArrayList<Player> localRing = getAnilloCriptografico();
                                     String[] localNicks = new String[localRing.size()];
@@ -18125,6 +18128,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
             return p1.getNickname().compareTo(p2.getNickname()); // ambos sin asiento: alfabético estable
         });
+        // Rotar el anillo para que el giro EMPIECE por el DEALER (rota con el botón cada mano), de
+        // modo que la animación de barajado acompañe a la mano en vez de arrancar siempre en el
+        // mismo asiento fijo. SOLO cambia el punto de arranque: el conjunto y el orden circular de
+        // asientos son idénticos, así que la seguridad de consenso es la MISMA que el orden por
+        // asiento (el host construye este orden y lo DIFUNDE; nadie lo re-deriva para verificar).
+        // dealer_nick ya está calculado aquí (setPositions corre antes del barajado). Fallback
+        // DEFENSIVO: si dealer_nick es null (aún sin mano) o no está en el anillo (dealer se fue),
+        // no se rota -> arranca en el asiento 0, comportamiento previo. dealer en 0 -> no-op.
+        final String dealer = this.dealer_nick;
+        if (dealer != null) {
+            int dealerIdx = -1;
+            for (int i = 0; i < ring.size(); i++) {
+                if (dealer.equals(ring.get(i).getNickname())) {
+                    dealerIdx = i;
+                    break;
+                }
+            }
+            if (dealerIdx > 0) {
+                java.util.Collections.rotate(ring, -dealerIdx); // el dealer pasa a la posición 0
+            }
+        }
         return ring;
     }
 

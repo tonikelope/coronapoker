@@ -120,19 +120,20 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // lanzar la ficha; awaitChipLaunch lo espera con tope.
     private volatile CountDownLatch chip_launch_latch = null;
     private volatile String rebuy_countdown_saved_text = null;
-    // Overlay del GIF de barajado (pequeño, MUDO, en bucle) sobre este jugador mientras
-    // procesa SU paso de la cascada SRA (ver GameFrame.cascadaOverlayAnimOn). Lo muestra/
-    // oculta el hilo de reparto del Crupier alrededor de la llamada bloqueante de cascada,
-    // así que dura EXACTO lo que tarda este cliente (localizar al PC más lento de la mesa).
-    // Sin audio y sin barrier: puro indicador visual. 'generation' invalida un show cuya
-    // carga async del GIF acabe DESPUÉS de que la cascada ya pasó al siguiente. El ImageIcon
-    // se decodifica una vez por instancia (cache-busted) y se reutiliza (setIcon lo rebobina);
-    // se recarga si cambia la baraja.
+    // Overlay del GIF de barajado (pequeño, MUDO, en bucle) + borde blanco de resaltado sobre
+    // este jugador mientras procesa SU paso de la cascada SRA. Sincronizado en TODOS los peers:
+    // el host difunde SHUFFLE_TURN y el controlador de GameFrame (onShuffleTurn) invoca show/hide
+    // sobre el jugador de turno. Sin audio y sin barrier: puro indicador visual. El controlador
+    // serializa los turnos (un overlay a la vez, con duración mínima), así que aquí no hace falta
+    // 'generation'. El ImageIcon se decodifica una vez por instancia (cache-busted) y se reutiliza
+    // (setIcon lo rebobina); se recarga si cambia la baraja.
     private final GifLabel shuffle_cascade_gif_label = new GifLabel();
-    private volatile int shuffle_cascade_generation = 0;
     private volatile ImageIcon shuffle_cascade_icon = null;
     private volatile int shuffle_cascade_frames = 0;
     private volatile String shuffle_cascade_icon_url = null;
+    // Color del borde guardado antes de ponerlo blanco (turno de cascada), para restaurarlo.
+    private volatile Color shuffle_border_saved = null;
+    private volatile boolean shuffle_border_active = false;
     // GIF de game over sobre las cartas del arruinado mientras decide la
     // recompra (solo modo CINEMATICAS). Label dedicada (capa 1001, debajo del
     // chat_notify_label): un meme del chat se pinta encima y al ocultarse el
@@ -3328,68 +3329,75 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }
 
     /**
-     * Muestra el GIF de barajado (pequeño, MUDO, en bucle) sobre este jugador mientras procesa
-     * su paso de la cascada SRA. Idempotente por {@code shuffle_cascade_generation}: un show
-     * cuya carga async del GIF termine DESPUÉS de que la cascada ya pasó al siguiente
-     * (hideShuffleCascadeOverlay incrementó el contador) no llega a pintarse. Sin audio y sin
-     * barrier — puro indicador visual. El ImageIcon se decodifica una vez por instancia y se
-     * reutiliza (setIcon lo rebobina). NO llamar desde el EDT: la carga del GIF bloquea.
+     * Muestra el GIF de barajado (MUDO, en bucle) + borde blanco de resaltado sobre este jugador.
+     * Lo invoca el controlador de GameFrame desde su hilo serializador (NO el EDT), que garantiza
+     * un overlay a la vez y su duración mínima. Carga el GIF de forma SÍNCRONA (por eso NO debe
+     * llamarse desde el EDT) y luego pinta en el EDT.
      */
+    @Override
     public void showShuffleCascadeOverlay() {
-        final int gen = ++shuffle_cascade_generation;
-        Helpers.threadRun(() -> {
-            try {
-                final ImageIcon icon = ensureShuffleCascadeIcon();
-                final int frames = shuffle_cascade_frames;
-                // frames<=0 (GIF sin Graphic Control Extension: atípico, posible en decks mod): el
-                // bucle de GifLabel.imageUpdate no se cortaría al ocultar (seguiría decodificando en
-                // background, fuga de CPU invisible). Fail-safe: no mostrar overlay para ese recurso.
-                if (icon == null || frames <= 0 || gen != shuffle_cascade_generation) {
-                    return;
-                }
-                // Ajuste a panel_cartas manteniendo proporción (como rebuy_gif_label); GifLabel
-                // estira la Image a estos bounds por GPU, así que basta el tamaño del label.
-                int max_width = panel_cartas.getWidth();
-                int new_height = panel_cartas.getHeight();
-                int new_width = (int) Math.round((icon.getIconWidth() * (double) new_height) / icon.getIconHeight());
-                if (new_width > max_width) {
-                    new_height = (int) Math.round(((double) new_height * max_width) / new_width);
-                    new_width = max_width;
-                }
-                final int width = new_width;
-                final int height = new_height;
-                Helpers.GUIRun(() -> {
-                    if (gen != shuffle_cascade_generation) {
-                        return;
-                    }
-                    shuffle_cascade_gif_label.setBarrier(null);
-                    shuffle_cascade_gif_label.setIcon(icon, frames);
-                    // Bucle "infinito" hasta hideShuffleCascadeOverlay: la cascada es secuencial
-                    // y su paso remoto bloquea, así que el hide SIEMPRE llega tras el show.
-                    shuffle_cascade_gif_label.setRepeat(Integer.MAX_VALUE);
-                    shuffle_cascade_gif_label.setSize(width, height);
-                    shuffle_cascade_gif_label.setPreferredSize(shuffle_cascade_gif_label.getSize());
-                    shuffle_cascade_gif_label.setOpaque(false);
-                    shuffle_cascade_gif_label.setLocation(Math.round((panel_cartas.getWidth() - width) / 2f), Math.round((getHoleCard1().getHeight() - height) / 2f));
-                    shuffle_cascade_gif_label.setVisible(true);
-                });
-            } catch (Exception ex) {
-                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+        final ImageIcon icon;
+        try {
+            icon = ensureShuffleCascadeIcon();
+        } catch (Exception ex) {
+            Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            return;
+        }
+        if (icon == null) {
+            return;
+        }
+        final int frames = shuffle_cascade_frames;
+        if (frames <= 0) {
+            return; // GIF sin Graphic Control Extension (deck mod): el bucle de imageUpdate no se cortaría al ocultar
+        }
+        Helpers.GUIRun(() -> {
+            int max_width = panel_cartas.getWidth();
+            int new_height = panel_cartas.getHeight();
+            if (icon.getIconHeight() <= 0 || new_height <= 0) {
+                return;
             }
+            // GifLabel estira la Image a los bounds por GPU, así que basta el tamaño del label.
+            int new_width = (int) Math.round((icon.getIconWidth() * (double) new_height) / icon.getIconHeight());
+            if (max_width > 0 && new_width > max_width) {
+                new_height = (int) Math.round(((double) new_height * max_width) / new_width);
+                new_width = max_width;
+            }
+            shuffle_cascade_gif_label.setBarrier(null);
+            shuffle_cascade_gif_label.setIcon(icon, frames);
+            shuffle_cascade_gif_label.setRepeat(Integer.MAX_VALUE); // bucle hasta hideShuffleCascadeOverlay
+            shuffle_cascade_gif_label.setSize(new_width, new_height);
+            shuffle_cascade_gif_label.setPreferredSize(shuffle_cascade_gif_label.getSize());
+            shuffle_cascade_gif_label.setOpaque(false);
+            shuffle_cascade_gif_label.setLocation(Math.round((panel_cartas.getWidth() - new_width) / 2f), Math.round((getHoleCard1().getHeight() - new_height) / 2f));
+            shuffle_cascade_gif_label.setVisible(true);
+            // Borde blanco de resaltado del turno (guarda el color previo para restaurarlo en hide).
+            if (!shuffle_border_active) {
+                shuffle_border_saved = border_color;
+                shuffle_border_active = true;
+            }
+            border_color = java.awt.Color.WHITE;
+            repaint();
         });
     }
 
     /**
-     * Oculta el overlay de barajado al terminar el paso de cascada de este jugador. Incrementa
-     * {@code shuffle_cascade_generation} para cancelar cualquier show en vuelo; setIcon(null)
-     * resetea a 1 el repeat de la GifLabel (el bucle se corta en ≤1 pasada) y suelta la Image.
-     * Idempotente: seguro aunque no haya overlay visible.
+     * Oculta el overlay de barajado y restaura el borde previo. Idempotente: seguro aunque no
+     * haya overlay visible. setIcon(null) resetea a 1 el repeat de la GifLabel (corta el bucle).
      */
+    @Override
     public void hideShuffleCascadeOverlay() {
-        shuffle_cascade_generation++;
         Helpers.GUIRun(() -> {
             shuffle_cascade_gif_label.setVisible(false);
             shuffle_cascade_gif_label.setIcon((javax.swing.Icon) null);
+            if (shuffle_border_active) {
+                // Solo restaurar si el borde sigue siendo el blanco que pusimos: si otro código lo
+                // cambió mientras tanto (p.ej. el resaltado de turno de apuesta), respetarlo.
+                if (border_color == java.awt.Color.WHITE) {
+                    border_color = shuffle_border_saved;
+                    repaint();
+                }
+                shuffle_border_active = false;
+            }
         });
     }
 

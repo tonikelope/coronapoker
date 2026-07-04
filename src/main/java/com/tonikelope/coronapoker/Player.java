@@ -216,4 +216,12 @@ public interface Player extends com.tonikelope.coronapoker.bot.context.BotPlayer
 
     public boolean isMuestra();
 
+    // Overlay del GIF de barajado + borde blanco de resaltado mientras este jugador procesa su
+    // paso de la cascada SRA. Sincronizado en todos los peers vía el comando SHUFFLE_TURN; el
+    // controlador de GameFrame (onShuffleTurn) los invoca sobre el jugador de turno, sea local o
+    // remoto. showShuffleCascadeOverlay puede bloquear (carga del GIF): NO llamar desde el EDT.
+    public void showShuffleCascadeOverlay();
+
+    public void hideShuffleCascadeOverlay();
+
 }

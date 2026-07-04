@@ -1767,6 +1767,10 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             boolean restart = false;
             for (int i = 0; i < numPlayers && !restart; i++) {
                 String currNick = currentRing[i];
+                // Overlay VISUAL del turno de barajado de este jugador (todos: host, bots y remotos),
+                // sincronizado en todos los peers. Fire-and-forget; puramente de display, no toca la
+                // cascada ni el consenso. El host emite en el ORDEN del anillo (giro por la mesa).
+                emitShuffleTurn(currNick);
                 if (!currNick.equals(GameFrame.getInstance().getNick_local())) {
                     Participant p = GameFrame.getInstance().getParticipantes().get(currNick);
                     if (p != null && p.isCpu()) {
@@ -1794,24 +1798,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         chainStepK.add(botLock);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
-                        // Overlay VISUAL del barajado sobre este jugador mientras corre SU paso
-                        // (para localizar al PC más lento de la mesa): el show/hide envuelve la
-                        // llamada bloqueante, así que el GIF dura EXACTO lo que tarda el cliente.
-                        // Solo remotos humanos (esta rama), gateado, MUDO, sin tocar la cascada.
-                        // El hide va en finally: corre aunque requestRemoteCascade lance o el
-                        // resultado aborte la mano (return false más abajo).
-                        final RemotePlayer cascadeOverlay = GameFrame.cascadaOverlayAnimOn() ? findRemotePlayerByNick(currNick) : null;
-                        if (cascadeOverlay != null) {
-                            cascadeOverlay.showShuffleCascadeOverlay();
-                        }
-                        byte[] cascaded;
-                        try {
-                            cascaded = requestRemoteCascade(currNick, workingDeck, p);
-                        } finally {
-                            if (cascadeOverlay != null) {
-                                cascadeOverlay.hideShuffleCascadeOverlay();
-                            }
-                        }
+                        byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
                         if (cascaded != null) {
                             workingDeck = cascaded;
                             // Paso remoto: sin perm/k local; su prueba de barajado llega ASYNC
@@ -8040,29 +8027,36 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             if (GameFrame.getInstance().isPartida_local() && this.game_recovered == 0) {
 
-                // Si la cascada falla (alguien no responde), abortamos la inicialización
-                if (!enviarCartasJugadoresRemotos()) {
-                    barajando = false;
-                    synchronized (shuffle_lock) {
-                        while (!gif_thread_done[0]) {
-                            try {
-                                shuffle_lock.wait(1000);
-                            } catch (InterruptedException ex) {
-                                Helpers.logCooperativeCancellation(LOGGER, "shuffle wait (abort path)", ex);
-                                break;
+                try {
+                    // Si la cascada falla (alguien no responde), abortamos la inicialización
+                    if (!enviarCartasJugadoresRemotos()) {
+                        barajando = false;
+                        synchronized (shuffle_lock) {
+                            while (!gif_thread_done[0]) {
+                                try {
+                                    shuffle_lock.wait(1000);
+                                } catch (InterruptedException ex) {
+                                    Helpers.logCooperativeCancellation(LOGGER, "shuffle wait (abort path)", ex);
+                                    break;
+                                }
                             }
                         }
+
+                        Audio.stopPreloadedWav("misc/shuffle.wav");
+
+                        return false;
                     }
 
-                    Audio.stopPreloadedWav("misc/shuffle.wav");
-
-                    return false;
-                }
-
-                for (Player j : GameFrame.getInstance().getJugadores()) {
-                    if (j != GameFrame.getInstance().getLocalPlayer()) {
-                        j.ordenarCartas();
+                    for (Player j : GameFrame.getInstance().getJugadores()) {
+                        if (j != GameFrame.getInstance().getLocalPlayer()) {
+                            j.ordenarCartas();
+                        }
                     }
+                } finally {
+                    // SIEMPRE oculta el overlay de barajado en todos los peers: éxito, abort
+                    // (return false) o excepción del host. Sin esto, una excepción dejaría el
+                    // overlay girando eternamente en los clientes.
+                    emitShuffleTurnEnd();
                 }
             } else if (!GameFrame.getInstance().isPartida_local()
                     && !GameFrame.getInstance().getLocalPlayer().isCalentando() && this.game_recovered == 0) {
@@ -18067,20 +18061,32 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
-     * Localiza el RemotePlayer (asiento visual del host) cuyo nick coincide, o null si no hay
-     * ninguno (p.ej. el nick es de un miembro del anillo sin asiento visible en la mesa). Lo
-     * usa el overlay de barajado de la cascada para pintar sobre el jugador cuyo paso corre.
+     * Anuncia (VISUAL, no cripto) que {@code nick} procesa ahora su paso de cascada: lo aplica
+     * localmente (host) y lo DIFUNDE a los clientes fire-and-forget (confirmation=false, sin ACKs,
+     * para NO bloquear el hilo de reparto). Cada peer decide si lo pinta según su preferencia
+     * (onShuffleTurn respeta el gate local). Puramente de display: no toca la cascada ni el consenso.
      */
-    private RemotePlayer findRemotePlayerByNick(String nick) {
-        RemotePlayer[] players = GameFrame.getInstance().getTapete().getRemotePlayers();
-        if (players != null && nick != null) {
-            for (RemotePlayer rp : players) {
-                if (rp != null && nick.equals(rp.getNickname())) {
-                    return rp;
-                }
-            }
+    private void emitShuffleTurn(String nick) {
+        try {
+            GameFrame.getInstance().onShuffleTurn(nick);
+            this.broadcastGAMECommandFromServer(
+                    "SHUFFLE_TURN#" + Base64.getEncoder().encodeToString(nick.getBytes("UTF-8")),
+                    null, false);
+        } catch (Exception ex) {
+            LOGGER.log(Level.FINE, "emitShuffleTurn failed (non-fatal, display only)", ex);
         }
-        return null;
+    }
+
+    /**
+     * Fin del barajado: oculta el overlay en todos los peers (local + broadcast fire-and-forget).
+     */
+    private void emitShuffleTurnEnd() {
+        try {
+            GameFrame.getInstance().onShuffleTurnEnd();
+            this.broadcastGAMECommandFromServer("SHUFFLE_TURN_END", null, false);
+        } catch (Exception ex) {
+            LOGGER.log(Level.FINE, "emitShuffleTurnEnd failed (non-fatal, display only)", ex);
+        }
     }
 
     public java.util.ArrayList<Player> getAnilloCriptografico() {

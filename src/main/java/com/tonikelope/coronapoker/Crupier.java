@@ -150,7 +150,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
      *
      * action[] post-call (mismo contrato que el exit-synth existente):
      *   action[0] = Player.FOLD     // decision sintética
-     *   action[1] = 0f              // bet=0
+     *   action[1] = 0d              // bet=0
      *   action[2] = null            // sin cinematic
      *   action[3] = null            // sin record para absorber en el chain
      *   action[4] = null            // sin sig

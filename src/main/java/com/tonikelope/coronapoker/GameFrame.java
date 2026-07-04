@@ -207,8 +207,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     // mientras procesa SU paso de la cascada SRA — desaparece al pasar al siguiente. Como la
     // cascada es secuencial y su paso remoto es una llamada bloqueante, el overlay dura EXACTO
     // lo que tarda ese cliente: sirve para localizar de un vistazo al PC más lento de la mesa.
-    // Puramente visual: no toca la cascada ni el consenso. Por defecto activado.
-    public static volatile boolean ANIMACION_CASCADA_OVERLAY_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_cascada_overlay", "true"));
+    // Puramente visual: no toca la cascada ni el consenso. Por defecto desactivado.
+    public static volatile boolean ANIMACION_CASCADA_OVERLAY_PREF = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("animacion_cascada_overlay", "false"));
 
     // Sincronización P2P de estadísticas: dos preferencias globales independientes,
     // ambas ON por defecto. RECIBIR = importar las partidas que me faltan al conectar

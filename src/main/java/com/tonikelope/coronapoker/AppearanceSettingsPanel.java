@@ -127,7 +127,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_ciegas_dealer = prefBool("animacion_ciegas_dealer");
         snap_anim_apuestas = prefBool("animacion_apuestas");
         snap_anim_contadores = prefBool("animacion_contadores");
-        snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay");
+        snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay", false);
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
@@ -346,7 +346,7 @@ public class AppearanceSettingsPanel extends JPanel {
         // (solo vive aquí): animCheckbox con menu=null persiste la preferencia y fija el flag en
         // vivo; el maestro lo habilita/deshabilita como a los demás.
         addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_cascada_overlay",
-                null, "animacion_cascada_overlay", v -> GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = v));
+                null, "animacion_cascada_overlay", v -> GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = v, false));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -409,7 +409,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_ciegas_dealer") != snap_anim_ciegas_dealer
                 || prefBool("animacion_apuestas") != snap_anim_apuestas
                 || prefBool("animacion_contadores") != snap_anim_contadores
-                || prefBool("animacion_cascada_overlay") != snap_anim_cascada_overlay
+                || prefBool("animacion_cascada_overlay", false) != snap_anim_cascada_overlay
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen;
@@ -611,7 +611,11 @@ public class AppearanceSettingsPanel extends JPanel {
     // true). Equivalente a leer el isSelected del item de menú (ver nota de clase) y no
     // depende de que haya GameFrame.
     private static boolean prefBool(String key) {
-        return Boolean.parseBoolean(Helpers.PROPERTIES.getProperty(key, "true"));
+        return prefBool(key, true);
+    }
+
+    private static boolean prefBool(String key, boolean def) {
+        return Boolean.parseBoolean(Helpers.PROPERTIES.getProperty(key, String.valueOf(def)));
     }
 
     // Persiste una preferencia (clave -> valor) sin efecto en vivo. Lo usan los controles
@@ -686,7 +690,11 @@ public class AppearanceSettingsPanel extends JPanel {
     // deshabilite. Arranca deshabilitado si el maestro esta off. En partida (menu != null)
     // delega en el item; fuera de partida persiste la preferencia y fija el flag efectivo.
     private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter) {
-        boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey);
+        return animCheckbox(iconPath, i18nKey, menu, prefKey, effSetter, true);
+    }
+
+    private JComponent animCheckbox(String iconPath, String i18nKey, JMenuItem menu, String prefKey, Consumer<Boolean> effSetter, boolean defaultPref) {
+        boolean pref = (menu != null) ? menu.isSelected() : prefBool(prefKey, defaultPref);
         JCheckBox cb = new JCheckBox(Translator.translate(i18nKey), pref);
         cb.setEnabled((menu == null || menu.isEnabled()) && GameFrame.ANIMACIONES);
         cb.addActionListener(e -> {

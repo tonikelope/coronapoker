@@ -120,6 +120,19 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     // lanzar la ficha; awaitChipLaunch lo espera con tope.
     private volatile CountDownLatch chip_launch_latch = null;
     private volatile String rebuy_countdown_saved_text = null;
+    // Overlay del GIF de barajado (pequeño, MUDO, en bucle) sobre este jugador mientras
+    // procesa SU paso de la cascada SRA (ver GameFrame.cascadaOverlayAnimOn). Lo muestra/
+    // oculta el hilo de reparto del Crupier alrededor de la llamada bloqueante de cascada,
+    // así que dura EXACTO lo que tarda este cliente (localizar al PC más lento de la mesa).
+    // Sin audio y sin barrier: puro indicador visual. 'generation' invalida un show cuya
+    // carga async del GIF acabe DESPUÉS de que la cascada ya pasó al siguiente. El ImageIcon
+    // se decodifica una vez por instancia (cache-busted) y se reutiliza (setIcon lo rebobina);
+    // se recarga si cambia la baraja.
+    private final GifLabel shuffle_cascade_gif_label = new GifLabel();
+    private volatile int shuffle_cascade_generation = 0;
+    private volatile ImageIcon shuffle_cascade_icon = null;
+    private volatile int shuffle_cascade_frames = 0;
+    private volatile String shuffle_cascade_icon_url = null;
     // GIF de game over sobre las cartas del arruinado mientras decide la
     // recompra (solo modo CINEMATICAS). Label dedicada (capa 1001, debajo del
     // chat_notify_label): un meme del chat se pinta encima y al ocultarse el
@@ -1610,6 +1623,16 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             rebuy_gif_label.addMouseListener(new MouseAdapter() {
             });
             panel_cartas.add(rebuy_gif_label, Integer.valueOf(1001));
+            shuffle_cascade_gif_label.setVisible(false);
+            shuffle_cascade_gif_label.setFocusable(false);
+            // Igual que rebuy_gif_label: listener vacío que consume el clic para que no
+            // atraviese la label y abra el visor de la carta de debajo. El listener es
+            // permanente; hideShuffleCascadeOverlay solo oculta la label (setVisible(false) +
+            // setIcon(null)). Capa 1002 (sobre chip/rebuy 1001): durante el barajado no hay
+            // notify de chat activo con el que competir por la vista.
+            shuffle_cascade_gif_label.addMouseListener(new MouseAdapter() {
+            });
+            panel_cartas.add(shuffle_cascade_gif_label, Integer.valueOf(1002));
             chip_label.setVisible(false);
             chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chip_label.setOpaque(false);
@@ -3302,6 +3325,105 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                 Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
+    }
+
+    /**
+     * Muestra el GIF de barajado (pequeño, MUDO, en bucle) sobre este jugador mientras procesa
+     * su paso de la cascada SRA. Idempotente por {@code shuffle_cascade_generation}: un show
+     * cuya carga async del GIF termine DESPUÉS de que la cascada ya pasó al siguiente
+     * (hideShuffleCascadeOverlay incrementó el contador) no llega a pintarse. Sin audio y sin
+     * barrier — puro indicador visual. El ImageIcon se decodifica una vez por instancia y se
+     * reutiliza (setIcon lo rebobina). NO llamar desde el EDT: la carga del GIF bloquea.
+     */
+    public void showShuffleCascadeOverlay() {
+        final int gen = ++shuffle_cascade_generation;
+        Helpers.threadRun(() -> {
+            try {
+                final ImageIcon icon = ensureShuffleCascadeIcon();
+                final int frames = shuffle_cascade_frames;
+                // frames<=0 (GIF sin Graphic Control Extension: atípico, posible en decks mod): el
+                // bucle de GifLabel.imageUpdate no se cortaría al ocultar (seguiría decodificando en
+                // background, fuga de CPU invisible). Fail-safe: no mostrar overlay para ese recurso.
+                if (icon == null || frames <= 0 || gen != shuffle_cascade_generation) {
+                    return;
+                }
+                // Ajuste a panel_cartas manteniendo proporción (como rebuy_gif_label); GifLabel
+                // estira la Image a estos bounds por GPU, así que basta el tamaño del label.
+                int max_width = panel_cartas.getWidth();
+                int new_height = panel_cartas.getHeight();
+                int new_width = (int) Math.round((icon.getIconWidth() * (double) new_height) / icon.getIconHeight());
+                if (new_width > max_width) {
+                    new_height = (int) Math.round(((double) new_height * max_width) / new_width);
+                    new_width = max_width;
+                }
+                final int width = new_width;
+                final int height = new_height;
+                Helpers.GUIRun(() -> {
+                    if (gen != shuffle_cascade_generation) {
+                        return;
+                    }
+                    shuffle_cascade_gif_label.setBarrier(null);
+                    shuffle_cascade_gif_label.setIcon(icon, frames);
+                    // Bucle "infinito" hasta hideShuffleCascadeOverlay: la cascada es secuencial
+                    // y su paso remoto bloquea, así que el hide SIEMPRE llega tras el show.
+                    shuffle_cascade_gif_label.setRepeat(Integer.MAX_VALUE);
+                    shuffle_cascade_gif_label.setSize(width, height);
+                    shuffle_cascade_gif_label.setPreferredSize(shuffle_cascade_gif_label.getSize());
+                    shuffle_cascade_gif_label.setOpaque(false);
+                    shuffle_cascade_gif_label.setLocation(Math.round((panel_cartas.getWidth() - width) / 2f), Math.round((getHoleCard1().getHeight() - height) / 2f));
+                    shuffle_cascade_gif_label.setVisible(true);
+                });
+            } catch (Exception ex) {
+                Logger.getLogger(RemotePlayer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        });
+    }
+
+    /**
+     * Oculta el overlay de barajado al terminar el paso de cascada de este jugador. Incrementa
+     * {@code shuffle_cascade_generation} para cancelar cualquier show en vuelo; setIcon(null)
+     * resetea a 1 el repeat de la GifLabel (el bucle se corta en ≤1 pasada) y suelta la Image.
+     * Idempotente: seguro aunque no haya overlay visible.
+     */
+    public void hideShuffleCascadeOverlay() {
+        shuffle_cascade_generation++;
+        Helpers.GUIRun(() -> {
+            shuffle_cascade_gif_label.setVisible(false);
+            shuffle_cascade_gif_label.setIcon((javax.swing.Icon) null);
+        });
+    }
+
+    /**
+     * Decodifica (una vez por instancia, cache-busted) el ImageIcon del shuffle.gif de la
+     * baraja ACTUAL y cuenta sus frames; null si no hay GIF de barajado o no llegó a
+     * dimensionarse. Se recarga si cambia la baraja. Bloquea el hilo (de fondo) hasta que la
+     * Image reporta tamaño, con tope duro de 3 s. Cache-bust con fragmento único: el Toolkit
+     * cachea las Image por URL para toda la vida de la JVM y compartir la del central_label del
+     * barajado pisaría los contadores de frames.
+     */
+    private ImageIcon ensureShuffleCascadeIcon() throws Exception {
+        URL url = Crupier.shuffleGifUrl();
+        if (url == null) {
+            return null;
+        }
+        String url_key = url.toString();
+        ImageIcon cached = shuffle_cascade_icon;
+        if (cached != null && url_key.equals(shuffle_cascade_icon_url)) {
+            return cached;
+        }
+        ImageIcon icon = new ImageIcon(new URL(url.toString() + "#cascade" + System.nanoTime()));
+        long t0 = System.nanoTime();
+        while ((icon.getIconHeight() == 0 || icon.getIconWidth() == 0)
+                && System.nanoTime() - t0 < 3_000_000_000L) {
+            Helpers.pausar(GUI_RENDER_WAIT);
+        }
+        if (icon.getIconHeight() == 0 || icon.getIconWidth() == 0) {
+            return null;
+        }
+        shuffle_cascade_frames = Helpers.getGIFFramesCount(url);
+        shuffle_cascade_icon = icon;
+        shuffle_cascade_icon_url = url_key;
+        return icon;
     }
 
     @Override

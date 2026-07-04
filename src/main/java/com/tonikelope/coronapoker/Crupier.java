@@ -1731,6 +1731,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 }
             }
             this.active_crypto_ring = currentRing;
+            logCryptoRingDebug("HOST (broadcast order)", currentRing);
 
             // Candado fresco del Host por intento.
             this.local_sra_lock = RistrettoSRA.generateLockScalar();
@@ -1793,7 +1794,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                         chainStepK.add(botLock);
                         chainDecks.add(workingDeck);
                     } else if (p != null && !p.isExit()) {
-                        byte[] cascaded = requestRemoteCascade(currNick, workingDeck, p);
+                        // Overlay VISUAL del barajado sobre este jugador mientras corre SU paso
+                        // (para localizar al PC más lento de la mesa): el show/hide envuelve la
+                        // llamada bloqueante, así que el GIF dura EXACTO lo que tarda el cliente.
+                        // Solo remotos humanos (esta rama), gateado, MUDO, sin tocar la cascada.
+                        // El hide va en finally: corre aunque requestRemoteCascade lance o el
+                        // resultado aborte la mano (return false más abajo).
+                        final RemotePlayer cascadeOverlay = GameFrame.cascadaOverlayAnimOn() ? findRemotePlayerByNick(currNick) : null;
+                        if (cascadeOverlay != null) {
+                            cascadeOverlay.showShuffleCascadeOverlay();
+                        }
+                        byte[] cascaded;
+                        try {
+                            cascaded = requestRemoteCascade(currNick, workingDeck, p);
+                        } finally {
+                            if (cascadeOverlay != null) {
+                                cascadeOverlay.hideShuffleCascadeOverlay();
+                            }
+                        }
                         if (cascaded != null) {
                             workingDeck = cascaded;
                             // Paso remoto: sin perm/k local; su prueba de barajado llega ASYNC
@@ -2359,6 +2377,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                                     }
                                 }
                                 this.active_crypto_ring = ringList.toArray(new String[0]);
+                                logCryptoRingDebug("CLIENT (received order)", this.active_crypto_ring);
+                                // Comparación de consenso del anillo: qué orden DERIVARÍA este cliente
+                                // localmente (getAnilloCriptografico, el fallback usado pre-MEGAPACKET/
+                                // recovery). Debe dar el MISMO hash que el recibido; con orden alfabético
+                                // siempre coincide. Solo lee, no muta nada. Clave para validar la Fase 2.
+                                try {
+                                    java.util.ArrayList<Player> localRing = getAnilloCriptografico();
+                                    String[] localNicks = new String[localRing.size()];
+                                    for (int ri = 0; ri < localNicks.length; ri++) {
+                                        localNicks[ri] = localRing.get(ri).getNickname();
+                                    }
+                                    logCryptoRingDebug("CLIENT (local derive)", localNicks);
+                                } catch (Exception ex) {
+                                    LOGGER.log(Level.INFO, "[RING-DEBUG] CLIENT local derive failed", ex);
+                                }
                             } catch (Exception e) {
                                 LOGGER.log(Level.WARNING, "Error parsing ORDER of MEGAPACKET", e);
                             }
@@ -17981,6 +18014,51 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         return stats;
 
+    }
+
+    /**
+     * Log de DEBUG del anillo criptográfico para COMPARAR el consenso entre peers: imprime el
+     * orden de nicks y un hash corto (SHA-256) del mismo. Todos los peers deben mostrar el MISMO
+     * hash para la misma mano; un hash distinto delataría una divergencia de orden que rompería
+     * la verificación de la cascada. Herramienta de diagnóstico (sobre todo al tocar el criterio
+     * de orden del anillo en la Fase 2): NO altera nada, solo lee e imprime.
+     */
+    public static void logCryptoRingDebug(String context, String[] ring) {
+        if (ring == null) {
+            LOGGER.log(Level.INFO, "[RING-DEBUG] {0}: ring=null", context);
+            return;
+        }
+        String joined = String.join("|", ring);
+        String hash;
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(joined.getBytes("UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 4; i++) {
+                sb.append(String.format("%02x", d[i]));
+            }
+            hash = sb.toString();
+        } catch (Exception e) {
+            hash = "ERR";
+        }
+        LOGGER.log(Level.INFO, "[RING-DEBUG] {0}: n={1} hash={2} order=[{3}]",
+                new Object[]{context, ring.length, hash, joined});
+    }
+
+    /**
+     * Localiza el RemotePlayer (asiento visual del host) cuyo nick coincide, o null si no hay
+     * ninguno (p.ej. el nick es de un miembro del anillo sin asiento visible en la mesa). Lo
+     * usa el overlay de barajado de la cascada para pintar sobre el jugador cuyo paso corre.
+     */
+    private RemotePlayer findRemotePlayerByNick(String nick) {
+        RemotePlayer[] players = GameFrame.getInstance().getTapete().getRemotePlayers();
+        if (players != null && nick != null) {
+            for (RemotePlayer rp : players) {
+                if (rp != null && nick.equals(rp.getNickname())) {
+                    return rp;
+                }
+            }
+        }
+        return null;
     }
 
     public java.util.ArrayList<Player> getAnilloCriptografico() {

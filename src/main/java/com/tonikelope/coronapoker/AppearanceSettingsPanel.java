@@ -99,6 +99,7 @@ public class AppearanceSettingsPanel extends JPanel {
     private final boolean snap_anim_ciegas_dealer;
     private final boolean snap_anim_apuestas;
     private final boolean snap_anim_contadores;
+    private final boolean snap_anim_cascada_overlay;
     private final boolean snap_animaciones;
     private final boolean snap_chat_images;
     private final boolean snap_fullscreen;
@@ -126,6 +127,7 @@ public class AppearanceSettingsPanel extends JPanel {
         snap_anim_ciegas_dealer = prefBool("animacion_ciegas_dealer");
         snap_anim_apuestas = prefBool("animacion_apuestas");
         snap_anim_contadores = prefBool("animacion_contadores");
+        snap_anim_cascada_overlay = prefBool("animacion_cascada_overlay");
         snap_animaciones = GameFrame.ANIMACIONES;
         snap_chat_images = GameFrame.CHAT_IMAGES_INGAME;
         snap_fullscreen = (gf != null) ? gf.isFull_screen() : GameFrame.AUTO_FULLSCREEN;
@@ -340,6 +342,11 @@ public class AppearanceSettingsPanel extends JPanel {
                 gf != null ? gf.getAnim_apuestas_menu() : null, "animacion_apuestas", v -> GameFrame.ANIMACION_APUESTAS_PREF = v));
         addLeft(anim, animCheckbox("/images/menu/meter.png", "menu.efectos_animacion_contadores",
                 gf != null ? gf.getAnim_contadores_menu() : null, "animacion_contadores", v -> GameFrame.ANIMACION_CONTADORES_PREF = v));
+        // Overlay de barajado sobre cada jugador durante su paso de cascada. Sin item de menú
+        // (solo vive aquí): animCheckbox con menu=null persiste la preferencia y fija el flag en
+        // vivo; el maestro lo habilita/deshabilita como a los demás.
+        addLeft(anim, animCheckbox("/images/menu/baraja.png", "menu.efectos_animacion_cascada_overlay",
+                null, "animacion_cascada_overlay", v -> GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = v));
 
         // Fila Pantalla | (Mesa sobre Animaciones) a su ALTO NATURAL en el NORTE,
         // alineadas arriba a la izquierda; el hueco sobrante cae limpio a la derecha y
@@ -402,6 +409,7 @@ public class AppearanceSettingsPanel extends JPanel {
                 || prefBool("animacion_ciegas_dealer") != snap_anim_ciegas_dealer
                 || prefBool("animacion_apuestas") != snap_anim_apuestas
                 || prefBool("animacion_contadores") != snap_anim_contadores
+                || prefBool("animacion_cascada_overlay") != snap_anim_cascada_overlay
                 || GameFrame.ANIMACIONES != snap_animaciones
                 || GameFrame.CHAT_IMAGES_INGAME != snap_chat_images
                 || pending_fullscreen != snap_fullscreen;
@@ -485,6 +493,13 @@ public class AppearanceSettingsPanel extends JPanel {
             }
             gf.setAnimacionesMaster(snap_animaciones);
         }
+        // El overlay de cascada no tiene item de menú ni efecto en vivo (solo aparece durante el
+        // barajado): se revierte fijando el flag directamente + persistiendo, como CHAT_IMAGES.
+        if (GameFrame.ANIMACION_CASCADA_OVERLAY_PREF != snap_anim_cascada_overlay) {
+            GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
+            Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
+            Helpers.savePropertiesFile();
+        }
         if (GameFrame.CHAT_IMAGES_INGAME != snap_chat_images) {
             gf.getChat_image_menu().doClick();
         }
@@ -511,6 +526,7 @@ public class AppearanceSettingsPanel extends JPanel {
         GameFrame.ANIMACION_CIEGAS_DEALER_PREF = snap_anim_ciegas_dealer;
         GameFrame.ANIMACION_APUESTAS_PREF = snap_anim_apuestas;
         GameFrame.ANIMACION_CONTADORES_PREF = snap_anim_contadores;
+        GameFrame.ANIMACION_CASCADA_OVERLAY_PREF = snap_anim_cascada_overlay;
 
         Helpers.PROPERTIES.setProperty("zoom_level", String.valueOf(snap_zoom_level));
         Helpers.PROPERTIES.setProperty("vista_compacta", String.valueOf(snap_vista_compacta));
@@ -526,6 +542,7 @@ public class AppearanceSettingsPanel extends JPanel {
         Helpers.PROPERTIES.setProperty("animacion_ciegas_dealer", String.valueOf(snap_anim_ciegas_dealer));
         Helpers.PROPERTIES.setProperty("animacion_apuestas", String.valueOf(snap_anim_apuestas));
         Helpers.PROPERTIES.setProperty("animacion_contadores", String.valueOf(snap_anim_contadores));
+        Helpers.PROPERTIES.setProperty("animacion_cascada_overlay", String.valueOf(snap_anim_cascada_overlay));
         Helpers.savePropertiesFile();
 
         if (tapete_changed) {

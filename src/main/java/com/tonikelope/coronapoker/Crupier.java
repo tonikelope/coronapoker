@@ -1178,10 +1178,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // Ventana de espera (fuera del reparto) para recoger las pruebas de barajado ASYNC de los
     // pasos remotos (B1). MUY generosa: el prove del cliente puede tardar segundos en frío (hasta
     // ~9s medidos en un PC lento), y esto corre durante las apuestas (que suelen durar más).
-    // Ampliada de 15s a 30s para dar margen de sobra a PCs lentos y evitar avisos "sin verificar"
-    // espurios. Si aun así no llega, el paso degrada a "sin prueba" (el bundle no se difunde, igual
-    // que un peer proofless): peor caso un aviso, nunca un reparto incorrecto ni una trampa.
-    private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 30000;
+    // Ampliada a 45s pensando en MESAS LLENAS (10 jugadores): el verde "barajado verificado" exige
+    // que lleguen TODAS las pruebas remotas, asi que con 10 provers (y sobre todo la primera mano en
+    // frío, antes de que el warmup del JIT surta efecto) conviene margen de sobra para no marcar "sin
+    // verificar" por un solo rezagado. El prove es PARALELO (cada peer en su maquina), asi que la
+    // ventana cubre al mas lento, no la suma de los 10. Es puro background: ampliarla NO bloquea el
+    // juego. Si aun asi no llega, el paso degrada a "sin prueba" (el bundle no se difunde, igual que
+    // un peer proofless): peor caso un aviso, nunca un reparto incorrecto ni una trampa.
+    private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 45000;
 
     // Base64(SHA-256(deck)): identificador content-addressed del deckOut de un paso, para emparejar
     // la prueba async del cliente (DECK_CASCADE_PROOF) con su paso en la cadena. Único por mano, así

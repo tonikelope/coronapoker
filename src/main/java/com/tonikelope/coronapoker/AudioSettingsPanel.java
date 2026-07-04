@@ -82,8 +82,8 @@ public class AudioSettingsPanel extends JPanel {
     private final JList<String> capture_list;
     private final JCheckBox mic_checkbox;
     private final JCheckBox play_own_checkbox;
-    private final JCheckBox block_notes_checkbox;
-    private final JCheckBox block_tts_local_checkbox;
+    private final JCheckBox notes_local_checkbox;
+    private final JCheckBox tts_local_checkbox;
     private final JButton voice_key_button;
     private final JComboBox<String> retention_combo;
     private final JButton purge_button;
@@ -98,7 +98,6 @@ public class AudioSettingsPanel extends JPanel {
     private final JPanel mic_panel;
     private final JPanel notes_panel;
     private final JPanel tts_panel;
-    private final JPanel global_panel;
     private final JPanel voice_key_panel;
     private final JPanel retention_panel;
     private final JPanel purge_panel;
@@ -323,10 +322,14 @@ public class AudioSettingsPanel extends JPanel {
         mic_panel.add(new JScrollPane(capture_list), BorderLayout.CENTER);
 
         // --- Voice note options ---
-        block_notes_checkbox = new JCheckBox(Translator.translate("audio.bloquear_notas"), AudioDeviceManager.isBlockVoiceMessages());
+        // Interruptor maestro LOCAL en lógica POSITIVA: ON = notas de voz locales activas
+        // (micrófono, tecla de grabar y reproducción). Bajo el capó sigue viviendo como
+        // "bloqueo" (AudioDeviceManager.setBlockVoiceMessages), así el resto del código
+        // (recepción de notas, sala) no cambia; aquí solo se invierte la vista.
+        notes_local_checkbox = new JCheckBox(Translator.translate("audio.notas_de_voz_local"), !AudioDeviceManager.isBlockVoiceMessages());
 
-        block_notes_checkbox.addActionListener(e -> {
-            AudioDeviceManager.setBlockVoiceMessages(block_notes_checkbox.isSelected());
+        notes_local_checkbox.addActionListener(e -> {
+            AudioDeviceManager.setBlockVoiceMessages(!notes_local_checkbox.isSelected());
 
             refreshVoiceControlsEnabled();
         });
@@ -390,8 +393,9 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.setLayout(new BoxLayout(notes_panel, BoxLayout.Y_AXIS));
         notes_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.notas_de_voz")));
 
+        voice_messages_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        notes_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         voice_key_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        block_notes_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         purge_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
@@ -399,53 +403,48 @@ public class AudioSettingsPanel extends JPanel {
         // Contenido centrado verticalmente: los glue de arriba y abajo mandan el hueco
         // sobrante a los extremos, así el panel CRECE para absorber parte del alto de la
         // columna (que sobra respecto a la izquierda) manteniendo sus filas juntas y
-        // centradas, en vez de dejárselo entero al panel de "Ajustes globales".
+        // centradas, en vez de dejárselo entero al panel de "Voz (TTS)".
+        // Arriba, la regla GLOBAL de la timba (server); debajo, el interruptor maestro
+        // LOCAL que gobierna el resto de controles de notas de voz (ambos en positivo).
         notes_panel.add(Box.createVerticalGlue());
+        notes_panel.add(voice_messages_checkbox);
+        notes_panel.add(notes_local_checkbox);
+        notes_panel.add(Box.createVerticalStrut(8));
         notes_panel.add(voice_key_panel);
-        notes_panel.add(Box.createVerticalStrut(5));
-        notes_panel.add(block_notes_checkbox);
         notes_panel.add(play_own_checkbox);
         notes_panel.add(Box.createVerticalStrut(5));
         notes_panel.add(retention_panel);
         notes_panel.add(purge_panel);
         notes_panel.add(Box.createVerticalGlue());
 
-        // --- Voz (TTS): bloqueo local (la regla global vive más abajo) ---
-        block_tts_local_checkbox = new JCheckBox(Translator.translate("audio.bloquear_tts_local"), AudioDeviceManager.isBlockTtsLocal());
-        block_tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(block_tts_local_checkbox.isSelected()));
+        // --- Voz (TTS): arriba la regla GLOBAL de la timba (server); debajo el
+        // interruptor LOCAL. Ambos en lógica POSITIVA: el local sigue viviendo bajo el
+        // capó como "bloqueo" (setBlockTtsLocal), así GameFrame no cambia; aquí se invierte.
+        tts_local_checkbox = new JCheckBox(Translator.translate("audio.tts_local"), !AudioDeviceManager.isBlockTtsLocal());
+        tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(!tts_local_checkbox.isSelected()));
+
+        tts_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         tts_panel = new JPanel();
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
         tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
-        // Checkbox centrado verticalmente (glue arriba y abajo): el panel crece para
-        // absorber parte del alto sobrante de la columna y su único control queda en el
-        // centro, en vez de quedar pegado arriba con todo el hueco en "Ajustes globales".
+        // Checkboxes centrados verticalmente (glue arriba y abajo): el panel crece para
+        // absorber parte del alto sobrante de la columna y sus controles quedan en el
+        // centro, en vez de quedar pegados arriba. Arriba la regla GLOBAL, debajo la LOCAL.
         tts_panel.add(Box.createVerticalGlue());
-        tts_panel.add(iconRow(menuIcon("/images/menu/mute.png"), block_tts_local_checkbox));
+        tts_panel.add(tts_checkbox);
+        tts_panel.add(tts_local_checkbox);
         tts_panel.add(Box.createVerticalGlue());
 
-        // --- Ajustes globales (solo server): reglas de la timba (TTS y notas de
-        // voz). Preseleccionables; si eres cliente en partida mandan las del
-        // servidor y quedan en gris (la nota lo avisa). ---
-        // Ancho fijo en el HTML para que el texto ajuste a varias líneas dentro
-        // de la columna y no se corte.
+        // Nota (solo CLIENTE en partida): las reglas GLOBALES de arriba de cada panel las
+        // manda el servidor y quedan en gris (los ajustes locales no las tocan). Va al pie
+        // de la columna derecha; invisible si no eres cliente. Ancho fijo en el HTML para
+        // que ajuste a varias líneas dentro de la columna y no se corte.
         JLabel global_note = new JLabel("<html><div style='width:240px'>" + Translator.translate("audio.ajustes_locales_ignorados") + "</div></html>");
         global_note.setForeground(java.awt.Color.GRAY);
         global_note.setVisible(global_rules_locked);
-
         global_note.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-
-        global_panel = new JPanel();
-        global_panel.setLayout(new BoxLayout(global_panel, BoxLayout.Y_AXIS));
-        global_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.ajustes_globales_server")));
-        global_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
-        global_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
-        global_panel.add(global_note);
-        // Glue al pie: este es el ÚLTIMO panel de la columna derecha (más corta que la
-        // izquierda) y se le deja crecer en vertical para alinear su borde por abajo con
-        // el último panel de la izquierda; el hueco extra lo recoge aquí, manteniendo los
-        // controles pegados arriba (ver applyFontsAndSizing, que NO le pone tope de alto).
-        global_panel.add(Box.createVerticalGlue());
 
         refreshSoundControlsEnabled();
 
@@ -456,7 +455,6 @@ public class AudioSettingsPanel extends JPanel {
         mic_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         notes_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         tts_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        global_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 
         JPanel left_col = new JPanel();
         left_col.setLayout(new BoxLayout(left_col, BoxLayout.Y_AXIS));
@@ -474,7 +472,7 @@ public class AudioSettingsPanel extends JPanel {
         right_col.add(Box.createVerticalStrut(8));
         right_col.add(tts_panel);
         right_col.add(Box.createVerticalStrut(8));
-        right_col.add(global_panel);
+        right_col.add(global_note);
 
         JPanel center_panel = new JPanel();
         center_panel.setLayout(new BoxLayout(center_panel, BoxLayout.X_AXIS));
@@ -505,7 +503,6 @@ public class AudioSettingsPanel extends JPanel {
         ((TitledBorder) mic_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) notes_panel.getBorder()).setTitleFont(volume_value_label.getFont());
         ((TitledBorder) tts_panel.getBorder()).setTitleFont(volume_value_label.getFont());
-        ((TitledBorder) global_panel.getBorder()).setTitleFont(volume_value_label.getFont());
 
         // En el BoxLayout vertical, la fila de tecla y la de retención deben
         // conservar su alto natural en vez de estirarse hasta llenar el hueco.
@@ -518,16 +515,11 @@ public class AudioSettingsPanel extends JPanel {
         // NO estirarse en vertical (es el panel superior de la columna izquierda, la más
         // alta; debe quedar compacto arriba). DESPUÉS de updateFonts, para que el alto
         // preferido ya refleje la fuente escalada y no se corte por abajo.
-        // "Voz (TTS)" NO se topa aquí a propósito: SÍ estira en vertical (glue interno que
-        // centra su checkbox) para repartir con "Notas de voz" el alto sobrante de la
-        // columna derecha y que "Ajustes globales" no quede desproporcionadamente alto.
+        // "Notas de voz" y "Voz (TTS)" NO se topan aquí a propósito: SÍ estiran en vertical
+        // (glue interno que centra sus controles) para repartirse el alto sobrante de la
+        // columna derecha (más corta que la izquierda) sin quedar pegados arriba. La nota de
+        // reglas globales (solo cliente) va al pie de la columna, debajo de ambos.
         sound_music_panel.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, sound_music_panel.getPreferredSize().height));
-
-        // global_panel es el ÚLTIMO de la columna derecha (la más corta): NO se le pone
-        // tope de alto a propósito, para que estire su borde hasta abajo y quede alineado
-        // con el último panel de la columna izquierda (el de entrada). El glue interno
-        // (ver constructor) absorbe el hueco al pie y el ancho ya lo estira el glue de
-        // cada iconRow, así que tampoco hace falta forzar su máximo aquí.
     }
 
     // El host DEBE llamarlo al cerrarse: no filtrar el dispatcher de captura de
@@ -635,18 +627,19 @@ public class AudioSettingsPanel extends JPanel {
         voice_messages_checkbox.setEnabled(!global_rules_locked);
     }
 
-    // Self-block governs every voice note control; the capture list also needs the
-    // mic itself enabled
+    // El interruptor maestro LOCAL de notas de voz gobierna todos sus controles; la lista
+    // de captura además necesita el micrófono activado. (La retención y el vaciado son
+    // independientes: puedes gestionar el disco aunque las notas estén desactivadas.)
     private void refreshVoiceControlsEnabled() {
 
-        boolean blocked = block_notes_checkbox.isSelected();
+        boolean local_on = notes_local_checkbox.isSelected();
 
-        mic_checkbox.setEnabled(!blocked);
-        capture_list.setEnabled(!blocked && mic_checkbox.isSelected());
-        play_own_checkbox.setEnabled(!blocked);
-        voice_key_button.setEnabled(!blocked);
+        mic_checkbox.setEnabled(local_on);
+        capture_list.setEnabled(local_on && mic_checkbox.isSelected());
+        play_own_checkbox.setEnabled(local_on);
+        voice_key_button.setEnabled(local_on);
 
-        if (blocked) {
+        if (!local_on) {
             stopVoiceKeyCapture();
         }
     }

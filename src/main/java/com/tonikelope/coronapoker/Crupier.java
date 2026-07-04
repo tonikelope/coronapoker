@@ -2684,7 +2684,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             return -1;
         }
 
-        // 2. Fallback to dynamic UI ring (Only used in edge cases/recoveries before MEGAPACKET)
+        // 2. Fallback a la derivación local del anillo. OJO: este método está actualmente SIN USO
+        // (cero callers en el repo; el comentario anterior "solo en recoveries" era falso — nunca se
+        // ejecuta). Si alguien lo revive: desde que el anillo se ordena por ASIENTO (nicks_permutados,
+        // ver getAnilloCriptografico), este fallback SOLO es consensuado si nicks_permutados está
+        // sincronizado entre peers en ese punto. El camino de consenso real NO pasa por aquí: mapea
+        // sobre active_crypto_ring (el orden DIFUNDIDO por el host, rama 1 de arriba).
         java.util.ArrayList<Player> ring = getAnilloCriptografico();
         for (int i = 0; i < ring.size(); i++) {
             if (ring.get(i).getNickname().equals(nick)) {
@@ -18045,6 +18050,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     }
 
     /**
+     * Índice de {@code nick} en el orden de asientos consensuado {@code seats} (nicks_permutados),
+     * o -1 si no está o {@code seats} es null. Es el criterio de orden del anillo criptográfico
+     * (ver getAnilloCriptografico): como nicks_permutados es idéntico en todos los peers, este
+     * índice es un invariante de consenso igual que lo era el orden alfabético.
+     */
+    private static int seatIndex(String[] seats, String nick) {
+        if (seats != null && nick != null) {
+            for (int i = 0; i < seats.length; i++) {
+                if (nick.equals(seats[i])) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
      * Localiza el RemotePlayer (asiento visual del host) cuyo nick coincide, o null si no hay
      * ninguno (p.ej. el nick es de un miembro del anillo sin asiento visible en la mesa). Lo
      * usa el overlay de barajado de la cascada para pintar sobre el jugador cuyo paso corre.
@@ -18070,8 +18092,33 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 ring.add(jugador);
             }
         }
-        // Sort alphabetically to guarantee identical mathematical positions across all clients
-        java.util.Collections.sort(ring, (p1, p2) -> p1.getNickname().compareTo(p2.getNickname()));
+        // Orden por ASIENTO consensuado (posición en nicks_permutados, el mismo array en todos los
+        // peers que fija dealer/ciegas) en vez de alfabético, para que la animación de la cascada
+        // gire en círculo por la mesa. Sigue siendo un invariante IDÉNTICO en todos los peers:
+        //   (1) el host construye este orden y lo DIFUNDE en el MEGAPACKET (orderB64); todos usan
+        //       el difundido (active_crypto_ring), no la derivación local (salvo fallback);
+        //   (2) nicks_permutados es consensuado (nicks_permutados[0] = big blind, idéntico en toda
+        //       la mesa) y biyectivo con el anillo (la inyección de warm-up de recibirRebuys mete
+        //       en él a todo no-calentando).
+        // Fallback DETERMINISTA a alfabético para nicks ausentes de nicks_permutados (no debería
+        // pasar por la biyección; defensivo) y para nicks_permutados==null (pre-sorteo): así el
+        // orden nunca queda indefinido ni divergiría entre peers. El comparador es un orden total
+        // (presentes por índice < ausentes por nick), cumple el contrato de Comparator.
+        final String[] seats = this.nicks_permutados;
+        java.util.Collections.sort(ring, (p1, p2) -> {
+            int i1 = seatIndex(seats, p1.getNickname());
+            int i2 = seatIndex(seats, p2.getNickname());
+            if (i1 >= 0 && i2 >= 0) {
+                return Integer.compare(i1, i2);
+            }
+            if (i1 >= 0) {
+                return -1; // con asiento va antes que sin asiento
+            }
+            if (i2 >= 0) {
+                return 1;
+            }
+            return p1.getNickname().compareTo(p2.getNickname()); // ambos sin asiento: alfabético estable
+        });
         return ring;
     }
 

@@ -47,29 +47,32 @@ const bettingOrbit = () => [
 const phases = [
   { title:'PHASE 0 · Handshake, identity &amp; genesis anchor  (once per connection, before the hand)', c:P.p0, items:[
     m('C1','H','TCP CONNECT + ECDH','C1 sends its ephemeral Curve25519 pubkey'),
-    r('H','C1','ECDH + HOST IDENTITY','host ephemeral pubkey + host Ed25519 identity'),
-    note('H','Both sides run ECDH → deriveChannelSecret: HMAC-SHA512(shared ‖ password)\n→ AES-256 channel key + HMAC-256 key. C1 pins the host identity (TOFU).'),
+    r('H','C1','ECDH pubkey + encrypted INTRO','host ephemeral Curve25519 pubkey (raw); then, on the now-encrypted channel, the host INTRO: nick ‖ avatar ‖ session_id ‖ host Ed25519 pubkey ‖ self-sig «JOIN\\0»(session_id‖nick‖pubkey)'),
+    note('H','Both sides run ECDH → deriveChannelSecret: HMAC-SHA512(shared ‖ password) → AES-256 channel key + HMAC-256 key. C1 then captures session_id and pins the host identity FROM THE ENCRYPTED INTRO — verifyJoin(host self-sig) + TOFU (NEW / MATCH / CHANGED). The raw ECDH bytes carry no identity.'),
     m('C1','H','JOIN','C1 pubkey + Ed25519 self-sig «JOIN\\0» ‖ session_id ‖ nick ‖ pubkey'),
     note('H','verifyJoin(C1) + TOFU pin (NEW / MATCH / CHANGED).'),
     m('C2','H','TCP CONNECT + ECDH','C2 sends its ephemeral Curve25519 pubkey'),
-    r('H','C2','ECDH + HOST IDENTITY','host ephemeral pubkey + host Ed25519 identity'),
-    note('H','deriveChannelSecret(C2) → C2 AES-256 + HMAC-256 keys. C2 pins the host identity (TOFU).'),
+    r('H','C2','ECDH pubkey + encrypted INTRO','host ephemeral Curve25519 pubkey (raw); then host INTRO: nick ‖ avatar ‖ session_id ‖ host Ed25519 pubkey ‖ self-sig'),
+    note('H','deriveChannelSecret(C2) → C2 AES-256 + HMAC-256 keys. C2 captures session_id + pins the host identity from the encrypted INTRO (verifyJoin + TOFU).'),
     m('C2','H','JOIN','C2 pubkey + Ed25519 self-sig «JOIN\\0» ‖ session_id ‖ nick ‖ pubkey'),
     note('H','verifyJoin(C2) + TOFU pin.'),
     note('all','GENESIS: HOST, C1 and C2 each derive the 52 Ristretto255 points locally — it NEVER travels. Public anchor decks[0].'),
     m('C1','H','HAND_READY','C1: new-hand barrier'),
     m('C2','H','HAND_READY','C2: new-hand barrier'),
-    bc('START_SRA_CASCADE','releases the cascade · HOST mints HAND_ID (random 16 B)'),
+    bc('START_SRA_CASCADE','releases the cascade · HOST mints HAND_ID (random 16 B, delivered in MEGAPACKET)'),
   ]},
 
   { title:'PHASE 1 · Shuffle — commutative SRA lock cascade  (ring order HOST → C1 → C2)', c:P.p1, items:[
     note('H','HOST applies its own k_pocket over the genesis + Fisher-Yates AES-256-CTR shuffle.\nEvery member holds two ephemeral scalars: k_pocket and k_community.'),
     m('H','C1','DECK_CASCADE_REQ','deck after HOST'),
-    note('C1','validates 52 points · generates k_pocket / k_community · lock + shuffle\n· commitments K_pocket=k·B, K_community=k·B · Bayer-Groth step proof'),
-    r('C1','H','DECK_CASCADE_RESP','deck′ ‖ K_pocket(C1) ‖ K_community(C1) ‖ shuffle-proof'),
+    note('C1','validates 52 points · generates k_pocket / k_community · lock + shuffle\n· commitments K_pocket=k·B, K_community=k·B'),
+    r('C1','H','DECK_CASCADE_RESP','nick ‖ deck′ ‖ K_pocket(C1) ‖ K_community(C1)   — fast, NO proof'),
+    r('C1','H','DECK_CASCADE_PROOF','hash(deck′) ‖ Bayer-Groth step proof — ASYNC, sent after the RESP · does NOT block the deal'),
     m('H','C2','DECK_CASCADE_REQ','deck after C1'),
-    note('C2','validates · generates k_pocket / k_community · lock + shuffle\n· K commitments · Bayer-Groth step proof'),
-    r('C2','H','DECK_CASCADE_RESP','deck″ ‖ K_pocket(C2) ‖ K_community(C2) ‖ shuffle-proof'),
+    note('C2','validates · generates k_pocket / k_community · lock + shuffle\n· K commitments'),
+    r('C2','H','DECK_CASCADE_RESP','nick ‖ deck″ ‖ K_pocket(C2) ‖ K_community(C2)   — fast, NO proof'),
+    r('C2','H','DECK_CASCADE_PROOF','hash(deck″) ‖ Bayer-Groth step proof — ASYNC · does NOT block the deal'),
+    note('all','opt. B1 — the step proof is DECOUPLED from the RESP: each peer answers the cascade FAST (deck + commitments) and sends its Bayer-Groth proof separately (DECK_CASCADE_PROOF). The host collects them OFF the deal path (collectAsyncCascadeProofs — matched by hash(deckOut), 45 s window), so the ~0.1–9 s prove never stalls dealing. They feed the DUALLOCK_BUNDLE, assembled + broadcast during betting.'),
     note('H','HOST rotates its own community slots locally: strip k_pocket, re-lock under k_community + RotationProof.'),
     m('H','C1','DECK_ROTATION_REQ','community slots only'),
     note('C1','strip k_pocket + re-lock under k_community (combined scalar s = u·k_comm)\n+ RotationProof (batch-DLEQ of an in-place re-key, no reordering)'),
@@ -79,8 +82,6 @@ const phases = [
     r('C2','H','DECK_ROTATION_RESP','rotated deck ‖ RotationProof(C2)'),
     bc('MEGAPACKET','final deck (pocket intact + rotated community) ‖ HAND_ID ‖ ring order ‖ K commitments'),
     note('all','H_0 = SHA-256( «HAND\\0» ‖ HAND_ID ‖ N ‖ Σ sorted[id‖K_pocket‖K_community] ‖ SHA-256(deck) )  — seeds the state chain'),
-    bc('DUALLOCK_BUNDLE','full genesis→MEGAPACKET proof (Bayer-Groth + batch-DLEQ), async'),
-    note('all','C1 and C2 each enqueue it in ShuffleVerificationQueue and verify it against their own recomputed genesis + pocket/community boundary.'),
   ]},
 
   { title:'PHASE 2 · Dealing hole cards  (chained DLEQ, verifiable)', c:P.p2, items:[
@@ -97,8 +98,10 @@ const phases = [
   ]},
 
   { title:'PHASE 3a · Preflop betting  (Ed25519-signed actions, ratcheted into H_t)', c:P.bet, items:[
+    bc('DUALLOCK_BUNDLE','full genesis→MEGAPACKET proof (Bayer-Groth + batch-DLEQ) — assembled from the async step proofs, broadcast DURING betting, off the deal path'),
+    note('all','Once the host has collected the async DECK_CASCADE_PROOF from every peer it assembles the honest-shuffle bundle and broadcasts it here. C1 and C2 enqueue it in ShuffleVerificationQueue and verify it in the BACKGROUND against their own recomputed genesis + pocket/community boundary — zero impact on play. A missing/failed proof only sets receipt flags (bit1 deck-pending / bit1+bit2 no-proof), never blocks the hand.'),
     ...bettingOrbit(),
-    note('all','Each ACTION is a 92 B canonical record (cents, NFC); the actor signs it «ACTION\\0», every peer verifies the sig (invalid ⇒ synthetic FOLD + flag) and absorbs H_{t+1} = SHA-256( record ‖ sig ). Acting order follows the button &amp; blinds.'),
+    note('all','Each ACTION is a 92 B canonical record (cents, NFC); the actor signs it «ACTION\\0», every peer verifies the sig and binds type/amount/player/hand to the played action (bad sig or mismatch ⇒ synthetic FOLD + flag), then absorbs H_{t+1} = SHA-256( record ‖ sig ). Acting order follows the button &amp; blinds.'),
   ]},
 
   { title:'PHASE 4a · Flop — community reveal  (verifiable, signed announce)', c:P.com, items:[
@@ -151,10 +154,8 @@ const phases = [
     m('H','C2','REQ_SHOWDOWN_KEY','to surviving human C2'),
     r('C2','H','RESP_SHOWDOWN_KEY','k_pocket(C2) + Ed25519 sig «SHOWDOWN\\0» ‖ HAND_ID ‖ nick ‖ k_pocket'),
     note('H','verifies each sig + applies the key to the stored single-locked residual + resolves against genesis (forfeit on mismatch). Then it publishes every surviving hand at once.'),
-    bc('POTCARDS (HOST cards)','plaintext cards + HOST sraKey (k_pocket) + Ed25519 sig'),
-    bc('POTCARDS (C1 cards)','plaintext cards + C1 sraKey + Ed25519 sig'),
-    bc('POTCARDS (C2 cards)','plaintext cards + C2 sraKey + Ed25519 sig'),
-    note('all','Delivered as ONE atomic POTCARDS message (no early peeking); the bundle each client gets carries every showing hand. To verify, each peer SRA-decrypts the stored single-locked residual of each revealed player with the sraKey that player just published and checks it matches the plaintext (proof nobody cheated).'),
+    bc('POTCARDS','ONE atomic message — per surviving player: nick ‖ plaintext cards ‖ sraKey (k_pocket) ‖ Ed25519 sig'),
+    note('all','Delivered as ONE atomic POTCARDS message (no early peeking); the single bundle each client gets packs every showing hand (HOST + C1 + C2). To verify, each peer SRA-decrypts the stored single-locked residual of each revealed player with the sraKey that player just published and checks it matches the plaintext (proof nobody cheated).'),
     note('all','The hole cards also travel as PLAINTEXT, so SPECTATORS — who hold no SRA keys and cannot decrypt — can still watch the showdown.'),
   ]},
 
@@ -243,7 +244,7 @@ for (const k of Object.keys(ACT)) {
 // Title
 const titleCells = [
   `<mxCell id="t1" value="${esc('CoronaPoker — Per-hand cryptographic protocol (verifiable SRA)')}" style="text;html=1;fontSize=22;fontStyle=1;fontColor=#1a1a2e;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="20" y="6" width="1400" height="28" as="geometry"/></mxCell>`,
-  `<mxCell id="t2" value="${esc('One COMPLETE hand — all four streets (preflop · flop · turn · river) through to showdown — with every step shown explicitly. 3-player game: HOST (dealer + player, server) + 2 human clients. Time flows downward. ── solid = send · ┄ dashed = response · purple = host push (one explicit arrow per client).')}" style="text;html=1;fontSize=12;fontStyle=2;fontColor=#5a5a6a;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="20" y="32" width="1640" height="20" as="geometry"/></mxCell>`,
+  `<mxCell id="t2" value="${esc('One COMPLETE hand — all four streets (preflop · flop · turn · river) through to showdown — with every step shown explicitly. 3-player game: HOST (dealer + player, server) + 2 human clients. Time flows downward. ── solid = send · ┄ dashed = response / async · purple = host push (one explicit arrow per client).')}" style="text;html=1;fontSize=12;fontStyle=2;fontColor=#5a5a6a;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="20" y="32" width="1640" height="20" as="geometry"/></mxCell>`,
 ];
 
 const PAGE_H = LIFELINE_BOT + HEAD_H + 30;

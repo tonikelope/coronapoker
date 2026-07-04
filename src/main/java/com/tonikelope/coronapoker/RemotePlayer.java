@@ -2699,21 +2699,26 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     @Override
     public String getLastActionString() {
 
+        // El texto de la accion se pinta en player_action via GUIRun (asincrono, en el
+        // EDT) desde renderDecisionVisual; el hilo del juego llega aqui en cuanto finTurno
+        // pone turno=false y notifica, y podia LEER la etiqueta ANTES de que el EDT la
+        // repintara —cuando todavia decia "PENSANDO"— colando "PENSANDO (n)" en el registro
+        // en vez de "RETIRARSE/PASO/...". Con las cinematicas OFF el fold ni siquiera espera
+        // a la barrera del GIF (que antes daba tiempo de sobra al EDT), asi que la carrera la
+        // ganaba el hilo del juego de forma sistematica. Leer la etiqueta EN el EDT respeta
+        // el orden FIFO de la cola: el setActionTextFitted de ESTA accion ya se encolo antes
+        // de que finTurno notificara, con lo que se aplica antes que esta lectura.
+        final String[] label = new String[]{""};
+        Helpers.GUIRunAndWait(() -> label[0] = player_action.getText());
+
         String action = nickname + " ";
 
         switch (this.getDecision()) {
             case Player.FOLD:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
-                break;
             case Player.CHECK:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
-                break;
             case Player.BET:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
-                break;
             case Player.ALLIN:
-                action += player_action.getText() + " (" + Helpers.money2String(this.bote) + ")";
-                ;
+                action += label[0] + " (" + Helpers.money2String(this.bote) + ")";
                 break;
             default:
                 break;

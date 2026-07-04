@@ -3250,6 +3250,24 @@ public class WaitingRoomFrame extends JFrame {
                                                                 LOGGER.log(Level.SEVERE, "Error processing PAUSE", ex);
                                                             }
                                                             break;
+                                                        case "SHUFFLE_TURN":
+                                                            // Overlay VISUAL del barajado: el host anuncia qué jugador procesa su
+                                                            // paso de cascada ahora, para que este peer lo pinte sobre su jugador
+                                                            // (local o remoto). Puramente de display; el controlador de GameFrame
+                                                            // respeta la preferencia local. No toca la cascada ni el consenso.
+                                                            try {
+                                                                if (partes_comando.length >= 4) {
+                                                                    String shuffleNick = new String(Base64.getDecoder().decode(partes_comando[3]), "UTF-8");
+                                                                    GameFrame.getInstance().onShuffleTurn(shuffleNick);
+                                                                }
+                                                            } catch (Exception ex) {
+                                                                LOGGER.log(Level.SEVERE, "Error processing SHUFFLE_TURN", ex);
+                                                            }
+                                                            break;
+                                                        case "SHUFFLE_TURN_END":
+                                                            // Fin del barajado: oculta el overlay de barajado en este peer.
+                                                            GameFrame.getInstance().onShuffleTurnEnd();
+                                                            break;
                                                         case "MISDEAL":
                                                             // El host aborta la mano. Cancelamos localmente y reenviamos
                                                             // al queue para despertar a cualquier consumer (receiveMyCards,

@@ -139,6 +139,15 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private volatile URL chat_notify_image_url = null;
     private volatile Long chat_notify_thread = null;
     private final GifLabel chat_notify_label = new GifLabel();
+    // Overlay del GIF de barajado (MUDO, en bucle) + borde blanco mientras este jugador LOCAL
+    // procesa su paso de la cascada SRA. Espejo del de RemotePlayer; lo invoca el controlador de
+    // GameFrame (onShuffleTurn) cuando el turno es del nick local. Sincronizado en todos los peers.
+    private final GifLabel shuffle_cascade_gif_label = new GifLabel();
+    private volatile ImageIcon shuffle_cascade_icon = null;
+    private volatile int shuffle_cascade_frames = 0;
+    private volatile String shuffle_cascade_icon_url = null;
+    private volatile Color shuffle_border_saved = null;
+    private volatile boolean shuffle_border_active = false;
     private final JLabel chip_label = new JLabel();
     private final JLabel sec_pot_win_label = new JLabel();
     private final ConcurrentLinkedQueue<Integer> botes_secundarios = new ConcurrentLinkedQueue<>();
@@ -1028,6 +1037,13 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                 }
             });
             panel_cartas.add(chat_notify_label, Integer.valueOf(1001));
+            shuffle_cascade_gif_label.setVisible(false);
+            shuffle_cascade_gif_label.setFocusable(false);
+            // Listener vacío que consume el clic (como en RemotePlayer): que no atraviese la label
+            // hasta la carta de debajo. Capa 1002 (sobre chip 1000 / chat_notify 1001).
+            shuffle_cascade_gif_label.addMouseListener(new MouseAdapter() {
+            });
+            panel_cartas.add(shuffle_cascade_gif_label, Integer.valueOf(1002));
             chip_label.setVisible(false);
             chip_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chip_label.setOpaque(false);
@@ -1085,6 +1101,104 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     public JButton getPlayer_fold() {
         return player_fold_button;
+    }
+
+    /**
+     * Muestra el GIF de barajado (MUDO, en bucle) + borde blanco sobre este jugador LOCAL. Lo
+     * invoca el controlador de GameFrame desde su hilo serializador (NO el EDT) cuando el turno de
+     * cascada es del nick local. Carga el GIF SÍNCRONO (no llamar desde el EDT) y pinta en el EDT.
+     */
+    @Override
+    public void showShuffleCascadeOverlay() {
+        final ImageIcon icon;
+        try {
+            icon = ensureShuffleCascadeIcon();
+        } catch (Exception ex) {
+            Logger.getLogger(LocalPlayer.class.getName()).log(Level.SEVERE, null, ex);
+            return;
+        }
+        if (icon == null) {
+            return;
+        }
+        final int frames = shuffle_cascade_frames;
+        if (frames <= 0) {
+            return; // GIF sin Graphic Control Extension (deck mod): el bucle de imageUpdate no se cortaría al ocultar
+        }
+        Helpers.GUIRun(() -> {
+            int max_width = panel_cartas.getWidth();
+            int new_height = panel_cartas.getHeight();
+            if (icon.getIconHeight() <= 0 || new_height <= 0) {
+                return;
+            }
+            int new_width = (int) Math.round((icon.getIconWidth() * (double) new_height) / icon.getIconHeight());
+            if (max_width > 0 && new_width > max_width) {
+                new_height = (int) Math.round(((double) new_height * max_width) / new_width);
+                new_width = max_width;
+            }
+            shuffle_cascade_gif_label.setBarrier(null);
+            shuffle_cascade_gif_label.setIcon(icon, frames);
+            shuffle_cascade_gif_label.setRepeat(Integer.MAX_VALUE);
+            shuffle_cascade_gif_label.setSize(new_width, new_height);
+            shuffle_cascade_gif_label.setPreferredSize(shuffle_cascade_gif_label.getSize());
+            shuffle_cascade_gif_label.setOpaque(false);
+            shuffle_cascade_gif_label.setLocation(Math.round((panel_cartas.getWidth() - new_width) / 2f), Math.round((getHoleCard1().getHeight() - new_height) / 2f));
+            shuffle_cascade_gif_label.setVisible(true);
+            if (!shuffle_border_active) {
+                shuffle_border_saved = border_color;
+                shuffle_border_active = true;
+            }
+            border_color = java.awt.Color.WHITE;
+            repaint();
+        });
+    }
+
+    /**
+     * Oculta el overlay de barajado y restaura el borde previo. Idempotente.
+     */
+    @Override
+    public void hideShuffleCascadeOverlay() {
+        Helpers.GUIRun(() -> {
+            shuffle_cascade_gif_label.setVisible(false);
+            shuffle_cascade_gif_label.setIcon((javax.swing.Icon) null);
+            if (shuffle_border_active) {
+                // Solo restaurar si el borde sigue siendo el blanco que pusimos: si otro código lo
+                // cambió mientras tanto (p.ej. el resaltado de turno de apuesta), respetarlo.
+                if (border_color == java.awt.Color.WHITE) {
+                    border_color = shuffle_border_saved;
+                    repaint();
+                }
+                shuffle_border_active = false;
+            }
+        });
+    }
+
+    /**
+     * Decodifica (una vez por instancia, cache-busted) el ImageIcon del shuffle.gif de la baraja
+     * actual y cuenta sus frames; null si no hay GIF. Espejo de RemotePlayer.ensureShuffleCascadeIcon.
+     */
+    private ImageIcon ensureShuffleCascadeIcon() throws Exception {
+        URL url = Crupier.shuffleGifUrl();
+        if (url == null) {
+            return null;
+        }
+        String url_key = url.toString();
+        ImageIcon cached = shuffle_cascade_icon;
+        if (cached != null && url_key.equals(shuffle_cascade_icon_url)) {
+            return cached;
+        }
+        ImageIcon icon = new ImageIcon(new URL(url.toString() + "#cascade" + System.nanoTime()));
+        long t0 = System.nanoTime();
+        while ((icon.getIconHeight() == 0 || icon.getIconWidth() == 0)
+                && System.nanoTime() - t0 < 3_000_000_000L) {
+            Helpers.pausar(GameFrame.GUI_RENDER_WAIT);
+        }
+        if (icon.getIconHeight() == 0 || icon.getIconWidth() == 0) {
+            return null;
+        }
+        shuffle_cascade_frames = Helpers.getGIFFramesCount(url);
+        shuffle_cascade_icon = icon;
+        shuffle_cascade_icon_url = url_key;
+        return icon;
     }
 
     public Card getHoleCard1() {

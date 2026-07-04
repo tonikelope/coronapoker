@@ -261,6 +261,128 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         return ANIMACIONES && ANIMACION_CASCADA_OVERLAY_PREF;
     }
 
+    // ---- Controlador del overlay de barajado por jugador (sincronizado vía el comando SHUFFLE_TURN)
+    // El host difunde SHUFFLE_TURN#nick por cada jugador del anillo según avanza la cascada; cada
+    // peer (incluido el host, que se auto-aplica al emitir) lo entrega aquí. Este controlador pinta
+    // el overlay+borde sobre SU jugador de ese nick (local o remoto), UN turno a la vez y con una
+    // DURACIÓN MÍNIMA: en LAN los pasos duran ~100 ms y sin el mínimo el giro sería un parpadeo
+    // imperceptible; un cliente lento mantiene su overlay el tiempo real de su paso (localizarlo).
+    // Gateado por la preferencia LOCAL de cada peer (cascadaOverlayAnimOn).
+    public static final long SHUFFLE_OVERLAY_MIN_MS = 150;    // suelo visible por turno DURANTE el barajado (los pasos reales > 150ms salen a su tiempo EXACTO)
+    public static final long SHUFFLE_OVERLAY_DRAIN_MS = 60;   // al TERMINAR, drena rápido lo que quede (no solapar con el reparto)
+    public static final long SHUFFLE_OVERLAY_WATCHDOG_MS = 60000; // red de seguridad si SHUFFLE_TURN_END nunca llega (host caído)
+    private final java.util.concurrent.ConcurrentLinkedQueue<String> shuffle_turn_queue = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private final Object shuffle_turn_lock = new Object();
+    private volatile boolean shuffle_turn_ended = false;
+    private volatile boolean shuffle_turn_playing = false;
+    private volatile String shuffle_overlay_current_nick = null;
+
+    /**
+     * Turno de cascada de {@code nick}: encola su overlay. Lo invoca el host (localmente al emitir)
+     * y cada cliente (al recibir SHUFFLE_TURN). Gateado por la preferencia LOCAL de este peer, así
+     * que cada usuario decide si ve la animación aunque el host la difunda siempre.
+     */
+    public void onShuffleTurn(String nick) {
+        if (nick == null || nick.isEmpty() || !cascadaOverlayAnimOn()) {
+            return;
+        }
+        shuffle_turn_ended = false;
+        shuffle_turn_queue.add(nick);
+        startShuffleTurnPlayer();
+    }
+
+    /**
+     * Fin del barajado: el reproductor drena la cola pendiente y oculta el overlay.
+     */
+    public void onShuffleTurnEnd() {
+        shuffle_turn_ended = true;
+    }
+
+    // Arranca (si no lo está ya) el hilo que reproduce la cola de turnos a DURACIÓN MÍNIMA. Un solo
+    // reproductor a la vez (guardado por shuffle_turn_lock). Se re-arranca si llega un turno justo
+    // en la ventana entre que decide salir y marca playing=false.
+    private void startShuffleTurnPlayer() {
+        synchronized (shuffle_turn_lock) {
+            if (shuffle_turn_playing) {
+                return;
+            }
+            shuffle_turn_playing = true;
+        }
+        Helpers.threadRun(() -> {
+            long last_activity = System.currentTimeMillis();
+            try {
+                while (true) {
+                    String nick = shuffle_turn_queue.poll();
+                    if (nick != null) {
+                        setShuffleOverlayOn(nick);
+                        last_activity = System.currentTimeMillis();
+                        // Durante el barajado, cada turno dura el mínimo visible. Una vez que el
+                        // barajado TERMINÓ (ended), se drena lo que quede a ritmo rápido para no
+                        // solaparse con el reparto/apuestas (gif sobre cartas ya repartidas / pisar
+                        // el borde de turno).
+                        Helpers.pausar(shuffle_turn_ended ? SHUFFLE_OVERLAY_DRAIN_MS : SHUFFLE_OVERLAY_MIN_MS);
+                    } else if (shuffle_turn_ended) {
+                        break; // cola vacía + barajado terminado
+                    } else if (System.currentTimeMillis() - last_activity > SHUFFLE_OVERLAY_WATCHDOG_MS) {
+                        break; // red de seguridad: END no llegó (¿host caído?) -> no spinear eterno
+                    } else {
+                        // Cola vacía pero el barajado sigue: el jugador actual (típicamente un
+                        // remoto lento) mantiene su overlay hasta que llegue el siguiente turno.
+                        Helpers.pausar(40);
+                    }
+                }
+            } finally {
+                hideShuffleOverlayAll();
+                shuffle_overlay_current_nick = null;
+                synchronized (shuffle_turn_lock) {
+                    shuffle_turn_playing = false;
+                }
+                if (!shuffle_turn_queue.isEmpty() && !shuffle_turn_ended) {
+                    startShuffleTurnPlayer();
+                }
+            }
+        });
+    }
+
+    // Oculta el overlay del jugador anterior y lo muestra sobre el nuevo (ambos en su hilo, que
+    // hace GUIRun internamente). Corre en el hilo del reproductor, NO en el EDT.
+    private void setShuffleOverlayOn(String nick) {
+        String prev = shuffle_overlay_current_nick;
+        if (prev != null && !prev.equals(nick)) {
+            Player pp = findPlayerByNick(prev);
+            if (pp != null) {
+                pp.hideShuffleCascadeOverlay();
+            }
+        }
+        shuffle_overlay_current_nick = nick;
+        Player np = findPlayerByNick(nick);
+        if (np != null) {
+            np.showShuffleCascadeOverlay();
+        }
+    }
+
+    private void hideShuffleOverlayAll() {
+        // Snapshot: se itera desde el hilo reproductor y la lista puede reconstruirse (clear+addAll)
+        // al encoger la mesa entre manos -> evitar ConcurrentModificationException.
+        for (Player j : new java.util.ArrayList<>(getJugadores())) {
+            if (j != null) {
+                j.hideShuffleCascadeOverlay();
+            }
+        }
+    }
+
+    private Player findPlayerByNick(String nick) {
+        if (nick == null) {
+            return null;
+        }
+        for (Player j : new java.util.ArrayList<>(getJugadores())) {
+            if (j != null && nick.equals(j.getNickname())) {
+                return j;
+            }
+        }
+        return null;
+    }
+
     // Velocidad/topes del rodaje de los contadores VIVOS (stack/bote del jugador/
     // bote general) durante el juego. VELOCIDAD CONSTANTE (lineal): duración de cada
     // tramo = distancia/velocidad, acotada a [min, max]. Palancas para afinar los

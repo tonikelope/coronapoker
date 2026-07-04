@@ -51,7 +51,7 @@ Pure P2P, no central servers, no accounts and no third party logs. Your game exi
 - **Automatic UPnP port mapping**: when you host a game, CoronaPoker tries to open the listening port on your router and cleans it up when the table closes. Manual port forwarding works as a fallback.
 - **Adjustable listening port**: defaults to 7234, configurable per game.
 - **Optional password protection** for the table itself, on top of channel encryption.
-- **Smart reconnection**: if a player drops, a 40-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
+- **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
 - **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients.
 - **Late-joiner observer mode**: a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
 - **Recent-server list**: persisted history of past tables. Browse it with ↑/↓ in the Join dialog to reconnect to anyone you've played with before.

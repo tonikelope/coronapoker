@@ -210,8 +210,16 @@ for (const ph of phases) {
       let nx, nw = NOTE_W;
       if (it.at === 'all') { nw = 640; nx = (PAGE_W - nw)/2; }
       else { nx = actX(it.at) + 16; }
-      const lines = it.txt.split('\n').length;
-      const nh = 22 + lines*15;
+      // Altura consciente del WRAP: el texto de la nota se ajusta al ancho de la
+      // caja, así que una línea larga ocupa varias filas visuales. Estimamos las
+      // filas por línea explícita a partir de un ancho medio de glifo (conservador
+      // ~7.2 px a 10 pt) para que la caja crezca y el texto NUNCA se salga.
+      const charsPerLine = Math.max(12, Math.floor((nw - 24) / 7.2));
+      let rows = 0;
+      for (const ln of it.txt.split('\n')) {
+        rows += Math.max(1, Math.ceil(ln.length / charsPerLine));
+      }
+      const nh = 16 + rows*15;
       cells.push(`<mxCell id="${id()}" value="${esc(it.txt)}" style="shape=note;whiteSpace=wrap;html=1;fillColor=#FFF8D6;strokeColor=#D9C45A;strokeWidth=1.2;fontColor=#3a3320;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=6;size=12;" vertex="1" parent="1"><mxGeometry x="${nx}" y="${y+4}" width="${nw}" height="${nh}" as="geometry"/></mxCell>`);
       y += nh + 14;
     }

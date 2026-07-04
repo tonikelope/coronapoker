@@ -15,7 +15,7 @@ This is the project of a perfectionist, who one day during the confinement of CO
 
 <h1 align="center"><a href="https://github.com/tonikelope/coronapoker/releases/latest"><b>DOWNLOAD CORONAPOKER</b></a></h1>
 
-<a href="https://youtu.be/U3ZQBP1YQmk" target="_blank"><img width="1042" height="583" alt="Captura de pantalla 2026-06-10 190143" src="https://github.com/user-attachments/assets/6258361b-1000-498f-b22f-6b179ad7e76d" /></a>
+<a href="https://youtu.be/WmV8Qg6urKw" target="_blank"><img width="1042" height="583" alt="Captura de pantalla 2026-06-10 190143" src="https://github.com/user-attachments/assets/6258361b-1000-498f-b22f-6b179ad7e76d" /></a>
 
 
 # Features

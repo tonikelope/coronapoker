@@ -61,7 +61,9 @@ sockets. Production wires the real `Crupier`, real `Player`s and the
 
 A single `Bot` instance is attached to each CPU seat. The dealer reaches the
 seat, calls `calculateBotDecision(opponents)`, and the engine returns one of
-`BET`, `CHECK-CALL` or `FOLD` together with a pre-computed bet size.
+`BET`, `CHECK-CALL` or `FOLD`. When that decision is a bet or raise, its size is
+computed in the **same** pass and read back separately through `getBetSize()`, so
+the dealer stakes exactly the amount the EV was evaluated on (§5.3).
 
 ---
 

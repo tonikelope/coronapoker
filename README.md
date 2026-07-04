@@ -195,8 +195,6 @@ The cryptographic subsystem, covering verifiable **SRA / Ristretto255** dealing 
 
 The **bot AI**, covering its architecture, hand-evaluation maths, personality model and per-turn decision pipeline, is documented in depth, with its own two diagrams (a component architecture and a decision-flow chart), in **[`docs/BOTS.md`](docs/BOTS.md)**.
 
-> Editable [`.drawio`](docs/diagrams/) sources for all five diagrams live in [`docs/diagrams/`](docs/diagrams/), regenerable from the scripts in `tools/diagrams/`.
-
 ---
 
 ## Build from source

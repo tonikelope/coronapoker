@@ -377,5 +377,4 @@ Because the harness depends on the installed game artifact, the workflow is
 | Evaluators | `bot/eval/AlbertaEvaluatorAdapter.java` (reference), `MemoizedAlbertaEvaluator.java` + `MemoizedHandPotential.java` (production) |
 | Table/player contracts | `bot/context/DealerView.java`, `BotPlayerView.java` |
 | Combinatorial core | `org.alberta.poker.*` (`HandPotential`, `HandEvaluator`, `Deck`, `Hand`, `Card`) |
-| Diagrams | [`diagrams/bot-architecture.drawio`](diagrams/bot-architecture.drawio), [`diagrams/bot-decision-flow.drawio`](diagrams/bot-decision-flow.drawio) (regenerable via `tools/diagrams/gen_bots_arch.mjs` / `gen_bots_flow.mjs`) |
 | QA harness | [`tools/qa`](../tools/qa) |

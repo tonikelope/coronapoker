@@ -8,7 +8,7 @@ How CoronaPoker enforces the "nobody cheats, not even the host" promise. This do
 
 ## Diagrams
 
-Three reference diagrams give the whole picture at a glance. Editable `.drawio` sources sit next to the PNGs in [`diagrams/`](diagrams/).
+Three reference diagrams give the whole picture at a glance.
 
 ### Component architecture
 
@@ -380,7 +380,7 @@ Three properties keep these deadlines from ever punishing an honest player. They
 
 Because a single refusal or one slow reveal might be a bug, the deadlines respond proportionately. The cascade and rotation MISDEAL first and only AUTO-EXPEL a peer that forces **several** cancellations in a row (a same-version client never produces invalid crypto or withholds past the deadline, so a repeat is unambiguous). This keeps a one-off hiccup from removing anyone while still stopping a peer from looping MISDEALs forever.
 
-The three layers, the six-tier reaction ladder and the withheld-message AUTO-EXPEL flow are drawn together in the [denial-of-service diagram](#denial-of-service-resistance-and-the-reaction-ladder) at the top of this document (editable `.drawio` source in [`diagrams/`](diagrams/)).
+The three layers, the six-tier reaction ladder and the withheld-message AUTO-EXPEL flow are drawn together in the [denial-of-service diagram](#denial-of-service-resistance-and-the-reaction-ladder) at the top of this document.
 
 ---
 

@@ -63,7 +63,7 @@ class SynthesizeFoldActionSmoke {
         invokeSynthesize(action);
 
         assertEquals(Player.FOLD, action[0]);
-        assertEquals(0f, action[1]);
+        assertEquals(0d, action[1]);
         assertNull(action[2]);
         assertNull(action[3]);
         assertNull(action[4]);
@@ -84,7 +84,7 @@ class SynthesizeFoldActionSmoke {
         invokeSynthesize(action);
 
         assertEquals(Player.FOLD, action[0]);
-        assertEquals(0f, action[1]);
+        assertEquals(0d, action[1]);
         assertNull(action[2]);
         assertNull(action[3]);
         assertNull(action[4]);
@@ -107,7 +107,7 @@ class SynthesizeFoldActionSmoke {
         invokeSynthesize(action);
 
         assertEquals(Player.FOLD, action[0]);
-        assertEquals(0f, action[1]);
+        assertEquals(0d, action[1]);
         assertEquals(Boolean.FALSE, action[5]);
     }
 

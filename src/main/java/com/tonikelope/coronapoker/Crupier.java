@@ -436,9 +436,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // SRA generados (los crea solo en el handler DECK_CASCADE_REQ); su Crupier
     // rechaza silenciosamente -> el host esperaba hasta que el socket del peer
     // moria naturalmente (60-90s), provocando shuffling animation infinito y
-    // un loop de MISDEAL+recover. Con timeout duro el host aborta la mano rapido
-    // y vuelve a un estado consistente.
-    public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 30000;
+    // un loop de MISDEAL+recover. Con timeout el host aborta la mano y vuelve a un
+    // estado consistente. Ampliado de 30s a 60s para dar mas margen a un peer lento
+    // (la rotacion es barata, un solo scalarMul), y ademas ahora queda POR ENCIMA de
+    // RECIBIDO_TIMEOUT (45s): a un peer realmente muerto lo caza antes el ping-pong
+    // (lo marca exit) que este timeout, y sigue por debajo de la muerte natural del
+    // socket (60-90s), asi que no cuelga. Un caido/reconectando aqui NO se acusa
+    // (ver el llamador de requestRemoteRotation, fix D).
+    public static final int REMOTE_SRA_PEER_TIMEOUT_MS = 60000;
     // Deadline de PROGRESO para la cascada (DECK_CASCADE_RESP). Un peer que contesta PING/PONG
     // (sigue "vivo") pero CALLA su respuesta de cascada dejaría al host esperando para siempre
     // -> mesa congelada (p.isExit() no se activa porque el PING lo mantiene vivo). MUCHO más
@@ -1171,10 +1176,12 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     private volatile boolean saw_invalid_action_sig = false;
 
     // Ventana de espera (fuera del reparto) para recoger las pruebas de barajado ASYNC de los
-    // pasos remotos (B1). Generosa: el prove del cliente puede tardar segundos en frío, y esto
-    // corre durante las apuestas (que suelen durar más); si aun así no llega, el paso degrada a
-    // "sin prueba" (el bundle no se difunde, igual que hoy con un peer proofless).
-    private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 15000;
+    // pasos remotos (B1). MUY generosa: el prove del cliente puede tardar segundos en frío (hasta
+    // ~9s medidos en un PC lento), y esto corre durante las apuestas (que suelen durar más).
+    // Ampliada de 15s a 30s para dar margen de sobra a PCs lentos y evitar avisos "sin verificar"
+    // espurios. Si aun así no llega, el paso degrada a "sin prueba" (el bundle no se difunde, igual
+    // que un peer proofless): peor caso un aviso, nunca un reparto incorrecto ni una trampa.
+    private static final long CASCADE_ASYNC_PROOF_TIMEOUT_MS = 30000;
 
     // Base64(SHA-256(deck)): identificador content-addressed del deckOut de un paso, para emparejar
     // la prueba async del cliente (DECK_CASCADE_PROOF) con su paso en la cadena. Único por mano, así

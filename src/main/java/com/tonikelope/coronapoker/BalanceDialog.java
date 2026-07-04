@@ -93,8 +93,6 @@ public class BalanceDialog extends JDialog {
     private static final Color WIN = new Color(0, 200, 60);
     private static final Color LOSE = new Color(220, 30, 30);
     private static final Color NEUTRAL = new Color(140, 140, 140);
-    // Naranja de marca: el color del contador mientras rueda (antes del +/- final).
-    private static final Color ORANGE = new Color(255, 102, 0);
 
     // Cajas claras sobre el tapete (como el boceto de referencia).
     private static final Color CARD_BG = new Color(248, 248, 248);
@@ -575,8 +573,9 @@ public class BalanceDialog extends JDialog {
             return empty;
         }
 
-        // Arranca en naranja (el color del contador); el +/- final se revela en verde/rojo.
-        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), ORANGE);
+        // Rueda ya en el color del resultado (verde gana / rojo pierde) en vez de en naranja;
+        // al aterrizar solo cambia el numero al +/- neto (mismo color) y parpadea.
+        OutlinedLabel amount = new OutlinedLabel(Helpers.money2String(buyin), cmp > 0 ? WIN : LOSE);
         amount.setFont(new Font("Dialog", Font.BOLD, Math.round(amount_size)));
         amount.setBorder(BorderFactory.createEmptyBorder(0, 30, 0, 30));
 

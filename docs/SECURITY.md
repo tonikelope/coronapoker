@@ -1,3 +1,5 @@
+<div align="justify">
+
 # Security architecture
 
 How CoronaPoker enforces the "nobody cheats, not even the host" promise. This document covers the cryptographic primitives, the data flows that bind them together, and the failure modes they detect. File and line references are kept current with the codebase. The deeper internal spec for the identity layer lives in [`ec-identity-spec.md`](ec-identity-spec.md).

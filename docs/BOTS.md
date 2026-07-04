@@ -1,3 +1,5 @@
+<div align="justify">
+
 # CoronaPoker: Bot AI
 
 This document describes how the CoronaPoker CPU players ("bots") think: their

@@ -920,7 +920,7 @@ public class Init extends JFrame {
 
         if (ventana != null) {
             Helpers.GUIRun(() -> {
-                Helpers.setScaledIconLabel(ventana.sound_icon, Init.class.getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+                ventana.applySoundIconScaled();
             });
         }
     }
@@ -941,7 +941,7 @@ public class Init extends JFrame {
         Helpers.savePropertiesFile();
 
         Helpers.GUIRun(() -> {
-            Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+            applySoundIconScaled();
         });
 
         if (!GameFrame.SONIDOS) {
@@ -1271,6 +1271,10 @@ public class Init extends JFrame {
     private static final int INIT_REF_W = 2560, INIT_REF_H = 1440;
     private int base_stats_h = 0;
     private boolean init_base_captured = false;
+    // Última escala aplicada por applyInitScale: la usan el conmutador de mute y refreshSoundIcon
+    // para redibujar el icono del altavoz al tamaño chip ACTUAL. Si no, al conmutar el icono volvía
+    // a su tamaño base (30) y "se salía" cuando la botonera está reducida.
+    private volatile float current_init_scale = 1f;
     private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label, base_quote;
     private javax.swing.Icon base_icon_create, base_icon_join, base_icon_exit, base_icon_stats;
 
@@ -1319,32 +1323,38 @@ public class Init extends JFrame {
         );
     }
 
-    // Escala = razón del tamaño actual respecto al MAYOR visto (típicamente maximizado); a ese
-    // máximo vale 1.0 (diseño intacto) y baja al encoger. Se toma la menor de las razones
-    // ancho/alto (reacciona también si solo cambia el alto). Acotada a [MIN, 1.0].
+    // Escala de la botonera respecto a la resolución de DISEÑO canónica (1440p): 1.0 a 1440p,
+    // crece SIN tope por encima (4K+) y por debajo aplica una CURVA SUAVE (raíz) para no encoger
+    // en exceso en pantallas pequeñas. Se toma la menor de las razones ancho/alto (reacciona
+    // también si solo cambia el alto). Suelo mínimo por legibilidad; SIN tope superior.
     private float computeInitScale() {
         int w = getWidth(), h = getHeight();
         if (w <= 0 || h <= 0) {
             return 1f;
         }
-        // Escala relativa a la resolución de DISEÑO CANÓNICA (1440p): la botonera se adapta al
-        // tamaño de la ventana Y a la resolución del monitor, INCLUSO maximizada. A 1440p se ve a
-        // tamaño de diseño; por ENCIMA (4K, etc.) CRECE en proporción; por debajo —resolución
-        // menor o ventana reducida— encoge.
-        float s = Math.min(w / (float) INIT_REF_W, h / (float) INIT_REF_H);
-        // Solo la franja JUSTO por debajo del canónico (p. ej. 1440p maximizado pierde ~3% de
-        // alto por la barra de tareas) se fija al tamaño de diseño exacto. NO afecta a s>1: en
-        // 4K y superiores la botonera sigue creciendo.
-        if (s >= 0.92f && s < 1f) {
-            s = 1f;
+        // Razón lineal respecto al canónico (1440p): se adapta al tamaño de la ventana Y a la
+        // resolución del monitor, INCLUSO maximizada. Se toma la menor de ancho/alto.
+        float raw = Math.min(w / (float) INIT_REF_W, h / (float) INIT_REF_H);
+        // Franja JUSTO por debajo del canónico (p. ej. 1440p maximizado pierde ~3% de alto por la
+        // barra de tareas) -> tamaño de diseño exacto (PIXEL-PERFECT a 1440p). No afecta a s>=1.
+        if (raw >= 0.92f && raw < 1f) {
+            return 1f;
         }
-        // Solo suelo mínimo; SIN tope superior -> crece automáticamente a cualquier resolución.
+        // A 1440p (1.0) o por encima: crece en proporción SIN tope superior (4K, 5K, 8K…).
+        if (raw >= 1f) {
+            return raw;
+        }
+        // Por DEBAJO del canónico: curva SUAVE (raíz cuadrada) para que las resoluciones pequeñas
+        // no encojan tan agresivamente como la razón lineal (a 1366x768 -> ~0.73 en vez de ~0.53).
+        // Sigue siendo monótona y llega a 1.0 en el canónico. Suelo mínimo por legibilidad.
+        float s = (float) Math.sqrt(raw);
         return Math.max(INIT_MIN_SCALE, s);
     }
 
     // Aplica la escala a toda la botonera. A s=1 el resultado es IDÉNTICO al diseño 22.35.
     private void applyInitScale(float s) {
         captureInitBaseIfNeeded();
+        current_init_scale = s;
 
         setScaledFont(create_button, base_create, s);
         setScaledFont(join_button, base_join, s);
@@ -1382,8 +1392,7 @@ public class Init extends JFrame {
         updateLanguageFlag();
         settings_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
         Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), chip, chip);
-        sound_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
-        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), chip, chip);
+        applySoundIconScaled();
 
         // Re-layout + REPINTADO COMPLETO del tapete (evita estelas de los botones no-opacos).
         action_buttons_panel.revalidate();
@@ -1410,6 +1419,15 @@ public class Init extends JFrame {
                 b.setIcon(new javax.swing.ImageIcon(img.getScaledInstance(Math.max(1, Math.round(bw * s)), Math.max(1, Math.round(bh * s)), java.awt.Image.SCALE_SMOOTH)));
             }
         }
+    }
+
+    // Dibuja el icono del altavoz (sound/mute según SONIDOS) al tamaño chip ACTUAL de la botonera
+    // (escala memorizada). Lo comparten applyInitScale, el conmutador de mute y refreshSoundIcon,
+    // para que conmutar el sonido NO devuelva el icono a su tamaño base y "se salga" al reducir.
+    private void applySoundIconScaled() {
+        int chip = Math.max(1, Math.round(30 * current_init_scale));
+        sound_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), chip, chip);
     }
 
     // Blanquea la silueta de un icono (zonas opacas -> blanco) conservando su alfa. Para iconos

@@ -367,6 +367,11 @@ public class AudioSettingsPanel extends JPanel {
             }
         });
 
+        // Un poco más ancho: prototipo más largo que cualquier ítem real ("Siempre",
+        // "90 días") para que el combo (en BorderLayout.EAST) no quede justo. Va en la
+        // fuente del combo, así que la anchura escala con el updateFonts del host.
+        retention_combo.setPrototypeDisplayValue(Translator.translate("audio.retencion_dias", 999) + "  ");
+
         retention_panel = new JPanel(new BorderLayout(10, 0));
         retention_panel.add(new JLabel(Translator.translate("audio.conservar_notas")), BorderLayout.CENTER);
         retention_panel.add(retention_combo, BorderLayout.EAST);
@@ -393,8 +398,6 @@ public class AudioSettingsPanel extends JPanel {
         notes_panel.setLayout(new BoxLayout(notes_panel, BoxLayout.Y_AXIS));
         notes_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.notas_de_voz")));
 
-        voice_messages_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        notes_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         voice_key_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         play_own_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         retention_panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
@@ -406,9 +409,11 @@ public class AudioSettingsPanel extends JPanel {
         // centradas, en vez de dejárselo entero al panel de "Voz (TTS)".
         // Arriba, la regla GLOBAL de la timba (server); debajo, el interruptor maestro
         // LOCAL que gobierna el resto de controles de notas de voz (ambos en positivo).
+        // Ambos con el icono de micrófono (van vía iconRow, que ya los alinea a la izq).
         notes_panel.add(Box.createVerticalGlue());
-        notes_panel.add(voice_messages_checkbox);
-        notes_panel.add(notes_local_checkbox);
+        notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), voice_messages_checkbox));
+        notes_panel.add(Box.createVerticalStrut(6));
+        notes_panel.add(iconRow(scaledIcon("/images/microphone_black.png", 24), notes_local_checkbox));
         notes_panel.add(Box.createVerticalStrut(8));
         notes_panel.add(voice_key_panel);
         notes_panel.add(play_own_checkbox);
@@ -423,18 +428,17 @@ public class AudioSettingsPanel extends JPanel {
         tts_local_checkbox = new JCheckBox(Translator.translate("audio.tts_local"), !AudioDeviceManager.isBlockTtsLocal());
         tts_local_checkbox.addActionListener(e -> AudioDeviceManager.setBlockTtsLocal(!tts_local_checkbox.isSelected()));
 
-        tts_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        tts_local_checkbox.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-
         tts_panel = new JPanel();
         tts_panel.setLayout(new BoxLayout(tts_panel, BoxLayout.Y_AXIS));
         tts_panel.setBorder(BorderFactory.createTitledBorder(Translator.translate("audio.voz_tts")));
         // Checkboxes centrados verticalmente (glue arriba y abajo): el panel crece para
         // absorber parte del alto sobrante de la columna y sus controles quedan en el
-        // centro, en vez de quedar pegados arriba. Arriba la regla GLOBAL, debajo la LOCAL.
+        // centro, en vez de quedar pegados arriba. Arriba la regla GLOBAL, debajo la LOCAL,
+        // ambas con el icono de voz (van vía iconRow, que ya las alinea a la izquierda).
         tts_panel.add(Box.createVerticalGlue());
-        tts_panel.add(tts_checkbox);
-        tts_panel.add(tts_local_checkbox);
+        tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_checkbox));
+        tts_panel.add(Box.createVerticalStrut(6));
+        tts_panel.add(iconRow(menuIcon("/images/menu/voice.png"), tts_local_checkbox));
         tts_panel.add(Box.createVerticalGlue());
 
         // Nota (solo CLIENTE en partida): las reglas GLOBALES de arriba de cada panel las

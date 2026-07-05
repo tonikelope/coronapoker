@@ -295,19 +295,19 @@ public class BalanceDialog extends JDialog {
     // Barra de botones (arriba, repartidos a lo ancho).
     // -------------------------------------------------------------------------
     private JComponent buildNavBar() {
-        JButton log_button = navButton(Translator.translate("log.registro_de_la_timba"), new Color(60, 63, 70));
+        JButton log_button = navButton(Translator.translate("log.registro_de_la_timba"), new Color(60, 63, 70), scaledIcon("/images/menu/log2.png", 28));
         log_button.addActionListener((e) -> openLog());
 
-        JButton stats_button = navButton(Translator.translate("ui.estadisticas"), new Color(255, 102, 0));
+        JButton stats_button = navButton(Translator.translate("ui.estadisticas"), new Color(255, 102, 0), scaledIcon("/images/stats.png", 28));
         stats_button.addActionListener((e) -> StatsDialog.showStats(this));
 
-        JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), new Color(0, 130, 0));
+        JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), new Color(0, 130, 0), scaledIcon("/images/continue.png", 28));
         recover_button.addActionListener((e) -> {
             recover = true;
             dispose();
         });
 
-        JButton menu_button = navButton(Translator.translate("ui.menu_principal"), new Color(0, 153, 255));
+        JButton menu_button = navButton(Translator.translate("ui.menu_principal"), new Color(0, 153, 255), whiteScaledIcon("/images/exit2.png", 28));
         menu_button.addActionListener((e) -> dispose());
 
         JPanel row = new JPanel(new GridLayout(1, 4, 24, 0));
@@ -392,17 +392,53 @@ public class BalanceDialog extends JDialog {
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), sound_icon_sz, sound_icon_sz);
     }
 
-    private JButton navButton(String text, Color bg) {
-        FlatButton b = new FlatButton(text);
-        b.setBackground(bg);
+    private JButton navButton(String text, Color bg, javax.swing.Icon icon) {
+        // Estilo "cristal" (glassmorphism), igual que la botonera de la pantalla de inicio:
+        // fondo translúcido redondeado (deja ver el tapete) en reposo neutro, y al pasar el ratón
+        // un halo del color propio del botón (bg) que conserva su identidad (menú/registro/stats/
+        // recuperar). setUI antes de setBorder para que gane nuestro padding (installUI pone uno).
+        JButton b = new JButton(text);
+        b.setUI(new GlassButtonUI(bg, false, false, 0.66f, 20));
         b.setForeground(Color.WHITE);
-        b.setBorder(BorderFactory.createEmptyBorder(15, 32, 15, 32));
+        b.setBorder(BorderFactory.createEmptyBorder(15, 26, 15, 26));
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
         b.setFont(new Font("Dialog", Font.BOLD, 22));
+        if (icon != null) {
+            b.setIcon(icon);
+            b.setIconTextGap(9);
+        }
         // Auto-fit responsive: el texto se encoge para caber en su cuarto de la
         // barra (PCs antiguos / baja resolución no parten los botones).
-        b.putClientProperty("fit.width", Math.max(40, screen_w / 4 - 110));
+        b.putClientProperty("fit.width", Math.max(40, screen_w / 4 - 118));
         return b;
+    }
+
+    // Icono escalado desde recursos (para los botones cristal de la barra superior).
+    private static javax.swing.ImageIcon scaledIcon(String resource, int size) {
+        try {
+            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceDialog.class.getResource(resource));
+            return new javax.swing.ImageIcon(src.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    // Igual, pero tiñe de BLANCO la silueta (conserva alfa): para iconos de línea oscura que
+    // sobre el cristal oscuro quedarían invisibles (p. ej. la puerta de salida de MENÚ PRINCIPAL).
+    private static javax.swing.ImageIcon whiteScaledIcon(String resource, int size) {
+        try {
+            java.awt.image.BufferedImage src = javax.imageio.ImageIO.read(BalanceDialog.class.getResource(resource));
+            java.awt.image.BufferedImage w = new java.awt.image.BufferedImage(src.getWidth(), src.getHeight(), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            for (int y = 0; y < src.getHeight(); y++) {
+                for (int x = 0; x < src.getWidth(); x++) {
+                    int a = (src.getRGB(x, y) >>> 24) & 0xFF;
+                    w.setRGB(x, y, (a << 24) | 0x00FFFFFF);
+                }
+            }
+            return new javax.swing.ImageIcon(w.getScaledInstance(size, size, java.awt.Image.SCALE_SMOOTH));
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private void openLog() {
@@ -1129,52 +1165,6 @@ public class BalanceDialog extends JDialog {
                 }
                 g2.setColor(new Color(255, 255, 255, en ? 240 : 90));
                 g2.fillPolygon(xs, ys, 3);
-            } finally {
-                g2.dispose();
-            }
-        }
-    }
-
-    // Botón plano de la barra superior: pinta a mano un rectángulo redondeado con
-    // el color de fondo (sin el relleno opaco/borde raro del L&F). Fuera de las
-    // esquinas queda transparente -> se ve el tapete.
-    private static final class FlatButton extends JButton {
-
-        FlatButton(String text) {
-            super(text);
-            setOpaque(false);
-            setContentAreaFilled(false);
-            setBorderPainted(false);
-            setFocusPainted(false);
-            setRolloverEnabled(true);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            try {
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                int w = getWidth();
-                int h = getHeight();
-                int arc = 18;
-
-                Color bg = getBackground();
-                if (getModel().isPressed()) {
-                    bg = bg.darker();
-                } else if (getModel().isRollover()) {
-                    bg = bg.brighter();
-                }
-                g2.setColor(bg);
-                g2.fillRoundRect(0, 0, w, h, arc, arc);
-
-                g2.setColor(getForeground());
-                g2.setFont(getFont());
-                java.awt.FontMetrics fm = g2.getFontMetrics();
-                String t = getText();
-                int tx = (w - fm.stringWidth(t)) / 2;
-                int ty = (h - fm.getHeight()) / 2 + fm.getAscent();
-                g2.drawString(t, tx, ty);
             } finally {
                 g2.dispose();
             }

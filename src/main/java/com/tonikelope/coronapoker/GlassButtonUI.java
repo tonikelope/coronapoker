@@ -94,7 +94,18 @@ public class GlassButtonUI extends BasicButtonUI {
         boolean pressed = m.isArmed() && m.isPressed();
         boolean hover = enabled && m.isRollover();
 
-        float fill_alpha = !enabled ? 0.30f : (pressed ? 0.74f : (hover ? 0.62f : base_alpha));
+        // Hover/pressed suben la opacidad RELATIVA a la base (así al subir base_alpha el realce
+        // se mantiene proporcional en vez de saturarse).
+        float fill_alpha;
+        if (!enabled) {
+            fill_alpha = 0.30f;
+        } else if (pressed) {
+            fill_alpha = Math.min(0.92f, base_alpha + 0.22f);
+        } else if (hover) {
+            fill_alpha = Math.min(0.85f, base_alpha + 0.12f);
+        } else {
+            fill_alpha = base_alpha;
+        }
 
         RoundRectangle2D rr = new RoundRectangle2D.Float(1.5f, 1.5f, w - 3f, h - 3f, radius, radius);
 

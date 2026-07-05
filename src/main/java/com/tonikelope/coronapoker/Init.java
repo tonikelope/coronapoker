@@ -1018,15 +1018,38 @@ public class Init extends JFrame {
     }//GEN-LAST:event_formComponentHidden
 
     private void baraja_fondoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_baraja_fondoMouseClicked
-        // TODO add your handling code here:
-
-        if (!botones_panel.getBounds().contains(evt.getX(), evt.getY())) {
-
+        // El About se abre SOLO al hacer clic sobre el logo "corona poker" del fondo (arriba-
+        // izquierda de corona_init.png), no en cualquier parte de la imagen (cartas/fichas/felpa).
+        if (isClickOnBackgroundLogo(evt.getX(), evt.getY())) {
             AboutDialog dialog = new AboutDialog(this, true);
             dialog.setLocationRelativeTo(this);
             dialog.setVisible(true);
         }
     }//GEN-LAST:event_baraja_fondoMouseClicked
+
+    // Zona del logo dentro de corona_init.png, en FRACCIONES de la imagen (medidas sobre el PNG:
+    // "corona poker" + "by tonikelope" caben en la esquina superior-izquierda).
+    private static final float LOGO_FX0 = 0.00f, LOGO_FX1 = 0.31f, LOGO_FY0 = 0.00f, LOGO_FY1 = 0.27f;
+
+    // ¿El clic (coords del label baraja_fondo) cae sobre el logo? La imagen se escala al 90% de la
+    // pantalla y va CENTRADA en el label; mapeamos el clic a coordenadas de imagen (fracción 0..1)
+    // usando el tamaño VIVO del icono, así es robusto al escalado/resize sin recolocar nada.
+    private boolean isClickOnBackgroundLogo(int clickX, int clickY) {
+        javax.swing.Icon ic = baraja_fondo.getIcon();
+        if (ic == null) {
+            return false;
+        }
+        int iconW = ic.getIconWidth();
+        int iconH = ic.getIconHeight();
+        if (iconW <= 0 || iconH <= 0) {
+            return false;
+        }
+        int originX = (baraja_fondo.getWidth() - iconW) / 2;   // centrado horizontal
+        int originY = (baraja_fondo.getHeight() - iconH) / 2;  // centrado vertical
+        float fx = (clickX - originX) / (float) iconW;
+        float fy = (clickY - originY) / (float) iconH;
+        return fx >= LOGO_FX0 && fx <= LOGO_FX1 && fy >= LOGO_FY0 && fy <= LOGO_FY1;
+    }
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed
         // TODO add your handling code here:

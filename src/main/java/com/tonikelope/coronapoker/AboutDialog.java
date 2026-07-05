@@ -160,9 +160,9 @@ public class AboutDialog extends JDialog {
 
     }
 
-    // Área usable de la pantalla (excluye barra de tareas).
+    // Área usable del monitor donde aparece el diálogo (multimonitor-aware, no el primario).
     private java.awt.Rectangle usableBounds() {
-        return java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        return Helpers.dialogScreenUsableBounds(this);
     }
 
     // Factor de escala del diálogo según la RESOLUCIÓN, con referencia CANÓNICA 1440p: a 1440p
@@ -170,7 +170,7 @@ public class AboutDialog extends JDialog {
     // Acotado a que el diálogo (a tamaño de diseño ya empaquetado) quepa en el 95% del área
     // usable. Suelo 0.6; SIN tope superior (crece con la resolución, igual que la botonera).
     private float computeDialogZoom() {
-        return Helpers.dialogResolutionZoom(getWidth(), getHeight());
+        return Helpers.dialogResolutionZoom(this, getWidth(), getHeight());
     }
 
     // Aplica el factor a TODAS las fuentes (updateFonts escala cada tamaño por el factor) y a los

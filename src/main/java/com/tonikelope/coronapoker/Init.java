@@ -517,6 +517,8 @@ public class Init extends JFrame {
 
         setupLanguageFlag();
 
+        setupHandCursors();
+
         revalidate();
 
         repaint();
@@ -1049,6 +1051,24 @@ public class Init extends JFrame {
         float fx = (clickX - originX) / (float) iconW;
         float fy = (clickY - originY) / (float) iconH;
         return fx >= LOGO_FX0 && fx <= LOGO_FX1 && fy >= LOGO_FY0 && fy <= LOGO_FY1;
+    }
+
+    // La manita (HAND_CURSOR) solo debe salir sobre elementos clicables (logo, botones, bandera,
+    // ajustes, sonido). El fondo (cartas/fichas/felpa) y el panel contenedor pasan a cursor por
+    // defecto; sobre el fondo, la manita aparece DINÁMICAMENTE solo cuando el ratón está sobre el
+    // logo (mismo hit-test que abre el About). Los botones/bandera/iconos ya traen su propia manita.
+    private void setupHandCursors() {
+        final java.awt.Cursor def = java.awt.Cursor.getDefaultCursor();
+        final java.awt.Cursor hand = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR);
+        baraja_fondo.setCursor(def);
+        baraja_panel.setCursor(def);
+        botones_panel.setCursor(def);
+        baraja_fondo.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                baraja_fondo.setCursor(isClickOnBackgroundLogo(e.getX(), e.getY()) ? hand : def);
+            }
+        });
     }
 
     private void exit_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_exit_buttonActionPerformed

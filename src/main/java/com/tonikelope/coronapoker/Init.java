@@ -515,6 +515,8 @@ public class Init extends JFrame {
 
         applyModernButtons();
 
+        setupLanguageFlag();
+
         revalidate();
 
         repaint();
@@ -1118,6 +1120,134 @@ public class Init extends JFrame {
 
         // Fuera el marco naranja de 5px del contenedor de la botonera.
         botones_panel.setBorder(null);
+    }
+
+    // ---- Selector de idioma como BANDERA (sustituye al combo Español/English) ----
+    // La bandera muestra el idioma ACTUAL (España = es, Union Jack = en); al hacer clic
+    // alterna idioma y bandera. Se dibujan por código (sin añadir ficheros de imagen).
+    private javax.swing.JLabel language_flag;
+    private static javax.swing.ImageIcon SPAIN_FLAG_ICON;
+    private static javax.swing.ImageIcon UK_FLAG_ICON;
+
+    // Alto = el de los iconos de ajustes/sonido (30); ancho rectangular 3:2.
+    private static final int FLAG_H = 30;
+    private static final int FLAG_W = 45;
+
+    private void setupLanguageFlag() {
+        language_flag = new javax.swing.JLabel();
+        language_flag.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        updateLanguageFlag();
+        language_flag.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                toggleLanguageByFlag();
+            }
+        });
+
+        // Reconstruye la barra inferior (jPanel1) sustituyendo el combo por la bandera:
+        // [ SALIR (crece) ] [ bandera ] [ ajustes ] [ sonido ], centrado en vertical.
+        jPanel1.remove(language_combobox);
+        javax.swing.GroupLayout gl = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(gl);
+        gl.setHorizontalGroup(
+                gl.createSequentialGroup()
+                        .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 605, Short.MAX_VALUE)
+                        .addGap(16)
+                        .addComponent(language_flag, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(14)
+                        .addComponent(settings_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(10)
+                        .addComponent(sound_icon, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        );
+        gl.setVerticalGroup(
+                gl.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                        .addComponent(exit_button)
+                        .addComponent(language_flag)
+                        .addComponent(settings_icon)
+                        .addComponent(sound_icon)
+        );
+        jPanel1.revalidate();
+        jPanel1.repaint();
+    }
+
+    private void updateLanguageFlag() {
+        boolean es = GameFrame.LANGUAGE.equals("es");
+        language_flag.setIcon(es ? spainFlagIcon() : ukFlagIcon());
+        language_flag.setToolTipText(es ? "Change language to English" : "Cambiar idioma a Español");
+    }
+
+    // Alterna idioma + bandera (misma lógica que el antiguo language_comboboxActionPerformed).
+    private void toggleLanguageByFlag() {
+        GameFrame.LANGUAGE = GameFrame.LANGUAGE.equals("es") ? "en" : "es";
+        Helpers.PROPERTIES.setProperty("lenguaje", GameFrame.LANGUAGE);
+        Helpers.savePropertiesFile();
+        Helpers.translateComponents(this, false);
+        translateGlobalLabels();
+        Crupier.loadMODSounds();
+        Helpers.setCoronaLocale();
+        printQuote();
+        updateLanguageFlag();
+    }
+
+    private static javax.swing.ImageIcon spainFlagIcon() {
+        if (SPAIN_FLAG_ICON == null) {
+            SPAIN_FLAG_ICON = new javax.swing.ImageIcon(drawSpainFlag(FLAG_W * 2, FLAG_H * 2).getScaledInstance(FLAG_W, FLAG_H, java.awt.Image.SCALE_SMOOTH));
+        }
+        return SPAIN_FLAG_ICON;
+    }
+
+    private static javax.swing.ImageIcon ukFlagIcon() {
+        if (UK_FLAG_ICON == null) {
+            UK_FLAG_ICON = new javax.swing.ImageIcon(drawUKFlag(FLAG_W * 2, FLAG_H * 2).getScaledInstance(FLAG_W, FLAG_H, java.awt.Image.SCALE_SMOOTH));
+        }
+        return UK_FLAG_ICON;
+    }
+
+    // Bandera de España (rojigualda): franjas roja/gualda/roja (1/4, 1/2, 1/4).
+    private static java.awt.image.BufferedImage drawSpainFlag(int w, int h) {
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new Color(198, 11, 30));
+        g.fillRect(0, 0, w, h);
+        g.setColor(new Color(255, 196, 0));
+        g.fillRect(0, Math.round(h * 0.25f), w, Math.round(h * 0.5f));
+        g.setColor(new Color(0, 0, 0, 130));
+        g.drawRect(0, 0, w - 1, h - 1);
+        g.dispose();
+        return img;
+    }
+
+    // Bandera del Reino Unido (Union Jack), simplificada (diagonales rojas centradas).
+    private static java.awt.image.BufferedImage drawUKFlag(int w, int h) {
+        final Color BLUE = new Color(1, 33, 105);
+        final Color RED = new Color(200, 16, 46);
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setClip(0, 0, w, h);
+        g.setColor(BLUE);
+        g.fillRect(0, 0, w, h);
+        g.setStroke(new java.awt.BasicStroke(h * 0.30f));
+        g.setColor(Color.WHITE);
+        g.drawLine(0, 0, w, h);
+        g.drawLine(0, h, w, 0);
+        g.setStroke(new java.awt.BasicStroke(h * 0.12f));
+        g.setColor(RED);
+        g.drawLine(0, 0, w, h);
+        g.drawLine(0, h, w, 0);
+        int wc = Math.round(h * 0.34f);
+        g.setColor(Color.WHITE);
+        g.fillRect(0, h / 2 - wc / 2, w, wc);
+        g.fillRect(w / 2 - wc / 2, 0, wc, h);
+        int rc = Math.round(h * 0.20f);
+        g.setColor(RED);
+        g.fillRect(0, h / 2 - rc / 2, w, rc);
+        g.fillRect(w / 2 - rc / 2, 0, rc, h);
+        g.setColor(new Color(0, 0, 0, 130));
+        g.drawRect(0, 0, w - 1, h - 1);
+        g.dispose();
+        return img;
     }
 
     /**

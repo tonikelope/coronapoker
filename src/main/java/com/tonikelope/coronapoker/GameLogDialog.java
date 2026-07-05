@@ -57,7 +57,7 @@ import javax.swing.text.StyledDocument;
 public final class GameLogDialog extends JDialog {
 
     public final static String TITLE = "log.registro_de_la_timba";
-    private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
+    private static volatile String LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + " " + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
     private volatile boolean auto_scroll = true;
     private volatile boolean fin_transmision = false;
     // El tamaño/posición por defecto (1280x720 centrado) se aplica solo la PRIMERA
@@ -460,13 +460,19 @@ public final class GameLogDialog extends JDialog {
     }
 
     private static volatile java.util.List<Object[]> CATEGORY_RULES;
+    private static volatile String CATEGORY_RULES_LANG;
 
-    // Maps a translated marker phrase -> line style. Built once from the SAME
-    // Translator the app uses, so detection works in ANY language without
-    // touching the 65 print callsites. Priority = list order (first match wins).
+    // Maps a translated marker phrase -> line style, built from the SAME Translator
+    // the app uses, so detection works in ANY language without touching the 65 print
+    // callsites. Priority = list order (first match wins). Las reglas se registran
+    // en el idioma ACTIVO (+ inglés forzado); si el usuario cambia de idioma en la
+    // misma sesión (p. ej. juega una timba en inglés y otra en español) hay que
+    // RECONSTRUIRLAS, porque si no las frases del nuevo idioma no casarían y la línea
+    // saldría sin color (blanca). Por eso se cachea junto al idioma con el que se
+    // construyó y se rehace en cuanto GameFrame.LANGUAGE cambia.
     private static java.util.List<Object[]> categoryRules() {
         java.util.List<Object[]> rules = CATEGORY_RULES;
-        if (rules == null) {
+        if (rules == null || !java.util.Objects.equals(CATEGORY_RULES_LANG, GameFrame.LANGUAGE)) {
             rules = new java.util.ArrayList<>();
             for (String k : new String[]{"zero_trust.security_alert", "zero_trust.suspicious_alert", "zero_trust.peer_alert", "zero_trust.lockdown_activated",
                 "game.mano_verificacion_divergente", "game.mano_verificacion_jugador_ausente", "game.mano_verificacion_firma_invalida",
@@ -489,6 +495,7 @@ public final class GameLogDialog extends JDialog {
                 addCategoryRule(rules, k, ST_RIT);
             }
             CATEGORY_RULES = rules;
+            CATEGORY_RULES_LANG = GameFrame.LANGUAGE;
         }
         return rules;
     }
@@ -746,7 +753,7 @@ public final class GameLogDialog extends JDialog {
     }
 
     public static void resetLOG() {
-        LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
+        LOG_TEXT = "[CoronaPoker " + AboutDialog.VERSION + " " + Translator.translate("log.registro_de_la_timba_2") + "\n\n";
     }
 
     public void setFin_transmision(boolean fin_transmision) {

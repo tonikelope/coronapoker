@@ -3608,6 +3608,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     public void AJUGAR() {
 
+        // La cabecera de LOG_TEXT ("[CoronaPoker X.Y - REGISTRO...]") se construye en un
+        // inicializador estatico que se evalua al CARGAR la clase GameLogDialog, momento en
+        // que GameFrame.LANGUAGE puede no ser aun el idioma elegido por el usuario (queda
+        // "horneada" en el idioma por defecto). Aqui, al arrancar la timba, el idioma ya
+        // esta fijado y todavia no puede haber ningun print (registro_dialog era null), asi
+        // que regeneramos la cabecera en el idioma correcto sin perder nada del registro.
+        GameLogDialog.resetLOG();
+
         Helpers.GUIRunAndWait(() -> {
             registro_dialog = new GameLogDialog(this, false);
         });

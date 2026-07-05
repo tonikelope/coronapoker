@@ -170,11 +170,7 @@ public class AboutDialog extends JDialog {
     // Acotado a que el diálogo (a tamaño de diseño ya empaquetado) quepa en el 95% del área
     // usable. Suelo 0.6; SIN tope superior (crece con la resolución, igual que la botonera).
     private float computeDialogZoom() {
-        java.awt.Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        float res_zoom = Math.min(screen.width / 2560f, screen.height / 1440f);
-        java.awt.Rectangle ub = usableBounds();
-        float fit_zoom = Math.min(ub.width * 0.95f / getWidth(), ub.height * 0.95f / getHeight());
-        return Math.max(0.6f, Math.min(res_zoom, fit_zoom));
+        return Helpers.dialogResolutionZoom(getWidth(), getHeight());
     }
 
     // Aplica el factor a TODAS las fuentes (updateFonts escala cada tamaño por el factor) y a los

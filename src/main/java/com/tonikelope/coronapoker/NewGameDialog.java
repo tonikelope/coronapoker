@@ -385,6 +385,18 @@ public class NewGameDialog extends JDialog {
 
         pack();
 
+        // Escalado por RESOLUCIÓN (referencia canónica 1440p): a 1440p = tamaño de diseño EXACTO
+        // (a zoom 1.0 no se toca NADA -> idéntico), en 4K crece y por debajo encoge; además
+        // fit-to-screen para caber sin depender de scroll. Se mide el tamaño de diseño (pack de
+        // arriba) y se reescala fuentes + títulos de grupo + iconos.
+        float res_zoom = Helpers.dialogResolutionZoom(getWidth(), getHeight());
+        if (Math.abs(res_zoom - 1f) > 0.01f) {
+            Helpers.updateFonts(this, Helpers.GUI_FONT, res_zoom);
+            applyGroupTitledBorders();
+            scaleAllIcons(this, res_zoom);
+            pack();
+        }
+
         // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
         // tareas), no al tamano total de pantalla: en baja resolucion la
         // ventana cabe entera por encima de la barra de tareas y el scroll
@@ -431,6 +443,26 @@ public class NewGameDialog extends JDialog {
         ((javax.swing.border.TitledBorder) compra_panel.getBorder()).setTitleFont(title_font);
         ((javax.swing.border.TitledBorder) partida_panel.getBorder()).setTitleFont(title_font);
         ((javax.swing.border.TitledBorder) bots_panel.getBorder()).setTitleFont(title_font);
+    }
+
+    // Reescala por el factor de zoom TODOS los iconos (JLabel con ImageIcon) del diálogo —
+    // adornos de sección, avatar del bot, logo, etc.— para que acompañen a la fuente escalada.
+    // Recursivo. No toca botones ni GIFs (los iconos del diálogo son PNG estáticos).
+    private void scaleAllIcons(java.awt.Container root, float zoom) {
+        for (java.awt.Component c : root.getComponents()) {
+            if (c instanceof javax.swing.JLabel) {
+                javax.swing.Icon ic = ((javax.swing.JLabel) c).getIcon();
+                if (ic instanceof javax.swing.ImageIcon && ic.getIconWidth() > 0 && ic.getIconHeight() > 0) {
+                    java.awt.Image img = ((javax.swing.ImageIcon) ic).getImage();
+                    int w = Math.max(1, Math.round(ic.getIconWidth() * zoom));
+                    int h = Math.max(1, Math.round(ic.getIconHeight() * zoom));
+                    ((javax.swing.JLabel) c).setIcon(new javax.swing.ImageIcon(img.getScaledInstance(w, h, java.awt.Image.SCALE_SMOOTH)));
+                }
+            }
+            if (c instanceof java.awt.Container) {
+                scaleAllIcons((java.awt.Container) c, zoom);
+            }
+        }
     }
 
     private void loadLastGame() {

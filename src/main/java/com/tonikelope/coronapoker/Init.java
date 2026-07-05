@@ -1321,9 +1321,16 @@ public class Init extends JFrame {
         }
         init_ref_w = Math.max(init_ref_w, w);
         init_ref_h = Math.max(init_ref_h, h);
+        // MAXIMIZADA -> SIEMPRE tamaño de diseño (escala 1.0), idéntico a como se veía antes,
+        // sea cual sea la resolución del monitor: la referencia es la ventana del PROPIO usuario
+        // (no un tamaño fijo), así que cada uno ve la botonera a su tamaño de diseño al maximizar
+        // y solo encoge al REDUCIR la ventana por debajo de su máximo.
+        if ((getExtendedState() & java.awt.Frame.MAXIMIZED_BOTH) == java.awt.Frame.MAXIMIZED_BOTH) {
+            return 1f;
+        }
         float s = Math.min(w / (float) init_ref_w, h / (float) init_ref_h);
-        // A tamaño casi-máximo (p. ej. maximizado) la escala se fija en 1.0: así la fuente es
-        // EXACTAMENTE la de diseño (nada de encoger sub-pixel que la haga ver más pequeña).
+        // Red de seguridad para el "casi-máximo" (p. ej. arrastrado a pantalla completa sin
+        // estado maximizado): a >=99% se fija en 1.0 para no encoger sub-pixel.
         if (s >= 0.99f) {
             s = 1f;
         }

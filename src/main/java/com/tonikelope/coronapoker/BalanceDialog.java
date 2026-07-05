@@ -295,19 +295,19 @@ public class BalanceDialog extends JDialog {
     // Barra de botones (arriba, repartidos a lo ancho).
     // -------------------------------------------------------------------------
     private JComponent buildNavBar() {
-        JButton log_button = navButton(Translator.translate("log.registro_de_la_timba"), new Color(60, 63, 70), scaledIcon("/images/menu/log2.png", 28));
+        JButton log_button = navButton(Translator.translate("log.registro_de_la_timba"), scaledIcon("/images/menu/log2.png", 28));
         log_button.addActionListener((e) -> openLog());
 
-        JButton stats_button = navButton(Translator.translate("ui.estadisticas"), new Color(255, 102, 0), scaledIcon("/images/stats.png", 28));
+        JButton stats_button = navButton(Translator.translate("ui.estadisticas"), scaledIcon("/images/stats.png", 28));
         stats_button.addActionListener((e) -> StatsDialog.showStats(this));
 
-        JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), new Color(0, 130, 0), scaledIcon("/images/continue.png", 28));
+        JButton recover_button = navButton(GameFrame.getInstance().isPartida_local() ? Translator.translate("game.continuar_esta_timba") : Translator.translate("conn.reconectar_al_servidor"), scaledIcon("/images/continue.png", 28));
         recover_button.addActionListener((e) -> {
             recover = true;
             dispose();
         });
 
-        JButton menu_button = navButton(Translator.translate("ui.menu_principal"), new Color(0, 153, 255), whiteScaledIcon("/images/exit2.png", 28));
+        JButton menu_button = navButton(Translator.translate("ui.menu_principal"), whiteScaledIcon("/images/exit2.png", 28));
         menu_button.addActionListener((e) -> dispose());
 
         JPanel row = new JPanel(new GridLayout(1, 4, 24, 0));
@@ -360,14 +360,14 @@ public class BalanceDialog extends JDialog {
 
         // GridBagLayout: centra el icono dentro del chip cuadrado (H y V). El tamaño
         // cuadrado (= alto de los botones) lo fija normalizeNavButtons; aquí solo se
-        // construye con la misma arc (18) que los botones para que parezca uno más.
+        // construye con la misma arc (24) que los botones para que parezca uno más.
         JPanel chip = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(0, 0, 0, 90));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 24, 24);
                 g2.dispose();
             }
         };
@@ -392,13 +392,15 @@ public class BalanceDialog extends JDialog {
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound.png" : "/images/mute.png"), sound_icon_sz, sound_icon_sz);
     }
 
-    private JButton navButton(String text, Color bg, javax.swing.Icon icon) {
-        // Estilo "cristal" (glassmorphism), igual que la botonera de la pantalla de inicio:
-        // fondo translúcido redondeado (deja ver el tapete) en reposo neutro, y al pasar el ratón
-        // un halo del color propio del botón (bg) que conserva su identidad (menú/registro/stats/
-        // recuperar). setUI antes de setBorder para que gane nuestro padding (installUI pone uno).
+    private JButton navButton(String text, javax.swing.Icon icon) {
+        // Estilo "cristal" (glassmorphism) IDÉNTICO a los botones neutrales de la pantalla de
+        // inicio (crear/unirse): cristal negro translúcido redondeado que deja ver el tapete, y
+        // al pasar el ratón solo sube la opacidad + brillo, SIN halo de color (accent = null).
+        // Antes cada botón pasaba su propio color como accent y salía un borde/halo de color en
+        // hover distinto por botón -> el autor lo quería idéntico a inicio. setUI antes de
+        // setBorder para que gane nuestro padding (installUI pone uno).
         JButton b = new JButton(text);
-        b.setUI(new GlassButtonUI(bg, false, false, 0.66f, 20));
+        b.setUI(new GlassButtonUI(null, false, false, 0.70f, 24));
         b.setForeground(Color.WHITE);
         b.setBorder(BorderFactory.createEmptyBorder(15, 26, 15, 26));
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));

@@ -513,6 +513,8 @@ public class Init extends JFrame {
 
         Helpers.setScaledIconButton(stats_button, getClass().getResource("/images/stats.png"), stats_button.getHeight(), stats_button.getHeight());
 
+        applyModernButtons();
+
         revalidate();
 
         repaint();
@@ -1059,15 +1061,11 @@ public class Init extends JFrame {
     }//GEN-LAST:event_create_buttonActionPerformed
 
     private void create_buttonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseExited
-        // TODO add your handling code here:
-        create_button.setForeground(new Color(102, 0, 204));
-        create_button.setBackground(Color.WHITE);
+        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
     }//GEN-LAST:event_create_buttonMouseExited
 
     private void create_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_create_buttonMouseEntered
-        // TODO add your handling code here:
-        create_button.setBackground(new Color(102, 0, 204));
-        create_button.setForeground(Color.WHITE);
+        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
     }//GEN-LAST:event_create_buttonMouseEntered
 
     private void stats_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stats_buttonActionPerformed
@@ -1093,16 +1091,35 @@ public class Init extends JFrame {
     }//GEN-LAST:event_join_buttonActionPerformed
 
     private void join_buttonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseExited
-        // TODO add your handling code here:
-        join_button.setForeground(new Color(102, 0, 204));
-        join_button.setBackground(Color.WHITE);
+        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
     }//GEN-LAST:event_join_buttonMouseExited
 
     private void join_buttonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_join_buttonMouseEntered
-        // TODO add your handling code here:
-        join_button.setBackground(new Color(102, 0, 204));
-        join_button.setForeground(Color.WHITE);
+        // Hover gestionado por GlassButtonUI (rollover); ya no invertimos colores a mano.
     }//GEN-LAST:event_join_buttonMouseEntered
+
+    // Aplica el estilo "cristal" (glassmorphism) a la botonera de inicio sobre los JButton
+    // existentes (setUI, no invasivo): fondo negro translúcido redondeado que deja ver el tapete,
+    // acento dorado para las acciones primarias, hover suave pintado por GlassButtonUI (rollover).
+    // Quita el marco naranja del contenedor. NO toca disposición, iconos, acciones ni i18n.
+    private void applyModernButtons() {
+        final Color gold = new Color(214, 178, 94);
+        final Color red = new Color(214, 78, 70);
+        final Color green = new Color(70, 180, 110);
+
+        // Primarias: CREAR destacada (relleno dorado); UNIRME cristal con borde dorado.
+        create_button.setUI(new GlassButtonUI(gold, true, false, 0.45f, 24));
+        join_button.setUI(new GlassButtonUI(gold, false, false, 0.45f, 24));
+        // Secundaria: cristal más transparente y neutro.
+        stats_button.setUI(new GlassButtonUI(null, false, false, 0.34f, 22));
+        // Salir: cristal neutro; el rojo solo aparece al pasar el ratón.
+        exit_button.setUI(new GlassButtonUI(red, false, true, 0.42f, 22));
+        // Actualizar (solo visible cuando hay versión nueva): verde para destacar.
+        update_button.setUI(new GlassButtonUI(green, true, false, 0.5f, 22));
+
+        // Fuera el marco naranja de 5px del contenedor de la botonera.
+        botones_panel.setBorder(null);
+    }
 
     /**
      * Submits the deadlock detection loop to the current thread pool. The loop

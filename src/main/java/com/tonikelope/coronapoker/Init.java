@@ -1255,10 +1255,10 @@ public class Init extends JFrame {
     //   1) la fuente se DERIVA de la real ya aplicada (conserva GUI_FONT, no un Font nuevo);
     //   2) se repinta TODO el tapete (los botones cristal son no-opacos en la capa POPUP:
     //      si solo se repinta el panel, al recolocarse dejan estelas).
+    // Suelo mínimo (legibilidad en pantallas diminutas). NO hay tope superior: la botonera crece
+    // en proporción a CUALQUIER resolución por encima del canónico (4K, 5K, 8K…) de forma
+    // automática. Es seguro: siempre ocupa la misma fracción de pantalla, así que nunca desborda.
     private static final float INIT_MIN_SCALE = 0.6f;
-    // La botonera CRECE por encima del canónico (4K, etc.) en la misma proporción; este tope es
-    // solo un backstop de cordura para resoluciones extremas (8K+), no un límite real de uso.
-    private static final float INIT_MAX_SCALE = 2.5f;
     private static final int CREATE_W = 453, JOIN_W = 463, ACTION_H = 80;
     // Separación FIJA entre CREAR y UNIRME (misma en el layout y al calcular el ancho de
     // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos).
@@ -1336,7 +1336,8 @@ public class Init extends JFrame {
         if (s >= 0.92f && s < 1f) {
             s = 1f;
         }
-        return Math.max(INIT_MIN_SCALE, Math.min(INIT_MAX_SCALE, s));
+        // Solo suelo mínimo; SIN tope superior -> crece automáticamente a cualquier resolución.
+        return Math.max(INIT_MIN_SCALE, s);
     }
 
     // Aplica la escala a toda la botonera. A s=1 el resultado es IDÉNTICO al diseño 22.35.

@@ -1256,6 +1256,9 @@ public class Init extends JFrame {
     //   2) se repinta TODO el tapete (los botones cristal son no-opacos en la capa POPUP:
     //      si solo se repinta el panel, al recolocarse dejan estelas).
     private static final float INIT_MIN_SCALE = 0.6f;
+    // La botonera CRECE por encima del canónico (4K, etc.) en la misma proporción; este tope es
+    // solo un backstop de cordura para resoluciones extremas (8K+), no un límite real de uso.
+    private static final float INIT_MAX_SCALE = 2.5f;
     private static final int CREATE_W = 453, JOIN_W = 463, ACTION_H = 80;
     // Separación FIJA entre CREAR y UNIRME (misma en el layout y al calcular el ancho de
     // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos).
@@ -1323,16 +1326,17 @@ public class Init extends JFrame {
             return 1f;
         }
         // Escala relativa a la resolución de DISEÑO CANÓNICA (1440p): la botonera se adapta al
-        // tamaño de la ventana Y a la resolución del monitor, INCLUSO maximizada. A 1440p (o más)
-        // se ve a tamaño de diseño (cap 1.0, nunca más grande); por debajo —resolución menor o
-        // ventana reducida— encoge en proporción.
+        // tamaño de la ventana Y a la resolución del monitor, INCLUSO maximizada. A 1440p se ve a
+        // tamaño de diseño; por ENCIMA (4K, etc.) CRECE en proporción; por debajo —resolución
+        // menor o ventana reducida— encoge.
         float s = Math.min(w / (float) INIT_REF_W, h / (float) INIT_REF_H);
-        // A >=90% del canónico (p. ej. 1440p maximizado, que pierde un poco de alto por la barra
-        // de tareas) se fija en el tamaño de diseño exacto, para no encoger de forma imperceptible.
-        if (s >= 0.90f) {
+        // Solo la franja JUSTO por debajo del canónico (p. ej. 1440p maximizado pierde ~3% de
+        // alto por la barra de tareas) se fija al tamaño de diseño exacto. NO afecta a s>1: en
+        // 4K y superiores la botonera sigue creciendo.
+        if (s >= 0.92f && s < 1f) {
             s = 1f;
         }
-        return Math.max(INIT_MIN_SCALE, Math.min(1f, s));
+        return Math.max(INIT_MIN_SCALE, Math.min(INIT_MAX_SCALE, s));
     }
 
     // Aplica la escala a toda la botonera. A s=1 el resultado es IDÉNTICO al diseño 22.35.

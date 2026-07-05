@@ -255,6 +255,12 @@ public class NewGameDialog extends JDialog {
             recover_panel.setVisible(false);
         }
 
+        // Sembrar el almacén de trabajo local del rango de buy-in + tope desde GameFrame al abrir.
+        // A partir de aquí la UI opera sobre estos campos; GameFrame no se vuelve a tocar hasta CREAR.
+        working_min_bb = GameFrame.BUYIN_MIN_BB;
+        working_max_bb = GameFrame.BUYIN_MAX_BB;
+        working_rebuy_cap_policy = GameFrame.REBUY_CAP_POLICY;
+
         initBuyinRangeAndCapUI();
 
         class VamosButtonListener implements DocumentListener {
@@ -345,7 +351,7 @@ public class NewGameDialog extends JDialog {
 
             double ciega_grande = Double.valueOf(valores[1].trim());
 
-            buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), Math.max(BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB), BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB)), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
+            buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, working_min_bb, working_max_bb), BuyinRules.min(ciega_grande, working_min_bb), Math.max(BuyinRules.min(ciega_grande, working_min_bb), BuyinRules.max(ciega_grande, working_max_bb)), (BUYIN_SPINNER_STEP = (int) Math.pow(10, Math.floor(ciegas_combobox.getSelectedIndex() / 4)))));
 
             Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
 
@@ -2139,9 +2145,9 @@ public class NewGameDialog extends JDialog {
             // índice del combo: para la escalera por defecto 1-2-3-5 da exactamente
             // lo mismo que el viejo pow(10, floor(index/4)), pero también funciona
             // con estructuras personalizadas de niveles arbitrarios.
-            int buyin_lo_cg = BuyinRules.min(ciega_grande, GameFrame.BUYIN_MIN_BB);
-            int buyin_hi_cg = Math.max(buyin_lo_cg, BuyinRules.max(ciega_grande, GameFrame.BUYIN_MAX_BB));
-            buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, GameFrame.BUYIN_MIN_BB, GameFrame.BUYIN_MAX_BB), buyin_lo_cg, buyin_hi_cg, (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
+            int buyin_lo_cg = BuyinRules.min(ciega_grande, working_min_bb);
+            int buyin_hi_cg = Math.max(buyin_lo_cg, BuyinRules.max(ciega_grande, working_max_bb));
+            buyin_spinner.setModel(new SpinnerNumberModel(BuyinRules.defaultBuyin(ciega_grande, working_min_bb, working_max_bb), buyin_lo_cg, buyin_hi_cg, (BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(ciega_pequena)) + 1)))));
 
             Helpers.makeNumericSpinnerEditable(buyin_spinner, false);
 
@@ -2422,12 +2428,20 @@ public class NewGameDialog extends JDialog {
     private static final int BUYIN_RANGE_STEP = 5;
     private boolean adjusting_buyin_range = false;
 
+    // Almacén de trabajo LOCAL del rango de buy-in (min/max BB) y de la política de tope de
+    // recompra. Antes se usaban los estáticos GameFrame.BUYIN_MIN_BB/MAX_BB/REBUY_CAP_POLICY como
+    // scratch de estos controles, lo que ROMPÍA el modelo transaccional: tocar los spinners mutaba
+    // el estado global al vuelo y cancelar el diálogo (sin crear la timba) dejaba los cambios
+    // grabados. Ahora la lógica viva opera sobre estos campos y GameFrame solo se escribe al CREAR.
+    private int working_min_bb;
+    private int working_max_bb;
+    private int working_rebuy_cap_policy;
+
     // Inicializa los spinners de rango y el combo de política de tope de recompra
-    // desde el estado de GameFrame, validando los límites. Compartido por ambos
-    // constructores (crear/unirse y modificar).
+    // desde el almacén de trabajo local (working_*), validando los límites.
     private void initBuyinRangeAndCapUI() {
-        int lo = Math.max(BuyinRules.FLOOR_MIN_BB, Math.min(GameFrame.BUYIN_MIN_BB, BuyinRules.CEIL_MAX_BB - BUYIN_RANGE_STEP));
-        int hi = Math.max(lo + BUYIN_RANGE_STEP, Math.min(GameFrame.BUYIN_MAX_BB, BuyinRules.CEIL_MAX_BB));
+        int lo = Math.max(BuyinRules.FLOOR_MIN_BB, Math.min(working_min_bb, BuyinRules.CEIL_MAX_BB - BUYIN_RANGE_STEP));
+        int hi = Math.max(lo + BUYIN_RANGE_STEP, Math.min(working_max_bb, BuyinRules.CEIL_MAX_BB));
 
         adjusting_buyin_range = true;
         try {
@@ -2439,15 +2453,15 @@ public class NewGameDialog extends JDialog {
             adjusting_buyin_range = false;
         }
 
-        GameFrame.BUYIN_MIN_BB = lo;
-        GameFrame.BUYIN_MAX_BB = hi;
+        working_min_bb = lo;
+        working_max_bb = hi;
 
         // Combo de política: índice 0 = BUYIN, índice 1 = stack del jugador más alto
         // (los índices coinciden con las constantes GameFrame.REBUY_CAP_*).
         rebuy_cap_combo.removeAllItems();
         rebuy_cap_combo.addItem(Translator.translate("rebuy.cap_policy_buyin"));
         rebuy_cap_combo.addItem(Translator.translate("rebuy.cap_policy_highest"));
-        rebuy_cap_combo.setSelectedIndex(GameFrame.REBUY_CAP_POLICY == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
+        rebuy_cap_combo.setSelectedIndex(working_rebuy_cap_policy == GameFrame.REBUY_CAP_HIGHEST_STACK ? 1 : 0);
         Helpers.setTranslatedToolTip(rebuy_cap_combo, "rebuy.tope_recompra_tooltip");
     }
 
@@ -2460,8 +2474,8 @@ public class NewGameDialog extends JDialog {
         String[] v = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
         double cp = Double.parseDouble(v[0].trim());
         double cg = Double.parseDouble(v[1].trim());
-        int lo = BuyinRules.min(cg, GameFrame.BUYIN_MIN_BB);
-        int hi = Math.max(lo, BuyinRules.max(cg, GameFrame.BUYIN_MAX_BB));
+        int lo = BuyinRules.min(cg, working_min_bb);
+        int hi = Math.max(lo, BuyinRules.max(cg, working_max_bb));
         int cur = ((Number) buyin_spinner.getValue()).intValue();
         int val = Math.max(lo, Math.min(cur, hi));
         BUYIN_SPINNER_STEP = (int) Math.max(1, Math.pow(10, Math.floor(Math.log10(cp)) + 1));
@@ -2508,8 +2522,8 @@ public class NewGameDialog extends JDialog {
                 }
             }
 
-            GameFrame.BUYIN_MIN_BB = lo;
-            GameFrame.BUYIN_MAX_BB = hi;
+            working_min_bb = lo;
+            working_max_bb = hi;
         } finally {
             adjusting_buyin_range = false;
         }
@@ -2847,11 +2861,11 @@ public class NewGameDialog extends JDialog {
             fixed_buyin_checkbox.setSelected(s.fixedBuyin);
             buyin_spinner.setEnabled(s.fixedBuyin);
 
-            // Rango de buy-in + política de tope de recompra: GameFrame es el almacén
-            // de trabajo de estos (como ya hace initBuyinRangeAndCapUI / el spinner).
-            GameFrame.BUYIN_MIN_BB = s.minBb;
-            GameFrame.BUYIN_MAX_BB = s.maxBb;
-            GameFrame.REBUY_CAP_POLICY = s.rebuyCapPolicy;
+            // Rango de buy-in + política de tope de recompra: almacén de trabajo LOCAL (no GameFrame),
+            // para no romper el modelo transaccional; GameFrame solo se escribe al CREAR la timba.
+            working_min_bb = s.minBb;
+            working_max_bb = s.maxBb;
+            working_rebuy_cap_policy = s.rebuyCapPolicy;
             initBuyinRangeAndCapUI();
 
             // Límite de recompras.

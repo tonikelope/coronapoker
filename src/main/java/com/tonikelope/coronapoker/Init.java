@@ -1260,7 +1260,10 @@ public class Init extends JFrame {
     // Separación FIJA entre CREAR y UNIRME (misma en el layout y al calcular el ancho de
     // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos).
     private static final int TWIN_GAP = 11;
-    private int init_ref_w = 0, init_ref_h = 0;
+    // Resolución de DISEÑO CANÓNICA = 1440p (2560x1440), fija (NO la ventana del usuario): por
+    // debajo de esto —sea por resolución de monitor o por reducir la ventana— la botonera encoge
+    // en proporción, INCLUSO maximizada; a partir de esto se ve a tamaño de diseño (cap 1.0).
+    private static final int INIT_REF_W = 2560, INIT_REF_H = 1440;
     private int base_stats_h = 0;
     private boolean init_base_captured = false;
     private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label, base_quote;
@@ -1319,19 +1322,14 @@ public class Init extends JFrame {
         if (w <= 0 || h <= 0) {
             return 1f;
         }
-        init_ref_w = Math.max(init_ref_w, w);
-        init_ref_h = Math.max(init_ref_h, h);
-        // MAXIMIZADA -> SIEMPRE tamaño de diseño (escala 1.0), idéntico a como se veía antes,
-        // sea cual sea la resolución del monitor: la referencia es la ventana del PROPIO usuario
-        // (no un tamaño fijo), así que cada uno ve la botonera a su tamaño de diseño al maximizar
-        // y solo encoge al REDUCIR la ventana por debajo de su máximo.
-        if ((getExtendedState() & java.awt.Frame.MAXIMIZED_BOTH) == java.awt.Frame.MAXIMIZED_BOTH) {
-            return 1f;
-        }
-        float s = Math.min(w / (float) init_ref_w, h / (float) init_ref_h);
-        // Red de seguridad para el "casi-máximo" (p. ej. arrastrado a pantalla completa sin
-        // estado maximizado): a >=99% se fija en 1.0 para no encoger sub-pixel.
-        if (s >= 0.99f) {
+        // Escala relativa a la resolución de DISEÑO CANÓNICA (1440p): la botonera se adapta al
+        // tamaño de la ventana Y a la resolución del monitor, INCLUSO maximizada. A 1440p (o más)
+        // se ve a tamaño de diseño (cap 1.0, nunca más grande); por debajo —resolución menor o
+        // ventana reducida— encoge en proporción.
+        float s = Math.min(w / (float) INIT_REF_W, h / (float) INIT_REF_H);
+        // A >=90% del canónico (p. ej. 1440p maximizado, que pierde un poco de alto por la barra
+        // de tareas) se fija en el tamaño de diseño exacto, para no encoger de forma imperceptible.
+        if (s >= 0.90f) {
             s = 1f;
         }
         return Math.max(INIT_MIN_SCALE, Math.min(1f, s));

@@ -1213,7 +1213,10 @@ public class Init extends JFrame {
         jPanel1.setLayout(gl);
         gl.setHorizontalGroup(
                 gl.createSequentialGroup()
-                        .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, 605, Short.MAX_VALUE)
+                        // SALIR rellena el ancho disponible (MAX) pero su PREFERIDO es su
+                        // contenido (no 605): así jPanel1 no impone un ancho fijo que, al
+                        // reducir, dominaría al de los botones de acción y los desalinearía.
+                        .addComponent(exit_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addGap(16)
                         .addComponent(language_flag, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(14)
@@ -1248,7 +1251,11 @@ public class Init extends JFrame {
     //      si solo se repinta el panel, al recolocarse dejan estelas).
     private static final float INIT_MIN_SCALE = 0.6f;
     private static final int CREATE_W = 453, JOIN_W = 463, ACTION_H = 80;
+    // Separación FIJA entre CREAR y UNIRME (misma en el layout y al calcular el ancho de
+    // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos).
+    private static final int TWIN_GAP = 11;
     private int init_ref_w = 0, init_ref_h = 0;
+    private int base_stats_h = 0;
     private boolean init_base_captured = false;
     private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label;
     private javax.swing.Icon base_icon_create, base_icon_join, base_icon_exit, base_icon_stats;
@@ -1269,6 +1276,7 @@ public class Init extends JFrame {
         base_icon_join = join_button.getIcon();
         base_icon_exit = exit_button.getIcon();
         base_icon_stats = stats_button.getIcon();
+        base_stats_h = stats_button.getPreferredSize().height;
         init_base_captured = true;
     }
 
@@ -1282,9 +1290,9 @@ public class Init extends JFrame {
                 gl.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                         .addGroup(gl.createSequentialGroup()
                                 .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addGap(TWIN_GAP)
                                 .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
         gl.setVerticalGroup(
                 gl.createSequentialGroup()
@@ -1292,7 +1300,7 @@ public class Init extends JFrame {
                                 .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                                 .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(stats_button)
+                        .addComponent(stats_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
     }
 
@@ -1306,7 +1314,13 @@ public class Init extends JFrame {
         }
         init_ref_w = Math.max(init_ref_w, w);
         init_ref_h = Math.max(init_ref_h, h);
-        return Math.max(INIT_MIN_SCALE, Math.min(1f, Math.min(w / (float) init_ref_w, h / (float) init_ref_h)));
+        float s = Math.min(w / (float) init_ref_w, h / (float) init_ref_h);
+        // A tamaño casi-máximo (p. ej. maximizado) la escala se fija en 1.0: así la fuente es
+        // EXACTAMENTE la de diseño (nada de encoger sub-pixel que la haga ver más pequeña).
+        if (s >= 0.99f) {
+            s = 1f;
+        }
+        return Math.max(INIT_MIN_SCALE, Math.min(1f, s));
     }
 
     // Aplica la escala a toda la botonera. A s=1 el resultado es IDÉNTICO al diseño 22.35.
@@ -1327,9 +1341,12 @@ public class Init extends JFrame {
             b.setIconTextGap(gap);
         }
 
-        // CREAR/UNIRME a su tamaño de DISEÑO escalado; ESTADÍSTICAS/SALIR siguen por contenido.
-        create_button.setPreferredSize(new java.awt.Dimension(Math.round(CREATE_W * s), Math.round(ACTION_H * s)));
-        join_button.setPreferredSize(new java.awt.Dimension(Math.round(JOIN_W * s), Math.round(ACTION_H * s)));
+        // CREAR/UNIRME a su tamaño de DISEÑO escalado; ESTADÍSTICAS abarca EXACTAMENTE a los
+        // dos gemelos (ancho = CREAR + gap + UNIRME) para que no se quede corto al reducir.
+        int cw = Math.round(CREATE_W * s), jw = Math.round(JOIN_W * s);
+        create_button.setPreferredSize(new java.awt.Dimension(cw, Math.round(ACTION_H * s)));
+        join_button.setPreferredSize(new java.awt.Dimension(jw, Math.round(ACTION_H * s)));
+        stats_button.setPreferredSize(new java.awt.Dimension(cw + TWIN_GAP + jw, Math.round(base_stats_h * s)));
 
         // Iconos de los botones: escalados desde su icono BASE (a s=1 quedan idénticos).
         setScaledIconFromBase(create_button, base_icon_create, s);

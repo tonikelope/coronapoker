@@ -55,8 +55,6 @@ public class GlassButtonUI extends BasicButtonUI {
     private final float base_alpha;
     private final int radius;
 
-    private static final Color NEUTRAL_BORDER = new Color(255, 255, 255, 150);
-
     public GlassButtonUI(Color accent, boolean filled_accent, boolean hover_only_accent, float base_alpha, int radius) {
         this.accent = accent;
         this.filled_accent = filled_accent;
@@ -131,15 +129,8 @@ public class GlassButtonUI extends BasicButtonUI {
         g2.setPaint(gloss);
         g2.fill(new RoundRectangle2D.Float(1.5f, 1.5f, w - 3f, h * 0.55f, radius, radius));
 
-        // 4. Borde fino.
-        Color border_base = (accent != null && !hover_only_accent) ? accent : NEUTRAL_BORDER;
-        Color border_col = (hover && accent != null) ? accent : border_base;
-        int border_a = hover ? 235 : (accent != null && !hover_only_accent ? 190 : 150);
-        g2.setColor(new Color(border_col.getRed(), border_col.getGreen(), border_col.getBlue(), border_a));
-        g2.setStroke(new BasicStroke(hover ? 1.8f : 1.2f));
-        g2.draw(rr);
-
-        // 5. Halo de acento al pasar el ratón.
+        // (Sin borde: los botones van sin línea de contorno, solo el cristal redondeado.)
+        // 5. Halo de acento al pasar el ratón (glow suave; SALIR se tiñe de rojo).
         if (hover && accent != null) {
             g2.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 70));
             g2.setStroke(new BasicStroke(3.5f));

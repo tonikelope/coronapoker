@@ -1261,8 +1261,10 @@ public class Init extends JFrame {
     private static final float INIT_MIN_SCALE = 0.6f;
     private static final int CREATE_W = 453, JOIN_W = 463, ACTION_H = 80;
     // Separación FIJA entre CREAR y UNIRME (misma en el layout y al calcular el ancho de
-    // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos).
-    private static final int TWIN_GAP = 11;
+    // ESTADÍSTICAS, para que ESTADÍSTICAS abarque EXACTAMENTE a los dos gemelos). 12 px = el
+    // valor real de addPreferredGap(UNRELATED) bajo Nimbus, para que a 1440p (escala 1.0) quede
+    // PIXEL-PERFECT idéntico al diseño 22.35 (ESTADÍSTICAS = 453+12+463 = 928).
+    private static final int TWIN_GAP = 12;
     // Resolución de DISEÑO CANÓNICA = 1440p (2560x1440), fija (NO la ventana del usuario): por
     // debajo de esto —sea por resolución de monitor o por reducir la ventana— la botonera encoge
     // en proporción, INCLUSO maximizada; a partir de esto se ve a tamaño de diseño (cap 1.0).

@@ -3532,6 +3532,18 @@ public class Helpers {
         }
     }
 
+    // Factor de escala para DIÁLOGOS según la resolución (referencia CANÓNICA 1440p = 2560×1440):
+    // a 1440p = tamaño de diseño (1.0), en 4K crece, por debajo encoge. Acotado a que el diálogo
+    // (a su tamaño de diseño designW×designH) quepa en el 95% del área usable (fit-to-screen, para
+    // no depender de scroll). Suelo 0.6; SIN tope superior (crece con la resolución).
+    public static float dialogResolutionZoom(int designW, int designH) {
+        java.awt.Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        float res = Math.min(screen.width / 2560f, screen.height / 1440f);
+        java.awt.Rectangle ub = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        float fit = Math.min(ub.width * 0.95f / Math.max(1, designW), ub.height * 0.95f / Math.max(1, designH));
+        return Math.max(0.6f, Math.min(res, fit));
+    }
+
     public static void updateFonts(final Component component, final Font font, final Float zoom_factor) {
 
         if (component != null) {

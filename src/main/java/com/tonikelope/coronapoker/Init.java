@@ -330,6 +330,9 @@ public class Init extends JFrame {
                         Helpers.setScaledIconLabel(Init.VENTANA_INICIO.getBaraja_fondo(), CORONA_INIT_MOD_IMAGE != null ? CORONA_INIT_MOD_IMAGE : getClass().getResource(CORONA_INIT_IMAGE), Math.round(1920 * 0.9f), Math.round(1080 * 0.9f));
                     }
 
+                    // La botonera (fuente + tamaño) escala con la ventana, igual que el fondo.
+                    applyInitScale(computeInitScale());
+
                     quote.setSize((int) getWidth(), 150);
                     quote.setLocation(0, Init.VENTANA_INICIO.getHeight() - 125);
                     quote.setVisible(true);
@@ -522,6 +525,10 @@ public class Init extends JFrame {
         applyModernButtons();
 
         setupLanguageFlag();
+
+        // Botonera que escala con la ventana: el layout de los botones de acción deja de usar
+        // tamaños fijos para que sigan a la fuente/tamaño (applyInitScale).
+        rebuildActionButtonsLayout();
 
         setupHandCursors();
 
@@ -974,6 +981,11 @@ public class Init extends JFrame {
         // TODO add your handling code here:
 
         Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), 30, 30);
+
+        // Primer ajuste de la botonera al mostrarse (fija la referencia = tamaño real ya
+        // realizado, típicamente maximizado -> escala 1.0, idéntico al diseño).
+        applyInitScale(computeInitScale());
+
         if (quote_timer != null) {
             if (quote_timer.isRunning()) {
                 quote_timer.restart();
@@ -1175,12 +1187,13 @@ public class Init extends JFrame {
     // La bandera muestra el idioma ACTUAL (España = es, Union Jack = en); al hacer clic
     // alterna idioma y bandera. Se dibujan por código (sin añadir ficheros de imagen).
     private javax.swing.JLabel language_flag;
-    private static javax.swing.ImageIcon SPAIN_FLAG_ICON;
-    private static javax.swing.ImageIcon UK_FLAG_ICON;
 
-    // Alto = el de los iconos de ajustes/sonido (30); ancho rectangular 3:2.
+    // Alto BASE = el de los iconos de ajustes/sonido (30); ancho rectangular 3:2. La banderita
+    // se redibuja al tamaño ACTUAL (flag_w/flag_h) porque la botonera escala con la ventana.
     private static final int FLAG_H = 30;
     private static final int FLAG_W = 45;
+    private int flag_w = FLAG_W;
+    private int flag_h = FLAG_H;
 
     private void setupLanguageFlag() {
         language_flag = new javax.swing.JLabel();
@@ -1225,6 +1238,142 @@ public class Init extends JFrame {
         language_flag.setToolTipText(es ? "Change language to English" : "Cambiar idioma a Español");
     }
 
+    // ---- Botonera de inicio que escala con la ventana (fuente + tamaño) -----------------
+    // Lo pedido: que la FUENTE se adapte al tamaño de la ventana Y que la BOTONERA cambie de
+    // tamaño con ella (los botones siguen a la fuente). A pantalla completa (mayor tamaño
+    // visto) TODO queda EXACTO como el diseño 22.35 (escala 1.0); al encoger la ventana, la
+    // botonera entera encoge en proporción. Claves para que quede fino:
+    //   1) la fuente se DERIVA de la real ya aplicada (conserva GUI_FONT, no un Font nuevo);
+    //   2) se repinta TODO el tapete (los botones cristal son no-opacos en la capa POPUP:
+    //      si solo se repinta el panel, al recolocarse dejan estelas).
+    private static final float INIT_MIN_SCALE = 0.6f;
+    private static final int CREATE_W = 453, JOIN_W = 463, ACTION_H = 80;
+    private int init_ref_w = 0, init_ref_h = 0;
+    private boolean init_base_captured = false;
+    private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label;
+    private javax.swing.Icon base_icon_create, base_icon_join, base_icon_exit, base_icon_stats;
+
+    // Captura UNA vez el estado ya inicializado (tras Helpers.updateFonts, que aplica GUI_FONT):
+    // fuentes e iconos base a escala 1.0. Derivar de estas bases garantiza que a s=1 nada cambie.
+    private void captureInitBaseIfNeeded() {
+        if (init_base_captured) {
+            return;
+        }
+        base_create = create_button.getFont();
+        base_join = join_button.getFont();
+        base_stats = stats_button.getFont();
+        base_exit = exit_button.getFont();
+        base_update = update_button.getFont();
+        base_update_label = update_label.getFont();
+        base_icon_create = create_button.getIcon();
+        base_icon_join = join_button.getIcon();
+        base_icon_exit = exit_button.getIcon();
+        base_icon_stats = stats_button.getIcon();
+        init_base_captured = true;
+    }
+
+    // Sustituye el layout GENERADO de los botones de acción (anchos/altos FIJOS 453/463/80 en
+    // literales) por uno que respeta el tamaño PREFERIDO (escalado) de CREAR/UNIRME, con
+    // ESTADÍSTICAS ocupando ambos debajo. Se llama UNA vez tras montar la botonera.
+    private void rebuildActionButtonsLayout() {
+        javax.swing.GroupLayout gl = new javax.swing.GroupLayout(action_buttons_panel);
+        action_buttons_panel.setLayout(gl);
+        gl.setHorizontalGroup(
+                gl.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGroup(gl.createSequentialGroup()
+                                .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(stats_button, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+        gl.setVerticalGroup(
+                gl.createSequentialGroup()
+                        .addGroup(gl.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(create_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(join_button, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(stats_button)
+        );
+    }
+
+    // Escala = razón del tamaño actual respecto al MAYOR visto (típicamente maximizado); a ese
+    // máximo vale 1.0 (diseño intacto) y baja al encoger. Se toma la menor de las razones
+    // ancho/alto (reacciona también si solo cambia el alto). Acotada a [MIN, 1.0].
+    private float computeInitScale() {
+        int w = getWidth(), h = getHeight();
+        if (w <= 0 || h <= 0) {
+            return 1f;
+        }
+        init_ref_w = Math.max(init_ref_w, w);
+        init_ref_h = Math.max(init_ref_h, h);
+        return Math.max(INIT_MIN_SCALE, Math.min(1f, Math.min(w / (float) init_ref_w, h / (float) init_ref_h)));
+    }
+
+    // Aplica la escala a toda la botonera. A s=1 el resultado es IDÉNTICO al diseño 22.35.
+    private void applyInitScale(float s) {
+        captureInitBaseIfNeeded();
+
+        setScaledFont(create_button, base_create, s);
+        setScaledFont(join_button, base_join, s);
+        setScaledFont(stats_button, base_stats, s);
+        setScaledFont(exit_button, base_exit, s);
+        setScaledFont(update_button, base_update, s);
+        setScaledFont(update_label, base_update_label, s);
+
+        // Padding cristal (base EmptyBorder(10,22) de GlassButtonUI) + gap icono/texto (14).
+        int pv = Math.round(10 * s), ph = Math.round(22 * s), gap = Math.round(14 * s);
+        for (javax.swing.JButton b : new javax.swing.JButton[]{create_button, join_button, stats_button, exit_button, update_button}) {
+            b.setBorder(javax.swing.BorderFactory.createEmptyBorder(pv, ph, pv, ph));
+            b.setIconTextGap(gap);
+        }
+
+        // CREAR/UNIRME a su tamaño de DISEÑO escalado; ESTADÍSTICAS/SALIR siguen por contenido.
+        create_button.setPreferredSize(new java.awt.Dimension(Math.round(CREATE_W * s), Math.round(ACTION_H * s)));
+        join_button.setPreferredSize(new java.awt.Dimension(Math.round(JOIN_W * s), Math.round(ACTION_H * s)));
+
+        // Iconos de los botones: escalados desde su icono BASE (a s=1 quedan idénticos).
+        setScaledIconFromBase(create_button, base_icon_create, s);
+        setScaledIconFromBase(join_button, base_icon_join, s);
+        setScaledIconFromBase(exit_button, base_icon_exit, s);
+        setScaledIconFromBase(stats_button, base_icon_stats, s);
+
+        // Banderita (redibujada) + engranaje + altavoz (base 30).
+        int chip = Math.round(30 * s);
+        flag_w = Math.round(FLAG_W * s);
+        flag_h = Math.round(FLAG_H * s);
+        updateLanguageFlag();
+        settings_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
+        Helpers.setScaledBlackIconLabel(settings_icon, getClass().getResource("/images/menu/gear.png"), chip, chip);
+        sound_icon.setPreferredSize(new java.awt.Dimension(chip, chip));
+        Helpers.setScaledIconLabel(sound_icon, getClass().getResource(GameFrame.SONIDOS ? "/images/sound_b.png" : "/images/mute_b.png"), chip, chip);
+
+        // Re-layout + REPINTADO COMPLETO del tapete (evita estelas de los botones no-opacos).
+        action_buttons_panel.revalidate();
+        jPanel1.revalidate();
+        corona_init_panel.revalidate();
+        botones_panel.revalidate();
+        tapete.revalidate();
+        tapete.repaint();
+    }
+
+    // Deriva la fuente escalada de una base conservando familia y estilo (NO crea un Font nuevo).
+    private void setScaledFont(javax.swing.JComponent c, java.awt.Font base, float s) {
+        if (base != null) {
+            c.setFont(base.deriveFont(Math.max(1f, base.getSize2D() * s)));
+        }
+    }
+
+    // Escala el icono BASE (nativo) del botón por el factor; a s=1 queda idéntico al original.
+    private void setScaledIconFromBase(javax.swing.AbstractButton b, javax.swing.Icon base, float s) {
+        if (base instanceof javax.swing.ImageIcon) {
+            java.awt.Image img = ((javax.swing.ImageIcon) base).getImage();
+            int bw = base.getIconWidth(), bh = base.getIconHeight();
+            if (bw > 0 && bh > 0 && img != null) {
+                b.setIcon(new javax.swing.ImageIcon(img.getScaledInstance(Math.max(1, Math.round(bw * s)), Math.max(1, Math.round(bh * s)), java.awt.Image.SCALE_SMOOTH)));
+            }
+        }
+    }
+
     // Alterna idioma + bandera (misma lógica que el antiguo language_comboboxActionPerformed).
     private void toggleLanguageByFlag() {
         GameFrame.LANGUAGE = GameFrame.LANGUAGE.equals("es") ? "en" : "es";
@@ -1238,18 +1387,14 @@ public class Init extends JFrame {
         updateLanguageFlag();
     }
 
-    private static javax.swing.ImageIcon spainFlagIcon() {
-        if (SPAIN_FLAG_ICON == null) {
-            SPAIN_FLAG_ICON = new javax.swing.ImageIcon(drawSpainFlag(FLAG_W * 2, FLAG_H * 2).getScaledInstance(FLAG_W, FLAG_H, java.awt.Image.SCALE_SMOOTH));
-        }
-        return SPAIN_FLAG_ICON;
+    // Se redibujan al tamaño ACTUAL (flag_w/flag_h): la botonera escala con la ventana y dibujar
+    // 2 banderitas en cada fin de resize es despreciable. Se dibuja a 2x y se reduce (antialias).
+    private javax.swing.ImageIcon spainFlagIcon() {
+        return new javax.swing.ImageIcon(drawSpainFlag(flag_w * 2, flag_h * 2).getScaledInstance(flag_w, flag_h, java.awt.Image.SCALE_SMOOTH));
     }
 
-    private static javax.swing.ImageIcon ukFlagIcon() {
-        if (UK_FLAG_ICON == null) {
-            UK_FLAG_ICON = new javax.swing.ImageIcon(drawUKFlag(FLAG_W * 2, FLAG_H * 2).getScaledInstance(FLAG_W, FLAG_H, java.awt.Image.SCALE_SMOOTH));
-        }
-        return UK_FLAG_ICON;
+    private javax.swing.ImageIcon ukFlagIcon() {
+        return new javax.swing.ImageIcon(drawUKFlag(flag_w * 2, flag_h * 2).getScaledInstance(flag_w, flag_h, java.awt.Image.SCALE_SMOOTH));
     }
 
     // Bandera de España (rojigualda): franjas roja/gualda/roja (1/4, 1/2, 1/4).

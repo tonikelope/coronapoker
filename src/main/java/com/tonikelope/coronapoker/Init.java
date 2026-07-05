@@ -1176,6 +1176,12 @@ public class Init extends JFrame {
         stats_button.setUI(new GlassButtonUI(null, false, false, 0.60f, 22));
         // Salir: cristal neutro; el rojo solo aparece al pasar el ratón.
         exit_button.setUI(new GlassButtonUI(red, false, true, 0.66f, 22));
+        // El icono de SALIR (exit2.png) es una silueta NEGRA que sobre el cristal oscuro apenas
+        // se ve; se blanquea (conservando su alfa) para que resalte, como el de MENÚ en la final.
+        javax.swing.ImageIcon white_exit = whitenIcon(exit_button.getIcon());
+        if (white_exit != null) {
+            exit_button.setIcon(white_exit);
+        }
         // Actualizar (solo visible cuando hay versión nueva): verde para destacar.
         update_button.setUI(new GlassButtonUI(green, true, false, 0.72f, 22));
 
@@ -1257,7 +1263,7 @@ public class Init extends JFrame {
     private int init_ref_w = 0, init_ref_h = 0;
     private int base_stats_h = 0;
     private boolean init_base_captured = false;
-    private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label;
+    private java.awt.Font base_create, base_join, base_stats, base_exit, base_update, base_update_label, base_quote;
     private javax.swing.Icon base_icon_create, base_icon_join, base_icon_exit, base_icon_stats;
 
     // Captura UNA vez el estado ya inicializado (tras Helpers.updateFonts, que aplica GUI_FONT):
@@ -1272,6 +1278,7 @@ public class Init extends JFrame {
         base_exit = exit_button.getFont();
         base_update = update_button.getFont();
         base_update_label = update_label.getFont();
+        base_quote = quote.getFont();
         base_icon_create = create_button.getIcon();
         base_icon_join = join_button.getIcon();
         base_icon_exit = exit_button.getIcon();
@@ -1333,6 +1340,8 @@ public class Init extends JFrame {
         setScaledFont(exit_button, base_exit, s);
         setScaledFont(update_button, base_update, s);
         setScaledFont(update_label, base_update_label, s);
+        // La cita del pie también escala su fuente con la ventana.
+        setScaledFont(quote, base_quote, s);
 
         // Padding cristal (base EmptyBorder(10,22) de GlassButtonUI) + gap icono/texto (14).
         int pv = Math.round(10 * s), ph = Math.round(22 * s), gap = Math.round(14 * s);
@@ -1389,6 +1398,30 @@ public class Init extends JFrame {
                 b.setIcon(new javax.swing.ImageIcon(img.getScaledInstance(Math.max(1, Math.round(bw * s)), Math.max(1, Math.round(bh * s)), java.awt.Image.SCALE_SMOOTH)));
             }
         }
+    }
+
+    // Blanquea la silueta de un icono (zonas opacas -> blanco) conservando su alfa. Para iconos
+    // de línea NEGRA (p. ej. exit2.png de SALIR) que sobre el cristal oscuro no se verían.
+    private static javax.swing.ImageIcon whitenIcon(javax.swing.Icon icon) {
+        if (!(icon instanceof javax.swing.ImageIcon)) {
+            return null;
+        }
+        int w = icon.getIconWidth(), h = icon.getIconHeight();
+        if (w <= 0 || h <= 0) {
+            return (javax.swing.ImageIcon) icon;
+        }
+        java.awt.image.BufferedImage src = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = src.createGraphics();
+        g.drawImage(((javax.swing.ImageIcon) icon).getImage(), 0, 0, null);
+        g.dispose();
+        java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int a = (src.getRGB(x, y) >>> 24);
+                out.setRGB(x, y, (a << 24) | 0x00FFFFFF);
+            }
+        }
+        return new javax.swing.ImageIcon(out);
     }
 
     // Alterna idioma + bandera (misma lógica que el antiguo language_comboboxActionPerformed).

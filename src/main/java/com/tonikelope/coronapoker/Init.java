@@ -288,6 +288,12 @@ public class Init extends JFrame {
 
         quote.setEditable(false);
 
+        // Es solo texto decorativo: que se comporte como una etiqueta (sin cursor de texto,
+        // sin foco/caret ni selección) en vez de como un campo de texto.
+        quote.setCursor(java.awt.Cursor.getDefaultCursor());
+        quote.setFocusable(false);
+        quote.setHighlighter(null);
+
         quote.setOpaque(false);
 
         quote.setBackground(new Color(0, 0, 0, 0));

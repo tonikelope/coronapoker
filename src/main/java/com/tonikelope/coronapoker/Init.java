@@ -1103,19 +1103,18 @@ public class Init extends JFrame {
     // acento dorado para las acciones primarias, hover suave pintado por GlassButtonUI (rollover).
     // Quita el marco naranja del contenedor. NO toca disposición, iconos, acciones ni i18n.
     private void applyModernButtons() {
-        final Color gold = new Color(214, 178, 94);
         final Color red = new Color(214, 78, 70);
         final Color green = new Color(70, 180, 110);
 
-        // Primarias: CREAR destacada (relleno dorado); UNIRME cristal con borde dorado.
-        create_button.setUI(new GlassButtonUI(gold, true, false, 0.45f, 24));
-        join_button.setUI(new GlassButtonUI(gold, false, false, 0.45f, 24));
-        // Secundaria: cristal más transparente y neutro.
-        stats_button.setUI(new GlassButtonUI(null, false, false, 0.34f, 22));
+        // Todos con borde BLANCO neutro (sin dorado); CREAR/UNIRME un pelín más opacas que
+        // ESTADÍSTICAS para conservar una jerarquía sutil por opacidad, no por color.
+        create_button.setUI(new GlassButtonUI(null, false, false, 0.70f, 24));
+        join_button.setUI(new GlassButtonUI(null, false, false, 0.70f, 24));
+        stats_button.setUI(new GlassButtonUI(null, false, false, 0.60f, 22));
         // Salir: cristal neutro; el rojo solo aparece al pasar el ratón.
-        exit_button.setUI(new GlassButtonUI(red, false, true, 0.42f, 22));
+        exit_button.setUI(new GlassButtonUI(red, false, true, 0.66f, 22));
         // Actualizar (solo visible cuando hay versión nueva): verde para destacar.
-        update_button.setUI(new GlassButtonUI(green, true, false, 0.5f, 22));
+        update_button.setUI(new GlassButtonUI(green, true, false, 0.72f, 22));
 
         // Fuera el marco naranja de 5px del contenedor de la botonera.
         botones_panel.setBorder(null);

@@ -389,7 +389,7 @@ public class NewGameDialog extends JDialog {
         // (a zoom 1.0 no se toca NADA -> idéntico), en 4K crece y por debajo encoge; además
         // fit-to-screen para caber sin depender de scroll. Se mide el tamaño de diseño (pack de
         // arriba) y se reescala fuentes + títulos de grupo + iconos.
-        float res_zoom = Helpers.dialogResolutionZoom(getWidth(), getHeight());
+        float res_zoom = Helpers.dialogResolutionZoom(this, getWidth(), getHeight());
         if (Math.abs(res_zoom - 1f) > 0.01f) {
             Helpers.updateFonts(this, Helpers.GUI_FONT, res_zoom);
             applyGroupTitledBorders();
@@ -397,12 +397,11 @@ public class NewGameDialog extends JDialog {
             pack();
         }
 
-        // Se clampa al AREA UTIL (getMaximumWindowBounds excluye la barra de
-        // tareas), no al tamano total de pantalla: en baja resolucion la
-        // ventana cabe entera por encima de la barra de tareas y el scroll
-        // vertical del scroll_panel cubre el resto. Los botones VAMOS/CANCELAR
-        // quedan fijos abajo (fuera del scroll), siempre visibles.
-        Rectangle usable_bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        // Se clampa al AREA UTIL del monitor donde aparece el dialogo (multimonitor-aware, no el
+        // primario), no al tamano total de pantalla: en baja resolucion la ventana cabe entera
+        // por encima de la barra de tareas y el scroll vertical del scroll_panel cubre el resto.
+        // Los botones VAMOS/CANCELAR quedan fijos abajo (fuera del scroll), siempre visibles.
+        Rectangle usable_bounds = Helpers.dialogScreenUsableBounds(this);
 
         int w = Math.min(getWidth(), Math.round(usable_bounds.width * 0.95f));
 

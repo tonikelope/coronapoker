@@ -1448,16 +1448,16 @@ public class Helpers {
      * the monitor it was centered on. Falls back to the primary work area when
      * the window overlaps no screen at all.
      */
-    private static Rectangle getUsableBoundsForWindow(Window window) {
-
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    // GraphicsConfiguration del monitor con el que MÁS solapa la ventana (multimonitor); null si
+    // no solapa ninguno (p. ej. ventana aún no posicionada).
+    private static java.awt.GraphicsConfiguration graphicsConfigForWindow(Window window) {
 
         Rectangle window_bounds = window.getBounds();
 
         java.awt.GraphicsConfiguration best = null;
         long best_area = 0;
 
-        for (java.awt.GraphicsDevice device : ge.getScreenDevices()) {
+        for (java.awt.GraphicsDevice device : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
 
             java.awt.GraphicsConfiguration config = device.getDefaultConfiguration();
 
@@ -1471,18 +1471,39 @@ public class Helpers {
             }
         }
 
-        if (best == null) {
-            return ge.getMaximumWindowBounds();
+        return best;
+    }
+
+    // Área usable (menos barra de tareas) del monitor dado; el work-area del primario si es null.
+    private static Rectangle usableBoundsOfConfig(java.awt.GraphicsConfiguration gc) {
+        if (gc == null) {
+            return GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
         }
-
-        Rectangle bounds = best.getBounds();
-        Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(best);
-
+        Rectangle bounds = gc.getBounds();
+        Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
         return new Rectangle(
                 bounds.x + insets.left,
                 bounds.y + insets.top,
                 bounds.width - insets.left - insets.right,
                 bounds.height - insets.top - insets.bottom);
+    }
+
+    private static Rectangle getUsableBoundsForWindow(Window window) {
+        return usableBoundsOfConfig(graphicsConfigForWindow(window));
+    }
+
+    // Monitor donde APARECERÁ un diálogo: el de su ventana PADRE (durante la construcción el
+    // diálogo aún no está posicionado; se centra sobre el padre, ya visible), o el suyo propio si
+    // no tiene padre. Multimonitor: evita medir/recortar con el monitor PRIMARIO cuando el juego
+    // corre en un secundario de otra resolución.
+    private static java.awt.GraphicsConfiguration dialogGraphicsConfig(Window dialog) {
+        Window ref = (dialog != null && dialog.getOwner() != null) ? dialog.getOwner() : dialog;
+        return (ref != null) ? graphicsConfigForWindow(ref) : null;
+    }
+
+    // Área usable del monitor donde aparecerá el diálogo (para recortes / fit-to-screen).
+    public static Rectangle dialogScreenUsableBounds(Window dialog) {
+        return usableBoundsOfConfig(dialogGraphicsConfig(dialog));
     }
 
     public static void setLocationContainerRelativeTo(Container reference, Container current) {
@@ -3536,10 +3557,14 @@ public class Helpers {
     // a 1440p = tamaño de diseño (1.0), en 4K crece, por debajo encoge. Acotado a que el diálogo
     // (a su tamaño de diseño designW×designH) quepa en el 95% del área usable (fit-to-screen, para
     // no depender de scroll). Suelo 0.6; SIN tope superior (crece con la resolución).
-    public static float dialogResolutionZoom(int designW, int designH) {
-        java.awt.Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+    public static float dialogResolutionZoom(Window dialog, int designW, int designH) {
+        // Multimonitor: se usa el monitor donde APARECERÁ el diálogo (el de su padre), no el
+        // primario. res = resolución COMPLETA de ese monitor / canónica 1440p; fit = que quepa
+        // en el 95% de su área usable.
+        java.awt.GraphicsConfiguration gc = dialogGraphicsConfig(dialog);
+        java.awt.Rectangle screen = (gc != null) ? gc.getBounds() : new java.awt.Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
+        java.awt.Rectangle ub = usableBoundsOfConfig(gc);
         float res = Math.min(screen.width / 2560f, screen.height / 1440f);
-        java.awt.Rectangle ub = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
         float fit = Math.min(ub.width * 0.95f / Math.max(1, designW), ub.height * 0.95f / Math.max(1, designH));
         return Math.max(0.6f, Math.min(res, fit));
     }

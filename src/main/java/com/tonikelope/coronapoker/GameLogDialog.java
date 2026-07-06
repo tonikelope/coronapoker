@@ -519,6 +519,21 @@ public final class GameLogDialog extends JDialog {
             phrase = phrase.substring(0, brace);
         }
         phrase = phrase.trim();
+        // El marcador se detecta con line.contains(phrase) sobre el texto YA renderizado.
+        // Algunas claves de bote arrancan con puntuacion que el pipeline de render
+        // TRANSFORMA y que por tanto NO sobrevive a un re-render del registro:
+        //   ") GANA BOTE ... ("     -> el ")" es el cierre del parentesis de las hole-cards
+        //                              del GANADOR, que CARD_PAREN borra al pintar las cartas
+        //                              como fichas (asi el ganador NUNCA salia en verde).
+        //   "(---) PIERDE BOTE ... (" -> el "(---)" es el placeholder del PERDEDOR, que
+        //                              actualizarCartasPerdedores sustituye por las cartas
+        //                              reveladas tras el showdown (asi el perdedor salia en
+        //                              rojo la 1a vez y en BLANCO al re-renderizar).
+        // Descartamos ese prefijo inestable y nos quedamos con el nucleo estable
+        // ("GANA BOTE ... (", "PIERDE BOTE ... (") — presente igual en el primer print y en
+        // el re-render. El "(" final se conserva: es el del importe (que SI sobrevive) y da
+        // especificidad al marcador.
+        phrase = phrase.replaceFirst("^\\((?:---|\\*\\*\\*)\\)\\s*", "").replaceFirst("^\\)\\s*", "").trim();
         if (phrase.length() >= 3) {
             for (Object[] r : rules) {
                 if (phrase.equals(r[0])) {

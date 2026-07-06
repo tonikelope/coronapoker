@@ -164,6 +164,17 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
         Helpers.GUIRun(() -> {
             if (!pot_panel.isOpaque()) {
                 pot_label.setForeground(color);
+
+                // Carrera cambio-de-tapete vs parpadeo del bote: si una ficha acaba de
+                // aterrizar en el bote (flashPotLabelYellow lo tiene en amarillo con un
+                // timer de restauración pendiente) y en esa ventana se cambia el color
+                // del tapete, el timer del flash repintaría el bote con el color VIEJO
+                // que capturó ANTES del cambio, dejando la fuente del bote pegada al
+                // color del tapete anterior. Actualizamos también el color a restaurar
+                // para que el flash termine dejando el color NUEVO.
+                if (pot_flash_timer != null && pot_flash_timer.isRunning()) {
+                    pot_flash_restore = color;
+                }
             }
 
             bet_label.setForeground(color);

@@ -1660,7 +1660,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
                                 // setValue(response_counter) redundante: smoothCountdown ya tiene
                                 // su Timer interno actualizando la barra cada 50ms.
 
-                                if (GameFrame.THINK_TIME_ENABLED && response_counter == 10) {
+                                if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold()) {
                                     Audio.playWavResource("misc/hurryup.wav");
                                     if ((hurryup_timer == null || !hurryup_timer.isRunning()) && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                         if (hurryup_timer != null) {

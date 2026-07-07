@@ -1057,7 +1057,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
                                 // ya repinta la barra en escala ms via Timer interno.
                                 // Hacer setValue aqui en escala segundos generaba parpadeo.
 
-                                if (GameFrame.THINK_TIME_ENABLED && response_counter == 10 && Helpers.doubleSecureCompare(0f, call_required) < 0) {
+                                if (GameFrame.THINK_TIME_ENABLED && response_counter == GameFrame.getHurryupThreshold() && Helpers.doubleSecureCompare(0f, call_required) < 0) {
                                     Audio.playWavResource("misc/hurryup.wav");
                                 }
 

@@ -173,6 +173,20 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public static volatile boolean THINK_TIME_ENABLED = true;
     public static final int THINK_TIME_MIN = 10;  // segundos (tope inferior del spinner + clamp)
     public static final int THINK_TIME_MAX = 120; // segundos (tope superior del spinner + clamp)
+    public static final int HURRYUP_WARNING_SECONDS = 10; // aviso "date prisa" (bocina + parpadeo) cuando quedan estos segundos
+
+    // Umbral efectivo del aviso hurryup en segundos restantes. El contador de accion arranca en
+    // THINK_TIME y baja de 1 en 1 cada segundo, disparando el aviso al llegar EXACTAMENTE a este
+    // valor, por eso debe ser SIEMPRE < THINK_TIME (con un umbral fijo de 10 y THINK_TIME=10 el
+    // contador arrancaria ya por debajo y el aviso no sonaria nunca). Formula: 25% del tiempo restante
+    // redondeado a entero, capado a HURRYUP_WARNING_SECONDS (10). Equivale a "con 40s o menos escala al
+    // 25% (a 40 => los 10s clasicos; 20=>5, 10=>3); por encima de 40 se queda fijo en 10", pero SIN
+    // acoplar el corte a un valor magico: el punto donde deja de escalar emerge solo del cap y trabaja
+    // sobre el entero THINK_TIME, asi que sigue siendo correcto aunque cambien el paso, el rango o el
+    // default del spinner (THINK_TIME_MIN=10 garantiza umbral >= round(2.5)=3, siempre < THINK_TIME).
+    public static int getHurryupThreshold() {
+        return Math.min(HURRYUP_WARNING_SECONDS, (int) Math.round(THINK_TIME * 0.25));
+    }
     public static volatile boolean VOICE_MESSAGES = Boolean.parseBoolean(Helpers.PROPERTIES.getProperty("voice_messages", "true"));
     public static volatile boolean RUN_IT_TWICE = false;
     // Congela el cambio de RUN_IT_TWICE durante el run-out del all-in (desde que

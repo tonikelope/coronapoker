@@ -144,10 +144,40 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JButton preset_save_button;
     private javax.swing.JButton preset_delete_button;
 
+    // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
+    // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
+    private void setupTooltips() {
+        Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
+        Helpers.setTranslatedToolTip(manos_spinner, "tooltip.cfg.hand_limit");
+        Helpers.setTranslatedToolTip(think_time_checkbox, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(think_time_spinner, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(iwtsth_checkbox, "tooltip.cfg.iwtsth");
+        Helpers.setTranslatedToolTip(rit_checkbox, "tooltip.cfg.rit");
+        Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
+        Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
+        Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");
+        Helpers.setTranslatedToolTip(doblar_checkbox, "tooltip.cfg.double_blinds");
+        Helpers.setTranslatedToolTip(blind_cap_checkbox, "tooltip.cfg.blind_cap");
+        Helpers.setTranslatedToolTip(blind_cap_spinner, "tooltip.cfg.blind_cap");
+        Helpers.setTranslatedToolTip(ante_checkbox, "tooltip.cfg.ante");
+        Helpers.setTranslatedToolTip(straddle_checkbox, "tooltip.cfg.straddle");
+        Helpers.setTranslatedToolTip(fixed_buyin_checkbox, "tooltip.cfg.buyin_fixed");
+        Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.buyin_range");
+        Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.buyin_range");
+        Helpers.setTranslatedToolTip(rebuy_checkbox, "tooltip.rebuy_description");
+        Helpers.setTranslatedToolTip(rebuy_limit_checkbox, "tooltip.cfg.rebuy_limit");
+        Helpers.setTranslatedToolTip(rebuy_limit_spinner, "tooltip.cfg.rebuy_limit");
+        Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
+        Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
+        // rebuy_cap_combo ya tiene su tooltip propio ("rebuy.tope_recompra_tooltip") en initComponents.
+    }
+
     public WaitingGameSettingsPanel(boolean read_only, boolean recover) {
         this.read_only = read_only;
         this.recover = recover;
         initComponents();
+
+        setupTooltips();
 
         // Fuente única: el HOST lee la config viva (estáticos); el cliente lee el espejo
         // recibido por la red (puede ser null si abre la rueda antes del primer sync ->

@@ -82,9 +82,30 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     private javax.swing.JCheckBox ante_checkbox;
     private javax.swing.JCheckBox straddle_checkbox;
 
+    // Tooltips i18n (setTranslatedToolTip => se re-traducen al cambiar idioma) de los controles de
+    // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
+    private void setupTooltips() {
+        Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
+        Helpers.setTranslatedToolTip(manos_spinner, "tooltip.cfg.hand_limit");
+        Helpers.setTranslatedToolTip(think_time_checkbox, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(think_time_spinner, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(iwtsth_checkbox, "tooltip.cfg.iwtsth");
+        Helpers.setTranslatedToolTip(rit_checkbox, "tooltip.cfg.rit");
+        Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
+        Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
+        Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");
+        Helpers.setTranslatedToolTip(doblar_checkbox, "tooltip.cfg.double_blinds");
+        Helpers.setTranslatedToolTip(blind_cap_checkbox, "tooltip.cfg.blind_cap");
+        Helpers.setTranslatedToolTip(blind_cap_spinner, "tooltip.cfg.blind_cap");
+        Helpers.setTranslatedToolTip(ante_checkbox, "tooltip.cfg.ante");
+        Helpers.setTranslatedToolTip(straddle_checkbox, "tooltip.cfg.straddle");
+    }
+
     public GameSettingsPanel(boolean read_only) {
         this.read_only = read_only;
         initComponents();
+
+        setupTooltips();
 
         // ============================ CIEGAS ============================
         if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {

@@ -601,7 +601,7 @@ public class AboutDialog extends JDialog {
 
     private void corona_icon_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_corona_icon_labelMouseClicked
         // TODO add your handling code here:
-        Helpers.openBrowserURL("https://tonikelope.github.io/coronapoker/");
+        Helpers.openBrowserURL("https://github.com/tonikelope/coronapoker");
     }//GEN-LAST:event_corona_icon_labelMouseClicked
 
     private void mod_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_mod_labelMouseClicked

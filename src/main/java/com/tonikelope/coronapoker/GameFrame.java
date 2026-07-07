@@ -5684,8 +5684,8 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Abre el diálogo modal de AUTO CALL: checkbox Activado (on/off) + spinner del
-    // límite (0 = sin límite, sin tope por arriba).
+    // Abre el diálogo modal de AUTO CALL: checkbox Activado (on/off), checkbox Sin
+    // límite (mapea a AUTO_CALL_MAX = 0) y spinner editable del importe máximo.
     public void openAutoCallMaxDialog() {
         // Por seguridad, al abrir el ajuste desarmamos cualquier pre-pulsado de los
         // botones AUTO: el umbral puede estar a punto de cambiar y no queremos que un

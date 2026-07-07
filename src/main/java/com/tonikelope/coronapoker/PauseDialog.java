@@ -40,6 +40,10 @@ public class PauseDialog extends JDialog {
 
     private volatile Timer timer = null;
     private volatile Float last_zoom = null;
+    // Listener sobre la ventana del juego: reancla el banner cuando el frame se mueve o cambia de
+    // tamaño (modo ventana). Sin esto el diálogo se quedaba fijo en la pantalla al mover la ventana.
+    // Se retira en windowClosed (los PauseDialog se crean/disponen en cada pausa; no debe acumularse).
+    private java.awt.event.ComponentListener parent_follow_listener = null;
 
     // El diálogo de pausa se muestra como un BANNER a todo el ancho del frame del juego: fuente
     // notablemente más grande que el diseño original (52pt) para que "TIMBA PAUSADA" llene la franja.
@@ -84,6 +88,24 @@ public class PauseDialog extends JDialog {
         }
 
         applyBannerBounds();
+
+        // El banner sigue a la ventana del juego (modo ventana): al mover el frame se recentra sobre
+        // él; al redimensionarlo, recalcula ancho y alto. El listener se retira en windowClosed.
+        java.awt.Window owner = getOwner();
+        if (owner != null) {
+            parent_follow_listener = new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentMoved(java.awt.event.ComponentEvent e) {
+                    setLocationRelativeTo(getParent());
+                }
+
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    applyBannerBounds();
+                }
+            };
+            owner.addComponentListener(parent_follow_listener);
+        }
 
         timer = new Timer(1000, (ActionEvent ae) -> {
             // El Timer de Swing dispara en el EDT: se tocan los componentes DIRECTAMENTE, sin salir
@@ -215,6 +237,12 @@ public class PauseDialog extends JDialog {
         // TODO add your handling code here:
         this.timer.stop();
 
+        // Retira el seguidor de la ventana del juego (añadido en el constructor) para no dejarlo
+        // colgado en el frame persistente tras disponer este diálogo.
+        java.awt.Window owner = getOwner();
+        if (parent_follow_listener != null && owner != null) {
+            owner.removeComponentListener(parent_follow_listener);
+        }
     }//GEN-LAST:event_formWindowClosed
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened

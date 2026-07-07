@@ -398,7 +398,7 @@ The `receipts` blob is stored **as collected** (the receipts are already signed,
 | Command | Direction | Notes |
 |---|---|---|
 | Join payload with `JOIN` marker field | New peer → host (relayed) | Identity announcement folded into the existing join, self-sig binds `session_id` |
-| `GAME # … # <record_b64> # <sig_b64>` | Player → host → all | Signed canonical action |
+| `GAME # ... # <record_b64> # <sig_b64>` | Player → host → all | Signed canonical action |
 | `<PIECE> # <nick_b64> # <payload_b64>` | Host → each recipient | Per-recipient encrypted community piece (`FLOP/TURN/RIVER_PIECE`, `RABBIT_*_PIECE`) |
 | `COMM_REVEAL # <record_b64> # <sig_b64>` | Host → all | Signed community-card announcement, absorbed into `H_t` |
 | `HANDVERIFY` (no payload) | Host → all | Consensus trigger |

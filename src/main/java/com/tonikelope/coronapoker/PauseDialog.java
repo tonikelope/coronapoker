@@ -98,7 +98,7 @@ public class PauseDialog extends JDialog {
             parent_follow_listener = new java.awt.event.ComponentAdapter() {
                 @Override
                 public void componentMoved(java.awt.event.ComponentEvent e) {
-                    setLocationRelativeTo(getParent());
+                    repositionOverContent();
                 }
 
                 @Override
@@ -119,25 +119,31 @@ public class PauseDialog extends JDialog {
         });
     }
 
-    // Tamaño/posición del banner: ancho = TODO el ancho de la ventana del juego; alto = fracción de
-    // su alto; y el texto/icono con tamaño proporcional a ese alto (recortado si "TIMBA PAUSADA" no
-    // cupiera de ancho). Así el banner ESCALA con la ventana. Centrado sobre el parent. No usa pack()
-    // (el tamaño lo manda la ventana, no el contenido), lo que además evita el colapso a línea fina.
+    // Tamaño/posición del banner: se dimensiona y coloca sobre el CONTENT PANE del frame (el área del
+    // tapete), NO sobre la ventana con decoración: así no sobresale por los bordes ni se descentra por
+    // la barra de título/menú. Ancho = ancho del content; alto = fracción de su alto; texto/icono con
+    // tamaño proporcional a ese alto (recortado si "TIMBA PAUSADA" no cupiera de ancho). Centrado
+    // verticalmente sobre el content. Sin pack() (lo manda la ventana, no el contenido).
     private void applyBannerBounds() {
-        java.awt.Container parent = getParent();
-        if (parent == null || parent.getWidth() <= 0 || parent.getHeight() <= 0 || base_font == null) {
+        java.awt.Window owner = getOwner();
+        if (!(owner instanceof javax.swing.RootPaneContainer) || base_font == null) {
             return;
         }
-        int w = parent.getWidth();
-        int banner_h = Math.max(1, Math.round(parent.getHeight() * BANNER_HEIGHT_FRACTION));
+        java.awt.Container content = ((javax.swing.RootPaneContainer) owner).getContentPane();
+        if (content == null || !content.isShowing() || content.getWidth() <= 0 || content.getHeight() <= 0) {
+            return;
+        }
+        int cw = content.getWidth();
+        int ch = content.getHeight();
+        int banner_h = Math.max(1, Math.round(ch * BANNER_HEIGHT_FRACTION));
 
         // Fuente proporcional a la altura del banner, encogida si el texto + icono no cabe de ancho.
         float font_size = banner_h * FONT_HEIGHT_FRACTION;
         java.awt.FontMetrics fm = pausa_label.getFontMetrics(base_font.deriveFont(font_size));
-        int content_w = fm.stringWidth(pausa_label.getText()) + Math.round(font_size) + pausa_label.getIconTextGap();
-        int max_w = Math.round(w * MAX_TEXT_WIDTH_FRACTION);
-        if (content_w > max_w && content_w > 0) {
-            font_size *= (float) max_w / content_w;
+        int text_w = fm.stringWidth(pausa_label.getText()) + Math.round(font_size) + pausa_label.getIconTextGap();
+        int max_w = Math.round(cw * MAX_TEXT_WIDTH_FRACTION);
+        if (text_w > max_w && text_w > 0) {
+            font_size *= (float) max_w / text_w;
         }
         pausa_label.setFont(base_font.deriveFont(font_size));
 
@@ -145,8 +151,24 @@ public class PauseDialog extends JDialog {
         int icon_px = Math.max(1, Math.round(font_size));
         Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), icon_px, icon_px);
 
-        setSize(w, banner_h);
-        setLocationRelativeTo(parent);
+        java.awt.Point origin = content.getLocationOnScreen();
+        setSize(cw, banner_h);
+        setLocation(origin.x, origin.y + (ch - banner_h) / 2);
+    }
+
+    // Reposiciona el banner sobre el content pane sin recalcular tamaño/fuente/icono, para seguir a la
+    // ventana cuando solo se MUEVE (más barato que applyBannerBounds en cada píxel de arrastre).
+    private void repositionOverContent() {
+        java.awt.Window owner = getOwner();
+        if (!(owner instanceof javax.swing.RootPaneContainer)) {
+            return;
+        }
+        java.awt.Container content = ((javax.swing.RootPaneContainer) owner).getContentPane();
+        if (content == null || !content.isShowing()) {
+            return;
+        }
+        java.awt.Point origin = content.getLocationOnScreen();
+        setLocation(origin.x, origin.y + (content.getHeight() - getHeight()) / 2);
     }
 
     /**

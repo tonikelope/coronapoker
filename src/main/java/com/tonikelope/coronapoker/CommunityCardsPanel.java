@@ -1007,7 +1007,11 @@ public class CommunityCardsPanel extends javax.swing.JPanel implements ZoomableI
 
         if (!GameFrame.getInstance().getCrupier().isIwtsthing() && !(GameFrame.getInstance().getCrupier().isLast_hand() && GameFrame.getInstance().getCrupier().isShow_time()) && (GameFrame.getInstance().isPartida_local()) && !GameFrame.getInstance().isTimba_pausada() && !GameFrame.getInstance().getLocalPlayer().isTurno() && !GameFrame.getInstance().getLocalPlayer().isAuto_pause() && !GameFrame.getInstance().getLocalPlayer().isSpectator()) {
 
-            pause_now = Helpers.mostrarMensajeInformativoSINO(GameFrame.getInstance(), Translator.translate("game.pausar_ahora_mismo"), new ImageIcon(getClass().getResource("/images/pause.png")));
+            // El host puede pausar cuando quiera durante la partida: se elimina el popup de
+            // confirmacion "¿pausar ahora mismo?" y se pausa AL MOMENTO (equivale a responder "Si").
+            // El resto de la logica del boton (auto-pausa en el turno propio de los clientes, etc.)
+            // queda intacta; pause_now == 0 activa la rama de pausa inmediata de abajo.
+            pause_now = 0;
 
         } else if (GameFrame.getInstance().getCrupier().isIwtsthing()) {
 

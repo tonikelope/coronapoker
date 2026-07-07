@@ -49,9 +49,11 @@ import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
 /**
- * Diálogo modal de AUTO CALL: un checkbox "Activado" (on/off) más un spinner para
- * fijar el límite de fichas que el pre-pulsado de check/call igualará
- * automáticamente (0 = sin límite). El checkbox habilita/deshabilita el spinner.
+ * Diálogo modal de AUTO CALL: checkbox "Activado" (on/off), checkbox "Sin límite"
+ * y un spinner EDITABLE con el importe MÁXIMO que el pre-pulsado de check/call
+ * igualará automáticamente al hacer call. "Sin límite" mapea a AUTO_CALL_MAX = 0
+ * (el motor lo interpreta como igualar cualquier importe) y desactiva el spinner;
+ * "Activado" gobierna ambos.
  *
  * @author tonikelope
  */
@@ -63,6 +65,13 @@ public class AutoCallMaxDialog extends JDialog {
 
     private final JCheckBox enabled_check = new JCheckBox();
 
+    private final JCheckBox no_limit_check = new JCheckBox();
+
+    // Paso/granularidad del umbral (0,05). En modo con límite el valor NUNCA baja
+    // de un paso: el 0 se reserva para "sin límite" en el motor (AUTO_CALL_MAX ==
+    // 0 = igualar cualquier importe).
+    private static final BigDecimal STEP = new BigDecimal("0.05");
+
     public boolean isAccepted() {
         return accepted;
     }
@@ -71,8 +80,39 @@ public class AutoCallMaxDialog extends JDialog {
         return enabled_check.isSelected();
     }
 
+    // Coerce cualquier Number del modelo/edición a BigDecimal con 2 decimales, sin
+    // castear a ciegas: al teclear, el editor puede dejar un Double/Long en el
+    // modelo y un cast directo a BigDecimal reventaría en flechas/aceptar.
+    private static BigDecimal asBD(Object o) {
+        if (o instanceof BigDecimal) {
+            return ((BigDecimal) o).setScale(2, RoundingMode.HALF_UP);
+        }
+        return new BigDecimal(String.valueOf(((Number) o).doubleValue())).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // "Sin límite" marcado => 0 (el motor lo interpreta como igualar cualquier
+    // importe). Con límite se lee el TEXTO del editor (editable) normalizando la
+    // coma a punto, sin depender del formatter de locale (grouping desactivado);
+    // nunca por debajo de un paso, para no colisionar con el 0 de "sin límite".
     public double getValue() {
-        return ((BigDecimal) spinner.getValue()).doubleValue();
+        if (no_limit_check.isSelected()) {
+            return 0d;
+        }
+
+        BigDecimal v;
+
+        try {
+            String txt = ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField().getText().trim().replace(',', '.');
+            v = txt.isEmpty() ? STEP : new BigDecimal(txt).setScale(2, RoundingMode.HALF_UP);
+        } catch (Exception ex) {
+            v = asBD(spinner.getValue());
+        }
+
+        if (v.compareTo(STEP) < 0) {
+            v = STEP;
+        }
+
+        return v.doubleValue();
     }
 
     public AutoCallMaxDialog(Frame parent, boolean enabled, double current) {
@@ -85,10 +125,11 @@ public class AutoCallMaxDialog extends JDialog {
 
         // Pasos de 0,05 (la granularidad de ajuste de ciegas), redondeando a 2
         // decimales (el motor trabaja en céntimos). Es un umbral de auto-igualar,
-        // no dinero en mesa. Sin tope por arriba (máximo = null).
-        BigDecimal step = new BigDecimal("0.05");
-        BigDecimal bd_min = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal bd_current = new BigDecimal(Math.max(current, 0f)).setScale(2, RoundingMode.HALF_UP);
+        // no dinero en mesa. Mínimo un paso (el 0 se reserva para "sin límite") y
+        // sin tope por arriba (máximo = null).
+        double cur = Math.max(current, 0d);
+        boolean no_limit = cur <= 0d;
+        BigDecimal bd_current = new BigDecimal(String.valueOf(no_limit ? STEP.doubleValue() : Math.max(cur, STEP.doubleValue()))).setScale(2, RoundingMode.HALF_UP);
 
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(Color.WHITE);
@@ -108,6 +149,14 @@ public class AutoCallMaxDialog extends JDialog {
         title.setFocusable(false);
         panel.add(title, gbc);
 
+        // El spinner solo es usable con auto-call ON y sin "sin límite"; "sin
+        // límite" solo tiene sentido con auto-call ON.
+        Runnable refreshEnablement = () -> {
+            boolean on = enabled_check.isSelected();
+            no_limit_check.setEnabled(on);
+            spinner.setEnabled(on && !no_limit_check.isSelected());
+        };
+
         gbc.gridy++;
         enabled_check.setSelected(enabled);
         enabled_check.setFont(new Font("Dialog", Font.BOLD, 24));
@@ -116,7 +165,7 @@ public class AutoCallMaxDialog extends JDialog {
         enabled_check.setFocusable(false);
         enabled_check.setCursor(new Cursor(Cursor.HAND_CURSOR));
         // La etiqueta refleja el estado: ACTIVADO (verde) marcado, DESACTIVADO
-        // (rojo) sin marcar. El checkbox además habilita/deshabilita el spinner.
+        // (rojo) sin marcar. El checkbox además gobierna sin-límite y el spinner.
         Runnable refreshLabel = () -> {
             boolean on = enabled_check.isSelected();
             String key = on ? "auto_call.activado" : "auto_call.desactivado";
@@ -126,48 +175,73 @@ public class AutoCallMaxDialog extends JDialog {
         };
         enabled_check.addActionListener((java.awt.event.ActionEvent e) -> {
             refreshLabel.run();
-            spinner.setEnabled(enabled_check.isSelected());
+            refreshEnablement.run();
         });
         refreshLabel.run();
         panel.add(enabled_check, gbc);
 
+        // "Sin límite": iguala cualquier importe (mapea a AUTO_CALL_MAX = 0). Con
+        // ella marcada, el spinner del tope se desactiva.
         gbc.gridy++;
-        JLabel hint = new JLabel(Translator.translate("auto_call.cero_sin_limite"));
-        hint.putClientProperty("i18n.key", "auto_call.cero_sin_limite");
-        hint.setFont(new Font("Dialog", Font.PLAIN, 18));
-        hint.setForeground(Color.DARK_GRAY);
-        hint.setHorizontalAlignment(SwingConstants.CENTER);
-        hint.setFocusable(false);
-        panel.add(hint, gbc);
+        no_limit_check.setSelected(no_limit);
+        no_limit_check.setText(Translator.translate("auto_call.sin_limite"));
+        no_limit_check.putClientProperty("i18n.key", "auto_call.sin_limite");
+        no_limit_check.setFont(new Font("Dialog", Font.BOLD, 20));
+        no_limit_check.setBackground(Color.WHITE);
+        no_limit_check.setForeground(Color.DARK_GRAY);
+        no_limit_check.setHorizontalAlignment(SwingConstants.CENTER);
+        no_limit_check.setFocusable(false);
+        no_limit_check.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        no_limit_check.addActionListener((java.awt.event.ActionEvent e) -> refreshEnablement.run());
+        panel.add(no_limit_check, gbc);
+
+        // Rótulo que aclara qué es el spinner: el importe MÁXIMO que se igualará
+        // automáticamente al hacer call (con all-in, el propio stack).
+        gbc.gridy++;
+        JLabel note = new JLabel(Translator.translate("auto_call.nota"));
+        note.putClientProperty("i18n.key", "auto_call.nota");
+        note.setFont(new Font("Dialog", Font.PLAIN, 18));
+        note.setForeground(Color.DARK_GRAY);
+        note.setHorizontalAlignment(SwingConstants.CENTER);
+        note.setFocusable(false);
+        panel.add(note, gbc);
 
         gbc.gridy++;
-        spinner.setModel(new SpinnerNumberModel(bd_current, bd_min, null, step) {
+        spinner.setModel(new SpinnerNumberModel(bd_current, STEP, null, STEP) {
             @Override
             public Object getNextValue() {
                 // Sin tope por arriba: siempre se puede subir.
-                return ((BigDecimal) super.getValue()).add((BigDecimal) super.getStepSize());
+                return asBD(super.getValue()).add((BigDecimal) super.getStepSize());
             }
 
             @Override
             public Object getPreviousValue() {
-                BigDecimal v = ((BigDecimal) super.getValue()).subtract((BigDecimal) super.getStepSize());
+                BigDecimal v = asBD(super.getValue()).subtract((BigDecimal) super.getStepSize());
                 return ((BigDecimal) super.getMinimum()).compareTo(v) <= 0 ? v : null;
             }
         });
         spinner.setFont(new Font("Dialog", Font.BOLD, 24));
-        ((JSpinner.DefaultEditor) spinner.getEditor()).getTextField().setEditable(false);
+        // Editable por teclado (decimales). getValue() lee el TEXTO crudo del
+        // editor (coma->punto), así que hay que blindar ese texto:
+        //  - grouping OFF: sin separador de millar que confunda al parsear.
+        //  - PERSIST + Enter desligado: el formatter NO recommitea al perder foco
+        //    ni con Enter (evita que malinterprete coma/punto según el locale y
+        //    corrompa lo tecleado).
+        //  - re-render inicial con el formato ya sin grouping (el editor por
+        //    defecto lo pintó con millares).
+        if (spinner.getEditor() instanceof JSpinner.NumberEditor) {
+            JSpinner.NumberEditor ne = (JSpinner.NumberEditor) spinner.getEditor();
+            ne.getFormat().setGroupingUsed(false);
+            javax.swing.JFormattedTextField ftf = ne.getTextField();
+            ftf.setFocusLostBehavior(javax.swing.JFormattedTextField.PERSIST);
+            ftf.getInputMap().put(javax.swing.KeyStroke.getKeyStroke("ENTER"), "none");
+            ftf.setText(ne.getFormat().format(bd_current));
+        }
+        Helpers.makeNumericSpinnerEditable(spinner, true);
         spinner.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        spinner.setEnabled(enabled);
         panel.add(spinner, gbc);
 
-        gbc.gridy++;
-        JLabel note = new JLabel(Translator.translate("auto_call.nota"));
-        note.putClientProperty("i18n.key", "auto_call.nota");
-        note.setFont(new Font("Dialog", Font.ITALIC, 16));
-        note.setForeground(Color.GRAY);
-        note.setHorizontalAlignment(SwingConstants.CENTER);
-        note.setFocusable(false);
-        panel.add(note, gbc);
+        refreshEnablement.run();
 
         gbc.gridy++;
         JButton ok = new JButton(Translator.translate("ui.aceptar"));

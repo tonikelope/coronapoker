@@ -1067,12 +1067,9 @@ public class WaitingRoomFrame extends JFrame {
 
         if (server) {
 
-            if (!GameFrame.isRECOVER()) {
-                game_info_buyin.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                game_info_blinds.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-                game_info_hands.setToolTipText(Translator.translate("update.click_para_actualizar_datos_de"));
-
-            }
+            // (Se elimina el tooltip "Click para actualizar datos de la timba" de buyin/ciegas/manos:
+            // era obsoleto — clicar esos labels es un no-op desde que la config se edita en la rueda,
+            // pestaña Partida; ver game_info_buyinMouseClicked.)
 
             pass_icon.setVisible(true);
 

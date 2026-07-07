@@ -2997,6 +2997,8 @@ public class NewGameDialog extends JDialog {
         Helpers.setTranslatedToolTip(rit_checkbox, "tooltip.cfg.rit");
         Helpers.setTranslatedToolTip(rit_icon, "tooltip.cfg.rit");
         Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
+        Helpers.setTranslatedToolTip(rabbit_label, "tooltip.cfg.rabbit");
+        Helpers.setTranslatedToolTip(rabbit_icon, "tooltip.cfg.rabbit");
         Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
         Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");
         Helpers.setTranslatedToolTip(doblar_checkbox, "tooltip.cfg.double_blinds");

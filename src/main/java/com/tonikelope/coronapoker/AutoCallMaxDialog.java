@@ -180,21 +180,6 @@ public class AutoCallMaxDialog extends JDialog {
         refreshLabel.run();
         panel.add(enabled_check, gbc);
 
-        // "Sin límite": iguala cualquier importe (mapea a AUTO_CALL_MAX = 0). Con
-        // ella marcada, el spinner del tope se desactiva.
-        gbc.gridy++;
-        no_limit_check.setSelected(no_limit);
-        no_limit_check.setText(Translator.translate("auto_call.sin_limite"));
-        no_limit_check.putClientProperty("i18n.key", "auto_call.sin_limite");
-        no_limit_check.setFont(new Font("Dialog", Font.BOLD, 20));
-        no_limit_check.setBackground(Color.WHITE);
-        no_limit_check.setForeground(Color.DARK_GRAY);
-        no_limit_check.setHorizontalAlignment(SwingConstants.CENTER);
-        no_limit_check.setFocusable(false);
-        no_limit_check.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        no_limit_check.addActionListener((java.awt.event.ActionEvent e) -> refreshEnablement.run());
-        panel.add(no_limit_check, gbc);
-
         // Rótulo que aclara qué es el spinner: el importe MÁXIMO que se igualará
         // automáticamente al hacer call (con all-in, el propio stack).
         gbc.gridy++;
@@ -206,7 +191,18 @@ public class AutoCallMaxDialog extends JDialog {
         note.setFocusable(false);
         panel.add(note, gbc);
 
-        gbc.gridy++;
+        // "Sin límite" a la IZQUIERDA del spinner (misma fila). Marcada => iguala
+        // cualquier importe (mapea a AUTO_CALL_MAX = 0) y desactiva el spinner.
+        no_limit_check.setSelected(no_limit);
+        no_limit_check.setText(Translator.translate("auto_call.sin_limite"));
+        no_limit_check.putClientProperty("i18n.key", "auto_call.sin_limite");
+        no_limit_check.setFont(new Font("Dialog", Font.BOLD, 20));
+        no_limit_check.setBackground(Color.WHITE);
+        no_limit_check.setForeground(Color.DARK_GRAY);
+        no_limit_check.setFocusable(false);
+        no_limit_check.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        no_limit_check.addActionListener((java.awt.event.ActionEvent e) -> refreshEnablement.run());
+
         spinner.setModel(new SpinnerNumberModel(bd_current, STEP, null, STEP) {
             @Override
             public Object getNextValue() {
@@ -239,7 +235,14 @@ public class AutoCallMaxDialog extends JDialog {
         }
         Helpers.makeNumericSpinnerEditable(spinner, true);
         spinner.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        panel.add(spinner, gbc);
+
+        // Fila: "Sin límite" a la IZQUIERDA + spinner (editable) a la derecha.
+        JPanel spinner_row = new JPanel(new java.awt.BorderLayout(12, 0));
+        spinner_row.setOpaque(false);
+        spinner_row.add(no_limit_check, java.awt.BorderLayout.WEST);
+        spinner_row.add(spinner, java.awt.BorderLayout.CENTER);
+        gbc.gridy++;
+        panel.add(spinner_row, gbc);
 
         refreshEnablement.run();
 

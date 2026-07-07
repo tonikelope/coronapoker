@@ -368,7 +368,7 @@ public class StatsDialog extends JFrame {
         private_game_label.setIconTextGap(8);
         private_game_label.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 8, 4, 8));
         private_game_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        private_game_label.setToolTipText(Translator.translate("stats.quitar_privada"));
+        Helpers.setTranslatedToolTip(private_game_label, "stats.quitar_privada");
         private_game_label.setVisible(false);
 
         // Candado TACHADO (diagonal roja sobre lock.png) para las acciones de "quitar

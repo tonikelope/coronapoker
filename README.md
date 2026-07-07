@@ -82,6 +82,38 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
 | **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (high card → royal flush) so newcomers learn how rankings form, browsed with up/down keys |
 
+### 📜 Robert's Rules of Poker compliance
+
+CoronaPoker deliberately follows **Robert's Rules of Poker** — the de-facto standard cardroom rulebook — for every rule a digital game can meaningfully enforce. This isn't incidental: the betting engine cites specific rules directly in its source (`BetRules.java`). The table below maps the implementation to the rulebook's *play* rules. (The many casino-floor rules — rake and collection, cash on the table, physically protecting your hand, verbal-in-turn etiquette, foreign-language and waiting-list policy — govern a brick-and-mortar room and simply don't apply to a peer-to-peer digital table; the verifiable-deck protocol makes most of the frauds they exist to prevent impossible by construction.)
+
+| Rule | Robert's Rules | CoronaPoker |
+|---|---|---|
+| **Hole cards & deal order** | §5 — two hole cards, dealt one at a time starting left of the button; the button receives last | ✅ |
+| **Burn cards & board** | §5 — burn before flop/turn/river; flop of 3, turn 1, river 1; playing the board is allowed | ✅ |
+| **Button rotation** | §4 — moves one seat clockwise after each hand | ✅ |
+| **Dead button** | §4.2(b) — BB / SB / button adjust correctly when a player leaves | ✅ |
+| **Blind positions** | §4 — SB first clockwise from the button, BB second; preflop opens UTG, postflop opens the SB | ✅ |
+| **Heads-up** | §4.3 — the SB is *on* the button, acts first preflop and last postflop | ✅ |
+| **No-Limit raising** | §14.1–3 — unlimited raises; minimum bet = big blind; a raise must be ≥ the previous bet or raise | ✅ |
+| **Incomplete all-in** | §14.3 — an all-in for less than a full raise does **not** reopen the betting to players who already acted | ✅ |
+| **Aggregated short all-ins** | §14.4 — several short all-ins that together add up to a full raise **do** reopen the betting | ✅ |
+| **Straddle** | §14.15 — one optional live straddle, 2× BB, immediately left of the BB, sets a new bring-in | ✅ |
+| **Hand ranking & cards speak** | §3 — best five of seven, kicker tie-breaks, hands read for themselves | ✅ |
+| **Ties & suits** | §3 (Ties) — suits never break a tie for a pot | ✅ |
+| **Side pots** | §3 (Showdown 7) — each player only contests the portion of the pot they contributed to | ✅ |
+| **Showdown order** | §3 (Showdown 8) — last aggressor shows first; if checked down, first-to-act shows first | ✅ |
+| **Muck losing hands** | §3 (Showdown) — a beaten hand may be thrown away without showing (the *IWTSTH* toggle) | ✅ |
+| **Run it twice** | §14.17 — all-in players may agree to deal the board twice | ✅ |
+| **Action clock** | §14.16 — a time limit may be set; on time-out the hand is dead | ⚠️ *house tweak* |
+| **Odd chip** | §3 (Ties, 5a) — an indivisible odd chip goes to the first player clockwise from the button | ⚠️ *house rule* |
+
+**House-rule choices (deliberate deviations)**
+
+- **Odd chip →** instead of handing the indivisible cent to whoever sits next to the button, CoronaPoker carries it into a **shared carry-over pot that rolls into the next hand**. Money stays exact to the cent and no seat position ever gains from a split — a choice I consider fairer, and one Robert's Rules itself sanctions under §2 (House Policies, rule 1: *"Management reserves the right to make decisions in the spirit of fairness"*). The same carry-over pot also absorbs the leftover cent from a Run It Twice board split, which the rulebook doesn't address, so it stays a single, uniform mechanism.
+- **Action timeout →** where the rulebook always kills the hand on time-out, CoronaPoker **auto-checks when checking is free** and only auto-folds when there's a bet to call (the online-poker standard), and the clock itself is fully configurable or can be switched off.
+
+> 📄 The full rulebook ships with the game — read it here: **[Robert's Rules of Poker (PDF)](robert_rules.pdf)**.
+
 ---
 
 ## 🤖 Bots

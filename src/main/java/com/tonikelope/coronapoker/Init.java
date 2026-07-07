@@ -1828,7 +1828,10 @@ public class Init extends JFrame {
                     if (NEW_VERSION != null && !NEW_VERSION.isBlank()) {
                         VENTANA_INICIO.update_button.putClientProperty("i18n.key", "update.boton_hay_version_nueva");
                         VENTANA_INICIO.update_button.setText(Translator.translate("update.boton_hay_version_nueva"));
-                        VENTANA_INICIO.update_button.setForeground(new Color(0, 153, 0));
+                        // Amarillo brillante (no el verde oscuro previo): sobre el cristal negro de
+                        // GlassButtonUI el verde apenas contrastaba. La fuente ya es negrita (Dialog
+                        // BOLD 18, preservada por updateFonts/setScaledFont) como el resto de la botonera.
+                        VENTANA_INICIO.update_button.setForeground(new Color(255, 214, 0));
                         VENTANA_INICIO.update_button.setVisible(true);
                     } else if (NEW_VERSION == null) {
                         VENTANA_INICIO.update_button.putClientProperty("i18n.key", "update.boton_reintentar");

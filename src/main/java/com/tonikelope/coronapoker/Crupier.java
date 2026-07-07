@@ -13385,12 +13385,14 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             stats_ordenadas.sort((a, b) -> ((Integer[]) b[1])[1] - ((Integer[]) a[1])[1]);
 
             // Tabla MULTIVERSO del registro: cabecera + una fila por jugador,
-            // alineadas en columnas monospace (NICK | GANA | PIERDE | EMPATA | LOKI |
-            // MANO). Cada linea lleva el token "(MV)" para que el GameLogDialog la
-            // pinte atenuada y con las cartas como fichas (mismo offset que la tabla
-            // de cuentas). Las cartas van en la ULTIMA columna porque se renderizan
-            // como fichas de ancho variable y desalinearian cualquier columna
-            // posterior. Primera pasada: formatear porcentajes y medir anchos.
+            // alineadas en columnas monospace (JUGADA | NICK | GANA | PIERDE | EMPATA |
+            // LOKI | MANO). La primera columna es la jugada PARCIAL actual del jugador
+            // (nombre de la mano en ese punto del board). Cada linea lleva el token
+            // "(MV)" para que el GameLogDialog la pinte atenuada y con las cartas como
+            // fichas (mismo offset que la tabla de cuentas). Las cartas van en la ULTIMA
+            // columna porque se renderizan como fichas de ancho variable y desalinearian
+            // cualquier columna posterior. Primera pasada: formatear porcentajes y medir anchos.
+            String jugada_lbl = Translator.translate("ui.jugada");
             String gana_lbl = Translator.translate("ui.gana");
             String pierde_lbl = Translator.translate("ui.pierde");
             String empata_lbl = Translator.translate("ui.empata");
@@ -13398,6 +13400,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
             ArrayList<String[]> mv_filas = new ArrayList<>();
 
+            int mv_jugada_w = jugada_lbl.length();
             int mv_nick_w = "NICK".length();
             int mv_pct_w = Math.max(Math.max(gana_lbl.length(), pierde_lbl.length()),
                     Math.max(empata_lbl.length(), loki_lbl.length()));
@@ -13410,22 +13413,24 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 p.setJugadaParcial(manoParcial, ganadores.containsKey(p),
                         Helpers.floatClean(((float) (stats[1] + stats[3]) / stats[0]) * 100));
 
+                String jugada_s = manoParcial.getName() != null ? manoParcial.getName() : "";
                 String gana_s = multiversePct(((float) stats[1] / stats[0]) * 100);
                 String pierde_s = multiversePct(((float) stats[2] / stats[0]) * 100);
                 String empata_s = multiversePct(((float) stats[3] / stats[0]) * 100);
                 String loki_s = multiversePct(manoParcial.getFuerza());
 
+                mv_jugada_w = Math.max(mv_jugada_w, jugada_s.length());
                 mv_nick_w = Math.max(mv_nick_w, p.getNickname().length());
                 mv_pct_w = Math.max(mv_pct_w, Math.max(Math.max(gana_s.length(), pierde_s.length()),
                         Math.max(empata_s.length(), loki_s.length())));
 
-                mv_filas.add(new String[]{p.getNickname(), gana_s, pierde_s, empata_s, loki_s,
+                mv_filas.add(new String[]{jugada_s, p.getNickname(), gana_s, pierde_s, empata_s, loki_s,
                     Card.collection2String(p.getHoleCards())});
             }
 
             if (!mv_filas.isEmpty()) {
 
-                int[] mv_cols = {mv_nick_w, mv_pct_w, mv_pct_w, mv_pct_w, mv_pct_w};
+                int[] mv_cols = {mv_jugada_w, mv_nick_w, mv_pct_w, mv_pct_w, mv_pct_w, mv_pct_w};
 
                 // Titulo (una vez, encima del marco) + tabla con bordes. Las cartas
                 // van a la DERECHA del marco (son fichas de ancho variable, no
@@ -13436,6 +13441,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                 mv_tabla.append("\n(MV) ").append(gridBorderLine('┌', '┬', '┐', mv_cols))
                         .append("\n(MV) ").append(gridRowLine(
+                                String.format("%-" + mv_jugada_w + "s", jugada_lbl),
                                 String.format("%-" + mv_nick_w + "s", "NICK"),
                                 String.format("%" + mv_pct_w + "s", gana_lbl),
                                 String.format("%" + mv_pct_w + "s", pierde_lbl),
@@ -13452,12 +13458,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                     }
                     mv_first = false;
                     mv_tabla.append("\n(MV) ").append(gridRowLine(
-                            String.format("%-" + mv_nick_w + "s", f[0]),
-                            String.format("%" + mv_pct_w + "s", f[1]),
+                            String.format("%-" + mv_jugada_w + "s", f[0]),
+                            String.format("%-" + mv_nick_w + "s", f[1]),
                             String.format("%" + mv_pct_w + "s", f[2]),
                             String.format("%" + mv_pct_w + "s", f[3]),
-                            String.format("%" + mv_pct_w + "s", f[4])))
-                            .append(" ").append(f[5]);
+                            String.format("%" + mv_pct_w + "s", f[4]),
+                            String.format("%" + mv_pct_w + "s", f[5])))
+                            .append(" ").append(f[6]);
                 }
 
                 mv_tabla.append("\n(MV) ").append(gridBorderLine('└', '┴', '┘', mv_cols));

@@ -2987,11 +2987,15 @@ public class NewGameDialog extends JDialog {
     // SOBREESCRIBE cualquier setToolTipText hardcodeado dentro de initComponents.
     private void setupTooltips() {
         Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
+        Helpers.setTranslatedToolTip(limite_manos_label, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(manos_spinner, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(think_time_checkbox, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(think_time_label, "tooltip.cfg.think_time");
         Helpers.setTranslatedToolTip(think_time_spinner, "tooltip.cfg.think_time");
         Helpers.setTranslatedToolTip(iwtsth_checkbox, "tooltip.cfg.iwtsth");
+        Helpers.setTranslatedToolTip(iwtsth_icon, "tooltip.cfg.iwtsth");
         Helpers.setTranslatedToolTip(rit_checkbox, "tooltip.cfg.rit");
+        Helpers.setTranslatedToolTip(rit_icon, "tooltip.cfg.rit");
         Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
         Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
         Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");
@@ -3004,12 +3008,14 @@ public class NewGameDialog extends JDialog {
         Helpers.setTranslatedToolTip(buyin_min_bb_spinner, "tooltip.buyin_range");
         Helpers.setTranslatedToolTip(buyin_max_bb_spinner, "tooltip.buyin_range");
         Helpers.setTranslatedToolTip(rebuy_checkbox, "tooltip.rebuy_description");
+        Helpers.setTranslatedToolTip(recomprar_label, "tooltip.rebuy_description");
         Helpers.setTranslatedToolTip(rebuy_limit_checkbox, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(rebuy_limit_spinner, "tooltip.cfg.rebuy_limit");
         Helpers.setTranslatedToolTip(bot_rebuy_checkbox, "tooltip.cfg.bot_rebuy");
         Helpers.setTranslatedToolTip(bots_combobox, "tooltip.cfg.bots");
         Helpers.setTranslatedToolTip(nick_label, "tooltip.change_avatar");
         Helpers.setTranslatedToolTip(recover_checkbox, "tooltip.cfg.recover");
+        Helpers.setTranslatedToolTip(recover_checkbox_label, "tooltip.cfg.recover");
         // rebuy_cap_combo ya tiene su tooltip propio ("rebuy.tope_recompra_tooltip") en initComponents.
     }
 

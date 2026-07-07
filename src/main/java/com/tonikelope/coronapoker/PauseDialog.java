@@ -41,6 +41,12 @@ public class PauseDialog extends JDialog {
     private volatile Timer timer = null;
     private volatile Float last_zoom = null;
 
+    // El diálogo de pausa se muestra como un BANNER a todo el ancho del frame del juego: fuente
+    // notablemente más grande que el diseño original (52pt) para que "TIMBA PAUSADA" llene la franja.
+    private static final float PAUSE_LABEL_FONT_SCALE = 1.8f;
+    // Alto de la franja como múltiplo del alto natural del contenido (texto + márgenes).
+    private static final float BANNER_HEIGHT_FACTOR = 1.4f;
+
     /**
      * Creates new form Pausa
      */
@@ -48,6 +54,10 @@ public class PauseDialog extends JDialog {
         super(parent, modal);
 
         initComponents();
+
+        // Fuente del banner MÁS GRANDE. Se agranda ANTES de preserveOriginalFontSizes para que el
+        // sistema de zoom del juego la capture como tamaño base y la escale de forma coherente.
+        pausa_label.setFont(pausa_label.getFont().deriveFont(pausa_label.getFont().getSize2D() * PAUSE_LABEL_FONT_SCALE));
 
         last_zoom = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
@@ -63,6 +73,18 @@ public class PauseDialog extends JDialog {
 
         pack();
 
+        // Encima de todo mientras dura la pausa y con formato de banner (ancho completo).
+        setAlwaysOnTop(true);
+
+        // Franja semitransparente (90% de opacidad) para dejar entrever el tapete. La ventana es
+        // undecorated, requisito de setOpacity; se protege por si la plataforma no lo soporta.
+        try {
+            setOpacity(0.9f);
+        } catch (Exception | Error ex) {
+        }
+
+        applyBannerBounds();
+
         timer = new Timer(1000, (ActionEvent ae) -> {
             pausa_label.setVisible(!pausa_label.isVisible());
             if (pausa_label.isVisible()) {
@@ -74,13 +96,29 @@ public class PauseDialog extends JDialog {
                         Helpers.GUIRun(() -> {
                             pack();
                             Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
-                            pack();
-                            Helpers.setLocationContainerRelativeTo(getParent(), this);
+                            // Re-aplica el formato de banner (ancho completo + doble alto + centrado):
+                            // el pack() de arriba habria vuelto al tamaño del contenido.
+                            applyBannerBounds();
                         });
                     });
                 }
             }
         });
+    }
+
+    // Tamaño/posición del diálogo de pausa como BANNER: ancho = TODO el ancho del frame del juego
+    // (parent) y alto = el DOBLE del que necesita su contenido; centrado sobre el parent. El texto
+    // (pausa_label, alineado CENTER y estirado por el layout) queda centrado H y V dentro de la
+    // franja. Hace su propio pack() primero, así es idempotente (siempre 2× del contenido, no del
+    // tamaño ya agrandado) y sirve tanto al crear como al recomponer por cambio de zoom.
+    private void applyBannerBounds() {
+        java.awt.Container parent = getParent();
+        if (parent == null || parent.getWidth() <= 0 || parent.getHeight() <= 0) {
+            return;
+        }
+        pack();
+        setSize(parent.getWidth(), Math.round(getHeight() * BANNER_HEIGHT_FACTOR));
+        setLocationRelativeTo(parent);
     }
 
     /**

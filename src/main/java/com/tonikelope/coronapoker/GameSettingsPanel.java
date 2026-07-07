@@ -86,11 +86,15 @@ public class GameSettingsPanel extends javax.swing.JPanel {
     // configuración cuya función no es obvia por su etiqueta. Se llama tras initComponents().
     private void setupTooltips() {
         Helpers.setTranslatedToolTip(manos_checkbox, "tooltip.cfg.hand_limit");
+        Helpers.setTranslatedToolTip(manos_label, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(manos_spinner, "tooltip.cfg.hand_limit");
         Helpers.setTranslatedToolTip(think_time_checkbox, "tooltip.cfg.think_time");
+        Helpers.setTranslatedToolTip(think_time_label, "tooltip.cfg.think_time");
         Helpers.setTranslatedToolTip(think_time_spinner, "tooltip.cfg.think_time");
         Helpers.setTranslatedToolTip(iwtsth_checkbox, "tooltip.cfg.iwtsth");
+        Helpers.setTranslatedToolTip(iwtsth_label, "tooltip.cfg.iwtsth");
         Helpers.setTranslatedToolTip(rit_checkbox, "tooltip.cfg.rit");
+        Helpers.setTranslatedToolTip(rit_label, "tooltip.cfg.rit");
         Helpers.setTranslatedToolTip(rabbit_combo, "tooltip.cfg.rabbit");
         Helpers.setTranslatedToolTip(estructura_combobox, "tooltip.cfg.structure");
         Helpers.setTranslatedToolTip(ciegas_combobox, "tooltip.cfg.blinds_level");

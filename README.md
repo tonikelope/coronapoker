@@ -54,7 +54,7 @@ Pure P2P, no central servers, no accounts and no third party logs. Your game exi
 - **Smart reconnection**: if a player drops, a 45-second base grace window holds their seat. Once the peer's reauthenticated reconnect intent reaches the host, the window extends to 80 seconds so a flaky link gets a real second chance before the table asks whether to remove them.
 - **Crash recovery**: every hand is checkpointed to a local **SQLite** database (per-action history, balances, dealer/SB/BB, crypto fossil with the full cascaded deck and the keys you'd need to re-derive your hole cards), so a game can resume from the exact stop point after a crash, power loss or reboot, for both host and clients.
 - **Late-joiner observer mode**: a player invited mid-recovery watches the in-progress hand as a passive spectator (no cards dealt, no actions requested) and joins normally on the next hand.
-- **Recent-server list**: persisted history of past tables. Browse it with ↑/↓ in the Join dialog to reconnect to anyone you've played with before.
+- **Recent-server list**: persisted history of past tables. Browse it with the up and down arrow keys in the Join dialog to reconnect to anyone you've played with before.
 - **Per-peer link telemetry**: host tracks round-trip latency and reconnection count per seat and broadcasts it so flaky links surface early.
 - **Anti-flood chat**: 0.5-second minimum between chat messages (client-side throttle on the sender's input).
 
@@ -72,53 +72,53 @@ A rules-correct No-Limit Hold'em implementation, focused on private home games r
 | **Action timer** | Per-turn thinking time with on-screen countdown bar |
 | **Buy-in** | Fixed (everyone starts with the same stack) or variable, where each player chooses their own when they sit down. The host sets the allowed range in big blinds and a per-table stack ceiling nobody can ever exceed. |
 | **Rebuy** | Mid-game top-up scheduled for the next hand, host-toggleable. Optional per-player rebuy limit, a stack-ceiling policy (capped at the table buy-in or at the current biggest stack) and a separate toggle for whether bots rebuy. |
-| **Blinds** | Adjustable by the host live, either a manual change or scheduled escalation, with optional custom blind structures (your own saved ladders of small/big blind levels, big blind free of the 2× default) and an optional cap that stops them climbing past a chosen big blind. Money resolves to the cent and blinds move in 0.05 steps, with exact accounting even on deep-stack tables. |
-| **Ante & Straddle** | Two optional extra bets, off by default and host-toggleable. **Ante**: every active player posts a small dead-money ante (equal to the small blind) into the pot before the blinds. **Straddle** is **voluntary**: right after the deal, with their cards still face down and a 10-second timer (declined by default), the under-the-gun player is asked whether to post a live 2× big blind. If they post it, it buys the option to act last preflop (the "gun" moves on to the real first-to-act). If they decline, their hand simply begins as a normal turn. Both flash chips into the pot like any bet and are flagged on the felt and in the game log. |
+| **Blinds** | Adjustable by the host live, either a manual change or scheduled escalation, with optional custom blind structures (your own saved ladders of small/big blind levels, big blind free of the 2x default) and an optional cap that stops them climbing past a chosen big blind. Money resolves to the cent and blinds move in 0.05 steps, with exact accounting even on deep-stack tables. |
+| **Ante & Straddle** | Two optional extra bets, off by default and host-toggleable. **Ante**: every active player posts a small dead-money ante (equal to the small blind) into the pot before the blinds. **Straddle** is **voluntary**: right after the deal, with their cards still face down and a 10-second timer (declined by default), the under-the-gun player is asked whether to post a live 2x big blind. If they post it, it buys the option to act last preflop (the "gun" moves on to the real first-to-act). If they decline, their hand simply begins as a normal turn. Both flash chips into the pot like any bet and are flagged on the felt and in the game log. |
 | **Saved game presets** | Save an entire new-table setup (initial blinds and the chosen structure, buy-in, rebuy, blind increase/cap, hand limit, ante, straddle and bot difficulty) as a named profile and reload it in one click, just like custom blind ladders. A "Default" entry restores the factory setup. |
 | **Pause & join** | Pause anytime. New players can be added to a running session |
 | **IWTSTH** | "I Want To See That Hand"  |
 | **Rabbit Hunting** | Reveal what would have come on the remaining streets, toggleable |
 | **Run It Twice** | On a multi-way all-in, the involved players vote to deal the remaining board twice and split each (side)pot between the two run-outs. Unanimous (a single NORMAL vote, or a vote timeout, cancels it), host-toggleable. |
 | **Spectator mode** | Busted-out players can stay at the table and watch the rest of the session |
-| **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (high card → royal flush) so newcomers learn how rankings form, browsed with up/down keys |
+| **Hand generator** | Beginner-friendly tool: shows random example deals for each hand category (from high card up to royal flush) so newcomers learn how rankings form, browsed with up/down keys |
 
 ### 📜 Robert's Rules of Poker compliance
 
-CoronaPoker deliberately follows **Robert's Rules of Poker** — the de-facto standard cardroom rulebook — for every rule a digital game can meaningfully enforce. This isn't incidental: the betting engine cites specific rules directly in its source (`BetRules.java`). The table below maps the implementation to the rulebook's *play* rules. (The many casino-floor rules — rake and collection, cash on the table, physically protecting your hand, verbal-in-turn etiquette, foreign-language and waiting-list policy — govern a brick-and-mortar room and simply don't apply to a peer-to-peer digital table; the verifiable-deck protocol makes most of the frauds they exist to prevent impossible by construction.)
+CoronaPoker deliberately follows **Robert's Rules of Poker**, the de-facto standard cardroom rulebook, for every rule a digital game can meaningfully enforce. And it's not just talk: the betting engine cites the specific rules right in its source (`BetRules.java`). The table below maps the implementation to the rulebook's *play* rules. (A lot of the casino-floor rules only make sense in a brick-and-mortar room and simply don't apply to a peer-to-peer digital table: rake and collection, cash on the table, physically protecting your hand, verbal-in-turn etiquette, foreign-language and waiting-list policy. On top of that, the verifiable-deck protocol already makes most of the frauds they exist to prevent impossible by construction.)
 
 | Rule | Robert's Rules | CoronaPoker |
 |---|---|---|
-| **Hole cards & deal order** | §5 — two hole cards, dealt one at a time starting left of the button; the button receives last | ✅ |
-| **Burn cards & board** | §5 — burn before flop/turn/river; flop of 3, turn 1, river 1; playing the board is allowed | ✅ |
-| **Button rotation** | §4 — moves one seat clockwise after each hand | ✅ |
-| **Dead button** | §4.2(b) — BB / SB / button adjust correctly when a player leaves | ✅ |
-| **Blind positions** | §4 — SB first clockwise from the button, BB second; preflop opens UTG, postflop opens the SB | ✅ |
-| **Heads-up** | §4.3 — the SB is *on* the button, acts first preflop and last postflop | ✅ |
-| **No-Limit raising** | §14.1–3 — unlimited raises; minimum bet = big blind; a raise must be ≥ the previous bet or raise | ✅ |
-| **Incomplete all-in** | §14.3 — an all-in for less than a full raise does **not** reopen the betting to players who already acted | ✅ |
-| **Aggregated short all-ins** | §14.4 — several short all-ins that together add up to a full raise **do** reopen the betting | ✅ |
-| **Straddle** | §14.15 — one optional live straddle, 2× BB, immediately left of the BB, sets a new bring-in | ✅ |
-| **Hand ranking & cards speak** | §3 — best five of seven, kicker tie-breaks, hands read for themselves | ✅ |
-| **Ties & suits** | §3 (Ties) — suits never break a tie for a pot | ✅ |
-| **Side pots** | §3 (Showdown 7) — each player only contests the portion of the pot they contributed to | ✅ |
-| **Showdown order** | §3 (Showdown 8) — last aggressor shows first; if checked down, first-to-act shows first | ✅ |
-| **Muck losing hands** | §3 (Showdown) — a beaten hand may be thrown away without showing (the *IWTSTH* toggle) | ✅ |
-| **Run it twice** | §14.17 — all-in players may agree to deal the board twice | ✅ |
-| **Action clock** | §14.16 — a time limit may be set; on time-out the hand is dead | ⚠️ *house tweak* |
-| **Odd chip** | §3 (Ties, 5a) — an indivisible odd chip goes to the first player clockwise from the button | ⚠️ *house rule* |
+| **Hole cards & deal order** | §5: two hole cards, dealt one at a time starting left of the button, and the button gets the last one | ✅ |
+| **Burn cards & board** | §5: burn before flop, turn and river, then a flop of 3, turn 1 and river 1. Playing the board is allowed | ✅ |
+| **Button rotation** | §4: moves one seat clockwise after each hand | ✅ |
+| **Dead button** | §4.2(b): BB, SB and button adjust correctly when a player leaves | ✅ |
+| **Blind positions** | §4: SB first clockwise from the button, BB second. Preflop opens UTG, postflop opens the SB | ✅ |
+| **Heads-up** | §4.3: the SB is *on* the button, acts first preflop and last postflop | ✅ |
+| **No-Limit raising** | §14.1-3: unlimited raises, minimum bet equals the big blind, and a raise must be at least the previous bet or raise | ✅ |
+| **Incomplete all-in** | §14.3: an all-in for less than a full raise does **not** reopen the betting to players who already acted | ✅ |
+| **Aggregated short all-ins** | §14.4: several short all-ins that together add up to a full raise **do** reopen the betting | ✅ |
+| **Straddle** | §14.15: one optional live straddle, 2x BB, immediately left of the BB, sets a new bring-in | ✅ |
+| **Hand ranking & cards speak** | §3: best five of seven, kicker tie-breaks, hands read for themselves | ✅ |
+| **Ties & suits** | §3 (Ties): suits never break a tie for a pot | ✅ |
+| **Side pots** | §3 (Showdown 7): each player only contests the portion of the pot they contributed to | ✅ |
+| **Showdown order** | §3 (Showdown 8): last aggressor shows first, and if it was checked down, first-to-act shows first | ✅ |
+| **Muck losing hands** | §3 (Showdown): a beaten hand may be thrown away without showing (the *IWTSTH* toggle) | ✅ |
+| **Run it twice** | §14.17: all-in players may agree to deal the board twice | ✅ |
+| **Action clock** | §14.16: a time limit may be set, and on time-out the hand is dead | ⚠️ *house tweak* |
+| **Odd chip** | §3 (Ties, 5a): an indivisible odd chip goes to the first player clockwise from the button | ⚠️ *house rule* |
 
 **House-rule choices (deliberate deviations)**
 
-- **Odd chip →** instead of handing the indivisible cent to whoever sits next to the button, CoronaPoker carries it into a **shared carry-over pot that rolls into the next hand**. Money stays exact to the cent and no seat position ever gains from a split — a choice I consider fairer, and one Robert's Rules itself sanctions under §2 (House Policies, rule 1: *"Management reserves the right to make decisions in the spirit of fairness"*). The same carry-over pot also absorbs the leftover cent from a Run It Twice board split, which the rulebook doesn't address, so it stays a single, uniform mechanism.
-- **Action timeout →** where the rulebook always kills the hand on time-out, CoronaPoker **auto-checks when checking is free** and only auto-folds when there's a bet to call (the online-poker standard), and the clock itself is fully configurable or can be switched off.
+- **Odd chip.** Instead of handing the indivisible cent to whoever sits next to the button, CoronaPoker carries it into a **shared carry-over pot that rolls into the next hand**. Money stays exact to the cent and no seat position ever gains from a split. I find that fairer, and it's something Robert's Rules itself sanctions under §2 (House Policies, rule 1: *"Management reserves the right to make decisions in the spirit of fairness"*). The same carry-over pot also absorbs the leftover cent from a Run It Twice board split, which the rulebook doesn't address, so it all stays a single, uniform mechanism.
+- **Action timeout.** Where the rulebook always kills the hand on time-out, CoronaPoker **auto-checks when checking is free** and only auto-folds when there's a bet to call (the online-poker standard). The clock itself is fully configurable, and you can switch it off entirely.
 
-> 📄 The full rulebook ships with the game — read it here: **[Robert's Rules of Poker (PDF)](robert_rules.pdf)**.
+> 📄 The full rulebook ships with the game. Read it here: **[Robert's Rules of Poker (PDF)](robert_rules.pdf)**.
 
 ---
 
 ## 🤖 Bots
 
-Not the fold-everything kind. CoronaPoker bots play like real opponents.
+These aren't the fold-everything-and-wait kind. CoronaPoker bots play like real opponents.
 
 - **3 difficulty levels** (Easy, Medium, Hard), each clearly distinguishable within a single session
 - **3 skill tiers** assigned per bot, weighted by difficulty:
@@ -153,7 +153,7 @@ A side panel for sending quick messages mid-hand without leaving the action, wit
 Walkie-talkie style, push-to-record: **hold a key (F9 by default, rebindable), speak, release to send**. The on-screen recording banner only appears once the microphone is actually capturing (when you see it, nothing you say can be lost), with a draining countdown bar (15 seconds max, auto-send at the cap). While you record, **all local game audio is silenced** so your mic picks up your voice and nothing else. The note travels to every player through the same end-to-end encrypted channel as the chat and plays automatically on arrival (music ducks under the voice, the speaker's avatar lights up), including on your own machine as send confirmation. Every note also lands in the chat history as a clickable **[Voice message]** entry. Click it (or its emoji) to replay anytime. The line turns into *[Playing...]* while it sounds, and clicking another note switches to it. Notes are kept locally under `.coronapoker/voice/` as standard WAV files. The whole feature is **host-toggleable per game** (the rule survives stop & recover) and respects per-player muting.
 
 ### 🔊 Audio settings
-Right-click any speaker icon for the audio settings dialog: **master volume** (two-way synced with the global Shift+↑/↓ shortcut, persisted across sessions), **output device** selection with instant hot-switching (background music jumps to the new device immediately), and **microphone** enablement, device selection and push-to-record key binding for voice messages.
+Right-click any speaker icon for the audio settings dialog: **master volume** (two-way synced with the global Shift + Up/Down shortcut, persisted across sessions), **output device** selection with instant hot-switching (background music jumps to the new device immediately), and **microphone** enablement, device selection and push-to-record key binding for voice messages.
 
 ### Player avatars
 Each player picks a local **avatar image** (or falls back to a built-in default) that the host distributes to the rest of the table at join time. Bots use a dedicated bot avatar. Avatars are decorative, not authoritative. Identity binding lives in the Ed25519 keypair (see the Security section), and a separate **identicon dialog** lets you compare deterministic mosaics out-of-band: at the table, click a player's avatar for their **Ed25519 pubkey** identicon (with a TOFU "mark verified" button to remember future connections). In the waiting room, right-click your own nick for the **session-key (AES channel)** identicon used to detect a network MITM.
@@ -219,7 +219,7 @@ Every visual and audio asset is replaceable through redistributable MOD packs:
 
 ## 🏗️ Architecture
 
-A high-level map of how the whole app fits together, covering the launch flow, the runtime core (`GameFrame` ⇄ `Crupier`), the engine subsystems that hang off it, and the shared `Helpers` foundation:
+A high-level map of how the whole app fits together, covering the launch flow, the runtime core (`GameFrame` talking to `Crupier`), the engine subsystems that hang off it, and the shared `Helpers` foundation:
 
 ![CoronaPoker module map](docs/diagrams/coronapoker-module-map.png)
 

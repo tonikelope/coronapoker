@@ -162,7 +162,7 @@ the mistake layer (§8). `computeRawDecision` splits on the street.
 ### 5.1 Preflop
 
 `calculatePreflopAction` classifies the hole cards into one of **five tiers**
-(`evaluateHandTier`: 1 = premium pairs / AK, … 5 = trash) and then chooses an
+(`evaluateHandTier`: 1 = premium pairs / AK, up to 5 = trash) and then chooses an
 action from **position × profile × bet level**:
 
 - **Open / fold** by position (EARLY/MIDDLE/LATE/BLINDS) and profile, with NITs
@@ -359,7 +359,7 @@ game jar) and is documented in
 
 Because the harness depends on the installed game artifact, the workflow is
 `mvn install -DskipTests` from the repo root, then `mvn -o test` inside
-`tools/qa` (optionally with `-Dqa.sessions=… -Dqa.hands=…` to scale the volume).
+`tools/qa` (optionally with `-Dqa.sessions=N -Dqa.hands=M` to scale the volume).
 
 > Hard-won rule: a finding that is *technically* a bug is not necessarily worth
 > "fixing". The loose, fixed-strength preflop calls that make EASY/MEDIUM feel

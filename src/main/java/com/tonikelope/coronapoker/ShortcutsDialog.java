@@ -1,15 +1,15 @@
 /*
  * Copyright (C) 2020 tonikelope
- _              _ _        _                  
-| |_ ___  _ __ (_) | _____| | ___  _ __   ___ 
+ _              _ _        _
+| |_ ___  _ __ (_) | _____| | ___  _ __   ___
 | __/ _ \| '_ \| | |/ / _ \ |/ _ \| '_ \ / _ \
 | || (_) | | | | |   <  __/ | (_) | |_) |  __/
  \__\___/|_| |_|_|_|\_\___|_|\___/| .__/ \___|
- ____    ___  ____    ___  
-|___ \  / _ \|___ \  / _ \ 
+ ____    ___  ____    ___
+|___ \  / _ \|___ \  / _ \
   __) || | | | __) || | | |
  / __/ | |_| |/ __/ | |_| |
-|_____| \___/|_____| \___/ 
+|_____| \___/|_____| \___/
 
 https://github.com/tonikelope/coronapoker
  *
@@ -28,451 +28,276 @@ https://github.com/tonikelope/coronapoker
  */
 package com.tonikelope.coronapoker;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.RenderingHints;
+import java.awt.Toolkit;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.SwingConstants;
 
 /**
+ * Diálogo de ATAJOS DE TECLADO, hand-coded (sin .form): tema oscuro, atajos agrupados por secciones
+ * y cada tecla dibujada como una "tecla" física (KeyCapLabel, recuadro redondeado). El contenido se
+ * genera a partir de la tabla SECTIONS, con textos i18n (shortcuts.*), así que añadir/quitar un atajo
+ * es tocar una fila. Sigue implementando ZoomableInterface para escalar con el zoom del juego.
  *
  * @author tonikelope
  */
 public class ShortcutsDialog extends JDialog implements ZoomableInterface {
 
-    /**
-     * Creates new form ShortcutsDialog
-     */
+    // Paleta oscura (consola) coherente con el registro / la estética reciente.
+    private static final Color BG = new Color(22, 22, 26);
+    private static final Color HEADER_BG = new Color(38, 38, 45);
+    private static final Color SECTION_FG = new Color(120, 205, 235);
+    private static final Color ACTION_FG = new Color(222, 224, 230);
+    private static final Color SEP_FG = new Color(120, 122, 132);
+    private static final Color KEY_BG = new Color(52, 54, 63);
+    private static final Color KEY_BG2 = new Color(38, 40, 48);
+    private static final Color KEY_BORDER = new Color(96, 99, 112);
+    private static final Color KEY_FG = new Color(238, 240, 245);
+
+    private static final Font HEADER_FONT = new Font("Dialog", Font.BOLD, 22);
+    private static final Font SECTION_FONT = new Font("Dialog", Font.BOLD, 15);
+    private static final Font ACTION_FONT = new Font("Dialog", Font.PLAIN, 16);
+    private static final Font KEY_FONT = new Font("Dialog", Font.BOLD, 13);
+    private static final Font SEP_FONT = new Font("Dialog", Font.BOLD, 15);
+
+    // Contenido: {claveSección, filas[]}, y cada fila {claveAcción, gruposDeTeclas[][]}. Dentro de un
+    // grupo las teclas se unen con "+"; grupos distintos (p. ej. TAB / SHIFT+TAB) se separan con aire.
+    private static final Object[][] SECTIONS = {
+        {"shortcuts.sec_game", new Object[][]{
+            {"shortcuts.act_pause", new String[][]{{"ALT", "P"}}},
+            {"shortcuts.act_fullscreen", new String[][]{{"ALT", "F"}}},
+            {"shortcuts.act_compact", new String[][]{{"ALT", "X"}}},
+            {"shortcuts.act_lights", new String[][]{{"ALT", "L"}}},
+            {"shortcuts.act_halt", new String[][]{{"ALT", "H"}}},
+            {"shortcuts.act_refresh", new String[][]{{"F5"}}},
+            {"shortcuts.act_latency", new String[][]{{"F7"}}},
+            {"shortcuts.act_clock", new String[][]{{"ALT", "W"}}},
+            {"shortcuts.act_log", new String[][]{{"ALT", "R"}}},
+            {"shortcuts.act_chat", new String[][]{{"ALT", "C"}}},
+            {"shortcuts.act_buyin", new String[][]{{"S"}}},
+            {"shortcuts.act_quit", new String[][]{{"CTRL", "Q"}}},
+            {"shortcuts.act_force", new String[][]{{"CTRL", "ALT", "ESC"}}}
+        }},
+        {"shortcuts.sec_bet", new Object[][]{
+            {"shortcuts.act_check", new String[][]{{"SPACE"}}},
+            {"shortcuts.act_fold", new String[][]{{"ESC"}}},
+            {"shortcuts.act_bet", new String[][]{{"↑"}, {"↓"}, {"←"}, {"→"}}},
+            {"shortcuts.act_confirm", new String[][]{{"ENTER"}}},
+            {"shortcuts.act_allin", new String[][]{{"SHIFT", "ENTER"}}}
+        }},
+        {"shortcuts.sec_view", new Object[][]{
+            {"shortcuts.act_zoomin", new String[][]{{"CTRL", "+"}}},
+            {"shortcuts.act_zoomout", new String[][]{{"CTRL", "-"}}},
+            {"shortcuts.act_zoomreset", new String[][]{{"CTRL", "0"}}},
+            {"shortcuts.act_zoomwheel", new String[][]{{"CTRL", "↕"}}}
+        }},
+        {"shortcuts.sec_audio", new Object[][]{
+            {"shortcuts.act_mute", new String[][]{{"ALT", "S"}}},
+            {"shortcuts.act_volup", new String[][]{{"SHIFT", "↑"}}},
+            {"shortcuts.act_voldown", new String[][]{{"SHIFT", "↓"}}},
+            {"shortcuts.act_voice", new String[][]{{"F9"}}}
+        }},
+        {"shortcuts.sec_chat", new Object[][]{
+            {"shortcuts.act_fastchat", new String[][]{{"º"}}},
+            {"shortcuts.act_history", new String[][]{{"↑"}, {"↓"}}}
+        }},
+        {"shortcuts.sec_img", new Object[][]{
+            {"shortcuts.act_images", new String[][]{{"1"}}},
+            {"shortcuts.act_imgnav", new String[][]{{"TAB"}, {"SHIFT", "TAB"}}},
+            {"shortcuts.act_imgsend", new String[][]{{"S"}}},
+            {"shortcuts.act_imgdel", new String[][]{{"BACK"}}}
+        }}
+    };
+
     public ShortcutsDialog(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
-        initComponents();
+        buildUI();
         Helpers.setTranslatedTitle(this, "ui.atajos");
         Helpers.preserveOriginalFontSizes(this);
         Helpers.updateFonts(this, Helpers.GUI_FONT, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
         Helpers.translateComponents(this, false);
         pack();
+        capSize();
     }
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
+    private void buildUI() {
+        getContentPane().removeAll();
+        getContentPane().setBackground(BG);
+        getContentPane().setLayout(new BorderLayout());
 
-        jPanel1 = new javax.swing.JPanel();
-        jPanel3 = new javax.swing.JPanel();
-        jLabel14 = new javax.swing.JLabel();
-        jLabel15 = new javax.swing.JLabel();
-        jLabel16 = new javax.swing.JLabel();
-        jLabel17 = new javax.swing.JLabel();
-        jLabel18 = new javax.swing.JLabel();
-        jLabel19 = new javax.swing.JLabel();
-        jLabel20 = new javax.swing.JLabel();
-        jLabel21 = new javax.swing.JLabel();
-        jLabel22 = new javax.swing.JLabel();
-        jLabel23 = new javax.swing.JLabel();
-        jLabel24 = new javax.swing.JLabel();
-        jLabel25 = new javax.swing.JLabel();
-        jPanel2 = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
-        jLabel3 = new javax.swing.JLabel();
-        jLabel4 = new javax.swing.JLabel();
-        jLabel5 = new javax.swing.JLabel();
-        jLabel6 = new javax.swing.JLabel();
-        jLabel7 = new javax.swing.JLabel();
-        jLabel8 = new javax.swing.JLabel();
-        jLabel9 = new javax.swing.JLabel();
-        jLabel10 = new javax.swing.JLabel();
-        jLabel11 = new javax.swing.JLabel();
-        jLabel12 = new javax.swing.JLabel();
-        jLabel13 = new javax.swing.JLabel();
+        JLabel header = new JLabel("", SwingConstants.CENTER);
+        Helpers.setTranslatedText(header, "shortcuts.title");
+        header.setForeground(Color.WHITE);
+        header.setFont(HEADER_FONT);
+        header.setOpaque(true);
+        header.setBackground(HEADER_BG);
+        header.setBorder(BorderFactory.createEmptyBorder(14, 20, 12, 20));
+        getContentPane().add(header, BorderLayout.NORTH);
 
-        setTitle("Atajos");
-        setAutoRequestFocus(false);
-        setFocusCycleRoot(false);
-        setFocusable(false);
-        setFocusableWindowState(false);
-        setResizable(false);
+        JPanel content = new JPanel(new GridBagLayout());
+        content.setBackground(BG);
+        GridBagConstraints gbc = new GridBagConstraints();
+        int row = 0;
+        boolean first = true;
 
-        jPanel1.setFocusable(false);
+        for (Object[] section : SECTIONS) {
+            JLabel sec = new JLabel();
+            Helpers.setTranslatedText(sec, (String) section[0]);
+            sec.setForeground(SECTION_FG);
+            sec.setFont(SECTION_FONT);
+            gbc.gridx = 0;
+            gbc.gridy = row++;
+            gbc.gridwidth = 2;
+            gbc.weightx = 1;
+            gbc.anchor = GridBagConstraints.WEST;
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+            gbc.insets = new Insets(first ? 12 : 22, 18, 6, 18);
+            content.add(sec, gbc);
+            first = false;
 
-        jLabel14.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel14.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel14.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel14.setText("PASAR / IR / MOSTRAR");
-        jLabel14.putClientProperty("i18n.key", "action.pasar_ir_mostrar");
-        jLabel14.setFocusable(false);
-        jLabel14.setOpaque(true);
+            for (Object[] r : (Object[][]) section[1]) {
+                JLabel act = new JLabel();
+                Helpers.setTranslatedText(act, (String) r[0]);
+                act.setForeground(ACTION_FG);
+                act.setFont(ACTION_FONT);
+                gbc.gridx = 0;
+                gbc.gridy = row;
+                gbc.gridwidth = 1;
+                gbc.weightx = 1;
+                gbc.anchor = GridBagConstraints.WEST;
+                gbc.fill = GridBagConstraints.HORIZONTAL;
+                gbc.insets = new Insets(3, 32, 3, 26);
+                content.add(act, gbc);
 
-        jLabel15.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel15.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel15.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel15.setText("SUBIR/BAJAR APUESTA -> OK");
-        jLabel15.putClientProperty("i18n.key", "action.subirbajar_apuesta_ok");
-        jLabel15.setFocusable(false);
-        jLabel15.setOpaque(true);
+                gbc.gridx = 1;
+                gbc.weightx = 0;
+                gbc.anchor = GridBagConstraints.EAST;
+                gbc.fill = GridBagConstraints.NONE;
+                gbc.insets = new Insets(3, 0, 3, 18);
+                content.add(keysPanel((String[][]) r[1]), gbc);
+                row++;
+            }
+        }
 
-        jLabel16.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel16.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel16.setText("ALL IN");
-        jLabel16.putClientProperty("i18n.key", "action.label.allin");
-        jLabel16.setFocusable(false);
-        jLabel16.setOpaque(true);
+        JScrollPane sp = new JScrollPane(content, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        sp.setBorder(null);
+        sp.getViewport().setBackground(BG);
+        sp.getVerticalScrollBar().setUnitIncrement(16);
+        getContentPane().add(sp, BorderLayout.CENTER);
+    }
 
-        jLabel17.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel17.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel17.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel17.setText("NO IR");
-        jLabel17.putClientProperty("i18n.key", "action.no_ir");
-        jLabel17.setFocusable(false);
-        jLabel17.setOpaque(true);
+    // Panel de teclas alineado a la derecha: teclas del mismo grupo separadas por "+"; grupos
+    // distintos, por el hueco del FlowLayout.
+    private JComponent keysPanel(String[][] groups) {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
+        p.setOpaque(false);
+        for (String[] group : groups) {
+            for (int i = 0; i < group.length; i++) {
+                if (i > 0) {
+                    p.add(sep());
+                }
+                p.add(new KeyCapLabel(group[i]));
+            }
+        }
+        return p;
+    }
 
-        jLabel18.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel18.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel18.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel18.setText("CHAT RÁPIDO");
-        jLabel18.putClientProperty("i18n.key", "chat.chat_rapido_2");
-        jLabel18.setFocusable(false);
-        jLabel18.setOpaque(true);
+    private JLabel sep() {
+        JLabel l = new JLabel("+");
+        l.setForeground(SEP_FG);
+        l.setFont(SEP_FONT);
+        return l;
+    }
 
-        jLabel19.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel19.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel19.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel19.setText("VER TU BUYIN");
-        jLabel19.putClientProperty("i18n.key", "ui.ver_tu_buyin");
-        jLabel19.setFocusable(false);
-        jLabel19.setOpaque(true);
-
-        jLabel20.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel20.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel20.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel20.setText("SCREENSHOT");
-        jLabel20.putClientProperty("i18n.key", "shortcut.screenshot");
-        jLabel20.setFocusable(false);
-        jLabel20.setOpaque(true);
-
-        jLabel21.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel21.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel21.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel21.setText("GIFS/IMÁGENES");
-        jLabel21.putClientProperty("i18n.key", "ui.gifsimagenes");
-        jLabel21.setFocusable(false);
-        jLabel21.setOpaque(true);
-
-        jLabel22.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel22.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel22.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel22.setText("IMAGEN SIGUIENTE");
-        jLabel22.putClientProperty("i18n.key", "ui.imagen_siguiente");
-        jLabel22.setFocusable(false);
-        jLabel22.setOpaque(true);
-
-        jLabel23.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel23.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel23.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel23.setText("IMAGEN ANTERIOR");
-        jLabel23.putClientProperty("i18n.key", "ui.imagen_anterior");
-        jLabel23.setFocusable(false);
-        jLabel23.setOpaque(true);
-
-        jLabel24.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel24.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel24.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel24.setText("ENVIAR IMAGEN SELECCIONADA");
-        jLabel24.putClientProperty("i18n.key", "chat.enviar_imagen_seleccionada");
-        jLabel24.setFocusable(false);
-        jLabel24.setOpaque(true);
-
-        jLabel25.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel25.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel25.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel25.setText("ELIMINAR IMAGEN SELECCIONADA");
-        jLabel25.putClientProperty("i18n.key", "ui.eliminar_imagen_seleccionada");
-        jLabel25.setFocusable(false);
-        jLabel25.setOpaque(true);
-
-        javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
-        jPanel3.setLayout(jPanel3Layout);
-        jPanel3Layout.setHorizontalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel21, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel17, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel18, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel19, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel20, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel16, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel15, javax.swing.GroupLayout.DEFAULT_SIZE, 253, Short.MAX_VALUE)
-                    .addComponent(jLabel14, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel24, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel23, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel22, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel25, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
-        );
-        jPanel3Layout.setVerticalGroup(
-            jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(jLabel14)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel15)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel16)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel17)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel19)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel20, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel18)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel21)
-                .addGap(12, 12, 12)
-                .addComponent(jLabel22)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel23)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel24)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel25)
-                .addContainerGap())
-        );
-
-        jLabel1.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel1.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel1.setText("[ SPACE ]");
-        jLabel1.setFocusable(false);
-        jLabel1.setOpaque(true);
-
-        jLabel2.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel2.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("[ UP/DOWN ] -> [ ENTER ]");
-        jLabel2.setFocusable(false);
-        jLabel2.setOpaque(true);
-
-        jLabel3.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel3.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel3.setText("[ SHIFT ] + [ ENTER ]");
-        jLabel3.setFocusable(false);
-        jLabel3.setOpaque(true);
-
-        jLabel4.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel4.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel4.setText("[ SCAPE ]");
-        jLabel4.setFocusable(false);
-        jLabel4.setOpaque(true);
-
-        jLabel5.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel5.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel5.setText("[ º ]");
-        jLabel5.setFocusable(false);
-        jLabel5.setOpaque(true);
-
-        jLabel6.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel6.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel6.setText("[ S ]");
-        jLabel6.setFocusable(false);
-        jLabel6.setOpaque(true);
-
-        jLabel7.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel7.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel7.setText("[ CTRL ] + [ P ]");
-        jLabel7.setFocusable(false);
-        jLabel7.setOpaque(true);
-
-        jLabel8.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel8.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
-        jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel8.setText("[ 1 ]");
-        jLabel8.setFocusable(false);
-        jLabel8.setOpaque(true);
-
-        jLabel9.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel9.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel9.setText("[ TAB ]");
-        jLabel9.setFocusable(false);
-        jLabel9.setOpaque(true);
-
-        jLabel10.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel10.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel10.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel10.setText("[ SHIFT ] + [ TAB ]");
-        jLabel10.setFocusable(false);
-        jLabel10.setOpaque(true);
-
-        jLabel11.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel11.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel11.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel11.setText("[ S ]");
-        jLabel11.setFocusable(false);
-        jLabel11.setOpaque(true);
-
-        jLabel12.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel12.setFont(new java.awt.Font("Dialog", 1, 14)); // NOI18N
-        jLabel12.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel12.setText("[ BACK ]");
-        jLabel12.setFocusable(false);
-        jLabel12.setOpaque(true);
-
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel6, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel7, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel11, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel10, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel9, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel8, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel12, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addContainerGap())
-        );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(jLabel1)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel2)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel3)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel4)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel6)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel7, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel5)
-                .addGap(12, 12, 12)
-                .addComponent(jLabel8)
-                .addGap(11, 11, 11)
-                .addComponent(jLabel9)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel10)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel11)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel12)
-                .addContainerGap())
-        );
-
-        jLabel13.setBackground(new java.awt.Color(102, 102, 102));
-        jLabel13.setFont(new java.awt.Font("Dialog", 1, 24)); // NOI18N
-        jLabel13.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel13.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel13.setText("ATAJOS DE TECLADO");
-        jLabel13.putClientProperty("i18n.key", "ui.atajos_de_teclado");
-        jLabel13.setOpaque(true);
-
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jLabel13, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel1Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap())
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(jLabel13)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap())
-        );
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(0, 0, 0)
-                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel10;
-    private javax.swing.JLabel jLabel11;
-    private javax.swing.JLabel jLabel12;
-    private javax.swing.JLabel jLabel13;
-    private javax.swing.JLabel jLabel14;
-    private javax.swing.JLabel jLabel15;
-    private javax.swing.JLabel jLabel16;
-    private javax.swing.JLabel jLabel17;
-    private javax.swing.JLabel jLabel18;
-    private javax.swing.JLabel jLabel19;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel20;
-    private javax.swing.JLabel jLabel21;
-    private javax.swing.JLabel jLabel22;
-    private javax.swing.JLabel jLabel23;
-    private javax.swing.JLabel jLabel24;
-    private javax.swing.JLabel jLabel25;
-    private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabel4;
-    private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
-    private javax.swing.JLabel jLabel7;
-    private javax.swing.JLabel jLabel8;
-    private javax.swing.JLabel jLabel9;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JPanel jPanel3;
-    // End of variables declaration//GEN-END:variables
+    // Tras pack(), limita la altura a una fracción de la pantalla (el resto lo cubre el scroll) para
+    // que con muchas secciones el diálogo no se salga por abajo.
+    private void capSize() {
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int maxH = (int) (screen.height * 0.85);
+        if (getHeight() > maxH) {
+            setSize(getWidth() + 24, maxH);
+        }
+    }
 
     @Override
     public void zoom(float factor, ConcurrentLinkedQueue<Long> notifier) {
         Helpers.zoomFonts(this, factor, null);
 
-        Helpers.GUIRun(() -> {
-            setVisible(false);
-        });
+        Helpers.GUIRun(() -> setVisible(false));
 
         Helpers.pausar(250);
 
         Helpers.GUIRun(() -> {
             pack();
-            setLocation(getParent().getX() + getParent().getWidth() - getWidth(), getParent().getY() + getParent().getHeight() - getHeight());
+            capSize();
+            setLocation(getParent().getX() + getParent().getWidth() - getWidth(),
+                    getParent().getY() + getParent().getHeight() - getHeight());
             setVisible(true);
         });
-
     }
 
+    // Una tecla dibujada como recuadro redondeado (gradiente + borde). getPreferredSize se calcula
+    // sobre la fuente ACTUAL, así el zoom del juego (que reescala la fuente) la agranda/encoge y un
+    // pack() posterior recoloca todo. Las de un solo carácter salen cuadradas.
+    private static final class KeyCapLabel extends JLabel {
+
+        KeyCapLabel(String txt) {
+            super(txt, SwingConstants.CENTER);
+            setForeground(KEY_FG);
+            setFont(KEY_FONT);
+            setOpaque(false);
+            setBorder(BorderFactory.createEmptyBorder(3, 9, 3, 9));
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            FontMetrics fm = getFontMetrics(getFont());
+            Insets in = getInsets();
+            int h = fm.getHeight() + in.top + in.bottom;
+            int w = Math.max(fm.stringWidth(getText()) + in.left + in.right, h);
+            return new Dimension(w, h);
+        }
+
+        @Override
+        public Dimension getMaximumSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public Dimension getMinimumSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int w = getWidth(), h = getHeight();
+            g2.setPaint(new GradientPaint(0, 0, KEY_BG, 0, h, KEY_BG2));
+            g2.fillRoundRect(0, 0, w - 1, h - 1, 10, 10);
+            g2.setColor(KEY_BORDER);
+            g2.drawRoundRect(0, 0, w - 1, h - 1, 10, 10);
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
 }

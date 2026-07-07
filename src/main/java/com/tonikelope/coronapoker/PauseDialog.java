@@ -63,6 +63,13 @@ public class PauseDialog extends JDialog {
         // sistema de zoom del juego la capture como tamaño base y la escale de forma coherente.
         pausa_label.setFont(pausa_label.getFont().deriveFont(pausa_label.getFont().getSize2D() * PAUSE_LABEL_FONT_SCALE));
 
+        // El parpadeo oculta/muestra el texto (pausa_label). Por defecto GroupLayout HONRA la
+        // visibilidad y colapsaría el panel a altura ~0 con el label invisible; si en ese instante
+        // llega un pack() (p. ej. al redimensionar la ventana) el banner se quedaba en una LÍNEA FINA.
+        // Con honorsVisibility=false el layout reserva el espacio del label pase lo que pase con su
+        // visibilidad, así el tamaño del banner es estable durante el parpadeo.
+        ((javax.swing.GroupLayout) panel.getLayout()).setHonorsVisibility(pausa_label, false);
+
         last_zoom = (1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
 
         Helpers.preserveOriginalFontSizes(this);

@@ -86,31 +86,38 @@ public class PauseDialog extends JDialog {
         applyBannerBounds();
 
         timer = new Timer(1000, (ActionEvent ae) -> {
+            // El Timer de Swing dispara en el EDT: se tocan los componentes DIRECTAMENTE, sin salir
+            // a otro hilo. (El codigo anterior hacia zoomFonts en un hilo aparte -> manipulaba Swing
+            // fuera del EDT, un antipatron; y su GUIRun diferido podia ejecutarse tras el dispose del
+            // dialogo al reanudar.) Guard: si el dialogo ya no se muestra (reanudada la partida), no
+            // parpadear ni recomponer sobre una ventana muerta.
+            if (!isShowing()) {
+                return;
+            }
             pausa_label.setVisible(!pausa_label.isVisible());
             if (pausa_label.isVisible()) {
-                if (last_zoom != 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP) {
-                    last_zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+                float zoom_now = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+                // Comparacion segura (last_zoom es Float; el != con float autounboxeaba y habria dado
+                // NPE si fuese null). Solo recomponemos cuando el zoom del juego cambia en vivo.
+                if (last_zoom == null || last_zoom.floatValue() != zoom_now) {
+                    last_zoom = zoom_now;
                     pausa_label.setIcon(null);
-                    Helpers.threadRun(() -> {
-                        Helpers.zoomFonts(pausa_label, last_zoom, null);
-                        Helpers.GUIRun(() -> {
-                            pack();
-                            Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
-                            // Re-aplica el formato de banner (ancho completo + doble alto + centrado):
-                            // el pack() de arriba habria vuelto al tamaño del contenido.
-                            applyBannerBounds();
-                        });
-                    });
+                    Helpers.zoomFonts(pausa_label, zoom_now, null);
+                    pack(); // recalcula el alto del label con la nueva fuente antes de escalar el icono
+                    Helpers.setScaledIconLabel(pausa_label, getClass().getResource("/images/pause.png"), pausa_label.getHeight(), pausa_label.getHeight());
+                    // Re-aplica el formato de banner: el pack() habria vuelto al tamaño del contenido.
+                    applyBannerBounds();
                 }
             }
         });
     }
 
     // Tamaño/posición del diálogo de pausa como BANNER: ancho = TODO el ancho del frame del juego
-    // (parent) y alto = el DOBLE del que necesita su contenido; centrado sobre el parent. El texto
-    // (pausa_label, alineado CENTER y estirado por el layout) queda centrado H y V dentro de la
-    // franja. Hace su propio pack() primero, así es idempotente (siempre 2× del contenido, no del
-    // tamaño ya agrandado) y sirve tanto al crear como al recomponer por cambio de zoom.
+    // (parent) y alto = BANNER_HEIGHT_FACTOR × el que necesita su contenido; centrado sobre el
+    // parent. El texto (pausa_label, alineado CENTER y estirado por el layout) queda centrado H y V
+    // dentro de la franja. Hace su propio pack() primero, así es idempotente (siempre el mismo
+    // múltiplo del contenido, no del tamaño ya agrandado) y sirve tanto al crear como al recomponer
+    // por cambio de zoom.
     private void applyBannerBounds() {
         java.awt.Container parent = getParent();
         if (parent == null || parent.getWidth() <= 0 || parent.getHeight() <= 0) {

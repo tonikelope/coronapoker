@@ -7240,13 +7240,13 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         GameFrame.getInstance().getRegistro()
                                 .print(Translator.translate("rabbit.rabbit_hunting_cartas_comunitarias")
-                                        + Card.collection2String(cartas));
+                                        + " " + Card.collection2String(cartas));
 
                         cartas = GameFrame.getInstance().getLocalPlayer().getHoleCards();
 
                         GameFrame.getInstance().getRegistro()
                                 .print(Translator.translate("rabbit.rabbit_hunting_tu_mano_repartida")
-                                        + Card.collection2String(cartas));
+                                        + " " + Card.collection2String(cartas));
 
                         for (Card carta_comun : GameFrame.getInstance().getCartas_comunes()) {
 
@@ -7261,7 +7261,7 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
                         GameFrame.getInstance().getRegistro()
                                 .print(Translator.translate("rabbit.rabbit_hunting_mejor_hipotetica_jugada")
-                                        + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
+                                        + " " + Card.collection2String(jugada.getWinners()) + " (" + jugada.getName() + ")");
 
                     }
 

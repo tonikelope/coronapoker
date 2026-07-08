@@ -43,7 +43,7 @@
         <!-- Override with -Dcoronapoker.version=X.Y if you have a different
              local install. Bump this property in sync with the root pom version
              so `mvn -o test` resolves against the just-installed jar. -->
-        <coronapoker.version>22.43</coronapoker.version>
+        <coronapoker.version>22.44</coronapoker.version>
     </properties>
 
     <build>

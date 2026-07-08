@@ -213,17 +213,6 @@ public class SettingsDialog extends JDialog {
 
         pack();
 
-        // Reajuste por RESOLUCIÓN (referencia canónica 1440p, igual que About/NewGame): a 1440p el
-        // factor es 1.0 y NO se toca nada (idéntico); por debajo encoge las fuentes para que el
-        // contenido quepa SIN depender del scroll — que se mantiene como red de seguridad (igual que
-        // capToScreen). El scroll por pestaña y los botones fijos del SOUTH siguen intactos.
-        float res_zoom = Helpers.dialogResolutionZoom(this, getWidth(), getHeight());
-        if (Math.abs(res_zoom - 1f) > 0.01f) {
-            Helpers.updateFonts(this, Helpers.GUI_FONT, res_zoom);
-            audio_panel.applyFontsAndSizing();
-            pack();
-        }
-
         // Ensancha el diálogo ~15% sobre su tamaño empaquetado, a la anchura del diálogo
         // de nueva timba: así la columna de Ciegas (combo a la derecha de su etiqueta) y el
         // resto de paneles, que se estiran para rellenar, respiran igual que al crear timba.

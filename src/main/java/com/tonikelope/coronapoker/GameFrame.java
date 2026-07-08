@@ -4565,6 +4565,14 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (full_screen_menu.isEnabled() && !isGame_over_dialog()) {
             full_screen_menu.setEnabled(false);
             Helpers.TapetePopupMenu.FULLSCREEN_MENU.setEnabled(false);
+
+            // Alternar SIEMPRE invierte el estado actual, así que el destino es
+            // !full_screen. Se persiste como preferencia auto_fullscreen para que la
+            // próxima partida recuerde el modo, igual que el zoom y la vista compacta.
+            // (Al abandonar la timba, resetInstance llama a toggleFullScreen()
+            // directamente, no a este método, por lo que salir NO altera la preferencia.)
+            persistFullScreenPreference(!full_screen);
+
             if (!Helpers.OSValidator.isMac() || !GameFrame.MAC_NATIVE_FULLSCREEN) {
                 Helpers.TapetePopupMenu.FULLSCREEN_MENU.setSelected(!full_screen);
                 toggleFullScreen();
@@ -4574,10 +4582,10 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         }
     }
 
-    // Modo de pantalla elegido en Ajustes > Apariencia (lista ventana / pantalla
-    // completa). GUARDA la preferencia (que se aplica también al ARRANCAR partida vía
-    // autoZoomFullScreen(AUTO_FULLSCREEN)) y la APLICA ya si el estado actual difiere.
-    public void setDisplayModeFullScreen(boolean fullscreen) {
+    // Guarda la preferencia de pantalla completa (auto_fullscreen) y sincroniza los
+    // checkboxes del menú de apariencia y del popup del tapete. NO cambia el estado
+    // de la ventana: eso lo hace el toggle correspondiente.
+    private void persistFullScreenPreference(boolean fullscreen) {
         GameFrame.AUTO_FULLSCREEN = fullscreen;
         Helpers.PROPERTIES.setProperty("auto_fullscreen", String.valueOf(fullscreen));
         Helpers.savePropertiesFile();
@@ -4587,6 +4595,13 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
         if (Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU != null) {
             Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(fullscreen);
         }
+    }
+
+    // Modo de pantalla elegido en Ajustes > Apariencia (lista ventana / pantalla
+    // completa). GUARDA la preferencia (que se aplica también al ARRANCAR partida vía
+    // autoZoomFullScreen(AUTO_FULLSCREEN)) y la APLICA ya si el estado actual difiere.
+    public void setDisplayModeFullScreen(boolean fullscreen) {
+        persistFullScreenPreference(fullscreen);
         if (fullscreen != full_screen) {
             // El toggle dispone y recrea el peer nativo del frame, lo que corrompe un
             // diálogo modal abierto encima. Por eso el combo de Ajustes NO aplica en
@@ -5441,13 +5456,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
 
     private void auto_fullscreen_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_auto_fullscreen_menuActionPerformed
         // TODO add your handling code here:
-        GameFrame.AUTO_FULLSCREEN = auto_fullscreen_menu.isSelected();
-
-        Helpers.TapetePopupMenu.AUTO_FULLSCREEN_MENU.setSelected(GameFrame.AUTO_FULLSCREEN);
-
-        Helpers.PROPERTIES.setProperty("auto_fullscreen", String.valueOf(GameFrame.AUTO_FULLSCREEN));
-
-        Helpers.savePropertiesFile();
+        persistFullScreenPreference(auto_fullscreen_menu.isSelected());
     }//GEN-LAST:event_auto_fullscreen_menuActionPerformed
 
     private void halt_game_menuActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_halt_game_menuActionPerformed

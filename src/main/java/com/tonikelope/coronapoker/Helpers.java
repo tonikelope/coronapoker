@@ -1023,6 +1023,8 @@ public class Helpers {
 
                     String gifsicle_bin_path = Helpers.getGifsicleBinaryPath();
 
+                    int generated = 0;
+
                     for (String p : palos) {
 
                         for (String v : valores) {
@@ -1038,6 +1040,11 @@ public class Helpers {
                             String filename_new = CACHE_DIR + "/gifsicle_" + card_zoom_id + ".gif";
 
                             if (!Files.isReadable(Paths.get(filename_new))) {
+
+                                if (generated == 0) {
+                                    Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                                            "Generating deck flip animation HQ cache (zoom {0})...", zoom_str);
+                                }
 
                                 Process proc = null;
                                 try {
@@ -1059,6 +1066,8 @@ public class Helpers {
 
                                     Files.deleteIfExists(Paths.get(filename_orig));
 
+                                    generated++;
+
                                 } catch (Exception ex) {
                                     Logger.getLogger(Helpers.class
                                             .getName()).log(Level.SEVERE, null, ex);
@@ -1078,6 +1087,15 @@ public class Helpers {
 
                     if (GIFSICLE_CACHE_THREAD == Thread.currentThread().threadId()) {
                         GENERATING_GIFSICLE_CACHE = false;
+
+                        if (generated > 0) {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                                    "Deck flip animation HQ cache complete ({0} card(s) generated, zoom {1})",
+                                    new Object[]{generated, zoom_str});
+                        } else {
+                            Logger.getLogger(Helpers.class.getName()).log(Level.INFO,
+                                    "Deck flip animation HQ cache already complete (zoom {0})", zoom_str);
+                        }
                     }
                 }
             });

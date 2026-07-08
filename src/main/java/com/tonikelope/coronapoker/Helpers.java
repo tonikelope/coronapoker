@@ -1492,20 +1492,6 @@ public class Helpers {
         return usableBoundsOfConfig(graphicsConfigForWindow(window));
     }
 
-    // Monitor donde APARECERÁ un diálogo: el de su ventana PADRE (durante la construcción el
-    // diálogo aún no está posicionado; se centra sobre el padre, ya visible), o el suyo propio si
-    // no tiene padre. Multimonitor: evita medir/recortar con el monitor PRIMARIO cuando el juego
-    // corre en un secundario de otra resolución.
-    private static java.awt.GraphicsConfiguration dialogGraphicsConfig(Window dialog) {
-        Window ref = (dialog != null && dialog.getOwner() != null) ? dialog.getOwner() : dialog;
-        return (ref != null) ? graphicsConfigForWindow(ref) : null;
-    }
-
-    // Área usable del monitor donde aparecerá el diálogo (para recortes / fit-to-screen).
-    public static Rectangle dialogScreenUsableBounds(Window dialog) {
-        return usableBoundsOfConfig(dialogGraphicsConfig(dialog));
-    }
-
     public static void setLocationContainerRelativeTo(Container reference, Container current) {
 
         Helpers.GUIRun(new Runnable() {
@@ -3551,22 +3537,6 @@ public class Helpers {
             // Fallback to manual restart if process creation fails
             Helpers.mostrarMensajeError(null, "RESTART ERROR");
         }
-    }
-
-    // Factor de escala para DIÁLOGOS según la resolución (referencia CANÓNICA 1440p = 2560×1440):
-    // a 1440p = tamaño de diseño (1.0), en 4K crece, por debajo encoge. Acotado a que el diálogo
-    // (a su tamaño de diseño designW×designH) quepa en el 95% del área usable (fit-to-screen, para
-    // no depender de scroll). Suelo 0.6; SIN tope superior (crece con la resolución).
-    public static float dialogResolutionZoom(Window dialog, int designW, int designH) {
-        // Multimonitor: se usa el monitor donde APARECERÁ el diálogo (el de su padre), no el
-        // primario. res = resolución COMPLETA de ese monitor / canónica 1440p; fit = que quepa
-        // en el 95% de su área usable.
-        java.awt.GraphicsConfiguration gc = dialogGraphicsConfig(dialog);
-        java.awt.Rectangle screen = (gc != null) ? gc.getBounds() : new java.awt.Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
-        java.awt.Rectangle ub = usableBoundsOfConfig(gc);
-        float res = Math.min(screen.width / 2560f, screen.height / 1440f);
-        float fit = Math.min(ub.width * 0.95f / Math.max(1, designW), ub.height * 0.95f / Math.max(1, designH));
-        return Math.max(0.6f, Math.min(res, fit));
     }
 
     public static void updateFonts(final Component component, final Font font, final Float zoom_factor) {

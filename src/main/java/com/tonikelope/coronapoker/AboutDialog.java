@@ -125,21 +125,10 @@ public class AboutDialog extends JDialog {
 
         pack();
 
-        // Escalado por RESOLUCIÓN: el .form está dibujado a ~1080p, así que en pantallas mayores
-        // (2K/4K) el diálogo CRECE en proporción y en menores encoge, y SIEMPRE se acota a caber
-        // en el área usable (para no depender de scroll). Se mide el tamaño de diseño (pack de
-        // arriba), se calcula el factor y se reescala fuentes + iconos.
-        float zoom = computeDialogZoom();
-        if (Math.abs(zoom - 1f) > 0.01f) {
-            applyDialogZoom(zoom);
-            pack();
-        }
+        int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
-        // Recorte de seguridad al 95% del área usable (por si los huecos FIJOS del layout no
-        // encogieron del todo): solo en ese caso extremo aparecería algo de scroll.
-        java.awt.Rectangle ub = usableBounds();
-        int w = Math.min(getWidth(), Math.round(ub.width * 0.95f));
-        int h = Math.min(getHeight(), Math.round(ub.height * 0.95f));
+        int h = (int) Math.min(getHeight(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.9f));
+
         if (w != getWidth() || h != getHeight()) {
             setSize(new Dimension(w, h));
 
@@ -158,42 +147,6 @@ public class AboutDialog extends JDialog {
         memory_timer.setRepeats(true);
         memory_timer.setCoalesce(false);
 
-    }
-
-    // Área usable del monitor donde aparece el diálogo (multimonitor-aware, no el primario).
-    private java.awt.Rectangle usableBounds() {
-        return Helpers.dialogScreenUsableBounds(this);
-    }
-
-    // Factor de escala del diálogo según la RESOLUCIÓN, con referencia CANÓNICA 1440p: a 1440p
-    // (2K) = tamaño de diseño EXACTO (1.0, idéntico a ahora), en 4K crece, por debajo encoge.
-    // Acotado a que el diálogo (a tamaño de diseño ya empaquetado) quepa en el 95% del área
-    // usable. Suelo 0.6; SIN tope superior (crece con la resolución, igual que la botonera).
-    private float computeDialogZoom() {
-        return Helpers.dialogResolutionZoom(this, getWidth(), getHeight());
-    }
-
-    // Aplica el factor a TODAS las fuentes (updateFonts escala cada tamaño por el factor) y a los
-    // iconos del diálogo (logo animado + adornos), reescalándolos desde su tamaño natural.
-    private void applyDialogZoom(float zoom) {
-        Helpers.updateFonts(this, Helpers.GUI_FONT, zoom);
-        scaleIconLabel(corona_icon_label, "/images/corona_logo.gif", zoom);
-        scaleIconLabel(dedicado, "/images/luto.png", zoom);
-        scaleIconLabel(jLabel12, "/images/open-book.png", zoom);
-        scaleIconLabel(jLabel9, "/images/cruz.png", zoom);
-    }
-
-    // Reescala el icono de un JLabel a (natural × zoom). setScaledIconLabel usa SCALE_DEFAULT para
-    // GIF (conserva animación del logo) y SCALE_SMOOTH para el resto.
-    private void scaleIconLabel(javax.swing.JLabel label, String resource, float zoom) {
-        java.net.URL url = getClass().getResource(resource);
-        if (url == null || label.getIcon() == null) {
-            return;
-        }
-        javax.swing.ImageIcon nat = new javax.swing.ImageIcon(url);
-        int w = Math.max(1, Math.round(nat.getIconWidth() * zoom));
-        int h = Math.max(1, Math.round(nat.getIconHeight() * zoom));
-        Helpers.setScaledIconLabel(label, url, w, h);
     }
 
     /**

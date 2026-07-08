@@ -1657,6 +1657,12 @@ public class Init extends JFrame {
         // el arranque, para que la primera mano no pague el decode
         Crupier.warmShuffleAnimCache();
 
+        // Adelanta también la caché HD (gifsicle) de los GIFs de giro de la baraja
+        // al zoom actual si no está ya en disco (carpeta borrada o zoom cambiado en
+        // ajustes), para que la primera mano no la construya on-demand. No-op al
+        // zoom por defecto / animaciones off / sin gifsicle.
+        Crupier.warmCardFlipHQCache();
+
         // Calienta el JIT de la cripto pesada (cascada SRA + prueba/verificación de barajado)
         // en background, para que las primeras manos no corran interpretadas / en C1 en PCs
         // lentos (multi-segundo en frío vs ~0,1 s ya compilado). Ver CryptoWarmup.

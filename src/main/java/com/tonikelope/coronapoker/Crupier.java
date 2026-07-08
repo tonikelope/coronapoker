@@ -424,6 +424,42 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
             }
         });
     }
+
+    // Adelanta desde el arranque (y al GUARDAR ajustes) la caché HD que gifsicle
+    // reescala de los 52 GIFs de giro base de la baraja actual al zoom elegido,
+    // para que la primera mano no la tenga que construir on-demand (que hasta que
+    // termina cae al escalado "fast" de menor calidad). No hace nada al zoom por
+    // defecto (ahí el giro decodifica el GIF base HD del recurso, sin gifsicle),
+    // con las animaciones de reparto desactivadas o sin binario gifsicle. La
+    // generación recorre las 52 y solo escribe en disco las que falten
+    // (Files.isReadable por carta), así que autocura una caché borrada o a medias
+    // sin regenerar lo ya hecho; y si la partida arranca deprisa y pilla el hilo
+    // trabajando, el destape on-demand encuentra las ya listas y las guardas de
+    // genGifsicleCardAnimationsHQCache (un solo hilo dueño por zoom) evitan una
+    // segunda generación del mismo zoom.
+    public static void warmCardFlipHQCache() {
+
+        if (!GameFrame.repartoAnimOn() || GameFrame.ZOOM_LEVEL == GameFrame.DEFAULT_ZOOM_LEVEL) {
+            return;
+        }
+
+        Helpers.threadRun(() -> {
+
+            // getGifsicleBinaryPath puede extraer el binario del jar a disco en su
+            // primera llamada: fuera del hilo llamante para no bloquear arranque/GUARDAR.
+            if (Helpers.getGifsicleBinaryPath() == null) {
+                return;
+            }
+
+            // Una carta cualquiera basta: genGifsicleCardAnimationsHQCache deriva de
+            // su URL la baraja y la ruta base y recorre las 52 por su cuenta.
+            URL url_icon = cardFlipGifUrl("A", "P");
+
+            if (url_icon != null) {
+                Helpers.genGifsicleCardAnimationsHQCache(url_icon, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+            }
+        });
+    }
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
     public static final double[][] CIEGAS = new double[][]{new double[]{0.1, 0.2}, new double[]{0.2, 0.4},
     new double[]{0.3, 0.6}, new double[]{0.5, 1.0}};
@@ -15315,20 +15351,27 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // URL del GIF de giro de una carta (fichero del mod o recurso integrado),
     // o null si la baraja actual no trae GIF para esa carta.
     private URL cardFlipGifUrl(Card carta) {
+        return cardFlipGifUrl(carta.getValor(), carta.getPalo());
+    }
+
+    // URL del GIF de giro de la carta valor_palo de la baraja actual (fichero del
+    // mod o recurso integrado), null si no existe. Estático como shuffleGifUrl para
+    // resolver una carta representativa desde el warm-up de arranque sin instancia.
+    static URL cardFlipGifUrl(String valor, String palo) {
 
         String baraja = GameFrame.BARAJA;
-        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(GameFrame.BARAJA))[1];
+        boolean baraja_mod = (boolean) ((Object[]) BARAJAS.get(baraja))[1];
 
         try {
             if (baraja_mod) {
                 String mod_gif = Helpers.getCurrentJarParentPath() + "/mod/decks/" + baraja + "/gif/"
-                        + carta.getValor() + "_" + carta.getPalo() + ".gif";
+                        + valor + "_" + palo + ".gif";
 
                 return Files.exists(Paths.get(mod_gif)) ? Paths.get(mod_gif).toUri().toURL() : null;
             }
 
-            return getClass().getResource(
-                    "/images/decks/" + baraja + "/gif/" + carta.getValor() + "_" + carta.getPalo() + ".gif");
+            return Crupier.class.getResource(
+                    "/images/decks/" + baraja + "/gif/" + valor + "_" + palo + ".gif");
 
         } catch (MalformedURLException ex) {
             LOGGER.log(Level.SEVERE, null, ex);

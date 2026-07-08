@@ -1215,10 +1215,14 @@ public class WaitingRoomFrame extends JFrame {
 
         int w = (int) Math.min(getWidth(), Math.round(Toolkit.getDefaultToolkit().getScreenSize().getWidth() * 0.9f));
 
-        // La sala se crea con una altura FIJA del 75% de la resolución (más alta que su tamaño
-        // empaquetado); el ancho queda por defecto (el empaquetado, acotado al 90%). Si el contenido
-        // no cabe en esa altura, el main_scroll_panel cubre el resto.
-        int h = (int) Math.round(Toolkit.getDefaultToolkit().getScreenSize().getHeight() * 0.75f);
+        // La sala se crea con la altura del 70% de la resolución SOLO si ese 70% es mayor que su
+        // tamaño empaquetado (así se ve más alta); si no, carga normal (el empaquetado, acotado
+        // al 90%). El ancho queda por defecto (el empaquetado, acotado al 90%). Si el contenido no
+        // cabe en la altura elegida, el main_scroll_panel cubre el resto.
+        int packed_h = getHeight();
+        int screen_h = (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight();
+        int screen_70 = Math.round(screen_h * 0.7f);
+        int h = (screen_70 > packed_h) ? screen_70 : Math.min(packed_h, Math.round(screen_h * 0.9f));
 
         if (w != getWidth() || h != getHeight()) {
             setSize(w, h);

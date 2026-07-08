@@ -669,8 +669,19 @@ public class GameSettingsPanel extends javax.swing.JPanel {
         double blind_cap = (this.doblar_checkbox.isSelected() && this.blind_cap_checkbox.isSelected()) ? blindCapSelectedBB() : 0;
         GameFrame.BLIND_CAP = blind_cap;
 
-        GameFrame.ANTE = this.ante_checkbox.isSelected();
-        GameFrame.STRADDLE = this.straddle_checkbox.isSelected();
+        boolean ante_nuevo = this.ante_checkbox.isSelected();
+        boolean straddle_nuevo = this.straddle_checkbox.isSelected();
+
+        // El ante/straddle se siguen aplicando y difundiendo al instante (más abajo,
+        // en UPDATEBLINDS); si cambian, además, se marca el aviso diferido para que
+        // salga el indicador amarillo y el popup en la próxima mano, igual que con
+        // las ciegas.
+        if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
+            GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
+        }
+
+        GameFrame.ANTE = ante_nuevo;
+        GameFrame.STRADDLE = straddle_nuevo;
 
         String[] valores_ciegas = ((String) ciegas_combobox.getSelectedItem()).replace(",", ".").split("/");
 

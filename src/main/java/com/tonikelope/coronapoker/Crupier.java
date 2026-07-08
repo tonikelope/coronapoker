@@ -1155,6 +1155,11 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
     // reparto sin limpiar.
     private volatile boolean recovery_positions_set = false;
     private volatile Object[] ciegas_update = null;
+    // El ante y el straddle se aplican al instante (su efecto real es al repartir
+    // la siguiente mano), pero cuando cambian marcamos este aviso diferido para
+    // reutilizar la MISMA señalización que las ciegas: indicador amarillo en la
+    // mesa mientras está pendiente y popup en la próxima mano.
+    private volatile boolean ante_straddle_update = false;
     private volatile boolean dead_dealer = false;
     private volatile boolean force_recover = false;
     public volatile String[] active_crypto_ring = null;
@@ -2723,6 +2728,21 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     public Object[] getCiegas_update() {
         return ciegas_update;
+    }
+
+    public boolean isAnteStraddleUpdate() {
+        return ante_straddle_update;
+    }
+
+    // Marca que el ante y/o el straddle han cambiado durante la partida para que
+    // se avise igual que con las ciegas. NO aplica los valores (eso lo hace quien
+    // llama, al instante): solo enciende el aviso diferido. Bajo lock_ciegas para
+    // ser atómico con la limpieza en readyForNextHand; no anida otros locks, así
+    // que no puede provocar deadlock.
+    public void marcarCambioAnteStraddle() {
+        synchronized (lock_ciegas) {
+            this.ante_straddle_update = true;
+        }
     }
 
     public Object getLock_ciegas() {
@@ -7557,20 +7577,23 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
         readyForNextHand();
 
-        if (this.ciegas_update != null) {
+        if (this.ciegas_update != null || this.ante_straddle_update) {
             synchronized (lock_ciegas) {
-                GameFrame.CIEGAS_DOUBLE = (int) ciegas_update[2];
-                GameFrame.CIEGAS_DOUBLE_TYPE = (int) ciegas_update[3];
-                this.ciega_pequeña = (double) ciegas_update[0];
-                this.ciega_grande = (double) ciegas_update[1];
-                this.ciegas_update = null;
-                sqlUpdateGameDoubleBlinds();
+                if (this.ciegas_update != null) {
+                    GameFrame.CIEGAS_DOUBLE = (int) ciegas_update[2];
+                    GameFrame.CIEGAS_DOUBLE_TYPE = (int) ciegas_update[3];
+                    this.ciega_pequeña = (double) ciegas_update[0];
+                    this.ciega_grande = (double) ciegas_update[1];
+                    this.ciegas_update = null;
+                    sqlUpdateGameDoubleBlinds();
+                }
+                this.ante_straddle_update = false;
                 GameFrame.getInstance().getCrupier().actualizarContadoresTapete();
                 GameFrame.getInstance().getRegistro()
-                        .print(Translator.translate("blinds.la_configuracion_de_las_ciegas"));
+                        .print(Translator.translate("blinds.la_configuracion_de_la_partida"));
                 Helpers.threadRun(() -> {
                     Helpers.mostrarMensajeInformativo(GameFrame.getInstance(),
-                            Translator.translate("blinds.la_configuracion_de_las_ciegas"),
+                            Translator.translate("blinds.la_configuracion_de_la_partida"),
                             new ImageIcon(Init.class.getResource("/images/ciegas_big.png")));
                 });
             }

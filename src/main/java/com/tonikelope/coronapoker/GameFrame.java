@@ -2468,7 +2468,7 @@ public final class GameFrame extends javax.swing.JFrame implements ZoomableInter
     public void setTapeteCiegas(double pequeña, double grande) {
 
         Helpers.GUIRun(() -> {
-            if (crupier.getCiegas_update() != null) {
+            if (crupier.getCiegas_update() != null || crupier.isAnteStraddleUpdate()) {
                 tapete.getCommunityCards().getBlinds_panel().setOpaque(true);
                 tapete.getCommunityCards().getBlinds_panel().setBackground(Color.YELLOW);
                 tapete.getCommunityCards().getBlinds_label().setForeground(Color.BLACK);

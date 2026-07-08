@@ -3201,8 +3201,15 @@ public class WaitingRoomFrame extends JFrame {
                                                         case "UPDATEBLINDS":
                                                             GameFrame.getInstance().getCrupier().actualizarCiegasManualmente(Double.parseDouble(partes_comando[5]), Double.parseDouble(partes_comando[6]), Integer.parseInt(partes_comando[3]), Integer.parseInt(partes_comando[4]));
                                                             GameFrame.BLIND_CAP = partes_comando.length > 7 ? Double.parseDouble(partes_comando[7]) : 0;
-                                                            GameFrame.ANTE = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
-                                                            GameFrame.STRADDLE = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
+                                                            boolean ante_nuevo = partes_comando.length > 8 && Boolean.parseBoolean(partes_comando[8]);
+                                                            boolean straddle_nuevo = partes_comando.length > 9 && Boolean.parseBoolean(partes_comando[9]);
+                                                            // Mismo aviso diferido que las ciegas cuando cambia el ante/straddle:
+                                                            // el valor se aplica al instante (abajo), solo se enciende la señal.
+                                                            if (GameFrame.ANTE != ante_nuevo || GameFrame.STRADDLE != straddle_nuevo) {
+                                                                GameFrame.getInstance().getCrupier().marcarCambioAnteStraddle();
+                                                            }
+                                                            GameFrame.ANTE = ante_nuevo;
+                                                            GameFrame.STRADDLE = straddle_nuevo;
                                                             // El host puede cambiar la estructura de ciegas en vivo (Ajustes >
                                                             // Partida). Cuando es la escalera POR DEFECTO el campo va vacío y el
                                                             // split('#') de Java DESCARTA el campo final vacío, así que el guard

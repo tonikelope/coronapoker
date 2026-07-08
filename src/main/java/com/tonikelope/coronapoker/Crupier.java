@@ -451,12 +451,17 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
                 return;
             }
 
+            float zoom = 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP;
+
+            LOGGER.log(Level.INFO, "Checking deck flip animation HQ cache (deck {0}, zoom {1})...",
+                    new Object[]{GameFrame.BARAJA, String.valueOf(Helpers.floatClean(zoom, 2))});
+
             // Una carta cualquiera basta: genGifsicleCardAnimationsHQCache deriva de
             // su URL la baraja y la ruta base y recorre las 52 por su cuenta.
             URL url_icon = cardFlipGifUrl("A", "P");
 
             if (url_icon != null) {
-                Helpers.genGifsicleCardAnimationsHQCache(url_icon, 1f + GameFrame.ZOOM_LEVEL * GameFrame.ZOOM_STEP);
+                Helpers.genGifsicleCardAnimationsHQCache(url_icon, zoom);
             }
         });
     }

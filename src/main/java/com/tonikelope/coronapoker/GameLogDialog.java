@@ -712,7 +712,7 @@ public final class GameLogDialog extends JDialog {
         close_btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         close_btn.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
+            public void mouseReleased(java.awt.event.MouseEvent e) {
                 setVisible(false);
             }
 

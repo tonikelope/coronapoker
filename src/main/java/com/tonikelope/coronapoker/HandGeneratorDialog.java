@@ -551,7 +551,7 @@ public class HandGeneratorDialog extends JDialog {
         probability.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         probability.setFocusable(false);
         probability.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 probabilityMouseClicked(evt);
             }
         });
@@ -661,6 +661,9 @@ public class HandGeneratorDialog extends JDialog {
     }//GEN-LAST:event_superior_buttonActionPerformed
 
     private void probabilityMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_probabilityMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // TODO add your handling code here:
         Helpers.openBrowserURL("https://brilliant.org/wiki/math-of-poker/");
     }//GEN-LAST:event_probabilityMouseClicked

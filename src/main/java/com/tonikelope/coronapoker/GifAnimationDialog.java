@@ -142,7 +142,7 @@ public class GifAnimationDialog extends JDialog {
         setUndecorated(true);
         setResizable(false);
         addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
             }
         });

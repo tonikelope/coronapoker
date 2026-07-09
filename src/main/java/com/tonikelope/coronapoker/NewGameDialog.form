@@ -980,7 +980,7 @@
                                 <Property name="doubleBuffered" type="boolean" value="true"/>
                               </Properties>
                               <Events>
-                                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recomprar_labelMouseClicked"/>
+                                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recomprar_labelMouseClicked"/>
                               </Events>
                               <AuxValues>
                                 <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="recomprar_label.putClientProperty(&quot;i18n.key&quot;, &quot;rebuy.recomprar_2&quot;);"/>
@@ -1158,7 +1158,7 @@
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="limite_manos_labelMouseClicked"/>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="limite_manos_labelMouseClicked"/>
                           </Events>
                           <AuxValues>
                             <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="limite_manos_label.putClientProperty(&quot;i18n.key&quot;, &quot;game.limite_de_manos&quot;);"/>
@@ -1203,7 +1203,7 @@
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="think_time_labelMouseClicked"/>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="think_time_labelMouseClicked"/>
                           </Events>
                           <AuxValues>
                             <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="think_time_label.putClientProperty(&quot;i18n.key&quot;, &quot;newgame.tiempo_pensar&quot;);"/>
@@ -1443,7 +1443,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recover_checkbox_labelMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="recover_checkbox_labelMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="game_label">
@@ -1528,7 +1528,7 @@
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
-                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="nick_labelMouseClicked"/>
+                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="nick_labelMouseClicked"/>
               </Events>
             </Component>
             <Component class="javax.swing.JLabel" name="password">
@@ -1567,7 +1567,7 @@
                 <Property name="doubleBuffered" type="boolean" value="true"/>
               </Properties>
               <Events>
-                <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="avatar_labelMouseClicked"/>
+                <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="avatar_labelMouseClicked"/>
               </Events>
             </Component>
           </SubComponents>

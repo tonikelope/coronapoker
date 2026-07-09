@@ -143,7 +143,7 @@ public class InGameNotifyDialog extends JDialog {
         setFocusableWindowState(false);
         setUndecorated(true);
         addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 formMouseClicked(evt);
             }
         });

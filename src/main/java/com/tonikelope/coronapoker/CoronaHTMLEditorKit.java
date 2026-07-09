@@ -174,7 +174,11 @@ class CoronaHTMLEditorKit extends HTMLEditorKit {
                                                 label.setOpaque(true);
                                                 label.addMouseListener(new MouseAdapter() {
                                                     @Override
-                                                    public void mouseClicked(MouseEvent e) {
+                                                    public void mouseReleased(MouseEvent e) {
+
+                                                        if (!Helpers.isReleaseInsideComponent(e)) {
+                                                            return;
+                                                        }
 
                                                         if (SwingUtilities.isLeftMouseButton(e)) {
                                                             Helpers.openBrowserURL(url);

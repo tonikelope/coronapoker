@@ -1026,7 +1026,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chat_notify_label.addMouseListener(new MouseAdapter() {
                 @Override
-                public void mouseClicked(MouseEvent e) {
+                public void mouseReleased(MouseEvent e) {
+                    if (!Helpers.isRealClick(e)) {
+                        return;
+                    }
                     chat_notify_label.setVisible(false);
                     Helpers.threadRun(() -> {
                         synchronized (chat_notify_label) {
@@ -1050,8 +1053,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
             chip_label.setFocusable(false);
             chip_label.addMouseListener(new MouseAdapter() {
                 @Override
-                public void mouseClicked(MouseEvent e) {
-
+                public void mouseReleased(MouseEvent e) {
+                    if (!Helpers.isRealClick(e)) {
+                        return;
+                    }
                     player_nameMouseClicked(e);
                 }
             });
@@ -2641,7 +2646,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
         avatar.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 avatarMouseClicked(evt);
             }
         });
@@ -2680,7 +2685,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         player_stack.setFocusable(false);
         player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 player_stackMouseClicked(evt);
             }
         });
@@ -2733,7 +2738,7 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 player_nameMouseClicked(evt);
             }
         });
@@ -3314,6 +3319,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
 
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
         if (nickname.equals(GameFrame.getInstance().getCrupier().getBb_nick())
                 || nickname.equals(GameFrame.getInstance().getCrupier().getSb_nick())
                 || nickname.equals(GameFrame.getInstance().getCrupier().getDealer_nick())
@@ -3335,6 +3344,10 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
+
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
 
         if (SwingUtilities.isLeftMouseButton(evt)) {
             if (!player_stack_click) {
@@ -3382,6 +3395,9 @@ public class LocalPlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
         if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
             return;
         }

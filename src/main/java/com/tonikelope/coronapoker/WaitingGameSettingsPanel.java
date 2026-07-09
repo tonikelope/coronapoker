@@ -750,7 +750,10 @@ public class WaitingGameSettingsPanel extends javax.swing.JPanel {
         recomprar_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         recomprar_label.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                if (!Helpers.isRealClick(evt)) {
+                    return;
+                }
                 rebuy_checkbox.doClick();
             }
         });

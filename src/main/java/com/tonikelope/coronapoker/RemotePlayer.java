@@ -1601,7 +1601,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
             chat_notify_label.setCursor(new Cursor(Cursor.HAND_CURSOR));
             chat_notify_label.addMouseListener(new MouseAdapter() {
                 @Override
-                public void mouseClicked(MouseEvent e) {
+                public void mouseReleased(MouseEvent e) {
+                    if (!Helpers.isReleaseInsideComponent(e)) {
+                        return;
+                    }
                     chat_notify_label.setVisible(false);
                     if (SwingUtilities.isRightMouseButton(e)) {
                         notify_blocked = true;
@@ -1810,7 +1813,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         avatar.setDoubleBuffered(true);
         avatar.setFocusable(false);
         avatar.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 avatarMouseClicked(evt);
             }
         });
@@ -1851,7 +1854,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_stack.setDoubleBuffered(true);
         player_stack.setFocusable(false);
         player_stack.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 player_stackMouseClicked(evt);
             }
         });
@@ -1904,7 +1907,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_name.setDoubleBuffered(true);
         player_name.setFocusable(false);
         player_name.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 player_nameMouseClicked(evt);
             }
         });
@@ -1988,7 +1991,7 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
         player_action.setDoubleBuffered(true);
         player_action.setFocusable(false);
         player_action.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 player_actionMouseClicked(evt);
             }
         });
@@ -2049,6 +2052,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_stackMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_stackMouseClicked
         // TODO add your handling code here:
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         if (!player_stack_click) {
             player_stack_click = true;
 
@@ -2082,7 +2088,12 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_stackMouseClicked
 
     private void player_actionMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_actionMouseClicked
-        // TODO add your handling code here:
+
+        // evt es null cuando se invoca por codigo desde playerActionClick(); en ese caso no hay
+        // click real que validar. Para un click de usuario exigimos boton izquierdo soltado dentro.
+        if (evt != null && !Helpers.isRealClick(evt)) {
+            return;
+        }
 
         if (GameFrame.getInstance().isPartida_local() && this.timeout) {
 
@@ -2097,6 +2108,9 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
     }//GEN-LAST:event_player_actionMouseClicked
 
     private void avatarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_avatarMouseClicked
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
         if (!javax.swing.SwingUtilities.isRightMouseButton(evt)) {
             return;
         }
@@ -2137,6 +2151,10 @@ public class RemotePlayer extends JPanel implements ZoomableInterface, Player {
 
     private void player_nameMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_player_nameMouseClicked
         // TODO add your handling code here:
+
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
 
         if (GameFrame.getInstance().isPartida_local() && this.timeout) {
 

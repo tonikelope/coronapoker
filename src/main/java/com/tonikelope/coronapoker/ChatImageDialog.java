@@ -277,7 +277,10 @@ public class ChatImageDialog extends JDialog {
                             });
                             label.addMouseListener(new MouseAdapter() {
                                 @Override
-                                public void mouseClicked(MouseEvent e) {
+                                public void mouseReleased(MouseEvent e) {
+                                    if (!Helpers.isReleaseInsideComponent(e)) {
+                                        return;
+                                    }
                                     if (SwingUtilities.isLeftMouseButton(e)) {
                                         ChatImageDialog.this.image_url.setText(h);
                                         ChatImageDialog.this.image_url.setEnabled(false);

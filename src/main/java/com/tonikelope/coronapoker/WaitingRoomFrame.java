@@ -4903,7 +4903,7 @@ public class WaitingRoomFrame extends JFrame {
         settings_icon.setDoubleBuffered(true);
         settings_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         settings_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 settings_iconMouseClicked(evt);
             }
         });
@@ -4914,7 +4914,7 @@ public class WaitingRoomFrame extends JFrame {
         sound_icon.setDoubleBuffered(true);
         sound_icon.setPreferredSize(new java.awt.Dimension(30, 30));
         sound_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 sound_iconMouseClicked(evt);
             }
         });
@@ -4999,7 +4999,7 @@ public class WaitingRoomFrame extends JFrame {
         game_info_blinds.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         game_info_blinds.setDoubleBuffered(true);
         game_info_blinds.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 game_info_blindsMouseClicked(evt);
             }
         });
@@ -5009,7 +5009,7 @@ public class WaitingRoomFrame extends JFrame {
         game_info_hands.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         game_info_hands.setDoubleBuffered(true);
         game_info_hands.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 game_info_handsMouseClicked(evt);
             }
         });
@@ -5019,7 +5019,7 @@ public class WaitingRoomFrame extends JFrame {
         logo.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         logo.setDoubleBuffered(true);
         logo.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 logoMouseClicked(evt);
             }
         });
@@ -5029,7 +5029,7 @@ public class WaitingRoomFrame extends JFrame {
         game_info_buyin.setText(" ");
         game_info_buyin.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         game_info_buyin.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 game_info_buyinMouseClicked(evt);
             }
         });
@@ -5045,7 +5045,7 @@ public class WaitingRoomFrame extends JFrame {
         Helpers.setTranslatedToolTip(pass_icon, "tooltip.manage_password");
         pass_icon.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         pass_icon.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 pass_iconMouseClicked(evt);
             }
         });
@@ -5060,7 +5060,7 @@ public class WaitingRoomFrame extends JFrame {
         server_address_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         server_address_label.setDoubleBuffered(true);
         server_address_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 server_address_labelMouseClicked(evt);
             }
         });
@@ -5205,7 +5205,7 @@ public class WaitingRoomFrame extends JFrame {
             }
         });
         chat.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 chatMouseClicked(evt);
             }
         });
@@ -5240,7 +5240,7 @@ public class WaitingRoomFrame extends JFrame {
         send_label.setFocusable(false);
         send_label.setRequestFocusEnabled(false);
         send_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 send_labelMouseClicked(evt);
             }
         });
@@ -5248,7 +5248,7 @@ public class WaitingRoomFrame extends JFrame {
         max_min_label.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         max_min_label.setDoubleBuffered(true);
         max_min_label.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 max_min_labelMouseClicked(evt);
             }
         });
@@ -5307,7 +5307,7 @@ public class WaitingRoomFrame extends JFrame {
         tts_warning.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         tts_warning.setDoubleBuffered(true);
         tts_warning.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
                 tts_warningMouseClicked(evt);
             }
         });
@@ -5644,12 +5644,21 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_formWindowClosing
 
     private void settings_iconMouseClicked(java.awt.event.MouseEvent evt) {
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // Abre el diálogo de ajustes en modo general (Apariencia + Sonido): no hay
         // GameFrame en la sala de espera, así que la pestaña Partida no se monta.
         SettingsDialog.open(this);
     }
 
     private void sound_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sound_iconMouseClicked
+
+        // evt es null cuando el toggle de sonido se invoca por codigo (atajos de teclado); en ese
+        // caso no hay click real que validar.
+        if (evt != null && !Helpers.isRealClick(evt)) {
+            return;
+        }
 
         GameFrame.SONIDOS = !GameFrame.SONIDOS;
 
@@ -5672,6 +5681,10 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_sound_iconMouseClicked
 
     private void logoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_logoMouseClicked
+
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
 
         AboutDialog dialog = new AboutDialog(this, true);
 
@@ -5726,6 +5739,10 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_new_bot_buttonActionPerformed
 
     private void pass_iconMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_pass_iconMouseClicked
+
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
 
         if (!server || WaitingRoomFrame.getInstance().isPartida_empezada()) {
             return;
@@ -5842,12 +5859,20 @@ public class WaitingRoomFrame extends JFrame {
 
     private void tts_warningMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tts_warningMouseClicked
 
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
+
         mostrarMensajeInformativo(this,
                 Translator.translate("ui.tts_warning_detail"),
                 "justify", (int) Math.round(getWidth() * 0.8f));
     }//GEN-LAST:event_tts_warningMouseClicked
 
     private void server_address_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_server_address_labelMouseClicked
+
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
 
         if (server) {
             int port = net_server.getServer_socket().getLocalPort();
@@ -5897,6 +5922,9 @@ public class WaitingRoomFrame extends JFrame {
     }
 
     private void game_info_buyinMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_game_info_buyinMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         // DESACTIVADO: la config de la timba en la sala se edita ahora desde la rueda
         // (SettingsDialog -> pestaña Partida), no haciendo click sobre las ciegas. El
         // listener sigue registrado en el .form pero el handler es un no-op (los labels
@@ -6039,6 +6067,9 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_formWindowOpened
 
     private void send_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_send_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         chat_boxActionPerformed(null);
     }//GEN-LAST:event_send_labelMouseClicked
 
@@ -6113,6 +6144,9 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_formComponentShown
 
     private void max_min_labelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_max_min_labelMouseClicked
+        if (!Helpers.isRealClick(evt)) {
+            return;
+        }
         if (max_min_label.isEnabled()) {
             panel_arriba.setVisible(!panel_arriba.isVisible());
             Helpers.setScaledIconLabel(max_min_label,
@@ -6149,6 +6183,10 @@ public class WaitingRoomFrame extends JFrame {
     }//GEN-LAST:event_formWindowStateChanged
 
     private void chatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_chatMouseClicked
+
+        if (!Helpers.isReleaseInsideComponent(evt)) {
+            return;
+        }
 
         // Manual hit-test for voice note anchors: the html32 DTD parser and
         // the stock LinkController do not get along with custom schemes, so

@@ -52,7 +52,7 @@
         <Property name="focusable" type="boolean" value="false"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="mic">
@@ -83,7 +83,7 @@
         <Property name="focusable" type="boolean" value="false"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="imageMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="imageMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="rebuy">
@@ -98,7 +98,7 @@
         <Property name="focusable" type="boolean" value="false"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="rebuyMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="rebuyMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="log">
@@ -113,7 +113,7 @@
         <Property name="focusable" type="boolean" value="false"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="logMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="logMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="compact">
@@ -127,7 +127,7 @@
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="compactMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="compactMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="zoom_out">
@@ -141,7 +141,7 @@
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="zoom_outMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="zoom_outMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="zoom_reset">
@@ -155,7 +155,7 @@
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="zoom_resetMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="zoom_resetMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="zoom_in">
@@ -169,7 +169,7 @@
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="zoom_inMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="zoom_inMouseClicked"/>
       </Events>
     </Component>
     <Component class="javax.swing.JLabel" name="fullscreen">
@@ -183,7 +183,7 @@
         <Property name="doubleBuffered" type="boolean" value="true"/>
       </Properties>
       <Events>
-        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="fullscreenMouseClicked"/>
+        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="fullscreenMouseClicked"/>
       </Events>
     </Component>
   </SubComponents>

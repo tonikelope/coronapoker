@@ -171,7 +171,7 @@
                     </Property>
                   </Properties>
                   <Events>
-                    <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="settings_iconMouseClicked"/>
+                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="settings_iconMouseClicked"/>
                   </Events>
                 </Component>
                 <Component class="javax.swing.JLabel" name="sound_icon">
@@ -189,7 +189,7 @@
                     </Property>
                   </Properties>
                   <Events>
-                    <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="sound_iconMouseClicked"/>
+                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="sound_iconMouseClicked"/>
                   </Events>
                 </Component>
                 <Container class="javax.swing.JPanel" name="panel_con">
@@ -397,7 +397,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_blindsMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_blindsMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="game_info_hands">
@@ -414,7 +414,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_handsMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_handsMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="logo">
@@ -429,7 +429,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="logoMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="logoMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="game_info_buyin">
@@ -446,7 +446,7 @@
                         </Property>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_buyinMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="game_info_buyinMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="game_info_recover">
@@ -508,7 +508,7 @@
                             </Property>
                           </Properties>
                           <Events>
-                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="pass_iconMouseClicked"/>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="pass_iconMouseClicked"/>
                           </Events>
                         </Component>
                         <Component class="javax.swing.JLabel" name="tot_conectados">
@@ -535,7 +535,7 @@
                             <Property name="doubleBuffered" type="boolean" value="true"/>
                           </Properties>
                           <Events>
-                            <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="server_address_labelMouseClicked"/>
+                            <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="server_address_labelMouseClicked"/>
                           </Events>
                         </Component>
                       </SubComponents>
@@ -616,7 +616,7 @@
                   <Events>
                     <EventHandler event="caretUpdate" listener="javax.swing.event.CaretListener" parameters="javax.swing.event.CaretEvent" handler="chatCaretUpdate"/>
                     <EventHandler event="focusLost" listener="java.awt.event.FocusListener" parameters="java.awt.event.FocusEvent" handler="chatFocusLost"/>
-                    <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
+                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="chatMouseClicked"/>
                   </Events>
                 </Component>
               </SubComponents>
@@ -745,7 +745,7 @@
                         <Property name="requestFocusEnabled" type="boolean" value="false"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="send_labelMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="send_labelMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="max_min_label">
@@ -756,7 +756,7 @@
                         <Property name="doubleBuffered" type="boolean" value="true"/>
                       </Properties>
                       <Events>
-                        <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="max_min_labelMouseClicked"/>
+                        <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="max_min_labelMouseClicked"/>
                       </Events>
                     </Component>
                     <Component class="javax.swing.JLabel" name="avatar_label">
@@ -806,7 +806,7 @@
                     <Property name="doubleBuffered" type="boolean" value="true"/>
                   </Properties>
                   <Events>
-                    <EventHandler event="mouseClicked" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="tts_warningMouseClicked"/>
+                    <EventHandler event="mouseReleased" listener="java.awt.event.MouseListener" parameters="java.awt.event.MouseEvent" handler="tts_warningMouseClicked"/>
                   </Events>
                   <AuxValues>
                     <AuxValue name="JavaCodeGenerator_AddingCodePost" type="java.lang.String" value="tts_warning.putClientProperty(&quot;i18n.key&quot;, &quot;chat.aviso_la_privacidad_del_chat&quot;);"/>

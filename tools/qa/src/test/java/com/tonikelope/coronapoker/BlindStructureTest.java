@@ -48,16 +48,18 @@ public class BlindStructureTest {
     // ----- Default ladder -----------------------------------------------------
 
     @Test
-    void defaultLadderHasTwentyLevelsAllDoubleBlind() {
+    void defaultLadderHasThirtyTwoLevelsAllDoubleBlind() {
         // Arrange / Act
         double[][] def = BlindStructure.defaultLevels();
 
-        // Assert: matches the twenty hard-coded combo entries, bb = 2*sb.
-        assertEquals(20, def.length);
+        // Assert: 1-2-3-5 x 10^n from 0.1/0.2 up to 5,000,000/10,000,000 (the
+        // MAX_BLIND ceiling), bb = 2*sb throughout.
+        assertEquals(32, def.length);
         assertArrayEquals(new double[]{0.1, 0.2}, def[0], 0);
         assertArrayEquals(new double[]{0.5, 1}, def[3], 0);
         assertArrayEquals(new double[]{1, 2}, def[4], 0);
         assertArrayEquals(new double[]{5000, 10000}, def[19], 0);
+        assertArrayEquals(new double[]{5000000, 10000000}, def[31], 0);
         for (double[] lvl : def) {
             assertEquals(lvl[0] * 2, lvl[1], 0);
         }
@@ -67,7 +69,7 @@ public class BlindStructureTest {
     void defaultLadderIsAValidStructure() {
         assertNull(BlindStructure.validateLevels(BlindStructure.defaultLevels()));
         BlindStructure bs = new BlindStructure("Default copy", BlindStructure.defaultLevels());
-        assertEquals(20, bs.size());
+        assertEquals(32, bs.size());
     }
 
     @Test
@@ -422,14 +424,16 @@ public class BlindStructureTest {
 
     @Test
     void defaultLadderNextLevelCapsAtTop() {
-        // The helper caps the built-in ladder at 5000/10000. In-engine, the default
-        // (null) escalation path walks this very ladder (Crupier.effectiveBlindStructure
-        // falls back to defaultLevels), so the blinds stop climbing at the top level
-        // instead of running away by decades.
+        // The helper caps the built-in ladder at its top level (5M/10M). In-engine,
+        // the default (null) escalation path walks this very ladder
+        // (Crupier.effectiveBlindStructure falls back to defaultLevels), so the
+        // blinds stop climbing at the top level instead of running away by decades.
         double[][] def = BlindStructure.defaultLevels();
         assertArrayEquals(new double[]{0.2, 0.4}, BlindStructure.nextLevel(def, 0.1), 0);
         assertArrayEquals(new double[]{2, 4}, BlindStructure.nextLevel(def, 1), 0);
-        assertNull(BlindStructure.nextLevel(def, 5000));
+        // 5000 is no longer the top of the ladder; the last level is 5M/10M.
+        assertArrayEquals(new double[]{10000, 20000}, BlindStructure.nextLevel(def, 5000), 0);
+        assertNull(BlindStructure.nextLevel(def, 5000000));
     }
 
     @Test

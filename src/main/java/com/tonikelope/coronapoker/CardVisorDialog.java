@@ -145,8 +145,6 @@ public class CardVisorDialog extends javax.swing.JDialog {
             setSize(card.getIcon().getIconWidth() + ins.left + ins.right, card.getIcon().getIconHeight() + ins.top + ins.bottom);
 
             setPreferredSize(getSize());
-
-            Helpers.windowAutoFitToRemoveHScrollBar(this, scroll_panel.getHorizontalScrollBar(), parent.getWidth(), 0.1f);
         }
 
     }

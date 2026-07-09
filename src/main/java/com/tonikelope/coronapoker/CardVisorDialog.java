@@ -134,6 +134,34 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getViewport().addMouseMotionListener(scrollListener);
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
+        // El visor es una ventana no enfocable (para no robarle el foco al juego),
+        // asi que Windows no la activa al clicarla y no sube en el orden Z: con varios
+        // visores abiertos el mas nuevo tapa a los demas y estos no pueden ponerse
+        // delante. Lo traemos al frente manualmente (sin pedir foco) cuando el usuario
+        // interactua con el: al pulsar sobre el cuerpo de la carta y al moverlo (el
+        // arrastre por la barra de titulo nativa no genera eventos de raton Swing, pero
+        // si dispara componentMoved).
+        java.awt.event.MouseAdapter bring_to_front = new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                toFront();
+            }
+        };
+
+        card.addMouseListener(bring_to_front);
+        scroll_panel.getViewport().addMouseListener(bring_to_front);
+
+        // El arrastre por la barra de titulo nativa no genera eventos de raton Swing;
+        // la unica senal es componentMoved. Como toFront() es idempotente (no hace nada
+        // si el visor ya esta delante), llamarlo en cada movimiento reordena el orden Z
+        // una sola vez de forma efectiva y no interfiere con el arrastre nativo.
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e) {
+                toFront();
+            }
+        });
+
         // Escalamos la carta para que quepa entera dentro del área disponible
         // (respetando su proporción). El scroll_panel usa DEFAULT_SIZE como
         // preferido (ver initComponents), así que pack() dimensiona la ventana

@@ -992,31 +992,27 @@ public class Card extends JLayeredPane implements ZoomableInterface, Comparable 
             iwtsth_candidate.playerActionClick();
 
         } else if (SwingUtilities.isLeftMouseButton(evt) && (!isDesenfocada() || !isTapada())) {
-            CardVisorDialog visor;
+            int carta;
 
             if (isIniciada()) {
 
                 if (!isTapada()) {
 
-                    visor = new CardVisorDialog(GameFrame.getInstance(), false, this.valor, this.palo, false);
+                    carta = CardVisorDialog.cartaFrom(this.valor, this.palo);
 
                 } else {
 
-                    visor = new CardVisorDialog(GameFrame.getInstance(), false, 53, false);
+                    carta = 53;
 
                 }
 
             } else {
 
-                visor = new CardVisorDialog(GameFrame.getInstance(), false, 54, false);
+                carta = 54;
 
             }
 
-            Audio.playWavResource("misc/card_visor.wav");
-
-            visor.setLocationRelativeTo(GameFrame.getInstance());
-
-            visor.setVisible(true);
+            CardVisorDialog.openOrFocus(GameFrame.getInstance(), carta);
 
         } else if (SwingUtilities.isRightMouseButton(evt)) {
 

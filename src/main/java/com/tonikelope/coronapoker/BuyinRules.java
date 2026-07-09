@@ -36,21 +36,39 @@ public final class BuyinRules {
     public static final int CEIL_MAX_BB = 500;     // the upper-limit spinner cannot go above this
     public static final int SUGGESTED_BB = 50;     // suggested buy-in within the range
 
+    // Absolute buy-in ceiling, in chips. The buy-in (chip count) is int across the
+    // whole model (Player, wire protocol, SQLite), so big_blind * maxBB must never
+    // exceed the int range: with the tallest blind levels (millions) the product
+    // would otherwise overflow and (int) would silently saturate to a misleading
+    // value. This cap is well under Integer.MAX_VALUE (2,147,483,647) yet far above
+    // any real buy-in, so normal tables are unaffected; it only bounds the extreme
+    // top of the ladder. Every chip-count result below is clamped through it.
+    public static final int MAX_BUYIN = 1_000_000_000;
+
+    // Clamps a computed chip count into [0, MAX_BUYIN], resolving the double->int
+    // narrowing safely (no saturation, no negative wraparound).
+    private static int clampBuyin(double chips) {
+        if (chips <= 0) {
+            return 0;
+        }
+        return chips >= MAX_BUYIN ? MAX_BUYIN : (int) chips;
+    }
+
     // Minimum buy-in: minBB big blinds. (big_blind is double-typed money; the
-    // chip-count return stays int.)
+    // chip-count return stays int, clamped to MAX_BUYIN.)
     public static int min(double big_blind, int minBB) {
-        return (int) (big_blind * minBB);
+        return clampBuyin(big_blind * minBB);
     }
 
     // Maximum buy-in: maxBB big blinds.
     public static int max(double big_blind, int maxBB) {
-        return (int) (big_blind * maxBB);
+        return clampBuyin(big_blind * maxBB);
     }
 
     // Suggested buy-in: SUGGESTED_BB big blinds, clamped into [min,max] (so a deep
     // range such as 100-300 BB suggests its minimum rather than the bare 50 BB).
     public static int defaultBuyin(double big_blind, int minBB, int maxBB) {
-        int suggested = (int) (big_blind * SUGGESTED_BB);
+        int suggested = clampBuyin(big_blind * SUGGESTED_BB);
         return Math.max(min(big_blind, minBB), Math.min(suggested, max(big_blind, maxBB)));
     }
 

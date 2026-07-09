@@ -422,9 +422,10 @@ public class BlindStructureTest {
 
     @Test
     void defaultLadderNextLevelCapsAtTop() {
-        // The helper caps the built-in ladder at 5000/10000; in-engine the default
-        // (null) path keeps its infinite-by-decade behaviour, this only documents
-        // the helper's contract for when a default-derived structure is walked.
+        // The helper caps the built-in ladder at 5000/10000. In-engine, the default
+        // (null) escalation path walks this very ladder (Crupier.effectiveBlindStructure
+        // falls back to defaultLevels), so the blinds stop climbing at the top level
+        // instead of running away by decades.
         double[][] def = BlindStructure.defaultLevels();
         assertArrayEquals(new double[]{0.2, 0.4}, BlindStructure.nextLevel(def, 0.1), 0);
         assertArrayEquals(new double[]{2, 4}, BlindStructure.nextLevel(def, 1), 0);

@@ -466,8 +466,6 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         });
     }
     public static final int MIN_ULTIMA_CARTA_JUGADA = Hand.TRIO;
-    public static final double[][] CIEGAS = new double[][]{new double[]{0.1, 0.2}, new double[]{0.2, 0.4},
-    new double[]{0.3, 0.6}, new double[]{0.5, 1.0}};
     public static volatile boolean FUSION_MOD_SOUNDS = true;
     public static volatile boolean FUSION_MOD_CINEMATICS = true;
     public static final int NEW_HAND_READY_WAIT = 1000;
@@ -6943,32 +6941,31 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
         }
     }
 
+    // La escalera de ciegas efectiva: la estructura personalizada activa o, en su
+    // ausencia, la escalera por defecto (1-2-3-5 x 10^n, de 0.1/0.2 hasta
+    // 5000/10000). Ambas rutas escalan y TOPAN igual, a traves de
+    // BlindStructure.nextLevel: al alcanzar el ultimo nivel la subida se detiene.
+    // Antes la ruta por defecto escalaba por decadas SIN TOPE (el array CIEGAS
+    // multiplicado por 10^j crecia indefinidamente), de modo que en timbas largas
+    // las ciegas seguian subiendo mas alla del ultimo nivel de la escalera y
+    // acababan en valores absurdos.
+    private static double[][] effectiveBlindStructure() {
+        return GameFrame.ACTIVE_BLIND_STRUCTURE != null
+                ? GameFrame.ACTIVE_BLIND_STRUCTURE
+                : BlindStructure.defaultLevels();
+    }
+
     private double[] simulateNextBlinds() {
-        if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
-            double[] next = BlindStructure.nextLevel(GameFrame.ACTIVE_BLIND_STRUCTURE, this.ciega_pequeña);
-            return next != null ? next : new double[]{this.ciega_pequeña, this.ciega_grande};
-        }
-        int i = 0, j = 0;
-        while (Helpers.doubleSecureCompare(this.ciega_pequeña / Math.pow(10, j), CIEGAS[i][0]) != 0) {
-            i = (i + 1) % CIEGAS.length;
-            if (i == 0) {
-                j++;
-            }
-        }
-        i = (i + 1) % CIEGAS.length;
-        if (i == 0) {
-            j++;
-        }
-        return new double[]{CIEGAS[i][0] * Math.pow(10, j), CIEGAS[i][1] * Math.pow(10, j)};
+        double[] next = BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
+        return next != null ? next : new double[]{this.ciega_pequeña, this.ciega_grande};
     }
 
     private boolean checkDoblarCiegas() {
 
         synchronized (lock_ciegas) {
-            if (GameFrame.ACTIVE_BLIND_STRUCTURE != null
-                    && BlindStructure.nextLevel(GameFrame.ACTIVE_BLIND_STRUCTURE, this.ciega_pequeña) == null) {
-                // Estructura personalizada agotada (ultimo nivel alcanzado) o ciega
-                // actual fuera de la escalera: no se sube mas y nunca se reanuncia.
+            if (BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña) == null) {
+                // Escalera agotada (ultimo nivel alcanzado) o ciega actual fuera de
+                // la escalera: no se sube mas y nunca se reanuncia.
                 return false;
             }
             if (GameFrame.BLIND_CAP > 0f && Helpers.doubleSecureCompare(simulateNextBlinds()[1], GameFrame.BLIND_CAP) > 0) {
@@ -6988,48 +6985,20 @@ public class Crupier implements Runnable, com.tonikelope.coronapoker.bot.context
 
     private void doblarCiegas() {
 
-        if (GameFrame.ACTIVE_BLIND_STRUCTURE != null) {
-            double[] next = BlindStructure.nextLevel(GameFrame.ACTIVE_BLIND_STRUCTURE, this.ciega_pequeña);
-            if (next == null) {
-                // checkDoblarCiegas ya lo veta; defensa: nunca atascar ni anunciar
-                // una subida fantasma en el ultimo nivel de la escalera.
-                LOGGER.log(Level.WARNING, "doblarCiegas with no next level on custom structure (sb={0})", Helpers.doubleClean(this.ciega_pequeña));
-                return;
-            }
-            this.ciegas_double++;
-            this.ciega_pequeña = next[0];
-            this.ciega_grande = next[1];
-            Audio.playWavResource("misc/double_blinds.wav");
-            GameFrame.getInstance().getRegistro().print(Translator.translate("blinds.se_doblan_las_ciegas"));
+        double[] next = BlindStructure.nextLevel(effectiveBlindStructure(), this.ciega_pequeña);
+
+        if (next == null) {
+            // checkDoblarCiegas ya lo veta; defensa: nunca atascar ni anunciar una
+            // subida fantasma en el ultimo nivel de la escalera.
+            LOGGER.log(Level.WARNING, "doblarCiegas sin nivel siguiente en la escalera (sb={0})", Helpers.doubleClean(this.ciega_pequeña));
             return;
-        }
-
-        int i, j;
-
-        i = 0;
-
-        j = 0;
-
-        while (Helpers.doubleSecureCompare(ciega_pequeña / Math.pow(10, j), CIEGAS[i][0]) != 0) {
-
-            i = (i + 1) % CIEGAS.length;
-
-            if (i == 0) {
-                j++;
-            }
-        }
-
-        i = (i + 1) % CIEGAS.length;
-
-        if (i == 0) {
-            j++;
         }
 
         this.ciegas_double++;
 
-        this.ciega_pequeña = CIEGAS[i][0] * Math.pow(10, j);
+        this.ciega_pequeña = next[0];
 
-        this.ciega_grande = CIEGAS[i][1] * Math.pow(10, j);
+        this.ciega_grande = next[1];
 
         Audio.playWavResource("misc/double_blinds.wav");
 

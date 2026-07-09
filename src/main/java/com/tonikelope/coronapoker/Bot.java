@@ -593,8 +593,8 @@ public class Bot {
         targetBet = (float) (Math.ceil(Helpers.floatClean(targetBet) / sb) * sb);
 
         if (Helpers.float1DSecureCompare(currentBet, 0f) == 0 || (dealer.getStreet() == Crupier.PREFLOP && Helpers.float1DSecureCompare(currentBet, bb) == 0)) {
-            // Apertura: bb y targetBet ya son múltiplos de sb (bb = 2*sb por
-            // la tabla CIEGAS, targetBet alineado en la línea de Math.ceil
+            // Apertura: bb y targetBet ya son múltiplos de sb (en la escalera por
+            // defecto bb = 2*sb, y targetBet queda alineado en la línea de Math.ceil
             // de arriba), asi que el max final mantiene la alineación.
             return Math.max(bb, targetBet);
         } else {

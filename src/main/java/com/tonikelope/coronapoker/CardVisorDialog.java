@@ -128,24 +128,14 @@ public class CardVisorDialog extends javax.swing.JDialog {
         scroll_panel.getViewport().addMouseListener(scrollListener);
 
         // Escalamos la carta para que quepa entera dentro del área disponible
-        // (respetando su proporción); luego ajustamos la ventana justo al tamaño
-        // del icono (más los insets de la decoración) para que de salida no salga
-        // ni scroll vertical ni horizontal. El JScrollPane sigue ahí por si en
-        // pantallas pequeñas la carta no cupiera.
+        // (respetando su proporción). El scroll_panel usa DEFAULT_SIZE como
+        // preferido (ver initComponents), así que pack() dimensiona la ventana
+        // justo al icono más la decoración: de salida no sale ni scroll vertical
+        // ni horizontal. El JScrollPane sigue ahí por si en pantallas pequeñas la
+        // carta no cupiera.
         showCard(carta, Math.round(0.9f * parent.getWidth()), Math.round(0.85f * parent.getHeight()));
 
-        // pack() para materializar el peer (y así conocer los insets); el tamaño
-        // que deja no vale porque el .form fija el preferido del scroll a 785x578.
         pack();
-
-        if (card.getIcon() != null) {
-
-            java.awt.Insets ins = getInsets();
-
-            setSize(card.getIcon().getIconWidth() + ins.left + ins.right, card.getIcon().getIconHeight() + ins.top + ins.bottom);
-
-            setPreferredSize(getSize());
-        }
 
     }
 
@@ -233,14 +223,14 @@ public class CardVisorDialog extends javax.swing.JDialog {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 785, Short.MAX_VALUE)
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGap(0, 0, 0))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addGap(0, 0, 0)
-                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, 578, Short.MAX_VALUE))
+                .addComponent(scroll_panel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         pack();

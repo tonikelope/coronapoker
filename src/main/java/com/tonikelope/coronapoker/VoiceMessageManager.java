@@ -52,7 +52,7 @@ import javax.swing.JProgressBar;
 public class VoiceMessageManager {
 
     public static final int DEFAULT_KEY = KeyEvent.VK_F9;
-    public static final float DIALOG_OPACITY = 0.9f;
+    public static final float DIALOG_OPACITY = 0.95f;
 
     private static volatile int VOICE_KEY;
     private static volatile boolean CAPTURING_KEY = false;

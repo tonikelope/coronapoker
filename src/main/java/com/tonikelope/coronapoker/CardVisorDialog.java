@@ -46,9 +46,11 @@ public class CardVisorDialog extends javax.swing.JDialog {
     private final static String PALOS = "PCTD";
     private final static int CORNER = 100;
 
-    // Visores actualmente abiertos indexados por carta, para no abrir dos veces la
-    // misma carta a la vez: si ya hay uno visible se trae al frente en vez de duplicar.
-    private final static HashMap<Integer, CardVisorDialog> OPEN_VISORS = new HashMap<>();
+    // Visores actualmente abiertos indexados por baraja+carta, para no abrir dos veces
+    // la misma carta DE LA MISMA BARAJA a la vez: si ya hay uno visible se trae al frente
+    // en vez de duplicar. La misma carta de barajas distintas SÍ se puede abrir a la vez
+    // (son imágenes diferentes), por eso la clave incluye la baraja.
+    private final static HashMap<String, CardVisorDialog> OPEN_VISORS = new HashMap<>();
 
     /**
      * Traduce valor+palo al índice de carta que usa el visor (mismo cálculo que
@@ -85,7 +87,12 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         Audio.playWavResource("misc/card_visor.wav");
 
-        CardVisorDialog existing = OPEN_VISORS.get(carta);
+        // La baraja usada al mostrar la carta es la global vigente en este instante
+        // (ver showCard). Forma parte de la clave para que la misma carta de barajas
+        // distintas se pueda tener abierta a la vez sin considerarse un duplicado.
+        final String key = GameFrame.BARAJA + "|" + carta;
+
+        CardVisorDialog existing = OPEN_VISORS.get(key);
 
         if (existing != null && existing.isShowing()) {
             existing.toFront();
@@ -94,12 +101,12 @@ public class CardVisorDialog extends javax.swing.JDialog {
 
         CardVisorDialog visor = new CardVisorDialog(parent, false, carta, false);
 
-        OPEN_VISORS.put(carta, visor);
+        OPEN_VISORS.put(key, visor);
 
         visor.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosed(java.awt.event.WindowEvent e) {
-                OPEN_VISORS.remove(carta, visor);
+                OPEN_VISORS.remove(key, visor);
             }
         });
 

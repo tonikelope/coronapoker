@@ -64,7 +64,15 @@ public final class BlindStructure {
     // El motor del dinero trabaja por debajo en céntimos (0.01), pero la unidad
     // de ajuste de ciegas es 0.05. Ver Helpers.floatClean (resolución del motor).
     public static final double BLIND_STEP = 0.05;
-    public static final double MAX_BLIND = 10_000_000;
+    // Tope de una ciega (small o big), aplicado por validateLevels tanto a la
+    // escalera por defecto como a las estructuras personalizadas del editor. Se
+    // limita a 4.000.000 para mantener la consistencia con el buy-in, que es un
+    // int en todo el modelo (jugador, red, SQLite): el techo del buy-in es
+    // BuyinRules.CEIL_MAX_BB (500) big blinds, y 500 x 4.000.000 = 2.000.000.000
+    // cabe en int; el siguiente escalon 1-2-3-5 (big blind 6.000.000+) lo
+    // desbordaria. Asi ninguna ciega (por defecto o personalizada) puede generar
+    // un buy-in fuera del rango de int, sin necesidad de recortes artificiales.
+    public static final double MAX_BLIND = 4_000_000;
 
     // Validation error codes (also i18n keys). null = valid.
     public static final String ERR_NAME_EMPTY = "blinds.err_name_empty";
@@ -270,12 +278,18 @@ public final class BlindStructure {
 
     /**
      * The built-in 1-2-3-5 x 10^n ladder with big blind = 2 x small blind, from
-     * 0.1/0.2 up to 5,000,000/10,000,000 (the {@link #MAX_BLIND} ceiling). These
-     * are exactly the levels offered by the new-game / edit-blinds combo and the
-     * ladder walked by the default (no custom structure) escalation in
-     * {@code Crupier}. A long, aggressive-doubling game climbs many levels, so the
-     * ladder runs all the way to the money engine's cap before the blinds finally
-     * stop rising. Returned as a fresh array on each call.
+     * 0.1/0.2 up to 2,000,000/4,000,000. These are exactly the levels offered by
+     * the new-game / edit-blinds combo and the ladder walked by the default (no
+     * custom structure) escalation in {@code Crupier}. A long, aggressive-doubling
+     * game climbs many levels, so the ladder runs high before the blinds finally
+     * stop rising.
+     *
+     * The top level is capped at 2,000,000/4,000,000 (not the {@link #MAX_BLIND}
+     * 10M) on purpose: the buy-in (chip count) is an int across the whole model,
+     * and the buy-in ceiling is up to {@code BuyinRules.CEIL_MAX_BB} (500) big
+     * blinds. 500 x 4,000,000 = 2,000,000,000 still fits in an int; the next 1-2-3-5
+     * step (3M/6M) would overflow it. So this top keeps buy-in and blind consistent
+     * without any artificial clamp. Returned as a fresh array on each call.
      */
     public static double[][] defaultLevels() {
         double[] sbs = {
@@ -286,7 +300,7 @@ public final class BlindStructure {
             1000, 2000, 3000, 5000,
             10000, 20000, 30000, 50000,
             100000, 200000, 300000, 500000,
-            1000000, 2000000, 3000000, 5000000
+            1000000, 2000000
         };
         double[][] out = new double[sbs.length][];
         for (int i = 0; i < sbs.length; i++) {
